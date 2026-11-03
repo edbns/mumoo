@@ -1,4 +1,4 @@
-import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, validate, type Composition } from './composition';
+import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, lyricText, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
 
 const canvas = document.querySelector('canvas')!;
@@ -10,7 +10,7 @@ Object.assign(window, {
   mumoo: {
     async prepare(value: unknown, durationMs: number) {
       validate(value, durationMs);
-      await loadFont(value.lyric.text);
+      await loadFont(lyricText(value));
       composition = value;
       return { frames: FRAMES, fps: FPS, durationMs: DURATION_MS, width: WIDTH, height: HEIGHT };
     },

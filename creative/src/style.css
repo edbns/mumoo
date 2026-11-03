@@ -44,3 +44,8 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .preset-sample.elastic { color: #551abc; transform: scaleX(1.2); }
 .preset-sample.glitch { text-shadow: -3px 1px #e02362, 3px -1px #008caa; }
 .preset small { color: #5a5a62; font-weight: 500; }
+.lyric-review { margin: 16px 0; padding: 16px; border: 1px solid #dedee3; border-radius: 12px; }
+.lyric-review legend { font-weight: 750; }
+.lyric-row { margin: 0 0 16px; padding: 12px 0; border-bottom: 1px solid #e9e9ea; }
+.remove-lyric { margin-top: 12px; background: #f0f0f2; color: #171717; }
+.lyric-monitor { padding: 12px; background: #f7f7f8; border-radius: 8px; }

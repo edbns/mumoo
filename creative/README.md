@@ -12,7 +12,7 @@ npx playwright install chromium --only-shell
 npm run dev
 ```
 
-Open the local Vite URL on desktop. Choose a RIFF WAV and drag the highlighted 15-second window on the waveform. Use the range slider or numeric millisecond field for keyboard and precise adjustments. Audition the selection, then continue to Plain Colors to choose Scribble, Elastic, or Glitch and set the lyric and clip-relative cue times. Switching presets preserves the selected clip and lyric timing. The visual preview slider seeks within the selected clip.
+Open the local Vite URL on desktop. Choose a RIFF WAV and drag the highlighted 15-second window on the waveform. Use the range slider or numeric millisecond field for keyboard and precise adjustments. Audition the selection, add and time lyric lines, and approve them before choosing Scribble, Elastic, or Glitch in Plain Colors. Continue without lyrics for an instrumental. Switching presets preserves the selected clip and lyric timing. The visual preview slider seeks within the selected clip.
 
 Click **Export MP4** to render and download `mumoo.mp4` in the browser. The WAV stays on the device. The export requires WebCodecs H.264 and AAC encoding at the selected profile. The app checks support on the current device before rendering. The browser path uses the shared Canvas renderer, encodes all 450 frames, and caps AAC padding at the 15-second clip boundary when muxing with Mediabunny.
 
@@ -37,7 +37,7 @@ Tests use generated WAV fixtures only. They compare the editor and export canvas
 
 ## Composition and rendering decisions
 
-- The version 1 composition records the source hash, clip start, template, and one lyric cue. Clip start and cue times are integer milliseconds. The cue is half-open. An in or out boundary takes effect on the first frame at or after its timestamp, using ceiling division. Browser playback uses the frame at or before the audio playhead, using floor division. The export evaluates frames 0–449.
+- Version 2 compositions record the source hash, clip start, template, and an ordered list of lyric cues. The renderer also accepts version 1 compositions with a single cue. Clip start and cue times are integer milliseconds. The cue is half-open. An in or out boundary takes effect on the first frame at or after its timestamp, using ceiling division. Browser playback uses the frame at or before the audio playhead, using floor division. The export evaluates frames 0–449.
 - The preview and export pages call the same pure evaluator and Canvas 2D drawing code. Both draw on a 1080 × 1920 canvas and wait for bundled Inter Variable before drawing. Its SIL OFL 1.1 notice is included in the build. Parity is verified in pinned Chromium before lossy encoding. Browser or system font fallbacks for uncovered glyphs can differ across environments.
 - The browser seeks using the decoded source and a clip-relative audio clock. The CLI renders frame PNGs in pinned headless Chromium and streams them to FFmpeg for H.264 encoding and AAC muxing from the selected WAV interval. The renderer receives a composition and a frame index and has no React dependency.
 - The CLI needs local Chromium and a platform supported by the pinned FFmpeg installer packages. The bundled FFmpeg is for this development benchmark. Production encoder version, security and licensing review remain separate decisions. The editor decodes the whole WAV in memory, and this increment has been verified on one OS/browser configuration.

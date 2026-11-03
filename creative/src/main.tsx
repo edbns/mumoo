@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { decodeWav, hashWav } from './audio';
-import { DURATION_MS, FRAMES, HEIGHT, PRESETS, WIDTH, playheadFrame, validate, type Composition } from './composition';
+import { DURATION_MS, FRAMES, HEIGHT, PRESETS, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
+import { LyricReview } from './lyric-review';
 import { Waveform } from './waveform';
 import './style.css';
 
-const INITIAL: Composition = {
-  version: 1, template: 'scribble', sourceSha256: '', clipStartMs: 0,
-  lyric: { text: 'Make it move', startMs: 1000, endMs: 5000 },
+const INITIAL: Extract<Composition, { version: 2 }> = {
+  version: 2, template: 'scribble', sourceSha256: '', clipStartMs: 0, cues: [],
 };
 
 function download(blob: Blob, filename: string) {
@@ -27,6 +27,7 @@ function App() {
   const [editingVisual, setEditingVisual] = useState(false);
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
+  const text = lyricText(composition);
   const [buffer, setBuffer] = useState<AudioBuffer>();
   const [position, setPosition] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -75,7 +76,7 @@ function App() {
       const audio = await decodeWav(bytes);
       validate({ ...INITIAL, sourceSha256 }, audio.duration * 1000);
       if (request !== upload.current) return;
-      setComposition(current => ({ ...current, sourceSha256, clipStartMs: 0 }));
+      setComposition(current => ({ ...current, sourceSha256, clipStartMs: 0, cues: [] }));
       setBuffer(audio);
     } catch (cause) {
       if (request === upload.current) setError((cause as Error).message);
@@ -85,7 +86,7 @@ function App() {
   }
 
   async function play() {
-    if (!buffer || !clipValid || (editingVisual && (!valid || fontText !== composition.lyric.text))) return;
+    if (!buffer || !clipValid || (editingVisual && (!valid || fontText !== text))) return;
     const request = ++playback.current;
     try {
       const audio = context.current ??= new AudioContext();
@@ -114,7 +115,7 @@ function App() {
     }
   }
 
-  function edit(next: Composition) {
+  function edit(next: typeof INITIAL) {
     stop();
     setComposition(next);
   }
@@ -133,17 +134,16 @@ function App() {
 
   useEffect(() => {
     let active = true;
-    const text = composition.lyric.text;
     setFontError('');
     loadFont(text).then(
       () => { if (active) setFontText(text); },
       (cause: Error) => { if (active) setFontError(cause.message); },
     );
     return () => { active = false; };
-  }, [composition.lyric.text]);
+  }, [text]);
 
   useEffect(() => {
-    if (canvas.current && fontText === composition.lyric.text) {
+    if (canvas.current && fontText === text) {
       draw(canvas.current, composition, playheadFrame(position));
     }
   }, [composition, editingVisual, fontText, position]);
@@ -183,7 +183,18 @@ function App() {
           {clipValid && <p role="status">Selected · {(composition.clipStartMs / 1000).toFixed(3)}–{((composition.clipStartMs + DURATION_MS) / 1000).toFixed(3)} s</p>}
           <div className="trim-actions">
             <button disabled={!clipValid} onClick={() => playing ? stop() : void play()}>{playing ? 'Pause audition' : 'Audition selection'}</button>
-            <button disabled={!clipValid} onClick={() => openStage(true)}>Continue to visual</button>
+          </div>
+          <label>Seek within selection
+            <input type="range" min={0} max={DURATION_MS} step={1} value={Math.floor(position)}
+              disabled={!clipValid} onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} />
+          </label>
+          <p>Playhead · {(position / 1000).toFixed(2)} s</p>
+          <p className="lyric-monitor">Current lyric: {evaluate(composition, playheadFrame(position)).text || '—'}</p>
+          <LyricReview cues={composition.cues} position={position}
+            onChange={cues => setComposition(current => ({ ...current, cues }))} />
+          {clipValid && !valid && <p role="alert">Fill in each lyric and use non-overlapping times in order within the 15-second clip.</p>}
+          <div className="trim-actions">
+            <button disabled={!valid} onClick={() => openStage(true)}>{composition.cues.length ? 'Approve lyrics and choose visual' : 'Continue without lyrics'}</button>
           </div>
         </>}
         {(error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
@@ -192,8 +203,8 @@ function App() {
       <section>
         <p className="eyebrow">02 / PLAIN COLORS</p>
         <h1>Make a music visual</h1>
-        <p className="intro">Choose a motion preset and time a lyric to your selected clip.</p>
-        <button className="back-to-trim" onClick={() => openStage(false)}>Edit music selection</button>
+        <p className="intro">Choose how your approved lyrics move.</p>
+        <button className="back-to-trim" onClick={() => openStage(false)}>Edit music and lyrics</button>
         <fieldset className="preset-picker" disabled={exportFrame !== undefined}>
           <legend>Motion preset</legend>
           {PRESETS.map(preset => <label className="preset" key={preset.id}>
@@ -204,13 +215,7 @@ function App() {
             <small>{preset.description}</small>
           </label>)}
         </fieldset>
-        <label>Lyric<input value={composition.lyric.text} maxLength={48} onChange={event => edit({ ...composition, lyric: { ...composition.lyric, text: event.target.value } })} /></label>
-        <div className="timing">
-          {(['startMs', 'endMs'] as const).map((field, index) => <label key={field}>
-            {index === 0 ? 'Lyric in (ms)' : 'Lyric out (ms)'}
-            <input type="number" min="0" max="15000" step="1" value={Number.isNaN(composition.lyric[field]) ? '' : composition.lyric[field]} onChange={event => edit({ ...composition, lyric: { ...composition.lyric, [field]: event.target.valueAsNumber } })} />
-          </label>)}
-        </div>
+        <p className="hint">{composition.cues.length ? `${composition.cues.length} approved lyric lines` : 'Instrumental · no lyrics'}</p>
         {(error || fontError || (buffer && !valid)) && <p role="alert">{error || fontError || 'Check the 15-second clip range and lyric timing.'}</p>}
         <p className="hint" role="status">{buffer && valid
           ? `Clip ready · ${(composition.clipStartMs / 1000).toFixed(3)}–${((composition.clipStartMs + DURATION_MS) / 1000).toFixed(3)} s`
@@ -232,7 +237,7 @@ function App() {
         <div className="preview-heading"><strong>Preview</strong><span>9:16 · 15 seconds</span></div>
         <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Visual composition" />
         <div className="transport">
-          <button disabled={!valid || fontText !== composition.lyric.text} onClick={() => playing ? stop() : void play()}>{playing ? 'Pause' : 'Play'}</button>
+          <button disabled={!valid || fontText !== text} onClick={() => playing ? stop() : void play()}>{playing ? 'Pause' : 'Play'}</button>
           <input aria-label="Seek within clip" type="range" min="0" max={DURATION_MS} step="1" value={Math.floor(position)} disabled={!valid} onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} />
           <output>{(position / 1000).toFixed(2)} s</output>
         </div>

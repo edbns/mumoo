@@ -10,12 +10,24 @@ export const PRESETS = [
   { id: 'glitch', name: 'Glitch', description: 'Split-color jitter' },
 ] as const;
 
-export interface Composition {
-  version: 1;
+export interface LyricCue { text: string; startMs: number; endMs: number }
+
+interface CompositionBase {
   template: typeof PRESETS[number]['id'];
   sourceSha256: string;
   clipStartMs: number;
-  lyric: { text: string; startMs: number; endMs: number };
+}
+
+export type Composition = CompositionBase & (
+  { version: 1; lyric: LyricCue } | { version: 2; cues: LyricCue[] }
+);
+
+export function lyricsFor(composition: Composition) {
+  return composition.version === 1 ? [composition.lyric] : composition.cues;
+}
+
+export function lyricText(composition: Composition) {
+  return lyricsFor(composition).map(cue => cue.text).join(' ');
 }
 
 function isTime(value: unknown): value is number {
@@ -27,18 +39,25 @@ export function validate(value: unknown, sourceDurationMs: number): asserts valu
     throw new Error('Choose a WAV at least 15 seconds long.');
   }
   if (!value || typeof value !== 'object') throw new Error('Invalid composition.');
-  const { version, template, sourceSha256, clipStartMs, lyric } = value as Partial<Composition>;
-  if (version !== 1 || !PRESETS.some(preset => preset.id === template)) throw new Error('Unsupported composition.');
+  const candidate = value as Composition;
+  const { version, template, sourceSha256, clipStartMs } = candidate;
+  if ((version !== 1 && version !== 2) || !PRESETS.some(preset => preset.id === template)) throw new Error('Unsupported composition.');
   if (typeof sourceSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(sourceSha256)) {
     throw new Error('Invalid source audio identity.');
   }
   if (!isTime(clipStartMs) || clipStartMs > sourceDurationMs - DURATION_MS) {
     throw new Error('Select a 15-second range inside the song using whole milliseconds.');
   }
-  if (!lyric || typeof lyric.text !== 'string' || [...lyric.text].length > 48 ||
-      !isTime(lyric.startMs) || !isTime(lyric.endMs) ||
-      lyric.startMs >= lyric.endMs || lyric.endMs > DURATION_MS) {
-    throw new Error('Enter up to 48 characters and a valid lyric range in whole milliseconds.');
+  const cues = lyricsFor(candidate);
+  if (!Array.isArray(cues) || cues.length > 30) throw new Error('Use up to 30 lyric lines.');
+  let previousEnd = 0;
+  for (const cue of cues) {
+    if (!cue || typeof cue.text !== 'string' || [...cue.text].length > 48 ||
+        (version === 2 && !cue.text.trim()) || !isTime(cue.startMs) || !isTime(cue.endMs) ||
+        cue.startMs < previousEnd || cue.startMs >= cue.endMs || cue.endMs > DURATION_MS) {
+      throw new Error('Enter lyric text and use ascending, non-overlapping times inside the clip.');
+    }
+    previousEnd = cue.endMs;
   }
 }
 
@@ -49,11 +68,10 @@ export function playheadFrame(ms: number) {
 }
 
 export function evaluate(composition: Composition, frame: number) {
-  const { lyric } = composition;
-  const start = Math.ceil(lyric.startMs * FPS / 1000);
-  const end = Math.ceil(lyric.endMs * FPS / 1000);
-  return {
-    text: frame >= start && frame < end ? lyric.text : '',
-    phase: (frame - start) / FPS,
-  };
+  for (const cue of lyricsFor(composition)) {
+    const start = Math.ceil(cue.startMs * FPS / 1000);
+    const end = Math.ceil(cue.endMs * FPS / 1000);
+    if (frame >= start && frame < end) return { text: cue.text, phase: (frame - start) / FPS };
+  }
+  return { text: '', phase: 0 };
 }

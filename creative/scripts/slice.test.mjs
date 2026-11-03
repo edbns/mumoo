@@ -43,6 +43,8 @@ function wav(seconds, markers = []) {
 
 const sourceBytes = wav(18, [0.5, 3.017, 4.017, 16.9, 17.5]);
 fixture.sourceSha256 = createHash('sha256').update(sourceBytes).digest('hex');
+const { lyric, ...base } = fixture;
+const approved = { ...base, version: 2, cues: [lyric, { text: 'SECOND LINE', startMs: 4000, endMs: 5000 }] };
 
 test('built editor trims WAV, matches cue frames, and downloads a real MP4', { timeout: 180_000 }, async () => {
   await build({ logLevel: 'error' });
@@ -66,7 +68,7 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await choose(wav(14));
     await page.getByRole('alert').getByText(/at least 15 seconds/).waitFor();
     await choose(sourceBytes);
-    const next = page.getByRole('button', { name: 'Continue to visual' });
+    const next = page.getByRole('button', { name: 'Continue without lyrics' });
     await next.waitFor();
     const clipStart = page.getByLabel('Clip start (ms)');
     await clipStart.fill('3001');
@@ -85,15 +87,27 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await page.getByText('Selected · 2.000–17.000 s').waitFor();
     await page.getByRole('button', { name: 'Audition selection' }).click();
     await page.getByRole('button', { name: 'Pause audition' }).click();
-    await next.click();
-    await page.getByRole('button', { name: 'Edit music selection' }).click();
+    const add = page.getByRole('button', { name: 'Add lyric line' });
+    await add.click();
+    const approve = page.getByRole('button', { name: 'Approve lyrics and choose visual' });
+    assert.equal(await approve.isDisabled(), true);
+    await page.getByLabel('Lyric 1', { exact: true }).fill(lyric.text);
+    await page.getByLabel('Line 1 in (ms)').fill('1017');
+    await page.getByLabel('Line 1 out (ms)').fill('2017');
+    await add.click();
+    await page.getByLabel('Lyric 2', { exact: true }).fill('SECOND LINE');
+    await page.getByLabel('Seek within selection').fill('4000');
+    await page.getByRole('button', { name: 'Set in to playhead' }).nth(1).click();
+    await page.getByLabel('Line 2 out (ms)').fill('5000');
+    await page.getByText('Current lyric: SECOND LINE').waitFor();
+    await approve.click();
+    await page.getByRole('button', { name: 'Edit music and lyrics' }).click();
     assert.equal(await clipStart.inputValue(), '2000');
-    await next.click();
+    assert.equal(await page.getByLabel('Line 2 in (ms)').inputValue(), '4000');
+    await approve.click();
+    await page.getByText('2 approved lyric lines').waitFor();
     await page.getByText('Local export fallback', { exact: true }).click();
     const save = page.getByRole('button', { name: 'Download composition JSON' });
-    await page.getByLabel('Lyric', { exact: true }).fill(fixture.lyric.text);
-    await page.getByLabel('Lyric in (ms)').fill('1017');
-    await page.getByLabel('Lyric out (ms)').fill('2017');
     const downloaded = page.waitForEvent('download');
     await save.click();
     const file = await downloaded;
@@ -101,7 +115,7 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     const stream = await file.createReadStream();
     const chunks = [];
     for await (const chunk of stream) chunks.push(chunk);
-    assert.deepEqual(JSON.parse(Buffer.concat(chunks)), fixture);
+    assert.deepEqual(JSON.parse(Buffer.concat(chunks)), approved);
     await page.getByRole('button', { name: 'Play' }).click();
     await page.getByRole('button', { name: 'Pause' }).click();
     const seek = page.getByRole('slider', { name: 'Seek within clip' });
@@ -116,15 +130,16 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     assert.equal(images[0], images[3]);
     assert.notEqual(images[0], images[1]);
     assert.notEqual(images[1], images[2]);
+    await render.evaluate(snapshot => window.mumoo.prepare(snapshot, 18000), approved);
+    await seek.fill('4000');
+    const secondLine = await render.evaluate(() => window.mumoo.frame(120));
+    await page.waitForFunction(png => document.querySelector('canvas').toDataURL().endsWith(png), secondLine);
     const previewFrames = new Set();
     const exportedFrames = new Set();
     for (const template of ['scribble', 'elastic', 'glitch']) {
       await page.locator(`input[name="motion-preset"][value="${template}"]`).check();
-      assert.equal(await page.getByLabel('Lyric', { exact: true }).inputValue(), fixture.lyric.text);
-      assert.equal(await page.getByLabel('Lyric in (ms)').inputValue(), '1017');
-      assert.equal(await page.getByLabel('Lyric out (ms)').inputValue(), '2017');
       await seek.fill('1034');
-      await render.evaluate(snapshot => window.mumoo.prepare(snapshot, 18000), { ...fixture, template });
+      await render.evaluate(snapshot => window.mumoo.prepare(snapshot, 18000), { ...approved, template });
       const expected = await render.evaluate(() => window.mumoo.frame(31));
       await page.waitForFunction(png => document.querySelector('canvas').toDataURL().endsWith(png), expected);
       previewFrames.add(expected);
@@ -135,7 +150,7 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
       await page.getByRole('button', { name: 'Export MP4' }).click();
       const mp4 = await Promise.race([downloadMp4, failed]);
       assert.equal(mp4.suggestedFilename(), 'mumoo.mp4');
-      exportedFrames.add(verifyMp4(await mp4.path()).frameDigest);
+      exportedFrames.add(verifyMp4(await mp4.path(), true).frameDigest);
     }
     assert.equal(previewFrames.size, 3);
     assert.equal(exportedFrames.size, 3);
@@ -161,7 +176,7 @@ test('real MP4 preserves the selected source segment and cue synchronization', {
   t.diagnostic(JSON.stringify({ ...result, ...verifyMp4(output) }));
 });
 
-function verifyMp4(output) {
+function verifyMp4(output, hasSecondLine = false) {
   const probe = JSON.parse(execFileSync(ffprobe.path, [
     '-v', 'error', '-show_streams', '-show_format', '-of', 'json', output,
   ]));
@@ -189,14 +204,14 @@ function verifyMp4(output) {
   assert.ok(errors.every(error => error < 1000 / 30));
   const pixels = execFileSync(ffmpeg.path, [
     '-v', 'error', '-i', output, '-an',
-    '-vf', "select='eq(n,30)+eq(n,31)+eq(n,60)+eq(n,61)',scale=54:96",
+    '-vf', "select='eq(n,30)+eq(n,31)+eq(n,60)+eq(n,61)+eq(n,120)+eq(n,150)',scale=54:96",
     '-vsync', '0', '-pix_fmt', 'gray', '-f', 'rawvideo', '-',
   ]);
   const frameSize = 54 * 96;
-  assert.equal(pixels.length, frameSize * 4);
-  assert.deepEqual([0, 1, 2, 3].map(index =>
+  assert.equal(pixels.length, frameSize * 6);
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(index =>
     pixels.subarray(index * frameSize, (index + 1) * frameSize).some(pixel => pixel < 100)),
-  [false, true, true, false]);
+  [false, true, true, false, hasSecondLine, false]);
   return { ffmpeg: ffmpeg.version, ffprobe: ffprobe.version,
     frameDigest: createHash('sha256').update(pixels).digest('hex'),
     audioMarkerSeconds: markers, syncErrorMs: errors, bytes: Number(probe.format.size) };

@@ -1,5 +1,5 @@
 import { AudioBufferSource, BufferTarget, CanvasSource, EncodedAudioPacketSource, NullTarget, Mp4OutputFormat, Output, canEncodeAudio, canEncodeVideo } from 'mediabunny';
-import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, validate, type Composition } from './composition';
+import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, lyricText, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
 
 export async function renderMp4(composition: Composition, audio: AudioBuffer, progress: (frame: number) => void) {
@@ -13,7 +13,7 @@ export async function renderMp4(composition: Composition, audio: AudioBuffer, pr
   if (!videoSupported || !audioSupported) {
     throw new Error('This browser cannot encode H.264 and AAC on this device. Try an up-to-date browser with MP4 encoding support.');
   }
-  await loadFont(composition.lyric.text);
+  await loadFont(lyricText(composition));
   const canvas = document.createElement('canvas');
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
