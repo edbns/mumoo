@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { DURATION_MS, type LyricCue } from './composition';
-import { IS_ALIGNMENT_STAGING, syncStagingLyrics } from './staging-alignment';
+import { IS_ALIGNMENT_STAGING, STAGING_INVITE, syncStagingLyrics } from './staging-alignment';
 import { matchWords, MAX_WORDS, type RecognizedWord } from './lyrics-match';
 
 type Reply = { status: string } | { words: RecognizedWord[] } | { error: string };
@@ -10,7 +10,6 @@ export function LyricSync({ audio, clipStartMs, onChange }: {
   clipStartMs: number;
   onChange: (cues: LyricCue[]) => void;
 }) {
-  const [accessCode, setAccessCode] = useState('');
   const [text, setText] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -57,7 +56,7 @@ export function LyricSync({ audio, clipStartMs, onChange }: {
         const controller = new AbortController();
         request.current = controller;
         setStatus('WhisperX is timing your words…');
-        const matched = await syncStagingLyrics(samples, rate, text, accessCode, controller.signal);
+        const matched = await syncStagingLyrics(samples, rate, text, STAGING_INVITE, controller.signal);
         if (id !== run.current) return;
         setReview({ ...matched, heard: '' });
         onChange(matched.cues);
@@ -104,11 +103,8 @@ export function LyricSync({ audio, clipStartMs, onChange }: {
         onChange([]);
       }} />
     </label>
-    {IS_ALIGNMENT_STAGING && <label>Staging tester code
-      <input type="password" autoComplete="off" value={accessCode} disabled={Boolean(status)}
-        onChange={event => setAccessCode(event.target.value)} />
-    </label>}
-    <button disabled={!text.trim() || Boolean(status) || (IS_ALIGNMENT_STAGING && !accessCode)} onClick={() => void sync()}>Sync lyrics</button>
+    {IS_ALIGNMENT_STAGING && !STAGING_INVITE && <p>Open a staging tester invitation to enable sync.</p>}
+    <button disabled={!text.trim() || Boolean(status) || (IS_ALIGNMENT_STAGING && !STAGING_INVITE)} onClick={() => void sync()}>Sync lyrics</button>
     {status && <> <button onClick={cancel}>Cancel sync</button><p role="status">{status}</p></>}
     {error && <p role="alert">{error}</p>}
     {review && (review.unmatched.length === 0

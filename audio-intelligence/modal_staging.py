@@ -1,8 +1,11 @@
 """Private, CPU-only Modal deployment for MUMOO Staging."""
 import base64
 import binascii
+import hashlib
+import hmac
 import json
 import logging
+import os
 from pathlib import Path
 import struct
 import subprocess
@@ -65,11 +68,20 @@ def decode_payload(body):
 
 
 @app.function(image=image, cpu=1, memory=2048, min_containers=0, max_containers=1,
-              scaledown_window=5, timeout=55)
-@modal.fastapi_endpoint(method="POST", requires_proxy_auth=True, docs=False)
+              scaledown_window=5, timeout=55,
+              secrets=[modal.Secret.from_name("mumoo-staging-invites")])
+@modal.fastapi_endpoint(method="POST", docs=False)
 async def sync(request: Request):
     from align import load_checkpoint, peak_rss_bytes, run
 
+    token = request.headers.get("x-mumoo-tester", "")
+    expiry, separator, signature = token.partition(".")
+    if not separator or not expiry.isascii() or not expiry.isdecimal() or len(expiry) != 10:
+        raise HTTPException(401, "Use a current staging tester invitation.")
+    expected = hmac.new(os.environ["MUMOO_INVITE_SIGNING_KEY"].encode(),
+                        ("mumoo-staging:" + expiry).encode(), hashlib.sha256).hexdigest()
+    if not int(expiry) > time.time() or not hmac.compare_digest(signature.encode(), expected.encode()):
+        raise HTTPException(401, "Use a current staging tester invitation.")
     started = time.perf_counter()
     body = bytearray()
     async for chunk in request.stream():
