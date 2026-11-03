@@ -59,3 +59,11 @@ Baseline on an Intel Core i5 MacBook Pro (8 GB, macOS 15.8.2), using Node 22.17.
 The initial encode stopped the audio at 13.397 seconds because FFmpeg ended when its explicit video-frame limit was reached. The renderer now closes the frame stream after 450 frames and FFmpeg uses the shared duration limit. The runner probes both tracks and rejects output outside the profile before publishing it.
 
 The dependency audit reports a moderate minimatch advisory through the development lint tooling. The current npm remediation proposes an incompatible ESLint downgrade.
+
+## Experimental paste-and-sync
+
+Paste only the words sung inside the selected 15 seconds and click **Sync lyrics**. A web worker runs the quantized multilingual Xenova Whisper Tiny model via Transformers.js. It matches the pasted words in order to word timestamps recognized from the selected audio. Review by auditioning the clip and watching the current word, then approve and choose a visual. Unmatched words are reported and prevent approval of the sync result. Changing the clip invalidates its timing.
+
+This is a recognition-based matching pilot. It cannot recover the timing of a word the model fails to recognize, and repetitions or heavy accompaniment can reduce accuracy. The first run downloads model files from Hugging Face and the browser must be able to reach that service. Audio is processed locally. Automatic transcript entry, vocal separation, and BPM analysis are separate work.
+
+Model and license: [Xenova/whisper-tiny](https://huggingface.co/Xenova/whisper-tiny).

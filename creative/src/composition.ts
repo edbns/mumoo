@@ -49,7 +49,7 @@ export function validate(value: unknown, sourceDurationMs: number): asserts valu
     throw new Error('Select a 15-second range inside the song using whole milliseconds.');
   }
   const cues = lyricsFor(candidate);
-  if (!Array.isArray(cues) || cues.length > 30) throw new Error('Use up to 30 lyric lines.');
+  if (!Array.isArray(cues) || cues.length > 120) throw new Error('Use up to 120 lyric cues.');
   let previousEnd = 0;
   for (const cue of cues) {
     if (!cue || typeof cue.text !== 'string' || [...cue.text].length > 48 ||

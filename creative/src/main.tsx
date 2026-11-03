@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { decodeWav, hashWav } from './audio';
 import { DURATION_MS, FRAMES, HEIGHT, PRESETS, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
+import { LyricSync } from './lyric-sync';
 import { LyricReview } from './lyric-review';
 import { Waveform } from './waveform';
 import './style.css';
@@ -123,7 +124,7 @@ function App() {
   function selectClip(clipStartMs: number) {
     stop();
     setPosition(0);
-    setComposition(current => ({ ...current, clipStartMs }));
+    setComposition(current => ({ ...current, clipStartMs, cues: current.clipStartMs === clipStartMs ? current.cues : [] }));
   }
 
   function openStage(visual: boolean) {
@@ -190,8 +191,13 @@ function App() {
           </label>
           <p>Playhead · {(position / 1000).toFixed(2)} s</p>
           <p className="lyric-monitor">Current lyric: {evaluate(composition, playheadFrame(position)).text || '—'}</p>
-          <LyricReview cues={composition.cues} position={position}
-            onChange={cues => setComposition(current => ({ ...current, cues }))} />
+          {clipValid && <LyricSync key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs}
+            onChange={cues => setComposition(current => ({ ...current, cues }))} />}
+          <details className="hint">
+            <summary>Advanced manual timing</summary>
+            <LyricReview cues={composition.cues} position={position}
+              onChange={cues => setComposition(current => ({ ...current, cues }))} />
+          </details>
           {clipValid && !valid && <p role="alert">Fill in each lyric and use non-overlapping times in order within the 15-second clip.</p>}
           <div className="trim-actions">
             <button disabled={!valid} onClick={() => openStage(true)}>{composition.cues.length ? 'Approve lyrics and choose visual' : 'Continue without lyrics'}</button>
@@ -215,7 +221,7 @@ function App() {
             <small>{preset.description}</small>
           </label>)}
         </fieldset>
-        <p className="hint">{composition.cues.length ? `${composition.cues.length} approved lyric lines` : 'Instrumental · no lyrics'}</p>
+        <p className="hint">{composition.cues.length ? `${composition.cues.length} approved lyric cues` : 'Instrumental · no lyrics'}</p>
         {(error || fontError || (buffer && !valid)) && <p role="alert">{error || fontError || 'Check the 15-second clip range and lyric timing.'}</p>}
         <p className="hint" role="status">{buffer && valid
           ? `Clip ready · ${(composition.clipStartMs / 1000).toFixed(3)}–${((composition.clipStartMs + DURATION_MS) / 1000).toFixed(3)} s`

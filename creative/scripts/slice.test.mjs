@@ -87,6 +87,7 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await page.getByText('Selected · 2.000–17.000 s').waitFor();
     await page.getByRole('button', { name: 'Audition selection' }).click();
     await page.getByRole('button', { name: 'Pause audition' }).click();
+    await page.getByText('Advanced manual timing', { exact: true }).click();
     const add = page.getByRole('button', { name: 'Add lyric line' });
     await add.click();
     const approve = page.getByRole('button', { name: 'Approve lyrics and choose visual' });
@@ -103,9 +104,10 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await approve.click();
     await page.getByRole('button', { name: 'Edit music and lyrics' }).click();
     assert.equal(await clipStart.inputValue(), '2000');
+    await page.getByText('Advanced manual timing', { exact: true }).click();
     assert.equal(await page.getByLabel('Line 2 in (ms)').inputValue(), '4000');
     await approve.click();
-    await page.getByText('2 approved lyric lines').waitFor();
+    await page.getByText('2 approved lyric cues').waitFor();
     await page.getByText('Local export fallback', { exact: true }).click();
     const save = page.getByRole('button', { name: 'Download composition JSON' });
     const downloaded = page.waitForEvent('download');
@@ -216,3 +218,30 @@ function verifyMp4(output, hasSecondLine = false) {
     frameDigest: createHash('sha256').update(pixels).digest('hex'),
     audioMarkerSeconds: markers, syncErrorMs: errors, bytes: Number(probe.format.size) };
 }
+
+test('real model syncs pasted words in the production worker', {
+  skip: !process.env.MUMOO_SYNC_FIXTURE,
+  timeout: 240_000,
+}, async () => {
+  await build({ logLevel: 'error' });
+  const deployed = await preview({ preview: { host: '127.0.0.1', port: 0 } });
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.goto(`http://127.0.0.1:${deployed.httpServer.address().port}`);
+    await page.getByLabel('Source WAV').setInputFiles(process.env.MUMOO_SYNC_FIXTURE);
+    await page.getByLabel('Lyrics for this section').fill('the quick brown fox jumps over the lazy dog');
+    await page.getByRole('button', { name: 'Sync lyrics', exact: true }).click();
+    await Promise.race([
+      page.getByRole('button', { name: 'Approve lyrics and choose visual' }).waitFor({ timeout: 200_000 }),
+      page.getByRole('alert').waitFor({ timeout: 200_000 }).then(async () => {
+        throw new Error(await page.getByRole('alert').innerText());
+      }),
+    ]);
+    await page.getByRole('button', { name: 'Approve lyrics and choose visual' }).click();
+    await page.getByText('9 approved lyric cues').waitFor();
+  } finally {
+    await browser.close();
+    await new Promise((resolve, reject) => deployed.httpServer.close(error => error ? reject(error) : resolve()));
+  }
+});

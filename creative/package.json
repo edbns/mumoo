@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.2.5",
+    "@huggingface/transformers": "4.3.2",
     "mediabunny": "1.65.1",
     "react": "19.1.0",
     "react-dom": "19.1.0"
