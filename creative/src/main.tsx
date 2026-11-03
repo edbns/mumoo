@@ -1,0 +1,159 @@
+import { useEffect, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { decodeWav, hashWav } from './audio';
+import { DURATION_MS, HEIGHT, WIDTH, playheadFrame, validate, type Composition } from './composition';
+import { draw, loadFont } from './render';
+import './style.css';
+
+const INITIAL: Composition = {
+  version: 1, template: 'scribble', sourceSha256: '', clipStartMs: 0,
+  lyric: { text: 'Make it move', startMs: 1000, endMs: 5000 },
+};
+
+function App() {
+  const [composition, setComposition] = useState(INITIAL);
+  const [buffer, setBuffer] = useState<AudioBuffer>();
+  const [position, setPosition] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [error, setError] = useState('');
+  const [fontText, setFontText] = useState<string>();
+  const [fontError, setFontError] = useState('');
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const context = useRef<AudioContext | null>(null);
+  const source = useRef<AudioBufferSourceNode | null>(null);
+  const animation = useRef(0);
+  const upload = useRef(0);
+  const playback = useRef(0);
+
+  const valid = (() => {
+    if (!buffer) return false;
+    try {
+      validate(composition, buffer.duration * 1000);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  function stop() {
+    playback.current++;
+    cancelAnimationFrame(animation.current);
+    source.current?.stop();
+    source.current = null;
+    setPlaying(false);
+  }
+
+  async function choose(file?: File) {
+    const request = ++upload.current;
+    stop();
+    setBuffer(undefined);
+    setPosition(0);
+    setError('');
+    if (!file) return;
+    try {
+      const bytes = await file.arrayBuffer();
+      const sourceSha256 = await hashWav(bytes);
+      const audio = await decodeWav(bytes);
+      validate({ ...INITIAL, sourceSha256 }, audio.duration * 1000);
+      if (request !== upload.current) return;
+      setComposition(current => ({ ...current, sourceSha256, clipStartMs: 0 }));
+      setBuffer(audio);
+    } catch (cause) {
+      if (request === upload.current) setError((cause as Error).message);
+    }
+  }
+
+  async function play() {
+    if (!buffer || !valid || fontText !== composition.lyric.text) return;
+    const request = ++playback.current;
+    try {
+      const audio = context.current ??= new AudioContext();
+      await audio.resume();
+      if (request !== playback.current) return;
+      const node = audio.createBufferSource();
+      node.buffer = buffer;
+      node.connect(audio.destination);
+      const from = position >= DURATION_MS ? 0 : position;
+      const start = audio.currentTime;
+      node.start(start, (composition.clipStartMs + from) / 1000, (DURATION_MS - from) / 1000);
+      source.current = node;
+      setPlaying(true);
+      function tick() {
+        const next = Math.min(DURATION_MS, from + (audio.currentTime - start) * 1000);
+        setPosition(next);
+        if (next < DURATION_MS) animation.current = requestAnimationFrame(tick);
+        else {
+          source.current = null;
+          setPlaying(false);
+        }
+      }
+      tick();
+    } catch (cause) {
+      setError((cause as Error).message);
+    }
+  }
+
+  function edit(next: Composition) {
+    stop();
+    setComposition(next);
+  }
+
+  useEffect(() => {
+    let active = true;
+    const text = composition.lyric.text;
+    setFontError('');
+    loadFont(text).then(
+      () => { if (active) setFontText(text); },
+      (cause: Error) => { if (active) setFontError(cause.message); },
+    );
+    return () => { active = false; };
+  }, [composition.lyric.text]);
+
+  useEffect(() => {
+    if (canvas.current && fontText === composition.lyric.text) {
+      draw(canvas.current, composition, playheadFrame(position));
+    }
+  }, [composition, fontText, position]);
+
+  function saveComposition() {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(composition, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'composition.json';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  return <>
+    <header aria-label="MUMOO">mumoo<span>.</span></header>
+    <main className="desktop">
+      <section>
+        <p className="eyebrow">PLAIN COLORS / SCRIBBLE</p>
+        <h1>Make a music visual</h1>
+        <label>Source WAV<input type="file" accept=".wav,audio/wav,audio/x-wav" onChange={event => void choose(event.target.files?.[0])} /></label>
+        <label>Clip start (ms)<input type="number" min="0" step="1" value={Number.isNaN(composition.clipStartMs) ? '' : composition.clipStartMs} onChange={event => edit({ ...composition, clipStartMs: event.target.valueAsNumber })} /></label>
+        <label>Lyric<input value={composition.lyric.text} maxLength={48} onChange={event => edit({ ...composition, lyric: { ...composition.lyric, text: event.target.value } })} /></label>
+        <div className="timing">
+          {(['startMs', 'endMs'] as const).map((field, index) => <label key={field}>
+            {index === 0 ? 'Lyric in (ms)' : 'Lyric out (ms)'}
+            <input type="number" min="0" max="15000" step="1" value={Number.isNaN(composition.lyric[field]) ? '' : composition.lyric[field]} onChange={event => edit({ ...composition, lyric: { ...composition.lyric, [field]: event.target.valueAsNumber } })} />
+          </label>)}
+        </div>
+        {(error || fontError || (buffer && !valid)) && <p role="alert">{error || fontError || 'Check the 15-second clip range and lyric timing.'}</p>}
+        <button disabled={!valid} onClick={saveComposition}>Save composition JSON</button>
+        <p className="hint">Export locally with <code>npm run export -- composition.json song.wav output.mp4</code>.</p>
+      </section>
+      <section className="preview" aria-label="Preview">
+        <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Scribble composition" />
+        <div className="transport">
+          <button disabled={!valid || fontText !== composition.lyric.text} onClick={() => playing ? stop() : void play()}>{playing ? 'Pause' : 'Play'}</button>
+          <input aria-label="Seek within clip" type="range" min="0" max={DURATION_MS} step="1" value={Math.floor(position)} disabled={!valid} onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} />
+          <output>{(position / 1000).toFixed(2)} s</output>
+        </div>
+      </section>
+    </main>
+    <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>
+  </>;
+}
+
+createRoot(document.getElementById('root')!).render(<App />);
