@@ -12,7 +12,7 @@ npx playwright install chromium --only-shell
 npm run dev
 ```
 
-Open the local Vite URL on desktop. Choose a RIFF WAV, enter a whole-millisecond start for the fixed 15-second range, and set the lyric and clip-relative cue times. Play or seek the preview. Download the composition JSON, then run:
+Open the local Vite URL on desktop. Choose a RIFF WAV and drag the highlighted 15-second window on the waveform. Use the range slider or numeric millisecond field for keyboard and precise adjustments. Audition the selection, then continue to Scribble to set the lyric and clip-relative cue times. The visual preview slider seeks within the selected clip. Download the composition JSON, then run:
 
 ```sh
 npm run export -- /path/to/composition.json /path/to/source.wav /path/to/output.mp4

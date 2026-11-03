@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { decodeWav, hashWav } from './audio';
 import { DURATION_MS, HEIGHT, WIDTH, playheadFrame, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
+import { Waveform } from './waveform';
 import './style.css';
 
 const INITIAL: Composition = {
@@ -11,6 +12,8 @@ const INITIAL: Composition = {
 };
 
 function App() {
+  const [editingVisual, setEditingVisual] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
   const [buffer, setBuffer] = useState<AudioBuffer>();
   const [position, setPosition] = useState(0);
@@ -25,6 +28,8 @@ function App() {
   const upload = useRef(0);
   const playback = useRef(0);
 
+  const clipValid = Boolean(buffer && Number.isSafeInteger(composition.clipStartMs) &&
+    composition.clipStartMs >= 0 && composition.clipStartMs <= buffer.duration * 1000 - DURATION_MS);
   const valid = (() => {
     if (!buffer) return false;
     try {
@@ -47,6 +52,8 @@ function App() {
     const request = ++upload.current;
     stop();
     setBuffer(undefined);
+    setEditingVisual(false);
+    setLoading(Boolean(file));
     setPosition(0);
     setError('');
     if (!file) return;
@@ -60,11 +67,13 @@ function App() {
       setBuffer(audio);
     } catch (cause) {
       if (request === upload.current) setError((cause as Error).message);
+    } finally {
+      if (request === upload.current) setLoading(false);
     }
   }
 
   async function play() {
-    if (!buffer || !valid || fontText !== composition.lyric.text) return;
+    if (!buffer || !clipValid || (editingVisual && (!valid || fontText !== composition.lyric.text))) return;
     const request = ++playback.current;
     try {
       const audio = context.current ??= new AudioContext();
@@ -98,6 +107,18 @@ function App() {
     setComposition(next);
   }
 
+  function selectClip(clipStartMs: number) {
+    stop();
+    setPosition(0);
+    setComposition(current => ({ ...current, clipStartMs }));
+  }
+
+  function openStage(visual: boolean) {
+    stop();
+    setPosition(0);
+    setEditingVisual(visual);
+  }
+
   useEffect(() => {
     let active = true;
     const text = composition.lyric.text;
@@ -113,7 +134,7 @@ function App() {
     if (canvas.current && fontText === composition.lyric.text) {
       draw(canvas.current, composition, playheadFrame(position));
     }
-  }, [composition, fontText, position]);
+  }, [composition, editingVisual, fontText, position]);
 
   function saveComposition() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(composition, null, 2)], { type: 'application/json' }));
@@ -126,13 +147,32 @@ function App() {
 
   return <>
     <header className="masthead"><img src="/brand/mumoo-logo.png" alt="mumoo" width="144" height="36" /><span>Creative Studio</span></header>
-    <main className="desktop">
+    {!editingVisual ? <main className="desktop trim">
       <section>
-        <p className="eyebrow">PLAIN COLORS / SCRIBBLE</p>
-        <h1>Make a music visual</h1>
-        <p className="intro">Pick 15 seconds of your track and time a lyric to the music.</p>
+        <p className="eyebrow">01 / MUSIC</p>
+        <h1>Choose your 15 seconds</h1>
+        <p className="intro">Open a WAV, then drag the highlighted window to the part you want.</p>
         <label>Source WAV<input type="file" accept=".wav,audio/wav,audio/x-wav" onChange={event => void choose(event.target.files?.[0])} /></label>
-        <label>Clip start (ms)<input type="number" min="0" step="1" value={Number.isNaN(composition.clipStartMs) ? '' : composition.clipStartMs} onChange={event => edit({ ...composition, clipStartMs: event.target.valueAsNumber })} /></label>
+        {loading && <p role="status">Opening your music…</p>}
+        {buffer && <>
+          <Waveform audio={buffer} start={composition.clipStartMs} position={position} onSelect={selectClip} />
+          <label className="clip-number">Clip start (ms)<input type="number" min="0" max={Math.floor(buffer.duration * 1000 - DURATION_MS)} step="1"
+            value={Number.isNaN(composition.clipStartMs) ? '' : composition.clipStartMs}
+            onChange={event => selectClip(event.target.valueAsNumber)} /></label>
+          {clipValid && <p role="status">Selected · {(composition.clipStartMs / 1000).toFixed(3)}–{((composition.clipStartMs + DURATION_MS) / 1000).toFixed(3)} s</p>}
+          <div className="trim-actions">
+            <button disabled={!clipValid} onClick={() => playing ? stop() : void play()}>{playing ? 'Pause audition' : 'Audition selection'}</button>
+            <button disabled={!clipValid} onClick={() => openStage(true)}>Continue to visual</button>
+          </div>
+        </>}
+        {(error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
+      </section>
+    </main> : <main className="desktop">
+      <section>
+        <p className="eyebrow">02 / PLAIN COLORS / SCRIBBLE</p>
+        <h1>Make a music visual</h1>
+        <p className="intro">Time a lyric to your selected clip.</p>
+        <button className="back-to-trim" onClick={() => openStage(false)}>Edit music selection</button>
         <label>Lyric<input value={composition.lyric.text} maxLength={48} onChange={event => edit({ ...composition, lyric: { ...composition.lyric, text: event.target.value } })} /></label>
         <div className="timing">
           {(['startMs', 'endMs'] as const).map((field, index) => <label key={field}>
@@ -160,7 +200,7 @@ function App() {
           <output>{(position / 1000).toFixed(2)} s</output>
         </div>
       </section>
-    </main>
+    </main>}
     <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>
   </>;
 }
