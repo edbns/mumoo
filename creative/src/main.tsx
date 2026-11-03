@@ -125,11 +125,12 @@ function App() {
   }
 
   return <>
-    <header aria-label="MUMOO">mumoo<span>.</span></header>
+    <header className="masthead"><img src="/brand/mumoo-logo.png" alt="mumoo" width="144" height="36" /><span>Creative Studio</span></header>
     <main className="desktop">
       <section>
         <p className="eyebrow">PLAIN COLORS / SCRIBBLE</p>
         <h1>Make a music visual</h1>
+        <p className="intro">Pick 15 seconds of your track and time a lyric to the music.</p>
         <label>Source WAV<input type="file" accept=".wav,audio/wav,audio/x-wav" onChange={event => void choose(event.target.files?.[0])} /></label>
         <label>Clip start (ms)<input type="number" min="0" step="1" value={Number.isNaN(composition.clipStartMs) ? '' : composition.clipStartMs} onChange={event => edit({ ...composition, clipStartMs: event.target.valueAsNumber })} /></label>
         <label>Lyric<input value={composition.lyric.text} maxLength={48} onChange={event => edit({ ...composition, lyric: { ...composition.lyric, text: event.target.value } })} /></label>
@@ -141,9 +142,10 @@ function App() {
         </div>
         {(error || fontError || (buffer && !valid)) && <p role="alert">{error || fontError || 'Check the 15-second clip range and lyric timing.'}</p>}
         <button disabled={!valid} onClick={saveComposition}>Save composition JSON</button>
-        <p className="hint">Export locally with <code>npm run export -- composition.json song.wav output.mp4</code>.</p>
+        <p className="hint">Download your composition and render it on your computer with the local export tool.</p>
       </section>
       <section className="preview" aria-label="Preview">
+        <div className="preview-heading"><strong>Preview</strong><span>9:16 · 15 seconds</span></div>
         <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Scribble composition" />
         <div className="transport">
           <button disabled={!valid || fontText !== composition.lyric.text} onClick={() => playing ? stop() : void play()}>{playing ? 'Pause' : 'Play'}</button>
