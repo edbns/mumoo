@@ -141,8 +141,15 @@ function App() {
           </label>)}
         </div>
         {(error || fontError || (buffer && !valid)) && <p role="alert">{error || fontError || 'Check the 15-second clip range and lyric timing.'}</p>}
-        <button disabled={!valid} onClick={saveComposition}>Save composition JSON</button>
-        <p className="hint">Download your composition and render it on your computer with the local export tool.</p>
+        <p className="hint" role="status">{buffer && valid
+          ? `Clip ready · ${(composition.clipStartMs / 1000).toFixed(3)}–${((composition.clipStartMs + DURATION_MS) / 1000).toFixed(3)} s`
+          : 'To enable preview, choose a WAV and a valid 15-second range.'}</p>
+        <button disabled={!valid} onClick={saveComposition}>Download composition JSON</button>
+        <details className="hint">
+          <summary>How to create the MP4</summary>
+          <p>This site downloads your edit settings as <code>composition.json</code>. To render the video, run this command from the local <code>creative</code> directory with the original WAV:</p>
+          <code>npm run export -- composition.json song.wav output.mp4</code>
+        </details>
       </section>
       <section className="preview" aria-label="Preview">
         <div className="preview-heading"><strong>Preview</strong><span>9:16 · 15 seconds</span></div>

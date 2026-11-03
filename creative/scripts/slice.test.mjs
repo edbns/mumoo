@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { chromium } from 'playwright';
-import { createServer } from 'vite';
+import { build, createServer, preview } from 'vite';
 import ffmpeg from '@ffmpeg-installer/ffmpeg';
 import ffprobe from '@ffprobe-installer/ffprobe';
 import { exportMp4 } from './export.mjs';
@@ -45,6 +45,8 @@ const sourceBytes = wav(18, [0.5, 3.017, 4.017, 16.9, 17.5]);
 fixture.sourceSha256 = createHash('sha256').update(sourceBytes).digest('hex');
 
 test('editor validates WAV, seeks, and matches renderer at cue boundaries', async () => {
+  await build({ logLevel: 'error' });
+  const deployed = await preview({ preview: { host: '127.0.0.1', port: 0 } });
   const server = await createServer({ server: { host: '127.0.0.1', port: 0 } });
   await server.listen();
   const browser = await chromium.launch();
@@ -52,7 +54,7 @@ test('editor validates WAV, seeks, and matches renderer at cue boundaries', asyn
     const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
     const page = await browser.newPage();
     const render = await browser.newPage();
-    await page.goto(origin);
+    await page.goto(`http://127.0.0.1:${deployed.httpServer.address().port}`);
     await render.goto(origin + '/export.html');
     await render.waitForFunction(() => Boolean(window.mumoo));
     await render.evaluate(snapshot => window.mumoo.prepare(snapshot, 18000), fixture);
@@ -64,8 +66,8 @@ test('editor validates WAV, seeks, and matches renderer at cue boundaries', asyn
     await choose(wav(14));
     await page.getByRole('alert').getByText(/at least 15 seconds/).waitFor();
     await choose(sourceBytes);
-    const save = page.getByRole('button', { name: 'Save composition JSON' });
-    await page.waitForFunction(() => ![...document.querySelectorAll('button')].find(button => button.textContent === 'Save composition JSON').disabled);
+    const save = page.getByRole('button', { name: 'Download composition JSON' });
+    await page.waitForFunction(() => ![...document.querySelectorAll('button')].find(button => button.textContent === 'Download composition JSON').disabled);
     await page.getByLabel('Clip start (ms)').fill('3001');
     assert.equal(await save.isDisabled(), true);
     await page.getByLabel('Clip start (ms)').fill('2000');
@@ -74,7 +76,9 @@ test('editor validates WAV, seeks, and matches renderer at cue boundaries', asyn
     await page.getByLabel('Lyric out (ms)').fill('2017');
     const downloaded = page.waitForEvent('download');
     await save.click();
-    const stream = await (await downloaded).createReadStream();
+    const file = await downloaded;
+    assert.equal(file.suggestedFilename(), 'composition.json');
+    const stream = await file.createReadStream();
     const chunks = [];
     for await (const chunk of stream) chunks.push(chunk);
     assert.deepEqual(JSON.parse(Buffer.concat(chunks)), fixture);
@@ -95,6 +99,7 @@ test('editor validates WAV, seeks, and matches renderer at cue boundaries', asyn
   } finally {
     await browser.close();
     await server.close();
+    await new Promise((resolve, reject) => deployed.httpServer.close(error => error ? reject(error) : resolve()));
   }
 });
 
