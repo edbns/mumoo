@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { decodeWav, hashWav } from './audio';
-import { DURATION_MS, FRAMES, HEIGHT, PRESETS, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
+import { DURATION_MS, FPS, FRAMES, HEIGHT, PRESETS, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
 import { LyricSync } from './lyric-sync';
 import { LyricReview } from './lyric-review';
@@ -193,6 +193,21 @@ function App() {
           <p className="lyric-monitor">Current lyric: {evaluate(composition, playheadFrame(position)).text || '—'}</p>
           {clipValid && <LyricSync key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs}
             onChange={cues => setComposition(current => ({ ...current, cues }))} />}
+          {composition.cues.length > 0 && <section className="timing-review" aria-label="Review lyric timing">
+            <h2>Review timing</h2>
+            <p className="hint">Audition the selection to follow the words. Select a word to jump to its start.</p>
+            <div className="timed-words">
+              {composition.cues.map((cue, index) => {
+                const frame = playheadFrame(position);
+                const active = frame >= Math.ceil(cue.startMs * FPS / 1000) && frame < Math.ceil(cue.endMs * FPS / 1000);
+                return <button type="button" key={index} aria-current={active ? 'true' : undefined}
+                  disabled={!Number.isFinite(cue.startMs) || cue.startMs < 0 || cue.startMs >= DURATION_MS}
+                  onClick={() => { stop(); setPosition(Math.ceil(Math.ceil(cue.startMs * FPS / 1000) * 1000 / FPS)); }}>
+                  {cue.text || 'Untitled cue'}
+                </button>;
+              })}
+            </div>
+          </section>}
           <details className="hint">
             <summary>Advanced manual timing</summary>
             <LyricReview cues={composition.cues} position={position}

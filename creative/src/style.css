@@ -49,3 +49,8 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .lyric-row { margin: 0 0 16px; padding: 12px 0; border-bottom: 1px solid #e9e9ea; }
 .remove-lyric { margin-top: 12px; background: #f0f0f2; color: #171717; }
 .lyric-monitor { padding: 12px; background: #f7f7f8; border-radius: 8px; }
+.timing-review { margin: 16px 0; padding: 16px; }
+.timing-review h2 { margin: 0; font-size: 16px; }
+.timed-words { display: flex; flex-wrap: wrap; gap: 6px; }
+.timed-words button { background: #f2f2f4; color: #171717; padding: 5px 8px; }
+.timed-words button[aria-current="true"] { background: #ffe2d6; color: #8b270d; }

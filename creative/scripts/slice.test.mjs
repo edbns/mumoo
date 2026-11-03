@@ -101,6 +101,11 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await page.getByRole('button', { name: 'Set in to playhead' }).nth(1).click();
     await page.getByLabel('Line 2 out (ms)').fill('5000');
     await page.getByText('Current lyric: SECOND LINE').waitFor();
+    const timing = page.getByRole('region', { name: 'Review lyric timing' });
+    const secondLineButton = timing.getByRole('button', { name: 'SECOND LINE' });
+    assert.equal(await secondLineButton.getAttribute('aria-current'), 'true');
+    await timing.getByRole('button', { name: lyric.text }).click();
+    await page.getByText('Current lyric: ' + lyric.text, { exact: true }).waitFor();
     await approve.click();
     await page.getByRole('button', { name: 'Edit music and lyrics' }).click();
     assert.equal(await clipStart.inputValue(), '2000');
