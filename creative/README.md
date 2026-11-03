@@ -12,7 +12,7 @@ npx playwright install chromium --only-shell
 npm run dev
 ```
 
-Open the local Vite URL on desktop. Choose a RIFF WAV and drag the highlighted 15-second window on the waveform. Use the range slider or numeric millisecond field for keyboard and precise adjustments. Audition the selection, then continue to Scribble to set the lyric and clip-relative cue times. The visual preview slider seeks within the selected clip.
+Open the local Vite URL on desktop. Choose a RIFF WAV and drag the highlighted 15-second window on the waveform. Use the range slider or numeric millisecond field for keyboard and precise adjustments. Audition the selection, then continue to Plain Colors to choose Scribble, Elastic, or Glitch and set the lyric and clip-relative cue times. Switching presets preserves the selected clip and lyric timing. The visual preview slider seeks within the selected clip.
 
 Click **Export MP4** to render and download `mumoo.mp4` in the browser. The WAV stays on the device. The export requires WebCodecs H.264 and AAC encoding at the selected profile. The app checks support on the current device before rendering. The browser path uses the shared Canvas renderer, encodes all 450 frames, and caps AAC padding at the 15-second clip boundary when muxing with Mediabunny.
 

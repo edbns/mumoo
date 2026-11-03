@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { decodeWav, hashWav } from './audio';
-import { DURATION_MS, FRAMES, HEIGHT, WIDTH, playheadFrame, validate, type Composition } from './composition';
+import { DURATION_MS, FRAMES, HEIGHT, PRESETS, WIDTH, playheadFrame, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
 import { Waveform } from './waveform';
 import './style.css';
@@ -190,10 +190,20 @@ function App() {
       </section>
     </main> : <main className="desktop">
       <section>
-        <p className="eyebrow">02 / PLAIN COLORS / SCRIBBLE</p>
+        <p className="eyebrow">02 / PLAIN COLORS</p>
         <h1>Make a music visual</h1>
-        <p className="intro">Time a lyric to your selected clip.</p>
+        <p className="intro">Choose a motion preset and time a lyric to your selected clip.</p>
         <button className="back-to-trim" onClick={() => openStage(false)}>Edit music selection</button>
+        <fieldset className="preset-picker" disabled={exportFrame !== undefined}>
+          <legend>Motion preset</legend>
+          {PRESETS.map(preset => <label className="preset" key={preset.id}>
+            <input type="radio" name="motion-preset" value={preset.id} checked={composition.template === preset.id}
+              onChange={() => edit({ ...composition, template: preset.id })} />
+            <span className={`preset-sample ${preset.id}`} aria-hidden="true">Aa</span>
+            <strong>{preset.name}</strong>
+            <small>{preset.description}</small>
+          </label>)}
+        </fieldset>
         <label>Lyric<input value={composition.lyric.text} maxLength={48} onChange={event => edit({ ...composition, lyric: { ...composition.lyric, text: event.target.value } })} /></label>
         <div className="timing">
           {(['startMs', 'endMs'] as const).map((field, index) => <label key={field}>
@@ -220,7 +230,7 @@ function App() {
       </section>
       <section className="preview" aria-label="Preview">
         <div className="preview-heading"><strong>Preview</strong><span>9:16 · 15 seconds</span></div>
-        <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Scribble composition" />
+        <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Visual composition" />
         <div className="transport">
           <button disabled={!valid || fontText !== composition.lyric.text} onClick={() => playing ? stop() : void play()}>{playing ? 'Pause' : 'Play'}</button>
           <input aria-label="Seek within clip" type="range" min="0" max={DURATION_MS} step="1" value={Math.floor(position)} disabled={!valid} onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} />

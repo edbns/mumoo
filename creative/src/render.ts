@@ -17,11 +17,32 @@ export function draw(canvas: HTMLCanvasElement, composition: Composition, frame:
   if (!text) return;
 
   context.save();
-  context.translate(WIDTH / 2, HEIGHT / 2 + Math.sin(phase * 11) * 12);
-  context.rotate(Math.sin(phase * 8) * 0.035);
+  context.translate(WIDTH / 2, HEIGHT / 2);
   context.font = FONT;
   context.textAlign = 'center';
   context.textBaseline = 'middle';
+  if (composition.template === 'elastic') {
+    const bounce = Math.cos(phase * 15) * Math.exp(-phase * 3);
+    context.scale(1 + bounce * 0.20, 1 - bounce * 0.32);
+    context.fillStyle = '#551abc';
+    context.fillText(text, 0, 0, 880);
+    context.restore();
+    return;
+  }
+  if (composition.template === 'glitch') {
+    const tick = Math.floor(frame / 3);
+    const shift = 12 + (tick * 17 % 29);
+    context.fillStyle = '#e02362';
+    context.fillText(text, -shift, 4, 840);
+    context.fillStyle = '#008caa';
+    context.fillText(text, shift, -4, 840);
+    context.fillStyle = '#151515';
+    context.fillText(text, tick % 3 * 4 - 4, 0, 840);
+    context.restore();
+    return;
+  }
+  context.translate(0, Math.sin(phase * 11) * 12);
+  context.rotate(Math.sin(phase * 8) * 0.035);
   context.fillStyle = '#151515';
   context.fillText(text, 0, 0, 880);
   const halfWidth = Math.min(440, context.measureText(text).width / 2);

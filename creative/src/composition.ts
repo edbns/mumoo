@@ -4,9 +4,15 @@ export const FPS = 30;
 export const DURATION_MS = 15_000;
 export const FRAMES = FPS * DURATION_MS / 1000;
 
+export const PRESETS = [
+  { id: 'scribble', name: 'Scribble', description: 'Hand-drawn underline' },
+  { id: 'elastic', name: 'Elastic', description: 'Stretch and rebound' },
+  { id: 'glitch', name: 'Glitch', description: 'Split-color jitter' },
+] as const;
+
 export interface Composition {
   version: 1;
-  template: 'scribble';
+  template: typeof PRESETS[number]['id'];
   sourceSha256: string;
   clipStartMs: number;
   lyric: { text: string; startMs: number; endMs: number };
@@ -22,7 +28,7 @@ export function validate(value: unknown, sourceDurationMs: number): asserts valu
   }
   if (!value || typeof value !== 'object') throw new Error('Invalid composition.');
   const { version, template, sourceSha256, clipStartMs, lyric } = value as Partial<Composition>;
-  if (version !== 1 || template !== 'scribble') throw new Error('Unsupported composition.');
+  if (version !== 1 || !PRESETS.some(preset => preset.id === template)) throw new Error('Unsupported composition.');
   if (typeof sourceSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(sourceSha256)) {
     throw new Error('Invalid source audio identity.');
   }
