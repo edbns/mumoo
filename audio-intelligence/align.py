@@ -2,6 +2,7 @@
 
 import argparse
 from contextlib import redirect_stdout
+from functools import lru_cache
 import hashlib
 from importlib.metadata import version
 import json
@@ -25,8 +26,8 @@ MODELS = {
 
 
 def extract(ffmpeg, source, offset_ms):
-    if offset_ms <= 0:
-        raise ValueError("Clip offset must be a positive integer in milliseconds.")
+    if offset_ms < 0:
+        raise ValueError("Clip offset must be a nonnegative integer in milliseconds.")
     result = subprocess.run(
         [ffmpeg, "-nostdin", "-v", "error", "-xerror", "-i", str(source),
          "-ss", f"{offset_ms // 1000}.{offset_ms % 1000:03d}", "-t", "15",
@@ -109,6 +110,25 @@ def peak_rss_bytes():
     return rss if sys.platform == "darwin" else rss * 1024
 
 
+@lru_cache(maxsize=1)
+def load_checkpoint(model_dir, threads):
+    import torch
+    from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
+
+    torch.set_num_threads(threads)
+    processor = Wav2Vec2Processor.from_pretrained(model_dir, local_files_only=True)
+    model = Wav2Vec2ForCTC.from_pretrained(model_dir, local_files_only=True, use_safetensors=True)
+    model.eval()
+    dictionary = {token.lower(): index for token, index in processor.tokenizer.get_vocab().items()}
+    weights = model_dir / "model.safetensors"
+    with weights.open("rb") as checkpoint:
+        checkpoint_hash = hashlib.file_digest(checkpoint, "sha256").hexdigest()
+    return model, dictionary, {
+        "whisperxVersion": version("whisperx"), "checkpointBytes": weights.stat().st_size,
+        "checkpointSha256": checkpoint_hash,
+    }
+
+
 def run(args):
     started = time.perf_counter()
     lyrics = args.lyrics.read_bytes().decode("utf-8")
@@ -136,24 +156,13 @@ def run(args):
         return document
 
     import numpy as np
-    import torch
     from whisperx.alignment import align
-    from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
-    torch.set_num_threads(args.threads)
-    processor = Wav2Vec2Processor.from_pretrained(args.model_dir, local_files_only=True)
-    model = Wav2Vec2ForCTC.from_pretrained(args.model_dir, local_files_only=True, use_safetensors=True)
-    model.eval()
-    dictionary = {token.lower(): index for token, index in processor.tokenizer.get_vocab().items()}
+    model, dictionary, details = load_checkpoint(args.model_dir, args.threads)
     records = word_records(lyrics, dictionary)
     transcript = " ".join(spoken for _, spoken in records if spoken)
     audio = np.frombuffer(samples, dtype="<f4").copy()
-    with weights.open("rb") as checkpoint:
-        checkpoint_hash = hashlib.file_digest(checkpoint, "sha256").hexdigest()
-    document["model"].update(
-        whisperxVersion=version("whisperx"), checkpointBytes=weights.stat().st_size,
-        checkpointSha256=checkpoint_hash,
-    )
+    document["model"].update(details)
     timings = []
     cold_seconds = None
     for _ in range(args.runs):
@@ -196,6 +205,8 @@ def main():
     parser.add_argument("--threads", type=int, default=2)
     parser.add_argument("--runs", type=int, default=1, help="Repeat inference with the model already loaded.")
     args = parser.parse_args()
+    if args.offset_ms <= 0:
+        parser.error("Supply a positive clip offset in milliseconds.")
     if not 1 <= args.runs <= 10 or not 1 <= args.threads <= 16:
         parser.error("Use 1–10 runs and 1–16 threads.")
     try:
