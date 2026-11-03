@@ -2,14 +2,6 @@ import { DURATION_MS, type LyricCue } from './composition';
 
 export const IS_ALIGNMENT_STAGING = location.hostname === 'mumoo-staging.netlify.app';
 
-if (IS_ALIGNMENT_STAGING && location.hash.startsWith('#tester=')) {
-  const invite = location.hash.slice('#tester='.length);
-  if (/^\d{10}\.[a-f0-9]{64}$/.test(invite)) sessionStorage.setItem('mumoo-staging-tester', invite);
-  history.replaceState(null, '', location.pathname + location.search);
-}
-
-export const STAGING_INVITE = IS_ALIGNMENT_STAGING ? sessionStorage.getItem('mumoo-staging-tester') ?? '' : '';
-
 function encodeWav(samples: Float32Array, rate: number) {
   const bytes = new Uint8Array(44 + samples.length * 2);
   const view = new DataView(bytes.buffer);
@@ -36,10 +28,10 @@ function encodeWav(samples: Float32Array, rate: number) {
   return btoa(binary);
 }
 
-export async function syncStagingLyrics(samples: Float32Array, rate: number, lyrics: string, accessCode: string, signal: AbortSignal) {
+export async function syncStagingLyrics(samples: Float32Array, rate: number, lyrics: string, signal: AbortSignal) {
   const response = await fetch('/.netlify/functions/align-lyrics', {
     method: 'POST', signal,
-    headers: { 'Content-Type': 'application/json', 'X-Mumoo-Tester': accessCode },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ audio: encodeWav(samples, rate), lyrics, language: 'en' }),
   });
   const result = await response.json().catch(() => null);
