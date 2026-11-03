@@ -44,7 +44,7 @@ function wav(seconds, markers = []) {
 const sourceBytes = wav(18, [0.5, 3.017, 4.017, 16.9, 17.5]);
 fixture.sourceSha256 = createHash('sha256').update(sourceBytes).digest('hex');
 
-test('editor validates WAV, seeks, and matches renderer at cue boundaries', async () => {
+test('built editor trims WAV, matches cue frames, and downloads a real MP4', { timeout: 180_000 }, async () => {
   await build({ logLevel: 'error' });
   const deployed = await preview({ preview: { host: '127.0.0.1', port: 0 } });
   const server = await createServer({ server: { host: '127.0.0.1', port: 0 } });
@@ -89,6 +89,7 @@ test('editor validates WAV, seeks, and matches renderer at cue boundaries', asyn
     await page.getByRole('button', { name: 'Edit music selection' }).click();
     assert.equal(await clipStart.inputValue(), '2000');
     await next.click();
+    await page.getByText('Local export fallback', { exact: true }).click();
     const save = page.getByRole('button', { name: 'Download composition JSON' });
     await page.getByLabel('Lyric', { exact: true }).fill(fixture.lyric.text);
     await page.getByLabel('Lyric in (ms)').fill('1017');
@@ -115,6 +116,14 @@ test('editor validates WAV, seeks, and matches renderer at cue boundaries', asyn
     assert.equal(images[0], images[3]);
     assert.notEqual(images[0], images[1]);
     assert.notEqual(images[1], images[2]);
+    const downloadMp4 = page.waitForEvent('download', { timeout: 90_000 });
+    const failed = page.getByRole('alert').waitFor({ timeout: 90_000 }).then(async () => {
+      throw new Error(await page.getByRole('alert').innerText());
+    });
+    await page.getByRole('button', { name: 'Export MP4' }).click();
+    const mp4 = await Promise.race([downloadMp4, failed]);
+    assert.equal(mp4.suggestedFilename(), 'mumoo.mp4');
+    verifyMp4(await mp4.path());
   } finally {
     await browser.close();
     await server.close();
@@ -134,6 +143,10 @@ test('real MP4 preserves the selected source segment and cue synchronization', {
   await assert.rejects(exportMp4(composition, source, output), /does not match/);
   await writeFile(source, sourceBytes);
   const result = await exportMp4(composition, source, output);
+  t.diagnostic(JSON.stringify({ ...result, ...verifyMp4(output) }));
+});
+
+function verifyMp4(output) {
   const probe = JSON.parse(execFileSync(ffprobe.path, [
     '-v', 'error', '-show_streams', '-show_format', '-of', 'json', output,
   ]));
@@ -169,8 +182,6 @@ test('real MP4 preserves the selected source segment and cue synchronization', {
   assert.deepEqual([0, 1, 2, 3].map(index =>
     pixels.subarray(index * frameSize, (index + 1) * frameSize).some(pixel => pixel < 100)),
   [false, true, true, false]);
-  t.diagnostic(JSON.stringify({
-    ...result, ffmpeg: ffmpeg.version, ffprobe: ffprobe.version,
-    audioMarkerSeconds: markers, syncErrorMs: errors, bytes: Number(probe.format.size),
-  }));
-});
+  return { ffmpeg: ffmpeg.version, ffprobe: ffprobe.version,
+    audioMarkerSeconds: markers, syncErrorMs: errors, bytes: Number(probe.format.size) };
+}

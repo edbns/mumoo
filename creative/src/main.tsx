@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { decodeWav, hashWav } from './audio';
-import { DURATION_MS, HEIGHT, WIDTH, playheadFrame, validate, type Composition } from './composition';
+import { DURATION_MS, FRAMES, HEIGHT, WIDTH, playheadFrame, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
 import { Waveform } from './waveform';
 import './style.css';
@@ -11,7 +11,19 @@ const INITIAL: Composition = {
   lyric: { text: 'Make it move', startMs: 1000, endMs: 5000 },
 };
 
+function download(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
 function App() {
+  const [exportFrame, setExportFrame] = useState<number>();
+  const [exportError, setExportError] = useState('');
+  const exporting = useRef(false);
   const [editingVisual, setEditingVisual] = useState(false);
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
@@ -136,13 +148,22 @@ function App() {
     }
   }, [composition, editingVisual, fontText, position]);
 
-  function saveComposition() {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(composition, null, 2)], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'composition.json';
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  async function exportVideo() {
+    if (!buffer || !valid || exporting.current) return;
+    exporting.current = true;
+    stop();
+    setExportError('');
+    setExportFrame(0);
+    try {
+      const { renderMp4 } = await import('./browser-export');
+      const video = await renderMp4(composition, buffer, setExportFrame);
+      download(video, 'mumoo.mp4');
+    } catch (cause) {
+      setExportError(cause instanceof Error ? cause.message : 'MP4 export failed.');
+    } finally {
+      exporting.current = false;
+      setExportFrame(undefined);
+    }
   }
 
   return <>
@@ -184,10 +205,16 @@ function App() {
         <p className="hint" role="status">{buffer && valid
           ? `Clip ready · ${(composition.clipStartMs / 1000).toFixed(3)}–${((composition.clipStartMs + DURATION_MS) / 1000).toFixed(3)} s`
           : 'To enable preview, choose a WAV and a valid 15-second range.'}</p>
-        <button disabled={!valid} onClick={saveComposition}>Download composition JSON</button>
+        <button disabled={!valid || exportFrame !== undefined} onClick={() => void exportVideo()}>Export MP4</button>
+        {exportFrame !== undefined && <p role="status">Rendering MP4 · {Math.floor(exportFrame / FRAMES * 100)}%</p>}
+        {exportError && <p role="alert">{exportError}</p>}
         <details className="hint">
-          <summary>How to create the MP4</summary>
-          <p>This site downloads your edit settings as <code>composition.json</code>. To render the video, run this command from the local <code>creative</code> directory with the original WAV:</p>
+          <summary>Local export fallback</summary>
+          <button disabled={!valid} onClick={() => download(
+            new Blob([JSON.stringify(composition, null, 2)], { type: 'application/json' }),
+            'composition.json',
+          )}>Download composition JSON</button>
+          <p>The fallback downloads your edit settings as <code>composition.json</code>. To render the video, run this command from the local <code>creative</code> directory with the original WAV:</p>
           <code>npm run export -- composition.json song.wav output.mp4</code>
         </details>
       </section>
