@@ -30,6 +30,7 @@ function App() {
   const [composition, setComposition] = useState(INITIAL);
   const text = lyricText(composition);
   const [buffer, setBuffer] = useState<AudioBuffer>();
+  const [selectedCue, setSelectedCue] = useState(0);
   const [position, setPosition] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState('');
@@ -86,7 +87,7 @@ function App() {
     }
   }
 
-  async function play() {
+  async function play(fromStart = false) {
     if (!buffer || !clipValid || (editingVisual && (!valid || fontText !== text))) return;
     const request = ++playback.current;
     try {
@@ -96,7 +97,7 @@ function App() {
       const node = audio.createBufferSource();
       node.buffer = buffer;
       node.connect(audio.destination);
-      const from = position >= DURATION_MS ? 0 : position;
+      const from = fromStart || position >= DURATION_MS ? 0 : position;
       const start = audio.currentTime;
       node.start(start, (composition.clipStartMs + from) / 1000, (DURATION_MS - from) / 1000);
       source.current = node;
@@ -194,19 +195,52 @@ function App() {
           {clipValid && <LyricSync key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs}
             onChange={cues => setComposition(current => ({ ...current, cues }))} />}
           {composition.cues.length > 0 && <section className="timing-review" aria-label="Review lyric timing">
-            <h2>Review timing</h2>
-            <p className="hint">Audition the selection to follow the words. Select a word to jump to its start.</p>
+            <div className="review-transport">
+              <h2>Review timing</h2>
+              <button type="button" onClick={() => playing ? stop() : void play(true)}>
+                {playing ? 'Pause clip' : 'Play 15-second clip'}
+              </button>
+              <label>Review playhead
+                <input type="range" min={0} max={DURATION_MS} step={1} value={Math.floor(position)}
+                  onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} />
+              </label>
+              <output>{(position / 1000).toFixed(2)} s</output>
+            </div>
+            <p className="hint">Select a word to jump to it and adjust its timing.</p>
             <div className="timed-words">
               {composition.cues.map((cue, index) => {
                 const frame = playheadFrame(position);
                 const active = frame >= Math.ceil(cue.startMs * FPS / 1000) && frame < Math.ceil(cue.endMs * FPS / 1000);
                 return <button type="button" key={index} aria-current={active ? 'true' : undefined}
                   disabled={!Number.isFinite(cue.startMs) || cue.startMs < 0 || cue.startMs >= DURATION_MS}
-                  onClick={() => { stop(); setPosition(Math.ceil(Math.ceil(cue.startMs * FPS / 1000) * 1000 / FPS)); }}>
+                  onClick={() => { stop(); setSelectedCue(index); setPosition(Math.ceil(Math.ceil(cue.startMs * FPS / 1000) * 1000 / FPS)); }}>
                   {cue.text || 'Untitled cue'}
                 </button>;
               })}
             </div>
+            {(() => {
+              const index = Math.min(selectedCue, composition.cues.length - 1);
+              const cue = composition.cues[index];
+              return <div className="word-adjust">
+                <strong>Adjust “{cue.text || 'Untitled cue'}”</strong>
+                {(['startMs', 'endMs'] as const).map(field => {
+                  const label = field === 'startMs' ? 'In' : 'Out';
+                  const min = field === 'startMs' ? composition.cues[index - 1]?.endMs ?? 0 : cue.startMs + 1;
+                  const max = field === 'startMs' ? cue.endMs - 1 : composition.cues[index + 1]?.startMs ?? DURATION_MS;
+                  function adjust(value: number) {
+                    if (!Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(max) || min > max) return;
+                    const ms = Math.min(max, Math.max(min, Math.round(value)));
+                    edit({ ...composition, cues: composition.cues.map((item, i) => i === index ? { ...item, [field]: ms } : item) });
+                  }
+                  return <div className="boundary-controls" key={field}>
+                    <span>{label} · {(cue[field] / 1000).toFixed(3)} s</span>
+                    <button type="button" aria-label={`Move ${label.toLowerCase()} earlier`} onClick={() => adjust(cue[field] - 20)}>−20 ms</button>
+                    <button type="button" aria-label={`Move ${label.toLowerCase()} later`} onClick={() => adjust(cue[field] + 20)}>+20 ms</button>
+                    <button type="button" onClick={() => adjust(position)}>Set {label.toLowerCase()} to playhead</button>
+                  </div>;
+                })}
+              </div>;
+            })()}
           </section>}
           <details className="hint">
             <summary>Advanced manual timing</summary>

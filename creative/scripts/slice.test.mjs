@@ -98,7 +98,7 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await add.click();
     await page.getByLabel('Lyric 2', { exact: true }).fill('SECOND LINE');
     await page.getByLabel('Seek within selection').fill('4000');
-    await page.getByRole('button', { name: 'Set in to playhead' }).nth(1).click();
+    await page.getByRole('group', { name: 'Review lyrics' }).getByRole('button', { name: 'Set in to playhead' }).nth(1).click();
     await page.getByLabel('Line 2 out (ms)').fill('5000');
     await page.getByText('Current lyric: SECOND LINE').waitFor();
     const timing = page.getByRole('region', { name: 'Review lyric timing' });
@@ -106,6 +106,11 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     assert.equal(await secondLineButton.getAttribute('aria-current'), 'true');
     await timing.getByRole('button', { name: lyric.text }).click();
     await page.getByText('Current lyric: ' + lyric.text, { exact: true }).waitFor();
+    await timing.getByRole('button', { name: 'Move in earlier' }).click();
+    await timing.getByText('In · 0.997 s').waitFor();
+    await timing.getByRole('button', { name: 'Move in later' }).click();
+    await timing.getByRole('button', { name: 'Play 15-second clip' }).click();
+    await timing.getByRole('button', { name: 'Pause clip' }).click();
     await approve.click();
     await page.getByRole('button', { name: 'Edit music and lyrics' }).click();
     assert.equal(await clipStart.inputValue(), '2000');

@@ -54,3 +54,8 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .timed-words { display: flex; flex-wrap: wrap; gap: 6px; }
 .timed-words button { background: #f2f2f4; color: #171717; padding: 5px 8px; }
 .timed-words button[aria-current="true"] { background: #ffe2d6; color: #8b270d; }
+.review-transport, .boundary-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.review-transport label { flex: 1; min-width: 140px; margin: 0; }
+.word-adjust { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e9e9ea; }
+.boundary-controls span { min-width: 95px; font-variant-numeric: tabular-nums; }
+.boundary-controls button { background: #f2f2f4; color: #171717; font-size: 12px; }

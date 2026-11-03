@@ -95,6 +95,8 @@ export function LyricSync({ audio, clipStartMs, onChange }: {
 
   return <fieldset className="lyric-review">
     <legend>{IS_ALIGNMENT_STAGING ? 'Paste lyrics & sync · WhisperX (English)' : 'Paste lyrics & sync'}</legend>
+    <details open={!review}>
+    <summary>{review ? 'Edit pasted lyrics' : 'Paste lyrics for this section'}</summary>
     <label>Lyrics for this section
       <textarea rows={4} maxLength={IS_ALIGNMENT_STAGING ? 2000 : 6000} value={text} disabled={Boolean(status)} onChange={event => {
         setText(event.target.value);
@@ -104,6 +106,7 @@ export function LyricSync({ audio, clipStartMs, onChange }: {
       }} />
     </label>
     <button disabled={!text.trim() || Boolean(status)} onClick={() => void sync()}>Sync lyrics</button>
+    </details>
     {status && <> <button onClick={cancel}>Cancel sync</button><p role="status">{status}</p></>}
     {error && <p role="alert">{error}</p>}
     {review && (review.unmatched.length === 0
