@@ -29,7 +29,8 @@ export default async function genreResearch(request) {
     for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.length; }
     const response = await fetch(endpoint, {
       method: 'POST', body, signal: AbortSignal.timeout(54000), redirect: 'error',
-      headers: { 'Content-Type': 'audio/wav', 'X-Mumoo-Genre-Access': code },
+      headers: { 'Content-Type': 'audio/wav', 'X-Mumoo-Genre-Access': code,
+        'X-Mumoo-Genre-Diagnostic': request.headers.get('x-mumoo-genre-diagnostic') === '1' ? '1' : '0' },
     });
     const result = await response.json().catch(() => null);
     if (response.ok && result) return Response.json(result, { headers });

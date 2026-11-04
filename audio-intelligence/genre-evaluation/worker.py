@@ -32,7 +32,7 @@ PROMPTS = {
 model = processor = text_features = None
 
 @app.function(image=image, cpu=(1,1), memory=(4096,4096), timeout=40, max_containers=1, min_containers=0, scaledown_window=8)
-def analyze(audio: bytes):
+def analyze(audio: bytes, diagnostics: bool = False):
     global model, processor, text_features
     import numpy as np
     import torch
@@ -42,6 +42,13 @@ def analyze(audio: bytes):
     started=time.monotonic()
     cold=model is None
     load_seconds=0
+    samples=np.frombuffer(audio, dtype="<i2", offset=44).astype(np.float32)/32768
+    level={"rms":round(float(np.sqrt(np.mean(samples.astype(np.float64)**2))),8),
+           "peak":round(float(np.max(np.abs(samples))),8)}
+    if level["rms"] < 0.001:
+        return {"version":1,"promptsVersion":"1","status":"unavailable","reason":"insufficient_audio",
+                "groups":{},"metrics":{"cold":cold,"processingSeconds":round(time.monotonic()-started,3)},
+                "diagnostics":{"audioLevel":level,"silenceThresholdRms":0.001} if diagnostics else None}
     if cold:
         t=time.monotonic()
         with open("/model/pytorch_model.bin","rb") as f:
@@ -55,10 +62,10 @@ def analyze(audio: bytes):
             text_features=model.get_text_features(**processor(text=descriptions,padding=True,return_tensors="pt"))
             text_features=text_features / text_features.norm(dim=-1,keepdim=True)
         load_seconds=time.monotonic()-t
-    samples=np.frombuffer(audio, dtype="<i2", offset=44).astype(np.float32)/32768
     samples=resample_poly(samples,3,1).astype(np.float32)
     all_scores=[]
     window_seconds=[]
+    embeddings=[]
     for start in (0,240000):
         t=time.monotonic()
         clip=samples[start:start+480000]
@@ -69,6 +76,8 @@ def analyze(audio: bytes):
             features=model.get_audio_features(**inputs)
             features=features/features.norm(dim=-1,keepdim=True)
             all_scores.append((features @ text_features.T).squeeze(0).tolist())
+            if diagnostics:
+                embeddings.append(features.squeeze(0).tolist())
         window_seconds.append(round(time.monotonic()-t,3))
     groups={}
     index=0
@@ -79,10 +88,19 @@ def analyze(audio: bytes):
             rows.append({"label":label,"windowA":round(a,5),"windowB":round(b,5),"combined":round((a+b)/2,5)})
             index+=1
         groups[group]=sorted(rows,key=lambda x:x["combined"],reverse=True)
-    response={"version":1,"promptsVersion":"1","groups":groups,
+    response={"version":1,"promptsVersion":"1","status":"ranked","groups":groups,
               "metrics":{"cold":cold,"initializationSeconds":round(load_seconds,3),
                          "windowSeconds":window_seconds,"processingSeconds":round(time.monotonic()-started,3),
                          "peakRssBytes":resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*1024}}
+    if diagnostics:
+        response["diagnostics"]={"audioLevel":level,"silenceThresholdRms":0.001,
+                                 "model":{"id":"laion/larger_clap_music","revision":"a0b4534a14f58e20944452dff00a22a06ce629d1",
+                                          "checkpointSha256":"5c289311f4a030d768af7ffbfdecd01b008aa64824211899a4e59f4f9d154fd1"},
+                                 "preprocessing":{"inputSampleRateHz":16000,"channels":1,"encoding":"pcm_s16le",
+                                                  "floatConversion":"divide by 32768","amplitudeNormalization":"none",
+                                                  "modelSampleRateHz":48000,"resampling":"scipy.signal.resample_poly(3,1)",
+                                                  "windowMs":[[0,10000],[5000,15000]],"randomTruncation":"not used for exact 10-second windows"},
+                                 "normalizedAudioEmbeddings":embeddings}
     print(json.dumps({"event":"genre_research_complete",**response["metrics"]}),flush=True)
     return response
 
@@ -110,6 +128,6 @@ async def evaluate(request: Request):
         raise HTTPException(429,"Research limit reached. Try again later.")
     await rate.put.aio("requests",[*recent,now])
     try:
-        return await analyze.remote.aio(bytes(body))
+        return await analyze.remote.aio(bytes(body), request.headers.get("x-mumoo-genre-diagnostic") == "1")
     except Exception:
         raise HTTPException(502,"Genre analysis could not complete. Try again.") from None
