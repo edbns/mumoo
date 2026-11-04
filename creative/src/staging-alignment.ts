@@ -28,7 +28,7 @@ function encodeWav(samples: Float32Array, rate: number) {
   return btoa(binary);
 }
 
-export async function syncStagingLyrics(samples: Float32Array, rate: number, lyrics: string, signal: AbortSignal) {
+export async function syncStagingLyrics(samples: Float32Array, rate: number, lyrics: string | null, signal: AbortSignal) {
   const response = await fetch('/.netlify/functions/align-lyrics', {
     method: 'POST', signal,
     headers: { 'Content-Type': 'application/json' },
@@ -53,5 +53,5 @@ export async function syncStagingLyrics(samples: Float32Array, rate: number, lyr
     }
     cues.push({ text: word.text, startMs: word.startMs, endMs: word.endMs });
   }
-  return { cues, unmatched };
+  return { cues, unmatched, lyrics: typeof result.lyrics === 'string' ? result.lyrics : '' };
 }

@@ -3,6 +3,7 @@ import base64
 import binascii
 import json
 import logging
+from functools import lru_cache
 from pathlib import Path
 import struct
 import subprocess
@@ -38,6 +39,8 @@ image = (
         "echo '8aa76ab2243c81747a1f832954586bc566090c83a0ac167df6f31f0fa917d74a  "
         "/models/en/model.safetensors' | sha256sum -c -",
     )
+    .pip_install("openai-whisper==20250625")
+    .run_commands("python -c \"import whisper; whisper.load_model('small', device='cpu', download_root='/models/whisper')\"")
     .env({"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"})
     .add_local_file(Path(__file__).with_name("align.py"), "/root/align.py")
 )
@@ -51,7 +54,7 @@ def decode_payload(body):
         if not isinstance(value, dict) or set(value) != {"audio", "lyrics", "language"}:
             raise ValueError
         lyrics = value["lyrics"]
-        if value["language"] != "en" or not isinstance(lyrics, str) or not lyrics.strip() or len(lyrics) > 2000:
+        if value["language"] != "en" or (lyrics is not None and (not isinstance(lyrics, str) or not lyrics.strip() or len(lyrics) > 2000)):
             raise ValueError
         audio = base64.b64decode(value["audio"], validate=True)
         expected_header = struct.pack(
@@ -65,7 +68,15 @@ def decode_payload(body):
         raise HTTPException(400, "Expected English lyrics and exactly 15 seconds of mono PCM WAV.") from None
 
 
-@app.function(image=image, cpu=1, memory=2048, min_containers=0, max_containers=1,
+@lru_cache(maxsize=1)
+def transcription_model():
+    import torch
+    import whisper
+    torch.set_num_threads(2)
+    return whisper.load_model("/models/whisper/small.pt", device="cpu")
+
+
+@app.function(image=image, cpu=1, memory=4096, min_containers=0, max_containers=1,
               scaledown_window=5, timeout=55)
 @modal.fastapi_endpoint(method="POST", docs=False)
 async def sync(request: Request):
@@ -92,6 +103,15 @@ async def sync(request: Request):
         with tempfile.TemporaryDirectory(prefix="mumoo-staging-") as directory:
             clip = Path(directory) / "clip.wav"
             clip.write_bytes(audio)
+            if lyrics is None:
+                from align import extract
+                import numpy as np
+                samples = np.frombuffer(extract("ffmpeg", clip, 0), dtype="<f4").copy()
+                draft = transcription_model().transcribe(samples, language="en", task="transcribe",
+                                                         fp16=False, condition_on_previous_text=False)
+                lyrics = draft["text"].strip()
+                if not lyrics:
+                    raise HTTPException(422, "No lyrics detected. Try another section or paste your lyrics.")
             text = Path(directory) / "lyrics.txt"
             text.write_text(lyrics, encoding="utf-8")
             result = run(SimpleNamespace(source=clip, lyrics=text, offset_ms=0,
@@ -103,7 +123,7 @@ async def sync(request: Request):
     seconds = time.perf_counter() - started
     result["worker"] = {
         "coldModelLoad": cold, "processingSeconds": round(seconds, 4),
-        "peakRssBytes": peak_rss_bytes(), "estimatedComputeUsd": round(seconds * (0.0000131 + 2 * 0.00000222), 8),
+        "peakRssBytes": peak_rss_bytes(), "estimatedComputeUsd": round(seconds * (0.0000131 + 4 * 0.00000222), 8),
     }
     logging.info("Alignment metrics %s", json.dumps(result["worker"]))
     return result

@@ -32,9 +32,9 @@ export function LyricSync({ audio, clipStartMs, onChange }: {
     setStatus('');
   }
 
-  async function sync() {
+  async function sync(transcribe = false) {
     const words = text.trim().split(/\s+/u);
-    if (!text.trim() || (IS_ALIGNMENT_STAGING && text.length > 2000) || words.length > MAX_WORDS || words.some(word => [...word].length > 48)) {
+    if (!transcribe && (!text.trim() || (IS_ALIGNMENT_STAGING && text.length > 2000) || words.length > MAX_WORDS || words.some(word => [...word].length > 48))) {
       setError('Paste up to 120 words from this section, with up to 48 characters per word.');
       return;
     }
@@ -55,9 +55,10 @@ export function LyricSync({ audio, clipStartMs, onChange }: {
       if (IS_ALIGNMENT_STAGING) {
         const controller = new AbortController();
         request.current = controller;
-        setStatus('WhisperX is timing your words…');
-        const matched = await syncStagingLyrics(samples, rate, text, controller.signal);
+        setStatus(transcribe ? 'Transcribing and timing your lyrics…' : 'WhisperX is timing your words…');
+        const matched = await syncStagingLyrics(samples, rate, transcribe ? null : text, controller.signal);
         if (id !== run.current) return;
+        if (transcribe) setText(matched.lyrics);
         setReview({ ...matched, heard: '' });
         onChange(matched.cues);
         cancel();
@@ -94,9 +95,10 @@ export function LyricSync({ audio, clipStartMs, onChange }: {
   }
 
   return <fieldset className="lyric-review">
-    <legend>{IS_ALIGNMENT_STAGING ? 'Paste lyrics & sync · WhisperX (English)' : 'Paste lyrics & sync'}</legend>
-    <details open={!review}>
-    <summary>{review ? 'Edit pasted lyrics' : 'Paste lyrics for this section'}</summary>
+    <legend>{IS_ALIGNMENT_STAGING ? 'Lyrics · English staging pilot' : 'Paste lyrics & sync'}</legend>
+    {IS_ALIGNMENT_STAGING && !review && <button type="button" disabled={Boolean(status)} onClick={() => void sync(true)}>Transcribe &amp; sync</button>}
+    <details key={review ? 'review' : 'entry'} open={!IS_ALIGNMENT_STAGING && !review}>
+    <summary>{review ? 'Edit lyrics & re-sync' : 'Paste lyrics for this section'}</summary>
     <label>Lyrics for this section
       <textarea rows={4} maxLength={IS_ALIGNMENT_STAGING ? 2000 : 6000} value={text} disabled={Boolean(status)} onChange={event => {
         setText(event.target.value);
@@ -119,7 +121,7 @@ export function LyricSync({ audio, clipStartMs, onChange }: {
         <p><strong>Missing timings:</strong> {review.unmatched.join(' · ')}</p>
       </>)}
     <p className="hint">{IS_ALIGNMENT_STAGING
-      ? 'Sync sends only this 15-second clip and the pasted lyrics to the staging worker. Your full song stays on this device.'
+      ? 'Sync sends only this 15-second clip and any supplied lyrics to the staging worker. Your full song stays on this device.'
       : 'The first sync downloads a speech model. Your audio stays on this device.'}</p>
   </fieldset>;
 }

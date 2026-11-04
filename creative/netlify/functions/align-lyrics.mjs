@@ -24,6 +24,11 @@ export default async function alignLyrics(request) {
       },
     });
     if (response.status === 429) return reply(429, 'Staging sync limit reached. Wait a minute and try again.');
+    if (response.status === 422) {
+      const issue = await response.json().catch(() => null);
+      return reply(422, issue?.detail === 'No lyrics detected. Try another section or paste your lyrics.'
+        ? issue.detail : 'The alignment worker could not process this clip.');
+    }
     if (!response.ok) return reply(502, 'The alignment worker could not process this clip.');
     return Response.json(await response.json(), { headers: { 'Cache-Control': 'no-store' } });
   } catch {
