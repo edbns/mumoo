@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto';
 
 const SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const ORIGIN = 'https://mumoo-staging.netlify.app';
@@ -22,7 +22,7 @@ export function validAccess(token, key, now = Math.floor(Date.now() / 1000)) {
   const supplied = Buffer.from(signature, 'hex');
   return supplied.length === expected.length && timingSafeEqual(expected, supplied);
 }
-export default async function handler(request) {
+async function processRequest(request) {
   if (process.env.SITE_ID !== SITE || new URL(request.url).origin !== ORIGIN) return response(404, 'Not available.');
   if (request.method !== 'POST') return response(405, 'Use POST.');
   if (request.headers.get('origin') !== ORIGIN) return response(403, 'Open MUMOO Staging.');
@@ -43,5 +43,17 @@ export default async function handler(request) {
     if (!object(result, ['version', 'catalogVersion', 'algorithmVersion', 'eligibleCount', 'recommendations', 'catalog']) || result.version !== 1 || !Number.isInteger(result.catalogVersion) || !Number.isInteger(result.algorithmVersion) || !Array.isArray(result.recommendations) || !Array.isArray(result.catalog) || result.recommendations.length > 8 || result.catalog.length > 100 || result.eligibleCount !== result.catalog.length || !result.recommendations.every(e => safeEntry(e, true)) || !result.catalog.every(e => safeEntry(e, false))) return response(502, 'Recommendations unavailable.');
     return Response.json(result, { headers: { 'Cache-Control': 'no-store' } });
   } catch { return response(502, 'Recommendations unavailable.'); }
+}
+export default async function handler(request) {
+  const requestId = randomUUID();
+  const started = Date.now();
+  let result;
+  try { result = await processRequest(request); }
+  catch { result = response(500, 'Recommendations unavailable.'); }
+  const status = result.status;
+  const category = status === 200 ? 'success' : status === 401 || status === 403 ? 'access_denied' : status === 503 ? 'configuration_unavailable' : status >= 500 ? 'service_failure' : 'request_rejected';
+  console.info(JSON.stringify({ event: 'brain_gateway', requestId, time: new Date(started).toISOString(), status, durationMs: Date.now() - started, category }));
+  result.headers.set('X-Mumoo-Request-Id', requestId);
+  return result;
 }
 export const config = { path: '/api/brain-recommendations', rateLimit: { windowSize: 60, windowLimit: 10, aggregateBy: ['ip'] } };
