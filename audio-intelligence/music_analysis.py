@@ -1,5 +1,6 @@
 """Analyze exactly 15 seconds of the original mix with Beat This! and librosa."""
 import argparse
+from contextlib import contextmanager
 from functools import lru_cache
 from importlib.metadata import version
 import json
@@ -87,16 +88,35 @@ def load_beat_model(checkpoint, threads):
     }
 
 
-def analyze(args):
-    import numpy as np
+@contextmanager
+def stage(trace, name):
+    started = time.perf_counter()
+    if trace:
+        trace(name, "start")
+    try:
+        yield
+    except Exception:
+        if trace:
+            trace(name, "error", started)
+        raise
+    else:
+        if trace:
+            trace(name, "end", started)
+
+
+def analyze(args, trace=None):
+    with stage(trace, "numpy_import"):
+        import numpy as np
 
     start = time.perf_counter()
     cpu = time.process_time()
     child_start = resource.getrusage(resource.RUSAGE_CHILDREN)
-    clip_properties = inspect_clip(args.clip, args.ffprobe)
-    audio = np.frombuffer(decode_clip(args.clip, args.ffmpeg), dtype="<f4").copy()
+    with stage(trace, "audio_decode"):
+        clip_properties = inspect_clip(args.clip, args.ffprobe)
+        audio = np.frombuffer(decode_clip(args.clip, args.ffmpeg), dtype="<f4").copy()
     decode_seconds = time.perf_counter() - start
-    feature_result = features(audio)
+    with stage(trace, "librosa_features"):
+        feature_result = features(audio)
     feature_seconds = time.perf_counter() - start - decode_seconds
     beats, downbeats = [], []
     status = "unavailable"
@@ -106,17 +126,21 @@ def analyze(args):
     inference_seconds = []
     if feature_result["transientsMs"] and args.checkpoint:
         load_start = time.perf_counter()
-        model, model_info = load_beat_model(args.checkpoint, args.threads)
+        with stage(trace, "beat_model_load"):
+            model, model_info = load_beat_model(args.checkpoint, args.threads)
         load_seconds = round(time.perf_counter() - load_start, 6)
         for _ in range(args.runs):
             inference_start = time.perf_counter()
-            beat_seconds, downbeat_seconds = model(audio, SAMPLE_RATE)
+            with stage(trace, "beat_inference"):
+                beat_seconds, downbeat_seconds = model(audio, SAMPLE_RATE)
             inference_seconds.append(round(time.perf_counter() - inference_start, 6))
         beats, downbeats = event_times(beat_seconds), event_times(downbeat_seconds)
         status, reason = ("detected", None) if beats else ("unavailable", "no_beats_detected")
     elif feature_result["transientsMs"]:
         reason = "checkpoint_not_provided"
 
+    with stage(trace, "bpm"):
+        tempo_result = tempo(beats)
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     children = resource.getrusage(resource.RUSAGE_CHILDREN)
     return {
@@ -125,7 +149,7 @@ def analyze(args):
         "clip": {"offsetMs": args.offset_ms, "durationMs": DURATION_MS,
                  "sha256": sha256_file(args.clip), "receivedAudio": clip_properties},
         "rhythm": {"status": status, "reason": reason, "beatsMs": beats,
-                   "downbeatsMs": downbeats, "tempo": tempo(beats)},
+                   "downbeatsMs": downbeats, "tempo": tempo_result},
         "features": feature_result,
         "provenance": {"beatModel": model_info, "librosaVersion": version("librosa"), "contextMs": 0},
         "metrics": {"wallSeconds": round(time.perf_counter() - start, 6),

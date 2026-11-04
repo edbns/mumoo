@@ -102,6 +102,29 @@ Intel macOS, Python 3.12, two Torch CPU threads, three Beat This! inference pass
 
 Event matches use a one-to-one 70 ms tolerance. Median matched beat and downbeat errors were 30 ms for both rhythmic fixtures. Beat precision/recall were 96.77%/100% and 91.67%/95.65%. Downbeat precision was 32.00% and 31.58%, with 100% recall in both. Both grids retained half-/double-time alternatives. Beat This! overpredicted downbeats on these programmed fixtures. These tests establish actual model output on controlled reference grids. They do not establish accuracy on annotated commercial recordings, tempo changes, or uncommon meters.
 
-### Staging proposal
+### Modal staging validation
 
-Use a separate one-core, 2 GiB, scale-to-zero CPU function in the existing Modal staging environment, with an independent request cap. Keep the WhisperX worker separate. Browser requests contain only the selected PCM clip and its selection identity. Render original metadata locally and analysis-file properties separately. Test Linux startup and warm full-request latency before enabling the endpoint in the browser. At [Modal list rates](https://modal.com/pricing), mapping the observed 28.46–44.12 s local wall times onto that reservation yields approximately $0.00050–$0.00077 of compute per run before credits, cold-container overhead, and idle retention. No Modal music-analysis runs or charges were measured.
+The one-core, 2 GiB Linux worker failed to start because the deployment module imports FastAPI and only the gateway image contained it. The gateway exhausted its separate 53 s timeout waiting for the worker. Both images now include the pinned dependency. The worker timeout remains 45 s. The worker image precompiles the exercised librosa paths with a generic Numba cache and limits the numerical libraries and Torch to one thread.
+
+| Hosted fixture | Beat grid | Beats matched / emitted / reference | Median beat error | Downbeats matched / emitted / reference | Warm analysis |
+| --- | ---: | --- | ---: | --- | ---: |
+| 120 BPM | 120.00 | 30 / 30 / 30 | 30 ms | 8 / 24 / 8 | 1.264 s |
+| 90 BPM | 90.91 | 22 / 22 / 23 | 23 ms | 6 / 19 / 6 | 1.235 s |
+| Silence | Unavailable | 0 / 0 / 0 | — | 0 / 0 / 0 | 0.312 s |
+
+Both rhythmic results exposed half-/double-time alternatives. Event matches use the same 70 ms tolerance as the local benchmark. Downbeat precision was 33.33% and 31.58%, so the browser displays them as raw candidates.
+
+The first instrumented worker input took 9.55 s from input entry to serialization. Its measured stages are below. Peak RSS is cumulative for the Python process. It excludes FFmpeg and gateway memory.
+
+| First input stage | Time (s) | Peak Python RSS (MiB) |
+| --- | ---: | ---: |
+| Python analysis module | 0.0064 | 74 |
+| NumPy import | 0.1793 | 127 |
+| Decode and probe | 0.7503 | 129 |
+| librosa features | 2.6668 | 397 |
+| Beat This! import and checkpoint load | 4.9183 | 1,042 |
+| Beat and downbeat inference | 1.0240 | 1,097 |
+| BPM calculation | 0.0001 | 1,097 |
+| JSON serialization | 0.0025 | 1,097 |
+
+Warm rhythmic inputs took 1.21–1.24 CPU seconds including decode subprocesses. Maximum observed Python RSS was 1.07 GiB. The direct test rejected missing or forged access codes, oversized uploads and a fourth analysis within one minute.

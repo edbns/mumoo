@@ -1,6 +1,8 @@
 """Isolated Music Analysis v1 staging app."""
 import hashlib
 import hmac
+import json
+import resource
 import os
 from pathlib import Path
 import re
@@ -21,6 +23,7 @@ CHECKPOINT = Path("/models/final0.ckpt")
 gateway_image = modal.Image.debian_slim(python_version="3.12").pip_install("fastapi==0.115.12")
 worker_image = (
     modal.Image.debian_slim(python_version="3.12").apt_install("ffmpeg", "curl")
+    .pip_install("fastapi==0.115.12")
     .pip_install("torch==2.6.0", "torchaudio==2.6.0", index_url="https://download.pytorch.org/whl/cpu")
     .pip_install("beat-this==1.1.0", "librosa==0.11.0", "numpy==1.26.4", "scipy==1.16.1",
                  "numba==0.61.2", "rotary-embedding-torch==0.8.6", "einops==0.8.1", "soxr==0.5.0.post1")
@@ -29,17 +32,35 @@ worker_image = (
         "curl -fLsS --retry 2 https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/final0.ckpt -o /models/final0.ckpt",
         "echo '8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331  /models/final0.ckpt' | sha256sum -c -",
     )
-    .add_local_file(HERE / "music_analysis.py", "/root/music_analysis.py")
-    .add_local_file(HERE / "audio_source.py", "/root/audio_source.py")
+    .add_local_file(HERE / "music_analysis.py", "/root/music_analysis.py", copy=True)
+    .add_local_file(HERE / "audio_source.py", "/root/audio_source.py", copy=True)
+    .env({"NUMBA_CPU_NAME": "generic", "NUMBA_CACHE_DIR": "/opt/mumoo-numba",
+          "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1",
+          "NUMBA_NUM_THREADS": "1"})
+    .run_commands(
+        "cd /root && python -c \"import numpy as np; from music_analysis import features; "
+        "clip = np.zeros(330750, dtype=np.float32); clip[2000::11025] = 1; features(clip)\"",
+    )
 )
 rate_state = modal.Dict.from_name("mumoo-music-staging-rate", create_if_missing=True)
 has_processed = False
 
 
+def log_stage(stage, event, started=None):
+    print(json.dumps({"stage": stage, "event": event, "unixSeconds": time.time(),
+                      "elapsedSeconds": None if started is None else time.perf_counter() - started,
+                      "peakRssBytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024}),
+          flush=True)
+
+
+
 @app.function(image=worker_image, cpu=(1, 1), memory=(2048, 2048), min_containers=0,
               max_containers=1, scaledown_window=8, timeout=45)
 def analyze_selected(audio: bytes):
+    log_stage("worker_input", "start")
+    started = time.perf_counter()
     from music_analysis import analyze
+    log_stage("python_import", "end", started)
 
     global has_processed
     cold = not has_processed
@@ -47,18 +68,23 @@ def analyze_selected(audio: bytes):
         clip = Path(directory) / "selected.wav"
         clip.write_bytes(audio)
         result = analyze(SimpleNamespace(clip=clip, offset_ms=0, source_sha256=None,
-                         checkpoint=CHECKPOINT, ffmpeg="ffmpeg", ffprobe="ffprobe", threads=2, runs=1))
+                         checkpoint=CHECKPOINT, ffmpeg="ffmpeg", ffprobe="ffprobe", threads=1, runs=1), trace=log_stage)
     has_processed = True
     result["metrics"]["firstInContainer"] = cold
     print({key: result["metrics"][key] for key in ("firstInContainer", "wallSeconds",
           "pythonCpuSeconds", "peakPythonRssBytes")})
-    return result
+    started = time.perf_counter()
+    payload = json.dumps(result, allow_nan=False)
+    log_stage("response_serialization", "end", started)
+    return payload
 
 
 @app.function(image=gateway_image, cpu=0.125, memory=128, min_containers=0, max_containers=1,
               scaledown_window=5, timeout=53, secrets=[modal.Secret.from_name("mumoo-music-staging-access")])
 @modal.fastapi_endpoint(method="POST", docs=False)
 async def analyze_clip(request: Request):
+    from fastapi import Response
+
     access = request.headers.get("x-mumoo-analysis-access", "")
     if not re.fullmatch(r"[0-9]{10}\.[a-f0-9]{64}", access):
         raise HTTPException(401, "Enter a valid staging music-analysis code.")
@@ -75,12 +101,15 @@ async def analyze_clip(request: Request):
     if len(body) != WAV_SIZE or body[:44] != WAV_HEADER:
         raise HTTPException(400, "Expected exactly 15 seconds of mono PCM WAV.")
     now = time.time()
-    recent = [stamp for stamp in rate_state.get("requests", []) if now - stamp < 86400]
+    recent = [stamp for stamp in await rate_state.get.aio("requests", []) if now - stamp < 86400]
     if len(recent) >= 30 or sum(now - stamp < 60 for stamp in recent) >= 3:
         raise HTTPException(429, "The shared staging music-analysis limit was reached.")
-    rate_state["requests"] = [*recent, now]
+    await rate_state.put.aio("requests", [*recent, now])
     try:
-        return await analyze_selected.remote.aio(bytes(body))
+        log_stage("worker_dispatch", "start")
+        payload = await analyze_selected.remote.aio(bytes(body))
+        log_stage("worker_dispatch", "end")
+        return Response(content=payload, media_type="application/json")
     except Exception as error:
         print(f"Music analysis failed: {type(error).__name__}")
         raise HTTPException(502, "The staging worker could not analyze this clip.") from None
