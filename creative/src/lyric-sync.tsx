@@ -97,7 +97,7 @@ export function LyricSync({ audio, clipStartMs, onChange, onInsertWord }: {
 
   return <fieldset className="lyric-review">
     <legend>{IS_ALIGNMENT_STAGING ? 'Lyrics · English staging pilot' : 'Paste lyrics & sync'}</legend>
-    {IS_ALIGNMENT_STAGING && !review && <button type="button" disabled={Boolean(status)} onClick={() => void sync(true)}>Transcribe &amp; sync</button>}
+    {IS_ALIGNMENT_STAGING && <button type="button" disabled={Boolean(status)} onClick={() => void sync(true)}>Transcribe &amp; sync</button>}
     <details key={review ? 'review' : 'entry'} open={!IS_ALIGNMENT_STAGING && !review}>
     <summary>{review ? 'Edit lyrics & re-sync' : 'Paste lyrics for this section'}</summary>
     <label>Lyrics for this section
