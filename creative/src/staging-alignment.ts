@@ -1,6 +1,6 @@
 import { DURATION_MS, type LyricCue } from './composition';
 
-export const IS_ALIGNMENT_STAGING = location.hostname === 'mumoo-staging.netlify.app';
+export const IS_ALIGNMENT_STAGING = location.hostname === 'mumoo-staging.netlify.app' || (import.meta.env.DEV && location.hostname === '127.0.0.1');
 
 export function encodePcmWav(samples: Float32Array, rate: number) {
   const bytes = new Uint8Array(44 + samples.length * 2);

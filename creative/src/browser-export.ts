@@ -2,7 +2,7 @@ import { AudioBufferSource, BufferTarget, CanvasSource, EncodedAudioPacketSource
 import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, lyricText, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
 
-export async function renderMp4(composition: Composition, audio: AudioBuffer, progress: (frame: number) => void) {
+export async function renderMp4(composition: Composition, audio: AudioBuffer, progress: (frame: number) => void, renderFrame: (canvas: HTMLCanvasElement, frame: number) => void | Promise<void> = (canvas, frame) => draw(canvas, composition, frame)) {
   validate(composition, audio.duration * 1000);
   const videoConfig = { codec: 'avc', bitrate: 5_000_000 } as const;
   const audioConfig = { codec: 'aac', bitrate: 192_000 } as const;
@@ -57,7 +57,7 @@ export async function renderMp4(composition: Composition, audio: AudioBuffer, pr
     })();
     const videoTask = (async () => {
       for (let frame = 0; frame < FRAMES; frame++) {
-        draw(canvas, composition, frame);
+        await renderFrame(canvas, frame);
         await video.add(frame / FPS, 1 / FPS);
         progress(frame + 1);
         if (frame % 12 === 0) await new Promise(resolve => setTimeout(resolve, 0));

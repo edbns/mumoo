@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { readWavMetadata, type SourceMetadata } from './source-metadata';
 import { decodeWav, hashWav } from './audio';
 import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { VISUAL_CATALOG } from './visual-catalog';
-import { orbitPlan, horizonPlan } from './assembly';
+import { orbitPlan, horizonPlan, timelineFor } from './assembly';
 import { draw, loadFont } from './render';
 import { MusicDiagnostics } from './music-diagnostics';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
@@ -13,6 +13,7 @@ import { LyricSync } from './lyric-sync';
 import { LyricReview } from './lyric-review';
 import { Waveform } from './waveform';
 import './style.css';
+const PixiPreview = lazy(() => import('./pixi-proof/Preview').then(module => ({ default: module.PixiPreview })));
 
 const INITIAL: Extract<Composition, { version: 2 }> = {
   version: 2, template: 'scribble', sourceSha256: '', clipStartMs: 0, cues: [],
@@ -48,6 +49,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
   const [horizonVariation, setHorizonVariation] = useState<0 | 1>(0);
+  const [proofMode, setProofMode] = useState(false);
   const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
   const currentClip = useRef<ClipIdentity | null>(null);
   const selectedGenre = GENRES.find(item => item.toLowerCase() === genre.trim().toLowerCase());
@@ -72,6 +74,7 @@ function App() {
   const clipValid = Boolean(buffer && Number.isSafeInteger(composition.clipStartMs) &&
     composition.clipStartMs >= 0 && composition.clipStartMs <= buffer.duration * 1000 - DURATION_MS);
   const clip: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: DURATION_MS };
+  const proofTimeline = useMemo(() => timelineFor({ sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: DURATION_MS }, analysisForClip(musicAnalysis, { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: DURATION_MS })), [composition.sourceSha256, composition.clipStartMs, musicAnalysis]);
   const activeComposition = {
     ...composition,
     cues: videoType === 'visual' ? [] : composition.cues,
@@ -223,10 +226,10 @@ function App() {
   }, [text]);
 
   useEffect(() => {
-    if (canvas.current && fontText === text) {
+    if (!proofMode && canvas.current && fontText === text) {
       draw(canvas.current, activeComposition, playheadFrame(position));
     }
-  }, [composition, videoType, editingVisual, fontText, position, musicAnalysis, horizonVariation]);
+  }, [composition, videoType, editingVisual, fontText, position, musicAnalysis, horizonVariation, proofMode]);
 
   async function exportVideo() {
     if (!buffer || !valid || exporting.current) return;
@@ -234,13 +237,21 @@ function App() {
     stop();
     setExportError('');
     setExportFrame(0);
+    let proofScene: Awaited<ReturnType<typeof import('./pixi-proof/scene').createEditorialScene>> | undefined;
     try {
       const { renderMp4 } = await import('./browser-export');
-      const video = await renderMp4(activeComposition, buffer, setExportFrame);
+      const video = await renderMp4(activeComposition, buffer, setExportFrame, proofMode ? async (target, frame) => {
+        if (!proofScene) {
+          const { createEditorialScene } = await import('./pixi-proof/scene');
+          proofScene = await createEditorialScene(target, proofTimeline, horizonVariation, true, activeComposition);
+        }
+        await proofScene.render(frame);
+      } : undefined);
       download(video, 'mumoo.mp4');
     } catch (cause) {
       setExportError(cause instanceof Error ? cause.message : 'MP4 export failed.');
     } finally {
+      proofScene?.destroy();
       exporting.current = false;
       setExportFrame(undefined);
     }
@@ -408,6 +419,7 @@ function App() {
         <p className="intro">{videoType === 'visual' ? 'Choose a visual style for your music.' : 'Choose how your approved lyrics move.'}</p>
         <p className="hint">Genre · {profile?.creator.primaryGenre.value}{profile?.creator.influence && ` · ${profile.creator.influence.value}`}</p>
         <button className="back-to-trim" onClick={() => openStage(false)}>Edit music and lyrics</button>
+        {IS_ALIGNMENT_STAGING && <button disabled={exportFrame !== undefined} onClick={() => { stop(); setProofMode(value => !value); }}>{proofMode ? 'Return to existing visual' : 'Try Pixi visual proof'}</button>}
         <fieldset className="preset-picker" disabled={exportFrame !== undefined}>
           <legend>Motion preset</legend>
           {VISUAL_CATALOG.map(preset => <label className="preset" key={preset.id}>
@@ -442,7 +454,7 @@ function App() {
       </section>
       <section className="preview" aria-label="Preview">
         <div className="preview-heading"><strong>Preview</strong><span>9:16 · 15 seconds</span></div>
-        <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Visual composition" />
+        {proofMode && IS_ALIGNMENT_STAGING ? fontText === text ? <Suspense fallback={<p>Loading visual…</p>}><PixiPreview position={position} timeline={proofTimeline} composition={activeComposition} seed={horizonVariation} /></Suspense> : <p>Loading visual…</p> : <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Visual composition" />}
         <div className="transport">
           <button disabled={!valid || fontText !== text} onClick={() => playing ? stop() : void play()}>{playing ? 'Pause' : 'Play'}</button>
           <input aria-label="Seek within clip" type="range" min="0" max={DURATION_MS} step="1" value={Math.floor(position)} disabled={!valid} onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} />
