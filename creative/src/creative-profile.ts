@@ -72,6 +72,10 @@ export function analysisForClip(state: MusicAnalysisState, clip: ClipIdentity): 
   return state.status === 'unavailable' || sameClip(state.clip, clip) ? state : NO_ANALYSIS;
 }
 
+export function acceptsAnalysis(current: ClipIdentity | null, state: MusicAnalysisState): boolean {
+  return state.status !== 'unavailable' && sameClip(current, state.clip);
+}
+
 export interface CreativeProfileV1 {
   version: 1;
   clip: ClipIdentity;

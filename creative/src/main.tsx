@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { readWavMetadata, type SourceMetadata } from './source-metadata';
 import { decodeWav, hashWav } from './audio';
 import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
-import { NO_ANALYSIS, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
+import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { VISUAL_CATALOG } from './visual-catalog';
 import { draw, loadFont } from './render';
 import { MusicDiagnostics } from './music-diagnostics';
@@ -444,7 +444,7 @@ function App() {
       <section><MusicDiagnostics key={composition.sourceSha256 + ':' + composition.clipStartMs}
         audio={buffer} clip={clip} analysis={profile?.musicAnalysis ?? analysisForClip(musicAnalysis, clip)}
         onChange={state => {
-          if (state.status === 'unavailable' || sameClip(currentClip.current, state.clip)) setMusicAnalysis(state);
+          if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state);
         }} /></section>
     </div>}
     <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>
