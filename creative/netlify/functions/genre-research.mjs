@@ -10,8 +10,10 @@ export default async function genreResearch(request) {
   if (request.method !== 'POST' || request.headers.get('origin') !== origin) return fail(403, 'Open the staging research page.');
   const code = request.headers.get('x-mumoo-genre-access') ?? '';
   if (!/^\d{10}\.[a-f0-9]{64}$/.test(code)) return fail(401, 'Enter a valid tester code.');
+  const comparison = request.headers.get('x-mumoo-genre-comparison') === '1';
+  const limit = comparison ? size + 1440044 : size;
   try {
-    if (Number(request.headers.get('content-length')) > size) return fail(413, 'Audio clip is too large.');
+    if (Number(request.headers.get('content-length')) > limit) return fail(413, 'Audio clip is too large.');
     const reader = request.body?.getReader();
     if (!reader) return fail(400, 'Audio is required.');
     const chunks = [];
@@ -20,17 +22,18 @@ export default async function genreResearch(request) {
       const { value, done } = await reader.read();
       if (done) break;
       total += value.length;
-      if (total > size) { await reader.cancel(); return fail(413, 'Audio clip is too large.'); }
+      if (total > limit) { await reader.cancel(); return fail(413, 'Audio clip is too large.'); }
       chunks.push(value);
     }
-    if (total !== size) return fail(400, 'Expected exactly 15 seconds of audio.');
+    if (total !== limit) return fail(400, 'Expected exactly 15 seconds of audio.');
     const body = new Uint8Array(total);
     let offset = 0;
     for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.length; }
     const response = await fetch(endpoint, {
       method: 'POST', body, signal: AbortSignal.timeout(54000), redirect: 'error',
       headers: { 'Content-Type': 'audio/wav', 'X-Mumoo-Genre-Access': code,
-        'X-Mumoo-Genre-Diagnostic': request.headers.get('x-mumoo-genre-diagnostic') === '1' ? '1' : '0' },
+        'X-Mumoo-Genre-Diagnostic': request.headers.get('x-mumoo-genre-diagnostic') === '1' ? '1' : '0',
+        'X-Mumoo-Genre-Comparison': comparison ? '1' : '0' },
     });
     const result = await response.json().catch(() => null);
     if (response.ok && result) return Response.json(result, { headers });

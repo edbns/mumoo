@@ -22,6 +22,8 @@ image = (modal.Image.debian_slim(python_version="3.11")
 gateway_image = modal.Image.debian_slim(python_version="3.11").pip_install("fastapi==0.115.12")
 rate = modal.Dict.from_name("mumoo-genre-research-rate", create_if_missing=True)
 SIZE = 480044
+NATIVE_SIZE = 1440044
+NATIVE_HEADER = struct.pack("<4sI4s4sIHHIIHH4sI", b"RIFF", NATIVE_SIZE-8, b"WAVE", b"fmt ", 16, 1, 1, 48000, 96000, 2, 16, b"data", NATIVE_SIZE-44)
 HEADER = struct.pack("<4sI4s4sIHHIIHH4sI", b"RIFF", SIZE-8, b"WAVE", b"fmt ", 16, 1, 1, 16000, 32000, 2, 16, b"data", SIZE-44)
 PROMPTS = {
  "Broad genres": ["house", "techno", "Brazilian funk", "reggaeton", "amapiano", "hip hop", "pop", "rock", "classical", "jazz"],
@@ -38,7 +40,7 @@ PREPROCESSING={"inputSampleRateHz":16000,"channels":1,"encoding":"pcm_s16le",
 model = processor = text_features = None
 
 @app.function(image=image, cpu=(1,1), memory=(4096,4096), timeout=40, max_containers=1, min_containers=0, scaledown_window=8)
-def analyze(audio: bytes, diagnostics: bool = False):
+def analyze(audio: bytes, diagnostics: bool = False, native: bool = False):
     global model, processor, text_features
     import numpy as np
     import torch
@@ -49,13 +51,16 @@ def analyze(audio: bytes, diagnostics: bool = False):
     cold=model is None
     load_seconds=0
     samples=np.frombuffer(audio, dtype="<i2", offset=44).astype(np.float32)/32768
+    preprocessing = dict(PREPROCESSING)
+    if native:
+        preprocessing.update(inputSampleRateHz=48000, resampling="browser directly from original source to 48000 Hz")
     level={"rms":round(float(np.sqrt(np.mean(samples.astype(np.float64)**2))),8),
            "peak":round(float(np.max(np.abs(samples))),8)}
     if level["rms"] < 0.001:
         return {"version":1,"promptsVersion":"1","status":"unavailable","reason":"insufficient_audio",
                 "groups":{},"metrics":{"cold":cold,"processingSeconds":round(time.monotonic()-started,3)},
                 "diagnostics":{"audioLevel":level,"silenceThresholdRms":0.001,"model":MODEL_INFO,
-                               "preprocessing":PREPROCESSING,"normalizedAudioEmbeddings":[]} if diagnostics else None}
+                               "preprocessing":preprocessing,"normalizedAudioEmbeddings":[]} if diagnostics else None}
     if cold:
         t=time.monotonic()
         with open("/model/pytorch_model.bin","rb") as f:
@@ -69,7 +74,12 @@ def analyze(audio: bytes, diagnostics: bool = False):
             text_features=model.get_text_features(**processor(text=descriptions,padding=True,return_tensors="pt"))
             text_features=text_features / text_features.norm(dim=-1,keepdim=True)
         load_seconds=time.monotonic()-t
-    samples=resample_poly(samples,3,1).astype(np.float32)
+    if not native:
+        samples=resample_poly(samples,3,1).astype(np.float32)
+    spectrum=np.abs(np.fft.rfft(samples.astype(np.float64)))**2
+    total_power=float(spectrum.sum())
+    high_power=float(spectrum[120001:].sum())
+    level["powerAbove8kHzFraction"]=round(high_power/total_power,8) if total_power else 0.0
     all_scores=[]
     window_seconds=[]
     embeddings=[]
@@ -101,7 +111,7 @@ def analyze(audio: bytes, diagnostics: bool = False):
                          "peakRssBytes":resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*1024}}
     if diagnostics:
         response["diagnostics"]={"audioLevel":level,"silenceThresholdRms":0.001,
-                                 "model":MODEL_INFO,"preprocessing":PREPROCESSING,
+                                 "model":MODEL_INFO,"preprocessing":preprocessing,
                                  "normalizedAudioEmbeddings":embeddings}
     print(json.dumps({"event":"genre_research_complete",**response["metrics"]}),flush=True)
     return response
@@ -117,12 +127,14 @@ async def evaluate(request: Request):
     expected=hmac.new(os.environ["MUMOO_MUSIC_SIGNING_KEY"].encode(),f"mumoo-genre-research:{expiry}".encode(),hashlib.sha256).hexdigest()
     if int(expiry)<=time.time() or not hmac.compare_digest(signature,expected):
         raise HTTPException(401,"Tester code is invalid or expired.")
+    comparison=request.headers.get("x-mumoo-genre-comparison")=="1"
+    limit=SIZE+NATIVE_SIZE if comparison else SIZE
     body=bytearray()
     async for chunk in request.stream():
-        if len(body)+len(chunk)>SIZE:
+        if len(body)+len(chunk)>limit:
             raise HTTPException(413,"Audio clip is too large.")
         body.extend(chunk)
-    if len(body)!=SIZE or body[:44]!=HEADER:
+    if len(body)!=limit or body[:44]!=HEADER or (comparison and body[SIZE:SIZE+44]!=NATIVE_HEADER):
         raise HTTPException(400,"Expected exactly 15 seconds of mono PCM audio.")
     now=time.time()
     recent=[t for t in await rate.get.aio("requests",[]) if now-t<86400]
@@ -130,6 +142,10 @@ async def evaluate(request: Request):
         raise HTTPException(429,"Research limit reached. Try again later.")
     await rate.put.aio("requests",[*recent,now])
     try:
+        if comparison:
+            baseline=await analyze.remote.aio(bytes(body[:SIZE]),True)
+            native_result=await analyze.remote.aio(bytes(body[SIZE:]),True,True)
+            return {"version":1,"comparison":{"baseline16k":baseline,"direct48k":native_result}}
         return await analyze.remote.aio(bytes(body), request.headers.get("x-mumoo-genre-diagnostic") == "1")
     except Exception:
         raise HTTPException(502,"Genre analysis could not complete. Try again.") from None
