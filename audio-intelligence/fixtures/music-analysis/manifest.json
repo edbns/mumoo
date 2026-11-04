@@ -1,0 +1,9 @@
+{
+  "license": "CC0-1.0",
+  "provenance": "Original deterministic fixtures synthesized by test_music_analysis.py. Timing reference is the programmed event grid.",
+  "fixtures": [
+    {"id":"instrumental-120","sourceOffsetMs":1000,"bpm":120,"firstBeatMs":250,"beatsPerBar":4},
+    {"id":"half-double-90","sourceOffsetMs":2000,"bpm":90,"firstBeatMs":250,"beatsPerBar":4},
+    {"id":"silence","sourceOffsetMs":0,"bpm":null}
+  ]
+}

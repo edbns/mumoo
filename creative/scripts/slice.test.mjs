@@ -17,8 +17,8 @@ const fixture = {
   lyric: { text: 'ON THE BEAT', startMs: 1017, endMs: 2017 },
 };
 
-function wav(seconds, markers = []) {
-  const samples = seconds * rate;
+function wav(seconds, markers = [], sampleRate = rate) {
+  const samples = seconds * sampleRate;
   const data = Buffer.alloc(44 + 2 * samples);
   data.write('RIFF');
   data.writeUInt32LE(data.length - 8, 4);
@@ -26,18 +26,37 @@ function wav(seconds, markers = []) {
   data.writeUInt32LE(16, 16);
   data.writeUInt16LE(1, 20);
   data.writeUInt16LE(1, 22);
-  data.writeUInt32LE(rate, 24);
-  data.writeUInt32LE(rate * 2, 28);
+  data.writeUInt32LE(sampleRate, 24);
+  data.writeUInt32LE(sampleRate * 2, 28);
   data.writeUInt16LE(2, 32);
   data.writeUInt16LE(16, 34);
   data.write('data', 36);
   data.writeUInt32LE(samples * 2, 40);
   for (const marker of markers) {
-    const first = Math.round(marker * rate);
+    const first = Math.round(marker * sampleRate);
     for (let n = 0; n < 480; n++) {
       data.writeInt16LE(Math.round(28_000 * Math.sin(n * Math.PI / 8)), 44 + (first + n) * 2);
     }
   }
+  return data;
+}
+
+function taggedWav() {
+  const tags = Buffer.concat([Buffer.from('INFO'), ...[
+    ['INAM', 'Fixture title'], ['IART', 'Fixture artist'],
+  ].map(([id, value]) => {
+    const text = Buffer.from(value + '\0');
+    const tag = Buffer.alloc(8 + text.length + text.length % 2);
+    tag.write(id);
+    tag.writeUInt32LE(text.length, 4);
+    text.copy(tag, 8);
+    return tag;
+  })]);
+  const header = Buffer.alloc(8);
+  header.write('LIST');
+  header.writeUInt32LE(tags.length, 4);
+  const data = Buffer.concat([wav(16, [], 44_100), header, tags]);
+  data.writeUInt32LE(data.length - 8, 4);
   return data;
 }
 
@@ -67,7 +86,17 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await page.getByRole('alert').getByText(/valid RIFF WAV/).waitFor();
     await choose(wav(14));
     await page.getByRole('alert').getByText(/at least 15 seconds/).waitFor();
+    await choose(taggedWav());
+    await page.getByText('Source file details', { exact: true }).click();
+    await page.getByText('44100 Hz', { exact: true }).waitFor();
+    await page.getByText('Fixture title', { exact: true }).waitFor();
+    await page.getByText('Fixture artist', { exact: true }).waitFor();
     await choose(sourceBytes);
+    await page.getByText('Source file details', { exact: true }).click();
+    await page.getByText('48000 Hz', { exact: true }).waitFor();
+    await page.getByText('18.000 s', { exact: true }).waitFor();
+    assert.equal(await page.getByText('Title', { exact: true }).count(), 0);
+    assert.equal(await page.getByText('Artist', { exact: true }).count(), 0);
     const next = page.getByRole('button', { name: 'Continue without lyrics' });
     await next.waitFor();
     const clipStart = page.getByLabel('Clip start (ms)');

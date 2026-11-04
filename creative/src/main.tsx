@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { readWavMetadata, type SourceMetadata } from './source-metadata';
 import { decodeWav, hashWav } from './audio';
 import { DURATION_MS, FPS, FRAMES, HEIGHT, PRESETS, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
@@ -29,6 +30,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
   const text = lyricText(composition);
+  const [sourceMetadata, setSourceMetadata] = useState<SourceMetadata>();
   const [buffer, setBuffer] = useState<AudioBuffer>();
   const [missingWord, setMissingWord] = useState('');
   const [inlineCue, setInlineCue] = useState<number>();
@@ -69,6 +71,7 @@ function App() {
     const request = ++upload.current;
     stop();
     setBuffer(undefined);
+    setSourceMetadata(undefined);
     setEditingVisual(false);
     setLoading(Boolean(file));
     setPosition(0);
@@ -77,11 +80,13 @@ function App() {
     try {
       const bytes = await file.arrayBuffer();
       const sourceSha256 = await hashWav(bytes);
+      const metadata = readWavMetadata(bytes);
       const audio = await decodeWav(bytes);
       validate({ ...INITIAL, sourceSha256 }, audio.duration * 1000);
       if (request !== upload.current) return;
       setComposition(current => ({ ...current, sourceSha256, clipStartMs: 0, cues: [] }));
       setBuffer(audio);
+      setSourceMetadata(metadata);
     } catch (cause) {
       if (request === upload.current) setError((cause as Error).message);
     } finally {
@@ -205,6 +210,17 @@ function App() {
         <h1>Choose your 15 seconds</h1>
         <p className="intro">Open a WAV, then drag the highlighted window to the part you want.</p>
         <label>Source WAV<input type="file" accept=".wav,audio/wav,audio/x-wav" onChange={event => void choose(event.target.files?.[0])} /></label>
+        {sourceMetadata && <details className="hint">
+          <summary>Source file details</summary>
+          <dl>
+            {sourceMetadata.title && <><dt>Title</dt><dd>{sourceMetadata.title}</dd></>}
+            {sourceMetadata.artist && <><dt>Artist</dt><dd>{sourceMetadata.artist}</dd></>}
+            {sourceMetadata.codec && <><dt>Codec</dt><dd>{sourceMetadata.codec}</dd></>}
+            {sourceMetadata.sampleRateHz && <><dt>Sample rate</dt><dd>{sourceMetadata.sampleRateHz} Hz</dd></>}
+            {sourceMetadata.channels && <><dt>Channels</dt><dd>{sourceMetadata.channels}</dd></>}
+            {sourceMetadata.durationMs !== undefined && <><dt>Duration</dt><dd>{(sourceMetadata.durationMs / 1000).toFixed(3)} s</dd></>}
+          </dl>
+        </details>}
         {loading && <p role="status">Opening your music…</p>}
         {buffer && <>
           <Waveform audio={buffer} start={composition.clipStartMs} position={position} onSelect={selectClip} />

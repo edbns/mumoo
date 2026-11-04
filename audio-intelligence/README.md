@@ -64,3 +64,44 @@ Four automated tests passed, including sample-exact extraction at a 1,001 ms off
 | Electronically processed mix | 21/23 (91.30%) | 135 / 462 | 58 / 616 | 13.143498 | 2.024711, 2.034199 | 1,156,034,560 |
 
 Errors are absolute and scored over the 21 aligned tokens per run. JamendoLyrics word ends include derived boundaries for some interior words, so interpret end error against that reference convention. Both runs returned partial status. The original mix's 659 ms p90 start error shows why coverage alone is insufficient for approving this pipeline for release.
+
+## Music Analysis v1
+
+The analyzer accepts an **already-selected 15-second file**, a clip offset, and an optional original source SHA-256. It never opens the original full song. ffprobe inspects the received clip and FFmpeg decodes it to 22,050 Hz mono float PCM for analysis. Original WAV metadata is read in the browser before Web Audio resamples the file. RIFF format fields and INFO title/artist tags are read where present. Tags stored in other WAV metadata formats may remain absent. Source details do not feed into playback, export, or the lyric worker.
+
+```sh
+python music_analysis.py selected.wav --offset-ms 10272 --source-sha256 ORIGINAL_SHA256 \
+  --checkpoint /path/to/final0.ckpt --ffmpeg /path/to/ffmpeg --ffprobe /path/to/ffprobe
+python benchmark_music_analysis.py --checkpoint /path/to/final0.ckpt \
+  --ffmpeg /path/to/ffmpeg --ffprobe /path/to/ffprobe
+```
+
+`music-analysis-v1.schema.json` defines the independent result. The local WhisperX CLI can join by original source SHA-256, selection offset, and duration. The hosted WhisperX worker reports the prepared clip's hash and a local offset of zero. A future browser adapter should attach the original selection identity to that response and reject stale results when the selection changes. It can additionally compare prepared clip hashes when both requests used the exact same bytes. Analysis needs no lyric result, including on instrumentals. The current hosted worker and renderer do not import this module.
+
+All event and frame timestamps are integers relative to the selection, in the half-open interval [0, 15000). Beat and downbeat times come directly from Beat This! with default minimal postprocessing. The beat grid estimate uses the median interval, requires at least four intervals, and requires 75% of intervals to be within 12% of the median. Octave alternatives in 45–240 BPM are reported as ambiguous. Ambiguous results expose the detected grid rate and leave the single BPM unset. Silence and too little or inconsistent beat evidence leave BPM unset. The baseline does not resolve metrical level from downbeat or onset evidence.
+
+RMS is linear amplitude relative to digital full scale. Onset strength is positive spectral flux on the dB-scaled mel spectrogram, a relative measure rather than sound pressure. Transients are librosa onset-peak candidates. Centroid, bandwidth, and 85% rolloff are in Hz. Features use centered 1,024-sample windows and 220-sample hops. No surrounding audio is used.
+
+### Verified local CPU dependencies and licenses
+
+The tested overlay is `requirements-music.lock`, hash-pinned to CPython 3.12 Intel macOS wheels. It reuses the installed base runtime (Torch and torchaudio 2.2.2, SciPy 1.16.1, einops 0.8.1 and SoundFile 0.13.1). It is an overlay for this machine, not a portable Linux deploy lock. The overlay passed `pip check`. Before installation, the wheel licenses were inspected. Beat This!, rotary-embedding-torch, narwhals and platformdirs use MIT. librosa uses ISC. NumPy, Numba, llvmlite, audioread, decorator, joblib, lazy-loader, msgpack, pooch, scikit-learn, cloudpickle and threadpoolctl ship permissive MIT or BSD terms and, where applicable, separate bundled notices. The soxr wheel bundles LGPL-2.1-or-later libsoxr. The pre-existing local FFmpeg and ffprobe binaries report GPL-3.0-or-later. A hosted image needs its own dependency and binary review.
+
+[CPJKU](https://github.com/CPJKU/beat_this#license) publishes the Beat This! code and its official weights under MIT and calls out separate restrictions on some training material. The reviewed `final0.ckpt` came from the publisher's [checkpoint server](https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/final0.ckpt), is 81,058,141 bytes, and has SHA-256 `8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331`. The CLI requires a local matching checkpoint and the upstream loader uses weights-only deserialization. No model file is committed.
+
+A native crash was observed when reusing a Numba cache across processes on the Intel environment. The benchmark uses a fresh cache per fixture subprocess. Disabling JIT failed inside librosa and is not a supported workaround. Recheck cold startup, cache behavior, and dependencies on Linux before hosting.
+
+### Local CPU benchmark
+
+Intel macOS, Python 3.12, two Torch CPU threads, three Beat This! inference passes per rhythmic fixture. Each row is a fresh process with a fresh Numba cache. Wall time starts after importing NumPy and includes decode, first feature extraction, model imports and loading, and all three inference passes. The reported CPU seconds add Python and FFmpeg/ffprobe child CPU. Warm columns time only Beat This! inference with its model already loaded. A concurrent validation run can affect wall time.
+
+| Fixture | Detected grid | Beats matched / emitted / reference | Downbeats matched / emitted / reference | Wall (s) | CPU (s) | Peak Python RSS (bytes) | Warm Beat This! runs (s) |
+| --- | ---: | --- | --- | ---: | ---: | ---: | --- |
+| Programmed 120 BPM | 120.00 | 30 / 31 / 30 | 8 / 25 / 8 | 33.957765 | 33.415864 | 578,199,552 | 0.654587, 0.654734 |
+| Programmed 90 BPM | 90.91 | 22 / 24 / 23 | 6 / 19 / 6 | 28.457525 | 30.810715 | 464,613,376 | 1.273701, 1.726060 |
+| Silence | Unavailable | 0 / 0 / 0 | 0 / 0 / 0 | 44.116755 | 35.809456 | 227,332,096 | — |
+
+Event matches use a one-to-one 70 ms tolerance. Median matched beat and downbeat errors were 30 ms for both rhythmic fixtures. Beat precision/recall were 96.77%/100% and 91.67%/95.65%. Downbeat precision was 32.00% and 31.58%, with 100% recall in both. Both grids retained half-/double-time alternatives. Beat This! overpredicted downbeats on these programmed fixtures. These tests establish actual model output on controlled reference grids. They do not establish accuracy on annotated commercial recordings, tempo changes, or uncommon meters.
+
+### Staging proposal
+
+Use a separate one-core, 2 GiB, scale-to-zero CPU function in the existing Modal staging environment, with an independent request cap. Keep the WhisperX worker separate. Browser requests contain only the selected PCM clip and its selection identity. Render original metadata locally and analysis-file properties separately. Test Linux startup and warm full-request latency before enabling the endpoint in the browser. At [Modal list rates](https://modal.com/pricing), mapping the observed 28.46–44.12 s local wall times onto that reservation yields approximately $0.00050–$0.00077 of compute per run before credits, cold-container overhead, and idle retention. No Modal music-analysis runs or charges were measured.
