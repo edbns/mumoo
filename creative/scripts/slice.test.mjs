@@ -74,6 +74,10 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
   try {
     const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
     const page = await browser.newPage();
+    const paidRequests = [];
+    page.on('request', request => {
+      if (/\/\.netlify\/functions\/(align-lyrics|analyze-music)/.test(request.url())) paidRequests.push(request.url());
+    });
     const render = await browser.newPage();
     await page.goto(`http://127.0.0.1:${deployed.httpServer.address().port}`);
     await render.goto(origin + '/export.html');
@@ -97,8 +101,14 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await page.getByText('18.000 s', { exact: true }).waitFor();
     assert.equal(await page.getByText('Title', { exact: true }).count(), 0);
     assert.equal(await page.getByText('Artist', { exact: true }).count(), 0);
-    const next = page.getByRole('button', { name: 'Continue without lyrics' });
-    await next.waitFor();
+    const toClip = page.getByRole('button', { name: 'Continue to clip' });
+    assert.equal(await toClip.isDisabled(), true);
+    await page.getByLabel('Primary genre').fill('Other / custom');
+    assert.equal(await toClip.isDisabled(), true);
+    await page.getByLabel('Custom genre').fill('Experimental house');
+    await page.getByLabel('Secondary genre or influence').fill('Afro House');
+    await toClip.click();
+    const next = page.getByRole('button', { name: 'Continue to video type' });
     const clipStart = page.getByLabel('Clip start (ms)');
     await clipStart.fill('3001');
     assert.equal(await next.isDisabled(), true);
@@ -116,6 +126,10 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await page.getByText('Selected · 2.000–17.000 s').waitFor();
     await page.getByRole('button', { name: 'Audition selection' }).click();
     await page.getByRole('button', { name: 'Pause audition' }).click();
+    await next.click();
+    assert.equal(await page.getByRole('button', { name: 'Continue', exact: true }).isDisabled(), true);
+    await page.getByLabel('Lyric Video').check();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByText('Advanced manual timing', { exact: true }).click();
     const add = page.getByRole('button', { name: 'Add lyric line' });
     await add.click();
@@ -126,7 +140,7 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await page.getByLabel('Line 1 out (ms)').fill('2017');
     await add.click();
     await page.getByLabel('Lyric 2', { exact: true }).fill('SECOND LINE');
-    await page.getByLabel('Seek within selection').fill('4000');
+    await page.getByLabel('Lyric playhead').fill('4000');
     await page.getByRole('group', { name: 'Review lyrics' }).getByRole('button', { name: 'Set in to playhead' }).nth(1).click();
     await page.getByLabel('Line 2 out (ms)').fill('5000');
     await page.getByText('Current lyric: SECOND LINE').waitFor();
@@ -150,6 +164,25 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await page.getByRole('button', { name: 'Add at playhead' }).click();
     await page.getByText('Current lyric: RECOVERED', { exact: true }).waitFor();
     await timing.getByRole('button', { name: 'Remove selected cue' }).click();
+
+    await page.getByRole('button', { name: 'Back to video type' }).click();
+    await page.getByLabel('Visual', { exact: true }).check();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    assert.equal(await page.getByText('Paste lyrics for this section').count(), 0);
+    await page.getByRole('button', { name: 'Continue without lyrics' }).click();
+    await page.getByText('Instrumental · no lyrics').waitFor();
+    assert.deepEqual(paidRequests, []);
+    await page.getByText('Local export fallback').click();
+    const visualDownload = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download composition JSON' }).click();
+    const visualFile = await visualDownload;
+    const visualData = JSON.parse(await (await import('node:fs/promises')).readFile(await visualFile.path(), 'utf8'));
+    assert.deepEqual(visualData.cues, []);
+    await page.getByRole('button', { name: 'Edit music and lyrics' }).click();
+    await page.getByRole('button', { name: 'Back to video type' }).click();
+    await page.getByLabel('Lyric Video').check();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await page.getByText('Current lyric: —').waitFor();
 
     await approve.click();
     await page.getByRole('button', { name: 'Edit music and lyrics' }).click();

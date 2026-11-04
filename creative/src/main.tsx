@@ -24,14 +24,30 @@ function download(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
+const GENRES = [
+  'Amapiano', 'Afro House', 'Brazilian Funk', 'Brazilian Funk Mandelão',
+  'Brazilian Funk Automotivo', 'Classical', 'Country', 'Deep House', 'Electronic',
+  'Funk', 'G-House', 'Hip-Hop', 'House', 'Indie', 'Jazz', 'Latin', 'Latin House',
+  'Melodic Techno', 'Montagem', 'Organic House', 'Pop', 'R&B', 'Reggaeton',
+  'Rock', 'Slap House', 'Soul', 'Techno', 'Tribal House', 'Other / custom',
+];
+
 function App() {
   const [exportFrame, setExportFrame] = useState<number>();
   const [exportError, setExportError] = useState('');
   const exporting = useRef(false);
   const [editingVisual, setEditingVisual] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [genre, setGenre] = useState('');
+  const [customGenre, setCustomGenre] = useState('');
+  const [influence, setInfluence] = useState('');
+  const [videoType, setVideoType] = useState<'lyric' | 'visual' | null>(null);
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
-  const text = lyricText(composition);
+  const activeComposition = videoType === 'visual' ? { ...composition, cues: [] } : composition;
+  const text = lyricText(activeComposition);
+  const selectedGenre = GENRES.find(item => item.toLowerCase() === genre.trim().toLowerCase());
+  const genreValid = Boolean(selectedGenre && (selectedGenre !== 'Other / custom' || customGenre.trim()));
   const [sourceMetadata, setSourceMetadata] = useState<SourceMetadata>();
   const [buffer, setBuffer] = useState<AudioBuffer>();
   const [missingWord, setMissingWord] = useState('');
@@ -54,7 +70,7 @@ function App() {
   const valid = (() => {
     if (!buffer) return false;
     try {
-      validate(composition, buffer.duration * 1000);
+      validate(activeComposition, buffer.duration * 1000);
       return true;
     } catch {
       return false;
@@ -75,6 +91,8 @@ function App() {
     setBuffer(undefined);
     setSourceMetadata(undefined);
     setEditingVisual(false);
+    setStep(1);
+    setVideoType(null);
     setLoading(Boolean(file));
     setPosition(0);
     setError('');
@@ -170,9 +188,9 @@ function App() {
 
   useEffect(() => {
     if (canvas.current && fontText === text) {
-      draw(canvas.current, composition, playheadFrame(position));
+      draw(canvas.current, activeComposition, playheadFrame(position));
     }
-  }, [composition, editingVisual, fontText, position]);
+  }, [composition, videoType, editingVisual, fontText, position]);
 
   async function exportVideo() {
     if (!buffer || !valid || exporting.current) return;
@@ -182,7 +200,7 @@ function App() {
     setExportFrame(0);
     try {
       const { renderMp4 } = await import('./browser-export');
-      const video = await renderMp4(composition, buffer, setExportFrame);
+      const video = await renderMp4(activeComposition, buffer, setExportFrame);
       download(video, 'mumoo.mp4');
     } catch (cause) {
       setExportError(cause instanceof Error ? cause.message : 'MP4 export failed.');
@@ -208,9 +226,9 @@ function App() {
     <header className="masthead"><img src="/brand/mumoo-logo.png" alt="mumoo" width="144" height="36" /><span>Creative Studio</span></header>
     {!editingVisual ? <main className="desktop trim">
       <section>
-        <p className="eyebrow">01 / MUSIC</p>
-        <h1>Choose your 15 seconds</h1>
-        <p className="intro">Open a WAV, then drag the highlighted window to the part you want.</p>
+        <p className="eyebrow">0{step} / {step === 1 ? 'MUSIC' : step === 2 ? 'YOUR CLIP' : step === 3 ? 'VIDEO TYPE' : 'PREPARE'}</p>
+        <h1>{step === 1 ? 'Upload your song' : step === 2 ? 'Choose your 15 seconds' : step === 3 ? 'Choose your video type' : videoType === 'lyric' ? 'Sync your lyrics' : 'Prepare your visual'}</h1>
+        {step === 1 && <><p className="intro">Upload a WAV and tell us its genre.</p>
         <label>Source WAV<input type="file" accept=".wav,audio/wav,audio/x-wav" onChange={event => void choose(event.target.files?.[0])} /></label>
         {sourceMetadata && <details className="hint">
           <summary>Source file details</summary>
@@ -224,7 +242,18 @@ function App() {
           </dl>
         </details>}
         {loading && <p role="status">Opening your music…</p>}
+        <label>Primary genre
+          <input list="genre-options" value={genre} onChange={event => setGenre(event.target.value)} placeholder="Search genres" />
+        </label>
+        <datalist id="genre-options">{GENRES.map(item => <option key={item} value={item} />)}</datalist>
+        {selectedGenre === 'Other / custom' && <label>Custom genre<input maxLength={100} value={customGenre}
+          onChange={event => setCustomGenre(event.target.value)} placeholder="Enter your genre" /></label>}
+        <label>Secondary genre or influence <span className="hint">(optional)</span>
+          <input maxLength={100} value={influence} onChange={event => setInfluence(event.target.value)} placeholder="Add an influence" />
+        </label>
+        <button disabled={!buffer || !genreValid || loading} onClick={() => setStep(2)}>Continue to clip</button></>}
         {buffer && <>
+          <div hidden={step !== 2}>
           <Waveform audio={buffer} start={composition.clipStartMs} position={position} onSelect={selectClip} />
           <label className="clip-number">Clip start (ms)<input type="number" min="0" max={Math.floor(buffer.duration * 1000 - DURATION_MS)} step="1"
             value={Number.isNaN(composition.clipStartMs) ? '' : composition.clipStartMs}
@@ -238,9 +267,24 @@ function App() {
               disabled={!clipValid} onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} />
           </label>
           <p>Playhead · {(position / 1000).toFixed(2)} s</p>
-          <p className="lyric-monitor">Current lyric: {evaluate(composition, playheadFrame(position)).text || '—'}</p>
-          {clipValid && IS_ALIGNMENT_STAGING && <MusicDiagnostics key={composition.sourceSha256 + ':' + composition.clipStartMs}
-            audio={buffer} clipStartMs={composition.clipStartMs} />}
+          <div className="trim-actions"><button onClick={() => { stop(); setStep(1); }}>Back to song</button>
+            <button disabled={!clipValid || !genreValid} onClick={() => { stop(); setStep(3); }}>Continue to video type</button></div>
+          </div>
+          {step === 3 && <><p className="intro">Choose whether your video includes lyrics.</p>
+            <fieldset className="video-type-picker"><legend>Video type</legend>
+              <label><input type="radio" name="video-type" checked={videoType === 'lyric'} onChange={() => setVideoType('lyric')} /> Lyric Video</label>
+              <label><input type="radio" name="video-type" checked={videoType === 'visual'} onChange={() => setVideoType('visual')} /> Visual</label>
+            </fieldset>
+            <div className="trim-actions"><button onClick={() => setStep(2)}>Back to clip</button>
+              <button disabled={!videoType || !clipValid || !genreValid} onClick={() => setStep(4)}>Continue</button></div>
+          </>}
+          <div hidden={step !== 4}>
+          {step === 4 && <><button onClick={() => { stop(); setStep(3); }}>Back to video type</button>
+          {videoType === 'lyric' && <p className="lyric-monitor">Current lyric: {evaluate(composition, playheadFrame(position)).text || '—'}</p>}</>}
+          {step === 4 && videoType === 'lyric' && <><label>Lyric playhead
+            <input type="range" min={0} max={DURATION_MS} step={1} value={Math.floor(position)}
+              onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} /></label>
+          <button onClick={() => playing ? stop() : void play()}>{playing ? 'Pause audition' : 'Audition selection'}</button>
           {clipValid && <LyricSync key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs}
             onChange={cues => setComposition(current => ({ ...current, cues }))} onInsertWord={insertWord} />}
           {composition.cues.length > 0 && <section className="timing-review" aria-label="Review lyric timing">
@@ -312,8 +356,11 @@ function App() {
               onChange={cues => setComposition(current => ({ ...current, cues }))} />
           </details>
           {clipValid && !valid && <p role="alert">Fill in each lyric and use non-overlapping times in order within the 15-second clip.</p>}
-          <div className="trim-actions">
-            <button disabled={!valid} onClick={() => openStage(true)}>{composition.cues.length ? 'Approve lyrics and choose visual' : 'Continue without lyrics'}</button>
+          </>}
+          {step === 4 && <div className="trim-actions">
+            <button disabled={!valid || (videoType === 'lyric' && composition.cues.length === 0)}
+              onClick={() => openStage(true)}>{videoType === 'lyric' ? 'Approve lyrics and choose visual' : 'Continue without lyrics'}</button>
+          </div>}
           </div>
         </>}
         {(error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
@@ -323,6 +370,7 @@ function App() {
         <p className="eyebrow">02 / PLAIN COLORS</p>
         <h1>Make a music visual</h1>
         <p className="intro">Choose how your approved lyrics move.</p>
+        <p className="hint">Genre · {selectedGenre === 'Other / custom' ? customGenre.trim() : selectedGenre}{influence.trim() && ` · ${influence.trim()}`}</p>
         <button className="back-to-trim" onClick={() => openStage(false)}>Edit music and lyrics</button>
         <fieldset className="preset-picker" disabled={exportFrame !== undefined}>
           <legend>Motion preset</legend>
@@ -334,7 +382,7 @@ function App() {
             <small>{preset.description}</small>
           </label>)}
         </fieldset>
-        <p className="hint">{composition.cues.length ? `${composition.cues.length} approved lyric cues` : 'Instrumental · no lyrics'}</p>
+        <p className="hint">{activeComposition.cues.length ? `${activeComposition.cues.length} approved lyric cues` : 'Instrumental · no lyrics'}</p>
         {(error || fontError || (buffer && !valid)) && <p role="alert">{error || fontError || 'Check the 15-second clip range and lyric timing.'}</p>}
         <p className="hint" role="status">{buffer && valid
           ? `Clip ready · ${(composition.clipStartMs / 1000).toFixed(3)}–${((composition.clipStartMs + DURATION_MS) / 1000).toFixed(3)} s`
@@ -345,7 +393,7 @@ function App() {
         <details className="hint">
           <summary>Local export fallback</summary>
           <button disabled={!valid} onClick={() => download(
-            new Blob([JSON.stringify(composition, null, 2)], { type: 'application/json' }),
+            new Blob([JSON.stringify(activeComposition, null, 2)], { type: 'application/json' }),
             'composition.json',
           )}>Download composition JSON</button>
           <p>The fallback downloads your edit settings as <code>composition.json</code>. To render the video, run this command from the local <code>creative</code> directory with the original WAV:</p>
@@ -362,6 +410,10 @@ function App() {
         </div>
       </section>
     </main>}
+    {buffer && clipValid && IS_ALIGNMENT_STAGING && <div className="desktop music-analysis" style={{ display: !editingVisual && step === 4 ? undefined : 'none' }}>
+      <section><MusicDiagnostics key={composition.sourceSha256 + ':' + composition.clipStartMs}
+        audio={buffer} clipStartMs={composition.clipStartMs} /></section>
+    </div>}
     <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>
   </>;
 }

@@ -40,7 +40,9 @@ A catalog of rights-approved ready-made compositions records stable IDs, video-t
 
 Staging currently has local WAV upload, waveform-based 15-second selection, browser WAV metadata, supplied-lyrics WhisperX alignment and review, instrumental continuation, Music Analysis v1 diagnostics, three Plain Colors presets, and browser MP4 export. Composition versions 1 and 2 exist. The current editor still exposes testing controls and does not implement the proposed journey.
 
-Still needed: genre catalog and required selector, optional metadata and influences, explicit video-type step, path-specific orchestration, Creative Profile contract and persistence strategy, approved lyric-theme method, rights-approved composition catalog, explainable recommendations, full eligible browsing and uploaded visual media in the new journey. No automatic transcription or genre model is required.
+Milestone 1 adds a required searchable genre selector with custom entry, an optional influence, and an explicit video-type step in the existing staging editor. These choices live in browser session state. Visual keeps the existing lyric cues available for switching back, but uses a lyric-free composition for its own preview and export. Existing source metadata and manually requested Music Analysis v1 remain available.
+
+Still needed: a versioned genre catalog and Creative Profile persistence strategy, optional Spotify link and manual artist/title fields, approved lyric-theme method, rights-approved composition catalog, explainable recommendations, full eligible browsing and uploaded visual media in the new journey. No automatic transcription or genre model is required.
 
 ## Proposed implementation sequence
 
