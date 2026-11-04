@@ -369,7 +369,7 @@ function App() {
       <section>
         <p className="eyebrow">02 / PLAIN COLORS</p>
         <h1>Make a music visual</h1>
-        <p className="intro">Choose how your approved lyrics move.</p>
+        <p className="intro">{videoType === 'visual' ? 'Choose a visual style for your music.' : 'Choose how your approved lyrics move.'}</p>
         <p className="hint">Genre · {selectedGenre === 'Other / custom' ? customGenre.trim() : selectedGenre}{influence.trim() && ` · ${influence.trim()}`}</p>
         <button className="back-to-trim" onClick={() => openStage(false)}>Edit music and lyrics</button>
         <fieldset className="preset-picker" disabled={exportFrame !== undefined}>
