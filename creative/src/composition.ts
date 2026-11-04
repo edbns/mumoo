@@ -1,3 +1,4 @@
+import type { AssemblyPlan } from './assembly';
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
 export const FPS = 30;
@@ -8,6 +9,8 @@ export const PRESETS = [
   { id: 'scribble', name: 'Scribble', description: 'Hand-drawn underline' },
   { id: 'elastic', name: 'Elastic', description: 'Stretch and rebound' },
   { id: 'glitch', name: 'Glitch', description: 'Split-color jitter' },
+  { id: 'orbit', name: 'Orbit', description: 'Music-responsive original motion' },
+  { id: 'horizon', name: 'Horizon', description: 'Two original image scenes with a beat-responsive overlay' },
 ] as const;
 
 export interface LyricCue { text: string; startMs: number; endMs: number }
@@ -16,6 +19,7 @@ interface CompositionBase {
   template: typeof PRESETS[number]['id'];
   sourceSha256: string;
   clipStartMs: number;
+  assembly?: AssemblyPlan;
 }
 
 export type Composition = CompositionBase & (
@@ -48,6 +52,8 @@ export function validate(value: unknown, sourceDurationMs: number): asserts valu
   if (!isTime(clipStartMs) || clipStartMs > sourceDurationMs - DURATION_MS) {
     throw new Error('Select a 15-second range inside the song using whole milliseconds.');
   }
+  if (candidate.assembly && (candidate.assembly.version !== 1 || candidate.assembly.clip.sourceSha256 !== sourceSha256 || candidate.assembly.clip.offsetMs !== clipStartMs || candidate.assembly.clip.durationMs !== DURATION_MS || (candidate.assembly.timeline && (candidate.assembly.timeline.clip.sourceSha256 !== sourceSha256 || candidate.assembly.timeline.clip.offsetMs !== clipStartMs || candidate.assembly.timeline.clip.durationMs !== DURATION_MS)))) throw new Error('Assembly does not match the selected clip.');
+  if (candidate.assembly && (candidate.assembly.engineVersion !== 1 || !Number.isSafeInteger(candidate.assembly.variationSeed) || candidate.assembly.variationSeed < 0 || candidate.assembly.variationSeed > 0xffffffff)) throw new Error('Unsupported assembly variation.');
   const cues = lyricsFor(candidate);
   if (!Array.isArray(cues) || cues.length > 120) throw new Error('Use up to 120 lyric cues.');
   let previousEnd = 0;

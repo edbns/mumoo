@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -244,6 +244,88 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await server.close();
     await new Promise((resolve, reject) => deployed.httpServer.close(error => error ? reject(error) : resolve()));
   }
+});
+
+test('Orbit exports actual animated frames and selected audio', { timeout: 180_000 }, async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'mumoo-orbit-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const composition = join(directory, 'composition.json');
+  const source = join(directory, 'source.wav');
+  const output = join(directory, 'orbit.mp4');
+  const clip = { sourceSha256: fixture.sourceSha256, offsetMs: 2000, durationMs: 15000 };
+  const assembly = { version: 1, engineVersion: 1, variationSeed: 0, id: 'orbit-v1', compositionId: 'orbit', clip, durationMs: 15000, assets: [], provenance: 'MUMOO original procedural graphics', layers: [], timeline: { version: 1, clip, beatsMs: [1000, 1500, 2000], onsetsMs: [1000], energy: [{ timeMs: 0, rms: 0.3, centroidHz: 1000 }], tempo: { status: 'estimated', bpm: 120, alternativesBpm: [60] } } };
+  assembly.layers.push({ id: 'orbit', kind: 'procedural', effect: 'orbit', startMs: 0, endMs: 15000, opacity: 1 });
+  await writeFile(composition, JSON.stringify({ ...approved, template: 'orbit', assembly }));
+  await writeFile(source, sourceBytes);
+  const result = await exportMp4(composition, source, output);
+  const probe = JSON.parse(execFileSync(ffprobe.path, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', output]));
+  assert.deepEqual([probe.streams[0].codec_name, probe.streams[0].width, probe.streams[0].height, probe.streams[0].nb_frames, probe.streams[1].codec_name, probe.format.duration], ['h264', 1080, 1920, '450', 'aac', '15.000000']);
+  const frames = execFileSync(ffmpeg.path, ['-v', 'error', '-i', output, '-vf', "select='eq(n,0)+eq(n,30)',scale=54:96", '-vsync', '0', '-pix_fmt', 'gray', '-f', 'rawvideo', '-']);
+  assert.notDeepEqual(frames.subarray(0, 54 * 96), frames.subarray(54 * 96));
+  t.diagnostic(JSON.stringify({ seconds: result.seconds, bytes: Number(probe.format.size) }));
+});
+
+test('Horizon image assembly exports a visible scene transition', { timeout: 180_000 }, async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'mumoo-horizon-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const composition = join(directory, 'composition.json');
+  const source = join(directory, 'source.wav');
+  const output = join(directory, 'horizon.mp4');
+  const clip = { sourceSha256: fixture.sourceSha256, offsetMs: 2000, durationMs: 15000 };
+  const assembly = { version: 1, engineVersion: 1, variationSeed: 1, id: 'horizon-v1', compositionId: 'horizon', clip, durationMs: 15000, assets: ['horizon-a', 'horizon-b'], provenance: 'MUMOO original procedural graphics', layers: [
+    { id: 'first', kind: 'image', asset: 'horizon-a', startMs: 0, endMs: 8200, opacity: 1, fadeOutMs: 1400 },
+    { id: 'second', kind: 'image', asset: 'horizon-b', startMs: 6800, endMs: 15000, opacity: 1, fadeInMs: 1400 },
+    { id: 'overlay', kind: 'procedural', effect: 'orbit', startMs: 0, endMs: 15000, opacity: 0.7 },
+    { id: 'lyrics', kind: 'lyrics', startMs: 0, endMs: 15000, opacity: 1 },
+  ], timeline: null };
+  await writeFile(composition, JSON.stringify({ ...approved, template: 'horizon', assembly }));
+  await writeFile(source, sourceBytes);
+  const result = await exportMp4(composition, source, output);
+  const probe = JSON.parse(execFileSync(ffprobe.path, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', output]));
+  assert.deepEqual([probe.streams[0].codec_name, probe.streams[0].width, probe.streams[0].height, probe.streams[0].nb_frames, probe.streams[1].codec_name, probe.format.duration], ['h264', 1080, 1920, '450', 'aac', '15.000000']);
+  const frames = execFileSync(ffmpeg.path, ['-v', 'error', '-i', output, '-vf', "select='eq(n,180)+eq(n,225)+eq(n,270)',scale=54:96", '-vsync', '0', '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-']);
+  const size = 54 * 96 * 3; assert.equal(frames.length, size * 3);
+  assert.notDeepEqual(frames.subarray(0, size), frames.subarray(size, size * 2));
+  assert.notDeepEqual(frames.subarray(size, size * 2), frames.subarray(size * 2));
+  const pcm = execFileSync(ffmpeg.path, ['-v', 'error', '-i', output, '-vn', '-ac', '1', '-ar', String(rate), '-f', 's16le', '-'], { maxBuffer: 2_000_000 });
+  const markers = [];
+  for (let offset = 0; offset < pcm.length; offset += 2) {
+    if (Math.abs(pcm.readInt16LE(offset)) < 9000) continue;
+    const time = offset / 2 / rate;
+    if (!markers.length || time - markers.at(-1) > 0.1) markers.push(time);
+  }
+  assert.equal(markers.length, 3);
+  [1.017, 2.017, 14.9].forEach((expected, index) => assert.ok(Math.abs(markers[index] - expected) < 0.005));
+  const second = join(directory, 'horizon-b.mp4');
+  const repeat = join(directory, 'horizon-repeat.mp4');
+  await writeFile(composition, JSON.stringify({ ...approved, template: 'horizon', assembly: { ...assembly, variationSeed: 0 } }));
+  await exportMp4(composition, source, second);
+  await writeFile(composition, JSON.stringify({ ...approved, template: 'horizon', assembly }));
+  await exportMp4(composition, source, repeat);
+  const sample = path => execFileSync(ffmpeg.path, ['-v', 'error', '-i', path, '-vf', "select='eq(n,90)+eq(n,225)+eq(n,360)',scale=54:96", '-vsync', '0', '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-']);
+  const firstFrames = sample(output);
+  assert.notDeepEqual(firstFrames, sample(second), 'different seeds must change rendered frames');
+  assert.deepEqual(firstFrames, sample(repeat), 'the same seed must reproduce encoded frames');
+  const parityServer = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
+  await parityServer.listen();
+  const parityBrowser = await chromium.launch();
+  try {
+    const page = await parityBrowser.newPage();
+    await page.goto(`http://127.0.0.1:${parityServer.httpServer.address().port}/export.html`);
+    await page.waitForFunction(() => Boolean(window.mumoo));
+    await page.evaluate(value => window.mumoo.prepare(value, 18000), { ...approved, template: 'horizon', assembly });
+    const rawFrames = [];
+    for (const index of [90, 225, 360]) {
+      const png = Buffer.from(await page.evaluate(frame => window.mumoo.frame(frame), index), 'base64');
+      rawFrames.push(execFileSync(ffmpeg.path, ['-v', 'error', '-i', 'pipe:0', '-vf', 'scale=54:96', '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-'], { input: png }));
+    }
+    const raw = Buffer.concat(rawFrames);
+    const meanError = raw.reduce((sum, value, index) => sum + Math.abs(value - firstFrames[index]), 0) / raw.length;
+    assert.ok(meanError < 12, `preview/export mean pixel error ${meanError}`);
+    t.diagnostic(`Preview/export mean absolute RGB error: ${meanError.toFixed(2)} / 255`);
+  } finally { await parityBrowser.close(); await parityServer.close(); }
+  if (process.env.MUMOO_HORIZON_SAMPLE) await copyFile(output, process.env.MUMOO_HORIZON_SAMPLE);
+  t.diagnostic(JSON.stringify({ seconds: result.seconds, bytes: Number(probe.format.size) }));
 });
 
 test('real MP4 preserves the selected source segment and cue synchronization', { timeout: 180_000 }, async t => {

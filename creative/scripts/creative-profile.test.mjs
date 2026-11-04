@@ -20,7 +20,7 @@ test('clip identity isolates shared analysis and catalog preserves legacy compos
     assert.equal(acceptsAnalysis(null, ready), false);
     assert.deepEqual(VISUAL_CATALOG.map(entry => entry.renderer.template), PRESETS.map(entry => entry.id));
     assert.ok(VISUAL_CATALOG.every(entry => entry.version === 1 && entry.videoTypes.includes('lyric')));
-    assert.ok(VISUAL_CATALOG.every(entry => !entry.videoTypes.includes('visual')));
+    assert.deepEqual(VISUAL_CATALOG.filter(entry => entry.videoTypes.includes('visual')).map(entry => entry.id), ['orbit', 'horizon']);
     const base = { template: 'scribble', sourceSha256: clip.sourceSha256, clipStartMs: clip.offsetMs };
     assert.doesNotThrow(() => validate({ ...base, version: 1, lyric: { text: 'hello', startMs: 0, endMs: 1000 } }, 18000));
     assert.doesNotThrow(() => validate({ ...base, version: 2, cues: [] }, 18000));

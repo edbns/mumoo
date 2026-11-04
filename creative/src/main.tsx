@@ -5,6 +5,7 @@ import { decodeWav, hashWav } from './audio';
 import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { VISUAL_CATALOG } from './visual-catalog';
+import { orbitPlan, horizonPlan } from './assembly';
 import { draw, loadFont } from './render';
 import { MusicDiagnostics } from './music-diagnostics';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
@@ -46,10 +47,9 @@ function App() {
   const [videoType, setVideoType] = useState<'lyric' | 'visual' | null>(null);
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
+  const [horizonVariation, setHorizonVariation] = useState<0 | 1>(0);
   const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
   const currentClip = useRef<ClipIdentity | null>(null);
-  const activeComposition = videoType === 'visual' ? { ...composition, cues: [] } : composition;
-  const text = lyricText(activeComposition);
   const selectedGenre = GENRES.find(item => item.toLowerCase() === genre.trim().toLowerCase());
   const genreValid = Boolean(selectedGenre && (selectedGenre !== 'Other / custom' || customGenre.trim()));
   const [sourceMetadata, setSourceMetadata] = useState<SourceMetadata>();
@@ -72,6 +72,12 @@ function App() {
   const clipValid = Boolean(buffer && Number.isSafeInteger(composition.clipStartMs) &&
     composition.clipStartMs >= 0 && composition.clipStartMs <= buffer.duration * 1000 - DURATION_MS);
   const clip: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: DURATION_MS };
+  const activeComposition = {
+    ...composition,
+    cues: videoType === 'visual' ? [] : composition.cues,
+    ...(composition.template === 'orbit' ? { assembly: orbitPlan(clip, analysisForClip(musicAnalysis, clip), videoType === 'lyric') } : composition.template === 'horizon' ? { assembly: horizonPlan(clip, analysisForClip(musicAnalysis, clip), videoType === 'lyric', horizonVariation) } : {}),
+  };
+  const text = lyricText(activeComposition);
   const profile: CreativeProfileV1 | null = clipValid && genreValid && videoType ? {
     version: 1,
     clip,
@@ -220,7 +226,7 @@ function App() {
     if (canvas.current && fontText === text) {
       draw(canvas.current, activeComposition, playheadFrame(position));
     }
-  }, [composition, videoType, editingVisual, fontText, position]);
+  }, [composition, videoType, editingVisual, fontText, position, musicAnalysis, horizonVariation]);
 
   async function exportVideo() {
     if (!buffer || !valid || exporting.current) return;
@@ -412,6 +418,10 @@ function App() {
             <small>{preset.characteristics[0]}</small>
           </label>)}
         </fieldset>
+        {composition.template === 'horizon' && <fieldset disabled={exportFrame !== undefined}>
+          <legend>Horizon variation</legend>
+          {[0, 1].map(value => <label key={value}><input type="radio" name="horizon-variation" checked={horizonVariation === value} onChange={() => { stop(); setHorizonVariation(value as 0 | 1); }} /> Variation {value === 0 ? 'A' : 'B'} </label>)}
+        </fieldset>}
         <p className="hint">{activeComposition.cues.length ? `${activeComposition.cues.length} approved lyric cues` : 'Instrumental · no lyrics'}</p>
         {(error || fontError || (buffer && !valid)) && <p role="alert">{error || fontError || 'Check the 15-second clip range and lyric timing.'}</p>}
         <p className="hint" role="status">{buffer && valid
