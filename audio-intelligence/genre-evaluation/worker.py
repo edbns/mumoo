@@ -29,6 +29,12 @@ PROMPTS = {
  "Sonic character": ["dark", "bright", "warm", "cold", "aggressive", "restrained", "hypnotic", "energetic", "sparse", "dense", "atmospheric", "percussive"],
  "Production": ["prominent vocals", "no vocals", "electronic instruments", "acoustic instruments", "distorted sounds", "clean sounds", "rolling bass", "no prominent bass", "prominent percussion", "little percussion", "syncopated rhythm", "steady rhythm"],
 }
+MODEL_INFO={"id":"laion/larger_clap_music","revision":"a0b4534a14f58e20944452dff00a22a06ce629d1",
+            "checkpointSha256":"5c289311f4a030d768af7ffbfdecd01b008aa64824211899a4e59f4f9d154fd1"}
+PREPROCESSING={"inputSampleRateHz":16000,"channels":1,"encoding":"pcm_s16le",
+               "floatConversion":"divide by 32768","amplitudeNormalization":"none",
+               "modelSampleRateHz":48000,"resampling":"scipy.signal.resample_poly(3,1)",
+               "windowMs":[[0,10000],[5000,15000]],"randomTruncation":"not used for exact 10-second windows"}
 model = processor = text_features = None
 
 @app.function(image=image, cpu=(1,1), memory=(4096,4096), timeout=40, max_containers=1, min_containers=0, scaledown_window=8)
@@ -48,7 +54,8 @@ def analyze(audio: bytes, diagnostics: bool = False):
     if level["rms"] < 0.001:
         return {"version":1,"promptsVersion":"1","status":"unavailable","reason":"insufficient_audio",
                 "groups":{},"metrics":{"cold":cold,"processingSeconds":round(time.monotonic()-started,3)},
-                "diagnostics":{"audioLevel":level,"silenceThresholdRms":0.001} if diagnostics else None}
+                "diagnostics":{"audioLevel":level,"silenceThresholdRms":0.001,"model":MODEL_INFO,
+                               "preprocessing":PREPROCESSING,"normalizedAudioEmbeddings":[]} if diagnostics else None}
     if cold:
         t=time.monotonic()
         with open("/model/pytorch_model.bin","rb") as f:
@@ -94,12 +101,7 @@ def analyze(audio: bytes, diagnostics: bool = False):
                          "peakRssBytes":resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*1024}}
     if diagnostics:
         response["diagnostics"]={"audioLevel":level,"silenceThresholdRms":0.001,
-                                 "model":{"id":"laion/larger_clap_music","revision":"a0b4534a14f58e20944452dff00a22a06ce629d1",
-                                          "checkpointSha256":"5c289311f4a030d768af7ffbfdecd01b008aa64824211899a4e59f4f9d154fd1"},
-                                 "preprocessing":{"inputSampleRateHz":16000,"channels":1,"encoding":"pcm_s16le",
-                                                  "floatConversion":"divide by 32768","amplitudeNormalization":"none",
-                                                  "modelSampleRateHz":48000,"resampling":"scipy.signal.resample_poly(3,1)",
-                                                  "windowMs":[[0,10000],[5000,15000]],"randomTruncation":"not used for exact 10-second windows"},
+                                 "model":MODEL_INFO,"preprocessing":PREPROCESSING,
                                  "normalizedAudioEmbeddings":embeddings}
     print(json.dumps({"event":"genre_research_complete",**response["metrics"]}),flush=True)
     return response
