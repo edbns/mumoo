@@ -35,7 +35,12 @@ export async function syncStagingLyrics(samples: Float32Array, rate: number, lyr
     body: JSON.stringify({ audio: encodeWav(samples, rate), lyrics, language: 'en' }),
   });
   const result = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(result?.error ?? 'Sign in to MUMOO Staging and try again.');
+  if (!response.ok) {
+    if (typeof result?.error === 'string') throw new Error(result.error);
+    if (response.status === 429) throw new Error('Staging sync is rate-limited. Wait a minute and try again.');
+    if (response.status === 504) throw new Error('Lyric sync timed out. Try syncing again.');
+    throw new Error(`Staging sync could not complete (HTTP ${response.status}). Try again in a moment.`);
+  }
   if (result?.version !== 1 || result.method !== 'whisperx_supplied_lyrics' || !Array.isArray(result.words)) {
     throw new Error('The worker returned an invalid alignment.');
   }

@@ -23,7 +23,12 @@ export default async function alignLyrics(request) {
         'Content-Type': 'application/json',
       },
     });
-    if (response.status === 429) return reply(429, 'Staging sync limit reached. Wait a minute and try again.');
+    if (response.status === 429) {
+      const issue = await response.json().catch(() => null);
+      return reply(429, issue?.detail === 'Daily staging sync limit reached.'
+        ? 'The shared daily staging sync limit was reached. Try again later.'
+        : 'Staging sync limit reached. Wait a minute and try again.');
+    }
     if (response.status === 422) {
       const issue = await response.json().catch(() => null);
       return reply(422, issue?.detail === 'No lyrics detected. Try another section or paste your lyrics.'
