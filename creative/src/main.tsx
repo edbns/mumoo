@@ -31,6 +31,7 @@ function App() {
   const text = lyricText(composition);
   const [buffer, setBuffer] = useState<AudioBuffer>();
   const [missingWord, setMissingWord] = useState('');
+  const [inlineCue, setInlineCue] = useState<number>();
   const [selectedCue, setSelectedCue] = useState(0);
   const [position, setPosition] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -128,6 +129,7 @@ function App() {
     cues.splice(index, 0, { text: text.trim(), startMs, endMs });
     edit({ ...composition, cues });
     setSelectedCue(index);
+    setInlineCue(undefined);
     setMissingWord('');
     return true;
   }
@@ -183,6 +185,18 @@ function App() {
     }
   }
 
+  const addWordForm = <details className="hint">
+            <summary>Add a missed word</summary>
+            <p>Move the playhead into a gap, then add the word. You can adjust its boundaries in Review timing.</p>
+            <form onSubmit={event => {
+              event.preventDefault();
+              setError(insertWord(missingWord) ? '' : 'Choose a gap at least one frame long and enter the missed word.');
+            }}>
+              <label>Missed word<input maxLength={48} value={missingWord} onChange={event => setMissingWord(event.target.value)} /></label>
+              <button type="submit" disabled={!missingWord.trim()}>Add at playhead</button>
+            </form>
+          </details>;
+
   return <>
     <header className="masthead"><img src="/brand/mumoo-logo.png" alt="mumoo" width="144" height="36" /><span>Creative Studio</span></header>
     {!editingVisual ? <main className="desktop trim">
@@ -221,28 +235,33 @@ function App() {
               </label>
               <output>{(position / 1000).toFixed(2)} s</output>
             </div>
-            <p className="hint">Select a word to jump to it and adjust its timing.</p>
+            <p className="hint">Click a word to edit it in place. Press Enter to finish.</p>
             <div className="timed-words">
               {composition.cues.map((cue, index) => {
                 const frame = playheadFrame(position);
                 const active = frame >= Math.ceil(cue.startMs * FPS / 1000) && frame < Math.ceil(cue.endMs * FPS / 1000);
+                if (inlineCue === index) return <input key={index} className="inline-lyric" aria-label="Edit lyric word"
+                  autoFocus maxLength={48} value={cue.text} style={{ width: `${Math.max(6, Math.min(40, cue.text.length + 2))}ch` }}
+                  onFocus={event => event.currentTarget.select()}
+                  onBlur={() => setInlineCue(undefined)}
+                  onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                  onChange={event => {
+                    const text = event.target.value;
+                    edit({ ...composition, cues: composition.cues.map((item, i) => i === index ? { ...item, text } : item) });
+                  }} />;
                 return <button type="button" key={index} aria-current={active ? 'true' : undefined}
                   disabled={!Number.isFinite(cue.startMs) || cue.startMs < 0 || cue.startMs >= DURATION_MS}
-                  onClick={() => { stop(); setSelectedCue(index); setPosition(Math.ceil(Math.ceil(cue.startMs * FPS / 1000) * 1000 / FPS)); }}>
+                  onClick={() => { stop(); setSelectedCue(index); setInlineCue(index); setPosition(Math.ceil(Math.ceil(cue.startMs * FPS / 1000) * 1000 / FPS)); }}>
                   {cue.text || 'Untitled cue'}
                 </button>;
               })}
             </div>
+            {addWordForm}
             {(() => {
               const index = Math.min(selectedCue, composition.cues.length - 1);
               const cue = composition.cues[index];
               return <div className="word-adjust">
-                <label>Selected lyric text
-                  <input maxLength={48} value={cue.text} onChange={event => {
-                    const text = event.target.value;
-                    edit({ ...composition, cues: composition.cues.map((item, i) => i === index ? { ...item, text } : item) });
-                  }} />
-                </label>
+                <strong>Timing for “{cue.text || 'Untitled cue'}”</strong>
                 <div><button type="button" onClick={() => {
                   edit({ ...composition, cues: composition.cues.filter((_, i) => i !== index) });
                   setSelectedCue(Math.max(0, index - 1));
@@ -266,17 +285,7 @@ function App() {
               </div>;
             })()}
           </section>}
-          <details className="hint">
-            <summary>Add a missed word</summary>
-            <p>Move the playhead into a gap, then add the word. You can adjust its boundaries in Review timing.</p>
-            <form onSubmit={event => {
-              event.preventDefault();
-              setError(insertWord(missingWord) ? '' : 'Choose a gap at least one frame long and enter the missed word.');
-            }}>
-              <label>Missed word<input maxLength={48} value={missingWord} onChange={event => setMissingWord(event.target.value)} /></label>
-              <button type="submit" disabled={!missingWord.trim()}>Add at playhead</button>
-            </form>
-          </details>
+          {composition.cues.length === 0 && addWordForm}
           <details className="hint">
             <summary>Advanced manual timing</summary>
             <LyricReview cues={composition.cues} position={position}

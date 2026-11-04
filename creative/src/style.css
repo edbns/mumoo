@@ -59,3 +59,4 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .word-adjust { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e9e9ea; }
 .boundary-controls span { min-width: 95px; font-variant-numeric: tabular-nums; }
 .boundary-controls button { background: #f2f2f4; color: #171717; font-size: 12px; }
+.inline-lyric { font: inherit; border: 1px solid #ce451b; border-radius: 8px; padding: 4px 7px; background: #fff5ef; }
