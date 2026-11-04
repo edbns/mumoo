@@ -8,7 +8,10 @@ async function processRequest(request) {
   if (request.headers.get('origin') !== ORIGIN) return reply(403, { error: 'Open MUMOO Staging.' });
   const password = process.env.MUMOO_BRAIN_TESTER_PASSWORD || '';
   const key = process.env.MUMOO_BRAIN_TESTER_KEY || '';
-  if (password.length < 32 || key.length < 32) return reply(503, { error: 'Tester access is unavailable.' });
+  if (password.length < 32 || key.length < 32) {
+    console.info(JSON.stringify({ event: 'brain_access_config', passwordPresent: Boolean(password), passwordMeetsMinimum: password.length >= 32, signingKeyPresent: Boolean(key), signingKeyMeetsMinimum: key.length >= 32 }));
+    return reply(503, { error: 'Tester access is unavailable.' });
+  }
   if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type') || '')) return reply(415, { error: 'Invalid request.' });
   if (Number(request.headers.get('content-length')) > 1024) return reply(413, { error: 'Request too large.' });
   const bytes = await request.arrayBuffer();
