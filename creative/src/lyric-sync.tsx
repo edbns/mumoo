@@ -5,15 +5,16 @@ import { matchWords, MAX_WORDS, type RecognizedWord } from './lyrics-match';
 
 type Reply = { status: string } | { words: RecognizedWord[] } | { error: string };
 
-export function LyricSync({ audio, clipStartMs, onChange }: {
+export function LyricSync({ audio, clipStartMs, onChange, onInsertWord }: {
   audio: AudioBuffer;
   clipStartMs: number;
   onChange: (cues: LyricCue[]) => void;
+  onInsertWord: (word: string) => boolean;
 }) {
   const [text, setText] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
-  const [review, setReview] = useState<{ cues: LyricCue[]; unmatched: string[]; heard: string }>();
+  const [review, setReview] = useState<{ cues: LyricCue[]; unmatched: string[]; heard: string; inserted?: number }>();
   const worker = useRef<Worker | null>(null);
   const run = useRef(0);
   const request = useRef<AbortController | null>(null);
@@ -112,13 +113,24 @@ export function LyricSync({ audio, clipStartMs, onChange }: {
     {status && <> <button onClick={cancel}>Cancel sync</button><p role="status">{status}</p></>}
     {error && <p role="alert">{error}</p>}
     {review && (review.unmatched.length === 0
-      ? <p role="status">Synced {review.cues.length} words. Audition the selection to check their timing.</p>
+      ? <p role="status">Synced {(review.cues.length + (review.inserted ?? 0))} words. Audition the selection to check their timing.</p>
       : <>
         {IS_ALIGNMENT_STAGING
-          ? <p role="alert">WhisperX timed {review.cues.length} of {review.cues.length + review.unmatched.length} words. Review the timed words or edit and sync again. Approving keeps the timed words only.</p>
-          : <><p role="alert">The speech model timed {review.cues.length} of {review.cues.length + review.unmatched.length} words. It can miss sung words even when your lyrics are correct.</p>
+          ? <p role="alert">WhisperX timed {(review.cues.length + (review.inserted ?? 0))} of {review.cues.length + (review.inserted ?? 0) + review.unmatched.length} words. Review the timed words or edit and sync again. Approving keeps the timed words only.</p>
+          : <><p role="alert">The speech model timed {(review.cues.length + (review.inserted ?? 0))} of {review.cues.length + (review.inserted ?? 0) + review.unmatched.length} words. It can miss sung words even when your lyrics are correct.</p>
         <p><strong>Model heard:</strong> {review.heard || 'No words detected.'}</p></>}
         <p><strong>Missing timings:</strong> {review.unmatched.join(' · ')}</p>
+        {IS_ALIGNMENT_STAGING && <div className="timed-words">
+          {review.unmatched.map((word, index) => <button type="button" key={index} onClick={() => {
+            if (!onInsertWord(word)) {
+              setError('Move the playhead to an empty gap of at least one frame, then try again.');
+              return;
+            }
+            setError('');
+            setReview({ ...review, unmatched: review.unmatched.filter((_, i) => i !== index),
+              inserted: (review.inserted ?? 0) + 1 });
+          }}>Add “{word}” at playhead</button>)}
+        </div>}
       </>)}
     <p className="hint">{IS_ALIGNMENT_STAGING
       ? 'Sync sends only this 15-second clip and any supplied lyrics to the staging worker. Your full song stays on this device.'

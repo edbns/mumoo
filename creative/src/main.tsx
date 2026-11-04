@@ -30,6 +30,7 @@ function App() {
   const [composition, setComposition] = useState(INITIAL);
   const text = lyricText(composition);
   const [buffer, setBuffer] = useState<AudioBuffer>();
+  const [missingWord, setMissingWord] = useState('');
   const [selectedCue, setSelectedCue] = useState(0);
   const [position, setPosition] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -117,6 +118,20 @@ function App() {
     }
   }
 
+  function insertWord(text: string) {
+    const startMs = Math.floor(position);
+    const cues = [...composition.cues];
+    const index = cues.filter(cue => cue.startMs < startMs).length;
+    const endMs = Math.min(startMs + 250, cues[index]?.startMs ?? DURATION_MS);
+    if (!text.trim() || [...text.trim()].length > 48 || cues.length >= 120 ||
+        startMs < (cues[index - 1]?.endMs ?? 0) || endMs - startMs < Math.ceil(1000 / FPS)) return false;
+    cues.splice(index, 0, { text: text.trim(), startMs, endMs });
+    edit({ ...composition, cues });
+    setSelectedCue(index);
+    setMissingWord('');
+    return true;
+  }
+
   function edit(next: typeof INITIAL) {
     stop();
     setComposition(next);
@@ -193,7 +208,7 @@ function App() {
           <p>Playhead · {(position / 1000).toFixed(2)} s</p>
           <p className="lyric-monitor">Current lyric: {evaluate(composition, playheadFrame(position)).text || '—'}</p>
           {clipValid && <LyricSync key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs}
-            onChange={cues => setComposition(current => ({ ...current, cues }))} />}
+            onChange={cues => setComposition(current => ({ ...current, cues }))} onInsertWord={insertWord} />}
           {composition.cues.length > 0 && <section className="timing-review" aria-label="Review lyric timing">
             <div className="review-transport">
               <h2>Review timing</h2>
@@ -222,7 +237,16 @@ function App() {
               const index = Math.min(selectedCue, composition.cues.length - 1);
               const cue = composition.cues[index];
               return <div className="word-adjust">
-                <strong>Adjust “{cue.text || 'Untitled cue'}”</strong>
+                <label>Selected lyric text
+                  <input maxLength={48} value={cue.text} onChange={event => {
+                    const text = event.target.value;
+                    edit({ ...composition, cues: composition.cues.map((item, i) => i === index ? { ...item, text } : item) });
+                  }} />
+                </label>
+                <div><button type="button" onClick={() => {
+                  edit({ ...composition, cues: composition.cues.filter((_, i) => i !== index) });
+                  setSelectedCue(Math.max(0, index - 1));
+                }}>Remove selected cue</button></div>
                 {(['startMs', 'endMs'] as const).map(field => {
                   const label = field === 'startMs' ? 'In' : 'Out';
                   const min = field === 'startMs' ? composition.cues[index - 1]?.endMs ?? 0 : cue.startMs + 1;
@@ -242,6 +266,17 @@ function App() {
               </div>;
             })()}
           </section>}
+          <details className="hint">
+            <summary>Add a missed word</summary>
+            <p>Move the playhead into a gap, then add the word. You can adjust its boundaries in Review timing.</p>
+            <form onSubmit={event => {
+              event.preventDefault();
+              setError(insertWord(missingWord) ? '' : 'Choose a gap at least one frame long and enter the missed word.');
+            }}>
+              <label>Missed word<input maxLength={48} value={missingWord} onChange={event => setMissingWord(event.target.value)} /></label>
+              <button type="submit" disabled={!missingWord.trim()}>Add at playhead</button>
+            </form>
+          </details>
           <details className="hint">
             <summary>Advanced manual timing</summary>
             <LyricReview cues={composition.cues} position={position}

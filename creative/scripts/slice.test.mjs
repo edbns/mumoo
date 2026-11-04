@@ -111,6 +111,18 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await timing.getByRole('button', { name: 'Move in later' }).click();
     await timing.getByRole('button', { name: 'Play 15-second clip' }).click();
     await timing.getByRole('button', { name: 'Pause clip' }).click();
+    const selectedText = timing.getByLabel('Selected lyric text');
+    await selectedText.fill('CORRECTED');
+    await timing.getByRole('button', { name: 'CORRECTED', exact: true }).click();
+    await page.getByText('Current lyric: CORRECTED', { exact: true }).waitFor();
+    await selectedText.fill(lyric.text);
+    await timing.getByLabel('Review playhead').fill('3000');
+    await page.getByText('Add a missed word', { exact: true }).click();
+    await page.getByLabel('Missed word', { exact: true }).fill('RECOVERED');
+    await page.getByRole('button', { name: 'Add at playhead' }).click();
+    await page.getByText('Current lyric: RECOVERED', { exact: true }).waitFor();
+    await timing.getByRole('button', { name: 'Remove selected cue' }).click();
+
     await approve.click();
     await page.getByRole('button', { name: 'Edit music and lyrics' }).click();
     assert.equal(await clipStart.inputValue(), '2000');
