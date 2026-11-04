@@ -35,14 +35,16 @@ export async function createEditorialScene(canvas: HTMLCanvasElement, timeline: 
     const scale = Math.max(1080 / video.videoWidth, 1920 / video.videoHeight);
     videoLayer.scale.set(scale); videoLayer.position.set((1080 - video.videoWidth * scale) / 2, (1920 - video.videoHeight * scale) / 2);
   } else { videoLayer.width = 1080; videoLayer.height = 1920; }
-  videoLayer.alpha = footageUrl ? 0.8 : 0.15;
+  videoLayer.alpha = footageUrl ? 1 : 0.15;
   if (!footageUrl) videoLayer.blendMode = 'screen';
   const background = new Sprite(texture);
+  background.visible = !footageUrl;
   background.tint = look.tint;
   background.width = 1080; background.height = 1920;
   app.stage.addChild(background);
   app.stage.addChild(videoLayer);
   const foreground = new Container();
+  foreground.visible = !footageUrl;
   const detail = new Sprite(texture);
   detail.width = 1080; detail.height = 1920;
   foreground.addChild(detail);
@@ -55,7 +57,6 @@ export async function createEditorialScene(canvas: HTMLCanvasElement, timeline: 
   const lyric = new Text({ text: '', style: { fontFamily: 'Inter Variable', fontSize: 90, fontWeight: '800', fill: '#ffffff', align: 'center', wordWrap: true, wordWrapWidth: 880 } });
   lyric.anchor.set(0.5); lyric.position.set(540, 1200); app.stage.addChild(lyric);
   const direction = variation(seed, 1) < 0.5 ? -1 : 1;
-  const revealMs = timeline?.beatsMs.find(ms => ms >= 500 && ms <= 2000) ?? 1000;
   return {
     compatibility,
     async render(frame: number) {
@@ -76,7 +77,13 @@ export async function createEditorialScene(canvas: HTMLCanvasElement, timeline: 
       }
       if (includeVideo) videoTexture.source.update();
       videoLayer.visible = includeVideo;
-      if (footageUrl) videoLayer.alpha = 0.8 * Math.min(1, Math.max(0, (t * 1000 - revealMs) / 600));
+      if (footageUrl) {
+        // The selected media is the entire scene: center-cover with restrained,
+        // frame-derived movement, and no demo artwork showing through.
+        const scale = Math.max(1080 / video.videoWidth, 1920 / video.videoHeight) * (1.015 + 0.008 * beat.energy + 0.004 * beat.beat);
+        videoLayer.scale.set(scale);
+        videoLayer.position.set((1080 - video.videoWidth * scale) / 2, (1920 - video.videoHeight * scale) / 2);
+      }
       const sought = performance.now();
       const zoom = look.crop + t * 0.001 + beat.energy * 0.01;
       background.scale.set(1080 / texture.width * zoom, 1920 / texture.height * zoom);

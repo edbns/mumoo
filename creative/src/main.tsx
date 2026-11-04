@@ -4,7 +4,6 @@ import { readWavMetadata, type SourceMetadata } from './source-metadata';
 import { decodeWav, hashWav } from './audio';
 import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
-import { VISUAL_CATALOG } from './visual-catalog';
 import { orbitPlan, horizonPlan, timelineFor } from './assembly';
 import { draw, loadFont } from './render';
 import { MusicDiagnostics } from './music-diagnostics';
@@ -48,10 +47,11 @@ function App() {
   const [videoType, setVideoType] = useState<'lyric' | 'visual' | null>(null);
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
-  const [horizonVariation, setHorizonVariation] = useState<0 | 1>(0);
-  const [pixiVariation, setPixiVariation] = useState(0);
+  const horizonVariation = 0;
+  const pixiVariation = 0;
   const [footageUrl, setFootageUrl] = useState<string>();
-  const [proofMode, setProofMode] = useState(false);
+  const proofMode = IS_ALIGNMENT_STAGING;
+  const [mediaError, setMediaError] = useState('');
   const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
   useEffect(() => () => { if (footageUrl) URL.revokeObjectURL(footageUrl); }, [footageUrl]);
   const currentClip = useRef<ClipIdentity | null>(null);
@@ -417,29 +417,29 @@ function App() {
       </section>
     </main> : <main className="desktop">
       <section>
-        <p className="eyebrow">02 / PLAIN COLORS</p>
-        <h1>Make a music visual</h1>
-        <p className="intro">{videoType === 'visual' ? 'Choose a visual style for your music.' : 'Choose how your approved lyrics move.'}</p>
+        <p className="eyebrow">YOUR VIDEO</p>
+        <h1>Create your music visual</h1>
+        <p className="intro">Use our visual, or make your own video the star.</p>
         <p className="hint">Genre · {profile?.creator.primaryGenre.value}{profile?.creator.influence && ` · ${profile.creator.influence.value}`}</p>
         <button className="back-to-trim" onClick={() => openStage(false)}>Edit music and lyrics</button>
-        {IS_ALIGNMENT_STAGING && <button disabled={exportFrame !== undefined} onClick={() => { stop(); setProofMode(value => !value); }}>{proofMode ? 'Return to existing visual' : 'Try Pixi visual proof'}</button>}
-        {proofMode && <fieldset disabled={exportFrame !== undefined}><legend>Visual variation</legend>{['Window', 'Close', 'Wide'].map((name, index) => <label key={name}><input type="radio" name="pixi-variation" checked={pixiVariation === index} onChange={() => { stop(); setPixiVariation(index); }} />{name} </label>)}</fieldset>}
-        {proofMode && <label>Try your own footage <input type="file" accept="video/mp4,video/webm" disabled={exportFrame !== undefined} onChange={event => { stop(); const file = event.target.files?.[0]; setFootageUrl(file ? URL.createObjectURL(file) : undefined); }} /></label>}
-        {proofMode && <p className="hint">Your footage stays on this device. The selected song supplies the exported audio.</p>}
-        <fieldset className="preset-picker" disabled={exportFrame !== undefined}>
-          <legend>Motion preset</legend>
-          {VISUAL_CATALOG.map(preset => <label className="preset" key={preset.id}>
-            <input type="radio" name="motion-preset" value={preset.renderer.template} checked={composition.template === preset.renderer.template}
-              onChange={() => edit({ ...composition, template: preset.renderer.template })} />
-            <span className={`preset-sample ${preset.id}`} aria-hidden="true">Aa</span>
-            <strong>{preset.name}</strong>
-            <small>{preset.characteristics[0]}</small>
-          </label>)}
-        </fieldset>
-        {composition.template === 'horizon' && <fieldset disabled={exportFrame !== undefined}>
-          <legend>Horizon variation</legend>
-          {[0, 1].map(value => <label key={value}><input type="radio" name="horizon-variation" checked={horizonVariation === value} onChange={() => { stop(); setHorizonVariation(value as 0 | 1); }} /> Variation {value === 0 ? 'A' : 'B'} </label>)}
-        </fieldset>}
+        {proofMode && <>
+          <label>Add your video <input type="file" accept="video/mp4,video/webm" disabled={exportFrame !== undefined} onChange={event => {
+            stop();
+            const file = event.target.files?.[0];
+            if (!file) return;
+            if (file.size === 0 || file.size > 250 * 1024 * 1024 || !['video/mp4', 'video/webm'].includes(file.type)) {
+              setMediaError('Choose an MP4 or WebM video under 250 MB.');
+              event.target.value = '';
+              return;
+            }
+            setMediaError('');
+            setFootageUrl(URL.createObjectURL(file));
+            event.target.value = '';
+          }} /></label>
+          <p className="hint">One MP4 or WebM video, up to 250 MB. Your video stays on this device. MUMOO fits it to the screen automatically; shorter videos repeat.</p>
+          {footageUrl && <button disabled={exportFrame !== undefined} onClick={() => { stop(); setFootageUrl(undefined); setMediaError(''); }}>Use MUMOO visual instead</button>}
+          {mediaError && <p role="alert">{mediaError}</p>}
+        </>}
         <p className="hint">{activeComposition.cues.length ? `${activeComposition.cues.length} approved lyric cues` : 'Instrumental · no lyrics'}</p>
         {(error || fontError || (buffer && !valid)) && <p role="alert">{error || fontError || 'Check the 15-second clip range and lyric timing.'}</p>}
         <p className="hint" role="status">{buffer && valid
@@ -448,15 +448,6 @@ function App() {
         <button disabled={!valid || exportFrame !== undefined} onClick={() => void exportVideo()}>Export MP4</button>
         {exportFrame !== undefined && <p role="status">Rendering MP4 · {Math.floor(exportFrame / FRAMES * 100)}%</p>}
         {exportError && <p role="alert">{exportError}</p>}
-        <details className="hint">
-          <summary>Local export fallback</summary>
-          <button disabled={!valid} onClick={() => download(
-            new Blob([JSON.stringify(activeComposition, null, 2)], { type: 'application/json' }),
-            'composition.json',
-          )}>Download composition JSON</button>
-          <p>The fallback downloads your edit settings as <code>composition.json</code>. To render the video, run this command from the local <code>creative</code> directory with the original WAV:</p>
-          <code>npm run export -- composition.json song.wav output.mp4</code>
-        </details>
       </section>
       <section className="preview" aria-label="Preview">
         <div className="preview-heading"><strong>Preview</strong><span>9:16 · 15 seconds</span></div>

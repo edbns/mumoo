@@ -64,12 +64,13 @@ test('supplied footage supports deterministic nonzero frame seeks', { timeout: 6
   const browser = await chromium.launch({ headless: false, executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' });
   try {
     const page = await browser.newPage();
-    await page.route('**/pixi-proof/test-footage.mp4', route => route.fulfill({ path: process.env.MUMOO_FOOTAGE_FIXTURE, contentType: 'video/mp4' }));
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/export.html`);
+    await page.evaluate(() => { const input = document.createElement('input'); input.type = 'file'; input.id = 'fixture'; document.body.append(input); });
+    await page.locator('#fixture').setInputFiles(process.env.MUMOO_FOOTAGE_FIXTURE);
     const result = await page.evaluate(async () => {
       const { createEditorialScene } = await import('/src/pixi-proof/scene.ts');
       const canvas = document.createElement('canvas');
-      const scene = await createEditorialScene(canvas, null, 1, true, undefined, '/pixi-proof/test-footage.mp4');
+      const scene = await createEditorialScene(canvas, null, 1, true, undefined, URL.createObjectURL(document.querySelector('#fixture').files[0]));
       try {
         await scene.render(30); const first = canvas.toDataURL();
         await scene.render(150); const later = canvas.toDataURL();
@@ -86,8 +87,9 @@ test('supplied footage exports through existing MP4 pipeline', { timeout: 120000
   const browser = await chromium.launch({ headless: false, executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' });
   try {
     const page = await browser.newPage({ acceptDownloads: true });
-    await page.route('**/pixi-proof/test-footage.mp4', route => route.fulfill({ path: process.env.MUMOO_FOOTAGE_FIXTURE, contentType: 'video/mp4' }));
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/export.html`);
+    await page.evaluate(() => { const input = document.createElement('input'); input.type = 'file'; input.id = 'fixture'; document.body.append(input); });
+    await page.locator('#fixture').setInputFiles(process.env.MUMOO_FOOTAGE_FIXTURE);
     const download = page.waitForEvent('download', { timeout: 110000 });
     const start = performance.now();
     await page.evaluate(async () => {
@@ -98,7 +100,7 @@ test('supplied footage exports through existing MP4 pipeline', { timeout: 120000
       let scene;
       try {
         const blob = await renderMp4(composition, audio, () => {}, async (canvas, frame) => {
-          scene ??= await createEditorialScene(canvas, null, 1, true, composition, '/pixi-proof/test-footage.mp4');
+          scene ??= await createEditorialScene(canvas, null, 1, true, composition, URL.createObjectURL(document.querySelector('#fixture').files[0]));
           await scene.render(frame);
         });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'footage-test.mp4'; a.click();
@@ -112,7 +114,7 @@ test('supplied footage exports through existing MP4 pipeline', { timeout: 120000
       const { createEditorialScene } = await import('/src/pixi-proof/scene.ts');
       const canvas = document.createElement('canvas');
       const composition = { version: 2, template: 'scribble', sourceSha256: 'a'.repeat(64), clipStartMs: 1000, cues: [{ text: 'hello', startMs: 2000, endMs: 2500 }] };
-      const scene = await createEditorialScene(canvas, null, 1, true, composition, '/pixi-proof/test-footage.mp4');
+      const scene = await createEditorialScene(canvas, null, 1, true, composition, URL.createObjectURL(document.querySelector('#fixture').files[0]));
       try { const output = []; for (const n of [30, 60, 150]) { await scene.render(n); output.push(canvas.toDataURL().split(',')[1]); } return output; }
       finally { scene.destroy(); }
     });

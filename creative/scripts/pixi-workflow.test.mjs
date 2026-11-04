@@ -27,14 +27,11 @@ test('staging workflow previews and exports Pixi visual without lyric requests',
     await page.getByLabel('Visual', { exact: true }).check();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('button', { name: 'Continue without lyrics' }).click();
-    await page.getByRole('button', { name: 'Try Pixi visual proof' }).click();
     await page.getByLabel('Pixi visual preview').waitFor();
     await page.getByText('Hardware-accelerated preview').waitFor({ timeout: 30000 });
-    await page.getByLabel('Close', { exact: true }).check();
-    await page.getByLabel('Wide', { exact: true }).check();
-    await page.getByLabel('Window', { exact: true }).check();
+    for (const label of ['Window', 'Close', 'Wide', 'Motion preset', 'Try Pixi visual proof']) assert.equal(await page.getByText(label, { exact: true }).count(), 0);
     if (process.env.MUMOO_FOOTAGE_FIXTURE) {
-      await page.getByLabel('Try your own footage').setInputFiles(process.env.MUMOO_FOOTAGE_FIXTURE);
+      await page.getByLabel('Add your video').setInputFiles(process.env.MUMOO_FOOTAGE_FIXTURE);
       await page.getByText('Hardware-accelerated preview').waitFor({ timeout: 30000 });
     }
     const pending = page.waitForEvent('download', { timeout: 120000 });
