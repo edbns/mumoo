@@ -14,7 +14,7 @@ export function LyricSync({ audio, clipStartMs, onChange, onInsertWord }: {
   const [text, setText] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
-  const [review, setReview] = useState<{ cues: LyricCue[]; unmatched: string[]; heard: string; inserted?: number; transcribed?: boolean }>();
+  const [review, setReview] = useState<{ cues: LyricCue[]; unmatched: string[]; heard: string; inserted?: number }>();
   const worker = useRef<Worker | null>(null);
   const run = useRef(0);
   const request = useRef<AbortController | null>(null);
@@ -33,9 +33,9 @@ export function LyricSync({ audio, clipStartMs, onChange, onInsertWord }: {
     setStatus('');
   }
 
-  async function sync(transcribe = false) {
+  async function sync() {
     const words = text.trim().split(/\s+/u);
-    if (!transcribe && (!text.trim() || (IS_ALIGNMENT_STAGING && text.length > 2000) || words.length > MAX_WORDS || words.some(word => [...word].length > 48))) {
+    if (!text.trim() || (IS_ALIGNMENT_STAGING && text.length > 2000) || words.length > MAX_WORDS || words.some(word => [...word].length > 48)) {
       setError('Paste up to 120 words from this section, with up to 48 characters per word.');
       return;
     }
@@ -56,11 +56,10 @@ export function LyricSync({ audio, clipStartMs, onChange, onInsertWord }: {
       if (IS_ALIGNMENT_STAGING) {
         const controller = new AbortController();
         request.current = controller;
-        setStatus(transcribe ? 'Transcribing and timing your lyrics…' : 'WhisperX is timing your words…');
-        const matched = await syncStagingLyrics(samples, rate, transcribe ? null : text, controller.signal);
+        setStatus('WhisperX is timing your words…');
+        const matched = await syncStagingLyrics(samples, rate, text, controller.signal);
         if (id !== run.current) return;
-        if (transcribe) setText(matched.lyrics);
-        setReview({ ...matched, heard: '', transcribed: transcribe });
+        setReview({ ...matched, heard: '' });
         onChange(matched.cues);
         cancel();
         return;
@@ -97,7 +96,6 @@ export function LyricSync({ audio, clipStartMs, onChange, onInsertWord }: {
 
   return <fieldset className="lyric-review">
     <legend>{IS_ALIGNMENT_STAGING ? 'Lyrics · English staging pilot' : 'Paste lyrics & sync'}</legend>
-    {IS_ALIGNMENT_STAGING && <button type="button" disabled={Boolean(status)} onClick={() => void sync(true)}>Transcribe &amp; sync</button>}
     <details key={review ? 'review' : 'entry'} open={!IS_ALIGNMENT_STAGING && !review}>
     <summary>{review ? 'Edit lyrics & re-sync' : 'Paste lyrics for this section'}</summary>
     <label>Lyrics for this section
@@ -112,12 +110,11 @@ export function LyricSync({ audio, clipStartMs, onChange, onInsertWord }: {
     </details>
     {status && <> <button onClick={cancel}>Cancel sync</button><p role="status">{status}</p></>}
     {error && <p role="alert">{error}</p>}
-    {review?.transcribed && <p role="status">Whisper drafted {review.cues.length + review.unmatched.length + (review.inserted ?? 0)} words from this clip. If the draft missed a phrase, open Edit lyrics &amp; re-sync to paste the full wording.</p>}
     {review && (review.unmatched.length === 0
       ? <p role="status">Synced {(review.cues.length + (review.inserted ?? 0))} words. Audition the selection to check their timing.</p>
       : <>
         {IS_ALIGNMENT_STAGING
-          ? <p role="alert">WhisperX timed {(review.cues.length + (review.inserted ?? 0))} of {review.cues.length + (review.inserted ?? 0) + review.unmatched.length} {review.transcribed ? 'draft words' : 'supplied words'}. Review the timed words or edit and sync again. Approving keeps the timed words only.</p>
+          ? <p role="alert">WhisperX timed {(review.cues.length + (review.inserted ?? 0))} of {review.cues.length + (review.inserted ?? 0) + review.unmatched.length} supplied words. Review the timed words or edit and sync again. Approving keeps the timed words only.</p>
           : <><p role="alert">The speech model timed {(review.cues.length + (review.inserted ?? 0))} of {review.cues.length + (review.inserted ?? 0) + review.unmatched.length} words. It can miss sung words even when your lyrics are correct.</p>
         <p><strong>Model heard:</strong> {review.heard || 'No words detected.'}</p></>}
         <p><strong>Missing timings:</strong> {review.unmatched.join(' · ')}</p>
