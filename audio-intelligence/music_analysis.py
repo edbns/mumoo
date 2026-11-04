@@ -1,5 +1,6 @@
 """Analyze exactly 15 seconds of the original mix with Beat This! and librosa."""
 import argparse
+from functools import lru_cache
 from importlib.metadata import version
 import json
 import math
@@ -70,11 +71,28 @@ def features(audio):
             "transientsMs": event_times(peaks * HOP / SAMPLE_RATE)}
 
 
+@lru_cache(maxsize=1)
+def load_beat_model(checkpoint, threads):
+    import torch
+    from beat_this.inference import Audio2Beats
+
+    if not checkpoint.is_file():
+        raise ValueError("Provide a local reviewed Beat This! checkpoint.")
+    checkpoint_hash = sha256_file(checkpoint)
+    if checkpoint_hash != CHECKPOINT_SHA256:
+        raise ValueError("Checkpoint does not match the reviewed CPJKU final0 artifact.")
+    torch.set_num_threads(threads)
+    return Audio2Beats(checkpoint_path=str(checkpoint), device="cpu", dbn=False), {
+        "name": "Beat This! final0", "version": version("beat-this"), "checkpointSha256": checkpoint_hash,
+    }
+
+
 def analyze(args):
     import numpy as np
 
     start = time.perf_counter()
     cpu = time.process_time()
+    child_start = resource.getrusage(resource.RUSAGE_CHILDREN)
     clip_properties = inspect_clip(args.clip, args.ffprobe)
     audio = np.frombuffer(decode_clip(args.clip, args.ffmpeg), dtype="<f4").copy()
     decode_seconds = time.perf_counter() - start
@@ -87,19 +105,8 @@ def analyze(args):
     load_seconds = None
     inference_seconds = []
     if feature_result["transientsMs"] and args.checkpoint:
-        import torch
-        from beat_this.inference import Audio2Beats
-
-        if not args.checkpoint.is_file():
-            raise ValueError("Provide a local reviewed Beat This! checkpoint.")
-        checkpoint_hash = sha256_file(args.checkpoint)
-        if checkpoint_hash != CHECKPOINT_SHA256:
-            raise ValueError("Checkpoint does not match the reviewed CPJKU final0 artifact.")
-        torch.set_num_threads(args.threads)
-        model_info = {"name": "Beat This! final0", "version": version("beat-this"),
-                      "checkpointSha256": checkpoint_hash}
         load_start = time.perf_counter()
-        model = Audio2Beats(checkpoint_path=str(args.checkpoint), device="cpu", dbn=False)
+        model, model_info = load_beat_model(args.checkpoint, args.threads)
         load_seconds = round(time.perf_counter() - load_start, 6)
         for _ in range(args.runs):
             inference_start = time.perf_counter()
@@ -123,7 +130,7 @@ def analyze(args):
         "provenance": {"beatModel": model_info, "librosaVersion": version("librosa"), "contextMs": 0},
         "metrics": {"wallSeconds": round(time.perf_counter() - start, 6),
                     "pythonCpuSeconds": round(time.process_time() - cpu, 6),
-                    "childCpuSeconds": round(children.ru_utime + children.ru_stime, 6),
+                    "childCpuSeconds": round(children.ru_utime + children.ru_stime - child_start.ru_utime - child_start.ru_stime, 6),
                     "peakPythonRssBytes": rss if sys.platform == "darwin" else rss * 1024,
                     "decodeSeconds": round(decode_seconds, 6), "featureSeconds": round(feature_seconds, 6),
                     "beatLoadSeconds": load_seconds, "beatInferenceSeconds": inference_seconds},

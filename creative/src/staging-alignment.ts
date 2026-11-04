@@ -2,7 +2,7 @@ import { DURATION_MS, type LyricCue } from './composition';
 
 export const IS_ALIGNMENT_STAGING = location.hostname === 'mumoo-staging.netlify.app';
 
-function encodeWav(samples: Float32Array, rate: number) {
+export function encodePcmWav(samples: Float32Array, rate: number) {
   const bytes = new Uint8Array(44 + samples.length * 2);
   const view = new DataView(bytes.buffer);
   const text = new TextEncoder();
@@ -21,6 +21,11 @@ function encodeWav(samples: Float32Array, rate: number) {
   samples.forEach((sample, index) => {
     view.setInt16(44 + index * 2, Math.round(Math.max(-1, Math.min(1, sample)) * 32767), true);
   });
+  return bytes;
+}
+
+function encodeWav(samples: Float32Array, rate: number) {
+  const bytes = encodePcmWav(samples, rate);
   let binary = '';
   for (let i = 0; i < bytes.length; i += 8192) {
     binary += String.fromCharCode(...bytes.subarray(i, i + 8192));

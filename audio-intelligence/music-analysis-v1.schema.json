@@ -365,6 +365,9 @@
             "type": "number",
             "minimum": 0
           }
+        },
+        "firstInContainer": {
+          "type": "boolean"
         }
       }
     }

@@ -4,6 +4,8 @@ import { readWavMetadata, type SourceMetadata } from './source-metadata';
 import { decodeWav, hashWav } from './audio';
 import { DURATION_MS, FPS, FRAMES, HEIGHT, PRESETS, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
+import { MusicDiagnostics } from './music-diagnostics';
+import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 import { LyricSync } from './lyric-sync';
 import { LyricReview } from './lyric-review';
 import { Waveform } from './waveform';
@@ -237,6 +239,8 @@ function App() {
           </label>
           <p>Playhead · {(position / 1000).toFixed(2)} s</p>
           <p className="lyric-monitor">Current lyric: {evaluate(composition, playheadFrame(position)).text || '—'}</p>
+          {clipValid && IS_ALIGNMENT_STAGING && <MusicDiagnostics key={composition.sourceSha256 + ':' + composition.clipStartMs}
+            audio={buffer} clipStartMs={composition.clipStartMs} />}
           {clipValid && <LyricSync key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs}
             onChange={cues => setComposition(current => ({ ...current, cues }))} onInsertWord={insertWord} />}
           {composition.cues.length > 0 && <section className="timing-review" aria-label="Review lyric timing">
