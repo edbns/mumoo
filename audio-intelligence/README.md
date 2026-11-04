@@ -128,3 +128,5 @@ The first instrumented worker input took 9.55 s from input entry to serializatio
 | JSON serialization | 0.0025 | 1,097 |
 
 Warm rhythmic inputs took 1.21–1.24 CPU seconds including decode subprocesses. Maximum observed Python RSS was 1.07 GiB. The direct test rejected missing or forged access codes, oversized uploads and a fourth analysis within one minute.
+
+If the whole-clip tempo check is unavailable, the estimator can recover a grid from at least eight consecutive intervals spanning at least four seconds. The run must fit one phase and at least 85% of the surrounding markers and intervals must fit its grid or half-beat subdivisions. `supportFraction` still describes the original whole-clip check. The supplied ATREVIMENTO beat markers recover a 130.43 BPM grid with a 65.22 BPM alternative.

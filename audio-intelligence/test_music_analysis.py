@@ -64,6 +64,30 @@ class MusicAnalysisTests(unittest.TestCase):
         self.assertEqual(result["status"], "ambiguous")
         self.assertEqual(event_times([0, 0.0001, 1.25, 15, -0.01, float("nan")]), [0, 1250])
 
+    def test_recovers_atrevimento_with_mixed_subdivisions(self):
+        beats = [120, 320, 580, 800, 1020, 1260, 1500, 1720, 1980, 2180, 2440,
+                 2660, 2900, 3120, 3360, 3580, 3820, 4020, 4300, 4760, 5220,
+                 5660, 6140, 6600, 7060, 7520, 7980, 8440, 8900, 9360, 9820,
+                 10280, 10740, 11220, 11660, 12120, 12580, 13040, 13500, 13960,
+                 14440, 14900]
+        result = tempo(beats)
+        self.assertEqual(result["gridBpm"], 130.43)
+        self.assertEqual(result["alternativesBpm"], [65.22])
+        self.assertEqual(result["status"], "ambiguous")
+        self.assertIsNone(result["bpm"])
+
+    def test_primary_tempo_and_unavailable_regressions(self):
+        self.assertEqual(tempo(list(range(0, 15000, 480)))["gridBpm"], 125)
+        self.assertEqual(tempo(list(range(0, 15000, 645)))["gridBpm"], 93.02)
+        self.assertEqual(tempo([])["status"], "unavailable")
+        unrelated = [0, 300, 640, 950, 1310, 1670, 2010, 2320, 2680, 3010, 3350, 3700]
+        self.assertEqual(tempo(unrelated + list(range(4000, 15000, 460)))["status"], "unavailable")
+        off_phase = list(range(200, 4000, 230)) + list(range(4000, 15000, 460))
+        self.assertEqual(tempo(off_phase)["status"], "unavailable")
+        fragment = [0, 310, 820, 1010, 1420, 1590, 2000, 2460, 2920, 3380, 3840,
+                    4300, 4480, 4810, 5400, 5660, 6390, 6580]
+        self.assertEqual(tempo(fragment)["status"], "unavailable")
+
     def test_feature_units_and_silence(self):
         import numpy as np
 

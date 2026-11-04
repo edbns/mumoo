@@ -32,12 +32,57 @@ def tempo(beats):
     if len(intervals) < 4:
         return result
     median = statistics.median(intervals)
-    if not 240 <= median <= 2000:
-        return result
-    support = sum(abs(interval - median) <= median * 0.12 for interval in intervals) / len(intervals)
-    result["supportFraction"] = round(support, 3)
-    if support < 0.75:
-        return result
+    if 240 <= median <= 2000:
+        support = sum(abs(interval - median) <= median * 0.12 for interval in intervals) / len(intervals)
+        result["supportFraction"] = round(support, 3)
+        if support >= 0.75:
+            return tempo_result(result, median)
+    stable = stable_beat_period(beats, intervals)
+    return tempo_result(result, stable) if stable is not None else result
+
+
+def stable_beat_period(beats, intervals):
+    """Recover a grid only when a sustained run explains the surrounding markers."""
+    longest = 0
+    period = None
+    for start, seed in enumerate(intervals):
+        if not 240 <= seed <= 2000:
+            continue
+        end = start + 1
+        while end < len(intervals) and abs(intervals[end] - seed) <= seed * 0.12:
+            end += 1
+        span = beats[end] - beats[start]
+        if end - start < 8 or span < 4000 or span <= longest:
+            continue
+
+        candidate = statistics.median(intervals[start:end])
+        if not 240 <= candidate <= 2000 or any(
+            abs(interval - candidate) > candidate * 0.12 for interval in intervals[start:end]
+        ):
+            continue
+
+        if any(abs(beat - beats[start] - index * candidate) > candidate * 0.12
+               for index, beat in enumerate(beats[start:end + 1])):
+            continue
+
+        # Check both phase and spacing outside the run. Half-beats and skipped
+        # beats can fit the grid, while an unrelated passage should fail.
+        half = candidate / 2
+        outside = beats[:start] + beats[end + 1:]
+        outside_intervals = intervals[:start] + intervals[end:]
+        phase_matches = sum(abs((beat - beats[start] + half / 2) % half - half / 2)
+                            <= candidate * 0.16 for beat in outside)
+        spacing_matches = sum(
+            1 <= round(interval / half) <= 4
+            and abs(interval - round(interval / half) * half) <= half * 0.16
+            for interval in outside_intervals
+        )
+        if phase_matches >= 0.85 * len(outside) and spacing_matches >= 0.85 * len(outside_intervals):
+            longest, period = span, candidate
+    return period
+
+
+def tempo_result(result, median):
     grid = 60_000 / median
     alternatives = [round(rate, 2) for rate in (grid / 2, grid * 2) if 45 <= rate <= 240]
     return dict(result, status="ambiguous" if alternatives else "estimated",
