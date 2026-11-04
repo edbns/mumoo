@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { readWavMetadata, type SourceMetadata } from './source-metadata';
 import { decodeWav, hashWav } from './audio';
-import { DURATION_MS, FPS, FRAMES, HEIGHT, PRESETS, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
+import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
+import { NO_ANALYSIS, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
+import { VISUAL_CATALOG } from './visual-catalog';
 import { draw, loadFont } from './render';
 import { MusicDiagnostics } from './music-diagnostics';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
@@ -44,6 +46,8 @@ function App() {
   const [videoType, setVideoType] = useState<'lyric' | 'visual' | null>(null);
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
+  const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
+  const currentClip = useRef<ClipIdentity | null>(null);
   const activeComposition = videoType === 'visual' ? { ...composition, cues: [] } : composition;
   const text = lyricText(activeComposition);
   const selectedGenre = GENRES.find(item => item.toLowerCase() === genre.trim().toLowerCase());
@@ -67,6 +71,20 @@ function App() {
 
   const clipValid = Boolean(buffer && Number.isSafeInteger(composition.clipStartMs) &&
     composition.clipStartMs >= 0 && composition.clipStartMs <= buffer.duration * 1000 - DURATION_MS);
+  const clip: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: DURATION_MS };
+  const profile: CreativeProfileV1 | null = clipValid && genreValid && videoType ? {
+    version: 1,
+    clip,
+    creator: {
+      primaryGenre: { value: selectedGenre === 'Other / custom' ? customGenre.trim() : selectedGenre!, source: 'creator' },
+      ...(influence.trim() && { influence: { value: influence.trim(), source: 'creator' as const } }),
+      ...(sourceMetadata?.title && { title: { value: sourceMetadata.title, source: 'embedded_metadata' as const } }),
+      ...(sourceMetadata?.artist && { artist: { value: sourceMetadata.artist, source: 'embedded_metadata' as const } }),
+    },
+    videoType,
+    musicAnalysis: analysisForClip(musicAnalysis, clip),
+    ...(videoType === 'lyric' && editingVisual && { approvedLyrics: { cues: composition.cues, source: 'creator_reviewed' as const } }),
+  } : null;
   const valid = (() => {
     if (!buffer) return false;
     try {
@@ -87,6 +105,9 @@ function App() {
 
   async function choose(file?: File) {
     const request = ++upload.current;
+    const previousClip = currentClip.current;
+    currentClip.current = null;
+    setMusicAnalysis(current => current.status === 'pending' ? NO_ANALYSIS : current);
     stop();
     setBuffer(undefined);
     setSourceMetadata(undefined);
@@ -96,7 +117,7 @@ function App() {
     setLoading(Boolean(file));
     setPosition(0);
     setError('');
-    if (!file) return;
+    if (!file) { setMusicAnalysis(NO_ANALYSIS); return; }
     try {
       const bytes = await file.arrayBuffer();
       const sourceSha256 = await hashWav(bytes);
@@ -104,11 +125,15 @@ function App() {
       const audio = await decodeWav(bytes);
       validate({ ...INITIAL, sourceSha256 }, audio.duration * 1000);
       if (request !== upload.current) return;
-      setComposition(current => ({ ...current, sourceSha256, clipStartMs: 0, cues: [] }));
+      const nextClip: ClipIdentity = { sourceSha256, offsetMs: 0, durationMs: DURATION_MS };
+      const unchanged = sameClip(previousClip, nextClip);
+      if (!unchanged) setMusicAnalysis(NO_ANALYSIS);
+      setComposition(current => ({ ...current, sourceSha256, clipStartMs: 0, cues: unchanged ? current.cues : [] }));
+      currentClip.current = nextClip;
       setBuffer(audio);
       setSourceMetadata(metadata);
     } catch (cause) {
-      if (request === upload.current) setError((cause as Error).message);
+      if (request === upload.current) { setMusicAnalysis(NO_ANALYSIS); setError((cause as Error).message); }
     } finally {
       if (request === upload.current) setLoading(false);
     }
@@ -167,6 +192,11 @@ function App() {
   function selectClip(clipStartMs: number) {
     stop();
     setPosition(0);
+    const next: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: clipStartMs, durationMs: DURATION_MS };
+    if (!sameClip(currentClip.current, next)) {
+      currentClip.current = next;
+      setMusicAnalysis(NO_ANALYSIS);
+    }
     setComposition(current => ({ ...current, clipStartMs, cues: current.clipStartMs === clipStartMs ? current.cues : [] }));
   }
 
@@ -370,16 +400,16 @@ function App() {
         <p className="eyebrow">02 / PLAIN COLORS</p>
         <h1>Make a music visual</h1>
         <p className="intro">{videoType === 'visual' ? 'Choose a visual style for your music.' : 'Choose how your approved lyrics move.'}</p>
-        <p className="hint">Genre · {selectedGenre === 'Other / custom' ? customGenre.trim() : selectedGenre}{influence.trim() && ` · ${influence.trim()}`}</p>
+        <p className="hint">Genre · {profile?.creator.primaryGenre.value}{profile?.creator.influence && ` · ${profile.creator.influence.value}`}</p>
         <button className="back-to-trim" onClick={() => openStage(false)}>Edit music and lyrics</button>
         <fieldset className="preset-picker" disabled={exportFrame !== undefined}>
           <legend>Motion preset</legend>
-          {PRESETS.map(preset => <label className="preset" key={preset.id}>
-            <input type="radio" name="motion-preset" value={preset.id} checked={composition.template === preset.id}
-              onChange={() => edit({ ...composition, template: preset.id })} />
+          {VISUAL_CATALOG.map(preset => <label className="preset" key={preset.id}>
+            <input type="radio" name="motion-preset" value={preset.renderer.template} checked={composition.template === preset.renderer.template}
+              onChange={() => edit({ ...composition, template: preset.renderer.template })} />
             <span className={`preset-sample ${preset.id}`} aria-hidden="true">Aa</span>
             <strong>{preset.name}</strong>
-            <small>{preset.description}</small>
+            <small>{preset.characteristics[0]}</small>
           </label>)}
         </fieldset>
         <p className="hint">{activeComposition.cues.length ? `${activeComposition.cues.length} approved lyric cues` : 'Instrumental · no lyrics'}</p>
@@ -412,7 +442,10 @@ function App() {
     </main>}
     {buffer && clipValid && IS_ALIGNMENT_STAGING && <div className="desktop music-analysis" style={{ display: !editingVisual && step === 4 ? undefined : 'none' }}>
       <section><MusicDiagnostics key={composition.sourceSha256 + ':' + composition.clipStartMs}
-        audio={buffer} clipStartMs={composition.clipStartMs} /></section>
+        audio={buffer} clip={clip} analysis={profile?.musicAnalysis ?? analysisForClip(musicAnalysis, clip)}
+        onChange={state => {
+          if (state.status === 'unavailable' || sameClip(currentClip.current, state.clip)) setMusicAnalysis(state);
+        }} /></section>
     </div>}
     <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>
   </>;

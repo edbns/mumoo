@@ -1,65 +1,63 @@
 import { useEffect, useRef, useState } from 'react';
 import { DURATION_MS } from './composition';
 import { encodePcmWav } from './staging-alignment';
-
-type MusicResult = {
-  version: 1;
-  method: 'beat_this_librosa';
-  rhythm: {
-    beatsMs: number[];
-    downbeatsMs: number[];
-    tempo: { status: string; gridBpm: number | null; alternativesBpm: number[] };
-  };
-  features: {
-    transientsMs: number[];
-    frames: { timeMs: number; rms: number; onsetStrength: number; centroidHz: number }[];
-  };
-};
+import { analysisForClip, type ClipIdentity, type MusicAnalysisState } from './creative-profile';
 
 function savedCode() {
   try { return sessionStorage.getItem('mumoo-music-access') ?? ''; } catch { return ''; }
 }
 
-export function MusicDiagnostics({ audio, clipStartMs }: { audio: AudioBuffer; clipStartMs: number }) {
+export function MusicDiagnostics({ audio, clip, analysis, onChange }: {
+  audio: AudioBuffer;
+  clip: ClipIdentity;
+  analysis: MusicAnalysisState;
+  onChange: (state: MusicAnalysisState) => void;
+}) {
   const [access, setAccess] = useState(savedCode);
-  const [result, setResult] = useState<MusicResult>();
-  const [error, setError] = useState('');
-  const [pending, setPending] = useState(false);
   const request = useRef<AbortController | null>(null);
   useEffect(() => () => request.current?.abort(), []);
+  const current = analysisForClip(analysis, clip);
+  const result = current.status === 'ready' ? current.result : undefined;
+  const error = current.status === 'error' ? current.message : '';
+  const pending = current.status === 'pending';
 
   async function analyze() {
     if (request.current) return;
     const controller = new AbortController();
     request.current = controller;
-    setPending(true);
-    setError('');
-    setResult(undefined);
+    onChange({ status: 'pending', clip });
     try {
       const rate = 16_000;
       const context = new OfflineAudioContext(1, DURATION_MS * rate / 1000, rate);
       const source = context.createBufferSource();
       source.buffer = audio;
       source.connect(context.destination);
-      source.start(0, clipStartMs / 1000);
-      const clip = await context.startRendering();
+      source.start(0, clip.offsetMs / 1000);
+      const rendered = await context.startRendering();
+      const body = encodePcmWav(rendered.getChannelData(0), rate);
+      const digest = await crypto.subtle.digest('SHA-256', body);
+      const expectedHash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
       const response = await fetch('/.netlify/functions/analyze-music', {
         method: 'POST', signal: controller.signal,
         headers: { 'Content-Type': 'audio/wav', 'X-Mumoo-Analysis-Access': access.trim() },
-        body: encodePcmWav(clip.getChannelData(0), rate),
+        body,
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? `Analysis failed (HTTP ${response.status}).`);
-      if (data?.version !== 1 || data.method !== 'beat_this_librosa' || !data.features?.frames?.length) {
+      if (data?.version !== 1 || data.method !== 'beat_this_librosa' || data.clip?.durationMs !== DURATION_MS ||
+          data.clip?.offsetMs !== 0 || data.clip?.sha256 !== expectedHash ||
+          !Array.isArray(data.rhythm?.beatsMs) || !Array.isArray(data.rhythm?.downbeatsMs) ||
+          !data.rhythm?.tempo || !Array.isArray(data.rhythm.tempo.alternativesBpm) ||
+          !Array.isArray(data.features?.transientsMs) || !Array.isArray(data.features?.frames) || !data.features.frames.length ||
+          !data.provenance || !data.metrics) {
         throw new Error('The music worker returned an unexpected result.');
       }
       try { sessionStorage.setItem('mumoo-music-access', access.trim()); } catch { /* Storage is optional. */ }
-      setResult(data);
+      onChange({ status: 'ready', clip, result: data });
     } catch (cause) {
-      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Music analysis failed.');
+      if (!controller.signal.aborted) onChange({ status: 'error', clip, message: cause instanceof Error ? cause.message : 'Music analysis failed.' });
     } finally {
       request.current = null;
-      if (!controller.signal.aborted) setPending(false);
     }
   }
 
@@ -72,7 +70,7 @@ export function MusicDiagnostics({ audio, clipStartMs }: { audio: AudioBuffer; c
     <label>Music analysis tester code
       <input type="password" autoComplete="off" value={access} onChange={event => setAccess(event.target.value)} />
     </label>
-    <button type="button" disabled={!access.trim() || pending} onClick={() => void analyze()}>Analyze selection</button>
+    <button type="button" disabled={!access.trim() || pending} onClick={() => void analyze()}>{result ? 'Analyze again' : 'Analyze selection'}</button>
     {pending && <p role="status">Detecting beats and measuring audio features…</p>}
     {error && <p role="alert">{error}</p>}
     {result && <>

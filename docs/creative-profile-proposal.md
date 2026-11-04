@@ -42,6 +42,8 @@ Staging currently has local WAV upload, waveform-based 15-second selection, brow
 
 Milestone 1 adds a required searchable genre selector with custom entry, an optional influence, and an explicit video-type step in the existing staging editor. These choices live in browser session state. Visual keeps the existing lyric cues available for switching back, but uses a lyric-free composition for its own preview and export. Existing source metadata and manually requested Music Analysis v1 remain available.
 
+Visual Recommendations shared-foundation milestone adds a typed version 1 Creative Profile and session-owned Music Analysis state. The analysis is bound to source identity, offset and duration, and the hosted response must match the selected PCM clip hash. Changing the source or selected clip invalidates analysis; switching genre, video type or preset reuses it. The catalog contract records only the existing lyric typography presets, with no invented Visual entries. Catalog entries reference the existing canvas renderer, preserving composition versions 1 and 2 and the current preview/export path. Downbeats remain unverified. The profile is session-only and lyric approvals apply to the current editing session.
+
 Still needed: a versioned genre catalog and Creative Profile persistence strategy, optional Spotify link and manual artist/title fields, approved lyric-theme method, rights-approved composition catalog, explainable recommendations, full eligible browsing and uploaded visual media in the new journey. No automatic transcription or genre model is required.
 
 ## Proposed implementation sequence
