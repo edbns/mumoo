@@ -13,6 +13,7 @@ test('staging workflow previews and exports Pixi visual without lyric requests',
   const browser = await chromium.launch({ headless: false, executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' });
   try {
     const page = await browser.newPage();
+    page.on('pageerror', error => console.error('BROWSER ERROR:', error.message));
     const calls = [];
     page.on('request', request => { if (/align-lyrics|analyze-music/.test(request.url())) calls.push(request.url()); });
     await page.goto(origin);
@@ -29,6 +30,13 @@ test('staging workflow previews and exports Pixi visual without lyric requests',
     await page.getByRole('button', { name: 'Try Pixi visual proof' }).click();
     await page.getByLabel('Pixi visual preview').waitFor();
     await page.getByText('Hardware-accelerated preview').waitFor({ timeout: 30000 });
+    await page.getByLabel('Close', { exact: true }).check();
+    await page.getByLabel('Wide', { exact: true }).check();
+    await page.getByLabel('Window', { exact: true }).check();
+    if (process.env.MUMOO_FOOTAGE_FIXTURE) {
+      await page.getByLabel('Try your own footage').setInputFiles(process.env.MUMOO_FOOTAGE_FIXTURE);
+      await page.getByText('Hardware-accelerated preview').waitFor({ timeout: 30000 });
+    }
     const pending = page.waitForEvent('download', { timeout: 120000 });
     await page.getByRole('button', { name: 'Export MP4' }).click();
     const file = await (await pending).path();

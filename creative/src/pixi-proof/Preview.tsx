@@ -3,7 +3,7 @@ import { playheadFrame, type Composition } from '../composition';
 import type { ReactiveTimeline } from '../assembly';
 import { createEditorialScene } from './scene';
 
-export function PixiPreview({ position, timeline, composition, seed }: { position: number; timeline: ReactiveTimeline | null; composition: Composition; seed: number }) {
+export function PixiPreview({ position, timeline, composition, seed, footageUrl }: { position: number; timeline: ReactiveTimeline | null; composition: Composition; seed: number; footageUrl?: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<Awaited<ReturnType<typeof createEditorialScene>> | null>(null);
   const requested = useRef(0);
@@ -13,15 +13,16 @@ export function PixiPreview({ position, timeline, composition, seed }: { positio
   function renderLatest() {
     if (busy.current || !scene.current) return;
     busy.current = true;
+    const activeScene = scene.current;
     void (async () => {
       try {
-        while (scene.current) {
+        while (scene.current === activeScene) {
           const next = requested.current;
-          await scene.current.render(next);
+          await activeScene.render(next);
           if (next === requested.current) break;
         }
-      } catch { setMessage('The visual could not display this frame.'); }
-      finally { busy.current = false; }
+      } catch { if (scene.current === activeScene) setMessage('The visual could not display this frame.'); }
+      finally { busy.current = false; if (scene.current && scene.current !== activeScene) renderLatest(); }
     })();
   }
   useEffect(() => {
@@ -29,7 +30,7 @@ export function PixiPreview({ position, timeline, composition, seed }: { positio
     let instance: Awaited<ReturnType<typeof createEditorialScene>> | null = null;
     const target = canvas.current;
     if (!target) return;
-    void createEditorialScene(target, timeline, seed, true, composition).then(value => {
+    void createEditorialScene(target, timeline, seed, true, composition, footageUrl).then(value => {
       instance = value;
       if (cancelled) { value.destroy(); return; }
       scene.current = value;
@@ -38,10 +39,10 @@ export function PixiPreview({ position, timeline, composition, seed }: { positio
     }).catch(() => { if (!cancelled) setMessage('This browser could not start the visual. Try the existing preview instead.'); });
     return () => { cancelled = true; scene.current = null; if (instance) instance.destroy(); };
   // Scene inputs change only when the selected clip, analysis, cues or variation changes.
-  }, [timeline, seed, cueKey, composition.clipStartMs, composition.sourceSha256]);
+  }, [timeline, seed, cueKey, composition.clipStartMs, composition.sourceSha256, footageUrl]);
   useEffect(() => {
     requested.current = playheadFrame(position);
     renderLatest();
   }, [position]);
-  return <><canvas ref={canvas} width={1080} height={1920} aria-label="Pixi visual preview" /><p role="status">{message}</p></>;
+  return <><canvas key={`${seed}:${footageUrl ?? 'image'}`} ref={canvas} width={1080} height={1920} aria-label="Pixi visual preview" /><p role="status">{message}</p></>;
 }

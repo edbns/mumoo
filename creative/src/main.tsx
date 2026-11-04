@@ -49,8 +49,11 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
   const [horizonVariation, setHorizonVariation] = useState<0 | 1>(0);
+  const [pixiVariation, setPixiVariation] = useState(0);
+  const [footageUrl, setFootageUrl] = useState<string>();
   const [proofMode, setProofMode] = useState(false);
   const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
+  useEffect(() => () => { if (footageUrl) URL.revokeObjectURL(footageUrl); }, [footageUrl]);
   const currentClip = useRef<ClipIdentity | null>(null);
   const selectedGenre = GENRES.find(item => item.toLowerCase() === genre.trim().toLowerCase());
   const genreValid = Boolean(selectedGenre && (selectedGenre !== 'Other / custom' || customGenre.trim()));
@@ -243,7 +246,7 @@ function App() {
       const video = await renderMp4(activeComposition, buffer, setExportFrame, proofMode ? async (target, frame) => {
         if (!proofScene) {
           const { createEditorialScene } = await import('./pixi-proof/scene');
-          proofScene = await createEditorialScene(target, proofTimeline, horizonVariation, true, activeComposition);
+          proofScene = await createEditorialScene(target, proofTimeline, pixiVariation, true, activeComposition, footageUrl);
         }
         await proofScene.render(frame);
       } : undefined);
@@ -420,6 +423,9 @@ function App() {
         <p className="hint">Genre · {profile?.creator.primaryGenre.value}{profile?.creator.influence && ` · ${profile.creator.influence.value}`}</p>
         <button className="back-to-trim" onClick={() => openStage(false)}>Edit music and lyrics</button>
         {IS_ALIGNMENT_STAGING && <button disabled={exportFrame !== undefined} onClick={() => { stop(); setProofMode(value => !value); }}>{proofMode ? 'Return to existing visual' : 'Try Pixi visual proof'}</button>}
+        {proofMode && <fieldset disabled={exportFrame !== undefined}><legend>Visual variation</legend>{['Window', 'Close', 'Wide'].map((name, index) => <label key={name}><input type="radio" name="pixi-variation" checked={pixiVariation === index} onChange={() => { stop(); setPixiVariation(index); }} />{name} </label>)}</fieldset>}
+        {proofMode && <label>Try your own footage <input type="file" accept="video/mp4,video/webm" disabled={exportFrame !== undefined} onChange={event => { stop(); const file = event.target.files?.[0]; setFootageUrl(file ? URL.createObjectURL(file) : undefined); }} /></label>}
+        {proofMode && <p className="hint">Your footage stays on this device. The selected song supplies the exported audio.</p>}
         <fieldset className="preset-picker" disabled={exportFrame !== undefined}>
           <legend>Motion preset</legend>
           {VISUAL_CATALOG.map(preset => <label className="preset" key={preset.id}>
@@ -454,7 +460,7 @@ function App() {
       </section>
       <section className="preview" aria-label="Preview">
         <div className="preview-heading"><strong>Preview</strong><span>9:16 · 15 seconds</span></div>
-        {proofMode && IS_ALIGNMENT_STAGING ? fontText === text ? <Suspense fallback={<p>Loading visual…</p>}><PixiPreview position={position} timeline={proofTimeline} composition={activeComposition} seed={horizonVariation} /></Suspense> : <p>Loading visual…</p> : <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Visual composition" />}
+        {proofMode && IS_ALIGNMENT_STAGING ? fontText === text ? <Suspense fallback={<p>Loading visual…</p>}><PixiPreview position={position} timeline={proofTimeline} composition={activeComposition} seed={pixiVariation} footageUrl={footageUrl} /></Suspense> : <p>Loading visual…</p> : <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Visual composition" />}
         <div className="transport">
           <button disabled={!valid || fontText !== text} onClick={() => playing ? stop() : void play()}>{playing ? 'Pause' : 'Play'}</button>
           <input aria-label="Seek within clip" type="range" min="0" max={DURATION_MS} step="1" value={Math.floor(position)} disabled={!valid} onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} />
