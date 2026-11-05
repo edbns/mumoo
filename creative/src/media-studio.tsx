@@ -60,15 +60,20 @@ export function MediaStudio({ profile, composition, audio, token, position, play
     const onsetsMs = profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result.features.transientsMs : [];
     const stagingHost = location.hostname === 'mumoo-staging.netlify.app' || (import.meta.env.DEV && location.hostname === '127.0.0.1');
     const vision = stagingHost && new URLSearchParams(location.search).get('vision-intelligence') === '1';
-    const research = stagingHost && (new URLSearchParams(location.search).get('catalog-eval') === '1' || vision);
+    const research = stagingHost;
     const stagingPixabay = research && new URLSearchParams(location.search).get('staging-pixabay') === '1';
     const stagingOwned = research && new URLSearchParams(location.search).get('staging-owned') === '1';
-    const planned = vision ? (visionProfile ? runVisionResearch(visionProfile, token, controller.signal, setVisionStage) : Promise.reject(new Error('Music profile does not match this clip.'))) : mediaRequest(token, { operation: research ? 'research-plan' : 'director', profile: profileData, onsetsMs, ...(stagingOwned && { stagingOwned: true }), ...(stagingPixabay && { stagingPixabay: true }) });
+    const legacyResearch = stagingHost && new URLSearchParams(location.search).get('catalog-eval') === '1';
+    const seed = crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff;
+    let previousIds: string[] = [];
+    if (visionProfile) { try { const value = JSON.parse(sessionStorage.getItem(`mumoo-recent-${visionProfile.clipSha256}`) || '[]'); if (Array.isArray(value)) previousIds = value.filter(x => typeof x === 'string' && /^pixabay-\d+$/.test(x)).slice(0,4); } catch { /* Storage is optional. */ } }
+    const planned = vision ? (visionProfile ? runVisionResearch(visionProfile, token, controller.signal, setVisionStage) : Promise.reject(new Error('Music profile does not match this clip.'))) : stagingHost && !legacyResearch ? (visionProfile ? mediaRequest(token, { operation: 'fast-plan', profile: visionProfile, seed, previousIds }) : Promise.reject(new Error('Music profile does not match this clip.'))) : mediaRequest(token, { operation: legacyResearch ? 'research-plan' : 'director', profile: profileData, onsetsMs, ...(stagingOwned && { stagingOwned: true }), ...(stagingPixabay && { stagingPixabay: true }) });
     void planned.then(async data => {
       if (cancelled) return;
       trace('director_response', { durationMs: Math.round(performance.now() - started), category: data?.status === 'ready' ? 'ready' : 'unavailable' });
       setResult(data);
       if (data?.status !== 'ready') { setError('Not enough approved footage or music timing is available yet.'); return; }
+      if (stagingHost && !vision && !legacyResearch && visionProfile && Array.isArray(data.assets)) { try { sessionStorage.setItem(`mumoo-recent-${visionProfile.clipSha256}`, JSON.stringify(data.assets.map((a: {id: string}) => a.id).slice(0,4))); } catch { /* Storage is optional. */ } }
       if (!research) { setEdit(directorEdit(profile.clip, data)); return; }
       if (!Array.isArray(data.assets) || data.assets.length < 2 || data.assets.length > 4) throw new Error('Invalid catalog plan.');
       const loaded = new Map<string, string>();
@@ -109,7 +114,7 @@ export function MediaStudio({ profile, composition, audio, token, position, play
   const observedAnalysis = profile.musicAnalysis.status === 'ready' ? { status: 'ready', beatsMs: profile.musicAnalysis.result.rhythm.beatsMs,
     transientsMs: profile.musicAnalysis.result.features.transientsMs, tempo: profile.musicAnalysis.result.rhythm.tempo,
     energyFrames: profile.musicAnalysis.result.features.frames.map(({ timeMs, rms, onsetStrength, centroidHz }) => ({ timeMs, rms, onsetStrength, centroidHz })) } : { status: profile.musicAnalysis.status };
-  const diagnostic = { musicAnalysis: observedAnalysis, visionMusicProfile: new URLSearchParams(location.search).get('vision-intelligence') === '1' ? visionProfile : undefined, brainRequest: { profile: profileData, onsetsMs: profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result.features.transientsMs : [] }, directorBlueprint: result, edit: edit ? { version: edit.version, shots: edit.shots } : null, diagnostics: traces() };
+  const diagnostic = { musicAnalysis: observedAnalysis, musicProfile: visionProfile, brainRequest: { profile: profileData, onsetsMs: profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result.features.transientsMs : [] }, directorBlueprint: result, edit: edit ? { version: edit.version, shots: edit.shots } : null, diagnostics: traces() };
   const profiles = result && typeof result === 'object' && 'visualProfiles' in result && Array.isArray(result.visualProfiles) ? result.visualProfiles as {id?: unknown; thumbnailJpegBase64?: unknown}[] : [];
   const compactDiagnostic = JSON.stringify(diagnostic, (key, value) => key === 'thumbnailJpegBase64' ? '[Thumbnails shown above; included in download]' : value, 2);
   function downloadDiagnostic() {
@@ -117,7 +122,7 @@ export function MediaStudio({ profile, composition, audio, token, position, play
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'mumoo-director-blueprint.json'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
   return <main className="desktop gallery-page"><section className="gallery-shell"><p className="eyebrow">YOUR VIDEO</p><h1>Your music video</h1>
-    {(new URLSearchParams(location.search).get('staging-owned') === '1' || new URLSearchParams(location.search).get('staging-pixabay') === '1' || new URLSearchParams(location.search).get('vision-intelligence') === '1') && <p className="hint">Private staging research: footage has not been cleared for advertising or release.</p>}
+    {(location.hostname === 'mumoo-staging.netlify.app' || (import.meta.env.DEV && location.hostname === '127.0.0.1')) && <p className="hint">Private staging research: footage has not been cleared for advertising or release.</p>}
     <button className="secondary" onClick={onBack}>Back to music</button>
     {(profile.musicAnalysis.status === 'pending' || (profile.musicAnalysis.status === 'unavailable' && token)) && <p role="status">Analyzing your selected music…</p>}
     {profile.musicAnalysis.status === 'error' && <p role="alert">Music analysis is unavailable. A music-timed edit and recommendations cannot be generated yet.</p>}

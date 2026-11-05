@@ -22,11 +22,10 @@ const INITIAL: Extract<Composition, { version: 2 }> = {
 
 
 const GENRES = [
-  'Amapiano', 'Afro House', 'Brazilian Funk', 'Brazilian Funk Mandelão',
-  'Brazilian Funk Automotivo', 'Classical', 'Country', 'Deep House', 'Electronic',
-  'Funk', 'G-House', 'Hip-Hop', 'House', 'Indie', 'Jazz', 'Latin', 'Latin House',
-  'Melodic Techno', 'Montagem', 'Organic House', 'Pop', 'R&B', 'Reggaeton',
-  'Rock', 'Slap House', 'Soul', 'Techno', 'Tribal House', 'Other / custom',
+  'Acoustic / Singer-songwriter', 'Alternative Rock', 'Ambient', 'Blues', 'Chill-out', 'Christian', 'Classical', 'Country',
+  'Dance', 'Drum and Bass', 'EDM', 'Electronic', 'Emo', 'Funk', 'Hardcore Punk', 'House', 'Indie Folk', 'Indie Pop',
+  'Indie Rock', 'Jazz', 'Latin', 'Lo-fi', 'Metal', 'Metalcore', 'Pop', 'Pop Punk', 'Punk Rock', 'R&B',
+  'Rap / Hip-hop', 'Reggae', 'Rock', 'Techno', 'Trap', 'World', 'Other / Not sure',
 ];
 
 function App() {
@@ -34,7 +33,6 @@ function App() {
   const [editingVisual, setEditingVisual] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [genre, setGenre] = useState('');
-  const [customGenre, setCustomGenre] = useState('');
   const [influence, setInfluence] = useState('');
   const [videoType, setVideoType] = useState<'lyric' | 'visual' | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,7 +41,7 @@ function App() {
   const [analysisAttempt, setAnalysisAttempt] = useState(0);
   const currentClip = useRef<ClipIdentity | null>(null);
   const selectedGenre = GENRES.find(item => item.toLowerCase() === genre.trim().toLowerCase());
-  const genreValid = Boolean(selectedGenre && (selectedGenre !== 'Other / custom' || customGenre.trim()));
+  const genreValid = Boolean(selectedGenre);
   const [sourceMetadata, setSourceMetadata] = useState<SourceMetadata>();
   const [buffer, setBuffer] = useState<AudioBuffer>();
   const [missingWord, setMissingWord] = useState('');
@@ -69,7 +67,7 @@ function App() {
     version: 1,
     clip,
     creator: {
-      primaryGenre: { value: selectedGenre === 'Other / custom' ? customGenre.trim() : selectedGenre!, source: 'creator' },
+      primaryGenre: { value: selectedGenre!, source: 'creator' },
       ...(influence.trim() && { influence: { value: influence.trim(), source: 'creator' as const } }),
       ...(sourceMetadata?.title && { title: { value: sourceMetadata.title, source: 'embedded_metadata' as const } }),
       ...(sourceMetadata?.artist && { artist: { value: sourceMetadata.artist, source: 'embedded_metadata' as const } }),
@@ -248,15 +246,12 @@ function App() {
           <input list="genre-options" value={genre} onChange={event => setGenre(event.target.value)} placeholder="Search genres" />
         </label>
         <datalist id="genre-options">{GENRES.map(item => <option key={item} value={item} />)}</datalist>
-        {selectedGenre === 'Other / custom' && <label>Custom genre<input maxLength={100} value={customGenre}
-          onChange={event => setCustomGenre(event.target.value)} placeholder="Enter your genre" /></label>}
         <label>Secondary genre or influence <span className="hint">(optional)</span>
           <input maxLength={100} value={influence} onChange={event => setInfluence(event.target.value)} placeholder="Add an influence" />
         </label>
         {IS_ALIGNMENT_STAGING && (!accessToken ? <StagingAccess onAccess={setAccessToken} /> : <p className="hint">Staging access enabled. <button className="secondary" onClick={() => setAccessToken('')}>Sign in again</button></p>)}
         {!loading && !buffer && <p className="hint">Choose a WAV file at least 15 seconds long to continue.</p>}
-        {genre.trim() && !selectedGenre && <p role="status">Choose a genre from the suggestions, or select “Other / custom” and enter your genre.</p>}
-        {selectedGenre === 'Other / custom' && !customGenre.trim() && <p role="status">Enter your custom genre to continue.</p>}
+        {genre.trim() && !selectedGenre && <p role="status">Choose a genre from the suggestions, or select “Other / Not sure”.</p>}
         {error && <p role="alert">{error}</p>}
         <button disabled={!buffer || !genreValid || loading || (IS_ALIGNMENT_STAGING && !accessToken)} onClick={() => setStep(2)}>Continue to clip</button></>}
         {buffer && <>
