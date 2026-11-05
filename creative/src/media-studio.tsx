@@ -59,11 +59,14 @@ export function MediaStudio({ profile, composition, audio, token, position, play
     const started = performance.now(); trace('director_started');
     const onsetsMs = profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result.features.transientsMs : [];
     const stagingHost = location.hostname === 'mumoo-staging.netlify.app' || (import.meta.env.DEV && location.hostname === '127.0.0.1');
-    const vision = stagingHost && new URLSearchParams(location.search).get('vision-intelligence') === '1';
+    // Old shared research links must not silently switch normal creation back
+    // to the slow vision pipeline. Keep the existing experiment behind an
+    // explicit internal-only opt-in for reproducible research.
+    const vision = stagingHost && new URLSearchParams(location.search).get('vision-intelligence') === '1' && new URLSearchParams(location.search).get('vision-research-internal') === '1';
     const research = stagingHost;
     const stagingPixabay = research && new URLSearchParams(location.search).get('staging-pixabay') === '1';
     const stagingOwned = research && new URLSearchParams(location.search).get('staging-owned') === '1';
-    const legacyResearch = stagingHost && new URLSearchParams(location.search).get('catalog-eval') === '1';
+    const legacyResearch = stagingHost && new URLSearchParams(location.search).get('catalog-eval') === '1' && new URLSearchParams(location.search).get('catalog-research-internal') === '1';
     const seed = crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff;
     let previousIds: string[] = [];
     if (visionProfile) { try { const value = JSON.parse(sessionStorage.getItem(`mumoo-recent-${visionProfile.clipSha256}`) || '[]'); if (Array.isArray(value)) previousIds = value.filter(x => typeof x === 'string' && /^pixabay-\d+$/.test(x)).slice(0,4); } catch { /* Storage is optional. */ } }

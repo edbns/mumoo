@@ -27,7 +27,7 @@ test('fast visual DNA flow plays and exports through the existing renderer', { t
       const shots=[{assetId:assets[0].id,startFrame:0,endFrame:216,startMs:0,endMs:7200,sourceStartMs:500,transition:'cut'},{assetId:assets[1].id,startFrame:216,endFrame:450,startMs:7200,endMs:15000,sourceStartMs:500,transition:'dissolve'}];
       return route.fulfill({json:{version:1,status:'ready',scope:'staging-test-only',durationMs:15000,assets,shots}});
     });
-    await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?media-debug=1`);
+    await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?vision-intelligence=1&catalog-eval=1&media-debug=1`);
     const rate = 48000, samples = rate * 16, wav = Buffer.alloc(44 + samples * 2);
     wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(samples * 2, 40);
     await page.getByLabel('Source WAV').setInputFiles({ name: 'fixture.wav', mimeType: 'audio/wav', buffer: wav });
