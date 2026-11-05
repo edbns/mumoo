@@ -25,7 +25,7 @@ export async function loadFont(text: string) {
 }
 
 export function draw(canvas: HTMLCanvasElement, composition: Composition, frame: number) {
-  if (composition.template === 'daily-screens') { drawDailyScreen(canvas, lyricsFor(composition), frame); return; }
+  if (composition.template === 'daily-screens') { drawDailyScreen(canvas, lyricsFor(composition), frame, composition.dailyScreen); return; }
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas 2D is unavailable.');
   const { text, phase } = evaluate(composition, frame);

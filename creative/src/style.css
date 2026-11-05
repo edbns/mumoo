@@ -82,4 +82,7 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .staging-access { margin: 24px 0; max-width: 380px; }
 .daily-seek { max-width: 280px; margin-top: 16px; }
 .daily-seek input { accent-color: #ff5b26; padding: 0; }
+.daily-designs { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 18px; }
+.daily-designs button { background: #f1f1f3; color: #33343a; border: 1px solid transparent; font-size: 14px; padding: 9px 15px; }
+.daily-designs button[aria-pressed="true"] { background: #171717; color: white; }
 @media (max-width: 1000px) { .gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

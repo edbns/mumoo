@@ -2,6 +2,25 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'vite';
 
+test('five screen designs use a captured real time and reject invalid variants', async () => {
+  const server = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom', logLevel: 'error' });
+  try {
+    const { SCREEN_DESIGNS, formatScreenClock } = await server.ssrLoadModule('/src/daily-screens.ts');
+    const { validate } = await server.ssrLoadModule('/src/composition.ts');
+    assert.deepEqual(SCREEN_DESIGNS.map(design => design.id), ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram']);
+    const capturedAtMs = new Date(2026, 10, 6, 14, 7).getTime();
+    assert.equal(formatScreenClock(capturedAtMs, 0).time, '2:07');
+    const nearNextMinute = new Date(2026, 10, 6, 14, 7, 59).getTime();
+    assert.equal(formatScreenClock(nearNextMinute, 0).time, '2:07');
+    assert.equal(formatScreenClock(nearNextMinute, 60).time, '2:08');
+    const base = { version: 2, template: 'daily-screens', sourceSha256: 'a'.repeat(64), clipStartMs: 0, cues: [{ text: 'Hello', startMs: 0, endMs: 1000 }] };
+    for (const { id } of SCREEN_DESIGNS) assert.doesNotThrow(() => validate({ ...base, dailyScreen: { variant: id, capturedAtMs } }, 15000));
+    assert.throws(() => validate({ ...base, dailyScreen: { variant: 'invalid', capturedAtMs } }, 15000));
+    assert.throws(() => validate({ ...base, dailyScreen: null }, 15000));
+    assert.throws(() => validate({ ...base, dailyScreen: { variant: 'messages', capturedAtMs: 8640000000000000 } }, 15000));
+  } finally { await server.close(); }
+});
+
 test('Daily Screens preserves approved words and reveals them only on their timed frames', async () => {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom', logLevel: 'error' });
   try {

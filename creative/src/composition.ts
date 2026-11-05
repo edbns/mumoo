@@ -4,6 +4,8 @@ export const HEIGHT = 1920;
 export const FPS = 30;
 export const DURATION_MS = 15_000;
 export const FRAMES = FPS * DURATION_MS / 1000;
+export const DAILY_SCREEN_VARIANTS = ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram'] as const;
+export type DailyScreenVariant = typeof DAILY_SCREEN_VARIANTS[number];
 
 export const PRESETS = [
   { id: 'scribble', name: 'Scribble', description: 'Hand-drawn underline' },
@@ -21,6 +23,7 @@ interface CompositionBase {
   sourceSha256: string;
   clipStartMs: number;
   assembly?: AssemblyPlan;
+  dailyScreen?: { variant: DailyScreenVariant; capturedAtMs: number };
 }
 
 export type Composition = CompositionBase & (
@@ -58,6 +61,7 @@ export function validate(value: unknown, sourceDurationMs: number): asserts valu
   const cues = lyricsFor(candidate);
   if (!Array.isArray(cues) || cues.length > 120) throw new Error('Use up to 120 lyric cues.');
   if (template === 'daily-screens' && (!cues.length || cues.some(cue => !cue || typeof cue.text !== 'string' || !cue.text.trim()))) throw new Error('Daily Screens needs approved lyrics.');
+  if (candidate.dailyScreen !== undefined && (!candidate.dailyScreen || template !== 'daily-screens' || !DAILY_SCREEN_VARIANTS.includes(candidate.dailyScreen.variant) || !Number.isSafeInteger(candidate.dailyScreen.capturedAtMs) || candidate.dailyScreen.capturedAtMs < 0 || candidate.dailyScreen.capturedAtMs > 8640000000000000 - DURATION_MS)) throw new Error('Invalid Daily Screens design.');
   let previousEnd = 0;
   for (const cue of cues) {
     if (!cue || typeof cue.text !== 'string' || [...cue.text].length > 48 ||
