@@ -10,10 +10,10 @@ async function loadAsset(asset: MediaAsset): Promise<Resource> {
   return { type: 'video', node: video };
 }
 
-export async function createMediaRenderer(canvas: HTMLCanvasElement, edit: MediaEdit, composition: Composition) {
+export async function createMediaRenderer(canvas: HTMLCanvasElement, edit: MediaEdit, composition: Composition, measure?: (stage: string, ms: number) => void) {
   validateEditLyrics(edit, composition);
   const resources = new Map<string, Resource>();
-  try { for (const asset of edit.assets) { if (resources.has(asset.id)) throw new Error('Duplicate media identifier.'); resources.set(asset.id, await loadAsset(asset)); } }
+  try { for (const asset of edit.assets) { if (resources.has(asset.id)) throw new Error('Duplicate media identifier.'); const start = performance.now(); resources.set(asset.id, await loadAsset(asset)); measure?.('media_load', performance.now() - start); } }
   catch (error) { for (const resource of resources.values()) if (resource.type === 'video') { resource.node.pause(); resource.node.removeAttribute('src'); resource.node.load(); } throw error; }
   // Video seeks are asynchronous: draw the complete frame off-screen first so
   // the preview never exposes the cleared canvas while a seek is pending.
@@ -25,16 +25,16 @@ export async function createMediaRenderer(canvas: HTMLCanvasElement, edit: Media
     const element = resource.node;
     if (resource.type === 'video') {
       const local = Math.max(0, (timeMs - shot.startMs) / 1000) % resource.node.duration;
-      if (Math.abs(resource.node.currentTime - local) > 0.001) await new Promise<void>((resolve, reject) => {
+      if (Math.abs(resource.node.currentTime - local) > 0.001) { const start = performance.now(); await new Promise<void>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('Video frame seek timed out.')), 5000);
         resource.node.onseeked = () => { clearTimeout(timer); resolve(); }; resource.node.currentTime = local;
-      });
+      }); measure?.('video_seek', performance.now() - start); }
     }
     const width = resource.type === 'image' ? resource.node.naturalWidth : resource.node.videoWidth;
     const height = resource.type === 'image' ? resource.node.naturalHeight : resource.node.videoHeight;
     const scale = Math.max(WIDTH / width, HEIGHT / height) * zoom;
     context!.save(); context!.globalAlpha = alpha;
-    context!.drawImage(element, (WIDTH - width * scale) / 2, (HEIGHT - height * scale) / 2, width * scale, height * scale); context!.restore();
+    const drawStart = performance.now(); context!.drawImage(element, (WIDTH - width * scale) / 2, (HEIGHT - height * scale) / 2, width * scale, height * scale); context!.restore(); measure?.('draw_image', performance.now() - drawStart);
   }
   return { async render(frame: number) {
     const state = frameState(edit, frame);
@@ -43,6 +43,6 @@ export async function createMediaRenderer(canvas: HTMLCanvasElement, edit: Media
     await drawShot(state.shot, state.timeMs, state.mix, 1 + state.impact * 0.014);
     const text = evaluate(composition, frame).text;
     if (text) { context.save(); context.font = '800 112px "Inter Variable"'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.shadowColor = 'rgba(0,0,0,.8)'; context.shadowBlur = 12; context.fillStyle = '#fff'; context.fillText(text, WIDTH / 2, HEIGHT * 0.65, WIDTH * 0.82); context.restore(); }
-    target.drawImage(frameCanvas, 0, 0);
+    const copyStart = performance.now(); target.drawImage(frameCanvas, 0, 0); measure?.('canvas_copy', performance.now() - copyStart);
   }, destroy() { for (const resource of resources.values()) if (resource.type === 'video') { resource.node.pause(); resource.node.removeAttribute('src'); resource.node.load(); } resources.clear(); } };
 }

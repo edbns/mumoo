@@ -39,6 +39,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
   const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
+  const [analysisAttempt, setAnalysisAttempt] = useState(0);
   const currentClip = useRef<ClipIdentity | null>(null);
   const selectedGenre = GENRES.find(item => item.toLowerCase() === genre.trim().toLowerCase());
   const genreValid = Boolean(selectedGenre && (selectedGenre !== 'Other / custom' || customGenre.trim()));
@@ -366,8 +367,8 @@ function App() {
         {(error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
       </section>
     </main> : profile && buffer && <MediaStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken}
-      position={position} playing={playing} onPlay={() => void play(true)} onStop={stop} onBack={() => openStage(false)} />}
-    {buffer && clipValid && IS_ALIGNMENT_STAGING && (step === 4 || editingVisual) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs}
+      position={position} playing={playing} onPlay={() => void play(true)} onStop={stop} onBack={() => openStage(false)} onRetry={() => { setMusicAnalysis(NO_ANALYSIS); setAnalysisAttempt(n => n + 1); }} />}
+    {buffer && clipValid && IS_ALIGNMENT_STAGING && (step === 4 || editingVisual) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs + ':' + analysisAttempt}
       audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} accessToken={accessToken} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}
 
     {fontError && <p role="alert">{fontError}</p>}

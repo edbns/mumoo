@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { StagingAccess } from './staging-access';
+import { trace } from './staging-diagnostics';
 
 type Candidate = { id: string; type: 'image' | 'video'; title: string; description: string; creator: string; sourceProvider: string; sourceUrl: string; previewUrl: string; rightsStatement: string; licenseUrl: string; status: string; verificationTimestamp: string | null; commercialUseEligible: boolean; tags: string[] };
 export async function mediaRequest(token: string, body: object) {
   const response = await fetch('/api/media-catalog', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Mumoo-Brain-Access': token }, body: JSON.stringify(body) });
   const data = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(data?.error || 'Media service is unavailable.');
+  if (!response.ok) { trace('media_request_failed', { status: response.status, category: 'gateway_response' }); throw new Error(data?.error || 'Media service is unavailable.'); }
   return data;
 }
 export function MediaAdmin() {

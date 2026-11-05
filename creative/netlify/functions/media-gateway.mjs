@@ -1,9 +1,10 @@
 import { validAccess, valid } from './brain-gateway.mjs';
+import { randomUUID } from 'node:crypto';
 const SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const ORIGIN = 'https://mumoo-staging.netlify.app';
 const BRAIN = 'https://mumoo-brain-staging.netlify.app/api/media';
 const response = (status, error) => Response.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
-export default async function handler(request) {
+async function processRequest(request) {
   if (process.env.SITE_ID !== SITE || new URL(request.url).origin !== ORIGIN) return response(404, 'Not available.');
   if (request.method !== 'POST') return response(405, 'Use POST.');
   if (request.headers.get('origin') !== ORIGIN) return response(403, 'Open MUMOO Staging.');
@@ -40,5 +41,13 @@ export default async function handler(request) {
     }
     return Response.json(data, { headers: { 'Cache-Control': 'no-store' } });
   } catch { return response(503, 'Media service unavailable.'); }
+}
+export default async function handler(request) {
+  const requestId = randomUUID(), started = Date.now();
+  let result;
+  try { result = await processRequest(request); } catch { result = response(500, 'Media service unavailable.'); }
+  console.info(JSON.stringify({ event: 'media_gateway', requestId, time: new Date(started).toISOString(), status: result.status, durationMs: Date.now() - started,
+    category: result.status === 200 ? 'success' : result.status === 401 || result.status === 403 ? 'access_denied' : result.status >= 500 ? 'service_unavailable' : 'request_rejected' }));
+  result.headers.set('X-Mumoo-Request-Id', requestId); return result;
 }
 export const config = { path: '/api/media-catalog', rateLimit: { windowSize: 60, windowLimit: 10, aggregateBy: ['ip'] } };

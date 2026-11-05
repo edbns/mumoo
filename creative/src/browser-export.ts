@@ -2,7 +2,8 @@ import { AudioBufferSource, BufferTarget, CanvasSource, EncodedAudioPacketSource
 import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, lyricText, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
 
-export async function renderMp4(composition: Composition, audio: AudioBuffer, progress: (frame: number) => void, renderFrame: (canvas: HTMLCanvasElement, frame: number) => void | Promise<void> = (canvas, frame) => draw(canvas, composition, frame)) {
+export async function renderMp4(composition: Composition, audio: AudioBuffer, progress: (frame: number) => void, renderFrame: (canvas: HTMLCanvasElement, frame: number) => void | Promise<void> = (canvas, frame) => draw(canvas, composition, frame), measure?: (stage: string, ms: number) => void) {
+  const initStart = performance.now();
   validate(composition, audio.duration * 1000);
   const videoConfig = { codec: 'avc', bitrate: 5_000_000 } as const;
   const audioConfig = { codec: 'aac', bitrate: 192_000 } as const;
@@ -47,25 +48,34 @@ export async function renderMp4(composition: Composition, audio: AudioBuffer, pr
   output.addAudioTrack(music);
   try {
     await output.start();
+    measure?.('initialization', performance.now() - initStart);
     const audioTask = (async () => {
+      const start = performance.now();
       await audioOutput.start();
       await encoder.add(clip);
       encoder.close();
       await audioOutput.finalize();
       await packets;
       music.close();
+      measure?.('audio_pipeline', performance.now() - start);
     })();
     const videoTask = (async () => {
       for (let frame = 0; frame < FRAMES; frame++) {
+        const renderStart = performance.now();
         await renderFrame(canvas, frame);
+        measure?.('frame_render', performance.now() - renderStart);
+        const encodeStart = performance.now();
         await video.add(frame / FPS, 1 / FPS);
+        measure?.('video_add', performance.now() - encodeStart);
         progress(frame + 1);
         if (frame % 12 === 0) await new Promise(resolve => setTimeout(resolve, 0));
       }
       video.close();
     })();
     await Promise.all([audioTask, videoTask]);
+    const finalizeStart = performance.now();
     await output.finalize();
+    measure?.('mux_finalize', performance.now() - finalizeStart);
     if (!target.buffer) throw new Error('The encoder did not produce a video.');
     return new Blob([target.buffer], { type: 'video/mp4' });
   } catch (error) {

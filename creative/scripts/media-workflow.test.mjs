@@ -40,3 +40,28 @@ test('media-first flow requires real-shaped analysis, retrieves approved media a
     await page.getByText('Staging: inspect Director Blueprint').click(); const debug = await page.locator('pre').innerText(); assert.ok(debug.includes('directorBlueprint') && debug.includes('beatsMs')); assert.equal(debug.includes('private-test-token'), false);
   } finally { await browser.close(); await server.close(); }
 });
+
+test('a failed analysis is visible and only retries when requested', { timeout: 60000, skip: process.env.MUMOO_HEADED !== '1' || process.platform !== 'darwin' }, async () => {
+  const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' }); await server.listen();
+  const browser = await chromium.launch({ headless: false, executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' });
+  try {
+    const page = await browser.newPage(); let analyses = 0, director = 0;
+    await page.route('**/api/brain-tester-access', route => route.fulfill({ json: { token: 'test-token' } }));
+    await page.route('**/.netlify/functions/analyze-music', async route => {
+      analyses++; if (analyses === 1) { await route.fulfill({ status: 503, json: { error: 'Unavailable' } }); return; }
+      const hash = createHash('sha256').update(route.request().postDataBuffer()).digest('hex');
+      await route.fulfill({ json: { version: 1, method: 'beat_this_librosa', clip: { durationMs: 15000, offsetMs: 0, sha256: hash }, rhythm: { beatsMs: [1000, 3600, 7200], downbeatsMs: [], tempo: { status: 'estimated', gridBpm: 100, alternativesBpm: [] } }, features: { transientsMs: [3600, 7200], frames: [{ timeMs: 0, rms: 0.2, centroidHz: 1000, onsetStrength: 0.1 }] }, provenance: {}, metrics: {} } });
+    });
+    await page.route('**/api/media-catalog', async route => { director++; await route.fulfill({ json: { version: 1, status: 'unavailable', reason: 'No reviewed footage' } }); });
+    await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?media-debug=1`);
+    const rate = 48000, samples = rate * 16, wav = Buffer.alloc(44 + samples * 2);
+    wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(samples * 2, 40);
+    await page.getByLabel('Source WAV').setInputFiles({ name: 'fixture.wav', mimeType: 'audio/wav', buffer: wav });
+    await page.getByLabel('Primary genre').fill('House'); await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name: 'Unlock staging' }).click();
+    await page.getByRole('button', { name: 'Continue to clip' }).click(); await page.getByRole('button', { name: 'Continue to video type' }).click(); await page.getByLabel('Visual', { exact: true }).check(); await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await page.getByRole('button', { name: 'Retry music analysis' }).waitFor(); assert.equal(analyses, 1); assert.equal(director, 0);
+    await page.getByRole('button', { name: 'Retry music analysis' }).click(); await page.getByText('Not enough approved footage or music timing is available yet.').waitFor();
+    assert.equal(analyses, 2); assert.equal(director, 1);
+    await page.getByText('Staging: inspect Director Blueprint').click(); const debug = await page.locator('pre').innerText(); assert.ok(debug.includes('analysis_failed')); assert.ok(debug.includes('analysis_response')); assert.equal(debug.includes('test-token'), false);
+  } finally { await browser.close(); await server.close(); }
+});
