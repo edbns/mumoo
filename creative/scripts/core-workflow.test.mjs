@@ -31,7 +31,11 @@ test('isolated Core plan loads reviewed media and exports through the existing r
     await page.getByLabel('Source WAV').setInputFiles({ name: 'fixture.wav', mimeType: 'audio/wav', buffer: wav });
     await page.getByLabel('Primary genre').fill('House'); await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name: 'Unlock staging' }).click();
     await page.getByRole('button', { name: 'Continue to clip' }).click(); await page.getByRole('button', { name: 'Continue to video type' }).click(); await page.getByLabel('Visual', { exact: true }).check(); await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await page.getByLabel('Automatic video preview').waitFor(); assert.equal(calls, 2); assert.equal(lyrics, 0);
+    await page.getByLabel('Automatic video preview').waitFor();
+    await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent === 'Play' && !button.disabled));
+    const visiblePixels = await page.getByLabel('Automatic video preview').evaluate(canvas => { const ctx = canvas.getContext('2d'); let nonBlack = 0; for (let y = 100; y < canvas.height; y += 300) for (let x = 100; x < canvas.width; x += 200) { const data = ctx.getImageData(x, y, 1, 1).data; if (data[0] + data[1] + data[2] > 10) nonBlack++; } return nonBlack; });
+    assert.ok(visiblePixels > 0, 'Play must not be enabled before a visible first frame'); assert.equal(calls, 2); assert.equal(lyrics, 0);
+    await page.getByRole('button', { name: 'Play', exact: true }).click(); await page.getByRole('button', { name: 'Pause', exact: true }).waitFor(); await page.getByRole('button', { name: 'Pause', exact: true }).click();
     assert.ok(await page.getByText('Private staging test: owner-provided footage has not been cleared for advertising or release.').isVisible());
     const pending = page.waitForEvent('download', { timeout: 90000 }); await page.getByRole('button', { name: 'Download MP4' }).click();
     const info = JSON.parse(execFileSync(ffprobe.path, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', await (await pending).path()]));
@@ -40,5 +44,6 @@ test('isolated Core plan loads reviewed media and exports through the existing r
     await page.getByRole('button', { name: 'Download Blueprint' }).click();
     const text = readFileSync(await (await diagnosticDownload).path(), 'utf8'); const diagnostic = JSON.parse(text);
     assert.equal(diagnostic.directorBlueprint.scope, 'staging-test-only'); assert.equal(text.includes('test-token'), false); assert.equal(text.includes('fixture.wav'), false);
+    const stages = diagnostic.diagnostics.map(event => event.stage); assert.ok(stages.indexOf('preview_renderer_ready') >= 0 && stages.indexOf('preview_ready') > stages.indexOf('preview_renderer_ready'));
   } finally { await browser.close(); await server.close(); }
 });

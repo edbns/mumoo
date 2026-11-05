@@ -18,28 +18,29 @@ export function mediaProfile(profile: CreativeProfileV1) {
 }
 function Preview({ edit, composition, position, onReady }: { edit: MediaEdit; composition: Composition; position: number; onReady: (ready: boolean) => void }) {
   const canvas = useRef<HTMLCanvasElement>(null); const renderer = useRef<Awaited<ReturnType<typeof createMediaRenderer>> | null>(null);
-  const requested = useRef(0); const busy = useRef(false); const [error, setError] = useState('');
+  const requested = useRef(0); const busy = useRef(false); const [error, setError] = useState(''); const [hasFrame, setHasFrame] = useState(false);
+  const firstFrame = useRef(false); const previewStarted = useRef(0);
   const cueKey = JSON.stringify(composition.version === 2 ? composition.cues : [composition.lyric]);
   function renderLatest() {
     if (busy.current || !renderer.current) return;
     const active = renderer.current; busy.current = true;
-    void (async () => { try { while (renderer.current === active) { const frame = requested.current; await active.render(frame); if (frame === requested.current) break; } }
+    void (async () => { try { while (renderer.current === active) { const frame = requested.current; await active.render(frame); if (renderer.current === active && !firstFrame.current) { firstFrame.current = true; setHasFrame(true); trace('preview_ready', { durationMs: Math.round(performance.now() - previewStarted.current) }); onReady(true); } if (frame === requested.current) break; } }
       catch { if (renderer.current === active) { trace('preview_failed', { category: 'frame_render' }); onReady(false); setError('The preview could not display this frame.'); } }
       finally { busy.current = false; if (renderer.current && renderer.current !== active) renderLatest(); } })();
   }
   useEffect(() => {
     const target = canvas.current; if (!target) return;
     let cancelled = false; let instance: Awaited<ReturnType<typeof createMediaRenderer>> | null = null;
-    onReady(false); setError('');
-    const started = performance.now(); trace('preview_loading');
-    void createMediaRenderer(target, edit, composition).then(value => { instance = value; if (cancelled) { value.destroy(); return; } trace('preview_ready', { durationMs: Math.round(performance.now() - started) }); renderer.current = value; onReady(true); renderLatest(); })
+    onReady(false); setError(''); setHasFrame(false); firstFrame.current = false;
+    const started = performance.now(); previewStarted.current = started; trace('preview_loading');
+    void createMediaRenderer(target, edit, composition).then(value => { instance = value; if (cancelled) { value.destroy(); return; } trace('preview_renderer_ready', { durationMs: Math.round(performance.now() - started) }); renderer.current = value; renderLatest(); })
       .catch(() => { if (!cancelled) { trace('preview_failed', { category: 'media_load', durationMs: Math.round(performance.now() - started) }); setError('One or more media files could not be loaded.'); } });
     return () => { cancelled = true; renderer.current = null; if (instance) instance.destroy(); onReady(false); };
   }, [edit, cueKey, composition.sourceSha256, composition.clipStartMs]);
   useEffect(() => { requested.current = playheadFrame(position); renderLatest(); }, [position]);
-  return <><canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Automatic video preview" onContextMenu={event => event.preventDefault()} /><span className="preview-mark">PREVIEW</span>{error && <p role="alert">{error}</p>}</>;
+  return <><canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Automatic video preview" onContextMenu={event => event.preventDefault()} /><span className="preview-mark">PREVIEW</span>{!hasFrame && !error && <p role="status">Preparing preview…</p>}{error && <p role="alert">{error}</p>}</>;
 }
-export function MediaStudio({ profile, composition, audio, token, position, playing, onPlay, onStop, onBack, onRetry }: { profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; token: string; position: number; playing: boolean; onPlay: () => void; onStop: () => void; onBack: () => void; onRetry: () => void }) {
+export function MediaStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onBack, onRetry }: { profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; token: string; position: number; playing: boolean; playbackError: string; onPlay: () => void; onStop: () => void; onBack: () => void; onRetry: () => void }) {
   const [result, setResult] = useState<unknown>(null);
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [edit, setEdit] = useState<MediaEdit | null>(null);
   const [userAssets, setUserAssets] = useState<MediaAsset[]>([]); const urls = useRef<string[]>([]);
@@ -64,7 +65,9 @@ export function MediaStudio({ profile, composition, audio, token, position, play
       const loaded = new Map<string, string>();
       for (const asset of data.assets) {
         if (typeof asset?.id !== 'string' || !/^(?:cma-\d+|si-[a-f0-9]{24}|commons2-\d+|owned-[a-f0-9]{24})$/.test(asset.id)) throw new Error('Invalid catalog asset.');
+        const assetStarted = performance.now(); trace('asset_fetch_started');
         const response = await fetch('/api/media-catalog', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Mumoo-Brain-Access': token }, body: JSON.stringify({ operation: 'research-asset', id: asset.id }) });
+        trace('asset_fetch_response', { status: response.status, durationMs: Math.round(performance.now() - assetStarted) });
         if (!response.ok) throw new Error('Approved media is unavailable.');
         const blob = await response.blob(); if (cancelled) return;
         const url = URL.createObjectURL(blob); researchUrls.push(url); loaded.set(asset.id, url);
@@ -111,6 +114,7 @@ export function MediaStudio({ profile, composition, audio, token, position, play
     {!token && <p role="alert">Staging access is unavailable. Go back and sign in again.</p>}
     {profile.musicAnalysis.status === 'ready' && !profileData && <p role="alert">Music analysis did not include the features needed for this video.</p>}
     {busy && <p role="status">Creating your video…</p>}{error && <p role="alert">{error}</p>}
+    {playbackError && <p role="alert">{playbackError}</p>}
     <h2>Use your own media</h2><label>Add images or videos<input type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" onChange={event => { selectFiles(event.target.files); event.target.value = ''; }} /></label><p className="hint">Choose 2–10 files, up to 250 MB total. Your files stay on this device.</p>{userAssets.length > 0 && <p>{userAssets.length} files selected</p>}<button disabled={userAssets.length < 2 || profile.musicAnalysis.status !== 'ready'} onClick={() => makeEdit(userAssets)}>Create video from your media</button>
     {edit && <section className="lyric-review"><h2>Your video</h2><div className="gallery-user-preview">{progress === undefined && <Preview edit={edit} composition={composition} position={position} onReady={setPreviewReady} />}</div><div className="trim-actions"><button disabled={!previewReady || progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button><button disabled={!previewReady || progress !== undefined} onClick={() => void exportEdit()}>Download MP4</button></div>{progress !== undefined && <p role="status">Rendering video · {progress}%</p>}</section>}
     {debug && token && <details><summary>Staging: inspect Director Blueprint</summary><p>This file contains music-analysis results and your selected genre; it does not contain your audio, lyrics or password.</p><button className="secondary" onClick={downloadDiagnostic}>Download Blueprint</button><pre>{JSON.stringify(diagnostic, null, 2)}</pre></details>}
