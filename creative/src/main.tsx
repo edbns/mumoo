@@ -254,6 +254,10 @@ function App() {
           <input maxLength={100} value={influence} onChange={event => setInfluence(event.target.value)} placeholder="Add an influence" />
         </label>
         {IS_ALIGNMENT_STAGING && (!accessToken ? <StagingAccess onAccess={setAccessToken} /> : <p className="hint">Staging access enabled. <button className="secondary" onClick={() => setAccessToken('')}>Sign in again</button></p>)}
+        {!loading && !buffer && <p className="hint">Choose a WAV file at least 15 seconds long to continue.</p>}
+        {genre.trim() && !selectedGenre && <p role="status">Choose a genre from the suggestions, or select “Other / custom” and enter your genre.</p>}
+        {selectedGenre === 'Other / custom' && !customGenre.trim() && <p role="status">Enter your custom genre to continue.</p>}
+        {error && <p role="alert">{error}</p>}
         <button disabled={!buffer || !genreValid || loading || (IS_ALIGNMENT_STAGING && !accessToken)} onClick={() => setStep(2)}>Continue to clip</button></>}
         {buffer && <>
           <div hidden={step !== 2}>
@@ -366,7 +370,7 @@ function App() {
           </div>}
           </div>
         </>}
-        {(error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
+        {step !== 1 && (error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
       </section>
     </main> : profile && buffer && <MediaStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken} playbackError={error}
       position={position} playing={playing} onPlay={() => void play(true)} onStop={stop} onBack={() => openStage(false)} onRetry={() => { setMusicAnalysis(NO_ANALYSIS); setAnalysisAttempt(n => n + 1); }} />}
