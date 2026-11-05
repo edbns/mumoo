@@ -7,14 +7,13 @@ type Asset = { id: string; type: 'image' | 'video'; title: string; previewUrl: s
 // Separate staging-only review surface. It does not change the creator flow.
 export function CatalogResearch() {
   const [token, setToken] = useState(''); const [items, setItems] = useState<Asset[]>([]); const [query, setQuery] = useState('city');
-  const [collection, setCollection] = useState('nasm');
   const [message, setMessage] = useState(''); const [busy, setBusy] = useState(false); const [next, setNext] = useState<number | null>(null);
   async function load(access: string, offset = 0) { const data = await mediaRequest(access, { operation: 'research-list', offset }); setItems(data.assets); setNext(data.nextOffset); }
   useEffect(() => { if (token) void load(token).catch(() => setMessage('Could not load the research catalog.')); }, [token]);
-  async function discover(provider: 'cleveland' | 'smithsonian' | 'commons') {
+  async function discover() {
     setBusy(true); setMessage('Searching source records…');
     try {
-      const data = await mediaRequest(token, { operation: 'research-discover', provider, query, ...(provider === 'smithsonian' ? { unit: collection, shard: '00' } : {}) });
+      const data = await mediaRequest(token, { operation: 'research-discover', provider: 'commons', query });
       await load(token); setMessage(`Found ${data.found} candidates; added ${data.added} for review.`);
     } catch { setMessage('The source search did not complete.'); } finally { setBusy(false); }
   }
@@ -32,13 +31,10 @@ export function CatalogResearch() {
     catch { setMessage('Original not saved. It may be unavailable or exceed the 20 MiB research limit.'); } finally { setBusy(false); }
   }
   return <main className="media-admin-page"><section className="gallery-shell"><p className="eyebrow">INTERNAL · STAGING RESEARCH</p><h1>Catalog research review</h1>
-    <p>This research collection is not yet used to create videos. Open each source and assess both reuse rights and advertising safety, including people, brands and other third-party rights.</p>
+    <p>Find footage for review. This research collection is not yet used to create videos. Check each source and assess reuse rights and advertising safety, including people, brands and other third-party rights.</p>
     {!token ? <StagingAccess onAccess={setToken} /> : <><label>Search<input value={query} maxLength={80} onChange={event => setQuery(event.target.value)} /></label>
-      <button disabled={busy || !query.trim()} onClick={() => void discover('cleveland')}>Find Cleveland images</button>
-      <label>Smithsonian collection<select value={collection} onChange={event => setCollection(event.target.value)}><option value="nasm">Air and Space</option><option value="nmah">American History</option><option value="saam">American Art</option><option value="chndm">Design</option><option value="eepa">African Art Archives</option><option value="nmnhbotany">Botany</option></select></label>
-      <button disabled={busy || !query.trim()} onClick={() => void discover('smithsonian')}>Find Smithsonian images</button>
-      <button disabled={busy || !query.trim()} onClick={() => void discover('commons')}>Find Commons footage</button>
-      <p role="status">{message}</p><div className="gallery-grid">{items.map(item => <article className="gallery-card" key={item.id}>
+      <button disabled={busy || !query.trim()} onClick={() => void discover()}>Find Commons footage</button>
+      <p role="status">{message}</p><div className="gallery-grid">{items.filter(item => item.type === 'video').map(item => <article className="gallery-card" key={item.id}>
         {item.type === 'video' ? <video src={item.previewUrl} controls preload="none" style={{ width: '100%', height: 180, objectFit: 'contain' }} /> : <img src={item.previewUrl} alt="" loading="lazy" style={{ width: '100%', height: 180, objectFit: 'contain' }} />}<strong>{item.title}</strong>
         <p className="hint">{item.provider} · {item.creator || 'Creator not recorded'} · {item.sourceCharacter}</p><p className="hint">{item.rights.statement}</p>
         <p><a href={item.sourceUrl} target="_blank" rel="noreferrer">Inspect source</a> · <a href={item.rights.licenseUrl} target="_blank" rel="noreferrer">Inspect rights</a></p>
