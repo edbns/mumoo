@@ -5,6 +5,24 @@ export interface MediaAsset { id: string; type: 'image' | 'video'; url: string; 
 export interface MediaShot { assetId: string; startMs: number; endMs: number; transition: 'cut' | 'dissolve' | 'impact' }
 export interface MediaEdit { version: 1; clip: ClipIdentity; durationMs: typeof DURATION_MS; shots: MediaShot[]; assets: MediaAsset[] }
 
+/** Validate a Core-only research plan after all media was fetched by the authenticated gateway. */
+export function researchDirectorEdit(clip: ClipIdentity, blueprint: unknown, loaded: Map<string, string>): MediaEdit {
+  const plan = blueprint as { version?: unknown; status?: unknown; durationMs?: unknown; scope?: unknown; assets?: unknown; shots?: unknown };
+  if (!plan || plan.version !== 1 || plan.status !== 'ready' || plan.durationMs !== DURATION_MS || !Array.isArray(plan.assets) || plan.assets.length < 2 || plan.assets.length > 4 || !Array.isArray(plan.shots) || plan.shots.length < 2 || plan.shots.length > 4) throw new Error('Not enough approved media for this test.');
+  const assets: MediaAsset[] = plan.assets.map((item: { id?: unknown; type?: unknown; title?: unknown; rights?: unknown; adSafety?: unknown }) => {
+    const approved = typeof item.id === 'string' && !item.id.startsWith('owned-') && item.rights === 'APPROVED' && item.adSafety === 'SAFE';
+    const stagingTest = plan.scope === 'staging-test-only' && typeof item.id === 'string' && /^owned-[a-f0-9]{24}$/.test(item.id) && item.type === 'video' && item.rights === 'STAGING_TEST_ONLY' && item.adSafety === 'REVIEW_REQUIRED';
+    if (typeof item.id !== 'string' || !/^(?:cma-\d+|si-[a-f0-9]{24}|commons2-\d+|owned-[a-f0-9]{24})$/.test(item.id) || !['image', 'video'].includes(String(item.type)) || typeof item.title !== 'string' || !(approved || stagingTest)) throw new Error('Unapproved media.');
+    const url = loaded.get(item.id); if (!url?.startsWith('blob:')) throw new Error('Media was not loaded securely.');
+    return { id: item.id, type: item.type as 'image' | 'video', title: item.title, url };
+  });
+  if (new Set(assets.map(item => item.id)).size !== assets.length) throw new Error('Duplicate media.');
+  let position = 0;
+  const shots: MediaShot[] = plan.shots.map((shot: MediaShot) => { if (!shot || !assets.some(a => a.id === shot.assetId) || !Number.isSafeInteger(shot.startMs) || !Number.isSafeInteger(shot.endMs) || shot.startMs !== position || shot.endMs <= shot.startMs || shot.endMs > DURATION_MS || !['cut', 'dissolve', 'impact'].includes(shot.transition)) throw new Error('Invalid video timeline.'); position = shot.endMs; return { assetId: shot.assetId, startMs: shot.startMs, endMs: shot.endMs, transition: shot.transition }; });
+  if (position !== DURATION_MS) throw new Error('Invalid video duration.');
+  return { version: 1, clip, durationMs: DURATION_MS, assets, shots };
+}
+
 /** Accept only a bounded, contiguous director plan for reviewed Commons video. */
 export function directorEdit(clip: ClipIdentity, blueprint: unknown): MediaEdit {
   const value = blueprint as { version?: unknown; status?: unknown; durationMs?: unknown; assets?: unknown; shots?: unknown };

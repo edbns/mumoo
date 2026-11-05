@@ -58,8 +58,30 @@ test('research catalog operations require staging access and bounded provider in
     assert.equal((await media(request('/api/media-catalog', { operation: 'research-discover', provider: 'smithsonian', query: 'city', unit: '../x', shard: '00' }))).status, 400);
     assert.equal((await media(request('/api/media-catalog', { operation: 'research-review', id: 'cma-1', rightsStatus: 'APPROVED', adSafety: 'UNKNOWN' }))).status, 400);
     assert.equal((await media(request('/api/media-catalog', { operation: 'pixabay-search', query: '' }))).status, 400);
+    assert.equal((await media(request('/api/media-catalog', { operation: 'pixabay-review', query: 'city', id: 'pixabay-1', rightsStatus: 'APPROVED', adSafety: 'SAFE', renderUrl: 'https://evil.example' }))).status, 400);
     assert.equal(calls, 0);
     assert.equal((await media(request('/api/media-catalog', { operation: 'research-list', offset: 0 }))).status, 200);
     assert.equal(calls, 1);
+  } finally { globalThis.fetch = original; }
+});
+test('Core media delivery requires staging access and a permitted source', async () => {
+  env(); const original = globalThis.fetch; let calls = 0;
+  try {
+    globalThis.fetch = async url => { calls++; return String(url).includes('mumoo-brain-staging') ? Response.json({ type: 'video', renderUrl: 'https://upload.wikimedia.org/a.webm' }) : new Response(new Uint8Array([1,2,3]), { headers: { 'content-type': 'video/webm' } }); };
+    assert.equal((await media(request('/api/media-catalog', { operation: 'research-asset', id: 'commons2-1' }, 'invalid'))).status, 401); assert.equal(calls, 0);
+    const result = await media(request('/api/media-catalog', { operation: 'research-asset', id: 'commons2-1' })); assert.equal(result.status, 200); assert.deepEqual([...new Uint8Array(await result.arrayBuffer())], [1,2,3]);
+    globalThis.fetch = async () => Response.json({ type: 'video', renderUrl: 'https://evil.example/a.webm' });
+    assert.equal((await media(request('/api/media-catalog', { operation: 'research-asset', id: 'commons2-1' }))).status, 502);
+    assert.equal((await media(request('/api/media-catalog', { operation: 'research-plan', profile, onsetsMs: [2000, 1000] }))).status, 400);
+  } finally { globalThis.fetch = original; }
+});
+test('owner footage upload requires tester access and stays within staging limits', async () => {
+  env(); const original = globalThis.fetch; let calls = 0;
+  globalThis.fetch = async (_url, options) => { calls++; assert.equal(options.headers['x-mumoo-operation'], 'staging-upload'); assert.equal(options.headers.authorization, `Bearer ${service}`); return Response.json({ asset: { rights: 'STAGING_TEST_ONLY' } }); };
+  const upload = (auth, tags = '') => new Request('https://mumoo-staging.netlify.app/api/media-catalog', { method: 'POST', headers: { origin: 'https://mumoo-staging.netlify.app', 'content-type': 'video/mp4', 'x-mumoo-brain-access': auth, 'x-mumoo-operation': 'staging-upload', 'x-mumoo-tags': tags }, body: new Uint8Array(100) });
+  try {
+    assert.equal((await media(upload('invalid'))).status, 401); assert.equal(calls, 0);
+    assert.equal((await media(upload(token, 'invented'))).status, 400); assert.equal(calls, 0);
+    assert.equal((await media(upload(token, 'people,street'))).status, 200); assert.equal(calls, 1);
   } finally { globalThis.fetch = original; }
 });

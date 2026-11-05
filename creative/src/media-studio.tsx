@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FRAMES, HEIGHT, WIDTH, playheadFrame, type Composition } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
-import { assembleMediaEdit, directorEdit, type MediaAsset, type MediaEdit } from './media-timeline';
+import { assembleMediaEdit, directorEdit, researchDirectorEdit, type MediaAsset, type MediaEdit } from './media-timeline';
 import { createMediaRenderer } from './media-renderer';
 import { mediaRequest } from './media-admin';
 import { trace, traces } from './staging-diagnostics';
@@ -49,17 +49,29 @@ export function MediaStudio({ profile, composition, audio, token, position, play
   useEffect(() => () => { urls.current.forEach(URL.revokeObjectURL); }, []);
   useEffect(() => {
     if (!profileData || !token) { setResult(null); trace('director_not_started', { category: !token ? 'access_missing' : 'analysis_not_ready' }); return; }
-    let cancelled = false; setBusy(true); setError(''); setResult(null); setEdit(null);
+    let cancelled = false; const researchUrls: string[] = []; setBusy(true); setError(''); setResult(null); setEdit(null);
     const started = performance.now(); trace('director_started');
     const onsetsMs = profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result.features.transientsMs : [];
-    void mediaRequest(token, { operation: 'director', profile: profileData, onsetsMs }).then(data => {
+    const research = (location.hostname === 'mumoo-staging.netlify.app' || (import.meta.env.DEV && location.hostname === '127.0.0.1')) && new URLSearchParams(location.search).get('catalog-eval') === '1';
+    const stagingOwned = research && new URLSearchParams(location.search).get('staging-owned') === '1';
+    void mediaRequest(token, { operation: research ? 'research-plan' : 'director', profile: profileData, onsetsMs, ...(stagingOwned && { stagingOwned: true }) }).then(async data => {
       if (cancelled) return;
       trace('director_response', { durationMs: Math.round(performance.now() - started), category: data?.status === 'ready' ? 'ready' : 'unavailable' });
       setResult(data);
       if (data?.status !== 'ready') { setError('Not enough approved footage or music timing is available yet.'); return; }
-      setEdit(directorEdit(profile.clip, data));
+      if (!research) { setEdit(directorEdit(profile.clip, data)); return; }
+      if (!Array.isArray(data.assets) || data.assets.length < 2 || data.assets.length > 4) throw new Error('Invalid catalog plan.');
+      const loaded = new Map<string, string>();
+      for (const asset of data.assets) {
+        if (typeof asset?.id !== 'string' || !/^(?:cma-\d+|si-[a-f0-9]{24}|commons2-\d+|owned-[a-f0-9]{24})$/.test(asset.id)) throw new Error('Invalid catalog asset.');
+        const response = await fetch('/api/media-catalog', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Mumoo-Brain-Access': token }, body: JSON.stringify({ operation: 'research-asset', id: asset.id }) });
+        if (!response.ok) throw new Error('Approved media is unavailable.');
+        const blob = await response.blob(); if (cancelled) return;
+        const url = URL.createObjectURL(blob); researchUrls.push(url); loaded.set(asset.id, url);
+      }
+      if (!cancelled) setEdit(researchDirectorEdit(profile.clip, data, loaded));
     }).catch(() => { if (!cancelled) { trace('director_failed', { durationMs: Math.round(performance.now() - started), category: 'request_or_validation' }); setError('The video could not be prepared. Try again later.'); } }).finally(() => { if (!cancelled) setBusy(false); });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; researchUrls.forEach(URL.revokeObjectURL); };
   }, [request, token]);
   function makeEdit(assets: MediaAsset[]) { try { onStop(); setEdit(assembleMediaEdit(profile.clip, profile.musicAnalysis, assets)); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : 'The edit could not be made.'); } }
   function selectFiles(files: FileList | null) {
@@ -86,6 +98,7 @@ export function MediaStudio({ profile, composition, audio, token, position, play
     transientsMs: profile.musicAnalysis.result.features.transientsMs, tempo: profile.musicAnalysis.result.rhythm.tempo,
     energyFrames: profile.musicAnalysis.result.features.frames.map(({ timeMs, rms, onsetStrength, centroidHz }) => ({ timeMs, rms, onsetStrength, centroidHz })) } : { status: profile.musicAnalysis.status };
   return <main className="desktop gallery-page"><section className="gallery-shell"><p className="eyebrow">YOUR VIDEO</p><h1>Your music video</h1>
+    {new URLSearchParams(location.search).get('staging-owned') === '1' && <p className="hint">Private staging test: owner-provided footage has not been cleared for advertising or release.</p>}
     <button className="secondary" onClick={onBack}>Back to music</button>
     {(profile.musicAnalysis.status === 'pending' || (profile.musicAnalysis.status === 'unavailable' && token)) && <p role="status">Analyzing your selected music…</p>}
     {profile.musicAnalysis.status === 'error' && <p role="alert">Music analysis is unavailable. A music-timed edit and recommendations cannot be generated yet.</p>}

@@ -12,7 +12,7 @@ const assets = [{ id: 'image', type: 'image', url: '/pixi-proof/night-window.png
 
 test('automatic edit requires matching actual analysis and uses musical opportunities, not every beat', async () => {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
-  try { const { assembleMediaEdit, directorEdit, frameState } = await server.ssrLoadModule('/src/media-timeline.ts');
+  try { const { assembleMediaEdit, directorEdit, researchDirectorEdit, frameState } = await server.ssrLoadModule('/src/media-timeline.ts');
     assert.throws(() => assembleMediaEdit(clip, { status: 'unavailable', reason: 'not_requested' }, assets));
     assert.throws(() => assembleMediaEdit({ ...clip, offsetMs: 2000 }, analysis, assets));
     const edit = assembleMediaEdit(clip, analysis, assets);
@@ -26,6 +26,12 @@ test('automatic edit requires matching actual analysis and uses musical opportun
     assert.throws(() => directorEdit(clip, { ...plan, assets: [{ ...approved[0], status: 'pending' }, approved[1]] }));
     assert.throws(() => directorEdit(clip, { ...plan, assets: [{ ...approved[0], assetUrl: 'https://evil.example/a.webm' }, approved[1]] }));
     assert.throws(() => directorEdit(clip, { ...plan, shots: [{ ...plan.shots[0], endMs: 7100 }, plan.shots[1]] }));
+    const coreAssets = [{ id: 'cma-1', type: 'image', title: 'Image', rights: 'APPROVED', adSafety: 'SAFE' }, { id: 'commons2-2', type: 'video', title: 'Video', rights: 'APPROVED', adSafety: 'SAFE' }];
+    const corePlan = { version: 1, status: 'ready', durationMs: 15000, assets: coreAssets, shots: [{ assetId: 'cma-1', startMs: 0, endMs: 7200, transition: 'cut' }, { assetId: 'commons2-2', startMs: 7200, endMs: 15000, transition: 'dissolve' }] };
+    const loaded = new Map([['cma-1', 'blob:one'], ['commons2-2', 'blob:two']]);
+    assert.equal(researchDirectorEdit(clip, corePlan, loaded).shots.length, 2);
+    assert.throws(() => researchDirectorEdit(clip, { ...corePlan, assets: [{ ...coreAssets[0], adSafety: 'REVIEW_REQUIRED' }, coreAssets[1]] }, loaded));
+    assert.throws(() => researchDirectorEdit(clip, corePlan, new Map([['cma-1', 'https://evil.example/'], ['commons2-2', 'blob:two']])));
   } finally { await server.close(); }
 });
 
