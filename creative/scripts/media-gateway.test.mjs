@@ -27,3 +27,15 @@ test('music gateway forwards only the selected clip and server credential after 
   try { assert.equal((await music(make('invalid'))).status, 401); assert.equal(calls, 0); assert.equal((await music(make(token))).status, 200); assert.equal(calls, 1); }
   finally { globalThis.fetch = original; }
 });
+test('approved media delivery only fetches the permitted museum image host and bounds content', async () => {
+  env(); const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async url => String(url).includes('mumoo-brain-staging') ? Response.json({ previewUrl: 'https://images.metmuseum.org/image.jpg' }) : new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-type': 'image/jpeg' } });
+    const result = await media(request('/api/media-catalog', { operation: 'asset', id: 'met-123' }));
+    assert.equal(result.status, 200); assert.deepEqual([...new Uint8Array(await result.arrayBuffer())], [1, 2, 3]);
+    globalThis.fetch = async () => Response.json({ previewUrl: 'https://example.com/private' });
+    assert.equal((await media(request('/api/media-catalog', { operation: 'asset', id: 'met-123' }))).status, 502);
+    globalThis.fetch = async url => String(url).includes('mumoo-brain-staging') ? Response.json({ previewUrl: 'https://images.metmuseum.org/image.jpg' }) : new Response(new Uint8Array(5 * 1024 * 1024 + 1), { headers: { 'content-type': 'image/jpeg' } });
+    assert.equal((await media(request('/api/media-catalog', { operation: 'asset', id: 'met-123' }))).status, 502);
+  } finally { globalThis.fetch = original; }
+});

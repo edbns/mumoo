@@ -42,10 +42,12 @@ export function MediaStudio({ profile, composition, audio, token, position, play
   const [result, setResult] = useState<{ intent: unknown; candidates: Candidate[] } | null>(null);
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [edit, setEdit] = useState<MediaEdit | null>(null);
   const [userAssets, setUserAssets] = useState<MediaAsset[]>([]); const urls = useRef<string[]>([]);
+  const catalogUrls = useRef<string[]>([]); const [loadingMedia, setLoadingMedia] = useState(false);
   const [previewReady, setPreviewReady] = useState(false); const [progress, setProgress] = useState<number>();
   const profileData = useMemo(() => mediaProfile(profile), [profile.musicAnalysis, profile.videoType, profile.creator.primaryGenre.value, profile.creator.influence?.value]);
   const request = JSON.stringify(profileData);
   useEffect(() => () => { urls.current.forEach(URL.revokeObjectURL); }, []);
+  useEffect(() => () => { catalogUrls.current.forEach(URL.revokeObjectURL); }, []);
   useEffect(() => {
     if (!profileData || !token) { setResult(null); return; }
     let cancelled = false; setBusy(true); setError(''); setResult(null); setEdit(null);
@@ -58,6 +60,22 @@ export function MediaStudio({ profile, composition, audio, token, position, play
     return () => { cancelled = true; };
   }, [request, token]);
   function makeEdit(assets: MediaAsset[]) { try { onStop(); setEdit(assembleMediaEdit(profile.clip, profile.musicAnalysis, assets)); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : 'The edit could not be made.'); } }
+  async function makeCatalogEdit(items: Candidate[]) {
+    setLoadingMedia(true); setError(''); onStop();
+    const created: string[] = [];
+    try {
+      const assets: MediaAsset[] = [];
+      for (const item of items) {
+        const response = await fetch('/api/media-catalog', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Mumoo-Brain-Access': token }, body: JSON.stringify({ operation: 'asset', id: item.id }) });
+        if (!response.ok) throw new Error('An approved image could not be loaded. Please try again.');
+        const blob = await response.blob(); const url = URL.createObjectURL(blob); created.push(url);
+        assets.push({ id: item.id, type: 'image', url, title: item.title });
+      }
+      catalogUrls.current.forEach(URL.revokeObjectURL); catalogUrls.current = created;
+      makeEdit(assets);
+    } catch (cause) { created.forEach(URL.revokeObjectURL); setError(cause instanceof Error ? cause.message : 'Approved media could not be loaded.'); }
+    finally { setLoadingMedia(false); }
+  }
   function selectFiles(files: FileList | null) {
     if (!files?.length) return;
     const list = Array.from(files); const allowed = ['video/mp4', 'video/webm', 'image/jpeg', 'image/png', 'image/webp'];
@@ -86,7 +104,7 @@ export function MediaStudio({ profile, composition, audio, token, position, play
     {profile.musicAnalysis.status === 'pending' && <p role="status">Analyzing your selected music…</p>}
     {(profile.musicAnalysis.status === 'unavailable' || profile.musicAnalysis.status === 'error') && <p role="alert">Music analysis is unavailable. A music-timed edit and recommendations cannot be generated yet.</p>}
     {busy && <p role="status">Finding approved media…</p>}{error && <p role="alert">{error}</p>}
-    {result && <>{result.candidates.length ? <><p>Media selected from the approved collection.</p><div className="gallery-grid">{result.candidates.map(item => <article className="gallery-card" key={item.id}><img src={item.previewUrl} alt={item.title} loading="lazy" style={{ width: '100%', aspectRatio: '9 / 16', objectFit: 'cover' }} /><strong>{item.title}</strong><p className="hint">{item.explanation}</p></article>)}</div><button onClick={() => makeEdit(result.candidates.slice(0, 4).map(item => ({ id: item.id, type: 'image', url: item.previewUrl, title: item.title })))} disabled={result.candidates.length < 2}>Create video from recommendations</button></> : <p>No approved media is available yet.</p>}</>}
+    {result && <>{result.candidates.length ? <><p>Media selected from the approved collection.</p><div className="gallery-grid">{result.candidates.map(item => <article className="gallery-card" key={item.id}><img src={item.previewUrl} alt={item.title} loading="lazy" style={{ width: '100%', aspectRatio: '9 / 16', objectFit: 'cover' }} /><strong>{item.title}</strong><p className="hint">{item.explanation}</p></article>)}</div><button onClick={() => void makeCatalogEdit(result.candidates.slice(0, 4))} disabled={result.candidates.length < 2 || loadingMedia}>{loadingMedia ? 'Preparing your video…' : 'Create video from recommendations'}</button></> : <p>No approved media is available yet.</p>}</>}
     <h2>Use your own media</h2><label>Add images or videos<input type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" onChange={event => { selectFiles(event.target.files); event.target.value = ''; }} /></label><p className="hint">Choose 2–10 files, up to 250 MB total. Your files stay on this device.</p>{userAssets.length > 0 && <p>{userAssets.length} files selected</p>}<button disabled={userAssets.length < 2 || profile.musicAnalysis.status !== 'ready'} onClick={() => makeEdit(userAssets)}>Create video from your media</button>
     {edit && <section className="lyric-review"><h2>Your video</h2><div className="gallery-user-preview">{progress === undefined && <Preview edit={edit} composition={composition} position={position} onReady={setPreviewReady} />}</div><div className="trim-actions"><button disabled={!previewReady || progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button><button disabled={!previewReady || progress !== undefined} onClick={() => void exportEdit()}>Download MP4</button></div>{progress !== undefined && <p role="status">Rendering video · {progress}%</p>}</section>}
     {debug && token && <details><summary>Staging: inspect media decisions</summary><pre>{JSON.stringify({ musicAnalysis: observedAnalysis, brainRequest: profileData, brainResponse: result, edit: edit ? { version: edit.version, shots: edit.shots } : null }, null, 2)}</pre></details>}

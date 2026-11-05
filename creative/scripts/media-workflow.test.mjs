@@ -18,7 +18,9 @@ test('media-first flow requires real-shaped analysis, retrieves approved media a
       await route.fulfill({ json: { version: 1, method: 'beat_this_librosa', source: null, clip: { durationMs: 15000, offsetMs: 0, sha256: hash }, rhythm: { beatsMs: [1200,2400,3600,4800,6000,7200,8400,9600,10800,12000,13200], downbeatsMs: [], tempo: { status: 'estimated', gridBpm: 100, alternativesBpm: [] } }, features: { transientsMs: [3600,7200,10800], frames: [{ timeMs: 0, rms: 0.2, centroidHz: 1000, onsetStrength: 0.1 }] }, provenance: {}, metrics: {} } });
     });
     await page.route('**/api/media-catalog', async route => {
-      const body = route.request().postDataJSON(); assert.equal(body.operation, 'recommend'); assert.equal(body.profile.music.gridBpm, 100); assert.equal('lyrics' in body.profile, false); recommendations++;
+      const body = route.request().postDataJSON();
+      if (body.operation === 'asset') { assert.match(body.id, /^met-\d+$/); await route.fulfill({ path: 'public/pixi-proof/night-window.png', contentType: 'image/png' }); return; }
+      assert.equal(body.operation, 'recommend'); assert.equal(body.profile.music.gridBpm, 100); assert.equal('lyrics' in body.profile, false); recommendations++;
       const candidates = [1,2,3,4].map(n => ({ id: `met-${n}`, type: 'image', title: `Test asset ${n}`, previewUrl: `https://images.metmuseum.org/test${n}.png`, sourceUrl: `https://www.metmuseum.org/art/collection/search/${n}`, status: 'approved', commercialUseEligible: true, explanation: 'Approved collection.', tags: [] }));
       await route.fulfill({ json: { version: 1, intent: { genre: 'House' }, candidates } });
     });

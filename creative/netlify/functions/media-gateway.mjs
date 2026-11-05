@@ -14,16 +14,30 @@ export default async function handler(request) {
     if (Number(request.headers.get('content-length')) > 16384) return response(413, 'Request too large.');
     const bytes = await request.arrayBuffer(); if (bytes.byteLength > 16384) return response(413, 'Request too large.');
     const input = JSON.parse(new TextDecoder().decode(bytes));
-    if (!input || typeof input !== 'object' || Array.isArray(input) || !['discover', 'review', 'review-many', 'list', 'recommend'].includes(input.operation)) return response(400, 'Invalid request.');
-    const allowed = { discover: ['operation', 'query'], review: ['operation', 'id', 'status'], 'review-many': ['operation', 'ids', 'status'], list: ['operation'], recommend: ['operation', 'profile'] };
+    if (!input || typeof input !== 'object' || Array.isArray(input) || !['discover', 'review', 'review-many', 'list', 'recommend', 'asset'].includes(input.operation)) return response(400, 'Invalid request.');
+    const allowed = { discover: ['operation', 'query'], review: ['operation', 'id', 'status'], 'review-many': ['operation', 'ids', 'status'], list: ['operation'], recommend: ['operation', 'profile'], asset: ['operation', 'id'] };
     if (Object.keys(input).some(key => !allowed[input.operation].includes(key))) return response(400, 'Invalid request.');
     if (input.operation === 'recommend' && (!valid(input.profile) || !input.profile.music)) return response(400, 'Music analysis is required.');
     if (input.operation === 'discover' && (typeof input.query !== 'string' || !input.query.trim() || input.query.length > 80)) return response(400, 'Invalid search.');
     if (input.operation === 'review' && (typeof input.id !== 'string' || !/^met-\d+$/.test(input.id) || !['approved', 'rejected'].includes(input.status))) return response(400, 'Invalid review.');
+    if (input.operation === 'asset' && (typeof input.id !== 'string' || !/^met-\d+$/.test(input.id))) return response(400, 'Invalid asset.');
     if (input.operation === 'review-many' && (!Array.isArray(input.ids) || input.ids.length < 1 || input.ids.length > 25 || input.ids.some(id => typeof id !== 'string' || !/^met-\d+$/.test(id)) || !['approved', 'rejected'].includes(input.status))) return response(400, 'Invalid review.');
     const result = await fetch(BRAIN, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(55000), headers: { 'content-type': 'application/json', authorization: `Bearer ${secret}` }, body: JSON.stringify(input) });
     if (!result.ok) return response(502, 'Media service unavailable.');
-    return Response.json(await result.json(), { headers: { 'Cache-Control': 'no-store' } });
+    const data = await result.json();
+    if (input.operation === 'asset') {
+      const url = new URL(data.previewUrl);
+      if (url.protocol !== 'https:' || url.hostname !== 'images.metmuseum.org' || url.port || url.username || url.password) return response(502, 'Media service unavailable.');
+      const image = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(15000) });
+      const type = image.headers.get('content-type') || '';
+      const max = 5 * 1024 * 1024;
+      if (!image.ok || !/^image\/(jpeg|png|webp)$/i.test(type) || Number(image.headers.get('content-length')) > max || !image.body) return response(502, 'Image unavailable.');
+      const reader = image.body.getReader(); const chunks = []; let size = 0;
+      while (true) { const { done, value } = await reader.read(); if (done) break; size += value.byteLength; if (size > max) { await reader.cancel(); return response(502, 'Image unavailable.'); } chunks.push(value); }
+      const bytes = new Uint8Array(size); let offset = 0; for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+      return new Response(bytes, { headers: { 'Content-Type': type, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
+    }
+    return Response.json(data, { headers: { 'Cache-Control': 'no-store' } });
   } catch { return response(503, 'Media service unavailable.'); }
 }
 export const config = { path: '/api/media-catalog', rateLimit: { windowSize: 60, windowLimit: 10, aggregateBy: ['ip'] } };
