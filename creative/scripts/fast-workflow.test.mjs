@@ -5,9 +5,16 @@ import { createServer } from 'vite';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import ffprobe from '@ffprobe-installer/ffprobe';
+import ffmpeg from '@ffmpeg-installer/ffmpeg';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { readFileSync, realpathSync } from 'node:fs';
 
 test('fast visual DNA flow plays and exports through the existing renderer', { timeout: 120000, skip: process.env.MUMOO_HEADED !== '1' || process.platform !== 'darwin' }, async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'mumoo-director-test-'));
+  const footage = join(tmp, 'footage.mp4');
+  execFileSync(ffmpeg.path, ['-v','error','-y','-stream_loop','-1','-i','public/pixi-proof/window-motion.mp4','-t','10','-c','copy',footage]);
   const server = await createServer({ server: { host: '127.0.0.1', port: 0, fs: { allow: [process.cwd(), realpathSync('node_modules')] } }, logLevel: 'error' }); await server.listen();
   const browser = await chromium.launch({ headless: false, executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' });
   try {
@@ -24,11 +31,12 @@ test('fast visual DNA flow plays and exports through the existing renderer', { t
     });
     await page.route('**/api/media-catalog', route => {
       const body = route.request().postDataJSON();
-      if (body.operation === 'research-asset') { calls++; return route.fulfill({ path: 'public/pixi-proof/window-motion.mp4', contentType: 'video/mp4' }); }
+      if (body.operation === 'research-asset') { calls++; return route.fulfill({ path: footage, contentType: 'video/mp4' }); }
       assert.equal(body.operation, 'fast-plan'); assert.equal(body.profile.videoType, 'visual'); assert.deepEqual(body.profile.lyricCues, []); assert.equal(body.profile.measured.envelope.length, 30); assert.equal(body.profile.measured.temporal.version, 1); assert.equal(body.profile.measured.temporal.segments[1].startMs, 7000);
       const assets = [{ id:'pixabay-1', type:'video', title:'Fixture 1', query:'test', rights:'STAGING_TEST_ONLY', adSafety:'REVIEW_REQUIRED' }, { id:'pixabay-2', type:'video', title:'Fixture 2', query:'test', rights:'STAGING_TEST_ONLY', adSafety:'REVIEW_REQUIRED' }];
       const shots=[{assetId:assets[0].id,startFrame:0,endFrame:216,startMs:0,endMs:7200,sourceStartMs:500,transition:'cut'},{assetId:assets[1].id,startFrame:216,endFrame:450,startMs:7200,endMs:15000,sourceStartMs:500,transition:'dissolve'}];
-      return route.fulfill({json:{version:1,status:'ready',scope:'staging-test-only',durationMs:15000,assets,shots}});
+      const executionPlan={version:2,clipSha256:body.profile.clipSha256,fps:30,durationFrames:450,seed:42,lyrics:{source:'none'},motion:[{startFrame:0,endFrame:210,intensity:.4},{startFrame:210,endFrame:450,intensity:.7}],shots:shots.map(s=>({assetId:s.assetId,startFrame:s.startFrame,endFrame:s.endFrame,sourceInMs:s.sourceStartMs,sourceOutMs:s.sourceStartMs+Math.ceil((s.endFrame-s.startFrame)*1000/30),transition:{type:s.transition,durationFrames:s.transition==='dissolve'?9:0},crop:{mode:'cover',x:.5,y:.5}}))};
+      return route.fulfill({json:{version:1,status:'ready',scope:'staging-test-only',durationMs:15000,assets,shots,executionPlan}});
     });
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?vision-intelligence=1&catalog-eval=1&media-debug=1`);
     const rate = 48000, samples = rate * 16, wav = Buffer.alloc(44 + samples * 2);
@@ -38,7 +46,9 @@ test('fast visual DNA flow plays and exports through the existing renderer', { t
     await page.getByRole('button', { name: 'Continue to clip' }).click(); await page.getByRole('button', { name: 'Continue to video type' }).click(); await page.getByLabel('Visual', { exact: true }).check(); await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByLabel('Automatic video preview').waitFor();
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent === 'Play' && !button.disabled));
-    const visiblePixels = await page.getByLabel('Automatic video preview').evaluate(canvas => { const ctx = canvas.getContext('2d'); let nonBlack = 0; for (let y = 100; y < canvas.height; y += 300) for (let x = 100; x < canvas.width; x += 200) { const data = ctx.getImageData(x, y, 1, 1).data; if (data[0] + data[1] + data[2] > 10) nonBlack++; } return nonBlack; });
+    const image = await page.getByLabel('Automatic video preview').screenshot();
+    const pixels = execFileSync(ffmpeg.path, ['-v','error','-i','pipe:0','-vf','scale=20:35','-pix_fmt','rgb24','-f','rawvideo','-'], {input:image});
+    const visiblePixels = pixels.filter(value=>value>10).length;
     assert.ok(visiblePixels > 0, 'Play must not be enabled before a visible first frame'); assert.equal(calls, 2); assert.equal(lyrics, 0);
     await page.getByRole('button', { name: 'Play', exact: true }).click(); await page.getByRole('button', { name: 'Pause', exact: true }).waitFor(); await page.getByRole('button', { name: 'Pause', exact: true }).click();
     const pending = page.waitForEvent('download', { timeout: 90000 }); await page.getByRole('button', { name: 'Download MP4' }).click();
@@ -49,5 +59,5 @@ test('fast visual DNA flow plays and exports through the existing renderer', { t
     const text = readFileSync(await (await diagnosticDownload).path(), 'utf8'); const diagnostic = JSON.parse(text);
     assert.equal(diagnostic.directorBlueprint.scope, 'staging-test-only'); assert.equal(text.includes('test-token'), false); assert.equal(text.includes('fixture.wav'), false);
     const stages = diagnostic.diagnostics.map(event => event.stage); assert.ok(stages.indexOf('preview_renderer_ready') >= 0 && stages.indexOf('preview_ready') > stages.indexOf('preview_renderer_ready'));
-  } finally { await browser.close(); await server.close(); }
+  } finally { await browser.close(); await server.close(); rmSync(tmp, {recursive:true,force:true}); }
 });

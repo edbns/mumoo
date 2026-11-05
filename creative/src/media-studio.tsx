@@ -3,6 +3,7 @@ import { FRAMES, HEIGHT, WIDTH, playheadFrame, type Composition } from './compos
 import type { CreativeProfileV1 } from './creative-profile';
 import { assembleMediaEdit, directorEdit, researchDirectorEdit, type MediaAsset, type MediaEdit } from './media-timeline';
 import { createMediaRenderer } from './media-renderer';
+import { directorExecutionEdit, type ExecutableEdit } from './director-plan';
 import { mediaRequest } from './media-admin';
 import { trace, traces } from './staging-diagnostics';
 import { buildVisionMusicProfile } from './vision-music-profile';
@@ -19,8 +20,12 @@ export function mediaProfile(profile: CreativeProfileV1) {
       rmsMean: frames.reduce((sum, frame) => sum + frame.rms, 0) / frames.length,
       onsetCount: data.features.transientsMs.length, centroidHz: frames.reduce((sum, frame) => sum + frame.centroidHz, 0) / frames.length, dynamics: 'unavailable' } };
 }
-function Preview({ edit, composition, position, onReady }: { edit: MediaEdit; composition: Composition; position: number; onReady: (ready: boolean) => void }) {
-  const canvas = useRef<HTMLCanvasElement>(null); const renderer = useRef<Awaited<ReturnType<typeof createMediaRenderer>> | null>(null);
+type StudioEdit = MediaEdit | ExecutableEdit;
+function createStudioRenderer(canvas: HTMLCanvasElement, edit: StudioEdit, composition: Composition) {
+  return edit.version === 2 ? import('./pixi-director').then(({ createPixiDirectorRenderer }) => createPixiDirectorRenderer(canvas, edit, composition)) : createMediaRenderer(canvas, edit, composition);
+}
+function Preview({ edit, composition, position, onReady }: { edit: StudioEdit; composition: Composition; position: number; onReady: (ready: boolean) => void }) {
+  const canvas = useRef<HTMLCanvasElement>(null); const renderer = useRef<Awaited<ReturnType<typeof createStudioRenderer>> | null>(null);
   const requested = useRef(0); const busy = useRef(false); const [error, setError] = useState(''); const [hasFrame, setHasFrame] = useState(false);
   const firstFrame = useRef(false); const previewStarted = useRef(0);
   const cueKey = JSON.stringify(composition.version === 2 ? composition.cues : [composition.lyric]);
@@ -33,10 +38,10 @@ function Preview({ edit, composition, position, onReady }: { edit: MediaEdit; co
   }
   useEffect(() => {
     const target = canvas.current; if (!target) return;
-    let cancelled = false; let instance: Awaited<ReturnType<typeof createMediaRenderer>> | null = null;
+    let cancelled = false; let instance: Awaited<ReturnType<typeof createStudioRenderer>> | null = null;
     onReady(false); setError(''); setHasFrame(false); firstFrame.current = false;
     const started = performance.now(); previewStarted.current = started; trace('preview_loading');
-    void createMediaRenderer(target, edit, composition).then(value => { instance = value; if (cancelled) { value.destroy(); return; } trace('preview_renderer_ready', { durationMs: Math.round(performance.now() - started) }); renderer.current = value; renderLatest(); })
+    void createStudioRenderer(target, edit, composition).then(value => { instance = value; if (cancelled) { value.destroy(); return; } trace('preview_renderer_ready', { durationMs: Math.round(performance.now() - started) }); renderer.current = value; renderLatest(); })
       .catch(() => { if (!cancelled) { trace('preview_failed', { category: 'media_load', durationMs: Math.round(performance.now() - started) }); setError('One or more media files could not be loaded.'); } });
     return () => { cancelled = true; renderer.current = null; if (instance) instance.destroy(); onReady(false); };
   }, [edit, cueKey, composition.sourceSha256, composition.clipStartMs]);
@@ -45,7 +50,7 @@ function Preview({ edit, composition, position, onReady }: { edit: MediaEdit; co
 }
 export function MediaStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onBack, onRetry }: { profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; token: string; position: number; playing: boolean; playbackError: string; onPlay: () => void; onStop: () => void; onBack: () => void; onRetry: () => void }) {
   const [result, setResult] = useState<unknown>(null);
-  const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [visionStage, setVisionStage] = useState(''); const [edit, setEdit] = useState<MediaEdit | null>(null);
+  const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [visionStage, setVisionStage] = useState(''); const [edit, setEdit] = useState<StudioEdit | null>(null);
   const [userAssets, setUserAssets] = useState<MediaAsset[]>([]); const urls = useRef<string[]>([]);
   const [previewReady, setPreviewReady] = useState(false); const [progress, setProgress] = useState<number>();
   const profileData = useMemo(() => mediaProfile(profile), [profile.musicAnalysis, profile.videoType, profile.creator.primaryGenre.value, profile.creator.influence?.value]);
@@ -79,6 +84,11 @@ export function MediaStudio({ profile, composition, audio, token, position, play
       if (stagingHost && !vision && !legacyResearch && visionProfile && Array.isArray(data.assets)) { try { sessionStorage.setItem(`mumoo-recent-${visionProfile.clipSha256}`, JSON.stringify(data.assets.map((a: {id: string}) => a.id).slice(0,4))); } catch { /* Storage is optional. */ } }
       if (!research) { setEdit(directorEdit(profile.clip, data)); return; }
       if (!Array.isArray(data.assets) || data.assets.length < 2 || data.assets.length > 4) throw new Error('Invalid catalog plan.');
+      if (stagingHost && !vision && !legacyResearch) {
+        if (!visionProfile) throw new Error('Music profile does not match this clip.');
+        const pending = new Map<string, string>(data.assets.map((asset: { id: string }) => [asset.id, `blob:pending-${asset.id}`]));
+        directorExecutionEdit(profile.clip, data, pending, composition, visionProfile.clipSha256);
+      }
       const loaded = new Map<string, string>();
       for (const asset of data.assets) {
         if (typeof asset?.id !== 'string' || !/^(?:cma-\d+|si-[a-f0-9]{24}|commons2-\d+|owned-[a-f0-9]{24}|pixabay-\d+)$/.test(asset.id)) throw new Error('Invalid catalog asset.');
@@ -89,7 +99,7 @@ export function MediaStudio({ profile, composition, audio, token, position, play
         const blob = await response.blob(); if (cancelled) return;
         const url = URL.createObjectURL(blob); researchUrls.push(url); loaded.set(asset.id, url);
       }
-      if (!cancelled) setEdit(researchDirectorEdit(profile.clip, data, loaded));
+      if (!cancelled) setEdit(stagingHost && !vision && !legacyResearch ? directorExecutionEdit(profile.clip, data, loaded, composition, visionProfile!.clipSha256) : researchDirectorEdit(profile.clip, data, loaded));
     }).catch((cause: unknown) => { if (!cancelled) { trace('director_failed', { durationMs: Math.round(performance.now() - started), category: 'request_or_validation' }); setError(cause instanceof Error ? cause.message : 'The video could not be prepared. Try again later.'); } }).finally(() => { if (!cancelled) { setBusy(false); setVisionStage(''); } });
     return () => { cancelled = true; controller.abort(); researchUrls.forEach(URL.revokeObjectURL); };
   }, [request, visionRequest, token]);
@@ -104,10 +114,10 @@ export function MediaStudio({ profile, composition, audio, token, position, play
   }
   async function exportEdit() {
     if (!edit || progress !== undefined) return;
-    onStop(); setProgress(0); setError(''); let renderer: Awaited<ReturnType<typeof createMediaRenderer>> | undefined;
+    onStop(); setProgress(0); setError(''); let renderer: Awaited<ReturnType<typeof createStudioRenderer>> | undefined;
     try { await new Promise<void>(resolve => setTimeout(resolve, 0));
       const video = await renderMp4(composition, audio, frame => setProgress(Math.floor(frame / FRAMES * 100)), async (target, frame) => {
-        renderer ??= await createMediaRenderer(target, edit, composition); await renderer.render(frame);
+        renderer ??= await createStudioRenderer(target, edit, composition); await renderer.render(frame);
       });
       const url = URL.createObjectURL(video); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'mumoo-video.mp4'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 30000);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'The video could not be exported.'); }
@@ -135,7 +145,7 @@ export function MediaStudio({ profile, composition, audio, token, position, play
     {busy && <p role="status">{visionStage || 'Creating your video…'}</p>}{error && <p role="alert">{error}</p>}
     {playbackError && <p role="alert">{playbackError}</p>}
     <h2>Use your own media</h2><label>Add images or videos<input type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" onChange={event => { selectFiles(event.target.files); event.target.value = ''; }} /></label><p className="hint">Choose 2–10 files, up to 250 MB total. Your files stay on this device.</p>{userAssets.length > 0 && <p>{userAssets.length} files selected</p>}<button disabled={userAssets.length < 2 || profile.musicAnalysis.status !== 'ready'} onClick={() => makeEdit(userAssets)}>Create video from your media</button>
-    {edit && <section className="lyric-review"><h2>Your video</h2><div className="gallery-user-preview">{progress === undefined && <Preview edit={edit} composition={composition} position={position} onReady={setPreviewReady} />}</div><div className="trim-actions"><button disabled={!previewReady || progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button><button disabled={!previewReady || progress !== undefined} onClick={() => void exportEdit()}>Download MP4</button></div>{progress !== undefined && <p role="status">Rendering video · {progress}%</p>}</section>}
+    {edit && <section className="lyric-review"><h2>Your video</h2><div className="gallery-user-preview">{progress === undefined && <Preview key={edit.version} edit={edit} composition={composition} position={position} onReady={setPreviewReady} />}</div><div className="trim-actions"><button disabled={!previewReady || progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button><button disabled={!previewReady || progress !== undefined} onClick={() => void exportEdit()}>Download MP4</button></div>{progress !== undefined && <p role="status">Rendering video · {progress}%</p>}</section>}
     {debug && token && <details><summary>Staging: inspect Director Blueprint</summary><p>This file contains music-analysis results, selected genre and approved lyric cues if applicable; it does not contain your audio or password.</p><button className="secondary" onClick={downloadDiagnostic}>Download Blueprint</button>{profiles.map((item,index) => <div key={index}><strong>{typeof item.id === 'string' ? item.id : 'Candidate'}</strong><div>{Array.isArray(item.thumbnailJpegBase64) && item.thumbnailJpegBase64.slice(0,3).map((v: unknown,i: number) => typeof v === 'string' && v.length < 150000 && /^[A-Za-z0-9+/=]+$/.test(v) ? <img key={i} src={`data:image/jpeg;base64,${v}`} alt={`Candidate frame ${i+1}`} width="120" /> : null)}</div></div>)}<pre>{compactDiagnostic}</pre></details>}
   </section></main>;
 }

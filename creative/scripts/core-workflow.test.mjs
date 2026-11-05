@@ -5,10 +5,10 @@ import { createServer } from 'vite';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import ffprobe from '@ffprobe-installer/ffprobe';
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 
 test('isolated Core plan loads reviewed media and exports through the existing renderer', { timeout: 120000, skip: process.env.MUMOO_HEADED !== '1' || process.platform !== 'darwin' }, async () => {
-  const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' }); await server.listen();
+  const server = await createServer({ server: { host: '127.0.0.1', port: 0, fs: { allow: [process.cwd(), realpathSync('node_modules')] } }, logLevel: 'error' }); await server.listen();
   const browser = await chromium.launch({ headless: false, executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' });
   try {
     const page = await browser.newPage(); let calls = 0, lyrics = 0;

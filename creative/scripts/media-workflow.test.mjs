@@ -5,9 +5,16 @@ import { createServer } from 'vite';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import ffprobe from '@ffprobe-installer/ffprobe';
+import ffmpeg from '@ffmpeg-installer/ffmpeg';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 test('media-first flow requires real-shaped analysis, retrieves approved media and exports an edit', { timeout: 120000, skip: process.env.MUMOO_HEADED !== '1' || process.platform !== 'darwin' }, async () => {
-  const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' }); await server.listen();
+  const tmp = mkdtempSync(join(tmpdir(), 'mumoo-media-test-'));
+  const footage = join(tmp, 'footage.mp4');
+  execFileSync(ffmpeg.path, ['-v','error','-y','-stream_loop','-1','-i','public/pixi-proof/window-motion.mp4','-t','10','-c','copy',footage]);
+  const server = await createServer({ server: { host: '127.0.0.1', port: 0, fs: { allow: [process.cwd(), realpathSync('node_modules')] } }, logLevel: 'error' }); await server.listen();
   const browser = await chromium.launch({ headless: false, executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' });
   try {
     const page = await browser.newPage(); let analyses = 0, recommendations = 0, lyricCalls = 0;
@@ -18,10 +25,12 @@ test('media-first flow requires real-shaped analysis, retrieves approved media a
       await route.fulfill({ json: { version: 1, method: 'beat_this_librosa', source: null, clip: { durationMs: 15000, offsetMs: 0, sha256: hash }, rhythm: { beatsMs: [1200,2400,3600,4800,6000,7200,8400,9600,10800,12000,13200], downbeatsMs: [], tempo: { status: 'estimated', gridBpm: 100, alternativesBpm: [] } }, features: { transientsMs: [3600,7200,10800], frames: [{ timeMs: 0, rms: 0.2, centroidHz: 1000, onsetStrength: 0.1 }] }, provenance: {}, metrics: {} } });
     });
     await page.route('**/api/media-catalog', async route => {
-      const body = route.request().postDataJSON(); if (body.operation === 'research-asset') return route.fulfill({ path: 'public/pixi-proof/window-motion.mp4', contentType: 'video/mp4' }); assert.equal(body.operation, 'fast-plan'); assert.equal(body.profile.measured.tempo.gridBpm, 100); assert.deepEqual(body.profile.lyricCues, []); assert.deepEqual(body.profile.measured.onsetsMs, [3600, 7200, 10800]); recommendations++;
+      const body = route.request().postDataJSON(); if (body.operation === 'research-asset') return route.fulfill({ path: footage, contentType: 'video/mp4' }); assert.equal(body.operation, 'fast-plan'); assert.equal(body.profile.measured.tempo.gridBpm, 100); assert.deepEqual(body.profile.lyricCues, []); assert.deepEqual(body.profile.measured.onsetsMs, [3600, 7200, 10800]); recommendations++;
       const assets = [1,2,3,4].map(n => ({ id: `pixabay-${n}`, type: 'video', title: `Test asset ${n}`, query: 'fashion', rights: 'STAGING_TEST_ONLY', adSafety: 'REVIEW_REQUIRED' }));
-      const shots = [0, 3600, 7200, 10800].map((startMs, i) => ({ assetId: assets[i].id, startMs, endMs: [3600, 7200, 10800, 15000][i], transition: i % 2 ? 'dissolve' : 'cut' }));
-      await route.fulfill({ json: { version: 1, status: 'ready', scope: 'staging-test-only', durationMs: 15000, intent: { genre: 'House' }, assets, shots } });
+      const starts = [0, 108, 216, 324, 450];
+      const shots = starts.slice(0,-1).map((startFrame, i) => ({ assetId: assets[i].id, startFrame, endFrame: starts[i+1], sourceStartMs: 0, transition: i % 2 ? 'dissolve' : 'cut' }));
+      const executionPlan = { version:2,clipSha256:body.profile.clipSha256,fps:30,durationFrames:450,seed:42,lyrics:{source:'none'},motion:[{startFrame:0,endFrame:450,intensity:.5}],shots:shots.map(shot=>({assetId:shot.assetId,startFrame:shot.startFrame,endFrame:shot.endFrame,sourceInMs:shot.sourceStartMs,sourceOutMs:Math.ceil((shot.endFrame-shot.startFrame)*1000/30),transition:{type:shot.transition,durationFrames:shot.transition==='dissolve'?9:0},crop:{mode:'cover',x:.5,y:.5}})) };
+      await route.fulfill({ json: { version: 1, status: 'ready', scope: 'staging-test-only', durationMs: 15000, intent: { genre: 'House' }, assets, shots, executionPlan } });
     });
     await page.route('https://upload.wikimedia.org/test*.webm', route => route.fulfill({ path: 'public/pixi-proof/window-motion.mp4', contentType: 'video/mp4', headers: { 'access-control-allow-origin': '*' } }));
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?media-debug=1`);
@@ -38,7 +47,7 @@ test('media-first flow requires real-shaped analysis, retrieves approved media a
     const info = JSON.parse(execFileSync(ffprobe.path, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', await (await pending).path()]));
     assert.deepEqual([info.streams[0].codec_name, info.streams[0].nb_frames, info.streams[1].codec_name, info.format.duration], ['h264', '450', 'aac', '15.000000']);
     await page.getByText('Staging: inspect Director Blueprint').click(); const debug = await page.locator('pre').innerText(); assert.ok(debug.includes('directorBlueprint') && debug.includes('beatsMs')); assert.equal(debug.includes('private-test-token'), false);
-  } finally { await browser.close(); await server.close(); }
+  } finally { await browser.close(); await server.close(); rmSync(tmp, {recursive:true,force:true}); }
 });
 
 test('a failed analysis is visible and only retries when requested', { timeout: 60000, skip: process.env.MUMOO_HEADED !== '1' || process.platform !== 'darwin' }, async () => {
