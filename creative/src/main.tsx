@@ -8,6 +8,7 @@ import { loadFont } from './render';
 import { MusicAnalysisRunner } from './music-analysis-runner';
 import { MediaStudio } from './media-studio';
 import { MediaAdmin } from './media-admin';
+import { CatalogResearch } from './catalog-research';
 import { StagingAccess } from './staging-access';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 import { LyricSync } from './lyric-sync';
@@ -376,4 +377,5 @@ function App() {
   </>;
 }
 
-createRoot(document.getElementById('root')!).render(IS_ALIGNMENT_STAGING && new URLSearchParams(location.search).get('media-admin') === '1' ? <MediaAdmin /> : <App />);
+const params = new URLSearchParams(location.search);
+createRoot(document.getElementById('root')!).render(IS_ALIGNMENT_STAGING && params.get('catalog-research') === '1' ? <CatalogResearch /> : IS_ALIGNMENT_STAGING && params.get('media-admin') === '1' ? <MediaAdmin /> : <App />);

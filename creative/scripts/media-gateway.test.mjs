@@ -50,3 +50,15 @@ test('director receives only bounded music timing and rejects invalid input', as
     assert.equal(calls, 1);
   } finally { globalThis.fetch = original; }
 });
+test('research catalog operations require staging access and bounded provider input', async () => {
+  env(); const original = globalThis.fetch; let calls = 0;
+  globalThis.fetch = async () => { calls++; return Response.json({ assets: [] }); };
+  try {
+    assert.equal((await media(request('/api/media-catalog', { operation: 'research-list' }, 'invalid'))).status, 401);
+    assert.equal((await media(request('/api/media-catalog', { operation: 'research-discover', provider: 'smithsonian', query: 'city', unit: '../x', shard: '00' }))).status, 400);
+    assert.equal((await media(request('/api/media-catalog', { operation: 'research-review', id: 'cma-1', rightsStatus: 'APPROVED', adSafety: 'UNKNOWN' }))).status, 400);
+    assert.equal(calls, 0);
+    assert.equal((await media(request('/api/media-catalog', { operation: 'research-list', offset: 0 }))).status, 200);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = original; }
+});
