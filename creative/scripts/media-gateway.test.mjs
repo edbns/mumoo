@@ -57,6 +57,7 @@ test('research catalog operations require staging access and bounded provider in
     assert.equal((await media(request('/api/media-catalog', { operation: 'research-list' }, 'invalid'))).status, 401);
     assert.equal((await media(request('/api/media-catalog', { operation: 'research-discover', provider: 'smithsonian', query: 'city', unit: '../x', shard: '00' }))).status, 400);
     assert.equal((await media(request('/api/media-catalog', { operation: 'research-review', id: 'cma-1', rightsStatus: 'APPROVED', adSafety: 'UNKNOWN' }))).status, 400);
+    assert.equal((await media(request('/api/media-catalog', { operation: 'pixabay-search', query: '' }))).status, 400);
     assert.equal(calls, 0);
     assert.equal((await media(request('/api/media-catalog', { operation: 'research-list', offset: 0 }))).status, 200);
     assert.equal(calls, 1);
