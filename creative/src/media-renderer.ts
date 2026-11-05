@@ -15,7 +15,11 @@ export async function createMediaRenderer(canvas: HTMLCanvasElement, edit: Media
   const resources = new Map<string, Resource>();
   try { for (const asset of edit.assets) { if (resources.has(asset.id)) throw new Error('Duplicate media identifier.'); resources.set(asset.id, await loadAsset(asset)); } }
   catch (error) { for (const resource of resources.values()) if (resource.type === 'video') { resource.node.pause(); resource.node.removeAttribute('src'); resource.node.load(); } throw error; }
-  const context = canvas.getContext('2d'); if (!context) throw new Error('Canvas is unavailable.');
+  // Video seeks are asynchronous: draw the complete frame off-screen first so
+  // the preview never exposes the cleared canvas while a seek is pending.
+  const frameCanvas = document.createElement('canvas'); frameCanvas.width = WIDTH; frameCanvas.height = HEIGHT;
+  const context = frameCanvas.getContext('2d'); const target = canvas.getContext('2d');
+  if (!context || !target) throw new Error('Canvas is unavailable.');
   async function drawShot(shot: MediaShot, timeMs: number, alpha: number, zoom: number) {
     const resource = resources.get(shot.assetId); if (!resource) throw new Error('An edit asset is unavailable.');
     const element = resource.node;
@@ -39,5 +43,6 @@ export async function createMediaRenderer(canvas: HTMLCanvasElement, edit: Media
     await drawShot(state.shot, state.timeMs, state.mix, 1 + state.impact * 0.014);
     const text = evaluate(composition, frame).text;
     if (text) { context.save(); context.font = '800 112px "Inter Variable"'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.shadowColor = 'rgba(0,0,0,.8)'; context.shadowBlur = 12; context.fillStyle = '#fff'; context.fillText(text, WIDTH / 2, HEIGHT * 0.65, WIDTH * 0.82); context.restore(); }
+    target.drawImage(frameCanvas, 0, 0);
   }, destroy() { for (const resource of resources.values()) if (resource.type === 'video') { resource.node.pause(); resource.node.removeAttribute('src'); resource.node.load(); } resources.clear(); } };
 }

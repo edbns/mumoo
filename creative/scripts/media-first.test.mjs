@@ -33,8 +33,12 @@ test('image and video share deterministic preview and real 15-second MP4 timelin
       await document.fonts.load('800 112px "Inter Variable"', 'TEST LYRIC');
       const edit = assembleMediaEdit(input.clip, input.analysis, input.assets); const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = 1920;
       const renderer = await createMediaRenderer(canvas, edit, input.composition);
-      try { const output = []; for (const frame of [60, 108, 150, 108]) { await renderer.render(frame); output.push(canvas.toDataURL()); } return { output, shots: edit.shots }; } finally { renderer.destroy(); }
+      try { const output = []; await renderer.render(60); output.push(canvas.toDataURL());
+        const pendingFrame = renderer.render(150); const duringSeek = canvas.toDataURL(); await pendingFrame;
+        for (const frame of [108, 150, 108]) { await renderer.render(frame); output.push(canvas.toDataURL()); }
+        return { output, duringSeek, shots: edit.shots }; } finally { renderer.destroy(); }
     }, input);
+    assert.equal(previews.duringSeek, previews.output[0], 'an in-progress video seek must not flash a cleared canvas');
     assert.equal(previews.output[1], previews.output[3]); assert.notEqual(previews.output[0], previews.output[2]);
     const pending = page.waitForEvent('download', { timeout: 170000 }); const start = performance.now();
     await page.evaluate(async input => {
