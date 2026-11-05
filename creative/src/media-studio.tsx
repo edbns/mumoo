@@ -7,6 +7,7 @@ import { mediaRequest } from './media-admin';
 import { trace, traces } from './staging-diagnostics';
 import { buildVisionMusicProfile } from './vision-music-profile';
 import { runVisionResearch } from './vision-research';
+import { renderMp4 } from './browser-export';
 
 export function mediaProfile(profile: CreativeProfileV1) {
   if (profile.musicAnalysis.status !== 'ready') return null;
@@ -96,7 +97,7 @@ export function MediaStudio({ profile, composition, audio, token, position, play
   async function exportEdit() {
     if (!edit || progress !== undefined) return;
     onStop(); setProgress(0); setError(''); let renderer: Awaited<ReturnType<typeof createMediaRenderer>> | undefined;
-    try { await new Promise<void>(resolve => setTimeout(resolve, 0)); const { renderMp4 } = await import('./browser-export');
+    try { await new Promise<void>(resolve => setTimeout(resolve, 0));
       const video = await renderMp4(composition, audio, frame => setProgress(Math.floor(frame / FRAMES * 100)), async (target, frame) => {
         renderer ??= await createMediaRenderer(target, edit, composition); await renderer.render(frame);
       });
