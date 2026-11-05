@@ -5,6 +5,7 @@ import { createServer } from 'vite';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import ffprobe from '@ffprobe-installer/ffprobe';
+import { readFileSync } from 'node:fs';
 
 test('isolated Core plan loads reviewed media and exports through the existing renderer', { timeout: 120000, skip: process.env.MUMOO_HEADED !== '1' || process.platform !== 'darwin' }, async () => {
   const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' }); await server.listen();
@@ -35,5 +36,9 @@ test('isolated Core plan loads reviewed media and exports through the existing r
     const pending = page.waitForEvent('download', { timeout: 90000 }); await page.getByRole('button', { name: 'Download MP4' }).click();
     const info = JSON.parse(execFileSync(ffprobe.path, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', await (await pending).path()]));
     assert.deepEqual([info.streams[0].codec_name, info.streams[0].width, info.streams[0].height, info.streams[0].nb_frames, info.streams[1].codec_name, info.format.duration], ['h264', 1080, 1920, '450', 'aac', '15.000000']);
+    await page.getByText('Staging: inspect Director Blueprint').click(); const diagnosticDownload = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download Blueprint' }).click();
+    const text = readFileSync(await (await diagnosticDownload).path(), 'utf8'); const diagnostic = JSON.parse(text);
+    assert.equal(diagnostic.directorBlueprint.scope, 'staging-test-only'); assert.equal(text.includes('test-token'), false); assert.equal(text.includes('fixture.wav'), false);
   } finally { await browser.close(); await server.close(); }
 });
