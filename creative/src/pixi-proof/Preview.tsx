@@ -3,9 +3,9 @@ import { playheadFrame, type Composition } from '../composition';
 import type { ReactiveTimeline } from '../assembly';
 import { createEditorialScene } from './scene';
 
-export function PixiPreview({ position, timeline, composition, seed, footageUrl, footageKind }: { position: number; timeline: ReactiveTimeline | null; composition: Composition; seed: number; footageUrl?: string; footageKind?: 'image' | 'video' }) {
+export function PixiPreview({ position, timeline, composition, seed, footageUrl, footageKind, surfaceExperiment }: { position: number; timeline: ReactiveTimeline | null; composition: Composition; seed: number; footageUrl?: string; footageKind?: 'image' | 'video'; surfaceExperiment?: boolean }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const scene = useRef<Awaited<ReturnType<typeof createEditorialScene>> | null>(null);
+  const scene = useRef<{ render: (frame: number) => Promise<unknown>; destroy: () => void } | null>(null);
   const requested = useRef(0);
   const busy = useRef(false);
   const [message, setMessage] = useState('Preparing visual…');
@@ -27,10 +27,13 @@ export function PixiPreview({ position, timeline, composition, seed, footageUrl,
   }
   useEffect(() => {
     let cancelled = false;
-    let instance: Awaited<ReturnType<typeof createEditorialScene>> | null = null;
+    let instance: { render: (frame: number) => Promise<unknown>; destroy: () => void } | null = null;
     const target = canvas.current;
     if (!target) return;
-    void createEditorialScene(target, timeline, seed, true, composition, footageUrl, footageKind).then(value => {
+    const create = surfaceExperiment && footageUrl && footageKind === 'image'
+      ? import('../pixi-surface/scene').then(({ createSurfaceScene }) => createSurfaceScene(target, timeline, seed, composition, footageUrl))
+      : createEditorialScene(target, timeline, seed, true, composition, footageUrl, footageKind);
+    void create.then(value => {
       instance = value;
       if (cancelled) { value.destroy(); return; }
       scene.current = value;
@@ -39,10 +42,10 @@ export function PixiPreview({ position, timeline, composition, seed, footageUrl,
     }).catch(() => { if (!cancelled) setMessage('This media could not be previewed. Try another image or video.'); });
     return () => { cancelled = true; scene.current = null; if (instance) instance.destroy(); };
   // Scene inputs change only when the selected clip, analysis, cues or variation changes.
-  }, [timeline, seed, cueKey, composition.clipStartMs, composition.sourceSha256, footageUrl, footageKind]);
+  }, [timeline, seed, cueKey, composition.clipStartMs, composition.sourceSha256, footageUrl, footageKind, surfaceExperiment]);
   useEffect(() => {
     requested.current = playheadFrame(position);
     renderLatest();
   }, [position]);
-  return <><canvas key={`${seed}:${footageUrl ?? 'image'}`} ref={canvas} width={1080} height={1920} aria-label="Pixi visual preview" /><p role="status">{message}</p></>;
+  return <><canvas key={`${seed}:${footageUrl ?? 'image'}:${surfaceExperiment}`} ref={canvas} width={1080} height={1920} aria-label="Pixi visual preview" /><p role="status">{message}</p></>;
 }

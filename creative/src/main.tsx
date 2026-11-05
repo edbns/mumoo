@@ -50,6 +50,7 @@ function App() {
   const [composition, setComposition] = useState(INITIAL);
   const horizonVariation = 0;
   const pixiVariation = 0;
+  const surfaceFlag = IS_ALIGNMENT_STAGING && new URLSearchParams(location.search).get('experiment') === 'surface';
   const [footageUrl, setFootageUrl] = useState<string>();
   const [footageKind, setFootageKind] = useState<'image' | 'video'>('video');
   const [selectedVisuals, setSelectedVisuals] = useState<string[]>([]);
@@ -235,7 +236,8 @@ function App() {
   async function exportVideo() {
     if (!buffer || !valid || exporting.current || selectedVisuals.length !== 1) return;
     const chosen = selectedVisuals[0];
-    const usesFootage = chosen === 'user-video' && Boolean(footageUrl);
+    const isSurface = chosen === 'surface-experiment' && surfaceFlag && footageKind === 'image' && Boolean(footageUrl);
+    const usesFootage = (chosen === 'user-video' && Boolean(footageUrl)) || isSurface;
     if (!usesFootage && !['scribble', 'elastic', 'glitch'].includes(chosen)) return;
     const exportComposition = usesFootage ? activeComposition : { ...activeComposition, template: chosen as 'scribble' | 'elastic' | 'glitch' };
     exporting.current = true;
@@ -243,15 +245,20 @@ function App() {
     setActiveVisual(null);
     setExportError('');
     setExportFrame(0);
-    let proofScene: Awaited<ReturnType<typeof import('./pixi-proof/scene').createEditorialScene>> | undefined;
+    let proofScene: { render: (frame: number) => Promise<unknown>; destroy: () => void } | undefined;
     try {
       // Let the active preview release its WebGL/video resources before export.
       await new Promise<void>(resolve => setTimeout(resolve, 0));
       const { renderMp4 } = await import('./browser-export');
       const video = await renderMp4(exportComposition, buffer, setExportFrame, usesFootage ? async (target, frame) => {
         if (!proofScene) {
-          const { createEditorialScene } = await import('./pixi-proof/scene');
-          proofScene = await createEditorialScene(target, proofTimeline, pixiVariation, true, exportComposition, footageUrl, footageKind);
+          if (isSurface && footageUrl) {
+            const { createSurfaceScene } = await import('./pixi-surface/scene');
+            proofScene = await createSurfaceScene(target, proofTimeline, pixiVariation, exportComposition, footageUrl);
+          } else {
+            const { createEditorialScene } = await import('./pixi-proof/scene');
+            proofScene = await createEditorialScene(target, proofTimeline, pixiVariation, true, exportComposition, footageUrl, footageKind);
+          }
         }
         await proofScene.render(frame);
       } : undefined);
@@ -434,9 +441,10 @@ function App() {
         if (!file) return;
         stop();
         if (file.size === 0 || file.size > 250 * 1024 * 1024 || !['video/mp4', 'video/webm', 'image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setExportError('Choose an MP4, WebM, JPG, PNG or WebP file under 250 MB.'); return; }
-        setExportError(''); setFootageKind(file.type.startsWith('image/') ? 'image' : 'video'); setFootageUrl(URL.createObjectURL(file)); setActiveVisual(null); setSelectedVisuals(current => current.filter(id => id !== 'user-video'));
+        setExportError(''); setFootageKind(file.type.startsWith('image/') ? 'image' : 'video'); setFootageUrl(URL.createObjectURL(file)); setActiveVisual(null); setSelectedVisuals(current => current.filter(id => id !== 'user-video' && id !== 'surface-experiment'));
       }}
-      userPreview={fontText === text ? <Suspense fallback={<p>Loading visual…</p>}><PixiPreview position={position} timeline={proofTimeline} composition={activeComposition} seed={pixiVariation} footageUrl={footageUrl} footageKind={footageKind} /></Suspense> : <p>Loading visual…</p>}
+      surfaceEnabled={surfaceFlag && footageKind === 'image' && Boolean(footageUrl)}
+      userPreview={fontText === text ? <Suspense fallback={<p>Loading visual…</p>}><PixiPreview position={position} timeline={proofTimeline} composition={activeComposition} seed={pixiVariation} footageUrl={footageUrl} footageKind={footageKind} surfaceExperiment={activeVisual === 'surface-experiment'} /></Suspense> : <p>Loading visual…</p>}
     />}
     {buffer && clipValid && IS_ALIGNMENT_STAGING && (step === 4 || editingVisual) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs}
       audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}

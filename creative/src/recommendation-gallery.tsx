@@ -28,11 +28,11 @@ function Frame({ composition, active, position }: { composition: Composition; ac
   return <canvas ref={ref} width={1080} height={1920} aria-label="Composition preview" onContextMenu={event => event.preventDefault()} />;
 }
 
-export function RecommendationGallery({ profile, composition, position, playing, activeId, selected, onPlay, onToggle, onBack, onGenerate, exporting, progress, exportError, footageUrl, onFootage, userPreview }: {
+export function RecommendationGallery({ profile, composition, position, playing, activeId, selected, onPlay, onToggle, onBack, onGenerate, exporting, progress, exportError, footageUrl, onFootage, userPreview, surfaceEnabled }: {
   profile: CreativeProfileV1; composition: Composition; position: number; playing: boolean; activeId: string | null;
   selected: string[]; onPlay: (id: string) => void; onToggle: (id: string) => void; onBack: () => void;
   onGenerate: () => void; exporting: boolean; progress?: number; exportError: string;
-  footageUrl?: string; onFootage: (file?: File) => void; userPreview: ReactNode;
+  footageUrl?: string; onFootage: (file?: File) => void; userPreview: ReactNode; surfaceEnabled: boolean;
 }) {
   const [password, setPassword] = useState('');
   const [token, setToken] = useState('');
@@ -63,7 +63,7 @@ export function RecommendationGallery({ profile, composition, position, playing,
     return () => abort.abort();
   }, [token, data, profile.videoType, retry]);
   const displayComposition = useMemo(() => composition, [composition]);
-  const validSelection = selected.length === 1 && (selected[0] === 'user-video' ? Boolean(footageUrl) : Boolean(result?.catalog.some(entry => entry.id === selected[0])));
+  const validSelection = selected.length === 1 && (['user-video', 'surface-experiment'].includes(selected[0]) ? Boolean(footageUrl) && (selected[0] !== 'surface-experiment' || surfaceEnabled) : Boolean(result?.catalog.some(entry => entry.id === selected[0])));
   async function signIn(event: React.FormEvent) {
     event.preventDefault(); setMessage('');
     try {
@@ -95,7 +95,8 @@ export function RecommendationGallery({ profile, composition, position, playing,
     <h2>Use your own media</h2><label>Add an image or video<input type="file" accept="video/mp4,video/webm,image/jpeg,image/png,image/webp" disabled={exporting} onChange={event => { onFootage(event.target.files?.[0]); event.target.value = ''; }} /></label>
     <p className="hint">One image or video, up to 250 MB, stays on this device. It fills the frame; short videos repeat.</p>
     {footageUrl && <div className="gallery-actions"><button onClick={() => onPlay('user-video')}>{activeId === 'user-video' && playing ? 'Pause your media' : 'Play your media'}</button><button className={selected.includes('user-video') ? 'selected' : 'secondary'} aria-pressed={selected.includes('user-video')} onClick={() => onToggle('user-video')}>{selected.includes('user-video') ? 'Selected ✓' : 'Select your media'}</button></div>}
-    {footageUrl && activeId === 'user-video' && <div className="gallery-user-preview">{userPreview}<span className="preview-mark">PREVIEW</span></div>}
+    {surfaceEnabled && <><p className="hint">{profile.musicAnalysis.status === 'ready' ? 'Experiment uses analyzed beats, transients and energy.' : 'Experiment uses repeatable test signals because music analysis is unavailable.'}</p><div className="gallery-actions"><span>Internal image-surface experiment</span><button onClick={() => onPlay('surface-experiment')}>{activeId === 'surface-experiment' && playing ? 'Pause experiment' : 'Play experiment'}</button><button className={selected.includes('surface-experiment') ? 'selected' : 'secondary'} aria-pressed={selected.includes('surface-experiment')} onClick={() => onToggle('surface-experiment')}>{selected.includes('surface-experiment') ? 'Selected ✓' : 'Select experiment'}</button></div></>}
+    {footageUrl && (activeId === 'user-video' || activeId === 'surface-experiment') && <div className="gallery-user-preview">{userPreview}<span className="preview-mark">PREVIEW</span></div>}
     <div className="generate-bar"><span>{selected.length} selected</span><button disabled={!validSelection || exporting} onClick={onGenerate}>Generate Selected</button>{selected.length > 1 && <span>Single-video export is available now. Select one to generate it.</span>}</div>
     {exporting && <p role="status">Rendering MP4 · {progress}%</p>}{exportError && <p role="alert">{exportError}</p>}
   </section></main>;
