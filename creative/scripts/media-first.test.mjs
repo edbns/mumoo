@@ -12,7 +12,7 @@ const assets = [{ id: 'image', type: 'image', url: '/pixi-proof/night-window.png
 
 test('automatic edit requires matching actual analysis and uses musical opportunities, not every beat', async () => {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
-  try { const { assembleMediaEdit, frameState } = await server.ssrLoadModule('/src/media-timeline.ts');
+  try { const { assembleMediaEdit, directorEdit, frameState } = await server.ssrLoadModule('/src/media-timeline.ts');
     assert.throws(() => assembleMediaEdit(clip, { status: 'unavailable', reason: 'not_requested' }, assets));
     assert.throws(() => assembleMediaEdit({ ...clip, offsetMs: 2000 }, analysis, assets));
     const edit = assembleMediaEdit(clip, analysis, assets);
@@ -20,6 +20,12 @@ test('automatic edit requires matching actual analysis and uses musical opportun
     for (const shot of edit.shots.slice(1)) assert.ok([...analysis.result.rhythm.beatsMs, ...analysis.result.features.transientsMs].includes(shot.startMs));
     assert.equal(edit.shots[0].startMs, 0); assert.equal(edit.shots.at(-1).endMs, 15000);
     assert.equal(frameState(edit, 0).shot.assetId, 'image');
+    const approved = [1, 2].map(id => ({ id: `commons-${id}`, type: 'video', assetUrl: `https://upload.wikimedia.org/${id}.webm`, title: 'Video', status: 'approved', commercialUseEligible: true }));
+    const plan = { version: 1, status: 'ready', durationMs: 15000, assets: approved, shots: [{ assetId: 'commons-1', startMs: 0, endMs: 7200, transition: 'cut' }, { assetId: 'commons-2', startMs: 7200, endMs: 15000, transition: 'dissolve' }] };
+    assert.equal(directorEdit(clip, plan).shots.length, 2);
+    assert.throws(() => directorEdit(clip, { ...plan, assets: [{ ...approved[0], status: 'pending' }, approved[1]] }));
+    assert.throws(() => directorEdit(clip, { ...plan, assets: [{ ...approved[0], assetUrl: 'https://evil.example/a.webm' }, approved[1]] }));
+    assert.throws(() => directorEdit(clip, { ...plan, shots: [{ ...plan.shots[0], endMs: 7100 }, plan.shots[1]] }));
   } finally { await server.close(); }
 });
 

@@ -5,6 +5,22 @@ export interface MediaAsset { id: string; type: 'image' | 'video'; url: string; 
 export interface MediaShot { assetId: string; startMs: number; endMs: number; transition: 'cut' | 'dissolve' | 'impact' }
 export interface MediaEdit { version: 1; clip: ClipIdentity; durationMs: typeof DURATION_MS; shots: MediaShot[]; assets: MediaAsset[] }
 
+/** Accept only a bounded, contiguous director plan for reviewed Commons video. */
+export function directorEdit(clip: ClipIdentity, blueprint: unknown): MediaEdit {
+  const value = blueprint as { version?: unknown; status?: unknown; durationMs?: unknown; assets?: unknown; shots?: unknown };
+  if (!value || value.version !== 1 || value.status !== 'ready' || value.durationMs !== DURATION_MS || !Array.isArray(value.assets) || value.assets.length < 2 || value.assets.length > 4 || !Array.isArray(value.shots) || value.shots.length < 2 || value.shots.length > 4) throw new Error('A video cannot be assembled from the approved footage yet.');
+  const assets: MediaAsset[] = value.assets.map((asset: { id?: unknown; type?: unknown; assetUrl?: unknown; title?: unknown; status?: unknown; commercialUseEligible?: unknown }) => {
+    if (typeof asset.id !== 'string' || !/^commons-\d+$/.test(asset.id) || asset.type !== 'video' || asset.status !== 'approved' || asset.commercialUseEligible !== true || typeof asset.title !== 'string' || typeof asset.assetUrl !== 'string') throw new Error('Unapproved footage.');
+    const url = new URL(asset.assetUrl); if (url.protocol !== 'https:' || url.hostname !== 'upload.wikimedia.org' || url.port || url.username || url.password || url.search || url.hash || !url.pathname.endsWith('.webm')) throw new Error('Invalid footage source.');
+    return { id: asset.id, type: 'video', url: url.href, title: asset.title };
+  });
+  if (new Set(assets.map(a => a.id)).size !== assets.length) throw new Error('Duplicate footage.');
+  let position = 0;
+  const shots: MediaShot[] = value.shots.map((shot: MediaShot) => { if (!shot || !assets.some(a => a.id === shot.assetId) || !Number.isSafeInteger(shot.startMs) || !Number.isSafeInteger(shot.endMs) || shot.startMs !== position || shot.endMs <= shot.startMs || shot.endMs > DURATION_MS || !['cut', 'dissolve', 'impact'].includes(shot.transition)) throw new Error('Invalid video timeline.'); position = shot.endMs; return { assetId: shot.assetId, startMs: shot.startMs, endMs: shot.endMs, transition: shot.transition }; });
+  if (position !== DURATION_MS) throw new Error('Invalid video duration.');
+  return { version: 1, clip, durationMs: DURATION_MS, assets, shots };
+}
+
 /** Assemble measured beat/onset opportunities into a small number of long shots. */
 export function assembleMediaEdit(clip: ClipIdentity, analysis: MusicAnalysisState, assets: MediaAsset[]): MediaEdit {
   if (analysis.status !== 'ready' || !sameClip(analysis.clip, clip)) throw new Error('Music analysis is required for an automatic edit.');

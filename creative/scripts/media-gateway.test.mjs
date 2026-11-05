@@ -39,3 +39,14 @@ test('approved media delivery only fetches the permitted museum image host and b
     assert.equal((await media(request('/api/media-catalog', { operation: 'asset', id: 'met-123' }))).status, 502);
   } finally { globalThis.fetch = original; }
 });
+test('director receives only bounded music timing and rejects invalid input', async () => {
+  env(); const original = globalThis.fetch; let calls = 0;
+  globalThis.fetch = async (_url, options) => { calls++; const data = JSON.parse(options.body); assert.deepEqual(data.onsetsMs, [1000, 2000]); assert.equal('lyrics' in data.profile, false); return Response.json({ version: 1, status: 'unavailable' }); };
+  try {
+    assert.equal((await media(request('/api/media-catalog', { operation: 'director', profile, onsetsMs: [2000, 1000] }))).status, 400);
+    assert.equal((await media(request('/api/media-catalog', { operation: 'director', profile: { ...profile, lyrics: 'private' }, onsetsMs: [1000] }))).status, 400);
+    assert.equal(calls, 0);
+    assert.equal((await media(request('/api/media-catalog', { operation: 'director', profile, onsetsMs: [1000, 2000] }))).status, 200);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = original; }
+});

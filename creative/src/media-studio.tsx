@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FRAMES, HEIGHT, WIDTH, playheadFrame, type Composition } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
-import { assembleMediaEdit, type MediaAsset, type MediaEdit } from './media-timeline';
+import { assembleMediaEdit, directorEdit, type MediaAsset, type MediaEdit } from './media-timeline';
 import { createMediaRenderer } from './media-renderer';
 import { mediaRequest } from './media-admin';
 
-type Candidate = { id: string; type: 'image'; title: string; previewUrl: string; sourceUrl: string; status: 'approved'; commercialUseEligible: boolean; explanation: string; tags: string[] };
 export function mediaProfile(profile: CreativeProfileV1) {
   if (profile.musicAnalysis.status !== 'ready') return null;
   const data = profile.musicAnalysis.result, frames = data.features.frames;
@@ -39,43 +38,26 @@ function Preview({ edit, composition, position, onReady }: { edit: MediaEdit; co
   return <><canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Automatic video preview" onContextMenu={event => event.preventDefault()} /><span className="preview-mark">PREVIEW</span>{error && <p role="alert">{error}</p>}</>;
 }
 export function MediaStudio({ profile, composition, audio, token, position, playing, onPlay, onStop, onBack }: { profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; token: string; position: number; playing: boolean; onPlay: () => void; onStop: () => void; onBack: () => void }) {
-  const [result, setResult] = useState<{ intent: unknown; candidates: Candidate[] } | null>(null);
+  const [result, setResult] = useState<unknown>(null);
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [edit, setEdit] = useState<MediaEdit | null>(null);
   const [userAssets, setUserAssets] = useState<MediaAsset[]>([]); const urls = useRef<string[]>([]);
-  const catalogUrls = useRef<string[]>([]); const [loadingMedia, setLoadingMedia] = useState(false);
   const [previewReady, setPreviewReady] = useState(false); const [progress, setProgress] = useState<number>();
   const profileData = useMemo(() => mediaProfile(profile), [profile.musicAnalysis, profile.videoType, profile.creator.primaryGenre.value, profile.creator.influence?.value]);
   const request = JSON.stringify(profileData);
   useEffect(() => () => { urls.current.forEach(URL.revokeObjectURL); }, []);
-  useEffect(() => () => { catalogUrls.current.forEach(URL.revokeObjectURL); }, []);
   useEffect(() => {
     if (!profileData || !token) { setResult(null); return; }
     let cancelled = false; setBusy(true); setError(''); setResult(null); setEdit(null);
-    void mediaRequest(token, { operation: 'recommend', profile: profileData }).then(data => {
+    const onsetsMs = profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result.features.transientsMs : [];
+    void mediaRequest(token, { operation: 'director', profile: profileData, onsetsMs }).then(data => {
       if (cancelled) return;
-      if (!Array.isArray(data?.candidates)) throw new Error('Invalid response.');
-      const candidates: Candidate[] = data.candidates.filter((item: Candidate) => item?.status === 'approved' && item.commercialUseEligible === true && item.type === 'image' && /^https:\/\/images\.metmuseum\.org\//.test(item.previewUrl));
-      setResult({ intent: data.intent, candidates });
-    }).catch(() => { if (!cancelled) setError('Recommendations are unavailable. Try again later.'); }).finally(() => { if (!cancelled) setBusy(false); });
+      setResult(data);
+      if (data?.status !== 'ready') { setError('Not enough approved footage or music timing is available yet.'); return; }
+      setEdit(directorEdit(profile.clip, data));
+    }).catch(() => { if (!cancelled) setError('The video could not be prepared. Try again later.'); }).finally(() => { if (!cancelled) setBusy(false); });
     return () => { cancelled = true; };
   }, [request, token]);
   function makeEdit(assets: MediaAsset[]) { try { onStop(); setEdit(assembleMediaEdit(profile.clip, profile.musicAnalysis, assets)); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : 'The edit could not be made.'); } }
-  async function makeCatalogEdit(items: Candidate[]) {
-    setLoadingMedia(true); setError(''); onStop();
-    const created: string[] = [];
-    try {
-      const assets: MediaAsset[] = [];
-      for (const item of items) {
-        const response = await fetch('/api/media-catalog', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Mumoo-Brain-Access': token }, body: JSON.stringify({ operation: 'asset', id: item.id }) });
-        if (!response.ok) throw new Error('An approved image could not be loaded. Please try again.');
-        const blob = await response.blob(); const url = URL.createObjectURL(blob); created.push(url);
-        assets.push({ id: item.id, type: 'image', url, title: item.title });
-      }
-      catalogUrls.current.forEach(URL.revokeObjectURL); catalogUrls.current = created;
-      makeEdit(assets);
-    } catch (cause) { created.forEach(URL.revokeObjectURL); setError(cause instanceof Error ? cause.message : 'Approved media could not be loaded.'); }
-    finally { setLoadingMedia(false); }
-  }
   function selectFiles(files: FileList | null) {
     if (!files?.length) return;
     const list = Array.from(files); const allowed = ['video/mp4', 'video/webm', 'image/jpeg', 'image/png', 'image/webp'];
@@ -99,14 +81,13 @@ export function MediaStudio({ profile, composition, audio, token, position, play
   const observedAnalysis = profile.musicAnalysis.status === 'ready' ? { status: 'ready', beatsMs: profile.musicAnalysis.result.rhythm.beatsMs,
     transientsMs: profile.musicAnalysis.result.features.transientsMs, tempo: profile.musicAnalysis.result.rhythm.tempo,
     energyFrames: profile.musicAnalysis.result.features.frames.map(({ timeMs, rms, onsetStrength, centroidHz }) => ({ timeMs, rms, onsetStrength, centroidHz })) } : { status: profile.musicAnalysis.status };
-  return <main className="desktop gallery-page"><section className="gallery-shell"><p className="eyebrow">YOUR VIDEO</p><h1>Recommended for your music</h1>
+  return <main className="desktop gallery-page"><section className="gallery-shell"><p className="eyebrow">YOUR VIDEO</p><h1>Your music video</h1>
     <button className="secondary" onClick={onBack}>Back to music</button>
     {profile.musicAnalysis.status === 'pending' && <p role="status">Analyzing your selected music…</p>}
     {(profile.musicAnalysis.status === 'unavailable' || profile.musicAnalysis.status === 'error') && <p role="alert">Music analysis is unavailable. A music-timed edit and recommendations cannot be generated yet.</p>}
-    {busy && <p role="status">Finding approved media…</p>}{error && <p role="alert">{error}</p>}
-    {result && <>{result.candidates.length ? <><p>Media selected from the approved collection.</p><div className="gallery-grid">{result.candidates.map(item => <article className="gallery-card" key={item.id}><img src={item.previewUrl} alt={item.title} loading="lazy" style={{ width: '100%', aspectRatio: '9 / 16', objectFit: 'cover' }} /><strong>{item.title}</strong><p className="hint">{item.explanation}</p></article>)}</div><button onClick={() => void makeCatalogEdit(result.candidates.slice(0, 4))} disabled={result.candidates.length < 2 || loadingMedia}>{loadingMedia ? 'Preparing your video…' : 'Create video from recommendations'}</button></> : <p>No approved media is available yet.</p>}</>}
+    {busy && <p role="status">Creating your video…</p>}{error && <p role="alert">{error}</p>}
     <h2>Use your own media</h2><label>Add images or videos<input type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" onChange={event => { selectFiles(event.target.files); event.target.value = ''; }} /></label><p className="hint">Choose 2–10 files, up to 250 MB total. Your files stay on this device.</p>{userAssets.length > 0 && <p>{userAssets.length} files selected</p>}<button disabled={userAssets.length < 2 || profile.musicAnalysis.status !== 'ready'} onClick={() => makeEdit(userAssets)}>Create video from your media</button>
     {edit && <section className="lyric-review"><h2>Your video</h2><div className="gallery-user-preview">{progress === undefined && <Preview edit={edit} composition={composition} position={position} onReady={setPreviewReady} />}</div><div className="trim-actions"><button disabled={!previewReady || progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button><button disabled={!previewReady || progress !== undefined} onClick={() => void exportEdit()}>Download MP4</button></div>{progress !== undefined && <p role="status">Rendering video · {progress}%</p>}</section>}
-    {debug && token && <details><summary>Staging: inspect media decisions</summary><pre>{JSON.stringify({ musicAnalysis: observedAnalysis, brainRequest: profileData, brainResponse: result, edit: edit ? { version: edit.version, shots: edit.shots } : null }, null, 2)}</pre></details>}
+    {debug && token && <details><summary>Staging: inspect Director Blueprint</summary><pre>{JSON.stringify({ musicAnalysis: observedAnalysis, brainRequest: { profile: profileData, onsetsMs: profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result.features.transientsMs : [] }, directorBlueprint: result, edit: edit ? { version: edit.version, shots: edit.shots } : null }, null, 2)}</pre></details>}
   </section></main>;
 }
