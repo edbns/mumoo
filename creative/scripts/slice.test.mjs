@@ -74,6 +74,12 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
   try {
     const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
     const page = await browser.newPage();
+    await page.route('**/api/brain-tester-access', route => route.fulfill({ json: { token: 'test-token' } }));
+    await page.route('**/api/brain-recommendations', async route => {
+      const lyricMode = route.request().postDataJSON().videoType === 'lyric';
+      const catalog = lyricMode ? ['scribble', 'elastic', 'glitch'].map(id => ({ id, name: id, description: 'Typography', renderer: { kind: 'existing_canvas', template: id } })) : [];
+      await route.fulfill({ json: { catalog, recommendations: catalog.map(item => ({ ...item, explanation: 'Supports timed lyrics.' })) } });
+    });
     const paidRequests = [];
     page.on('request', request => {
       if (/\/\.netlify\/functions\/(align-lyrics|analyze-music)/.test(request.url())) paidRequests.push(request.url());
@@ -169,48 +175,32 @@ test('built editor trims WAV, matches cue frames, and downloads a real MP4', { t
     await page.getByLabel('Visual', { exact: true }).check();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     assert.equal(await page.getByText('Paste lyrics for this section').count(), 0);
-    await page.getByRole('button', { name: 'Continue without lyrics' }).click();
-    await page.getByText('Instrumental · no lyrics').waitFor();
+    await page.getByRole('heading', { name: 'Choose your visuals' }).waitFor();
     assert.deepEqual(paidRequests, []);
-    await page.getByRole('button', { name: 'Edit music and lyrics' }).click();
+    await page.getByRole('button', { name: 'Back to music' }).click();
     await page.getByRole('button', { name: 'Back to video type' }).click();
     await page.getByLabel('Lyric Video').check();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByText('Current lyric: —').waitFor();
 
     await approve.click();
-    await page.getByRole('button', { name: 'Edit music and lyrics' }).click();
+    await page.getByRole('button', { name: 'Back to music' }).click();
     assert.equal(await clipStart.inputValue(), '2000');
     await page.getByText('Advanced manual timing', { exact: true }).click();
     assert.equal(await page.getByLabel('Line 2 in (ms)').inputValue(), '4000');
     await approve.click();
-    await page.getByText('2 approved lyric cues').waitFor();
-    await page.getByRole('button', { name: 'Play' }).click();
-    await page.getByRole('button', { name: 'Pause' }).click();
-    const seek = page.getByRole('slider', { name: 'Seek within clip' });
-    const images = [];
-    for (const index of [30, 31, 60, 61]) {
-      const position = Math.ceil(index * 1000 / 30);
-      await seek.fill(String(position));
-      const expected = await render.evaluate(frame => window.mumoo.frame(frame), index);
-      await page.waitForFunction(png => document.querySelector('canvas').toDataURL().endsWith(png), expected);
-      images.push(expected);
-    }
-    assert.equal(images[0], images[3]);
-    assert.notEqual(images[0], images[1]);
-    assert.notEqual(images[1], images[2]);
-    await render.evaluate(snapshot => window.mumoo.prepare(snapshot, 18000), approved);
-    await seek.fill('4000');
-    const secondLine = await render.evaluate(() => window.mumoo.frame(120));
-    await page.waitForFunction(png => document.querySelector('canvas').toDataURL().endsWith(png), secondLine);
+    await page.getByLabel('Staging tester password').fill('test password');
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await page.getByText('3 eligible recommendations are available right now.').waitFor();
     const previewFrames = new Set();
     for (const template of ['scribble', 'elastic', 'glitch']) {
       await render.evaluate(snapshot => window.mumoo.prepare(snapshot, 18000), { ...approved, template });
       previewFrames.add(await render.evaluate(() => window.mumoo.frame(31)));
     }
     assert.equal(previewFrames.size, 3, 'legacy renderers remain available');
+    await page.locator('.gallery-grid').first().getByRole('button', { name: 'Select', exact: true }).first().click();
     const downloadMp4 = page.waitForEvent('download', { timeout: 90_000 });
-    await page.getByRole('button', { name: 'Export MP4' }).click();
+    await page.getByRole('button', { name: 'Generate Selected' }).click();
     const mp4 = await downloadMp4;
     assert.equal(mp4.suggestedFilename(), 'mumoo.mp4');
     verifyMp4(await mp4.path(), true);

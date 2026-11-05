@@ -4,7 +4,7 @@ import { evaluate, type Composition } from '../composition';
 import { editorialLook } from './looks';
 
 /** Experimental Pixi path. No ticker or internal wall-clock drives the scene. */
-export async function createEditorialScene(canvas: HTMLCanvasElement, timeline: ReactiveTimeline | null, seed: number, includeVideo = true, lyrics?: Composition, footageUrl?: string) {
+export async function createEditorialScene(canvas: HTMLCanvasElement, timeline: ReactiveTimeline | null, seed: number, includeVideo = true, lyrics?: Composition, footageUrl?: string, footageKind: 'image' | 'video' = 'video') {
   const app = new Application();
   await app.init({ canvas, width: 1080, height: 1920, preference: 'webgl', autoStart: false, sharedTicker: false, antialias: false, background: '#101719' });
   app.ticker.stop();
@@ -17,6 +17,9 @@ export async function createEditorialScene(canvas: HTMLCanvasElement, timeline: 
   const texture = await Assets.load<Texture>('/pixi-proof/night-window.png');
   const video = document.createElement('video');
   video.muted = true; video.playsInline = true; video.preload = 'auto';
+  const image = footageUrl && footageKind === 'image' ? new Image() : null;
+  if (image) { image.src = footageUrl!; await image.decode(); }
+  else {
   video.src = footageUrl || '/pixi-proof/window-motion.mp4';
   await new Promise<void>((resolve, reject) => {
     video.onloadeddata = () => resolve();
@@ -26,14 +29,18 @@ export async function createEditorialScene(canvas: HTMLCanvasElement, timeline: 
   if (!Number.isFinite(video.duration) || video.duration <= 0 || !video.videoWidth || !video.videoHeight) {
     app.destroy(); throw new Error('The selected video is invalid or cannot be decoded.');
   }
-  const videoSource = new VideoSource({ resource: video, autoPlay: false });
-  videoSource.autoUpdate = false;
-  const videoTexture = new Texture({ source: videoSource });
+  }
+  const sourceWidth = image ? image.naturalWidth : video.videoWidth;
+  const sourceHeight = image ? image.naturalHeight : video.videoHeight;
+  if (!sourceWidth || !sourceHeight) { app.destroy(); throw new Error('The selected media could not be decoded.'); }
+  const videoSource = image ? null : new VideoSource({ resource: video, autoPlay: false });
+  if (videoSource) videoSource.autoUpdate = false;
+  const videoTexture = image ? Texture.from(image) : new Texture({ source: videoSource! });
   video.pause();
   const videoLayer = new Sprite(videoTexture);
   if (footageUrl) {
-    const scale = Math.max(1080 / video.videoWidth, 1920 / video.videoHeight);
-    videoLayer.scale.set(scale); videoLayer.position.set((1080 - video.videoWidth * scale) / 2, (1920 - video.videoHeight * scale) / 2);
+    const scale = Math.max(1080 / sourceWidth, 1920 / sourceHeight);
+    videoLayer.scale.set(scale); videoLayer.position.set((1080 - sourceWidth * scale) / 2, (1920 - sourceHeight * scale) / 2);
   } else { videoLayer.width = 1080; videoLayer.height = 1920; }
   videoLayer.alpha = footageUrl ? 1 : 0.15;
   if (!footageUrl) videoLayer.blendMode = 'screen';
@@ -68,21 +75,21 @@ export async function createEditorialScene(canvas: HTMLCanvasElement, timeline: 
       const evaluated = performance.now();
       // This proof asset is constant 15 fps: two output frames share one source frame.
       const videoTime = footageUrl ? (t % video.duration) : Math.floor((frame % 90) / 2) / 15;
-      if (includeVideo && Math.abs(video.currentTime - videoTime) > 0.001) {
+      if (!image && includeVideo && Math.abs(video.currentTime - videoTime) > 0.001) {
         await new Promise<void>((resolve, reject) => {
           const timer = window.setTimeout(() => reject(new Error('Video frame seek timed out.')), 5000);
           video.onseeked = () => { clearTimeout(timer); resolve(); };
           video.currentTime = videoTime;
         });
       }
-      if (includeVideo) videoTexture.source.update();
+      if (!image && includeVideo) videoTexture.source.update();
       videoLayer.visible = includeVideo;
       if (footageUrl) {
         // The selected media is the entire scene: center-cover with restrained,
         // frame-derived movement, and no demo artwork showing through.
-        const scale = Math.max(1080 / video.videoWidth, 1920 / video.videoHeight) * (1.015 + 0.008 * beat.energy + 0.004 * beat.beat);
+        const scale = Math.max(1080 / sourceWidth, 1920 / sourceHeight) * (1.015 + 0.008 * beat.energy + 0.004 * beat.beat);
         videoLayer.scale.set(scale);
-        videoLayer.position.set((1080 - video.videoWidth * scale) / 2, (1920 - video.videoHeight * scale) / 2);
+        videoLayer.position.set((1080 - sourceWidth * scale) / 2, (1920 - sourceHeight * scale) / 2);
       }
       const sought = performance.now();
       const zoom = look.crop + t * 0.001 + beat.energy * 0.01;

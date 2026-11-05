@@ -65,3 +65,18 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .boundary-controls span { min-width: 95px; font-variant-numeric: tabular-nums; }
 .boundary-controls button { background: #f2f2f4; color: #171717; font-size: 12px; }
 .inline-lyric { font: inherit; border: 1px solid #ce451b; border-radius: 8px; padding: 4px 7px; background: #fff5ef; }
+.gallery-page { grid-template-columns: minmax(0, 1200px); }
+.gallery-shell h2 { margin-top: 32px; font-size: 19px; }
+.gallery-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.gallery-card { border: 1px solid #e9e9ea; border-radius: 14px; padding: 10px; min-width: 0; }
+.gallery-frame, .gallery-user-preview { position: relative; width: 100%; }
+.gallery-frame canvas { display: block; width: 100%; max-width: none; }
+.gallery-user-preview { max-width: 280px; margin: 16px 0; }
+.preview-mark { position: absolute; bottom: 12px; right: 12px; color: white; text-shadow: 0 1px 4px #000; font-size: 10px; letter-spacing: .12em; pointer-events: none; }
+.gallery-actions, .generate-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.gallery-card strong { display: block; margin-top: 10px; }
+.secondary { background: #f0f0f2; color: #171717; }
+.selected { background: #e3521b; color: white; }
+.generate-bar { position: sticky; bottom: 0; background: white; border-top: 1px solid #e9e9ea; padding: 16px 0; margin-top: 30px; }
+.staging-access { margin: 24px 0; max-width: 380px; }
+@media (max-width: 1000px) { .gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

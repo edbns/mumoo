@@ -3,7 +3,7 @@ import { playheadFrame, type Composition } from '../composition';
 import type { ReactiveTimeline } from '../assembly';
 import { createEditorialScene } from './scene';
 
-export function PixiPreview({ position, timeline, composition, seed, footageUrl }: { position: number; timeline: ReactiveTimeline | null; composition: Composition; seed: number; footageUrl?: string }) {
+export function PixiPreview({ position, timeline, composition, seed, footageUrl, footageKind }: { position: number; timeline: ReactiveTimeline | null; composition: Composition; seed: number; footageUrl?: string; footageKind?: 'image' | 'video' }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<Awaited<ReturnType<typeof createEditorialScene>> | null>(null);
   const requested = useRef(0);
@@ -30,16 +30,16 @@ export function PixiPreview({ position, timeline, composition, seed, footageUrl 
     let instance: Awaited<ReturnType<typeof createEditorialScene>> | null = null;
     const target = canvas.current;
     if (!target) return;
-    void createEditorialScene(target, timeline, seed, true, composition, footageUrl).then(value => {
+    void createEditorialScene(target, timeline, seed, true, composition, footageUrl, footageKind).then(value => {
       instance = value;
       if (cancelled) { value.destroy(); return; }
       scene.current = value;
       setMessage(value.compatibility === 'hardware' ? 'Hardware-accelerated preview' : value.compatibility === 'software' ? 'This device is using software graphics; preview and export may be slow.' : 'Graphics acceleration could not be verified; performance may vary.');
       renderLatest();
-    }).catch(() => { if (!cancelled) setMessage('This browser could not start the visual. Try the existing preview instead.'); });
+    }).catch(() => { if (!cancelled) setMessage('This media could not be previewed. Try another image or video.'); });
     return () => { cancelled = true; scene.current = null; if (instance) instance.destroy(); };
   // Scene inputs change only when the selected clip, analysis, cues or variation changes.
-  }, [timeline, seed, cueKey, composition.clipStartMs, composition.sourceSha256, footageUrl]);
+  }, [timeline, seed, cueKey, composition.clipStartMs, composition.sourceSha256, footageUrl, footageKind]);
   useEffect(() => {
     requested.current = playheadFrame(position);
     renderLatest();

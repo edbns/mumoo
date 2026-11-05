@@ -2,11 +2,12 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { readWavMetadata, type SourceMetadata } from './source-metadata';
 import { decodeWav, hashWav } from './audio';
-import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
+import { DURATION_MS, FPS, FRAMES, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { orbitPlan, horizonPlan, timelineFor } from './assembly';
-import { draw, loadFont } from './render';
-import { MusicDiagnostics } from './music-diagnostics';
+import { loadFont } from './render';
+import { MusicAnalysisRunner } from './music-analysis-runner';
+import { RecommendationGallery } from './recommendation-gallery';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 import { LyricSync } from './lyric-sync';
 import { LyricReview } from './lyric-review';
@@ -50,8 +51,9 @@ function App() {
   const horizonVariation = 0;
   const pixiVariation = 0;
   const [footageUrl, setFootageUrl] = useState<string>();
-  const proofMode = IS_ALIGNMENT_STAGING;
-  const [mediaError, setMediaError] = useState('');
+  const [footageKind, setFootageKind] = useState<'image' | 'video'>('video');
+  const [selectedVisuals, setSelectedVisuals] = useState<string[]>([]);
+  const [activeVisual, setActiveVisual] = useState<string | null>(null);
   const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
   useEffect(() => () => { if (footageUrl) URL.revokeObjectURL(footageUrl); }, [footageUrl]);
   const currentClip = useRef<ClipIdentity | null>(null);
@@ -67,7 +69,6 @@ function App() {
   const [error, setError] = useState('');
   const [fontText, setFontText] = useState<string>();
   const [fontError, setFontError] = useState('');
-  const canvas = useRef<HTMLCanvasElement>(null);
   const context = useRef<AudioContext | null>(null);
   const source = useRef<AudioBufferSourceNode | null>(null);
   const animation = useRef(0);
@@ -216,6 +217,7 @@ function App() {
     stop();
     setPosition(0);
     setEditingVisual(visual);
+    if (visual) { setSelectedVisuals([]); setActiveVisual(null); }
   }
 
   useEffect(() => {
@@ -228,25 +230,28 @@ function App() {
     return () => { active = false; };
   }, [text]);
 
-  useEffect(() => {
-    if (!proofMode && canvas.current && fontText === text) {
-      draw(canvas.current, activeComposition, playheadFrame(position));
-    }
-  }, [composition, videoType, editingVisual, fontText, position, musicAnalysis, horizonVariation, proofMode]);
+
 
   async function exportVideo() {
-    if (!buffer || !valid || exporting.current) return;
+    if (!buffer || !valid || exporting.current || selectedVisuals.length !== 1) return;
+    const chosen = selectedVisuals[0];
+    const usesFootage = chosen === 'user-video' && Boolean(footageUrl);
+    if (!usesFootage && !['scribble', 'elastic', 'glitch'].includes(chosen)) return;
+    const exportComposition = usesFootage ? activeComposition : { ...activeComposition, template: chosen as 'scribble' | 'elastic' | 'glitch' };
     exporting.current = true;
     stop();
+    setActiveVisual(null);
     setExportError('');
     setExportFrame(0);
     let proofScene: Awaited<ReturnType<typeof import('./pixi-proof/scene').createEditorialScene>> | undefined;
     try {
+      // Let the active preview release its WebGL/video resources before export.
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
       const { renderMp4 } = await import('./browser-export');
-      const video = await renderMp4(activeComposition, buffer, setExportFrame, proofMode ? async (target, frame) => {
+      const video = await renderMp4(exportComposition, buffer, setExportFrame, usesFootage ? async (target, frame) => {
         if (!proofScene) {
           const { createEditorialScene } = await import('./pixi-proof/scene');
-          proofScene = await createEditorialScene(target, proofTimeline, pixiVariation, true, activeComposition, footageUrl);
+          proofScene = await createEditorialScene(target, proofTimeline, pixiVariation, true, exportComposition, footageUrl, footageKind);
         }
         await proofScene.render(frame);
       } : undefined);
@@ -326,7 +331,7 @@ function App() {
               <label><input type="radio" name="video-type" checked={videoType === 'visual'} onChange={() => setVideoType('visual')} /> Visual</label>
             </fieldset>
             <div className="trim-actions"><button onClick={() => setStep(2)}>Back to clip</button>
-              <button disabled={!videoType || !clipValid || !genreValid} onClick={() => setStep(4)}>Continue</button></div>
+              <button disabled={!videoType || !clipValid || !genreValid} onClick={() => { setStep(4); if (videoType === 'visual') openStage(true); }}>Continue</button></div>
           </>}
           <div hidden={step !== 4}>
           {step === 4 && <><button onClick={() => { stop(); setStep(3); }}>Back to video type</button>
@@ -415,57 +420,27 @@ function App() {
         </>}
         {(error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
       </section>
-    </main> : <main className="desktop">
-      <section>
-        <p className="eyebrow">YOUR VIDEO</p>
-        <h1>Create your music visual</h1>
-        <p className="intro">Use our visual, or make your own video the star.</p>
-        <p className="hint">Genre · {profile?.creator.primaryGenre.value}{profile?.creator.influence && ` · ${profile.creator.influence.value}`}</p>
-        <button className="back-to-trim" onClick={() => openStage(false)}>Edit music and lyrics</button>
-        {proofMode && <>
-          <label>Add your video <input type="file" accept="video/mp4,video/webm" disabled={exportFrame !== undefined} onChange={event => {
-            stop();
-            const file = event.target.files?.[0];
-            if (!file) return;
-            if (file.size === 0 || file.size > 250 * 1024 * 1024 || !['video/mp4', 'video/webm'].includes(file.type)) {
-              setMediaError('Choose an MP4 or WebM video under 250 MB.');
-              event.target.value = '';
-              return;
-            }
-            setMediaError('');
-            setFootageUrl(URL.createObjectURL(file));
-            event.target.value = '';
-          }} /></label>
-          <p className="hint">One MP4 or WebM video, up to 250 MB. Your video stays on this device. MUMOO fits it to the screen automatically; shorter videos repeat.</p>
-          {footageUrl && <button disabled={exportFrame !== undefined} onClick={() => { stop(); setFootageUrl(undefined); setMediaError(''); }}>Use MUMOO visual instead</button>}
-          {mediaError && <p role="alert">{mediaError}</p>}
-        </>}
-        <p className="hint">{activeComposition.cues.length ? `${activeComposition.cues.length} approved lyric cues` : 'Instrumental · no lyrics'}</p>
-        {(error || fontError || (buffer && !valid)) && <p role="alert">{error || fontError || 'Check the 15-second clip range and lyric timing.'}</p>}
-        <p className="hint" role="status">{buffer && valid
-          ? `Clip ready · ${(composition.clipStartMs / 1000).toFixed(3)}–${((composition.clipStartMs + DURATION_MS) / 1000).toFixed(3)} s`
-          : 'To enable preview, choose a WAV and a valid 15-second range.'}</p>
-        <button disabled={!valid || exportFrame !== undefined} onClick={() => void exportVideo()}>Export MP4</button>
-        {exportFrame !== undefined && <p role="status">Rendering MP4 · {Math.floor(exportFrame / FRAMES * 100)}%</p>}
-        {exportError && <p role="alert">{exportError}</p>}
-      </section>
-      <section className="preview" aria-label="Preview">
-        <div className="preview-heading"><strong>Preview</strong><span>9:16 · 15 seconds</span></div>
-        {proofMode && IS_ALIGNMENT_STAGING ? fontText === text ? <Suspense fallback={<p>Loading visual…</p>}><PixiPreview position={position} timeline={proofTimeline} composition={activeComposition} seed={pixiVariation} footageUrl={footageUrl} /></Suspense> : <p>Loading visual…</p> : <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Visual composition" />}
-        <div className="transport">
-          <button disabled={!valid || fontText !== text} onClick={() => playing ? stop() : void play()}>{playing ? 'Pause' : 'Play'}</button>
-          <input aria-label="Seek within clip" type="range" min="0" max={DURATION_MS} step="1" value={Math.floor(position)} disabled={!valid} onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} />
-          <output>{(position / 1000).toFixed(2)} s</output>
-        </div>
-      </section>
-    </main>}
-    {buffer && clipValid && IS_ALIGNMENT_STAGING && <div className="desktop music-analysis" style={{ display: !editingVisual && step === 4 ? undefined : 'none' }}>
-      <section><MusicDiagnostics key={composition.sourceSha256 + ':' + composition.clipStartMs}
-        audio={buffer} clip={clip} analysis={profile?.musicAnalysis ?? analysisForClip(musicAnalysis, clip)}
-        onChange={state => {
-          if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state);
-        }} /></section>
-    </div>}
+    </main> : profile && <RecommendationGallery profile={profile} composition={activeComposition} position={position} playing={playing}
+      activeId={activeVisual} selected={selectedVisuals} exporting={exportFrame !== undefined} progress={exportFrame === undefined ? undefined : Math.floor(exportFrame / FRAMES * 100)} exportError={exportError || fontError}
+      onBack={() => { setActiveVisual(null); openStage(false); }}
+      onToggle={id => setSelectedVisuals(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])}
+      onPlay={id => {
+        if (activeVisual === id && playing) { stop(); return; }
+        stop(); setPosition(0); setActiveVisual(id); void play(true);
+      }}
+      onGenerate={() => void exportVideo()}
+      footageUrl={footageUrl}
+      onFootage={file => {
+        if (!file) return;
+        stop();
+        if (file.size === 0 || file.size > 250 * 1024 * 1024 || !['video/mp4', 'video/webm', 'image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setExportError('Choose an MP4, WebM, JPG, PNG or WebP file under 250 MB.'); return; }
+        setExportError(''); setFootageKind(file.type.startsWith('image/') ? 'image' : 'video'); setFootageUrl(URL.createObjectURL(file)); setActiveVisual(null); setSelectedVisuals(current => current.filter(id => id !== 'user-video'));
+      }}
+      userPreview={fontText === text ? <Suspense fallback={<p>Loading visual…</p>}><PixiPreview position={position} timeline={proofTimeline} composition={activeComposition} seed={pixiVariation} footageUrl={footageUrl} footageKind={footageKind} /></Suspense> : <p>Loading visual…</p>}
+    />}
+    {buffer && clipValid && IS_ALIGNMENT_STAGING && (step === 4 || editingVisual) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs}
+      audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}
+
     <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>
   </>;
 }

@@ -67,3 +67,9 @@ Paste only the words sung inside the selected 15 seconds and click **Sync lyrics
 This is a recognition-based matching pilot. It cannot recover the timing of a word the model fails to recognize, and repetitions or heavy accompaniment can reduce accuracy. The first run downloads model files from Hugging Face and the browser must be able to reach that service. Audio is processed locally. Automatic transcript entry, vocal separation, and BPM analysis are separate work.
 
 Model and license: [Xenova/whisper-tiny](https://huggingface.co/Xenova/whisper-tiny).
+
+### Staging recommendation gallery
+
+The gallery submits only the creator-selected genre, video type, optional influence, and available summarized music features to the authenticated staging Brain gateway. Audio, filenames, artist metadata and raw lyric cues are not sent. Recommendations and the complete catalog come from the Brain and are filtered against locally supported renderers; no results are fabricated. The staging tester signs in with the existing short-lived access flow. User-provided media is a separate local-only option, not a Brain recommendation. Multiple items can be selected, but export currently requires exactly one selection.
+
+Music analysis continues to use its independently authenticated staging worker. The gallery automatically reuses a valid music tester code already in the browser session and binds results to the selected clip. If that code is missing or expired, analysis remains unavailable and the Brain receives the genre without music features. A unified authorized staging session for fresh analysis remains unimplemented; never bypass the worker's authentication or silently claim analysis ran. Full batch export and a larger eligible catalog are future work.
