@@ -85,3 +85,15 @@ test('owner footage upload requires tester access and stays within staging limit
     assert.equal((await media(upload(token, 'people,street'))).status, 200); assert.equal(calls, 1);
   } finally { globalThis.fetch = original; }
 });
+test('Pixabay staging footage requires access and a trusted provider URL', async () => {
+  env(); const original = globalThis.fetch; let count = 0;
+  try {
+    globalThis.fetch = async (url, options) => { count++; if (String(url).includes('mumoo-brain-staging')) { assert.deepEqual(JSON.parse(options.body), {operation:'pixabay-staging-asset', id:'pixabay-1', query:'House'}); return Response.json({ type: 'video', renderUrl: 'https://cdn.pixabay.com/video/test.mp4' }); } return new Response(new Uint8Array([1,2,3]), {headers:{'content-type':'video/mp4'}}); };
+    const body = {operation:'research-asset', id:'pixabay-1', query:'House'};
+    assert.equal((await media(request('/api/media-catalog', body, 'invalid'))).status, 401); assert.equal(count, 0);
+    assert.equal((await media(request('/api/media-catalog', { ...body, query: undefined }))).status, 400);
+    assert.equal((await media(request('/api/media-catalog', body))).status, 200);
+    globalThis.fetch = async () => Response.json({type:'video', renderUrl:'https://evil.example/test.mp4'});
+    assert.equal((await media(request('/api/media-catalog', body))).status, 502);
+  } finally { globalThis.fetch = original; }
+});

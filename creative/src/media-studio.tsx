@@ -54,8 +54,9 @@ export function MediaStudio({ profile, composition, audio, token, position, play
     const started = performance.now(); trace('director_started');
     const onsetsMs = profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result.features.transientsMs : [];
     const research = (location.hostname === 'mumoo-staging.netlify.app' || (import.meta.env.DEV && location.hostname === '127.0.0.1')) && new URLSearchParams(location.search).get('catalog-eval') === '1';
+    const stagingPixabay = research && new URLSearchParams(location.search).get('staging-pixabay') === '1';
     const stagingOwned = research && new URLSearchParams(location.search).get('staging-owned') === '1';
-    void mediaRequest(token, { operation: research ? 'research-plan' : 'director', profile: profileData, onsetsMs, ...(stagingOwned && { stagingOwned: true }) }).then(async data => {
+    void mediaRequest(token, { operation: research ? 'research-plan' : 'director', profile: profileData, onsetsMs, ...(stagingOwned && { stagingOwned: true }), ...(stagingPixabay && { stagingPixabay: true }) }).then(async data => {
       if (cancelled) return;
       trace('director_response', { durationMs: Math.round(performance.now() - started), category: data?.status === 'ready' ? 'ready' : 'unavailable' });
       setResult(data);
@@ -64,9 +65,9 @@ export function MediaStudio({ profile, composition, audio, token, position, play
       if (!Array.isArray(data.assets) || data.assets.length < 2 || data.assets.length > 4) throw new Error('Invalid catalog plan.');
       const loaded = new Map<string, string>();
       for (const asset of data.assets) {
-        if (typeof asset?.id !== 'string' || !/^(?:cma-\d+|si-[a-f0-9]{24}|commons2-\d+|owned-[a-f0-9]{24})$/.test(asset.id)) throw new Error('Invalid catalog asset.');
+        if (typeof asset?.id !== 'string' || !/^(?:cma-\d+|si-[a-f0-9]{24}|commons2-\d+|owned-[a-f0-9]{24}|pixabay-\d+)$/.test(asset.id)) throw new Error('Invalid catalog asset.');
         const assetStarted = performance.now(); trace('asset_fetch_started');
-        const response = await fetch('/api/media-catalog', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Mumoo-Brain-Access': token }, body: JSON.stringify({ operation: 'research-asset', id: asset.id }) });
+        const response = await fetch('/api/media-catalog', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Mumoo-Brain-Access': token }, body: JSON.stringify({ operation: 'research-asset', id: asset.id, ...(asset.id.startsWith('pixabay-') ? { query: asset.query } : {}) }) });
         trace('asset_fetch_response', { status: response.status, durationMs: Math.round(performance.now() - assetStarted) });
         if (!response.ok) throw new Error('Approved media is unavailable.');
         const blob = await response.blob(); if (cancelled) return;
@@ -106,7 +107,7 @@ export function MediaStudio({ profile, composition, audio, token, position, play
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'mumoo-director-blueprint.json'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
   return <main className="desktop gallery-page"><section className="gallery-shell"><p className="eyebrow">YOUR VIDEO</p><h1>Your music video</h1>
-    {new URLSearchParams(location.search).get('staging-owned') === '1' && <p className="hint">Private staging test: owner-provided footage has not been cleared for advertising or release.</p>}
+    {(new URLSearchParams(location.search).get('staging-owned') === '1' || new URLSearchParams(location.search).get('staging-pixabay') === '1') && <p className="hint">Private staging research: footage has not been cleared for advertising or release.</p>}
     <button className="secondary" onClick={onBack}>Back to music</button>
     {(profile.musicAnalysis.status === 'pending' || (profile.musicAnalysis.status === 'unavailable' && token)) && <p role="status">Analyzing your selected music…</p>}
     {profile.musicAnalysis.status === 'error' && <p role="alert">Music analysis is unavailable. A music-timed edit and recommendations cannot be generated yet.</p>}
