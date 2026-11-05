@@ -5,6 +5,8 @@ import { assembleMediaEdit, directorEdit, researchDirectorEdit, type MediaAsset,
 import { createMediaRenderer } from './media-renderer';
 import { mediaRequest } from './media-admin';
 import { trace, traces } from './staging-diagnostics';
+import { buildVisionMusicProfile } from './vision-music-profile';
+import { runVisionResearch } from './vision-research';
 
 export function mediaProfile(profile: CreativeProfileV1) {
   if (profile.musicAnalysis.status !== 'ready') return null;
@@ -42,21 +44,26 @@ function Preview({ edit, composition, position, onReady }: { edit: MediaEdit; co
 }
 export function MediaStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onBack, onRetry }: { profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; token: string; position: number; playing: boolean; playbackError: string; onPlay: () => void; onStop: () => void; onBack: () => void; onRetry: () => void }) {
   const [result, setResult] = useState<unknown>(null);
-  const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [edit, setEdit] = useState<MediaEdit | null>(null);
+  const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [visionStage, setVisionStage] = useState(''); const [edit, setEdit] = useState<MediaEdit | null>(null);
   const [userAssets, setUserAssets] = useState<MediaAsset[]>([]); const urls = useRef<string[]>([]);
   const [previewReady, setPreviewReady] = useState(false); const [progress, setProgress] = useState<number>();
   const profileData = useMemo(() => mediaProfile(profile), [profile.musicAnalysis, profile.videoType, profile.creator.primaryGenre.value, profile.creator.influence?.value]);
   const request = JSON.stringify(profileData);
+  const visionProfile = useMemo(() => buildVisionMusicProfile(profile), [profile]);
+  const visionRequest = JSON.stringify(visionProfile);
   useEffect(() => () => { urls.current.forEach(URL.revokeObjectURL); }, []);
   useEffect(() => {
     if (!profileData || !token) { setResult(null); trace('director_not_started', { category: !token ? 'access_missing' : 'analysis_not_ready' }); return; }
-    let cancelled = false; const researchUrls: string[] = []; setBusy(true); setError(''); setResult(null); setEdit(null);
+    let cancelled = false; const controller = new AbortController(); const researchUrls: string[] = []; setBusy(true); setError(''); setResult(null); setEdit(null);
     const started = performance.now(); trace('director_started');
     const onsetsMs = profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result.features.transientsMs : [];
-    const research = (location.hostname === 'mumoo-staging.netlify.app' || (import.meta.env.DEV && location.hostname === '127.0.0.1')) && new URLSearchParams(location.search).get('catalog-eval') === '1';
+    const stagingHost = location.hostname === 'mumoo-staging.netlify.app' || (import.meta.env.DEV && location.hostname === '127.0.0.1');
+    const vision = stagingHost && new URLSearchParams(location.search).get('vision-intelligence') === '1';
+    const research = stagingHost && (new URLSearchParams(location.search).get('catalog-eval') === '1' || vision);
     const stagingPixabay = research && new URLSearchParams(location.search).get('staging-pixabay') === '1';
     const stagingOwned = research && new URLSearchParams(location.search).get('staging-owned') === '1';
-    void mediaRequest(token, { operation: research ? 'research-plan' : 'director', profile: profileData, onsetsMs, ...(stagingOwned && { stagingOwned: true }), ...(stagingPixabay && { stagingPixabay: true }) }).then(async data => {
+    const planned = vision ? (visionProfile ? runVisionResearch(visionProfile, token, controller.signal, setVisionStage) : Promise.reject(new Error('Music profile does not match this clip.'))) : mediaRequest(token, { operation: research ? 'research-plan' : 'director', profile: profileData, onsetsMs, ...(stagingOwned && { stagingOwned: true }), ...(stagingPixabay && { stagingPixabay: true }) });
+    void planned.then(async data => {
       if (cancelled) return;
       trace('director_response', { durationMs: Math.round(performance.now() - started), category: data?.status === 'ready' ? 'ready' : 'unavailable' });
       setResult(data);
@@ -74,9 +81,9 @@ export function MediaStudio({ profile, composition, audio, token, position, play
         const url = URL.createObjectURL(blob); researchUrls.push(url); loaded.set(asset.id, url);
       }
       if (!cancelled) setEdit(researchDirectorEdit(profile.clip, data, loaded));
-    }).catch(() => { if (!cancelled) { trace('director_failed', { durationMs: Math.round(performance.now() - started), category: 'request_or_validation' }); setError('The video could not be prepared. Try again later.'); } }).finally(() => { if (!cancelled) setBusy(false); });
-    return () => { cancelled = true; researchUrls.forEach(URL.revokeObjectURL); };
-  }, [request, token]);
+    }).catch((cause: unknown) => { if (!cancelled) { trace('director_failed', { durationMs: Math.round(performance.now() - started), category: 'request_or_validation' }); setError(cause instanceof Error ? cause.message : 'The video could not be prepared. Try again later.'); } }).finally(() => { if (!cancelled) { setBusy(false); setVisionStage(''); } });
+    return () => { cancelled = true; controller.abort(); researchUrls.forEach(URL.revokeObjectURL); };
+  }, [request, visionRequest, token]);
   function makeEdit(assets: MediaAsset[]) { try { onStop(); setEdit(assembleMediaEdit(profile.clip, profile.musicAnalysis, assets)); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : 'The edit could not be made.'); } }
   function selectFiles(files: FileList | null) {
     if (!files?.length) return;
@@ -101,23 +108,25 @@ export function MediaStudio({ profile, composition, audio, token, position, play
   const observedAnalysis = profile.musicAnalysis.status === 'ready' ? { status: 'ready', beatsMs: profile.musicAnalysis.result.rhythm.beatsMs,
     transientsMs: profile.musicAnalysis.result.features.transientsMs, tempo: profile.musicAnalysis.result.rhythm.tempo,
     energyFrames: profile.musicAnalysis.result.features.frames.map(({ timeMs, rms, onsetStrength, centroidHz }) => ({ timeMs, rms, onsetStrength, centroidHz })) } : { status: profile.musicAnalysis.status };
-  const diagnostic = { musicAnalysis: observedAnalysis, brainRequest: { profile: profileData, onsetsMs: profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result.features.transientsMs : [] }, directorBlueprint: result, edit: edit ? { version: edit.version, shots: edit.shots } : null, diagnostics: traces() };
+  const diagnostic = { musicAnalysis: observedAnalysis, visionMusicProfile: new URLSearchParams(location.search).get('vision-intelligence') === '1' ? visionProfile : undefined, brainRequest: { profile: profileData, onsetsMs: profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result.features.transientsMs : [] }, directorBlueprint: result, edit: edit ? { version: edit.version, shots: edit.shots } : null, diagnostics: traces() };
+  const profiles = result && typeof result === 'object' && 'visualProfiles' in result && Array.isArray(result.visualProfiles) ? result.visualProfiles as {id?: unknown; thumbnailJpegBase64?: unknown}[] : [];
+  const compactDiagnostic = JSON.stringify(diagnostic, (key, value) => key === 'thumbnailJpegBase64' ? '[Thumbnails shown above; included in download]' : value, 2);
   function downloadDiagnostic() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(diagnostic, null, 2)], { type: 'application/json' }));
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'mumoo-director-blueprint.json'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
   return <main className="desktop gallery-page"><section className="gallery-shell"><p className="eyebrow">YOUR VIDEO</p><h1>Your music video</h1>
-    {(new URLSearchParams(location.search).get('staging-owned') === '1' || new URLSearchParams(location.search).get('staging-pixabay') === '1') && <p className="hint">Private staging research: footage has not been cleared for advertising or release.</p>}
+    {(new URLSearchParams(location.search).get('staging-owned') === '1' || new URLSearchParams(location.search).get('staging-pixabay') === '1' || new URLSearchParams(location.search).get('vision-intelligence') === '1') && <p className="hint">Private staging research: footage has not been cleared for advertising or release.</p>}
     <button className="secondary" onClick={onBack}>Back to music</button>
     {(profile.musicAnalysis.status === 'pending' || (profile.musicAnalysis.status === 'unavailable' && token)) && <p role="status">Analyzing your selected music…</p>}
     {profile.musicAnalysis.status === 'error' && <p role="alert">Music analysis is unavailable. A music-timed edit and recommendations cannot be generated yet.</p>}
     {profile.musicAnalysis.status === 'error' && <button onClick={onRetry}>Retry music analysis</button>}
     {!token && <p role="alert">Staging access is unavailable. Go back and sign in again.</p>}
     {profile.musicAnalysis.status === 'ready' && !profileData && <p role="alert">Music analysis did not include the features needed for this video.</p>}
-    {busy && <p role="status">Creating your video…</p>}{error && <p role="alert">{error}</p>}
+    {busy && <p role="status">{visionStage || 'Creating your video…'}</p>}{error && <p role="alert">{error}</p>}
     {playbackError && <p role="alert">{playbackError}</p>}
     <h2>Use your own media</h2><label>Add images or videos<input type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" onChange={event => { selectFiles(event.target.files); event.target.value = ''; }} /></label><p className="hint">Choose 2–10 files, up to 250 MB total. Your files stay on this device.</p>{userAssets.length > 0 && <p>{userAssets.length} files selected</p>}<button disabled={userAssets.length < 2 || profile.musicAnalysis.status !== 'ready'} onClick={() => makeEdit(userAssets)}>Create video from your media</button>
     {edit && <section className="lyric-review"><h2>Your video</h2><div className="gallery-user-preview">{progress === undefined && <Preview edit={edit} composition={composition} position={position} onReady={setPreviewReady} />}</div><div className="trim-actions"><button disabled={!previewReady || progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button><button disabled={!previewReady || progress !== undefined} onClick={() => void exportEdit()}>Download MP4</button></div>{progress !== undefined && <p role="status">Rendering video · {progress}%</p>}</section>}
-    {debug && token && <details><summary>Staging: inspect Director Blueprint</summary><p>This file contains music-analysis results and your selected genre; it does not contain your audio, lyrics or password.</p><button className="secondary" onClick={downloadDiagnostic}>Download Blueprint</button><pre>{JSON.stringify(diagnostic, null, 2)}</pre></details>}
+    {debug && token && <details><summary>Staging: inspect Director Blueprint</summary><p>This file contains music-analysis results, selected genre and approved lyric cues if applicable; it does not contain your audio or password.</p><button className="secondary" onClick={downloadDiagnostic}>Download Blueprint</button>{profiles.map((item,index) => <div key={index}><strong>{typeof item.id === 'string' ? item.id : 'Candidate'}</strong><div>{Array.isArray(item.thumbnailJpegBase64) && item.thumbnailJpegBase64.slice(0,3).map((v: unknown,i: number) => typeof v === 'string' && v.length < 150000 && /^[A-Za-z0-9+/=]+$/.test(v) ? <img key={i} src={`data:image/jpeg;base64,${v}`} alt={`Candidate frame ${i+1}`} width="120" /> : null)}</div></div>)}<pre>{compactDiagnostic}</pre></details>}
   </section></main>;
 }

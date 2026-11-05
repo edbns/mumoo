@@ -1,5 +1,6 @@
 import { validAccess, valid } from './brain-gateway.mjs';
 import { randomUUID } from 'node:crypto';
+import visionResearch from '../lib/vision-research.mjs';
 const SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const ORIGIN = 'https://mumoo-staging.netlify.app';
 const BRAIN = 'https://mumoo-brain-staging.netlify.app/api/media';
@@ -22,6 +23,12 @@ async function processRequest(request) {
     } catch { return response(503, 'Staging footage unavailable.'); }
   }
   if (!/^application\/json(?:\s*;|$)/i.test(contentType)) return response(415, 'Expected JSON.');
+  try {
+    if (Number(request.headers.get('content-length')) > 32000) return response(413, 'Request too large.');
+    const preview = await request.clone().arrayBuffer(); if (preview.byteLength > 32000) return response(413, 'Request too large.');
+    const operation = JSON.parse(new TextDecoder().decode(preview))?.operation;
+    if (operation === 'vision-start' || operation === 'vision-poll') return visionResearch(request);
+  } catch { return response(400, 'Invalid request.'); }
   try {
     if (Number(request.headers.get('content-length')) > 16384) return response(413, 'Request too large.');
     const bytes = await request.arrayBuffer(); if (bytes.byteLength > 16384) return response(413, 'Request too large.');

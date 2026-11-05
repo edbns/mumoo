@@ -24,7 +24,7 @@ export async function createMediaRenderer(canvas: HTMLCanvasElement, edit: Media
     const resource = resources.get(shot.assetId); if (!resource) throw new Error('An edit asset is unavailable.');
     const element = resource.node;
     if (resource.type === 'video') {
-      const local = Math.max(0, (timeMs - shot.startMs) / 1000) % resource.node.duration;
+      const local = Math.max(0, (timeMs - shot.startMs + (shot.sourceStartMs ?? 0)) / 1000) % resource.node.duration;
       if (Math.abs(resource.node.currentTime - local) > 0.001) { const start = performance.now(); await new Promise<void>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('Video frame seek timed out.')), 5000);
         resource.node.onseeked = () => { clearTimeout(timer); resolve(); }; resource.node.currentTime = local;

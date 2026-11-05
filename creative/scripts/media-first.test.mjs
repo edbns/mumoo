@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import { execFileSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import ffmpeg from '@ffmpeg-installer/ffmpeg';
 import ffprobe from '@ffprobe-installer/ffprobe';
 const clip = { sourceSha256: 'a'.repeat(64), offsetMs: 1000, durationMs: 15000 };
@@ -30,20 +31,23 @@ test('automatic edit requires matching actual analysis and uses musical opportun
     const corePlan = { version: 1, status: 'ready', durationMs: 15000, assets: coreAssets, shots: [{ assetId: 'cma-1', startMs: 0, endMs: 7200, transition: 'cut' }, { assetId: 'commons2-2', startMs: 7200, endMs: 15000, transition: 'dissolve' }] };
     const loaded = new Map([['cma-1', 'blob:one'], ['commons2-2', 'blob:two']]);
     assert.equal(researchDirectorEdit(clip, corePlan, loaded).shots.length, 2);
+    const framed = { ...corePlan, shots: [{...corePlan.shots[0], startFrame:0, endFrame:216, sourceStartMs:1000}, {...corePlan.shots[1], startFrame:216, endFrame:450, sourceStartMs:2000}] };
+    assert.equal(researchDirectorEdit(clip, framed, loaded).shots[1].sourceStartMs, 2000);
+    assert.throws(() => researchDirectorEdit(clip, {...framed, shots:[{...framed.shots[0],endFrame:215},framed.shots[1]]}, loaded));
     assert.throws(() => researchDirectorEdit(clip, { ...corePlan, assets: [{ ...coreAssets[0], adSafety: 'REVIEW_REQUIRED' }, coreAssets[1]] }, loaded));
     assert.throws(() => researchDirectorEdit(clip, corePlan, new Map([['cma-1', 'https://evil.example/'], ['commons2-2', 'blob:two']])));
   } finally { await server.close(); }
 });
 
 test('image and video share deterministic preview and real 15-second MP4 timeline', { timeout: 180000, skip: process.env.MUMOO_HEADED !== '1' || process.platform !== 'darwin' }, async t => {
-  const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' }); await server.listen();
+  const server = await createServer({ server: { host: '127.0.0.1', port: 0, fs: { allow: [process.cwd(), realpathSync('node_modules')] } }, logLevel: 'error' }); await server.listen();
   const browser = await chromium.launch({ headless: false, executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' });
   try { const page = await browser.newPage({ acceptDownloads: true }); await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/export.html`);
     const input = { clip, analysis, composition, assets };
     const previews = await page.evaluate(async input => {
       const { assembleMediaEdit } = await import('/src/media-timeline.ts'); const { createMediaRenderer } = await import('/src/media-renderer.ts');
       await document.fonts.load('800 112px "Inter Variable"', 'TEST LYRIC');
-      const edit = assembleMediaEdit(input.clip, input.analysis, input.assets); const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = 1920;
+      const edit = assembleMediaEdit(input.clip, input.analysis, input.assets); edit.shots = edit.shots.map(shot => shot.assetId === 'video' ? {...shot, sourceStartMs: 500} : shot); const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = 1920;
       const renderer = await createMediaRenderer(canvas, edit, input.composition);
       try { const output = []; await renderer.render(60); output.push(canvas.toDataURL());
         const pendingFrame = renderer.render(150); const duringSeek = canvas.toDataURL(); await pendingFrame;
@@ -55,7 +59,7 @@ test('image and video share deterministic preview and real 15-second MP4 timelin
     const pending = page.waitForEvent('download', { timeout: 170000 }); const start = performance.now();
     await page.evaluate(async input => {
       const { assembleMediaEdit } = await import('/src/media-timeline.ts'); const { createMediaRenderer } = await import('/src/media-renderer.ts'); const { renderMp4 } = await import('/src/browser-export.ts');
-      const edit = assembleMediaEdit(input.clip, input.analysis, input.assets); const audio = new AudioBuffer({ length: 17 * 48000, numberOfChannels: 1, sampleRate: 48000 });
+      const edit = assembleMediaEdit(input.clip, input.analysis, input.assets); edit.shots = edit.shots.map(shot => shot.assetId === 'video' ? {...shot, sourceStartMs: 500} : shot); const audio = new AudioBuffer({ length: 17 * 48000, numberOfChannels: 1, sampleRate: 48000 });
       const channel = audio.getChannelData(0); for (let n = 0; n < 480; n++) channel[3 * 48000 + n] = 0.8 * Math.sin(n * Math.PI / 8);
       let renderer; try { const blob = await renderMp4(input.composition, audio, () => {}, async (canvas, frame) => { renderer ??= await createMediaRenderer(canvas, edit, input.composition); await renderer.render(frame); });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'media-edit.mp4'; a.click(); } finally { renderer?.destroy(); }

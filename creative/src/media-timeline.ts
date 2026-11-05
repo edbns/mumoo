@@ -2,7 +2,7 @@ import { DURATION_MS, FPS, type Composition } from './composition';
 import { sameClip, type ClipIdentity, type MusicAnalysisState } from './creative-profile';
 
 export interface MediaAsset { id: string; type: 'image' | 'video'; url: string; title: string }
-export interface MediaShot { assetId: string; startMs: number; endMs: number; transition: 'cut' | 'dissolve' | 'impact' }
+export interface MediaShot { assetId: string; startMs: number; endMs: number; transition: 'cut' | 'dissolve' | 'impact'; sourceStartMs?: number; startFrame?: number; endFrame?: number }
 export interface MediaEdit { version: 1; clip: ClipIdentity; durationMs: typeof DURATION_MS; shots: MediaShot[]; assets: MediaAsset[] }
 
 /** Validate a Core-only research plan after all media was fetched by the authenticated gateway. */
@@ -18,7 +18,7 @@ export function researchDirectorEdit(clip: ClipIdentity, blueprint: unknown, loa
   });
   if (new Set(assets.map(item => item.id)).size !== assets.length) throw new Error('Duplicate media.');
   let position = 0;
-  const shots: MediaShot[] = plan.shots.map((shot: MediaShot) => { if (!shot || !assets.some(a => a.id === shot.assetId) || !Number.isSafeInteger(shot.startMs) || !Number.isSafeInteger(shot.endMs) || shot.startMs !== position || shot.endMs <= shot.startMs || shot.endMs > DURATION_MS || !['cut', 'dissolve', 'impact'].includes(shot.transition)) throw new Error('Invalid video timeline.'); position = shot.endMs; return { assetId: shot.assetId, startMs: shot.startMs, endMs: shot.endMs, transition: shot.transition }; });
+  const shots: MediaShot[] = plan.shots.map((shot: MediaShot) => { if (!shot || !assets.some(a => a.id === shot.assetId) || !Number.isSafeInteger(shot.startMs) || !Number.isSafeInteger(shot.endMs) || shot.startMs !== position || shot.endMs <= shot.startMs || shot.endMs > DURATION_MS || !['cut', 'dissolve', 'impact'].includes(shot.transition)) throw new Error('Invalid video timeline.'); position = shot.endMs; if (shot.startFrame !== undefined || shot.endFrame !== undefined) { if (!Number.isInteger(shot.startFrame) || !Number.isInteger(shot.endFrame) || Math.round(shot.startFrame! * 1000 / FPS) !== shot.startMs || Math.round(shot.endFrame! * 1000 / FPS) !== shot.endMs) throw new Error('Invalid frame timeline.'); } const sourceStartMs = shot.sourceStartMs ?? 0; if (!Number.isSafeInteger(sourceStartMs) || sourceStartMs < 0 || sourceStartMs > 3600000) throw new Error('Invalid source range.'); return { assetId: shot.assetId, startMs: shot.startMs, endMs: shot.endMs, transition: shot.transition, sourceStartMs }; });
   if (position !== DURATION_MS) throw new Error('Invalid video duration.');
   return { version: 1, clip, durationMs: DURATION_MS, assets, shots };
 }
