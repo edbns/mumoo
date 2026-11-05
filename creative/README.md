@@ -68,8 +68,10 @@ This is a recognition-based matching pilot. It cannot recover the timing of a wo
 
 Model and license: [Xenova/whisper-tiny](https://huggingface.co/Xenova/whisper-tiny).
 
-### Staging recommendation gallery
+### Staging media-first creation
 
-The gallery submits only the creator-selected genre, video type, optional influence, and available summarized music features to the authenticated staging Brain gateway. Audio, filenames, artist metadata and raw lyric cues are not sent. Recommendations and the complete catalog come from the Brain and are filtered against locally supported renderers; no results are fabricated. The staging tester signs in with the existing short-lived access flow. User-provided media is a separate local-only option, not a Brain recommendation. Multiple items can be selected, but export currently requires exactly one selection.
+The authenticated staging workflow sends only the selected 15-second audio to Music Analysis. A server-side bridge authenticates the existing worker; the original song stays in the browser. The clip-bound result and a sanitized creative profile go to the private Brain through the staging gateway. Audio, filenames, artist metadata and lyrics are excluded. If analysis is unavailable, media recommendations and the automatic edit remain unavailable rather than using invented features.
 
-Music analysis continues to use its independently authenticated staging worker. The gallery automatically reuses a valid music tester code already in the browser session and binds results to the selected clip. If that code is missing or expired, analysis remains unavailable and the Brain receives the genre without music features. A unified authorized staging session for fresh analysis remains unimplemented; never bypass the worker's authentication or silently claim analysis ran. Full batch export and a larger eligible catalog are future work.
+The private catalog discovers candidates from The Met's structured Open Access API. Candidates remain pending until explicitly reviewed, and source rights are rechecked on approval. Only approved candidates are returned to the creator. The separate staging admin view is available with `?media-admin=1`; the sanitized session diagnostics are available with `?media-debug=1`.
+
+Approved images or multiple creator-supplied images/videos feed the same versioned, 15-second edit timeline. Real beat and onset events inform a small number of cuts and transitions. The same frame evaluator renders preview and browser MP4 export; timed lyrics are an independent layer. The catalog is limited to reviewed Met images, matching is deliberately simple, and user media is kept locally. Batch export and longer durations are not implemented.

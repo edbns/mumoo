@@ -3,15 +3,13 @@ import { DURATION_MS } from './composition';
 import { encodePcmWav } from './staging-alignment';
 import type { ClipIdentity, MusicAnalysisState } from './creative-profile';
 
-// The existing staging worker uses a separate expiring tester code. Reuse it
-// when already present; never bypass the worker's authentication.
-export function MusicAnalysisRunner({ audio, clip, analysis, onChange }: { audio: AudioBuffer; clip: ClipIdentity; analysis: MusicAnalysisState; onChange: (state: MusicAnalysisState) => void }) {
+// The staging gateway verifies the short-lived tester token; the worker
+// receives a separate server-only credential.
+export function MusicAnalysisRunner({ audio, clip, analysis, accessToken, onChange }: { audio: AudioBuffer; clip: ClipIdentity; accessToken: string; analysis: MusicAnalysisState; onChange: (state: MusicAnalysisState) => void }) {
   const { sourceSha256, offsetMs, durationMs } = clip;
   useEffect(() => {
     if (analysis.status === 'ready') return;
-    let code = '';
-    try { code = sessionStorage.getItem('mumoo-music-access') ?? ''; } catch { /* No storage means analysis remains unavailable. */ }
-    if (!code) return;
+    if (!accessToken) return;
     const controller = new AbortController();
     const identity: ClipIdentity = { sourceSha256, offsetMs, durationMs };
     onChange({ status: 'pending', clip: identity });
@@ -25,7 +23,7 @@ export function MusicAnalysisRunner({ audio, clip, analysis, onChange }: { audio
         const digest = await crypto.subtle.digest('SHA-256', body);
         const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
         const response = await fetch('/.netlify/functions/analyze-music', { method: 'POST', signal: controller.signal,
-          headers: { 'Content-Type': 'audio/wav', 'X-Mumoo-Analysis-Access': code }, body });
+          headers: { 'Content-Type': 'audio/wav', 'X-Mumoo-Brain-Access': accessToken }, body });
         const data = await response.json().catch(() => null);
         if (!response.ok || data?.version !== 1 || data.method !== 'beat_this_librosa' || data.clip?.durationMs !== DURATION_MS || data.clip?.offsetMs !== 0 || data.clip?.sha256 !== hash || !Array.isArray(data.rhythm?.beatsMs) || !Array.isArray(data.rhythm?.downbeatsMs) || !data.rhythm?.tempo || !Array.isArray(data.rhythm.tempo.alternativesBpm) || !Array.isArray(data.features?.transientsMs) || !Array.isArray(data.features?.frames) || !data.features.frames.length || !data.provenance || !data.metrics) throw new Error('Music analysis is unavailable.');
         if (!controller.signal.aborted) onChange({ status: 'ready', clip: identity, result: data });
@@ -33,6 +31,6 @@ export function MusicAnalysisRunner({ audio, clip, analysis, onChange }: { audio
     })();
     return () => controller.abort();
   // A clip is analyzed once per mounted runner; the parent keys it by clip identity.
-  }, [audio, sourceSha256, offsetMs, durationMs]);
+  }, [audio, sourceSha256, offsetMs, durationMs, accessToken]);
   return null;
 }

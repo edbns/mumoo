@@ -8,7 +8,7 @@ const response = (status, error) => Response.json({ error }, { status, headers: 
 const object = (v, keys) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(k => keys.includes(k));
 const finite = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
 const label = v => typeof v === 'string' && v.trim().length > 0 && v.length <= 120;
-function valid(v) {
+export function valid(v) {
   if (!object(v, ['version', 'videoType', 'primaryGenre', 'influence', 'music']) || v.version !== 1 || !['lyric', 'visual'].includes(v.videoType) || !label(v.primaryGenre) || (v.influence !== undefined && !label(v.influence))) return false;
   if (v.music === undefined) return true;
   const m = v.music;

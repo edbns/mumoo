@@ -1,32 +1,24 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { readWavMetadata, type SourceMetadata } from './source-metadata';
 import { decodeWav, hashWav } from './audio';
-import { DURATION_MS, FPS, FRAMES, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
+import { DURATION_MS, FPS, evaluate, lyricText, playheadFrame, validate, type Composition } from './composition';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
-import { orbitPlan, horizonPlan, timelineFor } from './assembly';
 import { loadFont } from './render';
 import { MusicAnalysisRunner } from './music-analysis-runner';
-import { RecommendationGallery } from './recommendation-gallery';
+import { MediaStudio } from './media-studio';
+import { MediaAdmin } from './media-admin';
+import { StagingAccess } from './staging-access';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 import { LyricSync } from './lyric-sync';
 import { LyricReview } from './lyric-review';
 import { Waveform } from './waveform';
 import './style.css';
-const PixiPreview = lazy(() => import('./pixi-proof/Preview').then(module => ({ default: module.PixiPreview })));
 
 const INITIAL: Extract<Composition, { version: 2 }> = {
   version: 2, template: 'scribble', sourceSha256: '', clipStartMs: 0, cues: [],
 };
 
-function download(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 30_000);
-}
 
 const GENRES = [
   'Amapiano', 'Afro House', 'Brazilian Funk', 'Brazilian Funk Mandelão',
@@ -37,9 +29,7 @@ const GENRES = [
 ];
 
 function App() {
-  const [exportFrame, setExportFrame] = useState<number>();
-  const [exportError, setExportError] = useState('');
-  const exporting = useRef(false);
+  const [accessToken, setAccessToken] = useState('');
   const [editingVisual, setEditingVisual] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [genre, setGenre] = useState('');
@@ -48,15 +38,7 @@ function App() {
   const [videoType, setVideoType] = useState<'lyric' | 'visual' | null>(null);
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
-  const horizonVariation = 0;
-  const pixiVariation = 0;
-  const surfaceFlag = IS_ALIGNMENT_STAGING && new URLSearchParams(location.search).get('experiment') === 'surface';
-  const [footageUrl, setFootageUrl] = useState<string>();
-  const [footageKind, setFootageKind] = useState<'image' | 'video'>('video');
-  const [selectedVisuals, setSelectedVisuals] = useState<string[]>([]);
-  const [activeVisual, setActiveVisual] = useState<string | null>(null);
   const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
-  useEffect(() => () => { if (footageUrl) URL.revokeObjectURL(footageUrl); }, [footageUrl]);
   const currentClip = useRef<ClipIdentity | null>(null);
   const selectedGenre = GENRES.find(item => item.toLowerCase() === genre.trim().toLowerCase());
   const genreValid = Boolean(selectedGenre && (selectedGenre !== 'Other / custom' || customGenre.trim()));
@@ -79,12 +61,7 @@ function App() {
   const clipValid = Boolean(buffer && Number.isSafeInteger(composition.clipStartMs) &&
     composition.clipStartMs >= 0 && composition.clipStartMs <= buffer.duration * 1000 - DURATION_MS);
   const clip: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: DURATION_MS };
-  const proofTimeline = useMemo(() => timelineFor({ sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: DURATION_MS }, analysisForClip(musicAnalysis, { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: DURATION_MS })), [composition.sourceSha256, composition.clipStartMs, musicAnalysis]);
-  const activeComposition = {
-    ...composition,
-    cues: videoType === 'visual' ? [] : composition.cues,
-    ...(composition.template === 'orbit' ? { assembly: orbitPlan(clip, analysisForClip(musicAnalysis, clip), videoType === 'lyric') } : composition.template === 'horizon' ? { assembly: horizonPlan(clip, analysisForClip(musicAnalysis, clip), videoType === 'lyric', horizonVariation) } : {}),
-  };
+  const activeComposition = { ...composition, cues: videoType === 'visual' ? [] : composition.cues };
   const text = lyricText(activeComposition);
   const profile: CreativeProfileV1 | null = clipValid && genreValid && videoType ? {
     version: 1,
@@ -218,7 +195,6 @@ function App() {
     stop();
     setPosition(0);
     setEditingVisual(visual);
-    if (visual) { setSelectedVisuals([]); setActiveVisual(null); }
   }
 
   useEffect(() => {
@@ -232,45 +208,6 @@ function App() {
   }, [text]);
 
 
-
-  async function exportVideo() {
-    if (!buffer || !valid || exporting.current || selectedVisuals.length !== 1) return;
-    const chosen = selectedVisuals[0];
-    const isSurface = chosen === 'surface-experiment' && surfaceFlag && footageKind === 'image' && Boolean(footageUrl);
-    const usesFootage = (chosen === 'user-video' && Boolean(footageUrl)) || isSurface;
-    if (!usesFootage && !['scribble', 'elastic', 'glitch'].includes(chosen)) return;
-    const exportComposition = usesFootage ? activeComposition : { ...activeComposition, template: chosen as 'scribble' | 'elastic' | 'glitch' };
-    exporting.current = true;
-    stop();
-    setActiveVisual(null);
-    setExportError('');
-    setExportFrame(0);
-    let proofScene: { render: (frame: number) => Promise<unknown>; destroy: () => void } | undefined;
-    try {
-      // Let the active preview release its WebGL/video resources before export.
-      await new Promise<void>(resolve => setTimeout(resolve, 0));
-      const { renderMp4 } = await import('./browser-export');
-      const video = await renderMp4(exportComposition, buffer, setExportFrame, usesFootage ? async (target, frame) => {
-        if (!proofScene) {
-          if (isSurface && footageUrl) {
-            const { createSurfaceScene } = await import('./pixi-surface/scene');
-            proofScene = await createSurfaceScene(target, proofTimeline, pixiVariation, exportComposition, footageUrl);
-          } else {
-            const { createEditorialScene } = await import('./pixi-proof/scene');
-            proofScene = await createEditorialScene(target, proofTimeline, pixiVariation, true, exportComposition, footageUrl, footageKind);
-          }
-        }
-        await proofScene.render(frame);
-      } : undefined);
-      download(video, 'mumoo.mp4');
-    } catch (cause) {
-      setExportError(cause instanceof Error ? cause.message : 'MP4 export failed.');
-    } finally {
-      proofScene?.destroy();
-      exporting.current = false;
-      setExportFrame(undefined);
-    }
-  }
 
   const addWordForm = <details className="hint">
             <summary>Add a missed word</summary>
@@ -313,7 +250,8 @@ function App() {
         <label>Secondary genre or influence <span className="hint">(optional)</span>
           <input maxLength={100} value={influence} onChange={event => setInfluence(event.target.value)} placeholder="Add an influence" />
         </label>
-        <button disabled={!buffer || !genreValid || loading} onClick={() => setStep(2)}>Continue to clip</button></>}
+        {IS_ALIGNMENT_STAGING && (!accessToken ? <StagingAccess onAccess={setAccessToken} /> : <p className="hint">Staging access enabled. <button className="secondary" onClick={() => setAccessToken('')}>Sign in again</button></p>)}
+        <button disabled={!buffer || !genreValid || loading || (IS_ALIGNMENT_STAGING && !accessToken)} onClick={() => setStep(2)}>Continue to clip</button></>}
         {buffer && <>
           <div hidden={step !== 2}>
           <Waveform audio={buffer} start={composition.clipStartMs} position={position} onSelect={selectClip} />
@@ -427,30 +365,14 @@ function App() {
         </>}
         {(error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
       </section>
-    </main> : profile && <RecommendationGallery profile={profile} composition={activeComposition} position={position} playing={playing}
-      activeId={activeVisual} selected={selectedVisuals} exporting={exportFrame !== undefined} progress={exportFrame === undefined ? undefined : Math.floor(exportFrame / FRAMES * 100)} exportError={exportError || fontError}
-      onBack={() => { setActiveVisual(null); openStage(false); }}
-      onToggle={id => setSelectedVisuals(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])}
-      onPlay={id => {
-        if (activeVisual === id && playing) { stop(); return; }
-        stop(); setPosition(0); setActiveVisual(id); void play(true);
-      }}
-      onGenerate={() => void exportVideo()}
-      footageUrl={footageUrl}
-      onFootage={file => {
-        if (!file) return;
-        stop();
-        if (file.size === 0 || file.size > 250 * 1024 * 1024 || !['video/mp4', 'video/webm', 'image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setExportError('Choose an MP4, WebM, JPG, PNG or WebP file under 250 MB.'); return; }
-        setExportError(''); setFootageKind(file.type.startsWith('image/') ? 'image' : 'video'); setFootageUrl(URL.createObjectURL(file)); setActiveVisual(null); setSelectedVisuals(current => current.filter(id => id !== 'user-video' && id !== 'surface-experiment'));
-      }}
-      surfaceEnabled={surfaceFlag && footageKind === 'image' && Boolean(footageUrl)}
-      userPreview={fontText === text ? <Suspense fallback={<p>Loading visual…</p>}><PixiPreview position={position} timeline={proofTimeline} composition={activeComposition} seed={pixiVariation} footageUrl={footageUrl} footageKind={footageKind} surfaceExperiment={activeVisual === 'surface-experiment'} /></Suspense> : <p>Loading visual…</p>}
-    />}
+    </main> : profile && buffer && <MediaStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken}
+      position={position} playing={playing} onPlay={() => void play(true)} onStop={stop} onBack={() => openStage(false)} />}
     {buffer && clipValid && IS_ALIGNMENT_STAGING && (step === 4 || editingVisual) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs}
-      audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}
+      audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} accessToken={accessToken} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}
 
+    {fontError && <p role="alert">{fontError}</p>}
     <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>
   </>;
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(IS_ALIGNMENT_STAGING && new URLSearchParams(location.search).get('media-admin') === '1' ? <MediaAdmin /> : <App />);

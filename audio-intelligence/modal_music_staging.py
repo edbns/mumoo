@@ -79,20 +79,28 @@ def analyze_selected(audio: bytes):
     return payload
 
 
+def music_authorized(access, supplied, signing_key, bridge, now=None):
+    now = time.time() if now is None else now
+    bridged = len(bridge) >= 32 and hmac.compare_digest(supplied, "Bearer " + bridge)
+    legacy = False
+    if signing_key and re.fullmatch(r"[0-9]{10}\.[a-f0-9]{64}", access):
+        expiry, signature = access.split(".")
+        expected = hmac.new(signing_key.encode(), f"mumoo-music-staging:{expiry}".encode(), hashlib.sha256).hexdigest()
+        legacy = int(expiry) > now and hmac.compare_digest(signature, expected)
+    return bridged or legacy
+
+
 @app.function(image=gateway_image, cpu=0.125, memory=128, min_containers=0, max_containers=1,
-              scaledown_window=5, timeout=53, secrets=[modal.Secret.from_name("mumoo-music-staging-access")])
+              scaledown_window=5, timeout=53, secrets=[modal.Secret.from_name("mumoo-music-staging-access"), modal.Secret.from_name("mumoo-music-bridge")])
 @modal.fastapi_endpoint(method="POST", docs=False)
 async def analyze_clip(request: Request):
     from fastapi import Response
 
-    access = request.headers.get("x-mumoo-analysis-access", "")
-    if not re.fullmatch(r"[0-9]{10}\.[a-f0-9]{64}", access):
-        raise HTTPException(401, "Enter a valid staging music-analysis code.")
-    expiry, signature = access.split(".")
-    expected = hmac.new(os.environ["MUMOO_MUSIC_SIGNING_KEY"].encode(),
-                        f"mumoo-music-staging:{expiry}".encode(), hashlib.sha256).hexdigest()
-    if int(expiry) <= time.time() or not hmac.compare_digest(signature, expected):
-        raise HTTPException(401, "The staging music-analysis code is invalid or expired.")
+    if not music_authorized(request.headers.get("x-mumoo-analysis-access", ""),
+                            request.headers.get("authorization", ""),
+                            os.environ.get("MUMOO_MUSIC_SIGNING_KEY", ""),
+                            os.environ.get("MUMOO_MUSIC_BRIDGE_SECRET", "")):
+        raise HTTPException(401, "Staging music-analysis access is invalid or expired.")
     body = bytearray()
     async for chunk in request.stream():
         if len(body) + len(chunk) > WAV_SIZE:
