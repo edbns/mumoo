@@ -75,7 +75,7 @@ export function MediaStudio({ profile, composition, audio, token, position, play
       if (cancelled) return;
       trace('director_response', { durationMs: Math.round(performance.now() - started), category: data?.status === 'ready' ? 'ready' : 'unavailable' });
       setResult(data);
-      if (data?.status !== 'ready') { setError('Not enough approved footage or music timing is available yet.'); return; }
+      if (data?.status !== 'ready') { setError(data?.reason === 'Some Pixabay searches failed and not enough distinct videos were available.' ? 'Pixabay searches did not finish. Please try again.' : 'Not enough matching footage or music timing is available yet.'); return; }
       if (stagingHost && !vision && !legacyResearch && visionProfile && Array.isArray(data.assets)) { try { sessionStorage.setItem(`mumoo-recent-${visionProfile.clipSha256}`, JSON.stringify(data.assets.map((a: {id: string}) => a.id).slice(0,4))); } catch { /* Storage is optional. */ } }
       if (!research) { setEdit(directorEdit(profile.clip, data)); return; }
       if (!Array.isArray(data.assets) || data.assets.length < 2 || data.assets.length > 4) throw new Error('Invalid catalog plan.');
