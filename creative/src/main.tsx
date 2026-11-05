@@ -7,6 +7,7 @@ import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdent
 import { loadFont } from './render';
 import { MusicAnalysisRunner } from './music-analysis-runner';
 import { MediaStudio } from './media-studio';
+import { DailyScreensStudio } from './daily-screens-studio';
 import { MediaAdmin } from './media-admin';
 import { CatalogResearch } from './catalog-research';
 import { StagingAccess } from './staging-access';
@@ -31,6 +32,7 @@ const GENRES = [
 function App() {
   const [accessToken, setAccessToken] = useState('');
   const [editingVisual, setEditingVisual] = useState(false);
+  const [dailyScreens, setDailyScreens] = useState(true);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [genre, setGenre] = useState('');
   const [influence, setInfluence] = useState('');
@@ -195,6 +197,7 @@ function App() {
   function openStage(visual: boolean) {
     stop();
     setPosition(0);
+    if (visual) setDailyScreens(true);
     setEditingVisual(visual);
   }
 
@@ -367,8 +370,8 @@ function App() {
         </>}
         {step !== 1 && (error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
       </section>
-    </main> : profile && buffer && <MediaStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken} playbackError={error}
-      position={position} playing={playing} onPlay={() => void play(true)} onStop={stop} onBack={() => openStage(false)} onRetry={() => { setMusicAnalysis(NO_ANALYSIS); setAnalysisAttempt(n => n + 1); }} />}
+    </main> : profile && buffer && (IS_ALIGNMENT_STAGING && videoType === 'lyric' && dailyScreens ? <DailyScreensStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken} position={position} playing={playing} playbackError={error} onPlay={() => void play()} onStop={stop} onSeek={ms => { stop(); setPosition(ms); }} onBack={() => openStage(false)} onOther={() => { stop(); setDailyScreens(false); }} /> : <MediaStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken} playbackError={error}
+      position={position} playing={playing} onPlay={() => void play(true)} onStop={stop} onBack={() => openStage(false)} onRetry={() => { setMusicAnalysis(NO_ANALYSIS); setAnalysisAttempt(n => n + 1); }} />)}
     {buffer && clipValid && IS_ALIGNMENT_STAGING && (step === 4 || editingVisual) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs + ':' + analysisAttempt}
       audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} accessToken={accessToken} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}
 

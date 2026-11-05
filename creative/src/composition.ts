@@ -9,6 +9,7 @@ export const PRESETS = [
   { id: 'scribble', name: 'Scribble', description: 'Hand-drawn underline' },
   { id: 'elastic', name: 'Elastic', description: 'Stretch and rebound' },
   { id: 'glitch', name: 'Glitch', description: 'Split-color jitter' },
+  { id: 'daily-screens', name: 'Daily Screens', description: 'Lyrics on a familiar everyday screen' },
   { id: 'orbit', name: 'Orbit', description: 'Music-responsive original motion' },
   { id: 'horizon', name: 'Horizon', description: 'Two original image scenes with a beat-responsive overlay' },
 ] as const;
@@ -56,6 +57,7 @@ export function validate(value: unknown, sourceDurationMs: number): asserts valu
   if (candidate.assembly && (candidate.assembly.engineVersion !== 1 || !Number.isSafeInteger(candidate.assembly.variationSeed) || candidate.assembly.variationSeed < 0 || candidate.assembly.variationSeed > 0xffffffff)) throw new Error('Unsupported assembly variation.');
   const cues = lyricsFor(candidate);
   if (!Array.isArray(cues) || cues.length > 120) throw new Error('Use up to 120 lyric cues.');
+  if (template === 'daily-screens' && (!cues.length || cues.some(cue => !cue || typeof cue.text !== 'string' || !cue.text.trim()))) throw new Error('Daily Screens needs approved lyrics.');
   let previousEnd = 0;
   for (const cue of cues) {
     if (!cue || typeof cue.text !== 'string' || [...cue.text].length > 48 ||

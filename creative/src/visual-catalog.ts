@@ -4,7 +4,7 @@ export interface VisualCatalogEntry {
   id: string;
   version: number;
   name: string;
-  family: 'kinetic_typography' | 'procedural' | 'living_matter' | 'licensed_video' | 'user_media';
+  family: 'kinetic_typography' | 'daily_screens' | 'procedural' | 'living_matter' | 'licensed_video' | 'user_media';
   videoTypes: readonly ('lyric' | 'visual')[];
   genreTags: readonly string[];
   influenceTags: readonly string[];
@@ -25,7 +25,7 @@ export const VISUAL_CATALOG = PRESETS.map((preset): VisualCatalogEntry & {
   id: preset.id,
   version: 1,
   name: preset.name,
-  family: 'kinetic_typography',
+  family: preset.id === 'daily-screens' ? 'daily_screens' : 'kinetic_typography',
   videoTypes: preset.id === 'orbit' || preset.id === 'horizon' ? ['lyric', 'visual'] : ['lyric'],
   genreTags: [],
   influenceTags: [],

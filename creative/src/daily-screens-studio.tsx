@@ -1,0 +1,65 @@
+import { useEffect, useRef, useState } from 'react';
+import { FRAMES, HEIGHT, WIDTH, playheadFrame, type Composition } from './composition';
+import type { CreativeProfileV1 } from './creative-profile';
+import { drawDailyScreen } from './daily-screens';
+import { renderMp4 } from './browser-export';
+import { loadFont } from './render';
+
+export function DailyScreensStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onSeek, onBack, onOther }: {
+  profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; token: string; position: number; playing: boolean;
+  playbackError: string; onPlay: () => void; onStop: () => void; onSeek: (ms: number) => void; onBack: () => void; onOther: () => void;
+}) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [eligible, setEligible] = useState(false); const [error, setError] = useState('');
+  const [progress, setProgress] = useState<number>();
+  const cues = profile.approvedLyrics?.cues ?? [];
+  const cueKey = JSON.stringify(cues);
+  const genre = profile.creator.primaryGenre.value;
+  const influence = profile.creator.influence?.value;
+
+  useEffect(() => {
+    if (profile.videoType !== 'lyric' || !token || !cues.length) { setEligible(false); return; }
+    const controller = new AbortController(); setEligible(false); setError('');
+    void fetch('/api/brain-recommendations', { method: 'POST', signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', 'X-Mumoo-Brain-Access': token },
+      body: JSON.stringify({ version: 1, videoType: 'lyric', primaryGenre: genre, ...(influence && { influence }) }) })
+      .then(async response => {
+        if (!response.ok) throw new Error('Recommendations are unavailable.');
+        const data = await response.json();
+        if (!Array.isArray(data.catalog) || !data.catalog.some((entry: { id?: unknown; renderer?: { template?: unknown } }) => entry.id === 'daily-screens' && entry.renderer?.template === 'daily-screens')) throw new Error('Daily Screens is not available for this song yet.');
+        await loadFont(cues.map(cue => cue.text).join(' '));
+        if (controller.signal.aborted) return;
+        setEligible(true);
+      }).catch((cause: unknown) => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Recommendations are unavailable.'); });
+    return () => controller.abort();
+  }, [token, genre, influence, cueKey, profile.videoType]);
+
+  useEffect(() => {
+    if (eligible && canvas.current) drawDailyScreen(canvas.current, cues, playheadFrame(position));
+  }, [eligible, position, cueKey]);
+
+  async function download() {
+    if (!eligible || !cues.length) return;
+    onStop(); setError(''); setProgress(0);
+    try {
+      const blob = await renderMp4({ ...composition, template: 'daily-screens' }, audio, frame => setProgress(Math.floor(frame / FRAMES * 100)), (target, frame) => drawDailyScreen(target, cues, frame));
+      const url = URL.createObjectURL(blob); const link = document.createElement('a');
+      link.href = url; link.download = 'mumoo-daily-screens.mp4'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'The video could not be exported.'); }
+    finally { setProgress(undefined); }
+  }
+
+  return <main className="desktop gallery-page"><section className="gallery-shell">
+    <p className="eyebrow">YOUR LYRIC VIDEO</p><h1>Daily Screens</h1>
+    <p className="intro">Your lyrics, in a familiar everyday moment.</p>
+    <div className="trim-actions"><button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back to lyrics</button><button className="secondary" disabled={progress !== undefined} onClick={onOther}>Other visuals</button></div>
+    {!eligible && !error && <p role="status">Preparing your recommendation…</p>}
+    {error && <p role="alert">{error}</p>}
+    {playbackError && <p role="alert">{playbackError}</p>}
+    {eligible && <><div className="gallery-user-preview"><canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Daily Screens preview" onContextMenu={event => event.preventDefault()} /><span className="preview-mark">PREVIEW</span></div>
+      <div className="trim-actions"><button disabled={progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button>
+        <button disabled={progress !== undefined} onClick={() => void download()}>Download MP4</button></div>
+      <label className="daily-seek">Seek preview<input type="range" min={0} max={15000} step={1} value={Math.floor(position)} disabled={progress !== undefined} onChange={event => onSeek(event.target.valueAsNumber)} /></label>
+      {progress !== undefined && <p role="status">Rendering video · {progress}%</p>}</>}
+  </section></main>;
+}

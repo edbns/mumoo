@@ -1,5 +1,6 @@
 import '@fontsource-variable/inter';
-import { evaluate, WIDTH, HEIGHT, type Composition } from './composition';
+import { evaluate, lyricsFor, WIDTH, HEIGHT, type Composition } from './composition';
+import { drawDailyScreen } from './daily-screens';
 import { activeLayers, reaction, variation } from './assembly';
 
 const FONT = '800 112px "Inter Variable"';
@@ -18,12 +19,13 @@ function loadArtwork() {
 }
 
 export async function loadFont(text: string) {
-  const fonts = await document.fonts.load(FONT, text || 'MUMOO');
+  const fonts = await document.fonts.load(FONT, `${text} 9:41 Lyrics NOW PLAYING`);
   if (!fonts.length) throw new Error('The bundled Inter font could not load.');
   await loadArtwork();
 }
 
 export function draw(canvas: HTMLCanvasElement, composition: Composition, frame: number) {
+  if (composition.template === 'daily-screens') { drawDailyScreen(canvas, lyricsFor(composition), frame); return; }
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas 2D is unavailable.');
   const { text, phase } = evaluate(composition, frame);
