@@ -20,7 +20,7 @@ async function processRequest(request){
  if(Number(request.headers.get('content-length'))>32000) return reply(413,{error:'Request too large.'});
  const bytes=await request.arrayBuffer(); if(bytes.byteLength>32000) return reply(413,{error:'Request too large.'});
  let body; try{body=JSON.parse(new TextDecoder().decode(bytes));}catch{return reply(400,{error:'Invalid request.'});}
- if(!body || typeof body!=='object' || Array.isArray(body) || !body.profile || body.profile.version!==1 || body.profile.durationMs!==15000 || !['visual','lyric'].includes(body.profile.videoType) || !/^[a-f0-9]{64}$/.test(body.profile.clipSha256||'') || !Array.isArray(body.profile.lyricCues) || (body.profile.videoType==='visual' && body.profile.lyricCues.length)) return reply(400,{error:'Invalid music profile.'});
+ if(!body || typeof body!=='object' || Array.isArray(body) || !body.profile || body.profile.version!==1 || body.profile.durationMs!==15000 || !['visual','lyric'].includes(body.profile.videoType) || !/^[a-f0-9]{64}$/.test(body.profile.clipSha256||'') || !Array.isArray(body.profile.lyricCues) || body.profile.lyricCues.length !== 0) return reply(400,{error:'Invalid music profile.'});
  if(body.operation==='vision-start'){
   if(Object.keys(body).some(k=>!['operation','profile'].includes(k))) return reply(400,{error:'Invalid request.'});
   const r=await send(SUBMIT,bridge,{action:'direction',payload:{profile:body.profile}}); if(!r.ok)return reply(r.status===429?429:502,{error:'Visual planning unavailable.'});

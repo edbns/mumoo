@@ -90,7 +90,7 @@ def tempo_result(result, median):
                 alternativesBpm=alternatives)
 
 
-def features(audio):
+def features(audio, with_temporal=False):
     import librosa
     import numpy as np
 
@@ -112,9 +112,71 @@ def features(audio):
         ms = round(index * HOP * 1000 / SAMPLE_RATE)
         if ms < DURATION_MS:
             frames.append({"timeMs": ms, **dict(zip(names, (round(float(v), 6) for v in sample), strict=True))})
-    return {"sampleRateHz": SAMPLE_RATE, "windowSamples": WINDOW, "hopSamples": HOP,
-            "frameTime": "center", "frames": frames,
-            "transientsMs": event_times(peaks * HOP / SAMPLE_RATE)}
+    result = {"sampleRateHz": SAMPLE_RATE, "windowSamples": WINDOW, "hopSamples": HOP,
+              "frameTime": "center", "frames": frames,
+              "transientsMs": event_times(peaks * HOP / SAMPLE_RATE)}
+    return (result, temporal_bins(magnitude, frames, result["transientsMs"])) if with_temporal else result
+
+
+def temporal_bins(magnitude, frames, onsets):
+    """One-second measured mix spectral shares and clip-relative RMS, not stems."""
+    import numpy as np
+    power = magnitude ** 2
+    freq = np.fft.rfftfreq(WINDOW, 1 / SAMPLE_RATE)
+    ranges = {"low": (20, 250), "lowMid": (250, 500), "midHighMid": (500, 4000), "high": (4000, 8000)}
+    times = np.arange(power.shape[1]) * HOP / SAMPLE_RATE
+    bins = []
+    for i in range(15):
+        mask = (times >= i) & (times < i + 1)
+        totals = {key: float(power[(freq >= lo) & (freq < hi)][:, mask].sum()) for key, (lo, hi) in ranges.items()}
+        total = sum(totals.values())
+        rms = [f["rms"] for f in frames if i * 1000 <= f["timeMs"] < (i + 1) * 1000]
+        bins.append({"startMs": i * 1000, "endMs": (i + 1) * 1000,
+                     "rmsMean": sum(rms) / len(rms) if rms else 0.0,
+                     "bandShares": {key: round(value / total, 6) if total > 1e-12 else None for key, value in totals.items()},
+                     "onsetCount": sum(i * 1000 <= t < (i + 1) * 1000 for t in onsets)})
+    peak = max(b["rmsMean"] for b in bins)
+    for b in bins:
+        b["relativeEnergy"] = round(b.pop("rmsMean") / peak, 6) if peak > 1e-6 else None
+    return bins
+
+
+def temporal_progression(bins, beats):
+    """Segment only at sustained relative-energy changes; no inferred drop/build labels."""
+    points = []
+    for i in range(2, 14):
+        previous = [b["relativeEnergy"] for b in bins[i-2:i]]
+        following = [b["relativeEnergy"] for b in bins[i:i+2]]
+        if None in previous + following: continue
+        difference = sum(following) / 2 - sum(previous) / 2
+        if abs(difference) >= .22: points.append((abs(difference), i))
+    chosen = []
+    for _, index in sorted(points, reverse=True):
+        if index >= 2 and 15-index >= 2 and all(abs(index-other) >= 2 for other in chosen): chosen.append(index)
+        if len(chosen) == 5: break
+    edges = [0] + sorted(chosen) + [15]
+    segments = []
+    for start, end in zip(edges, edges[1:]):
+        section = bins[start:end]
+        def avg(key):
+            vals = [b[key] for b in section if b[key] is not None]
+            return round(sum(vals) / len(vals), 6) if vals else None
+        bands = {}
+        for key in ("low", "lowMid", "midHighMid", "high"):
+            vals = [b["bandShares"][key] for b in section if b["bandShares"][key] is not None]
+            bands[key] = round(sum(vals) / len(vals), 6) if vals else None
+        energy = avg("relativeEnergy")
+        prev = segments[-1]["relativeEnergy"] if segments else None
+        segments.append({"startMs": start*1000, "endMs": end*1000, "relativeEnergy": energy,
+                         "bandShares": bands, "onsetsPerSecond": round(sum(b["onsetCount"] for b in section)/(end-start), 6),
+                         "beatCount": sum(start*1000 <= t < end*1000 for t in beats),
+                         "energyChange": round(energy-prev, 6) if energy is not None and prev is not None else None})
+    return {"version": 1, "status": "available" if any(b["relativeEnergy"] is not None for b in bins) else "unavailable",
+            "durationMs": DURATION_MS, "frequencyBandsHz": {"low": [20,250], "lowMid": [250,500], "midHighMid": [500,4000], "high": [4000,8000]},
+            "energyNormalization": "rms divided by peak one-second rms; null for silence",
+            "bandNormalization": "fraction of STFT squared magnitude between 20 and 8000 Hz; null for silence",
+            "changeThreshold": .22, "bins": bins, "segments": segments}
+
 
 
 @lru_cache(maxsize=1)
@@ -161,7 +223,7 @@ def analyze(args, trace=None):
         audio = np.frombuffer(decode_clip(args.clip, args.ffmpeg), dtype="<f4").copy()
     decode_seconds = time.perf_counter() - start
     with stage(trace, "librosa_features"):
-        feature_result = features(audio)
+        feature_result, bins = features(audio, with_temporal=True)
     feature_seconds = time.perf_counter() - start - decode_seconds
     beats, downbeats = [], []
     status = "unavailable"
@@ -196,6 +258,7 @@ def analyze(args, trace=None):
         "rhythm": {"status": status, "reason": reason, "beatsMs": beats,
                    "downbeatsMs": downbeats, "tempo": tempo_result},
         "features": feature_result,
+        "temporalV1": temporal_progression(bins, beats),
         "provenance": {"beatModel": model_info, "librosaVersion": version("librosa"), "contextMs": 0},
         "metrics": {"wallSeconds": round(time.perf_counter() - start, 6),
                     "pythonCpuSeconds": round(time.process_time() - cpu, 6),

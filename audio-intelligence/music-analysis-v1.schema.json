@@ -370,6 +370,290 @@
           "type": "boolean"
         }
       }
+    },
+    "temporalV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "status",
+        "durationMs",
+        "frequencyBandsHz",
+        "energyNormalization",
+        "bandNormalization",
+        "changeThreshold",
+        "bins",
+        "segments"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "status": {
+          "enum": [
+            "available",
+            "unavailable"
+          ]
+        },
+        "durationMs": {
+          "const": 15000
+        },
+        "frequencyBandsHz": {
+          "const": {
+            "low": [
+              20,
+              250
+            ],
+            "lowMid": [
+              250,
+              500
+            ],
+            "midHighMid": [
+              500,
+              4000
+            ],
+            "high": [
+              4000,
+              8000
+            ]
+          }
+        },
+        "energyNormalization": {
+          "type": "string"
+        },
+        "bandNormalization": {
+          "type": "string"
+        },
+        "changeThreshold": {
+          "const": 0.22
+        },
+        "bins": {
+          "type": "array",
+          "minItems": 15,
+          "maxItems": 15,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "startMs",
+              "endMs",
+              "relativeEnergy",
+              "bandShares",
+              "onsetCount"
+            ],
+            "properties": {
+              "startMs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15000
+              },
+              "endMs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15000
+              },
+              "relativeEnergy": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "bandShares": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "low",
+                  "lowMid",
+                  "midHighMid",
+                  "high"
+                ],
+                "properties": {
+                  "low": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "lowMid": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "midHighMid": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "high": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              "onsetCount": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "segments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "startMs",
+              "endMs",
+              "relativeEnergy",
+              "bandShares",
+              "onsetsPerSecond",
+              "beatCount",
+              "energyChange"
+            ],
+            "properties": {
+              "startMs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15000
+              },
+              "endMs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15000
+              },
+              "relativeEnergy": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "bandShares": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "low",
+                  "lowMid",
+                  "midHighMid",
+                  "high"
+                ],
+                "properties": {
+                  "low": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "lowMid": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "midHighMid": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "high": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              "onsetsPerSecond": {
+                "type": "number",
+                "minimum": 0
+              },
+              "beatCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "energyChange": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": -1,
+                    "maximum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {

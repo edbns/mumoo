@@ -25,7 +25,7 @@ test('isolated Core plan loads reviewed media and exports through the existing r
       const assets = [{ id: 'cma-1', type: 'image', title: 'Fixture image', rights: 'APPROVED', adSafety: 'SAFE' }, { id: `owned-${'a'.repeat(24)}`, type: 'video', title: 'Fixture video', rights: 'STAGING_TEST_ONLY', adSafety: 'REVIEW_REQUIRED' }];
       return route.fulfill({ json: { version: 1, status: 'ready', scope: 'staging-test-only', durationMs: 15000, assets, shots: [{ assetId: assets[0].id, startMs: 0, endMs: 7200, transition: 'cut' }, { assetId: assets[1].id, startMs: 7200, endMs: 15000, transition: 'dissolve' }] } });
     });
-    await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?catalog-eval=1&staging-owned=1&media-debug=1`);
+    await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?catalog-eval=1&catalog-research-internal=1&staging-owned=1&media-debug=1`);
     const rate = 48000, samples = rate * 16, wav = Buffer.alloc(44 + samples * 2);
     wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(samples * 2, 40);
     await page.getByLabel('Source WAV').setInputFiles({ name: 'fixture.wav', mimeType: 'audio/wav', buffer: wav });

@@ -15,13 +15,11 @@ export function buildVisionMusicProfile(profile: CreativeProfileV1) {
   }
   const mean = (items: number[]) => items.length ? Math.round((items.reduce((s, n) => s + n, 0) / items.length) * 1000000) / 1000000 : null;
   const timed = (values: number[]) => values.filter((n, i) => Number.isSafeInteger(n) && n >= 0 && n < DURATION_MS && (i === 0 || n >= values[i - 1])).slice(0, 1000);
-  const cues = profile.videoType === 'lyric' && profile.approvedLyrics?.source === 'creator_reviewed'
-    ? profile.approvedLyrics.cues.filter(c => typeof c.text === 'string' && c.text.length <= 100 && Number.isSafeInteger(c.startMs) && Number.isSafeInteger(c.endMs) && c.startMs >= 0 && c.endMs <= DURATION_MS && c.startMs < c.endMs).slice(0, 120)
-    : [];
   return { version: 1 as const, durationMs: DURATION_MS, clipSha256: a.clip.sha256,
     creator: { primaryGenre: profile.creator.primaryGenre.value, influence: profile.creator.influence?.value ?? null }, videoType: profile.videoType,
     measured: { tempo: a.rhythm.tempo, beatsMs: timed(a.rhythm.beatsMs), onsetsMs: timed(a.features.transientsMs),
-      envelope: bins.map(b => ({ startMs: b.startMs, endMs: b.endMs, rmsMean: mean(b.rms), onsetMean: mean(b.onsetStrength) })) },
-    lyricCues: cues.map(c => ({ text: c.text, startMs: c.startMs, endMs: c.endMs })),
+      envelope: bins.map(b => ({ startMs: b.startMs, endMs: b.endMs, rmsMean: mean(b.rms), onsetMean: mean(b.onsetStrength) })),
+      ...(a.temporalV1 && { temporal: { version: a.temporalV1.version, status: a.temporalV1.status, durationMs: a.temporalV1.durationMs, bins: a.temporalV1.bins, segments: a.temporalV1.segments } }) },
+    lyricCues: [],
     unavailable: ['vocal_character', 'emotion', 'isolated_bass', 'structural_events'] };
 }

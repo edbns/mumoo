@@ -16,13 +16,16 @@ test('fast visual DNA flow plays and exports through the existing renderer', { t
     page.on('request', req => { if (req.url().includes('align-lyrics')) lyrics++; });
     await page.route('**/api/brain-tester-access', route => route.fulfill({ json: { token: 'test-token' } }));
     await page.route('**/.netlify/functions/analyze-music', route => {
+      assert.equal(route.request().headers()['x-mumoo-music-features'], 'temporal-v1');
       const hash = createHash('sha256').update(route.request().postDataBuffer()).digest('hex');
-      return route.fulfill({ json: { version: 1, method: 'beat_this_librosa', clip: { durationMs: 15000, offsetMs: 0, sha256: hash }, rhythm: { beatsMs: [1200,3600,7200,10800], downbeatsMs: [], tempo: { status: 'estimated', gridBpm: 100, alternativesBpm: [] } }, features: { transientsMs: [3600,7200,10800], frames: [{ timeMs: 0, rms: 0.2, centroidHz: 1000, onsetStrength: 0.1 }] }, provenance: {}, metrics: {} } });
+      const bands = { low: .4, lowMid: .2, midHighMid: .2, high: .2 };
+      const temporalV1 = { version: 1, status: 'available', durationMs: 15000, bins: Array.from({length:15},(_,i)=>({startMs:i*1000,endMs:(i+1)*1000,relativeEnergy:i<7?.3:.9,bandShares:bands,onsetCount:1})), segments: [{startMs:0,endMs:7000,relativeEnergy:.3,bandShares:bands,onsetsPerSecond:1,beatCount:1,energyChange:null},{startMs:7000,endMs:15000,relativeEnergy:.9,bandShares:bands,onsetsPerSecond:1,beatCount:2,energyChange:.6}] };
+      return route.fulfill({ json: { version: 1, method: 'beat_this_librosa', clip: { durationMs: 15000, offsetMs: 0, sha256: hash }, rhythm: { beatsMs: [1200,3600,7200,10800], downbeatsMs: [], tempo: { status: 'estimated', gridBpm: 100, alternativesBpm: [] } }, features: { transientsMs: [3600,7200,10800], frames: [{ timeMs: 0, rms: 0.2, centroidHz: 1000, onsetStrength: 0.1 }] }, temporalV1, provenance: {}, metrics: {} } });
     });
     await page.route('**/api/media-catalog', route => {
       const body = route.request().postDataJSON();
       if (body.operation === 'research-asset') { calls++; return route.fulfill({ path: 'public/pixi-proof/window-motion.mp4', contentType: 'video/mp4' }); }
-      assert.equal(body.operation, 'fast-plan'); assert.equal(body.profile.videoType, 'visual'); assert.deepEqual(body.profile.lyricCues, []); assert.equal(body.profile.measured.envelope.length, 30);
+      assert.equal(body.operation, 'fast-plan'); assert.equal(body.profile.videoType, 'visual'); assert.deepEqual(body.profile.lyricCues, []); assert.equal(body.profile.measured.envelope.length, 30); assert.equal(body.profile.measured.temporal.version, 1); assert.equal(body.profile.measured.temporal.segments[1].startMs, 7000);
       const assets = [{ id:'pixabay-1', type:'video', title:'Fixture 1', query:'test', rights:'STAGING_TEST_ONLY', adSafety:'REVIEW_REQUIRED' }, { id:'pixabay-2', type:'video', title:'Fixture 2', query:'test', rights:'STAGING_TEST_ONLY', adSafety:'REVIEW_REQUIRED' }];
       const shots=[{assetId:assets[0].id,startFrame:0,endFrame:216,startMs:0,endMs:7200,sourceStartMs:500,transition:'cut'},{assetId:assets[1].id,startFrame:216,endFrame:450,startMs:7200,endMs:15000,sourceStartMs:500,transition:'dissolve'}];
       return route.fulfill({json:{version:1,status:'ready',scope:'staging-test-only',durationMs:15000,assets,shots}});

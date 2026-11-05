@@ -28,7 +28,7 @@ export default async function analyzeMusic(request) {
     if (body.byteLength !== WAV_SIZE) return error(400, 'Expected exactly 15 seconds of PCM audio.');
     const response = await fetch(MODAL_ENDPOINT, {
       method: 'POST', body, redirect: 'error', signal: AbortSignal.timeout(54_000),
-      headers: { 'Content-Type': 'audio/wav', ...(legacy ? { 'X-Mumoo-Analysis-Access': access } : { 'Authorization': `Bearer ${bridgeSecret}` }) },
+      headers: { 'Content-Type': 'audio/wav', ...(request.headers.get('x-mumoo-music-features') === 'temporal-v1' ? { 'X-Mumoo-Music-Features': 'temporal-v1' } : {}), ...(legacy ? { 'X-Mumoo-Analysis-Access': access } : { 'Authorization': `Bearer ${bridgeSecret}` }) },
     });
     const result = await response.json().catch(() => null);
     if (response.ok && result) return Response.json(result, { headers });

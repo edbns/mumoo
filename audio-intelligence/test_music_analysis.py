@@ -11,7 +11,7 @@ import unittest
 import wave
 
 from audio_source import SAMPLE_RATE, decode_clip, inspect_clip
-from music_analysis import analyze, event_times, features, tempo
+from music_analysis import analyze, event_times, features, tempo, temporal_progression
 
 
 def fixture(path, bpm, first_beat_ms=250, beats_per_bar=4):
@@ -88,6 +88,33 @@ class MusicAnalysisTests(unittest.TestCase):
                     4300, 4480, 4810, 5400, 5660, 6390, 6580]
         self.assertEqual(tempo(fragment)["status"], "unavailable")
 
+    def test_temporal_segments_silence_sparse_and_abrupt_change(self):
+        empty = {"low": None, "lowMid": None, "midHighMid": None, "high": None}
+        bins = [{"startMs": i*1000, "endMs": (i+1)*1000, "relativeEnergy": None,
+                 "bandShares": empty, "onsetCount": 0} for i in range(15)]
+        result = temporal_progression(bins, [])
+        self.assertEqual(result["status"], "unavailable")
+        self.assertEqual(len(result["segments"]), 1)
+        for i, item in enumerate(bins):
+            item["relativeEnergy"] = .1 if i < 7 else .9
+            item["onsetCount"] = int(i in (1, 9))
+        result = temporal_progression(bins, [9000])
+        self.assertGreater(len(result["segments"]), 1)
+        self.assertTrue(any(abs(s["energyChange"] or 0) >= .22 for s in result["segments"][1:]))
+        self.assertEqual(sum(s["beatCount"] for s in result["segments"]), 1)
+        self.assertEqual(result["segments"][-1]["endMs"], 15000)
+
+    def test_temporal_frequency_band_energy_and_zero_state(self):
+        import numpy as np
+        t = np.arange(15 * SAMPLE_RATE) / SAMPLE_RATE
+        _, low = features((.4*np.sin(2*np.pi*100*t)).astype(np.float32), with_temporal=True)
+        _, high = features((.4*np.sin(2*np.pi*6000*t)).astype(np.float32), with_temporal=True)
+        self.assertGreater(low[7]["bandShares"]["low"], .9)
+        self.assertGreater(high[7]["bandShares"]["high"], .9)
+        _, silent = features(np.zeros_like(t,dtype=np.float32), with_temporal=True)
+        self.assertTrue(all(x["relativeEnergy"] is None for x in silent))
+        self.assertTrue(all(x["bandShares"]["low"] is None for x in silent))
+
     def test_feature_units_and_silence(self):
         import numpy as np
 
@@ -135,7 +162,8 @@ class MusicAnalysisTests(unittest.TestCase):
                              ffmpeg=ffmpeg, ffprobe=ffprobe, source_sha256=identity["sha256"]))
             schema_path = Path(__file__).with_name("music-analysis-v1.schema.json")
             schema = json.loads(schema_path.read_text())
-            self.assertEqual(set(result), set(schema["required"]))
+            self.assertTrue(set(schema["required"]).issubset(result))
+            self.assertEqual(result["temporalV1"]["status"], "unavailable")
             self.assertEqual(result["rhythm"]["status"], "unavailable")
             self.assertIsNone(result["rhythm"]["tempo"]["bpm"])
             frames = result["features"]["frames"]

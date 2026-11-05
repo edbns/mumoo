@@ -18,10 +18,10 @@ test('media-first flow requires real-shaped analysis, retrieves approved media a
       await route.fulfill({ json: { version: 1, method: 'beat_this_librosa', source: null, clip: { durationMs: 15000, offsetMs: 0, sha256: hash }, rhythm: { beatsMs: [1200,2400,3600,4800,6000,7200,8400,9600,10800,12000,13200], downbeatsMs: [], tempo: { status: 'estimated', gridBpm: 100, alternativesBpm: [] } }, features: { transientsMs: [3600,7200,10800], frames: [{ timeMs: 0, rms: 0.2, centroidHz: 1000, onsetStrength: 0.1 }] }, provenance: {}, metrics: {} } });
     });
     await page.route('**/api/media-catalog', async route => {
-      const body = route.request().postDataJSON(); assert.equal(body.operation, 'director'); assert.equal(body.profile.music.gridBpm, 100); assert.equal('lyrics' in body.profile, false); assert.deepEqual(body.onsetsMs, [3600, 7200, 10800]); recommendations++;
-      const assets = [1,2,3,4].map(n => ({ id: `commons-${n}`, type: 'video', title: `Test asset ${n}`, assetUrl: `https://upload.wikimedia.org/test${n}.webm`, status: 'approved', commercialUseEligible: true }));
+      const body = route.request().postDataJSON(); if (body.operation === 'research-asset') return route.fulfill({ path: 'public/pixi-proof/window-motion.mp4', contentType: 'video/mp4' }); assert.equal(body.operation, 'fast-plan'); assert.equal(body.profile.measured.tempo.gridBpm, 100); assert.deepEqual(body.profile.lyricCues, []); assert.deepEqual(body.profile.measured.onsetsMs, [3600, 7200, 10800]); recommendations++;
+      const assets = [1,2,3,4].map(n => ({ id: `pixabay-${n}`, type: 'video', title: `Test asset ${n}`, query: 'fashion', rights: 'STAGING_TEST_ONLY', adSafety: 'REVIEW_REQUIRED' }));
       const shots = [0, 3600, 7200, 10800].map((startMs, i) => ({ assetId: assets[i].id, startMs, endMs: [3600, 7200, 10800, 15000][i], transition: i % 2 ? 'dissolve' : 'cut' }));
-      await route.fulfill({ json: { version: 1, status: 'ready', durationMs: 15000, intent: { genre: 'House' }, assets, shots } });
+      await route.fulfill({ json: { version: 1, status: 'ready', scope: 'staging-test-only', durationMs: 15000, intent: { genre: 'House' }, assets, shots } });
     });
     await page.route('https://upload.wikimedia.org/test*.webm', route => route.fulfill({ path: 'public/pixi-proof/window-motion.mp4', contentType: 'video/mp4', headers: { 'access-control-allow-origin': '*' } }));
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?media-debug=1`);
@@ -60,7 +60,7 @@ test('a failed analysis is visible and only retries when requested', { timeout: 
     await page.getByLabel('Primary genre').fill('House'); await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name: 'Unlock staging' }).click();
     await page.getByRole('button', { name: 'Continue to clip' }).click(); await page.getByRole('button', { name: 'Continue to video type' }).click(); await page.getByLabel('Visual', { exact: true }).check(); await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('button', { name: 'Retry music analysis' }).waitFor(); assert.equal(analyses, 1); assert.equal(director, 0);
-    await page.getByRole('button', { name: 'Retry music analysis' }).click(); await page.getByText('Not enough approved footage or music timing is available yet.').waitFor();
+    await page.getByRole('button', { name: 'Retry music analysis' }).click(); await page.getByText('Not enough matching footage or music timing is available yet.').waitFor();
     assert.equal(analyses, 2); assert.equal(director, 1);
     await page.getByText('Staging: inspect Director Blueprint').click(); const debug = await page.locator('pre').innerText(); assert.ok(debug.includes('analysis_failed')); assert.ok(debug.includes('analysis_response')); assert.equal(debug.includes('test-token'), false);
   } finally { await browser.close(); await server.close(); }

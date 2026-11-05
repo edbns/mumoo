@@ -64,6 +64,16 @@ test('research catalog operations require staging access and bounded provider in
     assert.equal(calls, 1);
   } finally { globalThis.fetch = original; }
 });
+test('music gateway forwards the temporal extension opt-in only when requested', async () => {
+  env(); const original=globalThis.fetch; const seen=[];
+  globalThis.fetch=async (_url,options)=>{seen.push(options.headers['X-Mumoo-Music-Features']);return Response.json({version:1});};
+  try {
+    const make=feature=>new Request('https://mumoo-staging.netlify.app/.netlify/functions/analyze-music',{method:'POST',headers:{origin:'https://mumoo-staging.netlify.app','content-type':'audio/wav','x-mumoo-brain-access':token,...(feature && {'x-mumoo-music-features':feature})},body:new Uint8Array(480044)});
+    assert.equal((await music(make('temporal-v1'))).status,200);
+    assert.equal((await music(make(null))).status,200);
+    assert.deepEqual(seen,['temporal-v1',undefined]);
+  } finally {globalThis.fetch=original;}
+});
 test('Core media delivery requires staging access and a permitted source', async () => {
   env(); const original = globalThis.fetch; let calls = 0;
   try {

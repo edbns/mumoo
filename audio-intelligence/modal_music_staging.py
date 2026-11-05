@@ -116,6 +116,10 @@ async def analyze_clip(request: Request):
     try:
         log_stage("worker_dispatch", "start")
         payload = await analyze_selected.remote.aio(bytes(body))
+        if request.headers.get("x-mumoo-music-features") != "temporal-v1":
+            legacy_payload = json.loads(payload)
+            legacy_payload.pop("temporalV1", None)
+            payload = json.dumps(legacy_payload, allow_nan=False)
         log_stage("worker_dispatch", "end")
         return Response(content=payload, media_type="application/json")
     except Exception as error:

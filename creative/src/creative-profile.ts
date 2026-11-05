@@ -38,6 +38,7 @@ export interface MusicAnalysisV1 {
     transientsMs: number[];
     frames: { timeMs: number; rms: number; onsetStrength: number; centroidHz: number; bandwidthHz: number; rolloffHz: number }[];
   };
+  temporalV1?: { version: 1; status: 'available' | 'unavailable'; durationMs: number; bins: { startMs: number; endMs: number; relativeEnergy: number | null; bandShares: { low: number | null; lowMid: number | null; midHighMid: number | null; high: number | null }; onsetCount: number }[]; segments: { startMs: number; endMs: number; relativeEnergy: number | null; bandShares: { low: number | null; lowMid: number | null; midHighMid: number | null; high: number | null }; onsetsPerSecond: number; beatCount: number; energyChange: number | null }[] };
   provenance: {
     beatModel: { name: string; version: string; checkpointSha256: string } | null;
     librosaVersion: string;

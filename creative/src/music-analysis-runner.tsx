@@ -27,7 +27,7 @@ export function MusicAnalysisRunner({ audio, clip, analysis, accessToken, onChan
         const digest = await crypto.subtle.digest('SHA-256', body);
         const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
         const response = await fetch('/.netlify/functions/analyze-music', { method: 'POST', signal: controller.signal,
-          headers: { 'Content-Type': 'audio/wav', 'X-Mumoo-Brain-Access': accessToken }, body });
+          headers: { 'Content-Type': 'audio/wav', 'X-Mumoo-Brain-Access': accessToken, 'X-Mumoo-Music-Features': 'temporal-v1' }, body });
         const data = await response.json().catch(() => null);
         trace('analysis_response', { status: response.status, durationMs: Math.round(performance.now() - started) });
         if (!response.ok || data?.version !== 1 || data.method !== 'beat_this_librosa' || data.clip?.durationMs !== DURATION_MS || data.clip?.offsetMs !== 0 || data.clip?.sha256 !== hash || !Array.isArray(data.rhythm?.beatsMs) || !Array.isArray(data.rhythm?.downbeatsMs) || !data.rhythm?.tempo || !Array.isArray(data.rhythm.tempo.alternativesBpm) || !Array.isArray(data.features?.transientsMs) || !Array.isArray(data.features?.frames) || !data.features.frames.length || !data.provenance || !data.metrics) throw new Error('Music analysis is unavailable.');
