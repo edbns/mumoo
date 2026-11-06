@@ -47,6 +47,7 @@ export const IMPACT_STYLES: readonly ImpactStyleMeta[] = [
 
 type Drawer = (draw: DrawContext, meta: ImpactStyleMeta) => void;
 
+/** Centered multiline fill. Pass x=0 when the caller already translated to the frame center. */
 function drawCenteredLines(
   ctx: CanvasRenderingContext2D,
   lines: string[],
@@ -55,13 +56,14 @@ function drawCenteredLines(
   y: number,
   leading = 1.05,
   maxWidth = 920,
+  x = WIDTH / 2,
 ) {
   ctx.fillStyle = color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = `800 ${size}px "Inter Variable"`;
   lines.forEach((line, index) => {
-    ctx.fillText(line, WIDTH / 2, y + (index - (lines.length - 1) / 2) * size * leading, maxWidth);
+    ctx.fillText(line, x, y + (index - (lines.length - 1) / 2) * size * leading, maxWidth);
   });
 }
 
@@ -83,13 +85,13 @@ const drawers: Record<ImpactVariant, Drawer> = {
     const { ctx, state, wordEnter, reaction } = draw;
     fillScene(ctx, meta.paper);
     if (!state.word) return;
-    const fit = fitImpactText(ctx, state.word.toLocaleUpperCase(), 1400, 320, 900, 2);
-    const scale = lerp(1.45, 1.12, wordEnter) + reaction.beat * 0.04;
+    const fit = fitImpactText(ctx, state.word.toLocaleUpperCase(), 980, 280, 900, 2);
+    const scale = lerp(1.22, 1.04, wordEnter) + reaction.beat * 0.03;
     ctx.save();
     ctx.translate(WIDTH / 2, HEIGHT / 2);
     ctx.scale(scale, scale);
-    ctx.rotate((-4 + reaction.energy * 3) * Math.PI / 180);
-    drawCenteredLines(ctx, fit.lines, fit.size, meta.ink, 0, 0.9, 1400);
+    ctx.rotate((-3 + reaction.energy * 2) * Math.PI / 180);
+    drawCenteredLines(ctx, fit.lines, fit.size, meta.ink, 0, 0.9, 980, 0);
     ctx.restore();
     ctx.fillStyle = meta.accent;
     ctx.fillRect(0, HEIGHT - 28, WIDTH * (0.2 + reaction.energy * 0.6), 28);
@@ -99,10 +101,13 @@ const drawers: Record<ImpactVariant, Drawer> = {
     const { ctx, state, enter, reaction, frame } = draw;
     fillScene(ctx, meta.paper);
     if (!state.words.length) return;
-    let x = 70;
+    const widths = state.words.map(word => Math.min(220, 72 + word.text.length * 24));
+    const total = widths.reduce((sum, w) => sum + w, 0) + (state.words.length - 1) * 16;
+    const scaleX = Math.min(1, (WIDTH - 100) / Math.max(1, total));
+    let x = (WIDTH - total * scaleX) / 2;
     state.words.forEach((word, index) => {
       const h = 220 + hash01(frame, index) * 520 + reaction.energy * 80;
-      const w = Math.min(260, 80 + word.text.length * 28);
+      const w = widths[index] * scaleX;
       const y = HEIGHT - 160 - h * easeOutCubic(clamp01(enter + index * 0.08));
       ctx.fillStyle = index === state.words.length - 1 ? meta.accent : meta.ink;
       ctx.globalAlpha = 0.85;
@@ -112,12 +117,12 @@ const drawers: Record<ImpactVariant, Drawer> = {
       ctx.translate(x + w / 2, y + 40);
       ctx.rotate(-Math.PI / 2);
       ctx.fillStyle = meta.paper;
-      ctx.font = `800 42px "Inter Variable"`;
+      ctx.font = `800 ${Math.max(28, 42 * scaleX)}px "Inter Variable"`;
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
       ctx.fillText(word.text.toLocaleUpperCase(), 0, 0, h - 60);
       ctx.restore();
-      x += w + 18;
+      x += w + 16 * scaleX;
     });
   },
 
@@ -145,20 +150,20 @@ const drawers: Record<ImpactVariant, Drawer> = {
     fillScene(ctx, meta.paper);
     if (!state.phrase) return;
     const focus = state.word || state.phrase.slice(0, 1);
-    const zoom = lerp(18, 1, easeOutCubic(wordEnter));
+    const zoom = lerp(4.2, 1, easeOutCubic(wordEnter));
     ctx.save();
     ctx.translate(WIDTH / 2, HEIGHT / 2);
     ctx.scale(zoom, zoom);
     ctx.fillStyle = meta.ink;
-    ctx.font = `800 90px "Inter Variable"`;
+    ctx.font = `800 96px "Inter Variable"`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.globalAlpha = clamp01(wordEnter * 1.4);
-    ctx.fillText(focus.toLocaleUpperCase(), 0, 0);
+    ctx.globalAlpha = clamp01(0.35 + wordEnter * 1.2);
+    ctx.fillText(focus.toLocaleUpperCase(), 0, 0, 900 / zoom);
     ctx.restore();
-    if (wordEnter > 0.55) {
+    if (wordEnter > 0.45) {
       const fit = fitImpactText(ctx, state.phrase.toLocaleUpperCase(), 900, 70, 700, 4);
-      ctx.globalAlpha = easeOutCubic((wordEnter - 0.55) / 0.45);
+      ctx.globalAlpha = easeOutCubic((wordEnter - 0.45) / 0.55);
       drawCenteredLines(ctx, fit.lines, fit.size, meta.ink, HEIGHT * 0.72 + reaction.beat * 6, 1.1, 900);
       ctx.globalAlpha = 1;
     }
@@ -168,19 +173,19 @@ const drawers: Record<ImpactVariant, Drawer> = {
     const { ctx, state, wordEnter, reaction } = draw;
     fillScene(ctx, meta.paper);
     if (!state.word) return;
-    const scale = lerp(0.04, 1.05 + reaction.beat * 0.05, easeOutBack(wordEnter));
+    const scale = lerp(0.18, 1 + reaction.beat * 0.04, easeOutBack(wordEnter));
     ctx.save();
     ctx.translate(WIDTH / 2, HEIGHT / 2);
     ctx.scale(scale, scale);
     ctx.fillStyle = meta.accent;
     ctx.beginPath();
-    ctx.arc(0, 0, 420, 0, Math.PI * 2);
+    ctx.arc(0, 0, 360, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = meta.ink;
-    ctx.font = `900 120px "Inter Variable"`;
+    ctx.font = `900 110px "Inter Variable"`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(state.word.toLocaleUpperCase(), 0, 0, 700);
+    ctx.fillText(state.word.toLocaleUpperCase(), 0, 0, 640);
     ctx.restore();
   },
 
@@ -189,11 +194,11 @@ const drawers: Record<ImpactVariant, Drawer> = {
     fillScene(ctx, meta.paper);
     if (!state.phrase) return;
     const fit = fitImpactText(ctx, state.phrase.toLocaleUpperCase(), 900, 110, 800, 3);
-    const stretch = 1 + (1 - enter) * 1.8 + reaction.beat * 0.15;
+    const stretch = lerp(1.28, 1, enter) + reaction.beat * 0.08;
     ctx.save();
     ctx.translate(WIDTH / 2, HEIGHT / 2);
     ctx.scale(stretch, 1 / Math.sqrt(stretch));
-    drawCenteredLines(ctx, fit.lines, fit.size, meta.ink, 0, 1, 900);
+    drawCenteredLines(ctx, fit.lines, fit.size, meta.ink, 0, 1, 900 / stretch, 0);
     ctx.restore();
     ctx.fillStyle = meta.accent;
     ctx.fillRect(80, HEIGHT - 120, WIDTH - 160, 8);
@@ -345,12 +350,12 @@ const drawers: Record<ImpactVariant, Drawer> = {
     if (!state.phrase) return;
     const fit = fitImpactText(ctx, state.phrase, 860, 100, 600, 5);
     fit.lines.forEach((line, index) => {
-      const y = 360 + index * (fit.size * 1.35) + (1 - easeOutCubic(clamp01(enter - index * 0.1))) * 500;
+      const y = 420 + index * (fit.size * 1.35) + (1 - easeOutCubic(clamp01(enter - index * 0.1))) * 160;
       ctx.fillStyle = meta.ink;
       ctx.font = `600 ${fit.size}px "Inter Variable"`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(line, WIDTH / 2, y + reaction.beat * 4, 860);
+      ctx.fillText(line, WIDTH / 2, Math.min(HEIGHT - 180, y + reaction.beat * 4), 860);
     });
     ctx.fillStyle = meta.accent;
     ctx.fillRect(120, 280, WIDTH - 240, 4);
@@ -418,18 +423,18 @@ const drawers: Record<ImpactVariant, Drawer> = {
     const { ctx, state, wordEnter, reaction } = draw;
     fillScene(ctx, meta.paper);
     if (!state.word) return;
-    const sx = 1 + Math.sin(wordEnter * Math.PI) * 0.55 + reaction.beat * 0.08;
+    const sx = 1 + Math.sin(wordEnter * Math.PI) * 0.28 + reaction.beat * 0.05;
     const sy = 1 / sx;
-    const fit = fitImpactText(ctx, state.word.toLocaleUpperCase(), 900, 200, 900, 2);
+    const fit = fitImpactText(ctx, state.word.toLocaleUpperCase(), 900, 180, 900, 2);
     ctx.save();
     ctx.translate(WIDTH / 2, HEIGHT / 2);
     ctx.scale(sx, sy);
-    drawCenteredLines(ctx, fit.lines, fit.size, meta.ink, 0, 0.9, 900);
+    drawCenteredLines(ctx, fit.lines, fit.size, meta.ink, 0, 0.9, 900 / sx, 0);
     ctx.restore();
     ctx.strokeStyle = meta.accent;
     ctx.lineWidth = 10;
     ctx.beginPath();
-    ctx.ellipse(WIDTH / 2, HEIGHT / 2, 420 * sx, 180 * sy, 0, 0, Math.PI * 2);
+    ctx.ellipse(WIDTH / 2, HEIGHT / 2, Math.min(420, 460 / sx) * sx, 180 * sy, 0, 0, Math.PI * 2);
     ctx.stroke();
   },
 
@@ -438,15 +443,19 @@ const drawers: Record<ImpactVariant, Drawer> = {
     fillScene(ctx, meta.paper);
     if (!state.word) return;
     const letters = [...state.word];
-    const total = letters.reduce((sum, letter) => {
-      ctx.font = `800 110px "Inter Variable"`;
-      return sum + ctx.measureText(letter).width + 8;
-    }, 0);
+    let size = 110;
+    let total = 0;
+    do {
+      ctx.font = `800 ${size}px "Inter Variable"`;
+      total = letters.reduce((sum, letter) => sum + ctx.measureText(letter).width + 8, 0);
+      if (total <= WIDTH - 120 || size <= 48) break;
+      size -= 6;
+    } while (true);
     let x = (WIDTH - total) / 2;
     letters.forEach((letter, index) => {
-      ctx.font = `800 110px "Inter Variable"`;
+      ctx.font = `800 ${size}px "Inter Variable"`;
       const w = ctx.measureText(letter).width;
-      const drop = (1 - easeOutBounce(clamp01(enter - index * 0.05))) * (900 + index * 40);
+      const drop = (1 - easeOutBounce(clamp01(enter - index * 0.05))) * (420 + index * 24);
       ctx.fillStyle = meta.ink;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
@@ -466,15 +475,15 @@ const drawers: Record<ImpactVariant, Drawer> = {
     const left = parts.slice(0, mid).join(' ');
     const right = parts.slice(mid).join(' ') || parts.at(-1) || '';
     const slam = easeOutCubic(enter);
-    const fly = (1 - slam) * 520;
-    ctx.font = `900 96px "Inter Variable"`;
+    const fly = (1 - slam) * 220;
+    ctx.font = `900 84px "Inter Variable"`;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = meta.accent;
     ctx.textAlign = 'right';
-    ctx.fillText(left.toLocaleUpperCase(), WIDTH / 2 - 18 - fly, HEIGHT / 2 + reaction.beat * 10, 500);
+    ctx.fillText(left.toLocaleUpperCase(), WIDTH / 2 - 18 - fly, HEIGHT / 2 + reaction.beat * 10, WIDTH / 2 - 48);
     ctx.fillStyle = meta.ink;
     ctx.textAlign = 'left';
-    ctx.fillText(right.toLocaleUpperCase(), WIDTH / 2 + 18 + fly, HEIGHT / 2 - reaction.beat * 10, 500);
+    ctx.fillText(right.toLocaleUpperCase(), WIDTH / 2 + 18 + fly, HEIGHT / 2 - reaction.beat * 10, WIDTH / 2 - 48);
     ctx.fillStyle = '#fff';
     ctx.globalAlpha = 0.35 + slam * 0.65;
     ctx.fillRect(WIDTH / 2 - 4, 300, 8, 1320);
@@ -486,12 +495,17 @@ const drawers: Record<ImpactVariant, Drawer> = {
     fillScene(ctx, meta.paper);
     if (!state.phrase) return;
     const textValue = state.phrase.toLocaleUpperCase();
-    ctx.font = `800 78px "Inter Variable"`;
+    let size = 78;
+    ctx.font = `800 ${size}px "Inter Variable"`;
+    while (ctx.measureText(textValue).width > WIDTH - 100 && size > 36) {
+      size -= 4;
+      ctx.font = `800 ${size}px "Inter Variable"`;
+    }
     const width = ctx.measureText(textValue).width;
     let x = (WIDTH - width) / 2;
     [...textValue].forEach((letter, index) => {
       const w = ctx.measureText(letter).width;
-      const wave = Math.sin(ms / 180 + index * 0.45) * (28 + reaction.energy * 24) * enter;
+      const wave = Math.sin(ms / 180 + index * 0.45) * (22 + reaction.energy * 16) * enter;
       ctx.fillStyle = meta.ink;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
@@ -577,11 +591,12 @@ const drawers: Record<ImpactVariant, Drawer> = {
     const flash = reaction.beat > 0.7 && frame % 2 === 0;
     fillScene(ctx, flash ? meta.accent : meta.paper);
     if (!state.word) return;
-    const fit = fitImpactText(ctx, state.word.toLocaleUpperCase(), 1000, 240, 900, 2);
-    const skew = (1 - wordEnter) * 0.6;
+    const fit = fitImpactText(ctx, state.word.toLocaleUpperCase(), 920, 220, 900, 2);
+    const skew = (1 - wordEnter) * 0.28;
     ctx.save();
+    ctx.translate(WIDTH / 2, HEIGHT / 2);
     ctx.transform(1, 0, skew, 1, 0, 0);
-    drawCenteredLines(ctx, fit.lines, fit.size, flash ? meta.ink : meta.ink, HEIGHT / 2, 0.85, 1000);
+    drawCenteredLines(ctx, fit.lines, fit.size, meta.ink, 0, 0.85, 920, 0);
     ctx.restore();
   },
 
@@ -629,16 +644,16 @@ const drawers: Record<ImpactVariant, Drawer> = {
     const { ctx, state, enter, reaction } = draw;
     fillScene(ctx, meta.paper);
     if (!state.phrase) return;
-    const fit = fitImpactText(ctx, state.phrase.toLocaleUpperCase(), 900, 100, 800, 3);
+    const fit = fitImpactText(ctx, state.phrase.toLocaleUpperCase(), 820, 96, 800, 3);
     for (let depth = 6; depth >= 0; depth--) {
       const t = depth / 6;
-      const scale = lerp(1.8, 0.35, t) * (0.85 + enter * 0.2);
-      const alpha = lerp(0.15, 1, 1 - t);
+      const scale = lerp(1.05, 0.42, t) * (0.92 + enter * 0.08);
+      const alpha = lerp(0.18, 1, 1 - t);
       ctx.save();
-      ctx.translate(WIDTH / 2, HEIGHT / 2 + (1 - enter) * 80);
+      ctx.translate(WIDTH / 2, HEIGHT / 2 + (1 - enter) * 48);
       ctx.scale(scale, scale);
       ctx.globalAlpha = alpha;
-      drawCenteredLines(ctx, fit.lines, fit.size * 0.55, depth === 0 ? meta.accent : meta.ink, reaction.beat * 4, 1, 900);
+      drawCenteredLines(ctx, fit.lines, fit.size * 0.7, depth === 0 ? meta.accent : meta.ink, reaction.beat * 4, 1, 820 / scale, 0);
       ctx.restore();
     }
     ctx.globalAlpha = 1;
