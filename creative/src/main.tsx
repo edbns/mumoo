@@ -66,6 +66,16 @@ function App() {
   const animation = useRef(0);
   const upload = useRef(0);
   const playback = useRef(0);
+  // Keep a live playhead for canvas preview loops so heavy React paints cannot lag lyrics behind audio.
+  const positionRef = useRef(0);
+  const positionUiAt = useRef(0);
+  function seekTo(ms: number, forceUi = true) {
+    positionRef.current = ms;
+    if (forceUi) {
+      positionUiAt.current = performance.now();
+      setPosition(ms);
+    }
+  }
 
   const clipValid = Boolean(buffer && Number.isSafeInteger(composition.clipStartMs) &&
     composition.clipStartMs >= 0 && composition.clipStartMs <= buffer.duration * 1000 - DURATION_MS);
@@ -115,7 +125,7 @@ function App() {
     setStep(1);
     setVideoType(null);
     setLoading(Boolean(file));
-    setPosition(0);
+    seekTo(0);
     setError('');
     if (!file) { setMusicAnalysis(NO_ANALYSIS); return; }
     try {
@@ -157,7 +167,10 @@ function App() {
       setPlaying(true);
       function tick() {
         const next = Math.min(DURATION_MS, from + (audio.currentTime - start) * 1000);
-        setPosition(next);
+        // Always advance the live playhead; throttle React seek-bar updates so canvas
+        // studios can paint on audio time without waiting on heavy re-renders.
+        const now = performance.now();
+        seekTo(next, next >= DURATION_MS || now - positionUiAt.current >= 50);
         if (next < DURATION_MS) animation.current = requestAnimationFrame(tick);
         else {
           source.current = null;
@@ -192,7 +205,7 @@ function App() {
 
   function selectClip(clipStartMs: number) {
     stop();
-    setPosition(0);
+    seekTo(0);
     const next: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: clipStartMs, durationMs: DURATION_MS };
     if (!sameClip(currentClip.current, next)) {
       currentClip.current = next;
@@ -203,7 +216,7 @@ function App() {
 
   function openStage(visual: boolean) {
     stop();
-    setPosition(0);
+    seekTo(0);
     if (visual) { setDailyScreens(true); setLyricImpact(false); setHumanMagnet(videoType === 'visual'); setVisualCuriosity(videoType === 'visual'); setRhythmicMontage(false); }
     setEditingVisual(visual);
   }
@@ -276,7 +289,7 @@ function App() {
           </div>
           <label>Seek within selection
             <input type="range" min={0} max={DURATION_MS} step={1} value={Math.floor(position)}
-              disabled={!clipValid} onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} />
+              disabled={!clipValid} onChange={event => { stop(); seekTo(event.target.valueAsNumber); }} />
           </label>
           <p>Playhead · {(position / 1000).toFixed(2)} s</p>
           <div className="trim-actions"><button onClick={() => { stop(); setStep(1); }}>Back to song</button>
@@ -295,7 +308,7 @@ function App() {
           {videoType === 'lyric' && <p className="lyric-monitor">Current lyric: {evaluate(composition, playheadFrame(position)).text || '—'}</p>}</>}
           {step === 4 && videoType === 'lyric' && <><label>Lyric playhead
             <input type="range" min={0} max={DURATION_MS} step={1} value={Math.floor(position)}
-              onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} /></label>
+              onChange={event => { stop(); seekTo(event.target.valueAsNumber); }} /></label>
           <button onClick={() => playing ? stop() : void play()}>{playing ? 'Pause audition' : 'Audition selection'}</button>
           {clipValid && <LyricSync key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs}
             onChange={cues => setComposition(current => ({ ...current, cues }))} onInsertWord={insertWord} />}
@@ -307,7 +320,7 @@ function App() {
               </button>
               <label>Review playhead
                 <input type="range" min={0} max={DURATION_MS} step={1} value={Math.floor(position)}
-                  onChange={event => { stop(); setPosition(event.target.valueAsNumber); }} />
+                  onChange={event => { stop(); seekTo(event.target.valueAsNumber); }} />
               </label>
               <output>{(position / 1000).toFixed(2)} s</output>
             </div>
@@ -327,7 +340,7 @@ function App() {
                   }} />;
                 return <button type="button" key={index} aria-current={active ? 'true' : undefined}
                   disabled={!Number.isFinite(cue.startMs) || cue.startMs < 0 || cue.startMs >= DURATION_MS}
-                  onClick={() => { stop(); setSelectedCue(index); setInlineCue(index); setPosition(Math.ceil(Math.ceil(cue.startMs * FPS / 1000) * 1000 / FPS)); }}>
+                  onClick={() => { stop(); setSelectedCue(index); setInlineCue(index); seekTo(Math.ceil(Math.ceil(cue.startMs * FPS / 1000) * 1000 / FPS)); }}>
                   {cue.text || 'Untitled cue'}
                 </button>;
               })}
@@ -377,7 +390,7 @@ function App() {
         </>}
         {step !== 1 && (error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
       </section>
-    </main> : profile && buffer && (rhythmicMontage && IS_ALIGNMENT_STAGING ? <MediaStudio montage profile={profile} composition={activeComposition} audio={buffer} token={accessToken} position={position} playing={playing} playbackError={error} onPlay={() => void play()} onStop={stop} onBack={() => openStage(false)} onFamilies={() => { stop(); setRhythmicMontage(false); }} onSeek={ms => { stop(); setPosition(ms); }} onRetry={() => { setMusicAnalysis(NO_ANALYSIS); setAnalysisAttempt(n => n + 1); }} /> : visualCuriosity && IS_ALIGNMENT_STAGING ? <VisualCuriosityStudio profile={profile} composition={activeComposition} audio={buffer} position={position} playing={playing} playbackError={error} onPlay={() => void play()} onStop={stop} onSeek={ms => { stop(); setPosition(ms); }} onBack={() => openStage(false)} onOther={() => { stop(); setVisualCuriosity(false); if (videoType === 'lyric') setHumanMagnet(false); }} onMedia={() => { stop(); setVisualCuriosity(false); setHumanMagnet(false); }} onMontage={() => { stop(); setRhythmicMontage(true); }} /> : humanMagnet && IS_ALIGNMENT_STAGING ? <HumanMagnetStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken} position={position} playing={playing} playbackError={error} onPlay={() => void play()} onStop={stop} onBack={() => openStage(false)} onOther={() => { stop(); setHumanMagnet(false); }} onRetry={() => { setMusicAnalysis(NO_ANALYSIS); setAnalysisAttempt(n => n + 1); }} onCuriosity={() => { stop(); setVisualCuriosity(true); }} onMontage={() => { stop(); setRhythmicMontage(true); }} /> : IS_ALIGNMENT_STAGING && videoType === 'lyric' && dailyScreens ? lyricImpact ? <LyricImpactStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken} position={position} playing={playing} playbackError={error} onPlay={() => void play()} onStop={stop} onSeek={ms => { stop(); setPosition(ms); }} onBack={() => openStage(false)} onDaily={() => { stop(); setLyricImpact(false); }} onHuman={() => { stop(); setHumanMagnet(true); }} onCuriosity={() => { stop(); setVisualCuriosity(true); }} onMontage={() => { stop(); setRhythmicMontage(true); }} /> : <DailyScreensStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken} position={position} playing={playing} playbackError={error} onPlay={() => void play()} onStop={stop} onSeek={ms => { stop(); setPosition(ms); }} onBack={() => openStage(false)} onImpact={() => { stop(); setLyricImpact(true); }} onHuman={() => { stop(); setHumanMagnet(true); }} onCuriosity={() => { stop(); setVisualCuriosity(true); }} onMontage={() => { stop(); setRhythmicMontage(true); }} onOther={() => { stop(); setDailyScreens(false); }} /> : <MediaStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken} playbackError={error}
+    </main> : profile && buffer && (rhythmicMontage && IS_ALIGNMENT_STAGING ? <MediaStudio montage profile={profile} composition={activeComposition} audio={buffer} token={accessToken} position={position} playing={playing} playbackError={error} onPlay={() => void play()} onStop={stop} onBack={() => openStage(false)} onFamilies={() => { stop(); setRhythmicMontage(false); }} onSeek={ms => { stop(); seekTo(ms); }} onRetry={() => { setMusicAnalysis(NO_ANALYSIS); setAnalysisAttempt(n => n + 1); }} /> : visualCuriosity && IS_ALIGNMENT_STAGING ? <VisualCuriosityStudio profile={profile} composition={activeComposition} audio={buffer} position={position} playing={playing} playbackError={error} onPlay={() => void play()} onStop={stop} onSeek={ms => { stop(); seekTo(ms); }} onBack={() => openStage(false)} onOther={() => { stop(); setVisualCuriosity(false); if (videoType === 'lyric') setHumanMagnet(false); }} onMedia={() => { stop(); setVisualCuriosity(false); setHumanMagnet(false); }} onMontage={() => { stop(); setRhythmicMontage(true); }} /> : humanMagnet && IS_ALIGNMENT_STAGING ? <HumanMagnetStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken} position={position} playing={playing} playbackError={error} onPlay={() => void play()} onStop={stop} onBack={() => openStage(false)} onOther={() => { stop(); setHumanMagnet(false); }} onRetry={() => { setMusicAnalysis(NO_ANALYSIS); setAnalysisAttempt(n => n + 1); }} onCuriosity={() => { stop(); setVisualCuriosity(true); }} onMontage={() => { stop(); setRhythmicMontage(true); }} /> : IS_ALIGNMENT_STAGING && videoType === 'lyric' && dailyScreens ? lyricImpact ? <LyricImpactStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken} position={position} playing={playing} playbackError={error} onPlay={() => void play()} onStop={stop} onSeek={ms => { stop(); seekTo(ms); }} onBack={() => openStage(false)} onDaily={() => { stop(); setLyricImpact(false); }} onHuman={() => { stop(); setHumanMagnet(true); }} onCuriosity={() => { stop(); setVisualCuriosity(true); }} onMontage={() => { stop(); setRhythmicMontage(true); }} /> : <DailyScreensStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken} position={position} getPosition={() => positionRef.current} playing={playing} playbackError={error} onPlay={() => void play()} onStop={stop} onSeek={ms => { stop(); seekTo(ms); }} onBack={() => openStage(false)} onImpact={() => { stop(); setLyricImpact(true); }} onHuman={() => { stop(); setHumanMagnet(true); }} onCuriosity={() => { stop(); setVisualCuriosity(true); }} onMontage={() => { stop(); setRhythmicMontage(true); }} onOther={() => { stop(); setDailyScreens(false); }} /> : <MediaStudio profile={profile} composition={activeComposition} audio={buffer} token={accessToken} playbackError={error}
       position={position} playing={playing} onPlay={() => void play(true)} onStop={stop} onBack={() => openStage(false)} onRetry={() => { setMusicAnalysis(NO_ANALYSIS); setAnalysisAttempt(n => n + 1); }} />)}
     {buffer && clipValid && IS_ALIGNMENT_STAGING && (step === 4 || editingVisual) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs + ':' + analysisAttempt}
       audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} accessToken={accessToken} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}

@@ -73,6 +73,7 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .gallery-frame, .gallery-user-preview { position: relative; width: 100%; }
 .gallery-frame canvas { display: block; width: 100%; max-width: none; }
 .gallery-user-preview { max-width: 280px; margin: 16px 0; }
+.gallery-user-preview canvas { display: block; width: 100%; max-width: none; background: #f7f7f8; }
 .preview-mark { position: absolute; bottom: 12px; right: 12px; color: white; text-shadow: 0 1px 4px #000; font-size: 10px; letter-spacing: .12em; pointer-events: none; }
 .gallery-actions, .generate-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 .gallery-card strong { display: block; margin-top: 10px; }

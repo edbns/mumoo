@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { FRAMES, HEIGHT, WIDTH, playheadFrame, type Composition, type DailyScreenVariant } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { SCREEN_DESIGNS } from './daily-screens';
@@ -6,11 +6,15 @@ import { paintDailyScreen } from './daily-screens-paint';
 import { renderMp4 } from './browser-export';
 import { loadFont } from './render';
 
-export function DailyScreensStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onSeek, onBack, onOther, onImpact, onHuman, onCuriosity, onMontage }: {
-  profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; token: string; position: number; playing: boolean;
-  playbackError: string; onPlay: () => void; onStop: () => void; onSeek: (ms: number) => void; onBack: () => void; onOther: () => void; onImpact: () => void; onHuman: () => void; onCuriosity: () => void; onMontage: () => void;
+export function DailyScreensStudio({ profile, composition, audio, token, position, getPosition, playing, playbackError, onPlay, onStop, onSeek, onBack, onOther, onImpact, onHuman, onCuriosity, onMontage }: {
+  profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; token: string; position: number;
+  getPosition?: () => number;
+  playing: boolean; playbackError: string; onPlay: () => void; onStop: () => void; onSeek: (ms: number) => void; onBack: () => void; onOther: () => void; onImpact: () => void; onHuman: () => void; onCuriosity: () => void; onMontage: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const getPositionRef = useRef(getPosition ?? (() => position));
+  getPositionRef.current = getPosition ?? (() => position);
+  const cuesRef = useRef(profile.approvedLyrics?.cues ?? []);
   const [eligible, setEligible] = useState(false); const [error, setError] = useState('');
   const [impactEligible, setImpactEligible] = useState(false);
   const [progress, setProgress] = useState<number>();
@@ -19,10 +23,10 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
   const [deviceSeed] = useState(() => crypto.getRandomValues(new Uint32Array(1))[0]);
   const [exportLabel, setExportLabel] = useState('');
   const cues = profile.approvedLyrics?.cues ?? [];
+  cuesRef.current = cues;
   const cueKey = JSON.stringify(cues);
   const genre = profile.creator.primaryGenre.value;
   const influence = profile.creator.influence?.value;
-  const frame = playheadFrame(position);
 
   useEffect(() => {
     if (profile.videoType !== 'lyric' || !token || !cues.length) { setEligible(false); return; }
@@ -45,12 +49,33 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
     return () => controller.abort();
   }, [token, genre, influence, cueKey, profile.videoType]);
 
-  // One canvas path for every design keeps preview/export parity and avoids the
-  // black-screen bug from remounting a React root after switching templates.
-  useEffect(() => {
-    if (!eligible || !canvas.current) return;
-    void paintDailyScreen(canvas.current, cues, frame, { variant, capturedAtMs, deviceSeed });
-  }, [eligible, position, cueKey, variant, capturedAtMs, deviceSeed, frame]);
+  // Paint from the live audio playhead (not React state) so lyrics stay locked to WhisperX.
+  // key={variant} remounts the canvas so a stale GPU/bitmap cannot stick black after switching.
+  useLayoutEffect(() => {
+    if (!eligible) return;
+    if (!canvas.current) return;
+    let alive = true;
+    let raf = 0;
+    const options = { variant, capturedAtMs, deviceSeed };
+    const paint = () => {
+      if (!alive || !canvas.current) return;
+      try {
+        const ms = getPositionRef.current();
+        void paintDailyScreen(canvas.current, cuesRef.current, playheadFrame(ms), options);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Preview failed to draw.');
+      }
+    };
+    paint();
+    if (playing) {
+      const loop = () => {
+        paint();
+        if (alive) raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+    }
+    return () => { alive = false; cancelAnimationFrame(raf); };
+  }, [eligible, playing, variant, cueKey, capturedAtMs, deviceSeed, position, progress]);
 
   async function download(all = false) {
     if (!eligible || !cues.length) return;
@@ -84,7 +109,7 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
     {playbackError && <p role="alert">{playbackError}</p>}
     {eligible && <><div className="daily-designs" role="group" aria-label="Choose a screen design">{SCREEN_DESIGNS.map(design => <button type="button" key={design.id} disabled={progress !== undefined} aria-pressed={variant === design.id} onClick={() => setVariant(design.id)}>{design.name}</button>)}</div>
       <div className="gallery-user-preview">
-        <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Daily Screens preview" onContextMenu={event => event.preventDefault()} />
+        <canvas key={variant} ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Daily Screens preview" onContextMenu={event => event.preventDefault()} />
         <span className="preview-mark">PREVIEW</span>
       </div>
       <div className="trim-actions"><button disabled={progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button>
