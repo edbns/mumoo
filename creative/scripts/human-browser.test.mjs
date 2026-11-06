@@ -39,6 +39,7 @@ test('Human Magnet visual path inspects footage and previews without requesting 
     await page.getByRole('button', { name:'Continue to clip' }).click(); await page.getByLabel('Clip start (ms)').fill('41000');
     await page.getByRole('button', { name:'Continue to video type' }).click(); await page.getByLabel(lyric?'Lyric Video':'Visual').check(); await page.getByRole('button', { name:'Continue', exact:true }).click();
     if (lyric) { await page.getByText('Paste lyrics for this section').click(); await page.getByLabel('Lyrics for this section').fill('Vem'); await page.getByRole('button',{name:'Sync lyrics'}).click(); await page.getByText('Synced 1 words.',{exact:false}).waitFor(); await page.getByRole('button',{name:'Approve lyrics and choose visual'}).click(); await page.getByRole('button',{name:'Human Magnet'}).click(); }
+    else await page.getByRole('button', { name:'Human Magnet' }).click();
     await page.getByRole('heading', { name:'Human Magnet' }).waitFor();
     if (process.env.MUMOO_HUMAN_RETRY === '1') await page.getByRole('button', { name:'Try again' }).click();
     await page.getByRole('button', { name:'Play', exact:true }).waitFor({ state:'visible', timeout:60000 });

@@ -35,7 +35,7 @@ test('isolated visual-intelligence flow plays and exports through the existing r
     await page.getByLabel('Source WAV').setInputFiles({ name: 'fixture.wav', mimeType: 'audio/wav', buffer: wav });
     await page.getByLabel('Primary genre').fill('House'); await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name: 'Unlock staging' }).click();
     await page.getByRole('button', { name: 'Continue to clip' }).click(); await page.getByRole('button', { name: 'Continue to video type' }).click(); await page.getByLabel('Visual', { exact: true }).check(); await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await page.getByLabel('Automatic video preview').waitFor();
+    await page.getByRole('button', { name: 'Other visuals' }).click(); await page.getByLabel('Automatic video preview').waitFor();
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent === 'Play' && !button.disabled));
     const visiblePixels = await page.getByLabel('Automatic video preview').evaluate(canvas => { const ctx = canvas.getContext('2d'); let nonBlack = 0; for (let y = 100; y < canvas.height; y += 300) for (let x = 100; x < canvas.width; x += 200) { const data = ctx.getImageData(x, y, 1, 1).data; if (data[0] + data[1] + data[2] > 10) nonBlack++; } return nonBlack; });
     assert.ok(visiblePixels > 0, 'Play must not be enabled before a visible first frame'); assert.equal(calls, 2); assert.equal(lyrics, 0);

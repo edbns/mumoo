@@ -40,7 +40,7 @@ test('media-first flow requires real-shaped analysis, retrieves approved media a
     await page.getByLabel('Primary genre').fill('House'); await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name: 'Unlock staging' }).click();
     await page.getByRole('button', { name: 'Continue to clip' }).click(); await page.getByRole('button', { name: 'Continue to video type' }).click();
     await page.getByLabel('Visual', { exact: true }).check(); await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await page.getByLabel('Automatic video preview').waitFor(); assert.equal(analyses, 1); assert.equal(recommendations, 1); assert.equal(lyricCalls, 0);
+    await page.getByRole('button', { name: 'Other visuals' }).click(); await page.getByLabel('Automatic video preview').waitFor(); assert.equal(analyses, 1); assert.equal(recommendations, 1); assert.equal(lyricCalls, 0);
     for (const obsolete of ['Elastic', 'Glitch', 'Scribble', 'Internal image-surface experiment']) assert.equal(await page.getByText(obsolete, { exact: true }).count(), 0);
     await page.getByRole('button', { name: 'Play', exact: true }).click(); await page.getByRole('button', { name: 'Pause', exact: true }).click();
     const pending = page.waitForEvent('download', { timeout: 90000 }); await page.getByRole('button', { name: 'Download MP4' }).click();
@@ -68,7 +68,7 @@ test('a failed analysis is visible and only retries when requested', { timeout: 
     await page.getByLabel('Source WAV').setInputFiles({ name: 'fixture.wav', mimeType: 'audio/wav', buffer: wav });
     await page.getByLabel('Primary genre').fill('House'); await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name: 'Unlock staging' }).click();
     await page.getByRole('button', { name: 'Continue to clip' }).click(); await page.getByRole('button', { name: 'Continue to video type' }).click(); await page.getByLabel('Visual', { exact: true }).check(); await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await page.getByRole('button', { name: 'Retry music analysis' }).waitFor(); assert.equal(analyses, 1); assert.equal(director, 0);
+    await page.getByRole('button', { name: 'Other visuals' }).click(); await page.getByRole('button', { name: 'Retry music analysis' }).waitFor(); assert.equal(analyses, 1); assert.equal(director, 0);
     await page.getByRole('button', { name: 'Retry music analysis' }).click(); await page.getByText('Not enough matching footage or music timing is available yet.').waitFor();
     assert.equal(analyses, 2); assert.equal(director, 1);
     await page.getByText('Staging: inspect Director Blueprint').click(); const debug = await page.locator('pre').innerText(); assert.ok(debug.includes('analysis_failed')); assert.ok(debug.includes('analysis_response')); assert.equal(debug.includes('test-token'), false);

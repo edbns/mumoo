@@ -44,7 +44,7 @@ test('fast visual DNA flow plays and exports through the existing renderer', { t
     await page.getByLabel('Source WAV').setInputFiles({ name: 'fixture.wav', mimeType: 'audio/wav', buffer: wav });
     await page.getByLabel('Primary genre').fill('House'); await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name: 'Unlock staging' }).click();
     await page.getByRole('button', { name: 'Continue to clip' }).click(); await page.getByRole('button', { name: 'Continue to video type' }).click(); await page.getByLabel('Visual', { exact: true }).check(); await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await page.getByLabel('Automatic video preview').waitFor();
+    await page.getByRole('button', { name: 'Other visuals' }).click(); await page.getByLabel('Automatic video preview').waitFor();
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent === 'Play' && !button.disabled));
     const image = await page.getByLabel('Automatic video preview').screenshot();
     const pixels = execFileSync(ffmpeg.path, ['-v','error','-i','pipe:0','-vf','scale=20:35','-pix_fmt','rgb24','-f','rawvideo','-'], {input:image});

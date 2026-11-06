@@ -12,9 +12,9 @@ const TREATMENTS = [{ id: 'face', label: 'Face First' }, { id: 'movement', label
 type Treatment = typeof TREATMENTS[number]['id'];
 type Asset = { id: string; query: string; sourceUrl: string; creator: string };
 
-export function HumanMagnetStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onBack, onOther, onRetry }: {
+export function HumanMagnetStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onBack, onOther, onRetry, onCuriosity }: {
   profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; token: string; position: number; playing: boolean; playbackError: string;
-  onPlay: () => void; onStop: () => void; onBack: () => void; onOther: () => void; onRetry: () => void;
+  onPlay: () => void; onStop: () => void; onBack: () => void; onOther: () => void; onRetry: () => void; onCuriosity: () => void;
 }) {
   const [treatment, setTreatment] = useState<Treatment>('face'); const [seed] = useState(() => crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff);
   const [attempt, setAttempt] = useState(0);
@@ -67,7 +67,7 @@ export function HumanMagnetStudio({ profile, composition, audio, token, position
   }
   return <main className="desktop gallery-page"><section className="gallery-shell">
     <p className="eyebrow">YOUR MUSIC VIDEO</p><h1>Human Magnet</h1><p className="intro">Real people, movement and presence, set to your music.</p>
-    <div className="trim-actions"><button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back to music</button><button className="secondary" disabled={progress !== undefined} onClick={onOther}>{profile.videoType === 'lyric' ? 'Lyric formats' : 'Other visuals'}</button></div>
+    <div className="trim-actions"><button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back to music</button><button className="secondary" disabled={progress !== undefined} onClick={onCuriosity}>Visual Curiosity</button><button className="secondary" disabled={progress !== undefined} onClick={onOther}>{profile.videoType === 'lyric' ? 'Lyric formats' : 'Other visuals'}</button></div>
     <p className="hint">Staging research only. Footage has not been cleared for advertising or release. Videos by <a href="https://pixabay.com/" target="_blank" rel="noreferrer">Pixabay</a>.</p>
     <div className="daily-designs" role="group" aria-label="Choose a Human Magnet style">{TREATMENTS.map(style => <button key={style.id} type="button" disabled={progress !== undefined} aria-pressed={treatment === style.id} onClick={() => { onStop(); setTreatment(style.id); }}>{style.label}</button>)}</div>
     {!token && <p role="alert">Staging access is unavailable. Go back and sign in again.</p>}
