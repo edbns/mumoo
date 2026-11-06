@@ -35,10 +35,10 @@ export function Preview({ edit, composition, position, onReady }: { edit: Studio
   const assetsKey=JSON.stringify([edit.version,edit.assets.map(asset=>[asset.id,asset.type,asset.url])]);
   function renderLatest() {
     if (busy.current || !renderer.current) return;
-    const active = renderer.current; busy.current = true;
-    void (async () => { try { while (renderer.current === active) { const frame = requested.current, currentRevision=revision.current; await active.render(frame); if (renderer.current === active && currentRevision===revision.current && displayedRevision.current!==currentRevision) { displayedRevision.current=currentRevision; setError(''); if(!firstFrame.current){firstFrame.current = true; setHasFrame(true); trace('preview_ready', { durationMs: Math.round(performance.now() - previewStarted.current) });} onReady(true); } if (frame === requested.current && currentRevision===revision.current) break; } }
-      catch { if (renderer.current === active) { trace('preview_failed', { category: 'frame_render' }); onReady(false); setError('The preview could not display this frame.'); } }
-      finally { busy.current = false; if (renderer.current && renderer.current !== active) renderLatest(); } })();
+    const active = renderer.current; busy.current = true; let attemptedRevision=revision.current;
+    void (async () => { try { while (renderer.current === active) { const frame = requested.current, currentRevision=revision.current; attemptedRevision=currentRevision; await active.render(frame); if (renderer.current === active && currentRevision===revision.current && displayedRevision.current!==currentRevision) { displayedRevision.current=currentRevision; setError(''); if(!firstFrame.current){firstFrame.current = true; setHasFrame(true); trace('preview_ready', { durationMs: Math.round(performance.now() - previewStarted.current) });} onReady(true); } if (frame === requested.current && currentRevision===revision.current) break; } }
+      catch { if (renderer.current === active && attemptedRevision===revision.current) { trace('preview_failed', { category: 'frame_render' }); onReady(false); setError('The preview could not display this frame.'); } }
+      finally { busy.current = false; if (renderer.current && (renderer.current !== active || attemptedRevision!==revision.current)) renderLatest(); } })();
   }
   useEffect(() => {
     const target = canvas.current; if (!target) return;
