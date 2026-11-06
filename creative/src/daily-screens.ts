@@ -1,10 +1,21 @@
-import { FPS, FRAMES, HEIGHT, WIDTH, type DailyScreenVariant, type LyricCue } from './composition';
+import {
+  FPS, FRAMES, HEIGHT, WIDTH, isDomDailyScreen,
+  type DailyScreenVariant, type LyricCue,
+} from './composition';
 
-export const SCREEN_DESIGNS: readonly { id: DailyScreenVariant; name: string }[] = [
-  { id: 'messages', name: 'Messages' }, { id: 'whatsapp', name: 'WhatsApp' },
-  { id: 'telegram', name: 'Telegram' }, { id: 'messenger', name: 'Messenger' },
-  { id: 'instagram', name: 'Instagram' },
+export const SCREEN_DESIGNS: readonly { id: DailyScreenVariant; name: string; renderer: 'canvas' | 'dom' }[] = [
+  { id: 'messages', name: 'Messages', renderer: 'canvas' },
+  { id: 'whatsapp', name: 'WhatsApp', renderer: 'canvas' },
+  { id: 'telegram', name: 'Telegram', renderer: 'canvas' },
+  { id: 'messenger', name: 'Messenger', renderer: 'canvas' },
+  { id: 'instagram', name: 'Instagram', renderer: 'canvas' },
+  { id: 'dating', name: 'Dating match', renderer: 'dom' },
+  { id: 'ride', name: 'Ride', renderer: 'dom' },
+  { id: 'food', name: 'Food delivery', renderer: 'dom' },
 ];
+
+export const CANVAS_SCREEN_DESIGNS = SCREEN_DESIGNS.filter(design => design.renderer === 'canvas');
+export const DOM_SCREEN_DESIGNS = SCREEN_DESIGNS.filter(design => design.renderer === 'dom');
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 export function formatScreenClock(capturedAtMs: number, frame: number) {
@@ -25,7 +36,7 @@ export function screenDeviceStatus(capturedAtMs: number, deviceSeed?: number, va
   const batteries = [8, 12, 19, 27, 38, 51, 64, 76, 88, 97];
   const networks = ['wifi', '4G', 'none', 'wifi'] as const;
   const network = networks[(deviceSeed + index) % networks.length];
-  return { batteryPercent: batteries[(deviceSeed + index * 2) % batteries.length], network,
+  return { batteryPercent: batteries[(deviceSeed + index) % batteries.length], network,
     signalBars: network === 'none' ? 0 : 1 + ((deviceSeed + index * 3) % 4),
     dynamicIsland: (deviceSeed + index) % 2 === 0 };
 }
@@ -221,11 +232,12 @@ function wallpaper(ctx: CanvasRenderingContext2D, telegram: boolean) {
   const pattern = ctx.createPattern(tile, 'repeat'); if (pattern) { ctx.fillStyle = pattern; ctx.fillRect(0, 305, WIDTH, 1280); }
 }
 
-/** Original vector interfaces, sharing one deterministic preview/export renderer. */
+/** Original vector interfaces for the five messaging designs. */
 export function drawDailyScreen(canvas: HTMLCanvasElement, cues: readonly LyricCue[], frame: number,
   options: { variant: DailyScreenVariant; capturedAtMs: number; deviceSeed?: number } = { variant: 'messages', capturedAtMs: 0 }) {
   const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Canvas is unavailable.');
   const { variant, capturedAtMs } = options;
+  if (isDomDailyScreen(variant)) throw new Error('Use paintDailyScreen for React Daily Screens designs.');
   if (options.variant === 'messenger') { drawMessenger(ctx, cues, frame, capturedAtMs, options.deviceSeed); return; }
   const chat = variant === 'whatsapp' || variant === 'telegram';
   const background = variant === 'whatsapp' ? '#efeae2' : variant === 'telegram' ? '#b7d5a4' : '#ffffff';

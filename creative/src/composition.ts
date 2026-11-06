@@ -4,8 +4,15 @@ export const HEIGHT = 1920;
 export const FPS = 30;
 export const DURATION_MS = 15_000;
 export const FRAMES = FPS * DURATION_MS / 1000;
-export const DAILY_SCREEN_VARIANTS = ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram'] as const;
+export const CANVAS_DAILY_SCREEN_VARIANTS = ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram'] as const;
+export const DOM_DAILY_SCREEN_VARIANTS = ['dating', 'ride', 'food'] as const;
+export const DAILY_SCREEN_VARIANTS = [...CANVAS_DAILY_SCREEN_VARIANTS, ...DOM_DAILY_SCREEN_VARIANTS] as const;
+export type CanvasDailyScreenVariant = typeof CANVAS_DAILY_SCREEN_VARIANTS[number];
+export type DomDailyScreenVariant = typeof DOM_DAILY_SCREEN_VARIANTS[number];
 export type DailyScreenVariant = typeof DAILY_SCREEN_VARIANTS[number];
+export function isDomDailyScreen(variant: DailyScreenVariant): variant is DomDailyScreenVariant {
+  return (DOM_DAILY_SCREEN_VARIANTS as readonly string[]).includes(variant);
+}
 export const IMPACT_VARIANTS = ['poster', 'punch', 'editorial', 'echo'] as const;
 export type ImpactVariant = typeof IMPACT_VARIANTS[number];
 export interface ImpactMusic { beatsMs: number[]; energy: { timeMs: number; rms: number }[] }

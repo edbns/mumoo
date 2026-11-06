@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { FRAMES, HEIGHT, WIDTH, playheadFrame, type Composition, type DailyScreenVariant } from './composition';
+import { createRoot, type Root } from 'react-dom/client';
+import { createElement } from 'react';
+import { FRAMES, HEIGHT, WIDTH, isDomDailyScreen, playheadFrame, type Composition, type DailyScreenVariant } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
-import { drawDailyScreen, SCREEN_DESIGNS } from './daily-screens';
+import { SCREEN_DESIGNS } from './daily-screens';
+import { paintDailyScreen } from './daily-screens-paint';
+import { DomDailyScreen } from './daily-screens-dom';
+import { disposeDomDailyScreenCapture } from './daily-screens-capture';
 import { renderMp4 } from './browser-export';
 import { loadFont } from './render';
 
@@ -10,6 +15,8 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
   playbackError: string; onPlay: () => void; onStop: () => void; onSeek: (ms: number) => void; onBack: () => void; onOther: () => void; onImpact: () => void; onHuman: () => void; onCuriosity: () => void; onMontage: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const domPreview = useRef<HTMLDivElement>(null);
+  const domRoot = useRef<Root | null>(null);
   const [eligible, setEligible] = useState(false); const [error, setError] = useState('');
   const [impactEligible, setImpactEligible] = useState(false);
   const [progress, setProgress] = useState<number>();
@@ -21,6 +28,8 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
   const cueKey = JSON.stringify(cues);
   const genre = profile.creator.primaryGenre.value;
   const influence = profile.creator.influence?.value;
+  const frame = playheadFrame(position);
+  const usingDom = isDomDailyScreen(variant);
 
   useEffect(() => {
     if (profile.videoType !== 'lyric' || !token || !cues.length) { setEligible(false); return; }
@@ -44,8 +53,27 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
   }, [token, genre, influence, cueKey, profile.videoType]);
 
   useEffect(() => {
-    if (eligible && canvas.current) drawDailyScreen(canvas.current, cues, playheadFrame(position), { variant, capturedAtMs, deviceSeed });
-  }, [eligible, position, cueKey, variant, capturedAtMs, deviceSeed]);
+    if (!eligible || usingDom || !canvas.current) return;
+    void paintDailyScreen(canvas.current, cues, frame, { variant, capturedAtMs, deviceSeed });
+  }, [eligible, position, cueKey, variant, capturedAtMs, deviceSeed, usingDom, frame]);
+
+  useEffect(() => {
+    if (!eligible || !usingDom || !domPreview.current) return;
+    domRoot.current ??= createRoot(domPreview.current);
+    domRoot.current.render(createElement(DomDailyScreen, {
+      variant,
+      cues,
+      frame,
+      capturedAtMs,
+      deviceSeed,
+    }));
+  }, [eligible, usingDom, variant, cueKey, frame, capturedAtMs, deviceSeed]);
+
+  useEffect(() => () => {
+    domRoot.current?.unmount();
+    domRoot.current = null;
+    disposeDomDailyScreenCapture();
+  }, []);
 
   async function download(all = false) {
     if (!eligible || !cues.length) return;
@@ -58,8 +86,8 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
         const design = selected[index]; setExportLabel(all ? `${design.name} · ${index + 1} of ${selected.length}` : design.name);
         const dailyScreen = { variant: design.id, capturedAtMs, deviceSeed };
         blob = await renderMp4({ ...composition, template: 'daily-screens', dailyScreen }, audio,
-          frame => setProgress(Math.floor((index + frame / FRAMES) / selected.length * 100)),
-          (target, frame) => drawDailyScreen(target, cues, frame, dailyScreen));
+          exportFrame => setProgress(Math.floor((index + exportFrame / FRAMES) / selected.length * 100)),
+          (target, exportFrame) => paintDailyScreen(target, cues, exportFrame, dailyScreen));
         if (all) files[`mumoo-${design.id}.mp4`] = new Uint8Array(await blob.arrayBuffer());
       }
       if (all) { const { zipSync } = await import('fflate'); blob = new Blob([zipSync(files, { level: 0 }) as BlobPart], { type: 'application/zip' }); }
@@ -67,7 +95,7 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
       const url = URL.createObjectURL(blob); const link = document.createElement('a');
       link.href = url; link.download = all ? 'mumoo-daily-screens.zip' : `mumoo-${variant}.mp4`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 30000);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'The video could not be exported.'); }
-    finally { setProgress(undefined); }
+    finally { setProgress(undefined); disposeDomDailyScreenCapture(); }
   }
 
   return <main className="desktop gallery-page"><section className="gallery-shell">
@@ -78,10 +106,15 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
     {error && <p role="alert">{error}</p>}
     {playbackError && <p role="alert">{playbackError}</p>}
     {eligible && <><div className="daily-designs" role="group" aria-label="Choose a screen design">{SCREEN_DESIGNS.map(design => <button type="button" key={design.id} disabled={progress !== undefined} aria-pressed={variant === design.id} onClick={() => setVariant(design.id)}>{design.name}</button>)}</div>
-      <div className="gallery-user-preview"><canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Daily Screens preview" onContextMenu={event => event.preventDefault()} /><span className="preview-mark">PREVIEW</span></div>
+      <div className="gallery-user-preview">
+        {usingDom
+          ? <div className="daily-dom-preview-shell" aria-label="Daily Screens preview"><div ref={domPreview} className="daily-dom-preview-stage" /></div>
+          : <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Daily Screens preview" onContextMenu={event => event.preventDefault()} />}
+        <span className="preview-mark">PREVIEW</span>
+      </div>
       <div className="trim-actions"><button disabled={progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button>
         <button disabled={progress !== undefined} onClick={() => void download()}>Download MP4</button>
-        <button className="secondary" disabled={progress !== undefined} onClick={() => void download(true)}>Download all five</button></div>
+        <button className="secondary" disabled={progress !== undefined} onClick={() => void download(true)}>Download all screens</button></div>
       <label className="daily-seek">Seek preview<input type="range" min={0} max={15000} step={1} value={Math.floor(position)} disabled={progress !== undefined} onChange={event => onSeek(event.target.valueAsNumber)} /></label>
       {progress !== undefined && <p role="status">Creating {exportLabel} · {progress}%</p>}</>}
   </section></main>;

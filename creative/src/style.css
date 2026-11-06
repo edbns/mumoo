@@ -85,4 +85,7 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .daily-designs { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 18px; }
 .daily-designs button { background: #f1f1f3; color: #33343a; border: 1px solid transparent; font-size: 14px; padding: 9px 15px; }
 .daily-designs button[aria-pressed="true"] { background: #171717; color: white; }
+.daily-dom-preview-shell { width: 100%; aspect-ratio: 1080 / 1920; overflow: hidden; background: #111; }
+.daily-dom-preview-stage { width: 1080px; height: 1920px; transform-origin: top left; transform: scale(calc(280 / 1080)); }
+.gallery-user-preview:has(.daily-dom-preview-shell) { max-width: 280px; }
 @media (max-width: 1000px) { .gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -74,12 +74,15 @@ test('five screens preview approved lyrics and export synchronized MP4s', { time
     const pcm = execFileSync(ffmpeg.path,['-v','error','-i',path,'-vn','-ac','1','-ar',String(rate),'-f','s16le','-'],{maxBuffer:2000000});
     const markers=[]; for(let i=0;i<pcm.length;i+=2) { if(Math.abs(pcm.readInt16LE(i))<9000) continue; const at=i/2/rate; if(!markers.length || at-markers.at(-1)>0.1) markers.push(at); }
     assert.equal(markers.length,3); [1,2,14.5].forEach((at,i)=>assert.ok(Math.abs(markers[i]-at)<0.006));
-    const pendingZip = page.waitForEvent('download', { timeout: 120000 }); await page.getByRole('button', { name: 'Download all five' }).click();
+    const pendingZip = page.waitForEvent('download', { timeout: 180000 }); await page.getByRole('button', { name: 'Download all screens' }).click();
     const zipDownload = await pendingZip;
     assert.equal(zipDownload.suggestedFilename(), 'mumoo-daily-screens.zip');
     const files = unzipSync(readFileSync(await zipDownload.path()));
-    assert.deepEqual(Object.keys(files).sort(), ['mumoo-instagram.mp4', 'mumoo-messages.mp4', 'mumoo-messenger.mp4', 'mumoo-telegram.mp4', 'mumoo-whatsapp.mp4']);
-    const dir = mkdtempSync(join(tmpdir(), 'mumoo-daily-five-'));
+    assert.deepEqual(Object.keys(files).sort(), [
+      'mumoo-dating.mp4', 'mumoo-food.mp4', 'mumoo-instagram.mp4', 'mumoo-messages.mp4',
+      'mumoo-messenger.mp4', 'mumoo-ride.mp4', 'mumoo-telegram.mp4', 'mumoo-whatsapp.mp4',
+    ]);
+    const dir = mkdtempSync(join(tmpdir(), 'mumoo-daily-all-'));
     try {
       for (const [name, bytes] of Object.entries(files)) {
         const file = join(dir, name); writeFileSync(file, bytes);
@@ -88,6 +91,7 @@ test('five screens preview approved lyrics and export synchronized MP4s', { time
         const decodedAudio = execFileSync(ffmpeg.path, ['-v','error','-i',file,'-vn','-ac','1','-ar',String(rate),'-f','s16le','-'], { maxBuffer: 2000000 });
         assert.equal(createHash('sha256').update(decodedAudio).digest('hex'), createHash('sha256').update(pcm).digest('hex'), `${name} must preserve the selected audio`);
         const variant = name.replace('mumoo-', '').replace('.mp4', '');
+        if (!snapshots[variant]) continue;
         const expected = execFileSync(ffmpeg.path,['-v','error','-i','pipe:0','-vf','scale=108:192','-pix_fmt','rgb24','-f','rawvideo','-'], { input: snapshots[variant] });
         const actual = execFileSync(ffmpeg.path,['-v','error','-i',file,'-vf',"select='eq(n,42)',scale=108:192",'-vsync','0','-pix_fmt','rgb24','-f','rawvideo','-']);
         const difference = expected.reduce((sum, value, index) => sum + Math.abs(value - actual[index]), 0) / expected.length;

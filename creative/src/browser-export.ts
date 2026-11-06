@@ -1,8 +1,22 @@
 import { AudioBufferSource, BufferTarget, CanvasSource, EncodedAudioPacketSource, NullTarget, Mp4OutputFormat, Output, canEncodeAudio, canEncodeVideo } from 'mediabunny';
-import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, lyricText, validate, type Composition } from './composition';
+import { DURATION_MS, FPS, FRAMES, HEIGHT, WIDTH, lyricText, lyricsFor, validate, type Composition } from './composition';
 import { draw, loadFont } from './render';
+import { paintDailyScreen } from './daily-screens-paint';
 
-export async function renderMp4(composition: Composition, audio: AudioBuffer, progress: (frame: number) => void, renderFrame: (canvas: HTMLCanvasElement, frame: number) => void | Promise<void> = (canvas, frame) => draw(canvas, composition, frame), measure?: (stage: string, ms: number) => void) {
+async function defaultRenderFrame(canvas: HTMLCanvasElement, composition: Composition, frame: number) {
+  if (composition.template === 'daily-screens') {
+    await paintDailyScreen(
+      canvas,
+      lyricsFor(composition),
+      frame,
+      composition.dailyScreen ?? { variant: 'messages', capturedAtMs: 0 },
+    );
+    return;
+  }
+  draw(canvas, composition, frame);
+}
+
+export async function renderMp4(composition: Composition, audio: AudioBuffer, progress: (frame: number) => void, renderFrame: (canvas: HTMLCanvasElement, frame: number) => void | Promise<void> = (canvas, frame) => defaultRenderFrame(canvas, composition, frame), measure?: (stage: string, ms: number) => void) {
   const initStart = performance.now();
   validate(composition, audio.duration * 1000);
   const videoConfig = { codec: 'avc', bitrate: 5_000_000 } as const;
