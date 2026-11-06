@@ -112,8 +112,7 @@ function drawDeviceStatus(ctx: CanvasRenderingContext2D, capturedAtMs: number, f
   stroke(ctx, '#111', 3, () => ctx.roundRect(930, timeY - 13, 65, 28, 6));
   rounded(ctx, 997, timeY - 5, 4, 12, 2, '#111');
   rounded(ctx, 933, timeY - 10, 59, 22, 4, '#fff');
-  rounded(ctx, 933, timeY - 10, Math.max(4, 59 * status.batteryPercent / 100), 22, 3, status.batteryPercent <= 20 ? '#e84640' : '#8c8c8c');
-  text(ctx, `${status.batteryPercent}%`, 966, timeY + 1, '700 17px "Inter Variable"', '#111', 'center');
+  rounded(ctx, 933, timeY - 10, Math.max(4, 59 * status.batteryPercent / 100), 22, 3, status.batteryPercent <= 20 ? '#e84640' : '#36a95b');
 }
 
 function avatar(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number) {
