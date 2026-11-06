@@ -19,7 +19,7 @@ Adding a world: append an id to `IMPACT_WORLDS`, add meta + painters + feature p
 
 | World | Lyric style | Intent |
 | --- | --- | --- |
-| Cinematic Depth | Tunnel | Parallax planes, camera drift, atmospheric light |
+| Cinematic Depth | Tunnel | Baked cinematic plate (offline original) + Tunnel lyrics |
 | Material Motion | Collision | Chrome spheres, glass panes, liquid light |
 | Editorial Collage | Pull Quote | Masked graphic layers, grain, crop marks |
 

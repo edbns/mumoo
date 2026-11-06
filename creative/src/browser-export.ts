@@ -13,7 +13,7 @@ async function defaultRenderFrame(canvas: HTMLCanvasElement, composition: Compos
     );
     return;
   }
-  draw(canvas, composition, frame);
+  await draw(canvas, composition, frame);
 }
 
 export async function renderMp4(composition: Composition, audio: AudioBuffer, progress: (frame: number) => void, renderFrame: (canvas: HTMLCanvasElement, frame: number) => void | Promise<void> = (canvas, frame) => defaultRenderFrame(canvas, composition, frame), measure?: (stage: string, ms: number) => void) {
