@@ -8,7 +8,13 @@ import { renderMp4 } from './browser-export';
 function clipMusic(profile: CreativeProfileV1): ImpactMusic | null {
   if (profile.musicAnalysis.status !== 'ready') return null;
   const data = profile.musicAnalysis.result;
-  return { beatsMs: data.rhythm.beatsMs.slice(0, 500), energy: data.features.frames.slice(0, 2000).map(point => ({ timeMs: Math.max(0, Math.min(15000, Math.round(point.timeMs))), rms: Math.max(0, Math.min(1, point.rms)) })) };
+  return {
+    beatsMs: data.rhythm.beatsMs.slice(0, 500),
+    energy: data.features.frames.slice(0, 2000).map(point => ({
+      timeMs: Math.max(0, Math.min(15000, Math.round(point.timeMs))),
+      rms: Math.max(0, Math.min(1, point.rms)),
+    })),
+  };
 }
 
 export function LyricImpactStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onSeek, onBack, onDaily, onHuman, onCuriosity, onMontage }: {
@@ -16,7 +22,7 @@ export function LyricImpactStudio({ profile, composition, audio, token, position
   onPlay: () => void; onStop: () => void; onSeek: (ms: number) => void; onBack: () => void; onDaily: () => void; onHuman: () => void; onCuriosity: () => void; onMontage: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [style, setStyle] = useState<ImpactVariant>('poster');
+  const [style, setStyle] = useState<ImpactVariant>('monument');
   const [eligible, setEligible] = useState(false); const [error, setError] = useState('');
   const [progress, setProgress] = useState<number>(); const [label, setLabel] = useState('');
   const cues = profile.approvedLyrics?.cues ?? []; const cueKey = JSON.stringify(cues);
@@ -24,6 +30,7 @@ export function LyricImpactStudio({ profile, composition, audio, token, position
   const preparingMusic = profile.musicAnalysis.status === 'pending';
   const music = useMemo(() => clipMusic(profile), [profile.musicAnalysis]);
   const impactComposition: Composition = { ...composition, template: 'lyric-impact', dailyScreen: undefined, lyricImpact: { style, music } };
+  const selectedMeta = IMPACT_STYLES.find(item => item.id === style) ?? IMPACT_STYLES[0];
 
   useEffect(() => {
     if (profile.videoType !== 'lyric' || !token || !cues.length) { setEligible(false); return; }
@@ -67,13 +74,33 @@ export function LyricImpactStudio({ profile, composition, audio, token, position
 
   return <main className="desktop gallery-page"><section className="gallery-shell">
     <p className="eyebrow">YOUR LYRIC VIDEO</p><h1>Lyric Impact</h1>
-    <p className="intro">Your words take center stage.</p>
+    <p className="intro">A premium catalog of kinetic typography — pick a look, preview, download.</p>
     <div className="trim-actions"><button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back to lyrics</button><button className="secondary" disabled={progress !== undefined} onClick={onDaily}>Daily Screens</button><button className="secondary" disabled={progress !== undefined} onClick={onHuman}>Human Magnet</button><button className="secondary" disabled={progress !== undefined} onClick={onCuriosity}>Visual Curiosity</button><button className="secondary" disabled={progress !== undefined} onClick={onMontage}>Rhythmic Montage</button></div>
     {!eligible && !error && <p role="status">Preparing your styles…</p>}
     {error && <p role="alert">{error}</p>}{playbackError && <p role="alert">{playbackError}</p>}
     {eligible && preparingMusic && <p role="status">Finishing music analysis for your styles…</p>}
-    {eligible && <><div className="daily-designs" role="group" aria-label="Choose a lyric style">{IMPACT_STYLES.map(item => <button type="button" key={item.id} disabled={progress !== undefined} aria-pressed={style === item.id} onClick={() => setStyle(item.id)}>{item.name}</button>)}</div>
-      <p className="hint">{IMPACT_STYLES.find(item => item.id === style)?.description}</p>
+    {eligible && <>
+      <div className="impact-gallery" role="group" aria-label="Choose a lyric style">
+        {IMPACT_STYLES.map(item => (
+          <button
+            type="button"
+            key={item.id}
+            className="impact-card"
+            disabled={progress !== undefined}
+            aria-label={item.name}
+            aria-pressed={style === item.id}
+            onClick={() => setStyle(item.id)}
+            style={{ ['--impact-paper' as string]: item.paper, ['--impact-ink' as string]: item.ink, ['--impact-accent' as string]: item.accent }}
+          >
+            <span className="impact-swatch" aria-hidden="true">
+              <span className="impact-swatch-type">{item.name.slice(0, 1)}</span>
+            </span>
+            <strong>{item.name}</strong>
+            <small>{item.description}</small>
+          </button>
+        ))}
+      </div>
+      <p className="hint">{selectedMeta.name} · {selectedMeta.description} · {IMPACT_STYLES.length} designs</p>
       <div className="gallery-user-preview"><canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Lyric Impact preview" onContextMenu={event => event.preventDefault()} /><span className="preview-mark">PREVIEW</span></div>
       <div className="trim-actions"><button disabled={progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button>
         <button disabled={progress !== undefined || preparingMusic} onClick={() => void download()}>Download MP4</button>

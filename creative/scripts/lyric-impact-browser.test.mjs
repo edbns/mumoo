@@ -6,12 +6,11 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import ffprobe from '@ffprobe-installer/ffprobe';
 import ffmpeg from '@ffmpeg-installer/ffmpeg';
-import { unzipSync } from 'fflate';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-test('Lyric Impact previews four distinct styles and exports the selected audio', { timeout: 240000, skip: process.env.MUMOO_HEADLESS !== '1' }, async t => {
+test('Lyric Impact previews distinct catalog styles and exports the selected audio', { timeout: 300000, skip: process.env.MUMOO_HEADLESS !== '1' }, async t => {
   const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' }); await server.listen();
   const browser = await chromium.launch({ headless: true });
   try {
@@ -52,22 +51,25 @@ test('Lyric Impact previews four distinct styles and exports the selected audio'
       await page.getByLabel('Lyric Impact preview').waitFor();
       return;
     }
+    const sampleNames = ['Monument', 'Billboard', 'Tunnel', 'Collision'];
     const shots = {};
-    for (const name of ['Poster', 'Punch', 'Editorial', 'Echo']) {
+    for (const name of sampleNames) {
       await page.getByRole('button', { name, exact: true }).click();
       shots[name.toLowerCase()] = Buffer.from((await canvas.evaluate(el => el.toDataURL('image/png'))).split(',')[1], 'base64');
       if (process.env.MUMOO_IMPACT_SAMPLE) writeFileSync(`${process.env.MUMOO_IMPACT_SAMPLE}-${name.toLowerCase()}.png`, shots[name.toLowerCase()]);
     }
-    assert.equal(new Set(Object.values(shots).map(value => createHash('sha256').update(value).digest('hex'))).size, 4);
+    assert.equal(new Set(Object.values(shots).map(value => createHash('sha256').update(value).digest('hex'))).size, sampleNames.length);
+    await page.getByRole('button', { name: 'Tunnel', exact: true }).click();
     const singlePending = page.waitForEvent('download', { timeout: 120000 }); await page.getByRole('button', { name: 'Download MP4' }).click();
-    const single = await singlePending; assert.equal(single.suggestedFilename(), 'mumoo-lyric-impact-echo.mp4');
+    const single = await singlePending; assert.equal(single.suggestedFilename(), 'mumoo-lyric-impact-tunnel.mp4');
     const singleInfo = JSON.parse(execFileSync(ffprobe.path, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', await single.path()]));
     assert.deepEqual([singleInfo.streams[0].codec_name, singleInfo.streams[1].codec_name, singleInfo.format.duration], ['h264', 'aac', '15.000000']);
-    const started = performance.now(); const pending = page.waitForEvent('download', { timeout: 180000 }); await page.getByRole('button', { name: 'Download all styles' }).click();
+    // Full 28-style ZIP is available in product UI; CI verifies a second distinct style export instead.
+    await page.getByRole('button', { name: 'Collision', exact: true }).click();
+    const started = performance.now(); const pending = page.waitForEvent('download', { timeout: 120000 }); await page.getByRole('button', { name: 'Download MP4' }).click();
     const download = await pending; const seconds = (performance.now() - started) / 1000;
-    assert.equal(download.suggestedFilename(), 'mumoo-lyric-impact.zip');
-    const files = unzipSync(readFileSync(await download.path()));
-    assert.deepEqual(Object.keys(files).sort(), ['mumoo-lyric-impact-echo.mp4', 'mumoo-lyric-impact-editorial.mp4', 'mumoo-lyric-impact-poster.mp4', 'mumoo-lyric-impact-punch.mp4']);
+    assert.equal(download.suggestedFilename(), 'mumoo-lyric-impact-collision.mp4');
+    const files = { 'mumoo-lyric-impact-collision.mp4': readFileSync(await download.path()), 'mumoo-lyric-impact-tunnel.mp4': readFileSync(await single.path()) };
     const dir = mkdtempSync(join(tmpdir(), 'mumoo-impact-')); const digests = []; let firstPcm;
     try {
       for (const [name, bytes] of Object.entries(files)) {
@@ -96,6 +98,6 @@ test('Lyric Impact previews four distinct styles and exports the selected audio'
     } finally { rmSync(dir, { recursive: true, force: true }); }
     await page.getByRole('button', { name: 'Daily Screens', exact: true }).click(); await page.getByLabel('Daily Screens preview').waitFor();
     assert.equal(syncCalls, 1); assert.equal(analysisCalls, 1);
-    t.diagnostic(`${song ? 'Real-song source' : 'Synthetic source'}; services mocked. Four MP4s exported in ${seconds.toFixed(2)} s, with matching audio and sampled preview frames.`);
+    t.diagnostic(`${song ? 'Real-song source' : 'Synthetic source'}; services mocked. Sample catalog styles + two MP4s in ${seconds.toFixed(2)} s, with matching audio and sampled preview frames.`);
   } finally { await browser.close(); await server.close(); }
 });

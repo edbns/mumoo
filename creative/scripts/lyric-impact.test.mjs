@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'vite';
 
-test('Lyric Impact uses approved words and deterministic clip-relative music events', async () => {
+test('Lyric Impact catalog uses approved words, music signals, and validates 28 styles', async () => {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom', logLevel: 'error' });
   try {
     const { IMPACT_STYLES, impactFrame, impactSignals, fitImpactText } = await server.ssrLoadModule('/src/lyric-impact.ts');
-    const { validate } = await server.ssrLoadModule('/src/composition.ts');
+    const { validate, IMPACT_VARIANTS } = await server.ssrLoadModule('/src/composition.ts');
     const cues = [{ text: 'No', startMs: 1000, endMs: 1250 }, { text: 'miro', startMs: 1250, endMs: 1600 }, { text: 'atrás.', startMs: 1600, endMs: 2100 }];
-    assert.ok(IMPACT_STYLES.length >= 3);
+    assert.equal(IMPACT_STYLES.length, 28);
+    assert.equal(IMPACT_VARIANTS.length, 28);
+    assert.deepEqual(IMPACT_STYLES.map(item => item.id), [...IMPACT_VARIANTS]);
     assert.equal(impactFrame(cues, 29).phrase, '');
     assert.equal(impactFrame(cues, 48).phrase, 'No miro atrás.');
     assert.equal(impactFrame(cues, 48).word, 'atrás.');
@@ -26,8 +28,11 @@ test('Lyric Impact uses approved words and deterministic clip-relative music eve
       assert.ok(fit.lines.every(line => ctx.measureText(line).width <= 900));
     } finally { Intl.Segmenter = originalSegmenter; }
     const base = { version: 2, template: 'lyric-impact', sourceSha256: 'a'.repeat(64), clipStartMs: 0, cues };
-    assert.doesNotThrow(() => validate({ ...base, lyricImpact: { style: IMPACT_STYLES[0].id, music: track } }, 15000));
+    for (const style of IMPACT_VARIANTS) {
+      assert.doesNotThrow(() => validate({ ...base, lyricImpact: { style, music: track } }, 15000));
+    }
     assert.throws(() => validate({ ...base, cues: [] }, 15000));
     assert.throws(() => validate({ ...base, lyricImpact: { style: 'wrong', music: track } }, 15000));
+    assert.throws(() => validate({ ...base, lyricImpact: { style: 'poster', music: track } }, 15000));
   } finally { await server.close(); }
 });

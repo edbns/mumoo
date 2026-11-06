@@ -20,7 +20,16 @@ export function isDomDailyScreen(variant: DailyScreenVariant): variant is DomDai
 export function isSceneDailyScreen(variant: DailyScreenVariant): variant is SceneDailyScreenVariant {
   return (SCENE_DAILY_SCREEN_VARIANTS as readonly string[]).includes(variant);
 }
-export const IMPACT_VARIANTS = ['poster', 'punch', 'editorial', 'echo'] as const;
+export const IMPACT_VARIANTS = [
+  'monument', 'billboard', 'skyline', 'colonnade',
+  'telescope', 'microscope', 'accordion',
+  'mosaic', 'ticker-wall', 'stamp-sheet',
+  'slit-reveal', 'circle-iris', 'wipe-blade', 'type-curtain',
+  'cutout-stack', 'stencil', 'duotone-split',
+  'rubber-band', 'gravity-drop', 'collision', 'wave-deform',
+  'margin-note', 'folio', 'pull-quote',
+  'concrete', 'overprint', 'mirror-axis', 'tunnel',
+] as const;
 export type ImpactVariant = typeof IMPACT_VARIANTS[number];
 export interface ImpactMusic { beatsMs: number[]; energy: { timeMs: number; rms: number }[] }
 

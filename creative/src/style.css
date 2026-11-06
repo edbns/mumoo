@@ -86,6 +86,26 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .daily-designs { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 18px; }
 .daily-designs button { background: #f1f1f3; color: #33343a; border: 1px solid transparent; font-size: 14px; padding: 9px 15px; }
 .daily-designs button[aria-pressed="true"] { background: #171717; color: white; }
+.impact-gallery {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px;
+  margin: 22px 0 18px; max-height: 420px; overflow: auto; padding: 4px;
+}
+.impact-card {
+  display: grid; gap: 8px; justify-items: start; text-align: left;
+  background: #fff; color: #171717; border: 1px solid #e4e4e7; border-radius: 14px; padding: 10px;
+}
+.impact-card[aria-pressed="true"] { border-color: #171717; box-shadow: inset 0 0 0 1px #171717; }
+.impact-card strong { font-size: 14px; }
+.impact-card small { color: #71717a; font-size: 12px; line-height: 1.35; font-weight: 500; }
+.impact-swatch {
+  display: grid; place-items: center; width: 100%; aspect-ratio: 9 / 12; border-radius: 10px;
+  background: var(--impact-paper, #111); color: var(--impact-ink, #fff); overflow: hidden; position: relative;
+}
+.impact-swatch::after {
+  content: ""; position: absolute; left: 12%; right: 18%; bottom: 18%; height: 10%;
+  background: var(--impact-accent, #ff5b26); border-radius: 999px;
+}
+.impact-swatch-type { font-size: 42px; font-weight: 800; letter-spacing: -0.06em; }
 .daily-dom-preview-shell { width: 100%; aspect-ratio: 1080 / 1920; overflow: hidden; background: #111; }
 .daily-dom-preview-stage { width: 1080px; height: 1920px; transform-origin: top left; transform: scale(calc(280 / 1080)); }
 .gallery-user-preview:has(.daily-dom-preview-shell) { max-width: 280px; }
