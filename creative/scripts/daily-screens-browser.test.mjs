@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { unzipSync } from 'fflate';
 
-test('five screens preview approved lyrics and export synchronized MP4s', { timeout: 240000, skip: process.env.MUMOO_HEADLESS !== '1' && (process.env.MUMOO_HEADED !== '1' || process.platform !== 'darwin') }, async t => {
+test('six screens preview approved lyrics and export synchronized MP4s', { timeout: 240000, skip: process.env.MUMOO_HEADLESS !== '1' && (process.env.MUMOO_HEADED !== '1' || process.platform !== 'darwin') }, async t => {
   const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' }); await server.listen();
   const browser = await chromium.launch(process.env.MUMOO_HEADLESS === '1' ? { headless: true } : { headless: false, executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' });
   try {
@@ -52,12 +52,12 @@ test('five screens preview approved lyrics and export synchronized MP4s', { time
     await page.getByRole('button', { name: 'Pause' }).click();
     await page.getByLabel('Seek preview').fill('1400');
     const snapshots = {};
-    for (const name of ['Messages', 'WhatsApp', 'Telegram', 'Messenger', 'Instagram']) {
+    for (const name of ['Messages', 'WhatsApp', 'Telegram', 'Messenger', 'Instagram', 'Dating chat']) {
       await page.getByRole('button', { name, exact: true }).click();
-      snapshots[name.toLowerCase()] = Buffer.from((await canvas.evaluate(el => el.toDataURL('image/png'))).split(',')[1], 'base64');
-      if (process.env.MUMOO_DAILY_SAMPLE) writeFileSync(`${process.env.MUMOO_DAILY_SAMPLE}-${name.toLowerCase()}.png`, snapshots[name.toLowerCase()]);
+      snapshots[name === 'Dating chat' ? 'dating' : name.toLowerCase()] = Buffer.from((await canvas.evaluate(el => el.toDataURL('image/png'))).split(',')[1], 'base64');
+      if (process.env.MUMOO_DAILY_SAMPLE) writeFileSync(`${process.env.MUMOO_DAILY_SAMPLE}-${name.toLowerCase()}.png`, snapshots[name === 'Dating chat' ? 'dating' : name.toLowerCase()]);
     }
-    assert.equal(new Set(Object.values(snapshots).map(value => createHash('sha256').update(value).digest('hex'))).size, 5);
+    assert.equal(new Set(Object.values(snapshots).map(value => createHash('sha256').update(value).digest('hex'))).size, 6);
     await page.getByRole('button', { name: 'Messages', exact: true }).click();
     const png = Buffer.from((await canvas.evaluate(el => el.toDataURL('image/png'))).split(',')[1], 'base64');
     const start = performance.now(); const pending = page.waitForEvent('download', { timeout: 120000 }); await page.getByRole('button', { name: 'Download MP4' }).click();
@@ -74,11 +74,11 @@ test('five screens preview approved lyrics and export synchronized MP4s', { time
     const pcm = execFileSync(ffmpeg.path,['-v','error','-i',path,'-vn','-ac','1','-ar',String(rate),'-f','s16le','-'],{maxBuffer:2000000});
     const markers=[]; for(let i=0;i<pcm.length;i+=2) { if(Math.abs(pcm.readInt16LE(i))<9000) continue; const at=i/2/rate; if(!markers.length || at-markers.at(-1)>0.1) markers.push(at); }
     assert.equal(markers.length,3); [1,2,14.5].forEach((at,i)=>assert.ok(Math.abs(markers[i]-at)<0.006));
-    const pendingZip = page.waitForEvent('download', { timeout: 120000 }); await page.getByRole('button', { name: 'Download all five' }).click();
+    const pendingZip = page.waitForEvent('download', { timeout: 120000 }); await page.getByRole('button', { name: 'Download all six' }).click();
     const zipDownload = await pendingZip;
     assert.equal(zipDownload.suggestedFilename(), 'mumoo-daily-screens.zip');
     const files = unzipSync(readFileSync(await zipDownload.path()));
-    assert.deepEqual(Object.keys(files).sort(), ['mumoo-instagram.mp4', 'mumoo-messages.mp4', 'mumoo-messenger.mp4', 'mumoo-telegram.mp4', 'mumoo-whatsapp.mp4']);
+    assert.deepEqual(Object.keys(files).sort(), ['mumoo-dating.mp4', 'mumoo-instagram.mp4', 'mumoo-messages.mp4', 'mumoo-messenger.mp4', 'mumoo-telegram.mp4', 'mumoo-whatsapp.mp4']);
     const dir = mkdtempSync(join(tmpdir(), 'mumoo-daily-five-'));
     try {
       for (const [name, bytes] of Object.entries(files)) {

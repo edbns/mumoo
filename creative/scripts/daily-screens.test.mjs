@@ -10,8 +10,8 @@ test('screen status is deterministic and chat timestamps use one tick', async ()
     assert.deepEqual(screenDeviceStatus(time, 42, 'messages'), screenDeviceStatus(time, 42, 'messages'));
     assert.equal(screenDeviceStatus(time).batteryPercent, 12);
     assert.equal(screenDeviceStatus(time).dynamicIsland, true);
-    const statuses = ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram'].map(id => screenDeviceStatus(time, 42, id));
-    assert.equal(new Set(statuses.map(s => s.batteryPercent)).size, 5);
+    const statuses = ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram', 'dating'].map(id => screenDeviceStatus(time, 42, id));
+    assert.equal(new Set(statuses.map(s => s.batteryPercent)).size, 6);
     assert.notDeepEqual(screenDeviceStatus(time, 42, 'messages'), screenDeviceStatus(time, 43, 'messages'));
     for (const status of statuses) { assert.ok(status.batteryPercent >= 5 && status.batteryPercent <= 100); if (status.network === 'none') assert.equal(status.signalBars, 0); }
     assert.equal(formatChatTime(time, 0), '2:07 ✓');
@@ -20,12 +20,12 @@ test('screen status is deterministic and chat timestamps use one tick', async ()
   } finally { await server.close(); }
 });
 
-test('five screen designs use a captured real time and reject invalid variants', async () => {
+test('six screen designs use a captured real time and reject invalid variants', async () => {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom', logLevel: 'error' });
   try {
     const { SCREEN_DESIGNS, formatScreenClock } = await server.ssrLoadModule('/src/daily-screens.ts');
     const { validate } = await server.ssrLoadModule('/src/composition.ts');
-    assert.deepEqual(SCREEN_DESIGNS.map(design => design.id), ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram']);
+    assert.deepEqual(SCREEN_DESIGNS.map(design => design.id), ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram', 'dating']);
     const capturedAtMs = new Date(2026, 10, 6, 14, 7).getTime();
     assert.equal(formatScreenClock(capturedAtMs, 0).time, '2:07');
     const nearNextMinute = new Date(2026, 10, 6, 14, 7, 59).getTime();
