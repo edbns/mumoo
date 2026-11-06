@@ -21,10 +21,10 @@ export function mediaProfile(profile: CreativeProfileV1) {
       onsetCount: data.features.transientsMs.length, centroidHz: frames.reduce((sum, frame) => sum + frame.centroidHz, 0) / frames.length, dynamics: 'unavailable' } };
 }
 type StudioEdit = MediaEdit | ExecutableEdit;
-function createStudioRenderer(canvas: HTMLCanvasElement, edit: StudioEdit, composition: Composition) {
+export function createStudioRenderer(canvas: HTMLCanvasElement, edit: StudioEdit, composition: Composition) {
   return edit.version === 2 ? import('./pixi-director').then(({ createPixiDirectorRenderer }) => createPixiDirectorRenderer(canvas, edit, composition)) : createMediaRenderer(canvas, edit, composition);
 }
-function Preview({ edit, composition, position, onReady }: { edit: StudioEdit; composition: Composition; position: number; onReady: (ready: boolean) => void }) {
+export function Preview({ edit, composition, position, onReady }: { edit: StudioEdit; composition: Composition; position: number; onReady: (ready: boolean) => void }) {
   const canvas = useRef<HTMLCanvasElement>(null); const renderer = useRef<Awaited<ReturnType<typeof createStudioRenderer>> | null>(null);
   const requested = useRef(0); const busy = useRef(false); const [error, setError] = useState(''); const [hasFrame, setHasFrame] = useState(false);
   const firstFrame = useRef(false); const previewStarted = useRef(0);

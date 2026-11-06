@@ -10,7 +10,7 @@ test('Pixi WebGL proof renders deterministic sampled frames', { timeout: 60000 }
   const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
   await server.listen();
   await server.warmupRequest('/src/pixi-proof/scene.ts');
-  const browser = await chromium.launch({ headless: process.env.MUMOO_HEADED !== '1', ...(process.env.MUMOO_HEADED === '1' ? { executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' } : {}) });
+  const browser = await chromium.launch({ headless: process.env.MUMOO_HEADED !== '1', ...(process.env.MUMOO_HEADED === '1' ? { executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' } : {}), ...(process.env.MUMOO_HEADLESS_GPU === '1' ? { args: ['--use-angle=metal', '--enable-gpu'] } : {}) });
   try {
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/export.html`);
@@ -131,7 +131,7 @@ test('supplied footage exports through existing MP4 pipeline', { timeout: 120000
 test('Pixi proof uses supplied word timings for the lyric overlay', { timeout: 60000 }, async () => {
   const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
   await server.listen(); await server.warmupRequest('/src/pixi-proof/scene.ts');
-  const browser = await chromium.launch({ headless: process.env.MUMOO_HEADED !== '1', ...(process.env.MUMOO_HEADED === '1' ? { executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' } : {}) });
+  const browser = await chromium.launch({ headless: process.env.MUMOO_HEADED !== '1', ...(process.env.MUMOO_HEADED === '1' ? { executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' } : {}), ...(process.env.MUMOO_HEADLESS_GPU === '1' ? { args: ['--use-angle=metal', '--enable-gpu'] } : {}) });
   try {
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/export.html`);
@@ -155,7 +155,7 @@ test('Pixi video scene can be encoded by the browser MP4 exporter', { timeout: 2
   await server.listen();
   await server.warmupRequest('/src/pixi-proof/scene.ts');
   await server.warmupRequest('/src/browser-export.ts');
-  const browser = await chromium.launch({ headless: process.env.MUMOO_HEADED !== '1', ...(process.env.MUMOO_HEADED === '1' ? { executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' } : {}) });
+  const browser = await chromium.launch({ headless: process.env.MUMOO_HEADED !== '1', ...(process.env.MUMOO_HEADED === '1' ? { executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' } : {}), ...(process.env.MUMOO_HEADLESS_GPU === '1' ? { args: ['--use-angle=metal', '--enable-gpu'] } : {}) });
   try {
     const page = await browser.newPage({ acceptDownloads: true });
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/export.html`);
