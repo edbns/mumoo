@@ -6,9 +6,7 @@ import {
   endImpactWorld,
   paintActiveWorldBackground,
   paintWorldForeground,
-  prepareWorldPlate,
   worldCompatible,
-  worldNeedsPlate,
 } from './lyric-impact-worlds';
 
 export { IMPACT_STYLES } from './lyric-impact-catalog';
@@ -18,14 +16,12 @@ export {
   IMPACT_WORLD_FEATURES,
   worldCompatible,
   worldMeta,
-  worldNeedsPlate,
 } from './lyric-impact-worlds';
-export { preloadImpactPlates } from './lyric-impact-plate';
 
 setImpactWorldFillHook(paintActiveWorldBackground);
 
-/** Deterministic frame renderer for Lyric Impact (+ optional visual world / baked plate). */
-export async function drawLyricImpact(
+/** Deterministic frame renderer for the Lyric Impact motion catalog (+ optional visual world). */
+export function drawLyricImpact(
   canvas: HTMLCanvasElement,
   cues: readonly LyricCue[],
   frame: number,
@@ -34,8 +30,7 @@ export async function drawLyricImpact(
   const draw = prepareDraw(canvas, cues, frame, options.music);
   if (!draw) return;
   const world = options.world && worldCompatible(options.world, options.style) ? options.world : null;
-  const plate = world && worldNeedsPlate(world) ? await prepareWorldPlate(draw, world) : null;
-  beginImpactWorld(world, draw, plate);
+  beginImpactWorld(world, draw);
   try {
     drawImpactStyle(draw, options.style);
     if (world) paintWorldForeground(draw, world);

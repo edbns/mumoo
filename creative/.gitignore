@@ -1,4 +1,3 @@
 node_modules/
 dist/
 *.mp4
-!public/lyric-worlds/*.mp4

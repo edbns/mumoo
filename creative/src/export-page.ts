@@ -14,9 +14,9 @@ Object.assign(window, {
       composition = value;
       return { frames: FRAMES, fps: FPS, durationMs: DURATION_MS, width: WIDTH, height: HEIGHT };
     },
-    async frame(index: number) {
+    frame(index: number) {
       if (!Number.isInteger(index) || index < 0 || index >= FRAMES) throw new Error('Invalid frame index.');
-      await draw(canvas, composition, index);
+      draw(canvas, composition, index);
       return canvas.toDataURL('image/png').split(',', 2)[1];
     },
   },

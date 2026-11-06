@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FRAMES, HEIGHT, WIDTH, playheadFrame, type Composition, type ImpactMusic, type ImpactVariant, type ImpactWorldId } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
-import { IMPACT_STYLES, IMPACT_WORLD_FEATURES, preloadImpactPlates, worldCompatible, worldMeta } from './lyric-impact';
+import { IMPACT_STYLES, IMPACT_WORLD_FEATURES, worldCompatible, worldMeta } from './lyric-impact';
 import { draw, loadFont } from './render';
 import { renderMp4 } from './browser-export';
 
@@ -57,19 +57,13 @@ export function LyricImpactStudio({ profile, composition, audio, token, position
         const data = await response.json();
         if (!Array.isArray(data.catalog) || !data.catalog.some((item: { id?: unknown; renderer?: { template?: unknown } }) => item.id === 'lyric-impact' && item.renderer?.template === 'lyric-impact')) throw new Error('Lyric Impact is not available yet.');
         await loadFont(cues.map(cue => cue.text).join(' '));
-        await preloadImpactPlates().catch(() => undefined);
         if (!controller.signal.aborted) setEligible(true);
       }).catch((cause: unknown) => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Lyric Impact is unavailable.'); });
     return () => controller.abort();
   }, [token, genre, influence, cueKey, profile.videoType]);
 
   useEffect(() => {
-    if (!eligible || !canvas.current) return;
-    let cancelled = false;
-    void Promise.resolve(draw(canvas.current, impactComposition, playheadFrame(position))).catch((cause: unknown) => {
-      if (!cancelled) setError(cause instanceof Error ? cause.message : 'Preview failed.');
-    });
-    return () => { cancelled = true; };
+    if (eligible && canvas.current) draw(canvas.current, impactComposition, playheadFrame(position));
   }, [eligible, position, cueKey, style, music, activeWorld]);
 
   function selectWorldFeature(feature: typeof IMPACT_WORLD_FEATURES[number]) {

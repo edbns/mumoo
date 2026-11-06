@@ -34,9 +34,7 @@ export function draw(canvas: HTMLCanvasElement, composition: Composition, frame:
     drawDailyScreen(canvas, lyricsFor(composition), frame, daily);
     return;
   }
-  if (composition.template === 'lyric-impact') {
-    return drawLyricImpact(canvas, lyricsFor(composition), frame, composition.lyricImpact);
-  }
+  if (composition.template === 'lyric-impact') { drawLyricImpact(canvas, lyricsFor(composition), frame, composition.lyricImpact); return; }
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas 2D is unavailable.');
   const { text, phase } = evaluate(composition, frame);

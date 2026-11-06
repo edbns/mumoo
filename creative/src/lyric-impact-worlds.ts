@@ -6,7 +6,6 @@ import {
   hash01,
   lerp,
 } from './lyric-impact-motion';
-import { blitPreparedPlate, paintHeroDepthForeground, prepareHeroDepthPlate } from './lyric-impact-plate';
 
 export type ImpactWorldMeta = {
   id: ImpactWorldId;
@@ -20,21 +19,16 @@ export type ImpactWorldMeta = {
 
 /** Featured compositions — one world × one intact lyric style. */
 export const IMPACT_WORLD_FEATURES = [
-  { world: 'cinematic-depth' as const, style: 'tunnel' as const, title: 'Cinematic Depth', subtitle: 'Tunnel over baked cinematic plate' },
+  { world: 'cinematic-depth' as const, style: 'tunnel' as const, title: 'Cinematic Depth', subtitle: 'Tunnel in parallax atmosphere' },
   { world: 'material-motion' as const, style: 'collision' as const, title: 'Material Motion', subtitle: 'Collision in chrome & glass' },
   { world: 'editorial-collage' as const, style: 'pull-quote' as const, title: 'Editorial Collage', subtitle: 'Pull Quote on art-directed layers' },
 ] as const;
-
-/** Worlds that need async baked footage before typography. */
-export function worldNeedsPlate(world: ImpactWorldId | null | undefined) {
-  return world === 'cinematic-depth';
-}
 
 export const IMPACT_WORLDS_META: readonly ImpactWorldMeta[] = [
   {
     id: 'cinematic-depth',
     name: 'Cinematic Depth',
-    description: 'Baked cinematic plate with depth grade and Tunnel lyrics',
+    description: 'Layered parallax, camera drift, atmospheric light',
     preferredStyles: ['tunnel', 'monument', 'folio', 'telescope', 'colonnade', 'type-curtain'],
     blockedStyles: ['mosaic', 'ticker-wall', 'stamp-sheet', 'stencil', 'duotone-split'],
     accent: '#7dd3fc',
@@ -106,14 +100,10 @@ function worldSignals(draw: DrawContext): WorldSignals {
   return { beat: reaction.beat, energy: reaction.energy, onset, low, bright, change };
 }
 
-let activeWorld: { id: ImpactWorldId; draw: DrawContext; plate?: CanvasImageSource | null } | null = null;
+let activeWorld: { id: ImpactWorldId; draw: DrawContext } | null = null;
 
-export function beginImpactWorld(
-  id: ImpactWorldId | null | undefined,
-  draw: DrawContext,
-  plate?: CanvasImageSource | null,
-) {
-  activeWorld = id ? { id, draw, plate: plate ?? null } : null;
+export function beginImpactWorld(id: ImpactWorldId | null | undefined, draw: DrawContext) {
+  activeWorld = id ? { id, draw } : null;
 }
 
 export function endImpactWorld() {
@@ -122,10 +112,6 @@ export function endImpactWorld() {
 
 export function paintActiveWorldBackground(ctx: CanvasRenderingContext2D) {
   if (!activeWorld || ctx !== activeWorld.draw.ctx) return false;
-  if (activeWorld.plate) {
-    blitPreparedPlate(ctx, activeWorld.plate);
-    return true;
-  }
   paintWorldBackground(activeWorld.draw, activeWorld.id);
   return true;
 }
@@ -139,19 +125,10 @@ export function paintWorldBackground(draw: DrawContext, world: ImpactWorldId) {
   ctx.restore();
 }
 
-export async function prepareWorldPlate(draw: DrawContext, world: ImpactWorldId) {
-  if (world !== 'cinematic-depth') return null;
-  try {
-    return await prepareHeroDepthPlate(draw);
-  } catch {
-    return null;
-  }
-}
-
 export function paintWorldForeground(draw: DrawContext, world: ImpactWorldId) {
   const { ctx } = draw;
   ctx.save();
-  if (world === 'cinematic-depth') paintHeroDepthForeground(draw);
+  if (world === 'cinematic-depth') paintDepthForeground(draw);
   else if (world === 'material-motion') paintMaterialForeground(draw);
   else paintCollageForeground(draw);
   ctx.restore();
@@ -213,6 +190,20 @@ function paintDepthBackground(draw: DrawContext) {
   vig.addColorStop(1, 'rgba(2,6,23,0.7)');
   ctx.fillStyle = vig;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
+}
+
+function paintDepthForeground(draw: DrawContext) {
+  const { ctx } = draw;
+  const signal = worldSignals(draw);
+  ctx.fillStyle = 'rgba(2,6,23,0.55)';
+  ctx.fillRect(0, 0, WIDTH, 50 + signal.low * 8);
+  ctx.fillRect(0, HEIGHT - 50 - signal.low * 8, WIDTH, 50 + signal.low * 8);
+  ctx.fillStyle = `rgba(224,242,254,${0.08 + signal.energy * 0.06})`;
+  for (let i = 0; i < 6; i++) {
+    ctx.beginPath();
+    ctx.arc(120 + i * 160, 160 + (i % 2) * 40, 2 + (i % 3), 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function paintMaterialBackground(draw: DrawContext) {
