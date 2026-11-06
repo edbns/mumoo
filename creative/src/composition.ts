@@ -31,15 +31,7 @@ export const IMPACT_VARIANTS = [
   'concrete', 'overprint', 'mirror-axis', 'tunnel',
 ] as const;
 export type ImpactVariant = typeof IMPACT_VARIANTS[number];
-export const IMPACT_WORLDS = ['cinematic-depth', 'material-motion', 'editorial-collage'] as const;
-export type ImpactWorldId = typeof IMPACT_WORLDS[number];
-export interface ImpactMusic {
-  beatsMs: number[];
-  energy: { timeMs: number; rms: number }[];
-  /** Optional Music Analysis v1.1 enrichment for visual worlds. */
-  onsetsMs?: number[];
-  spectrum?: { timeMs: number; centroidHz: number; lowShare: number }[];
-}
+export interface ImpactMusic { beatsMs: number[]; energy: { timeMs: number; rms: number }[] }
 
 export const PRESETS = [
   { id: 'scribble', name: 'Scribble', description: 'Hand-drawn underline' },
@@ -59,7 +51,7 @@ interface CompositionBase {
   clipStartMs: number;
   assembly?: AssemblyPlan;
   dailyScreen?: { variant: DailyScreenVariant; capturedAtMs: number; deviceSeed?: number };
-  lyricImpact?: { style: ImpactVariant; music: ImpactMusic | null; world?: ImpactWorldId | null };
+  lyricImpact?: { style: ImpactVariant; music: ImpactMusic | null };
 }
 
 export type Composition = CompositionBase & (
@@ -103,13 +95,8 @@ export function validate(value: unknown, sourceDurationMs: number): asserts valu
   if (candidate.lyricImpact !== undefined) {
     const impact = candidate.lyricImpact;
     if (!impact || template !== 'lyric-impact' || !IMPACT_VARIANTS.includes(impact.style)) throw new Error('Invalid Lyric Impact design.');
-    if (impact.world != null && !IMPACT_WORLDS.includes(impact.world)) throw new Error('Invalid Lyric Impact world.');
     const music = impact.music;
-    if (music !== null) {
-      if (!music || !Array.isArray(music.beatsMs) || music.beatsMs.length > 500 || !music.beatsMs.every((n, i) => isTime(n) && n <= DURATION_MS && (!i || n >= music.beatsMs[i - 1])) || !Array.isArray(music.energy) || music.energy.length > 2000 || !music.energy.every((e, i) => e && isTime(e.timeMs) && e.timeMs <= DURATION_MS && (!i || e.timeMs >= music.energy[i - 1].timeMs) && Number.isFinite(e.rms) && e.rms >= 0 && e.rms <= 1)) throw new Error('Invalid Lyric Impact music.');
-      if (music.onsetsMs !== undefined && (!Array.isArray(music.onsetsMs) || music.onsetsMs.length > 800 || !music.onsetsMs.every((n, i) => isTime(n) && n <= DURATION_MS && (!i || n >= music.onsetsMs![i - 1])))) throw new Error('Invalid Lyric Impact music.');
-      if (music.spectrum !== undefined && (!Array.isArray(music.spectrum) || music.spectrum.length > 2000 || !music.spectrum.every((e, i) => e && isTime(e.timeMs) && e.timeMs <= DURATION_MS && (!i || e.timeMs >= music.spectrum![i - 1].timeMs) && Number.isFinite(e.centroidHz) && e.centroidHz >= 0 && Number.isFinite(e.lowShare) && e.lowShare >= 0 && e.lowShare <= 1))) throw new Error('Invalid Lyric Impact music.');
-    }
+    if (music !== null && (!music || !Array.isArray(music.beatsMs) || music.beatsMs.length > 500 || !music.beatsMs.every((n, i) => isTime(n) && n <= DURATION_MS && (!i || n >= music.beatsMs[i - 1])) || !Array.isArray(music.energy) || music.energy.length > 2000 || !music.energy.every((e, i) => e && isTime(e.timeMs) && e.timeMs <= DURATION_MS && (!i || e.timeMs >= music.energy[i - 1].timeMs) && Number.isFinite(e.rms) && e.rms >= 0 && e.rms <= 1))) throw new Error('Invalid Lyric Impact music.');
   }
   let previousEnd = 0;
   for (const cue of cues) {

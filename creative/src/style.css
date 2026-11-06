@@ -86,20 +86,9 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .daily-designs { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 18px; }
 .daily-designs button { background: #f1f1f3; color: #33343a; border: 1px solid transparent; font-size: 14px; padding: 9px 15px; }
 .daily-designs button[aria-pressed="true"] { background: #171717; color: white; }
-.impact-section-label {
-  margin: 18px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #71717a;
-}
-.impact-worlds {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
-  margin: 0 0 8px; padding: 4px;
-}
-.impact-world-card .impact-swatch-type { font-size: 36px; }
 .impact-gallery {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px;
-  margin: 8px 0 18px; max-height: 360px; overflow: auto; padding: 4px;
-}
-@media (max-width: 900px) {
-  .impact-worlds { grid-template-columns: 1fr; }
+  margin: 22px 0 18px; max-height: 420px; overflow: auto; padding: 4px;
 }
 .impact-card {
   display: grid; gap: 8px; justify-items: start; text-align: left;

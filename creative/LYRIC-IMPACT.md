@@ -1,33 +1,29 @@
-# Lyric Impact — kinetic catalog + cinematic worlds
+# Lyric Impact — premium kinetic catalog
 
-Lyric Impact is a lyric-only family with an expandable registry of **28**
-original kinetic-typography designs, plus **3** cinematic visual worlds that
-composite under (and lightly over) those animations.
+Lyric Impact is a lyric-only family. The customer-facing Poster / Punch /
+Editorial / Echo experiment has been replaced with an expandable registry of
+**28** original kinetic-typography designs.
 
 ## Architecture
 
-- `lyric-impact-motion.ts` — shared timing, music signals, easing, text fit, `fillScene` world hook.
-- `lyric-impact-catalog.ts` — design metadata + one drawer per style (unchanged APIs).
-- `lyric-impact-worlds.ts` — visual-world registry, compatibility metadata, background/foreground painters.
+- `lyric-impact-motion.ts` — shared timing, music signals, easing, text fit.
+- `lyric-impact-catalog.ts` — design metadata + one drawer per style.
 - `lyric-impact.ts` — `drawLyricImpact` entry used by preview and Mediabunny export.
-- `lyric-impact-studio.tsx` — worlds row + typography gallery, live preview, MP4 / ZIP download.
+- `lyric-impact-studio.tsx` — gallery of styles, single live preview, MP4 / ZIP download.
 
-Adding a typography design: append an id to `IMPACT_VARIANTS`, add metadata + drawer.
-Adding a world: append an id to `IMPACT_WORLDS`, add meta + painters + feature pairing.
+Adding a design: append an id to `IMPACT_VARIANTS` in `composition.ts`, add
+metadata + a drawer in `lyric-impact-catalog.ts`. No product rewrite required.
 
-## Cinematic worlds (3 featured compositions)
+## Behavior
 
-| World | Lyric style | Intent |
-| --- | --- | --- |
-| Cinematic Depth | Tunnel | Parallax planes, camera drift, atmospheric light |
-| Material Motion | Collision | Chrome spheres, glass panes, liquid light |
-| Editorial Collage | Pull Quote | Masked graphic layers, grain, crop marks |
+Approved WhisperX cues are grouped into short phrases (punctuation, gaps, five
+word limit). Cue boundaries use the first 30 fps frame at or after the
+timestamp. Punch-like single-word designs follow individual cue intervals;
+phrase designs show the active phrase only during its approved interval.
 
-Worlds reuse Music Analysis v1.1 beats, RMS energy, onsets/transients, and
-spectral/low-band hints when available. Motion stays restrained (no violent shake).
-
-Compatibility metadata (`preferredStyles` / `blockedStyles`) prevents obviously
-poor pairings; incompatible selections fall back to typography-only.
+Beat positions and RMS energy from Music Analysis v1 influence restrained
+motion when available; nothing is invented when analysis is missing. Preview
+and export share the same deterministic drawer.
 
 ## Catalog (28 working)
 
@@ -40,8 +36,12 @@ Physical: Rubber Band, Gravity Drop, Collision, Wave Deform
 Editorial: Margin Note, Folio, Pull Quote  
 Brutal / experimental: Concrete, Overprint, Mirror Axis, Tunnel  
 
+Unfinished / omitted: none in this ship — weak placeholder variants were not
+included.
+
 ## Product notes
 
 Daily Screens, Human Magnet, Visual Curiosity and Rhythmic Montage are
 unchanged. Staging only (`mumoo-staging.netlify.app`). Production mumoo.app is
-untouched. Exports are H.264/AAC via Mediabunny.
+untouched. Exports are H.264/AAC via Mediabunny; “Download all styles” packages
+a ZIP in browser memory.
