@@ -35,7 +35,7 @@ test('Human Magnet visual path inspects footage and previews without requesting 
     });
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/`);
     await page.getByLabel('Source WAV').setInputFiles(process.env.MUMOO_REAL_SONG);
-    await page.getByLabel('Primary genre').fill('House'); await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name:'Unlock staging' }).click();
+    await page.getByLabel('Primary genre').fill('House'); await page.getByText('Staging access enabled.').waitFor({ timeout: 15000 });
     await page.getByRole('button', { name:'Continue to clip' }).click(); await page.getByLabel('Clip start (ms)').fill('41000');
     await page.getByRole('button', { name:'Continue to video type' }).click(); await page.getByLabel(lyric?'Lyric Video':'Visual').check(); await page.getByRole('button', { name:'Continue', exact:true }).click();
     if (lyric) { await page.getByText('Paste lyrics for this section').click(); await page.getByLabel('Lyrics for this section').fill('Vem'); await page.getByRole('button',{name:'Sync lyrics'}).click(); await page.getByText('Synced 1 words.',{exact:false}).waitFor(); await page.getByRole('button',{name:'Approve lyrics and choose visual'}).click(); await page.getByRole('button',{name:'Human Magnet'}).click(); }

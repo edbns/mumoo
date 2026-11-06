@@ -37,7 +37,7 @@ test('media-first flow requires real-shaped analysis, retrieves approved media a
     const rate = 48000, samples = rate * 16, wav = Buffer.alloc(44 + samples * 2);
     wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(samples * 2, 40);
     await page.getByLabel('Source WAV').setInputFiles({ name: 'fixture.wav', mimeType: 'audio/wav', buffer: wav });
-    await page.getByLabel('Primary genre').fill('House'); await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name: 'Unlock staging' }).click();
+    await page.getByLabel('Primary genre').fill('House'); await page.getByText('Staging access enabled.').waitFor({ timeout: 15000 });
     await page.getByRole('button', { name: 'Continue to clip' }).click(); await page.getByRole('button', { name: 'Continue to video type' }).click();
     await page.getByLabel('Visual', { exact: true }).check(); await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('button', { name: 'Other visuals' }).click(); await page.getByLabel('Automatic video preview').waitFor(); assert.equal(analyses, 1); assert.equal(recommendations, 1); assert.equal(lyricCalls, 0);
@@ -66,7 +66,7 @@ test('a failed analysis is visible and only retries when requested', { timeout: 
     const rate = 48000, samples = rate * 16, wav = Buffer.alloc(44 + samples * 2);
     wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(samples * 2, 40);
     await page.getByLabel('Source WAV').setInputFiles({ name: 'fixture.wav', mimeType: 'audio/wav', buffer: wav });
-    await page.getByLabel('Primary genre').fill('House'); await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name: 'Unlock staging' }).click();
+    await page.getByLabel('Primary genre').fill('House'); await page.getByText('Staging access enabled.').waitFor({ timeout: 15000 });
     await page.getByRole('button', { name: 'Continue to clip' }).click(); await page.getByRole('button', { name: 'Continue to video type' }).click(); await page.getByLabel('Visual', { exact: true }).check(); await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('button', { name: 'Other visuals' }).click(); await page.getByRole('button', { name: 'Retry music analysis' }).waitFor(); assert.equal(analyses, 1); assert.equal(director, 0);
     await page.getByRole('button', { name: 'Retry music analysis' }).click(); await page.getByText('Not enough matching footage or music timing is available yet.').waitFor();

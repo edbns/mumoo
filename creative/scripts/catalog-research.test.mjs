@@ -18,7 +18,7 @@ test('research review stays separate from creator flow and requests explicit ad-
       return route.fulfill({ json: { assets: [{ id: 'commons2-1', type: 'video', title: 'Test source', previewUrl: '', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Example', creator: '', provider: 'Commons', sourceCharacter: 'unknown', rights: { statement: 'Item CC0', licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/' }, review: { status: 'PENDING' }, adSafety: { status: 'REVIEW_REQUIRED' }, retainedMaster: { status: 'NOT_RETAINED' } }], nextOffset: null } });
     });
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?catalog-research=1`);
-    await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name: 'Unlock staging' }).click();
+    await page.getByText('Staging access enabled.').waitFor({ timeout: 15000 });
     await page.getByText('Test source').waitFor(); page.once('dialog', dialog => dialog.dismiss());
     await page.getByLabel('Add staging test clips').setInputFiles({ name: 'test.mp4', mimeType: 'video/mp4', buffer: Buffer.from('0000ftyp01234567890') });
     await page.getByText('1 test clips saved for staging only. Commercial rights and advertising safety remain unverified.').waitFor();

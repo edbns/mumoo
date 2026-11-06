@@ -259,7 +259,7 @@ function App() {
         <label>Secondary genre or influence <span className="hint">(optional)</span>
           <input maxLength={100} value={influence} onChange={event => setInfluence(event.target.value)} placeholder="Add an influence" />
         </label>
-        {IS_ALIGNMENT_STAGING && (!accessToken ? <StagingAccess onAccess={setAccessToken} /> : <p className="hint">Staging access enabled. <button className="secondary" onClick={() => setAccessToken('')}>Sign in again</button></p>)}
+        {IS_ALIGNMENT_STAGING && (!accessToken ? <StagingAccess onAccess={setAccessToken} /> : <p className="hint">Staging access enabled.</p>)}
         {!loading && !buffer && <p className="hint">Choose a WAV file at least 15 seconds long to continue.</p>}
         {genre.trim() && !selectedGenre && <p role="status">Choose a genre from the suggestions, or select “Other / Not sure”.</p>}
         {error && <p role="alert">{error}</p>}

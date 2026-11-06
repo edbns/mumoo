@@ -38,7 +38,7 @@ test('Lyric Impact previews four distinct styles and exports the selected audio'
     for (const marker of [3, 4, 16.5]) for (let n = 0; n < 480; n++) wav.writeInt16LE(Math.round(28000 * Math.sin(n * Math.PI / 8)), 44 + (marker * rate + n) * 2);
     const song = process.env.MUMOO_REAL_SONG;
     await page.getByLabel('Source WAV').setInputFiles(song || { name: 'fixture.wav', mimeType: 'audio/wav', buffer: wav });
-    await page.getByLabel('Primary genre').fill('House'); await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name: 'Unlock staging' }).click();
+    await page.getByLabel('Primary genre').fill('House'); await page.getByText('Staging access enabled.').waitFor({ timeout: 15000 });
     await page.getByRole('button', { name: 'Continue to clip' }).click(); await page.getByLabel('Clip start (ms)').fill(song ? '41000' : '2000');
     await page.getByRole('button', { name: 'Continue to video type' }).click(); await page.getByLabel('Lyric Video').check(); await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByText('Paste lyrics for this section').click(); await page.getByLabel('Lyrics for this section').fill('Make it move! Again.'); await page.getByRole('button', { name: 'Sync lyrics' }).click();

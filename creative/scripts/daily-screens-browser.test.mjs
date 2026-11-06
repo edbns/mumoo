@@ -40,7 +40,7 @@ test('five screens preview approved lyrics and export synchronized MP4s', { time
     wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(samples * 2, 40);
     for (const marker of [0.5, 3, 4, 16.5, 17.5]) for (let n = 0; n < 480; n++) wav.writeInt16LE(Math.round(28000 * Math.sin(n * Math.PI / 8)), 44 + (marker * rate + n) * 2);
     await page.getByLabel('Source WAV').setInputFiles({ name: 'fixture.wav', mimeType: 'audio/wav', buffer: wav });
-    await page.getByLabel('Primary genre').fill('House'); await page.getByLabel('Staging tester password').fill('test password'); await page.getByRole('button', { name: 'Unlock staging' }).click();
+    await page.getByLabel('Primary genre').fill('House'); await page.getByText('Staging access enabled.').waitFor({ timeout: 15000 });
     await page.getByRole('button', { name: 'Continue to clip' }).click(); await page.getByLabel('Clip start (ms)').fill('2000');
     await page.getByRole('button', { name: 'Continue to video type' }).click(); await page.getByLabel('Lyric Video').check(); await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByText('Paste lyrics for this section').click(); await page.getByLabel('Lyrics for this section').fill('Make it move! Again.'); await page.getByRole('button', { name: 'Sync lyrics' }).click();
