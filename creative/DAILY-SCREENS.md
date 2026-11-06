@@ -13,7 +13,9 @@ Scene notes:
 - **Banking alert** — fantasy balances and alert copy are seeded per creation
   (including occasional $1M / $2M balances). Not a real account.
 - **Lock screen** — dark frosted notification banners, rose clock/date, lock
-  controls; informed by iOS lock-screen notification references (no logos).
+  controls, and drawn Instagram / X / Facebook / Google / WhatsApp marks for
+  screenshot realism; contact names stay redacted. Informed by iOS lock-screen
+  notification references.
 - **Missed call** — iOS Recents → Missed dark list with red primary rows, blue
   info controls, and tab bar; lyric lines fill the red title row.
 - **Search** — trending/autocomplete rows with lyric query lines.

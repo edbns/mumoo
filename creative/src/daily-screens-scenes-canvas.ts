@@ -68,16 +68,123 @@ function lyricBlocks(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], f
   });
 }
 
-function appIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, colors: [string, string], glyph: string) {
-  const g = ctx.createLinearGradient(x, y, x + size, y + size);
-  g.addColorStop(0, colors[0]);
-  g.addColorStop(1, colors[1]);
-  ctx.fillStyle = g;
+type Brand = 'instagram' | 'x' | 'facebook' | 'google' | 'whatsapp';
+
+function drawBrandIcon(ctx: CanvasRenderingContext2D, brand: Brand, x: number, y: number, size: number) {
+  const r = size * 0.22;
+  if (brand === 'instagram') {
+    const g = ctx.createLinearGradient(x, y + size, x + size, y);
+    g.addColorStop(0, '#feda75');
+    g.addColorStop(0.25, '#fa7e1e');
+    g.addColorStop(0.5, '#d62976');
+    g.addColorStop(0.75, '#962fbf');
+    g.addColorStop(1, '#4f5bd5');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.roundRect(x, y, size, size, r);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = size * 0.08;
+    ctx.beginPath();
+    ctx.roundRect(x + size * 0.18, y + size * 0.18, size * 0.64, size * 0.64, size * 0.16);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x + size * 0.5, y + size * 0.5, size * 0.18, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(x + size * 0.72, y + size * 0.28, size * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  if (brand === 'x') {
+    rounded(ctx, x, y, size, size, r, '#000000');
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, size - 2, size - 2);
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    const s = size;
+    ctx.moveTo(x + s * 0.22, y + s * 0.22);
+    ctx.lineTo(x + s * 0.48, y + s * 0.48);
+    ctx.lineTo(x + s * 0.22, y + s * 0.78);
+    ctx.lineTo(x + s * 0.34, y + s * 0.78);
+    ctx.lineTo(x + s * 0.52, y + s * 0.55);
+    ctx.lineTo(x + s * 0.78, y + s * 0.78);
+    ctx.lineTo(x + s * 0.78, y + s * 0.64);
+    ctx.lineTo(x + s * 0.58, y + s * 0.42);
+    ctx.lineTo(x + s * 0.78, y + s * 0.22);
+    ctx.lineTo(x + s * 0.66, y + s * 0.22);
+    ctx.lineTo(x + s * 0.5, y + s * 0.38);
+    ctx.lineTo(x + s * 0.34, y + s * 0.22);
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+  if (brand === 'facebook') {
+    rounded(ctx, x, y, size, size, r, '#1877f2');
+    ctx.fillStyle = '#fff';
+    ctx.font = `800 ${Math.floor(size * 0.72)}px "Inter Variable"`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('f', x + size * 0.55, y + size * 0.52);
+    return;
+  }
+  if (brand === 'google') {
+    rounded(ctx, x, y, size, size, r, '#fff');
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, size, size, r);
+    ctx.stroke();
+    const cx = x + size / 2;
+    const cy = y + size / 2;
+    const rad = size * 0.28;
+    const arcs: Array<[string, number, number]> = [
+      ['#4285f4', -0.4, 1.2],
+      ['#34a853', 1.2, 2.3],
+      ['#fbbc05', 2.3, 3.5],
+      ['#ea4335', 3.5, 5.2],
+    ];
+    ctx.lineWidth = size * 0.12;
+    ctx.lineCap = 'butt';
+    for (const [color, a0, a1] of arcs) {
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      ctx.arc(cx, cy, rad, a0, a1);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#4285f4';
+    ctx.fillRect(cx, cy - size * 0.06, size * 0.32, size * 0.12);
+    return;
+  }
+  // WhatsApp
+  rounded(ctx, x, y, size, size, r, '#25d366');
+  ctx.fillStyle = '#fff';
   ctx.beginPath();
-  ctx.roundRect(x, y, size, size, size * 0.22);
+  ctx.arc(x + size * 0.5, y + size * 0.46, size * 0.28, 0, Math.PI * 2);
   ctx.fill();
-  text(ctx, glyph, x + size / 2, y + size / 2, `700 ${Math.floor(size * 0.42)}px "Inter Variable"`, '#fff', 'center');
+  ctx.fillStyle = '#25d366';
+  ctx.beginPath();
+  ctx.moveTo(x + size * 0.32, y + size * 0.78);
+  ctx.quadraticCurveTo(x + size * 0.38, y + size * 0.62, x + size * 0.5, y + size * 0.66);
+  ctx.quadraticCurveTo(x + size * 0.42, y + size * 0.74, x + size * 0.32, y + size * 0.78);
+  ctx.fill();
+  ctx.strokeStyle = '#25d366';
+  ctx.lineWidth = size * 0.07;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(x + size * 0.5, y + size * 0.46, size * 0.14, 0.3, 5.2);
+  ctx.stroke();
 }
+
+const LOCK_BRANDS: Array<{ brand: Brand; name: string; hooks: string[] }> = [
+  { brand: 'instagram', name: 'Instagram', hooks: ['Replied to your story:', 'Mentioned you:', 'New comment:'] },
+  { brand: 'whatsapp', name: 'WhatsApp', hooks: ['New message:', '2 new messages:', 'Voice note:'] },
+  { brand: 'x', name: 'X', hooks: ['New post from someone you follow:', 'Mentioned you:', 'Trending with you:'] },
+  { brand: 'facebook', name: 'Facebook', hooks: ['Commented on your post:', 'Tagged you:', 'Memory:'] },
+  { brand: 'google', name: 'Google', hooks: ['Security alert:', 'New sign-in:', 'Important:'] },
+];
 
 function money(amount: number) {
   return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -174,114 +281,133 @@ function drawSearch(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], fr
 }
 
 /**
- * iOS Lock Screen + Notification Center — dark frosted banners, rose clock,
- * flashlight/camera controls. No real app logos or personal names.
+ * iOS Lock Screen + Notification Center — matches real lock-screen density:
+ * rose clock/date, dark glass banners, brand icons, Notification Center split,
+ * flashlight/camera. Brand marks are drawn vectors for realism/curiosity.
  */
 function drawLockScreen(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], frame: number, options: Options) {
   const clock = formatScreenClock(options.capturedAtMs, frame);
   const date = new Date(options.capturedAtMs + Math.floor(frame * 1000 / 30));
   const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
   const dayNum = date.getDate();
-  const rose = '#e8b4b8';
+  const rose = '#f0c4c4';
+  const seed = options.deviceSeed ?? 0;
 
-  // Soft blurred photo backdrop (abstract, not a real photo)
-  const wallpaper = ctx.createRadialGradient(540, 900, 80, 540, 700, 1100);
-  wallpaper.addColorStop(0, '#5a6d8c');
-  wallpaper.addColorStop(0.35, '#2a3548');
-  wallpaper.addColorStop(0.7, '#1a2230');
-  wallpaper.addColorStop(1, '#0c1018');
+  // Blurred lifestyle wallpaper (abstract bodies/shapes, not a real photo)
+  const wallpaper = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT);
+  wallpaper.addColorStop(0, '#1c2433');
+  wallpaper.addColorStop(0.4, '#3a465c');
+  wallpaper.addColorStop(0.75, '#1a1f2b');
+  wallpaper.addColorStop(1, '#0a0c12');
   ctx.fillStyle = wallpaper;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  ctx.fillStyle = 'rgba(120,140,170,0.18)';
-  ctx.beginPath(); ctx.ellipse(300, 1100, 420, 520, -0.3, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(80,90,110,0.22)';
-  ctx.beginPath(); ctx.ellipse(820, 1280, 380, 480, 0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(160,170,190,0.16)';
+  ctx.beginPath(); ctx.ellipse(280, 1180, 460, 560, -0.35, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(90,100,120,0.28)';
+  ctx.beginPath(); ctx.ellipse(780, 1320, 420, 520, 0.25, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
+  // Carrier-style status (light on dark wallpaper)
   status(ctx, options, frame, true);
 
-  // Date + weather row (rose, like the reference)
-  text(ctx, `${weekday} ${dayNum}  ☁︎  77°`, WIDTH / 2, 250, `500 36px "Inter Variable"`, rose, 'center');
-  // Large lock-screen clock
-  text(ctx, clock.time, WIDTH / 2, 430, `200 200px "Inter Variable"`, rose, 'center');
+  // Date + weather (rose, lock-screen style)
+  text(ctx, `${weekday} ${dayNum}`, WIDTH / 2 - 70, 248, `500 34px "Inter Variable"`, rose, 'center');
+  ctx.fillStyle = rose;
+  ctx.beginPath();
+  ctx.arc(WIDTH / 2 + 48, 242, 10, Math.PI * 1.15, Math.PI * 1.95);
+  ctx.strokeStyle = rose;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  text(ctx, '77°', WIDTH / 2 + 110, 248, `500 34px "Inter Variable"`, rose, 'left');
+  // Giant soft clock
+  text(ctx, clock.time, WIDTH / 2, 430, `100 210px "Inter Variable"`, rose, 'center');
 
   const lines = dailyScreenFrame(cues, frame).lines;
   const cards = lines.map((line, index) => {
-    ctx.font = '600 30px "Inter Variable"';
-    const wrapped = wrapScreenText(ctx, line.text, 760);
+    const brand = LOCK_BRANDS[(seed + index) % LOCK_BRANDS.length];
+    const hook = brand.hooks[(seed + index * 3) % brand.hooks.length];
+    const body = `${hook} ${line.text}`;
+    ctx.font = '500 30px "Inter Variable"';
+    const wrapped = wrapScreenText(ctx, body, 740);
+    const shown = wrapped.slice(0, 2);
     return {
       line,
-      wrapped,
-      height: 56 + wrapped.length * 36 + 28,
-      ago: index === lines.length - 1 ? 'now' : `${4 + index * 9}m ago`,
-      kind: index % 3,
+      brand,
+      wrapped: shown,
+      height: 108 + Math.max(0, shown.length - 1) * 34,
+      ago: index === lines.length - 1 ? 'now' : `${3 + ((seed + index * 7) % 50)}m ago`,
     };
   });
 
-  // Keep newest notifications; stack from top under the clock like Notification Center
+  // Prefer newest; leave room for controls
   const fitted = [...cards];
   while (fitted.length > 1) {
-    const total = fitted.reduce((sum, item) => sum + item.height + 14, -14);
-    if (620 + total <= 1580) break;
+    const header = fitted.length > 2 ? 56 : 0;
+    const total = fitted.reduce((sum, item) => sum + item.height + 12, -12) + header;
+    if (600 + total <= 1560) break;
     fitted.shift();
   }
 
-  let y = 620;
-  const icons: Array<{ colors: [string, string]; glyph: string; label: string }> = [
-    { colors: ['#f58529', '#dd2a7b'], glyph: '◎', label: 'Photos' },
-    { colors: ['#0084ff', '#00c6ff'], glyph: '💬', label: 'Chat' },
-    { colors: ['#34c759', '#30d158'], glyph: 'A', label: 'Messages' },
-  ];
-
+  let y = 600;
   fitted.forEach((card, index) => {
-    if (index === Math.min(2, fitted.length - 1) && fitted.length > 2) {
-      text(ctx, 'Notification Center', 70, y + 10, `700 28px "Inter Variable"`, '#fff');
-      rounded(ctx, 980, y - 10, 44, 44, 22, 'rgba(255,255,255,0.22)');
-      text(ctx, '✕', 1002, y + 12, `600 22px "Inter Variable"`, '#fff', 'center');
-      y += 56;
+    // Split into Lock stack vs Notification Center like the reference
+    if (index === Math.min(2, Math.max(1, fitted.length - 2)) && fitted.length > 2) {
+      text(ctx, 'Notification Center', 56, y + 18, `700 30px "Inter Variable"`, '#fff');
+      rounded(ctx, 980, y - 4, 48, 48, 24, 'rgba(120,120,128,0.55)');
+      text(ctx, '✕', 1004, y + 20, `600 24px "Inter Variable"`, '#fff', 'center');
+      y += 64;
     }
 
-    // Dark glass banner (reference: translucent charcoal, not white frost)
-    rounded(ctx, 40, y, 1000, card.height, 28, 'rgba(40,42,48,0.72)');
-    const icon = icons[card.kind % icons.length];
-    appIcon(ctx, 64, y + 22, 56, icon.colors, icon.glyph);
-    // Title row: redacted app/contact + relative time
-    if (card.kind === 2) {
-      rounded(ctx, 140, y + 26, 52, 52, 26, '#6b7280');
-      text(ctx, 'A', 166, y + 52, `700 24px "Inter Variable"`, '#fff', 'center');
-      rounded(ctx, 172, y + 58, 22, 22, 11, '#34c759');
-    }
-    redact(ctx, card.kind === 2 ? 210 : 140, y + 32, 210, 26, 'rgba(255,255,255,0.28)');
-    text(ctx, card.ago, 1008, y + 44, `500 24px "Inter Variable"`, 'rgba(255,255,255,0.55)', 'right');
+    // Dark frosted glass banner
+    rounded(ctx, 36, y, 1008, card.height, 30, 'rgba(55,55,60,0.78)');
+    // Inner highlight edge for glass depth
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(36, y, 1008, card.height, 30);
+    ctx.stroke();
+
+    drawBrandIcon(ctx, card.brand.brand, 60, y + 24, 60);
+    ctx.font = '700 28px "Inter Variable"';
+    const nameWidth = ctx.measureText(card.brand.name).width;
+    text(ctx, card.brand.name, 144, y + 42, `700 28px "Inter Variable"`, '#fff');
+    // Curiosity: redacted “who” chip next to app name (no real people)
+    redact(ctx, 144 + nameWidth + 18, y + 28, 150, 28, 'rgba(255,255,255,0.22)');
+    text(ctx, card.ago, 1012, y + 42, `500 24px "Inter Variable"`, 'rgba(255,255,255,0.55)', 'right');
     card.wrapped.forEach((part, i) => {
-      text(ctx, part, 140, y + 78 + i * 36, `500 28px "Inter Variable"`, 'rgba(255,255,255,0.92)');
+      text(ctx, part, 144, y + 82 + i * 34, `500 30px "Inter Variable"`, 'rgba(255,255,255,0.92)');
     });
-    y += card.height + 14;
+    y += card.height + 12;
   });
 
-  // Flashlight + camera (lock screen controls)
-  rounded(ctx, 70, 1680, 110, 110, 55, 'rgba(255,255,255,0.18)');
-  // flashlight glyph
+  // Do Not Disturb pill (reference)
+  rounded(ctx, 340, 1610, 400, 64, 32, 'rgba(40,40,45,0.7)');
+  text(ctx, '☾  Do Not Disturb', WIDTH / 2, 1642, `600 26px "Inter Variable"`, 'rgba(255,255,255,0.9)', 'center');
+
+  // Flashlight + camera
+  rounded(ctx, 70, 1710, 110, 110, 55, 'rgba(255,255,255,0.2)');
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(125, 1710);
-  ctx.lineTo(125, 1748);
+  ctx.moveTo(125, 1740);
+  ctx.lineTo(125, 1778);
   ctx.stroke();
-  rounded(ctx, 112, 1748, 26, 18, 4, '#fff');
-  rounded(ctx, 900, 1680, 110, 110, 55, 'rgba(255,255,255,0.18)');
-  // camera glyph
+  rounded(ctx, 112, 1778, 26, 18, 4, '#fff');
+  rounded(ctx, 900, 1710, 110, 110, 55, 'rgba(255,255,255,0.2)');
   ctx.strokeStyle = '#fff';
   ctx.beginPath();
-  ctx.roundRect(928, 1718, 54, 40, 8);
-  ctx.moveTo(940, 1718);
-  ctx.lineTo(948, 1706);
-  ctx.lineTo(972, 1706);
-  ctx.lineTo(980, 1718);
-  ctx.moveTo(955, 1738);
-  ctx.arc(955, 1738, 10, 0, Math.PI * 2);
+  ctx.roundRect(928, 1748, 54, 40, 8);
+  ctx.moveTo(940, 1748);
+  ctx.lineTo(948, 1736);
+  ctx.lineTo(972, 1736);
+  ctx.lineTo(980, 1748);
+  ctx.moveTo(955, 1768);
+  ctx.arc(955, 1768, 10, 0, Math.PI * 2);
   ctx.stroke();
 
-  rounded(ctx, 390, 1865, 300, 10, 5, 'rgba(255,255,255,0.85)');
+  rounded(ctx, 390, 1865, 300, 10, 5, 'rgba(255,255,255,0.9)');
 }
 
 /**
