@@ -27,6 +27,7 @@ test('Human Magnet visual path inspects footage and previews without requesting 
       const request = route.request().postDataJSON();
       if (request.operation === 'research-asset') return route.fulfill({ status: 200, contentType: 'video/mp4', body: readFileSync(sources[Number(request.id.split('-')[1]) - 1]) });
       assert.equal(request.operation, 'human-plan'); plans++;
+      if (process.env.MUMOO_HUMAN_RETRY === '1' && plans === 1) return route.fulfill({ status:503, json:{error:'Media service unavailable.'} });
       if (request.observations.length) { assert.equal(request.observations.length, 3); assert.ok(request.observations.every(item => item.samples.length >= 1)); inspected = true; }
       const assets = [1,2,3].map(n => ({ id:`pixabay-${n}`, query:'test footage', sourceUrl:'https://pixabay.com/videos/example/', creator:'Test', type:'video', title:`Person ${n}`, rights:'STAGING_TEST_ONLY', adSafety:'REVIEW_REQUIRED' }));
       const shots = assets.map((asset, i) => ({ assetId:asset.id, startFrame:i*150, endFrame:(i+1)*150, sourceInMs:0, sourceOutMs:5000, transition:{type:i && request.treatment === 'face' ? 'dissolve' : 'cut',durationFrames:i && request.treatment === 'face' ? 9 : 0}, crop:{mode:'cover',x:.5,y:.5} }));
@@ -39,9 +40,10 @@ test('Human Magnet visual path inspects footage and previews without requesting 
     await page.getByRole('button', { name:'Continue to video type' }).click(); await page.getByLabel(lyric?'Lyric Video':'Visual').check(); await page.getByRole('button', { name:'Continue', exact:true }).click();
     if (lyric) { await page.getByText('Paste lyrics for this section').click(); await page.getByLabel('Lyrics for this section').fill('Vem'); await page.getByRole('button',{name:'Sync lyrics'}).click(); await page.getByText('Synced 1 words.',{exact:false}).waitFor(); await page.getByRole('button',{name:'Approve lyrics and choose visual'}).click(); await page.getByRole('button',{name:'Human Magnet'}).click(); }
     await page.getByRole('heading', { name:'Human Magnet' }).waitFor();
+    if (process.env.MUMOO_HUMAN_RETRY === '1') await page.getByRole('button', { name:'Try again' }).click();
     await page.getByRole('button', { name:'Play', exact:true }).waitFor({ state:'visible', timeout:60000 });
     await page.waitForFunction(() => !document.querySelector('button[disabled]') || ![...document.querySelectorAll('button')].find(x => x.textContent === 'Play')?.disabled, { timeout: 60000 });
-    assert.equal(syncCalls, lyric ? 1 : 0); assert.equal(analysisCalls, 1); assert.equal(plans, 2); assert.ok(inspected);
+    assert.equal(syncCalls, lyric ? 1 : 0); assert.equal(analysisCalls, 1); assert.equal(plans, process.env.MUMOO_HUMAN_RETRY === '1' ? 3 : 2); assert.ok(inspected);
     const canvas = page.getByLabel('Automatic video preview');
     if (process.env.MUMOO_HUMAN_SAMPLE) writeFileSync(process.env.MUMOO_HUMAN_SAMPLE, await canvas.screenshot());
     if (process.env.MUMOO_HUMAN_EXPORT === '1') {

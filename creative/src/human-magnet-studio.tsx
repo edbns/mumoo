@@ -17,6 +17,7 @@ export function HumanMagnetStudio({ profile, composition, audio, token, position
   onPlay: () => void; onStop: () => void; onBack: () => void; onOther: () => void; onRetry: () => void;
 }) {
   const [treatment, setTreatment] = useState<Treatment>('face'); const [seed] = useState(() => crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff);
+  const [attempt, setAttempt] = useState(0);
   const [edit, setEdit] = useState<ExecutableEdit | null>(null); const [assets, setAssets] = useState<Asset[]>([]);
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [ready, setReady] = useState(false); const [progress, setProgress] = useState<number>();
   const visionProfile = useMemo(() => buildVisionMusicProfile(profile), [profile]);
@@ -50,7 +51,7 @@ export function HumanMagnetStudio({ profile, composition, audio, token, position
     })().catch((cause: unknown) => { if (!cancelled) setError(cause instanceof Error ? cause.message : 'The video could not be prepared.'); })
       .finally(() => { if (!cancelled) setBusy(false); });
     return () => { cancelled = true; controller.abort(); urls.forEach(URL.revokeObjectURL); };
-  }, [profileKey, token, treatment, seed]);
+  }, [profileKey, token, treatment, seed, attempt]);
 
   async function download() {
     if (!edit || progress !== undefined) return;
@@ -73,7 +74,7 @@ export function HumanMagnetStudio({ profile, composition, audio, token, position
     {(profile.musicAnalysis.status === 'pending' || profile.musicAnalysis.status === 'unavailable') && <p role="status">Analyzing your selected music…</p>}
     {profile.musicAnalysis.status === 'error' && <><p role="alert">Music analysis is unavailable.</p><button onClick={onRetry}>Retry music analysis</button></>}
     {profile.musicAnalysis.status === 'ready' && !visionProfile && <p role="alert">The music analysis does not match this selection. Please select your clip again.</p>}
-    {busy && <p role="status">Finding and preparing footage…</p>}{error && <p role="alert">{error}</p>}{playbackError && <p role="alert">{playbackError}</p>}
+    {busy && <p role="status">Finding and preparing footage…</p>}{error && <><p role="alert">{error}</p><button className="secondary" disabled={busy || progress !== undefined} onClick={() => setAttempt(value => value + 1)}>Try again</button></>}{playbackError && <p role="alert">{playbackError}</p>}
     {edit && <><div className="gallery-user-preview">{progress === undefined && <Preview edit={edit} composition={composition} position={position} onReady={setReady} />}</div>
       <div className="trim-actions"><button disabled={!ready || progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button><button disabled={!ready || progress !== undefined} onClick={() => void download()}>Download MP4</button></div>
       {progress !== undefined && <p role="status">Rendering video · {progress}%</p>}
