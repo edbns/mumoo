@@ -5,12 +5,13 @@ import { drawDailyScreen, SCREEN_DESIGNS } from './daily-screens';
 import { renderMp4 } from './browser-export';
 import { loadFont } from './render';
 
-export function DailyScreensStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onSeek, onBack, onOther }: {
+export function DailyScreensStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onSeek, onBack, onOther, onImpact }: {
   profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; token: string; position: number; playing: boolean;
-  playbackError: string; onPlay: () => void; onStop: () => void; onSeek: (ms: number) => void; onBack: () => void; onOther: () => void;
+  playbackError: string; onPlay: () => void; onStop: () => void; onSeek: (ms: number) => void; onBack: () => void; onOther: () => void; onImpact: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [eligible, setEligible] = useState(false); const [error, setError] = useState('');
+  const [impactEligible, setImpactEligible] = useState(false);
   const [progress, setProgress] = useState<number>();
   const [variant, setVariant] = useState<DailyScreenVariant>('messages');
   const [capturedAtMs] = useState(() => Date.now());
@@ -22,14 +23,18 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
 
   useEffect(() => {
     if (profile.videoType !== 'lyric' || !token || !cues.length) { setEligible(false); return; }
-    const controller = new AbortController(); setEligible(false); setError('');
+    const controller = new AbortController(); setEligible(false); setImpactEligible(false); setError('');
     void fetch('/api/brain-recommendations', { method: 'POST', signal: controller.signal,
       headers: { 'Content-Type': 'application/json', 'X-Mumoo-Brain-Access': token },
       body: JSON.stringify({ version: 1, videoType: 'lyric', primaryGenre: genre, ...(influence && { influence }) }) })
       .then(async response => {
         if (!response.ok) throw new Error('Recommendations are unavailable.');
         const data = await response.json();
-        if (!Array.isArray(data.catalog) || !data.catalog.some((entry: { id?: unknown; renderer?: { template?: unknown } }) => entry.id === 'daily-screens' && entry.renderer?.template === 'daily-screens')) throw new Error('Daily Screens is not available for this song yet.');
+        if (controller.signal.aborted) return;
+        if (!Array.isArray(data.catalog)) throw new Error('Recommendations are unavailable.');
+        const hasImpact = data.catalog.some((entry: { id?: unknown; renderer?: { template?: unknown } }) => entry.id === 'lyric-impact' && entry.renderer?.template === 'lyric-impact');
+        setImpactEligible(hasImpact);
+        if (!data.catalog.some((entry: { id?: unknown; renderer?: { template?: unknown } }) => entry.id === 'daily-screens' && entry.renderer?.template === 'daily-screens')) throw new Error('Daily Screens is not available for this song yet.');
         await loadFont(cues.map(cue => cue.text).join(' '));
         if (controller.signal.aborted) return;
         setEligible(true);
@@ -67,7 +72,7 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
   return <main className="desktop gallery-page"><section className="gallery-shell">
     <p className="eyebrow">YOUR LYRIC VIDEO</p><h1>Daily Screens</h1>
     <p className="intro">Your lyrics, in a familiar everyday moment.</p>
-    <div className="trim-actions"><button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back to lyrics</button><button className="secondary" disabled={progress !== undefined} onClick={onOther}>Other visuals</button></div>
+    <div className="trim-actions"><button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back to lyrics</button>{impactEligible && <button className="secondary" disabled={progress !== undefined} onClick={onImpact}>Lyric Impact</button>}<button className="secondary" disabled={progress !== undefined} onClick={onOther}>Other visuals</button></div>
     {!eligible && !error && <p role="status">Preparing your recommendation…</p>}
     {error && <p role="alert">{error}</p>}
     {playbackError && <p role="alert">{playbackError}</p>}

@@ -4,7 +4,7 @@ export interface VisualCatalogEntry {
   id: string;
   version: number;
   name: string;
-  family: 'kinetic_typography' | 'daily_screens' | 'procedural' | 'living_matter' | 'licensed_video' | 'user_media';
+  family: 'kinetic_typography' | 'daily_screens' | 'lyric_impact' | 'procedural' | 'living_matter' | 'licensed_video' | 'user_media';
   videoTypes: readonly ('lyric' | 'visual')[];
   genreTags: readonly string[];
   influenceTags: readonly string[];
@@ -25,12 +25,12 @@ export const VISUAL_CATALOG = PRESETS.map((preset): VisualCatalogEntry & {
   id: preset.id,
   version: 1,
   name: preset.name,
-  family: preset.id === 'daily-screens' ? 'daily_screens' : 'kinetic_typography',
+  family: preset.id === 'daily-screens' ? 'daily_screens' : preset.id === 'lyric-impact' ? 'lyric_impact' : 'kinetic_typography',
   videoTypes: preset.id === 'orbit' || preset.id === 'horizon' ? ['lyric', 'visual'] : ['lyric'],
   genreTags: [],
   influenceTags: [],
   characteristics: [preset.description],
-  response: { beats: ['orbit', 'horizon'].includes(preset.id), energy: ['orbit', 'horizon'].includes(preset.id), onsets: ['orbit', 'horizon'].includes(preset.id) },
+  response: { beats: ['orbit', 'horizon', 'lyric-impact'].includes(preset.id), energy: ['orbit', 'horizon', 'lyric-impact'].includes(preset.id), onsets: ['orbit', 'horizon'].includes(preset.id) },
   assets: [
     { kind: 'font', license: 'SIL Open Font License 1.1', provenance: 'Bundled Inter Variable font' },
     ...(preset.id === 'horizon' ? [{ kind: 'image' as const, license: 'Original MUMOO artwork', provenance: 'Two vector images created for MUMOO' }] : []),

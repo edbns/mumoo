@@ -60,7 +60,7 @@ test('five screens preview approved lyrics and export synchronized MP4s', { time
     assert.equal(new Set(Object.values(snapshots).map(value => createHash('sha256').update(value).digest('hex'))).size, 5);
     await page.getByRole('button', { name: 'Messages', exact: true }).click();
     const png = Buffer.from((await canvas.evaluate(el => el.toDataURL('image/png'))).split(',')[1], 'base64');
-    const start = performance.now(); const pending = page.waitForEvent('download'); await page.getByRole('button', { name: 'Download MP4' }).click();
+    const start = performance.now(); const pending = page.waitForEvent('download', { timeout: 120000 }); await page.getByRole('button', { name: 'Download MP4' }).click();
     assert.equal(await page.getByRole('button', { name: 'Back to lyrics' }).isDisabled(), true);
     assert.equal(await page.getByRole('button', { name: 'Other visuals' }).isDisabled(), true);
     const path = await (await pending).path(); const seconds = (performance.now() - start) / 1000;
@@ -74,7 +74,7 @@ test('five screens preview approved lyrics and export synchronized MP4s', { time
     const pcm = execFileSync(ffmpeg.path,['-v','error','-i',path,'-vn','-ac','1','-ar',String(rate),'-f','s16le','-'],{maxBuffer:2000000});
     const markers=[]; for(let i=0;i<pcm.length;i+=2) { if(Math.abs(pcm.readInt16LE(i))<9000) continue; const at=i/2/rate; if(!markers.length || at-markers.at(-1)>0.1) markers.push(at); }
     assert.equal(markers.length,3); [1,2,14.5].forEach((at,i)=>assert.ok(Math.abs(markers[i]-at)<0.006));
-    const pendingZip = page.waitForEvent('download'); await page.getByRole('button', { name: 'Download all five' }).click();
+    const pendingZip = page.waitForEvent('download', { timeout: 120000 }); await page.getByRole('button', { name: 'Download all five' }).click();
     const zipDownload = await pendingZip;
     assert.equal(zipDownload.suggestedFilename(), 'mumoo-daily-screens.zip');
     const files = unzipSync(readFileSync(await zipDownload.path()));

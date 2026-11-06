@@ -6,12 +6,16 @@ export const DURATION_MS = 15_000;
 export const FRAMES = FPS * DURATION_MS / 1000;
 export const DAILY_SCREEN_VARIANTS = ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram'] as const;
 export type DailyScreenVariant = typeof DAILY_SCREEN_VARIANTS[number];
+export const IMPACT_VARIANTS = ['poster', 'punch', 'editorial', 'echo'] as const;
+export type ImpactVariant = typeof IMPACT_VARIANTS[number];
+export interface ImpactMusic { beatsMs: number[]; energy: { timeMs: number; rms: number }[] }
 
 export const PRESETS = [
   { id: 'scribble', name: 'Scribble', description: 'Hand-drawn underline' },
   { id: 'elastic', name: 'Elastic', description: 'Stretch and rebound' },
   { id: 'glitch', name: 'Glitch', description: 'Split-color jitter' },
   { id: 'daily-screens', name: 'Daily Screens', description: 'Lyrics on a familiar everyday screen' },
+  { id: 'lyric-impact', name: 'Lyric Impact', description: 'Bold, music-synchronized lyric typography' },
   { id: 'orbit', name: 'Orbit', description: 'Music-responsive original motion' },
   { id: 'horizon', name: 'Horizon', description: 'Two original image scenes with a beat-responsive overlay' },
 ] as const;
@@ -24,6 +28,7 @@ interface CompositionBase {
   clipStartMs: number;
   assembly?: AssemblyPlan;
   dailyScreen?: { variant: DailyScreenVariant; capturedAtMs: number };
+  lyricImpact?: { style: ImpactVariant; music: ImpactMusic | null };
 }
 
 export type Composition = CompositionBase & (
@@ -61,7 +66,14 @@ export function validate(value: unknown, sourceDurationMs: number): asserts valu
   const cues = lyricsFor(candidate);
   if (!Array.isArray(cues) || cues.length > 120) throw new Error('Use up to 120 lyric cues.');
   if (template === 'daily-screens' && (!cues.length || cues.some(cue => !cue || typeof cue.text !== 'string' || !cue.text.trim()))) throw new Error('Daily Screens needs approved lyrics.');
+  if (template === 'lyric-impact' && (!cues.length || cues.some(cue => !cue || typeof cue.text !== 'string' || !cue.text.trim()))) throw new Error('Lyric Impact needs approved lyrics.');
   if (candidate.dailyScreen !== undefined && (!candidate.dailyScreen || template !== 'daily-screens' || !DAILY_SCREEN_VARIANTS.includes(candidate.dailyScreen.variant) || !Number.isSafeInteger(candidate.dailyScreen.capturedAtMs) || candidate.dailyScreen.capturedAtMs < 0 || candidate.dailyScreen.capturedAtMs > 8640000000000000 - DURATION_MS)) throw new Error('Invalid Daily Screens design.');
+  if (candidate.lyricImpact !== undefined) {
+    const impact = candidate.lyricImpact;
+    if (!impact || template !== 'lyric-impact' || !IMPACT_VARIANTS.includes(impact.style)) throw new Error('Invalid Lyric Impact design.');
+    const music = impact.music;
+    if (music !== null && (!music || !Array.isArray(music.beatsMs) || music.beatsMs.length > 500 || !music.beatsMs.every((n, i) => isTime(n) && n <= DURATION_MS && (!i || n >= music.beatsMs[i - 1])) || !Array.isArray(music.energy) || music.energy.length > 2000 || !music.energy.every((e, i) => e && isTime(e.timeMs) && e.timeMs <= DURATION_MS && (!i || e.timeMs >= music.energy[i - 1].timeMs) && Number.isFinite(e.rms) && e.rms >= 0 && e.rms <= 1))) throw new Error('Invalid Lyric Impact music.');
+  }
   let previousEnd = 0;
   for (const cue of cues) {
     if (!cue || typeof cue.text !== 'string' || [...cue.text].length > 48 ||

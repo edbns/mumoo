@@ -1,6 +1,7 @@
 import '@fontsource-variable/inter';
 import { evaluate, lyricsFor, WIDTH, HEIGHT, type Composition } from './composition';
 import { drawDailyScreen } from './daily-screens';
+import { drawLyricImpact } from './lyric-impact';
 import { activeLayers, reaction, variation } from './assembly';
 
 const FONT = '800 112px "Inter Variable"';
@@ -26,6 +27,7 @@ export async function loadFont(text: string) {
 
 export function draw(canvas: HTMLCanvasElement, composition: Composition, frame: number) {
   if (composition.template === 'daily-screens') { drawDailyScreen(canvas, lyricsFor(composition), frame, composition.dailyScreen); return; }
+  if (composition.template === 'lyric-impact') { drawLyricImpact(canvas, lyricsFor(composition), frame, composition.lyricImpact); return; }
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas 2D is unavailable.');
   const { text, phase } = evaluate(composition, frame);
