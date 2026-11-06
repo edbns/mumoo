@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
-import { createElement } from 'react';
-import { FRAMES, HEIGHT, WIDTH, isDomDailyScreen, playheadFrame, type Composition, type DailyScreenVariant } from './composition';
+import { FRAMES, HEIGHT, WIDTH, playheadFrame, type Composition, type DailyScreenVariant } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { SCREEN_DESIGNS } from './daily-screens';
 import { paintDailyScreen } from './daily-screens-paint';
-import { DomDailyScreen } from './daily-screens-dom';
 import { renderMp4 } from './browser-export';
 import { loadFont } from './render';
 
@@ -14,8 +11,6 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
   playbackError: string; onPlay: () => void; onStop: () => void; onSeek: (ms: number) => void; onBack: () => void; onOther: () => void; onImpact: () => void; onHuman: () => void; onCuriosity: () => void; onMontage: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const domPreview = useRef<HTMLDivElement>(null);
-  const domRoot = useRef<Root | null>(null);
   const [eligible, setEligible] = useState(false); const [error, setError] = useState('');
   const [impactEligible, setImpactEligible] = useState(false);
   const [progress, setProgress] = useState<number>();
@@ -28,7 +23,6 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
   const genre = profile.creator.primaryGenre.value;
   const influence = profile.creator.influence?.value;
   const frame = playheadFrame(position);
-  const usingDom = isDomDailyScreen(variant);
 
   useEffect(() => {
     if (profile.videoType !== 'lyric' || !token || !cues.length) { setEligible(false); return; }
@@ -51,27 +45,12 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
     return () => controller.abort();
   }, [token, genre, influence, cueKey, profile.videoType]);
 
+  // One canvas path for every design keeps preview/export parity and avoids the
+  // black-screen bug from remounting a React root after switching templates.
   useEffect(() => {
-    if (!eligible || usingDom || !canvas.current) return;
+    if (!eligible || !canvas.current) return;
     void paintDailyScreen(canvas.current, cues, frame, { variant, capturedAtMs, deviceSeed });
-  }, [eligible, position, cueKey, variant, capturedAtMs, deviceSeed, usingDom, frame]);
-
-  useEffect(() => {
-    if (!eligible || !usingDom || !domPreview.current) return;
-    domRoot.current ??= createRoot(domPreview.current);
-    domRoot.current.render(createElement(DomDailyScreen, {
-      variant,
-      cues,
-      frame,
-      capturedAtMs,
-      deviceSeed,
-    }));
-  }, [eligible, usingDom, variant, cueKey, frame, capturedAtMs, deviceSeed]);
-
-  useEffect(() => () => {
-    domRoot.current?.unmount();
-    domRoot.current = null;
-  }, []);
+  }, [eligible, position, cueKey, variant, capturedAtMs, deviceSeed, frame]);
 
   async function download(all = false) {
     if (!eligible || !cues.length) return;
@@ -105,9 +84,7 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
     {playbackError && <p role="alert">{playbackError}</p>}
     {eligible && <><div className="daily-designs" role="group" aria-label="Choose a screen design">{SCREEN_DESIGNS.map(design => <button type="button" key={design.id} disabled={progress !== undefined} aria-pressed={variant === design.id} onClick={() => setVariant(design.id)}>{design.name}</button>)}</div>
       <div className="gallery-user-preview">
-        {usingDom
-          ? <div className="daily-dom-preview-shell" aria-label="Daily Screens preview"><div ref={domPreview} className="daily-dom-preview-stage" /></div>
-          : <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Daily Screens preview" onContextMenu={event => event.preventDefault()} />}
+        <canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Daily Screens preview" onContextMenu={event => event.preventDefault()} />
         <span className="preview-mark">PREVIEW</span>
       </div>
       <div className="trim-actions"><button disabled={progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button>

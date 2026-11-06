@@ -10,10 +10,17 @@ test('screen status is deterministic and chat timestamps use one tick', async ()
     assert.deepEqual(screenDeviceStatus(time, 42, 'messages'), screenDeviceStatus(time, 42, 'messages'));
     assert.equal(screenDeviceStatus(time).batteryPercent, 12);
     assert.equal(screenDeviceStatus(time).dynamicIsland, true);
+    assert.ok(screenDeviceStatus(time).notificationCount >= 1);
     const statuses = ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram', 'dating', 'ride', 'food'].map(id => screenDeviceStatus(time, 42, id));
     assert.equal(new Set(statuses.map(s => s.batteryPercent)).size, 8);
     assert.notDeepEqual(screenDeviceStatus(time, 42, 'messages'), screenDeviceStatus(time, 43, 'messages'));
-    for (const status of statuses) { assert.ok(status.batteryPercent >= 5 && status.batteryPercent <= 100); if (status.network === 'none') assert.equal(status.signalBars, 0); }
+    for (const status of statuses) {
+      assert.ok(status.batteryPercent >= 5 && status.batteryPercent <= 100);
+      assert.equal(status.dynamicIsland, true);
+      assert.ok(status.notificationCount >= 1 && status.notificationCount <= 5);
+      assert.ok(['wifi', '4G', '5G'].includes(status.network));
+      assert.ok(status.signalBars >= 1 && status.signalBars <= 4);
+    }
     assert.equal(formatChatTime(time, 0), '2:07 ✓');
     assert.ok(chatBubbleWidth(180, 72) <= 245);
     assert.ok(chatBubbleWidth(25, 72) >= 104);

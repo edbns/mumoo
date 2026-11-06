@@ -16,10 +16,10 @@ export type DomScreenProps = {
 };
 
 function entranceStyle(frame: number, startFrame: number): CSSProperties {
-  const progress = Math.min(1, Math.max(0, (frame - startFrame + 1) / 5));
+  const progress = Math.min(1, Math.max(0, frame - startFrame + 1));
   return {
-    ['--enter-y' as string]: `${(1 - progress) * 14}px`,
-    ['--enter-opacity' as string]: String(0.45 + progress * 0.55),
+    ['--enter-y' as string]: `${(1 - progress) * 4}px`,
+    ['--enter-opacity' as string]: String(progress),
   };
 }
 
@@ -39,9 +39,14 @@ function DeviceChrome({
           <div className="mumoo-dom-signal" aria-hidden="true">
             {[1, 2, 3, 4].map(bar => <span key={bar} className={bar <= status.signalBars ? undefined : 'is-off'} />)}
           </div>
-          {status.network !== 'none' ? <div className="mumoo-dom-network">{status.network}</div> : null}
-          <div className="mumoo-dom-battery" aria-hidden="true"><i style={{ width: `${status.batteryPercent}%` }} /></div>
+          {status.network === 'wifi' ? <div className="mumoo-dom-wifi" aria-hidden="true" />
+            : status.network === '4G' || status.network === '5G' ? <div className="mumoo-dom-network">{status.network}</div>
+              : null}
+          <div className={`mumoo-dom-battery ${status.batteryPercent <= 20 && !status.charging ? 'is-low' : ''} ${status.charging ? 'is-charging' : ''}`} aria-hidden="true">
+            <i style={{ width: `${status.batteryPercent}%` }} />
+          </div>
         </div>
+        {status.notificationCount > 0 ? <div className="mumoo-dom-badge" aria-hidden="true">{Math.min(9, status.notificationCount)}</div> : null}
       </div>
     </>
   );

@@ -1,8 +1,7 @@
 import { HEIGHT, WIDTH, type DomDailyScreenVariant, type LyricCue } from './composition';
 import {
   dailyScreenFrame,
-  formatScreenClock,
-  screenDeviceStatus,
+  drawDeviceStatus,
   wrapScreenText,
 } from './daily-screens';
 
@@ -50,32 +49,12 @@ function avatar(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, 
 }
 
 function drawStatus(ctx: CanvasRenderingContext2D, options: Options, frame: number, light = false) {
-  const clock = formatScreenClock(options.capturedAtMs, frame);
-  const status = screenDeviceStatus(options.capturedAtMs, options.deviceSeed, options.variant);
-  const ink = light ? '#ffffff' : '#1b1c20';
-  text(ctx, clock.time, 130, 100, `600 34px "Inter Variable"`, ink);
-  if (status.dynamicIsland) rounded(ctx, 420, 28, 240, 68, 34, '#0b0b0d');
-  let x = 980;
-  ctx.strokeStyle = ink;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(x - 54, 87, 54, 26, 5);
-  ctx.stroke();
-  ctx.fillStyle = '#34c759';
-  ctx.fillRect(x - 50, 91, Math.max(4, (54 - 8) * status.batteryPercent / 100), 18);
-  x -= 78;
-  if (status.network !== 'none') {
-    text(ctx, status.network.toUpperCase(), x, 100, `600 18px "Inter Variable"`, ink, 'right');
-    x -= 58;
-  }
-  for (let bar = 0; bar < 4; bar++) {
-    ctx.fillStyle = bar < status.signalBars ? ink : (light ? 'rgba(255,255,255,0.25)' : 'rgba(27,28,32,0.22)');
-    ctx.fillRect(x - 36 + bar * 9, 108 - (7 + bar * 4), 6, 7 + bar * 4);
-  }
+  drawDeviceStatus(ctx, options.capturedAtMs, frame, 130, 100, options.variant, options.deviceSeed, light ? '#ffffff' : '#1b1c20');
 }
 
 function entrance(frame: number, startFrame: number) {
-  return Math.min(1, Math.max(0, (frame - startFrame + 1) / 5));
+  // Fully visible on the WhisperX start frame — no multi-frame fade lag.
+  return Math.min(1, Math.max(0, frame - startFrame + 1));
 }
 
 /** Tinder / Bumble–inspired match moment (no logos). Gummble refs: Tinder/Bumble iOS. */

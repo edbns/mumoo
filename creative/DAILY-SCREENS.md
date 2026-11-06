@@ -11,26 +11,26 @@ screenshot. It is available only for Lyric Video in staging. Existing visuals
 remain available.
 
 The approved WhisperX cue timestamps are clip-relative milliseconds. The first
-visible frame is `ceil(startMs * 30 / 1000)`, capped at frame 449 for cues
-starting during the final fractional frame; a message enters over five frames.
-Messages derive entirely from approved cue text. The same drawing function is
-used by the interactive preview and the MP4 exporter for the five Canvas
-designs. The three DOM designs preview as live React/CSS and export through
-`html2canvas` into the existing Mediabunny encoder (`paintDailyScreen`). The
-original selected audio is used for preview and export. Font metrics are
-loaded before export. The actual local creation time is captured once when the
-screen opens and stored with the selected variant in the composition, so the
-preview and export use the same clock. The clock advances with the 15-second
-frame time. The one-at-a-time export queue can create one MP4 or a ZIP of all
-eight; ZIP packing uses the MIT-licensed `fflate` library and keeps files in
-browser memory.
+visible frame is `floor(startMs * 30 / 1000)`, matching the audio playhead and
+capped at frame 449; the lyric is fully visible on that frame (no fade lag).
+Messages derive entirely from approved cue text. Preview and MP4
+export both use `paintDailyScreen` (Canvas for all eight designs) so switching
+templates cannot leave a stale React root / black preview. The original
+selected audio is used for preview and export. Font metrics are loaded before
+export. The actual local creation time is captured once when the screen opens
+and stored with the selected variant in the composition, so the preview and
+export use the same clock. The clock advances with the 15-second frame time.
+The one-at-a-time export queue can create one MP4 or a ZIP of all eight; ZIP
+packing uses the MIT-licensed `fflate` library and keeps files in browser
+memory.
 
-All screens share simulated iOS-style status details: a captured local clock and
-seeded variations of battery, signal, network and device shape. Each screen has
+All screens share simulated iOS-style retention chrome: a live system clock,
+Dynamic Island, cellular bars, a Wi‑Fi icon (or 4G/5G label), red/green battery
+fill, optional charging mark, and a seeded notification badge. Each screen has
 its own deterministic profile for a creation. Battery and signal are decorative,
 not the user's device readings. The seed is saved with each exported composition.
-Future screen layouts should reuse the status treatment, and any notification
-badges must match actual simulated items rather than showing invented counts.
+Future screen layouts should reuse `drawDeviceStatus`, and notification badges
+must stay tied to that seeded session rather than inventing chat people.
 
 The local browser export test uses synthetic audio and mocked services. It
 checks 450 frames, 1080 × 1920, H.264/AAC, selected-audio markers and an actual

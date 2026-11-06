@@ -26,19 +26,39 @@ export function formatScreenClock(capturedAtMs: number, frame: number) {
     date: DATE_FORMAT.format(date) };
 }
 
+export type ScreenDeviceStatus = {
+  batteryPercent: number;
+  network: 'wifi' | '4G' | '5G' | 'none';
+  signalBars: number;
+  dynamicIsland: boolean;
+  notificationCount: number;
+  charging: boolean;
+};
+
 // These are fictional visual details, not readings from the creator's device.
-export function screenDeviceStatus(capturedAtMs: number, deviceSeed?: number, variant: DailyScreenVariant = 'messages') {
+export function screenDeviceStatus(capturedAtMs: number, deviceSeed?: number, variant: DailyScreenVariant = 'messages'): ScreenDeviceStatus {
   if (deviceSeed === undefined) {
     const minute = Math.floor(capturedAtMs / 60000);
-    return { batteryPercent: 12, network: minute % 2 === 0 ? 'wifi' : '4G', signalBars: 2 + Math.abs(minute % 3), dynamicIsland: true };
+    return {
+      batteryPercent: 12, network: minute % 2 === 0 ? 'wifi' : '4G',
+      signalBars: 2 + Math.abs(minute % 3), dynamicIsland: true, notificationCount: 1 + (minute % 3), charging: false,
+    };
   }
-  const index = SCREEN_DESIGNS.findIndex(design => design.id === variant);
+  const index = Math.max(0, SCREEN_DESIGNS.findIndex(design => design.id === variant));
   const batteries = [8, 12, 19, 27, 38, 51, 64, 76, 88, 97];
-  const networks = ['wifi', '4G', 'none', 'wifi'] as const;
+  const networks = ['wifi', '4G', 'wifi', '5G'] as const;
   const network = networks[(deviceSeed + index) % networks.length];
-  return { batteryPercent: batteries[(deviceSeed + index) % batteries.length], network,
-    signalBars: network === 'none' ? 0 : 1 + ((deviceSeed + index * 3) % 4),
-    dynamicIsland: (deviceSeed + index) % 2 === 0 };
+  const batteryPercent = batteries[(deviceSeed + index) % batteries.length];
+  return {
+    batteryPercent,
+    network,
+    signalBars: 1 + ((deviceSeed + index * 3) % 4),
+    // Prefer a Dynamic Island silhouette — reads as a real modern iPhone capture.
+    dynamicIsland: true,
+    // Badge count stays consistent with the seeded “session,” not inventing chat people.
+    notificationCount: 1 + ((deviceSeed + index * 5) % 5),
+    charging: (deviceSeed + index) % 7 === 0 && batteryPercent < 40,
+  };
 }
 export function formatChatTime(capturedAtMs: number, frame: number) {
   return `${formatScreenClock(capturedAtMs, frame).time} ✓`;
@@ -48,8 +68,8 @@ export function chatBubbleWidth(lyricWidth: number, timestampWidth: number) {
 }
 
 type ScreenLine = { text: string; startFrame: number; active: boolean };
-// Cues in the final fractional frame are shown on the last available frame.
-const firstFrame = (ms: number) => Math.min(FRAMES - 1, Math.ceil(ms * FPS / 1000));
+// Align to the playhead frame that contains startMs so lyrics track WhisperX audio.
+const firstFrame = (ms: number) => Math.min(FRAMES - 1, Math.max(0, Math.floor(ms * FPS / 1000)));
 
 // Each displayed character comes from an approved cue. Punctuation and gaps
 // establish a new message; no words, names or conversation are invented.
@@ -111,19 +131,37 @@ function stroke(ctx: CanvasRenderingContext2D, color: string, width: number, dra
   ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); draw(); ctx.stroke();
 }
 
-function drawDeviceStatus(ctx: CanvasRenderingContext2D, capturedAtMs: number, frame: number, timeX: number, timeY: number, variant: DailyScreenVariant, deviceSeed?: number) {
+function drawWifiIcon(ctx: CanvasRenderingContext2D, x: number, y: number, color: string) {
+  stroke(ctx, color, 4, () => { ctx.arc(x, y, 16, -2.4, -0.74); ctx.moveTo(x - 8, y - 4); ctx.arc(x, y, 9, -2.4, -0.74); });
+  ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y + 2, 2.5, 0, Math.PI * 2); ctx.fill();
+}
+
+export function drawDeviceStatus(ctx: CanvasRenderingContext2D, capturedAtMs: number, frame: number, timeX: number, timeY: number, variant: DailyScreenVariant, deviceSeed?: number, ink = '#111') {
   const status = screenDeviceStatus(capturedAtMs, deviceSeed, variant);
-  if (status.dynamicIsland) rounded(ctx, 445, 18, 190, 36, 18, '#080808');
-  text(ctx, formatScreenClock(capturedAtMs, frame).time, timeX, timeY, '600 34px "Inter Variable"', '#111');
-  if (status.network !== 'none') for (let i = 0; i < 4; i++) rounded(ctx, 804 + 11 * i, timeY + 9 - 5 * i, 7, 9 + 5 * i, 2, i < status.signalBars ? '#111' : '#c5c5c5');
-  if (status.network === 'wifi') {
-    stroke(ctx, '#111', 4, () => { ctx.arc(884, timeY + 15, 18, -2.36, -.78); ctx.moveTo(877, timeY + 8); ctx.arc(884, timeY + 15, 10, -2.36, -.78); });
-    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(884, timeY + 15, 3, 0, Math.PI * 2); ctx.fill();
-  } else text(ctx, status.network === 'none' ? 'No Service' : '4G', status.network === 'none' ? 805 : 867, timeY + 3, '700 20px "Inter Variable"', '#111');
-  stroke(ctx, '#111', 3, () => ctx.roundRect(930, timeY - 13, 65, 28, 6));
-  rounded(ctx, 997, timeY - 5, 4, 12, 2, '#111');
-  rounded(ctx, 933, timeY - 10, 59, 22, 4, '#fff');
-  rounded(ctx, 933, timeY - 10, Math.max(4, 59 * status.batteryPercent / 100), 22, 3, status.batteryPercent <= 20 ? '#e84640' : '#36a95b');
+  const muted = ink === '#111' || ink === '#1b1c20' ? '#c5c5c5' : 'rgba(255,255,255,0.28)';
+  if (status.dynamicIsland) {
+    rounded(ctx, 420, 22, 240, 68, 34, '#0b0b0d');
+    if (status.notificationCount > 0) {
+      rounded(ctx, 630, 18, 42, 28, 14, '#ff3b30');
+      text(ctx, String(Math.min(9, status.notificationCount)), 651, 33, '700 18px "Inter Variable"', '#fff', 'center');
+    }
+  }
+  text(ctx, formatScreenClock(capturedAtMs, frame).time, timeX, timeY, '600 34px "Inter Variable"', ink);
+  for (let i = 0; i < 4; i++) rounded(ctx, 780 + 11 * i, timeY + 9 - 5 * i, 7, 9 + 5 * i, 2, i < status.signalBars ? ink : muted);
+  if (status.network === 'wifi') drawWifiIcon(ctx, 860, timeY + 8, ink);
+  else text(ctx, status.network, 875, timeY + 3, '700 20px "Inter Variable"', ink, 'right');
+  stroke(ctx, ink, 3, () => ctx.roundRect(900, timeY - 13, 65, 28, 6));
+  rounded(ctx, 967, timeY - 5, 4, 12, 2, ink);
+  rounded(ctx, 903, timeY - 10, 59, 22, 4, ink === '#111' || ink === '#1b1c20' ? '#fff' : 'rgba(255,255,255,0.18)');
+  const fill = status.batteryPercent <= 20 && !status.charging ? '#ff3b30' : '#34c759';
+  rounded(ctx, 903, timeY - 10, Math.max(4, 59 * status.batteryPercent / 100), 22, 3, fill);
+  if (status.charging) {
+    ctx.fillStyle = '#0b0b0d';
+    ctx.beginPath();
+    ctx.moveTo(938, timeY - 8); ctx.lineTo(928, timeY + 2); ctx.lineTo(934, timeY + 2);
+    ctx.lineTo(930, timeY + 12); ctx.lineTo(942, timeY + 1); ctx.lineTo(936, timeY + 1); ctx.closePath();
+    ctx.fill();
+  }
 }
 
 function avatar(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number) {
@@ -192,7 +230,7 @@ function drawMessenger(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[],
   let y=790;
   for (const item of items) {
     ctx.font = '400 42px "Inter Variable"'; const width=Math.min(720,Math.max(110,...item.wrapped.map(part=>ctx.measureText(part).width+54)));
-    const x=WIDTH-70-width; const offset=(1-Math.min(1,Math.max(0,(frame-item.line.startFrame+1)/5)))*12;
+    const x=WIDTH-70-width; const offset=(1-Math.min(1,Math.max(0,frame-item.line.startFrame+1)))*4;
     rounded(ctx,x,y+offset,width,item.height,32,'#1683ff');
     item.wrapped.forEach((part,i)=>text(ctx,part,x+27,y+offset+39+i*54,'400 42px "Inter Variable"','#fff'));
     y+=item.height+18;
@@ -285,7 +323,7 @@ export function drawDailyScreen(canvas: HTMLCanvasElement, cues: readonly LyricC
     ctx.font = '400 20px "Inter Variable"';
     const timestampWidth = chat ? ctx.measureText(messageTime).width : 0;
     const w = chatBubbleWidth(lyricWidth, timestampWidth);
-    const offset = (1 - Math.min(1, Math.max(0, (frame - line.startFrame + 1) / 5))) * 14;
+    const offset = (1 - Math.min(1, Math.max(0, frame - line.startFrame + 1))) * 4;
     const x = WIDTH - 98 - w;
     rounded(ctx, x, y + offset, w, h, variant === 'messages' ? 35 : 27, bubble);
     ctx.fillStyle = bubble; ctx.beginPath(); ctx.moveTo(x + w - 18, y + offset + h - 22); ctx.quadraticCurveTo(x + w + 2, y + offset + h + 2, x + w + 14, y + offset + h); ctx.lineTo(x + w - 20, y + offset + h); ctx.fill();

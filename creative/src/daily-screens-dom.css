@@ -21,6 +21,13 @@
 .mumoo-dom-signal span:nth-child(4) { height: 20px; }
 .mumoo-dom-signal span.is-off { opacity: 0.22; }
 .mumoo-dom-network { font-size: 18px; font-weight: 600; text-transform: uppercase; }
+.mumoo-dom-wifi {
+  width: 22px; height: 18px; position: relative;
+  background:
+    radial-gradient(circle at 50% 100%, currentColor 0 2.5px, transparent 2.6px),
+    radial-gradient(circle at 50% 100%, transparent 0 6px, currentColor 6.5px 8px, transparent 8.5px),
+    radial-gradient(circle at 50% 100%, transparent 0 12px, currentColor 12.5px 14px, transparent 14.5px);
+}
 .mumoo-dom-battery {
   width: 54px; height: 26px; border: 2px solid currentColor; border-radius: 5px; padding: 2px; position: relative;
 }
@@ -29,9 +36,17 @@
   border-radius: 0 2px 2px 0; background: currentColor;
 }
 .mumoo-dom-battery i { display: block; height: 100%; border-radius: 2px; background: #34c759; }
+.mumoo-dom-battery.is-low i { background: #ff3b30; }
+.mumoo-dom-battery.is-charging i { background: #34c759; }
 .mumoo-dom-island {
   position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
   width: 240px; height: 68px; border-radius: 34px; background: #0b0b0d; z-index: 4;
+}
+.mumoo-dom-badge {
+  position: absolute; top: 18px; left: calc(50% + 95px); z-index: 5;
+  min-width: 42px; height: 28px; padding: 0 10px; border-radius: 14px;
+  background: #ff3b30; color: #fff; font-size: 18px; font-weight: 700;
+  display: grid; place-items: center;
 }
 .mumoo-dom-home {
   position: absolute; left: 390px; bottom: 28px; width: 300px; height: 10px; border-radius: 5px; background: #141416; z-index: 5;
