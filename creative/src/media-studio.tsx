@@ -88,9 +88,10 @@ export function MediaStudio({ profile, composition, audio, token, position, play
     const vision = stagingHost && !forceFast && !legacyResearch;
     const seed = planSeed;
     let previousIds: string[] = [];
-    if (visionProfile) { try { const value = JSON.parse(sessionStorage.getItem(`mumoo-recent-${visionProfile.clipSha256}`) || '[]'); if (Array.isArray(value)) previousIds = value.filter(x => typeof x === 'string' && /^(?:pixabay|vimeo)-\d+$/.test(x)).slice(0,8); } catch { /* Storage is optional. */ } }
+    if (visionProfile) { try { const value = JSON.parse(sessionStorage.getItem(`mumoo-recent-${visionProfile.clipSha256}`) || '[]'); if (Array.isArray(value)) previousIds = value.filter(x => typeof x === 'string' && /^(?:pixabay|vimeo)-\d+$/.test(x)).slice(0,12); } catch { /* Storage is optional. */ } }
+    const fastSeed = (seed + directionIndex * 17) & 0x7fffffff;
     const runFastPlan = () => visionProfile
-      ? mediaRequest(token, { operation: 'fast-plan', profile: visionProfile, seed, previousIds: previousIds.filter(id => id.startsWith('pixabay-')).slice(0, 4), ...(direction ? { preferredConcept: direction } : {}) })
+      ? mediaRequest(token, { operation: 'fast-plan', profile: visionProfile, seed: fastSeed, previousIds: previousIds.filter(id => id.startsWith('pixabay-')).slice(0, 12), ...(direction ? { preferredConcept: direction } : {}) })
       : Promise.reject(new Error('Music profile does not match this clip.'));
     const runVision = () => {
       if (!visionProfile) return Promise.reject(new Error('Music profile does not match this clip.'));
@@ -117,7 +118,13 @@ export function MediaStudio({ profile, composition, audio, token, position, play
       const usedVision = Boolean(vision && !legacyResearch && data && typeof data === 'object' && ('direction' in data || 'treatment' in data || 'visualProfiles' in data));
       trace('director_response', { durationMs: Math.round(performance.now() - started), category: data?.status === 'ready' ? (usedVision ? 'vision_ready' : 'ready') : 'unavailable' });
       if (data?.status !== 'ready') { setResult(data); setError(data?.reason === 'Some Pixabay searches failed and not enough distinct videos were available.' ? 'Pixabay searches did not finish. Please try again.' : (typeof data?.error === 'string' ? data.error : 'Not enough matching footage or music timing is available yet.')); return; }
-      if (stagingHost && visionProfile && Array.isArray(data.assets)) { try { sessionStorage.setItem(`mumoo-recent-${visionProfile.clipSha256}`, JSON.stringify(data.assets.map((a: {id: string}) => a.id).slice(0,8))); } catch { /* Storage is optional. */ } }
+      if (stagingHost && visionProfile && Array.isArray(data.assets)) {
+        try {
+          const nextIds = data.assets.map((a: { id: string }) => a.id).filter((id: string) => /^(?:pixabay|vimeo)-\d+$/.test(id));
+          const merged = [...nextIds, ...previousIds.filter(id => !nextIds.includes(id))].slice(0, 12);
+          sessionStorage.setItem(`mumoo-recent-${visionProfile.clipSha256}`, JSON.stringify(merged));
+        } catch { /* Storage is optional. */ }
+      }
       if (!research) { setResult(data); setEdit(directorEdit(profile.clip, data)); return; }
       if (!Array.isArray(data.assets) || data.assets.length < 2 || data.assets.length > 4) throw new Error('Invalid catalog plan.');
       const hasExecutionPlan = data && typeof data === 'object' && data.executionPlan && typeof data.executionPlan === 'object';
