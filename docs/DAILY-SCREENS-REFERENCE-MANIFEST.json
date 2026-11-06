@@ -253,6 +253,20 @@
       "observations": null,
       "implementationReview": "blocked_no_inspected_reference",
       "ownerReview": "pending"
+    },
+    {
+      "id": "whatsapp-ios-gummble-sticker-pack",
+      "product": "WhatsApp",
+      "platform": "iOS",
+      "version": null,
+      "state": "conversation after sharing a sticker pack",
+      "source": "https://gummble.com/screens/sc_0946013255784325b64de728a39b8cb8",
+      "capturedAt": null,
+      "inspectedAt": "2026-11-06",
+      "reuse": "Gummble research/internal use; redistribution not established",
+      "observations": "compact contact header with voice and video controls; light doodle wallpaper; right green outgoing and left white incoming bubbles; timestamps and check marks; compact composer",
+      "implementationReview": "not_verified",
+      "ownerReview": "pending"
     }
   ]
 }
