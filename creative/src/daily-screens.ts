@@ -1,9 +1,9 @@
 import {
-  FPS, FRAMES, HEIGHT, WIDTH, isDomDailyScreen,
+  FPS, FRAMES, HEIGHT, WIDTH, isDomDailyScreen, isSceneDailyScreen,
   type DailyScreenVariant, type LyricCue,
 } from './composition';
 
-export const SCREEN_DESIGNS: readonly { id: DailyScreenVariant; name: string; renderer: 'canvas' | 'dom' }[] = [
+export const SCREEN_DESIGNS: readonly { id: DailyScreenVariant; name: string; renderer: 'canvas' | 'dom' | 'scene' }[] = [
   { id: 'messages', name: 'Messages', renderer: 'canvas' },
   { id: 'whatsapp', name: 'WhatsApp', renderer: 'canvas' },
   { id: 'telegram', name: 'Telegram', renderer: 'canvas' },
@@ -12,6 +12,16 @@ export const SCREEN_DESIGNS: readonly { id: DailyScreenVariant; name: string; re
   { id: 'dating', name: 'Dating match', renderer: 'dom' },
   { id: 'ride', name: 'Ride', renderer: 'dom' },
   { id: 'food', name: 'Food delivery', renderer: 'dom' },
+  { id: 'package-tracking', name: 'Package tracking', renderer: 'scene' },
+  { id: 'banking-alert', name: 'Banking alert', renderer: 'scene' },
+  { id: 'order-update', name: 'Order update', renderer: 'scene' },
+  { id: 'lock-screen', name: 'Lock screen', renderer: 'scene' },
+  { id: 'missed-call', name: 'Missed call', renderer: 'scene' },
+  { id: 'comment-thread', name: 'Comment thread', renderer: 'scene' },
+  { id: 'search-screen', name: 'Search', renderer: 'scene' },
+  { id: 'notification-feed', name: 'Notifications', renderer: 'scene' },
+  { id: 'story-reply', name: 'Story reply', renderer: 'scene' },
+  { id: 'social-post', name: 'Social post', renderer: 'scene' },
 ];
 
 export const CANVAS_SCREEN_DESIGNS = SCREEN_DESIGNS.filter(design => design.renderer === 'canvas');
@@ -275,7 +285,7 @@ export function drawDailyScreen(canvas: HTMLCanvasElement, cues: readonly LyricC
   options: { variant: DailyScreenVariant; capturedAtMs: number; deviceSeed?: number } = { variant: 'messages', capturedAtMs: 0 }) {
   const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Canvas is unavailable.');
   const { variant, capturedAtMs } = options;
-  if (isDomDailyScreen(variant)) throw new Error('Use paintDailyScreen for React Daily Screens designs.');
+  if (isDomDailyScreen(variant) || isSceneDailyScreen(variant)) throw new Error('Use paintDailyScreen for scene Daily Screens designs.');
   if (options.variant === 'messenger') { drawMessenger(ctx, cues, frame, capturedAtMs, options.deviceSeed); return; }
   const chat = variant === 'whatsapp' || variant === 'telegram';
   const background = variant === 'whatsapp' ? '#efeae2' : variant === 'telegram' ? '#b7d5a4' : '#ffffff';

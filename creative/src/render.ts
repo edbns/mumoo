@@ -1,5 +1,5 @@
 import '@fontsource-variable/inter';
-import { evaluate, isDomDailyScreen, lyricsFor, WIDTH, HEIGHT, type Composition } from './composition';
+import { evaluate, isDomDailyScreen, isSceneDailyScreen, lyricsFor, WIDTH, HEIGHT, type Composition } from './composition';
 import { drawDailyScreen } from './daily-screens';
 import { drawLyricImpact } from './lyric-impact';
 import { activeLayers, reaction, variation } from './assembly';
@@ -28,8 +28,8 @@ export async function loadFont(text: string) {
 export function draw(canvas: HTMLCanvasElement, composition: Composition, frame: number) {
   if (composition.template === 'daily-screens') {
     const daily = composition.dailyScreen ?? { variant: 'messages' as const, capturedAtMs: 0 };
-    if (isDomDailyScreen(daily.variant)) {
-      throw new Error('React Daily Screens require paintDailyScreen for export.');
+    if (isDomDailyScreen(daily.variant) || isSceneDailyScreen(daily.variant)) {
+      throw new Error('Scene Daily Screens require paintDailyScreen for export.');
     }
     drawDailyScreen(canvas, lyricsFor(composition), frame, daily);
     return;

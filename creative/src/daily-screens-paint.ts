@@ -1,11 +1,12 @@
-import { isDomDailyScreen, type DailyScreenVariant, type LyricCue } from './composition';
+import { isDomDailyScreen, isSceneDailyScreen, type DailyScreenVariant, type LyricCue } from './composition';
 import { drawDomDailyScreen } from './daily-screens-dom-canvas';
+import { drawSceneDailyScreen } from './daily-screens-scenes-canvas';
 import { drawDailyScreen } from './daily-screens';
 
 /**
  * Paint any Daily Screens design into the Mediabunny canvas.
- * Messaging designs stay on the original Canvas path. Dating/ride/food use a
- * solid-color Canvas painter matched to the React preview (fast + export-stable).
+ * Messaging stays on the original Canvas path. Dating/ride/food and the newer
+ * scene layouts use solid-color Canvas painters (fast + export-stable).
  */
 export async function paintDailyScreen(
   canvas: HTMLCanvasElement,
@@ -15,6 +16,14 @@ export async function paintDailyScreen(
 ) {
   if (isDomDailyScreen(options.variant)) {
     drawDomDailyScreen(canvas, cues, frame, {
+      variant: options.variant,
+      capturedAtMs: options.capturedAtMs,
+      deviceSeed: options.deviceSeed,
+    });
+    return;
+  }
+  if (isSceneDailyScreen(options.variant)) {
+    drawSceneDailyScreen(canvas, cues, frame, {
       variant: options.variant,
       capturedAtMs: options.capturedAtMs,
       deviceSeed: options.deviceSeed,

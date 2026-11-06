@@ -11,8 +11,8 @@ test('screen status is deterministic and chat timestamps use one tick', async ()
     assert.equal(screenDeviceStatus(time).batteryPercent, 12);
     assert.equal(screenDeviceStatus(time).dynamicIsland, true);
     assert.ok(screenDeviceStatus(time).notificationCount >= 1);
-    const statuses = ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram', 'dating', 'ride', 'food'].map(id => screenDeviceStatus(time, 42, id));
-    assert.equal(new Set(statuses.map(s => s.batteryPercent)).size, 8);
+    const statuses = ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram', 'dating', 'ride', 'food', 'package-tracking', 'lock-screen'].map(id => screenDeviceStatus(time, 42, id));
+    assert.ok(new Set(statuses.map(s => s.batteryPercent)).size >= 8);
     assert.notDeepEqual(screenDeviceStatus(time, 42, 'messages'), screenDeviceStatus(time, 43, 'messages'));
     for (const status of statuses) {
       assert.ok(status.batteryPercent >= 5 && status.batteryPercent <= 100);
@@ -27,13 +27,15 @@ test('screen status is deterministic and chat timestamps use one tick', async ()
   } finally { await server.close(); }
 });
 
-test('eight screen designs use a captured real time and reject invalid variants', async () => {
+test('eighteen screen designs use a captured real time and reject invalid variants', async () => {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom', logLevel: 'error' });
   try {
     const { SCREEN_DESIGNS, formatScreenClock } = await server.ssrLoadModule('/src/daily-screens.ts');
     const { validate } = await server.ssrLoadModule('/src/composition.ts');
-    assert.deepEqual(SCREEN_DESIGNS.map(design => design.id), ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram', 'dating', 'ride', 'food']);
+    assert.equal(SCREEN_DESIGNS.length, 18);
+    assert.deepEqual(SCREEN_DESIGNS.slice(0, 8).map(design => design.id), ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram', 'dating', 'ride', 'food']);
     assert.deepEqual(SCREEN_DESIGNS.filter(design => design.renderer === 'dom').map(design => design.id), ['dating', 'ride', 'food']);
+    assert.equal(SCREEN_DESIGNS.filter(design => design.renderer === 'scene').length, 10);
     const capturedAtMs = new Date(2026, 10, 6, 14, 7).getTime();
     assert.equal(formatScreenClock(capturedAtMs, 0).time, '2:07');
     const nearNextMinute = new Date(2026, 10, 6, 14, 7, 59).getTime();
