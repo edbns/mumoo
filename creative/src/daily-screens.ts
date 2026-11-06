@@ -63,14 +63,14 @@ export function wrapScreenText(ctx: Pick<CanvasRenderingContext2D, 'measureText'
   return lines;
 }
 
-export function layoutScreenLines(ctx: Pick<CanvasRenderingContext2D, 'measureText'>, lines: readonly ScreenLine[], extraHeight = 0) {
+export function layoutScreenLines(ctx: Pick<CanvasRenderingContext2D, 'measureText'>, lines: readonly ScreenLine[], extraHeight = 0, startY = 485) {
   const items = lines.map(line => {
     const wrapped = wrapScreenText(ctx, line.text, 670);
     return { line, wrapped, height: wrapped.length * 63 + 35 + extraHeight, y: 0 };
   });
   // Keep the newest lines visible and reserve space for the entrance motion.
-  while (items.length > 1 && items.reduce((sum, item) => sum + item.height + 24, 485) - 24 > 1536) items.shift();
-  let y = 485;
+  while (items.length > 1 && items.reduce((sum, item) => sum + item.height + 24, startY) - 24 > 1536) items.shift();
+  let y = startY;
   for (const item of items) { item.y = y; y += item.height + 24; }
   return items;
 }
@@ -173,12 +173,18 @@ const wallpaperTiles = new Map<boolean, HTMLCanvasElement>();
 function wallpaper(ctx: CanvasRenderingContext2D, telegram: boolean) {
   let tile = wallpaperTiles.get(telegram);
   if (!tile) {
-    tile = document.createElement('canvas'); tile.width = 240; tile.height = 240;
+    tile = document.createElement('canvas'); tile.width = 480; tile.height = 480;
     const p = tile.getContext('2d'); if (!p) return;
     p.strokeStyle = telegram ? '#6f9f6c' : '#d8cbb7'; p.lineWidth = 3; p.globalAlpha = .27;
     p.beginPath(); p.roundRect(28, 30, 52, 40, 13); p.moveTo(43, 70); p.lineTo(38, 79); p.lineTo(54, 70);
     p.moveTo(157, 46); p.lineTo(167, 24); p.lineTo(177, 46); p.lineTo(198, 55); p.lineTo(177, 63); p.lineTo(167, 85); p.lineTo(157, 63); p.lineTo(135, 55); p.closePath();
     p.moveTo(55, 161); p.arc(54, 161, 23, 0, Math.PI * 2); p.moveTo(155, 166); p.quadraticCurveTo(180, 129, 202, 166); p.quadraticCurveTo(181, 190, 155, 166); p.stroke();
+    p.beginPath();p.roundRect(290,35,76,52,12);p.moveTo(305,46);p.lineTo(345,46);p.moveTo(340,118);p.arc(340,118,19,0,Math.PI*2);
+    p.moveTo(228,250);p.bezierCurveTo(250,210,285,215,294,248);p.bezierCurveTo(299,275,274,290,248,290);p.closePath();
+    p.moveTo(60,310);p.bezierCurveTo(40,278,8,303,60,345);p.bezierCurveTo(112,303,80,278,60,310);
+    p.moveTo(350,326);p.lineTo(388,286);p.lineTo(412,310);p.lineTo(374,350);p.closePath();
+    p.moveTo(180,390);p.arc(180,390,30,0,Math.PI*2);p.moveTo(165,390);p.lineTo(195,390);p.moveTo(180,375);p.lineTo(180,405);
+    p.moveTo(288,405);p.quadraticCurveTo(310,370,332,405);p.quadraticCurveTo(310,430,288,405);p.stroke();
     wallpaperTiles.set(telegram, tile);
   }
   const pattern = ctx.createPattern(tile, 'repeat'); if (pattern) { ctx.fillStyle = pattern; ctx.fillRect(0, 305, WIDTH, 1280); }
@@ -200,25 +206,39 @@ export function drawDailyScreen(canvas: HTMLCanvasElement, cues: readonly LyricC
   ctx.fillStyle = variant === 'whatsapp' ? '#f6f4f0' : variant === 'telegram' ? '#f1f5ef' : '#ffffff'; ctx.fillRect(0, 0, WIDTH, variant === 'messages' ? 334 : 295);
   text(ctx, clock.time, 130, 100, '600 34px "Inter Variable"', '#111111');
   for (let i = 0; i < 4; i++) rounded(ctx, 810 + 12 * i, 116 - 6 * i, 8, 10 + 6 * i, 3, '#111111');
-  stroke(ctx, '#111111', 4, () => { ctx.arc(892, 119, 18, 3.9, 5.52); ctx.moveTo(883, 121); ctx.arc(892, 121, 10, 3.9, 5.52); });
+  stroke(ctx, '#111111', 4, () => { ctx.arc(892, 119, 18, -2.36, -.78); ctx.moveTo(885, 112); ctx.arc(892, 119, 10, -2.36, -.78); });
+  ctx.fillStyle = '#111111'; ctx.beginPath(); ctx.arc(892, 119, 3, 0, Math.PI * 2); ctx.fill();
   rounded(ctx, 925, 98, 47, 25, 7, '#161616'); rounded(ctx, 929, 102, 34, 17, 4, '#ffffff'); rounded(ctx, 974, 106, 3, 9, 1, '#161616');
   arrow(ctx, 76, 235, accent);
   if (variant === 'messages') {
     avatar(ctx, 540, 225, 50); rounded(ctx, 495, 288, 90, 17, 4, '#3f424a'); videoIcon(ctx, 908, 218, accent);
+  } else if (variant === 'whatsapp') {
+    text(ctx, 'Messages', 292, 235, '600 42px "Inter Variable"', '#111111');
+  } else if (variant === 'telegram') {
+    rounded(ctx, 435, 207, 210, 25, 4, '#25262b');
+    text(ctx, 'last seen recently', 540, 260, '400 27px "Inter Variable"', '#8a9097', 'center');
+    avatar(ctx, 990, 225, 43);
   } else {
     avatar(ctx, 175, 228, 43); rounded(ctx, 244, 205, 160, 21, 5, '#25262b');
-    if (variant === 'instagram' || variant === 'telegram') { ctx.fillStyle = '#61cf56'; ctx.beginPath(); ctx.arc(205, 257, 10, 0, Math.PI * 2); ctx.fill(); }
-    if (variant === 'telegram') text(ctx, 'last seen recently', 245, 252, '400 24px "Inter Variable"', '#8a9097');
+    if (variant === 'instagram') { ctx.fillStyle = '#61cf56'; ctx.beginPath(); ctx.arc(205, 257, 10, 0, Math.PI * 2); ctx.fill(); text(ctx, 'Business chat', 245, 260, '400 25px "Inter Variable"', '#8a9097'); }
     if (variant !== 'messenger') { phoneIcon(ctx, 839, 203, accent); videoIcon(ctx, 926, 207, accent); }
   }
   ctx.fillStyle = '#e6e6e8'; ctx.fillRect(0, variant === 'messages' ? 334 : 295, WIDTH, 1);
   const initialClock = formatScreenClock(capturedAtMs, 0);
   const dateLabel = `${initialClock.date} · ${initialClock.time} ${initialClock.suffix}`;
-  if (chat) { rounded(ctx, 355, 356, 370, 47, 20, variant === 'telegram' ? '#d8e8d4' : '#ffffff'); text(ctx, dateLabel, WIDTH / 2, 380, '500 24px "Inter Variable"', '#69726a', 'center'); }
-  else text(ctx, dateLabel, WIDTH / 2, 399, '500 24px "Inter Variable"', '#92949c', 'center');
+  if (chat) { rounded(ctx, 355, 356, 370, 47, 20, variant === 'telegram' ? '#d8e8d4' : '#ffffff'); text(ctx, variant === 'whatsapp' ? 'Today' : dateLabel, WIDTH / 2, 380, '500 24px "Inter Variable"', '#69726a', 'center'); }
+  else {
+    if (variant === 'messages') text(ctx, 'iMessage', WIDTH / 2, 368, '500 25px "Inter Variable"', '#92949c', 'center');
+    text(ctx, dateLabel, WIDTH / 2, 399, '500 24px "Inter Variable"', '#92949c', 'center');
+  }
+  if (variant === 'whatsapp') {
+    rounded(ctx, 152, 430, 776, 120, 18, '#fff1d8');
+    text(ctx, 'Messages and calls are end-to-end encrypted.', 540, 465, '400 25px "Inter Variable"', '#262321', 'center');
+    text(ctx, 'Only people in this chat can read or share them.', 540, 505, '400 25px "Inter Variable"', '#262321', 'center');
+  }
   const { lines } = dailyScreenFrame(cues, frame);
   ctx.font = '400 48px "Inter Variable"';
-  for (const { line, wrapped, height: h, y } of layoutScreenLines(ctx, lines, chat ? 25 : 0)) {
+  for (const { line, wrapped, height: h, y } of layoutScreenLines(ctx, lines, chat ? 25 : 0, variant === 'whatsapp' ? 590 : 485)) {
     const messageClock = formatScreenClock(capturedAtMs, line.startFrame);
     const messageTime = `${messageClock.time} ${messageClock.suffix} ✓✓`;
     ctx.font = '400 48px "Inter Variable"';
