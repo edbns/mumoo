@@ -85,13 +85,13 @@ const drawers: Record<ImpactVariant, Drawer> = {
     const { ctx, state, wordEnter, reaction } = draw;
     fillScene(ctx, meta.paper);
     if (!state.word) return;
-    const fit = fitImpactText(ctx, state.word.toLocaleUpperCase(), 980, 280, 900, 2);
-    const scale = lerp(1.22, 1.04, wordEnter) + reaction.beat * 0.03;
+    const fit = fitImpactText(ctx, state.word.toLocaleUpperCase(), 1000, 260, 900, 2);
+    const scale = lerp(1.08, 1.0, wordEnter) + reaction.beat * 0.02;
     ctx.save();
     ctx.translate(WIDTH / 2, HEIGHT / 2);
     ctx.scale(scale, scale);
-    ctx.rotate((-3 + reaction.energy * 2) * Math.PI / 180);
-    drawCenteredLines(ctx, fit.lines, fit.size, meta.ink, 0, 0.9, 980, 0);
+    ctx.rotate((-2 + reaction.energy * 1.5) * Math.PI / 180);
+    drawCenteredLines(ctx, fit.lines, fit.size, meta.ink, 0, 0.9, 1000 / scale, 0);
     ctx.restore();
     ctx.fillStyle = meta.accent;
     ctx.fillRect(0, HEIGHT - 28, WIDTH * (0.2 + reaction.energy * 0.6), 28);
