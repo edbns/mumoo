@@ -7,7 +7,7 @@ import { directorExecutionEdit, type ExecutableEdit } from './director-plan';
 import { mediaRequest } from './media-admin';
 import { trace, traces } from './staging-diagnostics';
 import { buildVisionMusicProfile } from './vision-music-profile';
-import { runVisionResearch } from './vision-research';
+import { runVisionResearch, type VisionBrief } from './vision-research';
 import { renderMp4 } from './browser-export';
 import { inspectHumanFootage } from './human-observation';
 import { inspectVisualFootage } from './visual-footage';
@@ -60,7 +60,8 @@ export function MediaStudio({ profile, composition, audio, token, position, play
   const [userAssets, setUserAssets] = useState<MediaAsset[]>([]); const urls = useRef<string[]>([]);
   const [previewReady, setPreviewReady] = useState(false); const [progress, setProgress] = useState<number>();
   const [montageStyle, setMontageStyle] = useState<MontageStyle>('pulse'); const [movement, setMovement] = useState<Record<string,number>>({}); const [movementPending, setMovementPending] = useState(false); const [useOwn, setUseOwn] = useState(false);
-  const [direction, setDirection] = useState<string | null>(null); const [directions, setDirections] = useState<{concept:string;candidateIds:string[]}[]>([]);
+  const [direction, setDirection] = useState<string | null>(null); const [directions, setDirections] = useState<{concept:string;candidateIds:string[];treatment?:string}[]>([]);
+  const [directionIndex, setDirectionIndex] = useState(0);
   const [planSeed] = useState(() => crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff);
   const waitingForAnalysis=montage && (profile.musicAnalysis.status==='pending' || (profile.musicAnalysis.status==='unavailable' && Boolean(token)));
   const movementAbort = useRef<AbortController | null>(null);
@@ -73,31 +74,54 @@ export function MediaStudio({ profile, composition, audio, token, position, play
   useEffect(() => {
     if (montage && useOwn) return;
     if (!profileData || !token) { setResult(null); trace('director_not_started', { category: !token ? 'access_missing' : 'analysis_not_ready' }); return; }
-    let cancelled = false; const controller = new AbortController(); const researchUrls: string[] = []; setBusy(true); setError(''); setResult(null); setEdit(null); setDirections([]);
+    let cancelled = false; const controller = new AbortController(); const researchUrls: string[] = []; setBusy(true); setError(''); setResult(null); setEdit(null);
     const started = performance.now(); trace('director_started');
     const onsetsMs = profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result.features.transientsMs : [];
     const stagingHost = location.hostname === 'mumoo-staging.netlify.app' || (import.meta.env.DEV && location.hostname === '127.0.0.1');
-    // Old shared research links must not silently switch normal creation back
-    // to the slow vision pipeline. Keep the existing experiment behind an
-    // explicit internal-only opt-in for reproducible research.
-    const vision = stagingHost && new URLSearchParams(location.search).get('vision-intelligence') === '1' && new URLSearchParams(location.search).get('vision-research-internal') === '1';
+    const params = new URLSearchParams(location.search);
+    // Path A: song-aware vision Director is the staging default. Opt out with ?director=fast.
+    const forceFast = params.get('director') === 'fast';
     const research = stagingHost;
-    const stagingPixabay = research && new URLSearchParams(location.search).get('staging-pixabay') === '1';
-    const stagingOwned = research && new URLSearchParams(location.search).get('staging-owned') === '1';
-    const legacyResearch = stagingHost && new URLSearchParams(location.search).get('catalog-eval') === '1' && new URLSearchParams(location.search).get('catalog-research-internal') === '1';
+    const stagingPixabay = research && params.get('staging-pixabay') === '1';
+    const stagingOwned = research && params.get('staging-owned') === '1';
+    const legacyResearch = stagingHost && params.get('catalog-eval') === '1' && params.get('catalog-research-internal') === '1';
+    const vision = stagingHost && !forceFast && !legacyResearch;
     const seed = planSeed;
     let previousIds: string[] = [];
-    if (visionProfile) { try { const value = JSON.parse(sessionStorage.getItem(`mumoo-recent-${visionProfile.clipSha256}`) || '[]'); if (Array.isArray(value)) previousIds = value.filter(x => typeof x === 'string' && /^pixabay-\d+$/.test(x)).slice(0,4); } catch { /* Storage is optional. */ } }
-    const planned = vision ? (visionProfile ? runVisionResearch(visionProfile, token, controller.signal, setVisionStage) : Promise.reject(new Error('Music profile does not match this clip.'))) : stagingHost && !legacyResearch ? (visionProfile ? mediaRequest(token, { operation: 'fast-plan', profile: visionProfile, seed, previousIds, ...(direction ? { preferredConcept: direction } : {}) }) : Promise.reject(new Error('Music profile does not match this clip.'))) : mediaRequest(token, { operation: legacyResearch ? 'research-plan' : 'director', profile: profileData, onsetsMs, ...(stagingOwned && { stagingOwned: true }), ...(stagingPixabay && { stagingPixabay: true }) });
+    if (visionProfile) { try { const value = JSON.parse(sessionStorage.getItem(`mumoo-recent-${visionProfile.clipSha256}`) || '[]'); if (Array.isArray(value)) previousIds = value.filter(x => typeof x === 'string' && /^(?:pixabay|vimeo)-\d+$/.test(x)).slice(0,8); } catch { /* Storage is optional. */ } }
+    const runFastPlan = () => visionProfile
+      ? mediaRequest(token, { operation: 'fast-plan', profile: visionProfile, seed, previousIds: previousIds.filter(id => id.startsWith('pixabay-')).slice(0, 4), ...(direction ? { preferredConcept: direction } : {}) })
+      : Promise.reject(new Error('Music profile does not match this clip.'));
+    const runVision = () => {
+      if (!visionProfile) return Promise.reject(new Error('Music profile does not match this clip.'));
+      return runVisionResearch(visionProfile, token, controller.signal, setVisionStage, {
+        directionIndex,
+        excludeIds: previousIds,
+        onBriefs: (briefs: VisionBrief[]) => {
+          if (!cancelled) setDirections(briefs.map(item => ({ concept: item.concept || item.label, candidateIds: item.candidateIds || [], treatment: item.treatment })));
+        },
+      }).catch(async (cause: unknown) => {
+        if (controller.signal.aborted) throw cause;
+        setVisionStage('Vision Director unavailable — using stock fallback…');
+        trace('director_vision_fallback', { category: cause instanceof Error ? cause.message.slice(0, 80) : 'unavailable' });
+        return runFastPlan();
+      });
+    };
+    const planned = vision && !legacyResearch
+      ? runVision()
+      : stagingHost && !legacyResearch
+        ? runFastPlan()
+        : mediaRequest(token, { operation: legacyResearch ? 'research-plan' : 'director', profile: profileData, onsetsMs, ...(stagingOwned && { stagingOwned: true }), ...(stagingPixabay && { stagingPixabay: true }) });
     void planned.then(async data => {
       if (cancelled) return;
-      trace('director_response', { durationMs: Math.round(performance.now() - started), category: data?.status === 'ready' ? 'ready' : 'unavailable' });
-      if (data?.status !== 'ready') { setResult(data); setError(data?.reason === 'Some Pixabay searches failed and not enough distinct videos were available.' ? 'Pixabay searches did not finish. Please try again.' : 'Not enough matching footage or music timing is available yet.'); return; }
-      if (stagingHost && !vision && !legacyResearch && visionProfile && Array.isArray(data.assets)) { try { sessionStorage.setItem(`mumoo-recent-${visionProfile.clipSha256}`, JSON.stringify(data.assets.map((a: {id: string}) => a.id).slice(0,4))); } catch { /* Storage is optional. */ } }
+      const usedVision = Boolean(vision && !legacyResearch && data && typeof data === 'object' && ('direction' in data || 'treatment' in data || 'visualProfiles' in data));
+      trace('director_response', { durationMs: Math.round(performance.now() - started), category: data?.status === 'ready' ? (usedVision ? 'vision_ready' : 'ready') : 'unavailable' });
+      if (data?.status !== 'ready') { setResult(data); setError(data?.reason === 'Some Pixabay searches failed and not enough distinct videos were available.' ? 'Pixabay searches did not finish. Please try again.' : (typeof data?.error === 'string' ? data.error : 'Not enough matching footage or music timing is available yet.')); return; }
+      if (stagingHost && visionProfile && Array.isArray(data.assets)) { try { sessionStorage.setItem(`mumoo-recent-${visionProfile.clipSha256}`, JSON.stringify(data.assets.map((a: {id: string}) => a.id).slice(0,8))); } catch { /* Storage is optional. */ } }
       if (!research) { setResult(data); setEdit(directorEdit(profile.clip, data)); return; }
       if (!Array.isArray(data.assets) || data.assets.length < 2 || data.assets.length > 4) throw new Error('Invalid catalog plan.');
-      if (stagingHost && !vision && !legacyResearch) {
-        if (!visionProfile) throw new Error('Music profile does not match this clip.');
+      const hasExecutionPlan = data && typeof data === 'object' && data.executionPlan && typeof data.executionPlan === 'object';
+      if (stagingHost && hasExecutionPlan && visionProfile) {
         const pending = new Map<string, string>(data.assets.map((asset: { id: string }) => [asset.id, `blob:pending-${asset.id}`]));
         directorExecutionEdit(profile.clip, data, pending, composition, visionProfile.clipSha256);
       }
@@ -105,14 +129,14 @@ export function MediaStudio({ profile, composition, audio, token, position, play
       for (const asset of data.assets) {
         if (typeof asset?.id !== 'string' || !/^(?:cma-\d+|si-[a-f0-9]{24}|commons2-\d+|owned-[a-f0-9]{24}|pixabay-\d+|vimeo-\d+)$/.test(asset.id)) throw new Error('Invalid catalog asset.');
         const assetStarted = performance.now(); trace('asset_fetch_started');
-        const response = await fetch('/api/media-catalog', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json', 'X-Mumoo-Brain-Access': token }, body: JSON.stringify({ operation: 'research-asset', id: asset.id, ...((asset.id.startsWith('pixabay-') || asset.id.startsWith('vimeo-')) ? { query: asset.query } : {}) }) });
+        const response = await fetch('/api/media-catalog', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json', 'X-Mumoo-Brain-Access': token }, body: JSON.stringify({ operation: 'research-asset', id: asset.id, ...((asset.id.startsWith('pixabay-') || asset.id.startsWith('vimeo-')) ? { query: asset.query || asset.title || 'staging' } : {}) }) });
         trace('asset_fetch_response', { status: response.status, durationMs: Math.round(performance.now() - assetStarted) });
         if (!response.ok) throw new Error('Approved media is unavailable.');
         const blob = await response.blob(); if (cancelled) return;
         const url = URL.createObjectURL(blob); researchUrls.push(url); loaded.set(asset.id, url);
       }
       let plan = data;
-      if (stagingHost && !vision && !legacyResearch && visionProfile) {
+      if (stagingHost && !usedVision && !legacyResearch && visionProfile && !hasExecutionPlan) {
         setVisionStage('Measuring authorized footage…');
         const visualObservations = [];
         for (const asset of data.assets) {
@@ -129,16 +153,18 @@ export function MediaStudio({ profile, composition, audio, token, position, play
           plan = await mediaRequest(token, { operation: 'fast-plan', profile: visionProfile, seed, previousIds: [], preferredConcept: direction || undefined, visualObservations });
           if (plan?.status !== 'ready') throw new Error('The measured composition could not be prepared.');
         }
-        if (Array.isArray(plan.creativeDirections)) setDirections(plan.creativeDirections.filter((item: {concept?: unknown}) => typeof item?.concept === 'string'));
       }
+      if (Array.isArray(plan.creativeDirections)) setDirections(plan.creativeDirections.filter((item: {concept?: unknown}) => typeof item?.concept === 'string'));
       if (!cancelled) {
         setResult(plan);
-        const next=stagingHost && !vision && !legacyResearch ? directorExecutionEdit(profile.clip, plan, loaded, composition, visionProfile!.clipSha256) : researchDirectorEdit(profile.clip, plan, loaded);
+        const next = stagingHost && visionProfile && (plan.executionPlan || hasExecutionPlan)
+          ? directorExecutionEdit(profile.clip, plan, loaded, composition, visionProfile.clipSha256)
+          : researchDirectorEdit(profile.clip, plan, loaded);
         setEdit(next); if (montage) void measureMovement(next.assets,controller.signal);
       }
     }).catch((cause: unknown) => { if (!cancelled) { trace('director_failed', { durationMs: Math.round(performance.now() - started), category: 'request_or_validation' }); setError(cause instanceof Error ? cause.message : 'The video could not be prepared. Try again later.'); } }).finally(() => { if (!cancelled) { setBusy(false); setVisionStage(''); } });
     return () => { cancelled = true; controller.abort(); researchUrls.forEach(URL.revokeObjectURL); };
-  }, [request, visionRequest, token, montage, useOwn, direction, planSeed]);
+  }, [request, visionRequest, token, montage, useOwn, direction, directionIndex, planSeed]);
   async function measureMovement(assets: MediaAsset[], signal: AbortSignal) {
     setMovementPending(true);
     const observations: Record<string,number>={};
@@ -193,8 +219,9 @@ export function MediaStudio({ profile, composition, audio, token, position, play
     {profile.musicAnalysis.status === 'ready' && !profileData && <p role="alert">Music analysis did not include the features needed for this video.</p>}
     {busy && <p role="status">{visionStage || 'Creating your video…'}</p>}{error && <p role="alert">{error}</p>}{currentEdit.error && <p role="alert">{currentEdit.error}</p>}
     {playbackError && <p role="alert">{playbackError}</p>}
-    {!montage && directions.length > 1 && <div className="daily-designs" role="group" aria-label="Choose a visual direction">{directions.map(item => <button type="button" key={item.concept} disabled={progress !== undefined || busy} aria-pressed={direction === item.concept} onClick={() => { onStop(); setDirection(item.concept); }}>{item.concept}</button>)}<button type="button" disabled={progress !== undefined || busy} aria-pressed={direction === null} onClick={() => { onStop(); setDirection(null); }}>Balanced mix</button></div>}
-    {Boolean(result && typeof result === 'object' && 'vimeoDiscovery' in result && result.vimeoDiscovery) && <p className="hint">Vimeo Creative Commons discovery ran alongside Pixabay. {(result as {vimeoDiscovery?:{status?:string;summary?:{downloadableViaApi?:number;discoveryOnly?:number}}}).vimeoDiscovery?.status === 'discovery-metadata-only' ? 'No exportable Vimeo files were granted by the API for this query; rendering continues with approved accessible media.' : 'Some Vimeo download links were present; export still requires separate clearance.'}</p>}
+    {!montage && directions.length > 1 && <div className="daily-designs" role="group" aria-label="Choose a visual direction">{directions.map((item, index) => <button type="button" key={`${item.concept}-${index}`} disabled={progress !== undefined || busy} aria-pressed={directionIndex === index} onClick={() => { onStop(); setDirectionIndex(index); setDirection(item.concept); }}>{item.concept}{item.treatment ? ` · ${item.treatment}` : ''}</button>)}</div>}
+    {Boolean(result && typeof result === 'object' && 'treatment' in result && (result as {treatment?: unknown}).treatment) && <p className="hint">Song-aware Director treatment: {String((result as {treatment: string}).treatment)}{(result as {briefLabel?: string}).briefLabel ? ` · ${(result as {briefLabel: string}).briefLabel}` : ''}.</p>}
+    {Boolean(result && typeof result === 'object' && 'vimeoDiscovery' in result && result.vimeoDiscovery) && <p className="hint">Vimeo Creative Commons discovery ran alongside Pixabay. {(result as {vimeoDiscovery?:{status?:string;summary?:{downloadableViaApi?:number;discoveryOnly?:number};renderable?:string[]}}).vimeoDiscovery?.status === 'discovery-metadata-only' || !(result as {vimeoDiscovery?:{renderable?:string[]}}).vimeoDiscovery?.renderable?.length ? 'No exportable Vimeo files were granted by the API for this query; rendering continues with approved accessible media.' : 'Downloadable Vimeo links were available for this direction when granted by the API.'}</p>}
     <h2>Use your own media</h2><label>Add images or videos<input type="file" multiple disabled={progress!==undefined} accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" onChange={event => { selectFiles(event.target.files); event.target.value = ''; }} /></label><p className="hint">Choose 2–10 files, up to 250 MB total. Your files stay on this device.{montage && ' Short videos may loop within a shot.'}</p>{userAssets.length > 0 && <p>{userAssets.length} files selected</p>}<button disabled={progress!==undefined || userAssets.length < 2 || (!montage && profile.musicAnalysis.status !== 'ready')} onClick={() => makeEdit(userAssets)}>Create video from your media</button>
     {currentEdit.value && <section className="lyric-review"><h2>Your video</h2><div className="gallery-user-preview">{progress === undefined && <Preview key={currentEdit.value.version} edit={currentEdit.value} composition={composition} position={position} onReady={setPreviewReady} />}</div><div className="trim-actions"><button disabled={!previewReady || progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button><button disabled={!previewReady || progress !== undefined || (montage && (movementPending || waitingForAnalysis))} onClick={() => void exportEdit()}>Download MP4</button></div>{montage && onSeek && <label className="daily-seek">Seek preview<input type="range" min={0} max={15000} step={1} value={Math.floor(position)} disabled={progress!==undefined} onChange={event=>onSeek(event.target.valueAsNumber)} /></label>}{progress !== undefined && <p role="status">Rendering video · {progress}%</p>}</section>}
     {debug && token && <details><summary>Staging: inspect Director Blueprint</summary><p>This file contains music-analysis results, selected genre and approved lyric cues if applicable; it does not contain your audio or password.</p><button className="secondary" onClick={downloadDiagnostic}>Download Blueprint</button>{profiles.map((item,index) => <div key={index}><strong>{typeof item.id === 'string' ? item.id : 'Candidate'}</strong><div>{Array.isArray(item.thumbnailJpegBase64) && item.thumbnailJpegBase64.slice(0,3).map((v: unknown,i: number) => typeof v === 'string' && v.length < 150000 && /^[A-Za-z0-9+/=]+$/.test(v) ? <img key={i} src={`data:image/jpeg;base64,${v}`} alt={`Candidate frame ${i+1}`} width="120" /> : null)}</div></div>)}<pre>{compactDiagnostic}</pre></details>}

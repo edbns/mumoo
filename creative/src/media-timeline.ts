@@ -11,8 +11,8 @@ export function researchDirectorEdit(clip: ClipIdentity, blueprint: unknown, loa
   if (!plan || plan.version !== 1 || plan.status !== 'ready' || plan.durationMs !== DURATION_MS || !Array.isArray(plan.assets) || plan.assets.length < 2 || plan.assets.length > 4 || !Array.isArray(plan.shots) || plan.shots.length < 2 || plan.shots.length > 4) throw new Error('Not enough approved media for this test.');
   const assets: MediaAsset[] = plan.assets.map((item: { id?: unknown; type?: unknown; title?: unknown; rights?: unknown; adSafety?: unknown }) => {
     const approved = typeof item.id === 'string' && !item.id.startsWith('owned-') && item.rights === 'APPROVED' && item.adSafety === 'SAFE';
-    const stagingTest = plan.scope === 'staging-test-only' && typeof item.id === 'string' && /^(?:owned-[a-f0-9]{24}|pixabay-\d+)$/.test(item.id) && item.type === 'video' && item.rights === 'STAGING_TEST_ONLY' && item.adSafety === 'REVIEW_REQUIRED';
-    if (typeof item.id !== 'string' || !/^(?:cma-\d+|si-[a-f0-9]{24}|commons2-\d+|owned-[a-f0-9]{24}|pixabay-\d+)$/.test(item.id) || !['image', 'video'].includes(String(item.type)) || typeof item.title !== 'string' || !(approved || stagingTest)) throw new Error('Unapproved media.');
+    const stagingTest = plan.scope === 'staging-test-only' && typeof item.id === 'string' && /^(?:owned-[a-f0-9]{24}|pixabay-\d+|vimeo-\d+)$/.test(item.id) && item.type === 'video' && item.rights === 'STAGING_TEST_ONLY' && item.adSafety === 'REVIEW_REQUIRED';
+    if (typeof item.id !== 'string' || !/^(?:cma-\d+|si-[a-f0-9]{24}|commons2-\d+|owned-[a-f0-9]{24}|pixabay-\d+|vimeo-\d+)$/.test(item.id) || !['image', 'video'].includes(String(item.type)) || typeof item.title !== 'string' || !(approved || stagingTest)) throw new Error('Unapproved media.');
     const url = loaded.get(item.id); if (!url?.startsWith('blob:')) throw new Error('Media was not loaded securely.');
     return { id: item.id, type: item.type as 'image' | 'video', title: item.title, url };
   });

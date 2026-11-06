@@ -25,7 +25,7 @@ export function directorExecutionEdit(clip: ClipIdentity, blueprint: unknown, lo
   const assets: MediaAsset[] = b.assets.map((asset: unknown) => {
     if (!asset || typeof asset !== 'object') throw new Error('Invalid media.');
     const a = asset as Record<string, unknown>;
-    if (typeof a.id !== 'string' || !/^pixabay-\d+$/.test(a.id) || a.type !== 'video' || a.rights !== 'STAGING_TEST_ONLY' || a.adSafety !== 'REVIEW_REQUIRED' || typeof a.title !== 'string') throw new Error('Media is not available for this staging test.');
+    if (typeof a.id !== 'string' || !/^(?:pixabay|vimeo)-\d+$/.test(a.id) || a.type !== 'video' || a.rights !== 'STAGING_TEST_ONLY' || a.adSafety !== 'REVIEW_REQUIRED' || typeof a.title !== 'string') throw new Error('Media is not available for this staging test.');
     const url = loaded.get(a.id); if (!url?.startsWith('blob:')) throw new Error('Media was not loaded securely.');
     return { id:a.id, type:'video', title:a.title, url };
   });

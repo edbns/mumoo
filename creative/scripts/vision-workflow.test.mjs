@@ -23,13 +23,15 @@ test('isolated visual-intelligence flow plays and exports through the existing r
       const body = route.request().postDataJSON();
       if (body.operation === 'research-asset') { calls++; return route.fulfill({ path: 'public/pixi-proof/window-motion.mp4', contentType: 'video/mp4' }); }
       if (body.operation === 'vision-start') { assert.equal(body.profile.videoType,'visual'); assert.deepEqual(body.profile.lyricCues,[]); assert.equal(body.profile.measured.envelope.length,30); return route.fulfill({json:{status:'pending',phase:'direction',jobId:'fc-first',ticket:'a'.repeat(64)}}); }
-      if (body.operation === 'vision-poll' && body.phase === 'direction') return route.fulfill({json:{status:'pending',phase:'vision',jobId:'fc-next',ticket:'b'.repeat(64)}});
+      if (body.operation === 'vision-poll' && body.phase === 'direction') return route.fulfill({json:{status:'briefs',phase:'direction',jobId:'fc-first',ticket:'a'.repeat(64),briefs:[{id:'a',label:'Kinetic',concept:'Kinetic',treatment:'kinetic'},{id:'b',label:'Restrained',concept:'Restrained',treatment:'restrained'}]}});
+      if (body.operation === 'vision-poll' && body.phase === 'briefs') return route.fulfill({json:{status:'pending',phase:'vision',jobId:'fc-next',ticket:'b'.repeat(64)}});
       assert.equal(body.operation,'vision-poll'); assert.equal(body.phase,'vision');
       const assets = [{ id:'pixabay-1', type:'video', title:'Fixture 1', query:'test', rights:'STAGING_TEST_ONLY', adSafety:'REVIEW_REQUIRED' }, { id:'pixabay-2', type:'video', title:'Fixture 2', query:'test', rights:'STAGING_TEST_ONLY', adSafety:'REVIEW_REQUIRED' }];
       const shots=[{assetId:assets[0].id,startFrame:0,endFrame:216,startMs:0,endMs:7200,sourceStartMs:500,transition:'cut'},{assetId:assets[1].id,startFrame:216,endFrame:450,startMs:7200,endMs:15000,sourceStartMs:500,transition:'dissolve'}];
-      return route.fulfill({json:{status:'ready',result:{version:1,status:'ready',scope:'staging-test-only',durationMs:15000,assets,shots}}});
+      return route.fulfill({json:{status:'ready',result:{version:1,status:'ready',scope:'staging-test-only',durationMs:15000,treatment:'kinetic',assets,shots,creativeDirections:[{concept:'Kinetic',treatment:'kinetic',candidateIds:[]},{concept:'Restrained',treatment:'restrained',candidateIds:[]}]}}});
     });
-    await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?vision-intelligence=1&vision-research-internal=1&media-debug=1`);
+    await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?media-debug=1`);
+    // Path A: vision Director is staging default; mock still serves vision-start/poll.
     const rate = 48000, samples = rate * 16, wav = Buffer.alloc(44 + samples * 2);
     wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(samples * 2, 40);
     await page.getByLabel('Source WAV').setInputFiles({ name: 'fixture.wav', mimeType: 'audio/wav', buffer: wav });
