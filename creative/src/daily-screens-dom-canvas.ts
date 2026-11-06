@@ -52,9 +52,27 @@ function drawStatus(ctx: CanvasRenderingContext2D, options: Options, frame: numb
   drawDeviceStatus(ctx, options.capturedAtMs, frame, 130, 100, options.variant, options.deviceSeed, light ? '#ffffff' : '#1b1c20');
 }
 
-function entrance(frame: number, startFrame: number) {
-  // Fully visible on the WhisperX start frame — no multi-frame fade lag.
-  return Math.min(1, Math.max(0, frame - startFrame + 1));
+/** Keep the newest lyric blocks; drop older ones so the latest words are never clipped. */
+function placeNewest(
+  items: { line: { text: string; startFrame: number }; wrapped: string[]; height: number }[],
+  startY: number,
+  maxBottom: number,
+  gap: number,
+) {
+  const fitted = [...items];
+  while (fitted.length > 1) {
+    const total = fitted.reduce((sum, item) => sum + item.height + gap, -gap);
+    if (startY + total <= maxBottom) break;
+    fitted.shift();
+  }
+  // Anchor to the bottom of the message well so new lines push older ones up.
+  const total = fitted.reduce((sum, item) => sum + item.height + gap, -gap);
+  let y = Math.max(startY, maxBottom - Math.max(0, total));
+  return fitted.map(item => {
+    const placed = { ...item, y };
+    y += item.height + gap;
+    return placed;
+  });
 }
 
 /** Tinder / Bumble–inspired match moment (no logos). Gummble refs: Tinder/Bumble iOS. */
@@ -93,27 +111,25 @@ function drawDating(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], fr
   redact(ctx, 560, 900, 160, 32, 'rgba(0,0,0,0.55)');
 
   // White composer sheet — prompt, lyric bubbles, and CTA all fully inside.
-  const sheetTop = 1080;
-  const sheetHeight = 700;
+  const sheetTop = 980;
+  const sheetHeight = 800;
   const sheetBottom = sheetTop + sheetHeight;
   const ctaTop = sheetBottom - 140;
+  const messageTop = sheetTop + 100;
+  const messageBottom = ctaTop - 28;
   rounded(ctx, 70, sheetTop, 940, sheetHeight, 40, '#ffffff');
-  text(ctx, 'Say something that stands out', WIDTH / 2, sheetTop + 55, `600 28px "Inter Variable"`, '#6b7280', 'center');
+  text(ctx, 'Say something that stands out', WIDTH / 2, sheetTop + 50, `600 28px "Inter Variable"`, '#6b7280', 'center');
 
-  let y = sheetTop + 110;
   ctx.font = '600 48px "Inter Variable"';
-  for (const line of lines) {
+  const datingItems = lines.map(line => {
     const wrapped = wrapScreenText(ctx, line.text, 760);
-    const h = wrapped.length * 58 + 40;
-    const t = entrance(frame, line.startFrame);
+    return { line, wrapped, height: wrapped.length * 58 + 40 };
+  });
+  for (const { wrapped, height, y } of placeNewest(datingItems, messageTop, messageBottom, 20)) {
     const w = Math.min(820, Math.max(180, ...wrapped.map(part => ctx.measureText(part).width)) + 60);
     const x = (WIDTH - w) / 2;
-    if (y + h > ctaTop - 24) break;
-    ctx.globalAlpha = 0.45 + t * 0.55;
-    rounded(ctx, x, y + (1 - t) * 16, w, h, 30, accent);
-    wrapped.forEach((part, i) => text(ctx, part, WIDTH / 2, y + (1 - t) * 16 + 44 + i * 58, `600 48px "Inter Variable"`, inkOnAccent, 'center'));
-    ctx.globalAlpha = 1;
-    y += h + 22;
+    rounded(ctx, x, y, w, height, 30, accent);
+    wrapped.forEach((part, i) => text(ctx, part, WIDTH / 2, y + 44 + i * 58, `600 48px "Inter Variable"`, inkOnAccent, 'center'));
   }
 
   rounded(ctx, 120, ctaTop, 840, 100, 50, accent);
@@ -171,22 +187,17 @@ function drawRide(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], fram
   text(ctx, '4.98', 905, 1190, `700 18px "Inter Variable"`, '#fff', 'center');
   redact(ctx, 780, 1245, 180, 26);
 
-  text(ctx, 'Message', 70, 1360, `700 30px "Inter Variable"`, '#111');
-  let y = 1410;
+  text(ctx, 'Message', 70, 1340, `700 30px "Inter Variable"`, '#111');
   ctx.font = '600 46px "Inter Variable"';
-  for (const line of lines) {
+  const rideItems = lines.map(line => {
     const wrapped = wrapScreenText(ctx, line.text, 820);
-    const h = wrapped.length * 56 + 44;
-    const t = entrance(frame, line.startFrame);
-    ctx.globalAlpha = 0.5 + t * 0.5;
-    // Outgoing lyric bubble — Uber chat style, large.
+    return { line, wrapped, height: wrapped.length * 56 + 44 };
+  });
+  for (const { wrapped, height, y } of placeNewest(rideItems, 1385, 1745, 16)) {
     const w = Math.min(900, Math.max(200, ...wrapped.map(part => ctx.measureText(part).width)) + 56);
     const x = WIDTH - 70 - w;
-    rounded(ctx, x, y + (1 - t) * 12, w, h, 28, '#111111');
-    wrapped.forEach((part, i) => text(ctx, part, x + 28, y + (1 - t) * 12 + 42 + i * 56, `600 46px "Inter Variable"`, '#ffffff'));
-    ctx.globalAlpha = 1;
-    y += h + 18;
-    if (y > 1720) break;
+    rounded(ctx, x, y, w, height, 28, '#111111');
+    wrapped.forEach((part, i) => text(ctx, part, x + 28, y + 42 + i * 56, `600 46px "Inter Variable"`, '#ffffff'));
   }
   rounded(ctx, 70, 1760, 780, 84, 42, '#f4f4f5');
   text(ctx, 'Message…', 110, 1802, `500 30px "Inter Variable"`, '#9ca3af');
@@ -243,19 +254,16 @@ function drawFood(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], fram
     rounded(ctx, x - 18, 992, 36, 36, 18, i <= stage ? '#111' : '#e5e7eb');
   });
 
-  // Lyric updates — solid white cards (no shadow banding)
-  let y = 1100;
-  for (const line of lines) {
+  // Lyric updates — keep newest cards; never drop the latest words.
+  ctx.font = '600 38px "Inter Variable"';
+  const foodItems = lines.map(line => {
     const wrapped = wrapScreenText(ctx, line.text, 860);
-    const h = wrapped.length * 52 + 78;
-    const t = entrance(frame, line.startFrame);
-    ctx.globalAlpha = 0.55 + t * 0.45;
-    rounded(ctx, 48, y + (1 - t) * 10, 984, h, 28, '#f7f7f8');
-    text(ctx, 'UPDATE', 84, y + (1 - t) * 10 + 36, `700 22px "Inter Variable"`, '#eb1700');
-    wrapped.forEach((part, i) => text(ctx, part, 84, y + (1 - t) * 10 + 82 + i * 52, `600 38px "Inter Variable"`, '#111'));
-    ctx.globalAlpha = 1;
-    y += h + 16;
-    if (y > 1480) break;
+    return { line, wrapped, height: wrapped.length * 52 + 78 };
+  });
+  for (const { wrapped, height, y } of placeNewest(foodItems, 1080, 1585, 14)) {
+    rounded(ctx, 48, y, 984, height, 28, '#f7f7f8');
+    text(ctx, 'UPDATE', 84, y + 36, `700 22px "Inter Variable"`, '#eb1700');
+    wrapped.forEach((part, i) => text(ctx, part, 84, y + 82 + i * 52, `600 38px "Inter Variable"`, '#111'));
   }
 
   rounded(ctx, 48, 1620, 984, 170, 28, '#111111');

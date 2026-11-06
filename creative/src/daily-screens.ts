@@ -68,8 +68,8 @@ export function chatBubbleWidth(lyricWidth: number, timestampWidth: number) {
 }
 
 type ScreenLine = { text: string; startFrame: number; active: boolean };
-// Same boundary as evaluate(): first frame at or after the WhisperX timestamp.
-const firstFrame = (ms: number) => Math.min(FRAMES - 1, Math.max(0, Math.ceil(ms * FPS / 1000)));
+// Match the audio playhead frame so grouped chat lines do not lag WhisperX.
+const firstFrame = (ms: number) => Math.min(FRAMES - 1, Math.max(0, Math.floor(ms * FPS / 1000)));
 
 // Group approved words into short chat lines (punctuation, pause, or ~line length).
 // No invented names or conversation — only approved lyric text.
