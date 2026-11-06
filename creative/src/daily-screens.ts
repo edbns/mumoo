@@ -15,6 +15,18 @@ export function formatScreenClock(capturedAtMs: number, frame: number) {
     date: DATE_FORMAT.format(date) };
 }
 
+// These are fictional visual details, not readings from the creator's device.
+export function screenDeviceStatus(capturedAtMs: number) {
+  const minute = Math.floor(capturedAtMs / 60000);
+  return { batteryPercent: 12, network: minute % 2 === 0 ? 'wifi' : '4G', signalBars: 2 + Math.abs(minute % 3) } as const;
+}
+export function formatChatTime(capturedAtMs: number, frame: number) {
+  return `${formatScreenClock(capturedAtMs, frame).time} ✓`;
+}
+export function chatBubbleWidth(lyricWidth: number, timestampWidth: number) {
+  return Math.max(125, timestampWidth + 32, Math.min(760, lyricWidth + 60));
+}
+
 type ScreenLine = { text: string; startFrame: number; active: boolean };
 // Cues in the final fractional frame are shown on the last available frame.
 const firstFrame = (ms: number) => Math.min(FRAMES - 1, Math.ceil(ms * FPS / 1000));
@@ -79,6 +91,22 @@ function stroke(ctx: CanvasRenderingContext2D, color: string, width: number, dra
   ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); draw(); ctx.stroke();
 }
 
+function drawDeviceStatus(ctx: CanvasRenderingContext2D, capturedAtMs: number, frame: number, timeX: number, timeY: number) {
+  const status = screenDeviceStatus(capturedAtMs);
+  rounded(ctx, 445, 18, 190, 36, 18, '#080808');
+  text(ctx, formatScreenClock(capturedAtMs, frame).time, timeX, timeY, '600 34px "Inter Variable"', '#111');
+  for (let i = 0; i < 4; i++) rounded(ctx, 804 + 11 * i, timeY + 9 - 5 * i, 7, 9 + 5 * i, 2, i < status.signalBars ? '#111' : '#c5c5c5');
+  if (status.network === 'wifi') {
+    stroke(ctx, '#111', 4, () => { ctx.arc(884, timeY + 15, 18, -2.36, -.78); ctx.moveTo(877, timeY + 8); ctx.arc(884, timeY + 15, 10, -2.36, -.78); });
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(884, timeY + 15, 3, 0, Math.PI * 2); ctx.fill();
+  } else text(ctx, '4G', 867, timeY + 3, '700 24px "Inter Variable"', '#111');
+  stroke(ctx, '#111', 3, () => ctx.roundRect(930, timeY - 13, 65, 28, 6));
+  rounded(ctx, 997, timeY - 5, 4, 12, 2, '#111');
+  rounded(ctx, 933, timeY - 10, 59, 22, 4, '#fff');
+  rounded(ctx, 933, timeY - 10, Math.max(4, 59 * status.batteryPercent / 100), 22, 3, '#e84640');
+  text(ctx, `${status.batteryPercent}%`, 966, timeY + 1, '700 17px "Inter Variable"', '#111', 'center');
+}
+
 function avatar(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number) {
   ctx.fillStyle = '#a4aab4'; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
   ctx.save(); ctx.beginPath(); ctx.arc(x, y, radius - 1, 0, Math.PI * 2); ctx.clip();
@@ -129,13 +157,8 @@ function messengerLock(ctx: CanvasRenderingContext2D, x: number, y: number, r: n
 }
 
 function drawMessenger(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], frame: number, capturedAtMs: number) {
-  const clock = formatScreenClock(capturedAtMs, frame);
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  text(ctx, clock.time, 68, 72, '600 36px "Inter Variable"', '#050505');
-  for (let i=0;i<4;i++) rounded(ctx, 846+i*12, 86-i*5, 8, 8+i*5, 3, '#a8a8a8');
-  stroke(ctx, '#111', 4, () => { ctx.arc(932, 96, 19, -2.36, -.78); ctx.moveTo(925, 89); ctx.arc(932, 96, 10, -2.36, -.78); });
-  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(932, 96, 3, 0, Math.PI * 2); ctx.fill();
-  stroke(ctx, '#777', 3, () => ctx.roundRect(966, 70, 46, 23, 5)); rounded(ctx, 970, 74, 31, 15, 2, '#65b774'); rounded(ctx, 1013, 77, 3, 8, 1, '#777');
+  drawDeviceStatus(ctx, capturedAtMs, frame, 68, 72);
   arrow(ctx, 65, 179, '#050505'); avatar(ctx, 185, 179, 47); messengerLock(ctx, 219, 210, 13);
   rounded(ctx, 260, 168, 150, 24, 4, '#25262b');
   avatar(ctx, 540, 375, 132); messengerLock(ctx, 637, 472, 35);
@@ -194,7 +217,7 @@ function wallpaper(ctx: CanvasRenderingContext2D, telegram: boolean) {
 export function drawDailyScreen(canvas: HTMLCanvasElement, cues: readonly LyricCue[], frame: number,
   options: { variant: DailyScreenVariant; capturedAtMs: number } = { variant: 'messages', capturedAtMs: 0 }) {
   const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Canvas is unavailable.');
-  const { variant, capturedAtMs } = options, clock = formatScreenClock(capturedAtMs, frame);
+  const { variant, capturedAtMs } = options;
   if (options.variant === 'messenger') { drawMessenger(ctx, cues, frame, capturedAtMs); return; }
   const chat = variant === 'whatsapp' || variant === 'telegram';
   const background = variant === 'whatsapp' ? '#efeae2' : variant === 'telegram' ? '#b7d5a4' : '#ffffff';
@@ -204,16 +227,13 @@ export function drawDailyScreen(canvas: HTMLCanvasElement, cues: readonly LyricC
   ctx.clearRect(0, 0, WIDTH, HEIGHT); ctx.fillStyle = background; ctx.fillRect(0, 0, WIDTH, HEIGHT);
   if (chat) wallpaper(ctx, variant === 'telegram');
   ctx.fillStyle = variant === 'whatsapp' ? '#f6f4f0' : variant === 'telegram' ? '#f1f5ef' : '#ffffff'; ctx.fillRect(0, 0, WIDTH, variant === 'messages' ? 334 : 295);
-  text(ctx, clock.time, 130, 100, '600 34px "Inter Variable"', '#111111');
-  for (let i = 0; i < 4; i++) rounded(ctx, 810 + 12 * i, 116 - 6 * i, 8, 10 + 6 * i, 3, '#111111');
-  stroke(ctx, '#111111', 4, () => { ctx.arc(892, 119, 18, -2.36, -.78); ctx.moveTo(885, 112); ctx.arc(892, 119, 10, -2.36, -.78); });
-  ctx.fillStyle = '#111111'; ctx.beginPath(); ctx.arc(892, 119, 3, 0, Math.PI * 2); ctx.fill();
-  rounded(ctx, 925, 98, 47, 25, 7, '#161616'); rounded(ctx, 929, 102, 34, 17, 4, '#ffffff'); rounded(ctx, 974, 106, 3, 9, 1, '#161616');
+  drawDeviceStatus(ctx, capturedAtMs, frame, 130, 100);
   arrow(ctx, 76, 235, accent);
   if (variant === 'messages') {
     avatar(ctx, 540, 225, 50); rounded(ctx, 495, 288, 90, 17, 4, '#3f424a'); videoIcon(ctx, 908, 218, accent);
   } else if (variant === 'whatsapp') {
-    text(ctx, 'Messages', 292, 235, '600 42px "Inter Variable"', '#111111');
+    avatar(ctx, 175, 228, 43); rounded(ctx, 244, 208, 160, 23, 5, '#25262b');
+    phoneIcon(ctx, 839, 203, accent); videoIcon(ctx, 926, 207, accent);
   } else if (variant === 'telegram') {
     rounded(ctx, 435, 207, 210, 25, 4, '#25262b');
     text(ctx, 'last seen recently', 540, 260, '400 27px "Inter Variable"', '#8a9097', 'center');
@@ -239,13 +259,12 @@ export function drawDailyScreen(canvas: HTMLCanvasElement, cues: readonly LyricC
   const { lines } = dailyScreenFrame(cues, frame);
   ctx.font = '400 48px "Inter Variable"';
   for (const { line, wrapped, height: h, y } of layoutScreenLines(ctx, lines, chat ? 25 : 0, variant === 'whatsapp' ? 590 : 485)) {
-    const messageClock = formatScreenClock(capturedAtMs, line.startFrame);
-    const messageTime = `${messageClock.time} ${messageClock.suffix} ✓✓`;
+    const messageTime = formatChatTime(capturedAtMs, line.startFrame);
     ctx.font = '400 48px "Inter Variable"';
     const lyricWidth = Math.max(...wrapped.map(part => ctx.measureText(part).width));
     ctx.font = '400 20px "Inter Variable"';
-    const timestampWidth = chat ? ctx.measureText(messageTime).width + 32 : 0;
-    const w = Math.max(125, timestampWidth, Math.min(760, lyricWidth + (chat ? 95 : 60)));
+    const timestampWidth = chat ? ctx.measureText(messageTime).width : 0;
+    const w = chatBubbleWidth(lyricWidth, timestampWidth);
     const offset = (1 - Math.min(1, Math.max(0, (frame - line.startFrame + 1) / 5))) * 14;
     const x = WIDTH - 98 - w;
     rounded(ctx, x, y + offset, w, h, variant === 'messages' ? 35 : 27, bubble);

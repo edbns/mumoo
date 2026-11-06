@@ -2,6 +2,19 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'vite';
 
+test('screen status is deterministic and chat timestamps use one tick', async () => {
+  const server = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom', logLevel: 'error' });
+  try {
+    const { screenDeviceStatus, formatChatTime, chatBubbleWidth } = await server.ssrLoadModule('/src/daily-screens.ts');
+    const time = new Date(2026, 10, 6, 14, 7).getTime();
+    assert.deepEqual(screenDeviceStatus(time), screenDeviceStatus(time));
+    assert.equal(screenDeviceStatus(time).batteryPercent, 12);
+    assert.equal(formatChatTime(time, 0), '2:07 ✓');
+    assert.ok(chatBubbleWidth(180, 72) <= 245);
+    assert.ok(chatBubbleWidth(25, 72) >= 104);
+  } finally { await server.close(); }
+});
+
 test('five screen designs use a captured real time and reject invalid variants', async () => {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom', logLevel: 'error' });
   try {
