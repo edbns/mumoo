@@ -133,12 +133,13 @@ function drawMessenger(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[],
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, WIDTH, HEIGHT);
   text(ctx, clock.time, 68, 72, '600 36px "Inter Variable"', '#050505');
   for (let i=0;i<4;i++) rounded(ctx, 846+i*12, 86-i*5, 8, 8+i*5, 3, '#a8a8a8');
-  stroke(ctx, '#111', 4, () => { ctx.arc(932, 89, 18, 3.9, 5.52); ctx.moveTo(923, 91); ctx.arc(932, 91, 10, 3.9, 5.52); });
+  stroke(ctx, '#111', 4, () => { ctx.arc(932, 96, 19, -2.36, -.78); ctx.moveTo(925, 89); ctx.arc(932, 96, 10, -2.36, -.78); });
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(932, 96, 3, 0, Math.PI * 2); ctx.fill();
   stroke(ctx, '#777', 3, () => ctx.roundRect(966, 70, 46, 23, 5)); rounded(ctx, 970, 74, 31, 15, 2, '#65b774'); rounded(ctx, 1013, 77, 3, 8, 1, '#777');
   arrow(ctx, 65, 179, '#050505'); avatar(ctx, 185, 179, 47); messengerLock(ctx, 219, 210, 13);
-  text(ctx, 'Alex', 260, 180, '700 42px "Inter Variable"', '#050505');
+  rounded(ctx, 260, 168, 150, 24, 4, '#25262b');
   avatar(ctx, 540, 375, 132); messengerLock(ctx, 637, 472, 35);
-  text(ctx, 'Alex', 540, 550, '700 64px "Inter Variable"', '#050505', 'center');
+  rounded(ctx, 435, 531, 210, 35, 5, '#25262b');
   text(ctx, 'Secret conversation', 540, 613, '400 37px "Inter Variable"', '#050505', 'center');
   text(ctx, 'Encrypted end to end across all your active', 540, 672, '400 34px "Inter Variable"', '#858585', 'center');
   text(ctx, 'mobile devices', 540, 716, '400 34px "Inter Variable"', '#858585', 'center');
