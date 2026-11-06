@@ -3,7 +3,7 @@ import { FPS, FRAMES, HEIGHT, WIDTH, type DailyScreenVariant, type LyricCue } fr
 export const SCREEN_DESIGNS: readonly { id: DailyScreenVariant; name: string }[] = [
   { id: 'messages', name: 'Messages' }, { id: 'whatsapp', name: 'WhatsApp' },
   { id: 'telegram', name: 'Telegram' }, { id: 'messenger', name: 'Messenger' },
-  { id: 'instagram', name: 'Instagram' }, { id: 'dating', name: 'Dating chat' },
+  { id: 'instagram', name: 'Instagram' },
 ];
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -25,7 +25,7 @@ export function screenDeviceStatus(capturedAtMs: number, deviceSeed?: number, va
   const batteries = [8, 12, 19, 27, 38, 51, 64, 76, 88, 97];
   const networks = ['wifi', '4G', 'none', 'wifi'] as const;
   const network = networks[(deviceSeed + index) % networks.length];
-  return { batteryPercent: batteries[(deviceSeed + (variant === 'dating' ? 1 : index * 2)) % batteries.length], network,
+  return { batteryPercent: batteries[(deviceSeed + index * 2) % batteries.length], network,
     signalBars: network === 'none' ? 0 : 1 + ((deviceSeed + index * 3) % 4),
     dynamicIsland: (deviceSeed + index) % 2 === 0 };
 }
@@ -200,39 +200,6 @@ function drawMessenger(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[],
   rounded(ctx,390,1795,300,10,5,'#050505');
 }
 
-// An original, fictional conversation based on an observed dating-app chat
-// layout. No source photographs, names, logos or example messages are used.
-function drawDatingChat(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], frame: number, capturedAtMs: number, deviceSeed?: number) {
-  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  drawDeviceStatus(ctx, capturedAtMs, frame, 130, 100, 'dating', deviceSeed);
-  arrow(ctx, 66, 230, '#4b5fd3'); avatar(ctx, 172, 226, 40);
-  rounded(ctx, 235, 210, 145, 20, 4, '#25262b');
-  rounded(ctx, 815, 208, 135, 38, 19, '#f2f3f5');
-  text(ctx, 'New match', 882, 227, '500 19px "Inter Variable"', '#777b82', 'center');
-  text(ctx, '···', 1000, 225, '700 35px "Inter Variable"', '#4b5fd3', 'center');
-  ctx.fillStyle = '#f5f5f6'; ctx.fillRect(0, 295, WIDTH, 1285);
-  rounded(ctx, 100, 335, 880, 195, 27, '#fff');
-  avatar(ctx, 540, 401, 38);
-  text(ctx, 'You matched', 540, 480, '600 30px "Inter Variable"', '#34373e', 'center');
-  const { lines } = dailyScreenFrame(cues, frame);
-  ctx.font = '400 43px "Inter Variable"';
-  const items = lines.map(line => { const wrapped=wrapScreenText(ctx,line.text,650); return {line,wrapped,height:wrapped.length*58+34}; });
-  while(items.length>1 && items.reduce((sum,item)=>sum+item.height+20,550)>1520) items.shift();
-  let y=550;
-  for(const item of items){
-    ctx.font='400 43px "Inter Variable"';const w=Math.min(720,Math.max(120,...item.wrapped.map(part=>ctx.measureText(part).width+58)));
-    const x=WIDTH-85-w;const offset=(1-Math.min(1,Math.max(0,(frame-item.line.startFrame+1)/5)))*12;
-    rounded(ctx,x,y+offset,w,item.height,30,'#586bd5');
-    item.wrapped.forEach((part,i)=>text(ctx,part,x+29,y+offset+44+i*58,'400 43px "Inter Variable"','#fff'));
-    y+=item.height+20;
-  }
-  ctx.fillStyle='#fff';ctx.fillRect(0,1580,WIDTH,190);
-  rounded(ctx,90,1625,900,82,41,'#f4f5f7');
-  text(ctx,'Message…',120,1666,'400 34px "Inter Variable"','#a1a5ad');
-  smileIcon(ctx,865,1644,'#798090');pictureIcon(ctx,935,1644,'#798090');
-  rounded(ctx,390,1795,300,10,5,'#141416');
-}
-
 const wallpaperTiles = new Map<boolean, HTMLCanvasElement>();
 function wallpaper(ctx: CanvasRenderingContext2D, telegram: boolean) {
   let tile = wallpaperTiles.get(telegram);
@@ -260,7 +227,6 @@ export function drawDailyScreen(canvas: HTMLCanvasElement, cues: readonly LyricC
   const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Canvas is unavailable.');
   const { variant, capturedAtMs } = options;
   if (options.variant === 'messenger') { drawMessenger(ctx, cues, frame, capturedAtMs, options.deviceSeed); return; }
-  if (options.variant === 'dating') { drawDatingChat(ctx, cues, frame, capturedAtMs, options.deviceSeed); return; }
   const chat = variant === 'whatsapp' || variant === 'telegram';
   const background = variant === 'whatsapp' ? '#efeae2' : variant === 'telegram' ? '#b7d5a4' : '#ffffff';
   const accent = variant === 'messages' ? '#087ff5' : variant === 'telegram' ? '#1685e6' : '#17191d';

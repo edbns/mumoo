@@ -4,9 +4,6 @@ Daily Screens includes five original messaging-style lyric surfaces informed
 by the locally provided Messages, WhatsApp, Telegram, Messenger and Instagram
 references. Screenshots, platform logos, personal names and photos are not
 shipped. A neutral avatar and redacted contact label are drawn as vectors.
-The additional Dating chat is an original fictional interpretation of a Coffee
-Meets Bagel iOS match conversation inspected via Gummble, with no original
-photos, names or branding; it needs product-owner visual review.
 Approved words appear as timed messages; each interface is rendered afresh on
 every frame rather than placed over a screenshot. It is available only for
 Lyric Video in staging. Existing visuals remain available.
@@ -20,7 +17,7 @@ audio is used for preview and export. Font metrics are loaded before export.
 The actual local creation time is captured once when the screen opens and
 stored with the selected variant in the composition, so the preview and
 export use the same clock. The clock advances with the 15-second frame time.
-The one-at-a-time export queue can create one MP4 or a ZIP of all six; ZIP
+The one-at-a-time export queue can create one MP4 or a ZIP of all five; ZIP
 packing uses the MIT-licensed `fflate` library and keeps files in browser memory.
 
 All screens share simulated iOS-style status details: a captured local clock and

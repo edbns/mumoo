@@ -81,7 +81,7 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
       <div className="gallery-user-preview"><canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Daily Screens preview" onContextMenu={event => event.preventDefault()} /><span className="preview-mark">PREVIEW</span></div>
       <div className="trim-actions"><button disabled={progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button>
         <button disabled={progress !== undefined} onClick={() => void download()}>Download MP4</button>
-        <button className="secondary" disabled={progress !== undefined} onClick={() => void download(true)}>Download all six</button></div>
+        <button className="secondary" disabled={progress !== undefined} onClick={() => void download(true)}>Download all five</button></div>
       <label className="daily-seek">Seek preview<input type="range" min={0} max={15000} step={1} value={Math.floor(position)} disabled={progress !== undefined} onChange={event => onSeek(event.target.valueAsNumber)} /></label>
       {progress !== undefined && <p role="status">Creating {exportLabel} · {progress}%</p>}</>}
   </section></main>;
