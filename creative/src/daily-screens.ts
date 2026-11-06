@@ -16,9 +16,18 @@ export function formatScreenClock(capturedAtMs: number, frame: number) {
 }
 
 // These are fictional visual details, not readings from the creator's device.
-export function screenDeviceStatus(capturedAtMs: number) {
-  const minute = Math.floor(capturedAtMs / 60000);
-  return { batteryPercent: 12, network: minute % 2 === 0 ? 'wifi' : '4G', signalBars: 2 + Math.abs(minute % 3) } as const;
+export function screenDeviceStatus(capturedAtMs: number, deviceSeed?: number, variant: DailyScreenVariant = 'messages') {
+  if (deviceSeed === undefined) {
+    const minute = Math.floor(capturedAtMs / 60000);
+    return { batteryPercent: 12, network: minute % 2 === 0 ? 'wifi' : '4G', signalBars: 2 + Math.abs(minute % 3), dynamicIsland: true };
+  }
+  const index = SCREEN_DESIGNS.findIndex(design => design.id === variant);
+  const batteries = [8, 12, 19, 27, 38, 51, 64, 76, 88, 97];
+  const networks = ['wifi', '4G', 'none', 'wifi'] as const;
+  const network = networks[(deviceSeed + index) % networks.length];
+  return { batteryPercent: batteries[(deviceSeed + index * 2) % batteries.length], network,
+    signalBars: network === 'none' ? 0 : 1 + ((deviceSeed + index * 3) % 4),
+    dynamicIsland: (deviceSeed + index) % 2 === 0 };
 }
 export function formatChatTime(capturedAtMs: number, frame: number) {
   return `${formatScreenClock(capturedAtMs, frame).time} ✓`;
@@ -91,19 +100,19 @@ function stroke(ctx: CanvasRenderingContext2D, color: string, width: number, dra
   ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); draw(); ctx.stroke();
 }
 
-function drawDeviceStatus(ctx: CanvasRenderingContext2D, capturedAtMs: number, frame: number, timeX: number, timeY: number) {
-  const status = screenDeviceStatus(capturedAtMs);
-  rounded(ctx, 445, 18, 190, 36, 18, '#080808');
+function drawDeviceStatus(ctx: CanvasRenderingContext2D, capturedAtMs: number, frame: number, timeX: number, timeY: number, variant: DailyScreenVariant, deviceSeed?: number) {
+  const status = screenDeviceStatus(capturedAtMs, deviceSeed, variant);
+  if (status.dynamicIsland) rounded(ctx, 445, 18, 190, 36, 18, '#080808');
   text(ctx, formatScreenClock(capturedAtMs, frame).time, timeX, timeY, '600 34px "Inter Variable"', '#111');
-  for (let i = 0; i < 4; i++) rounded(ctx, 804 + 11 * i, timeY + 9 - 5 * i, 7, 9 + 5 * i, 2, i < status.signalBars ? '#111' : '#c5c5c5');
+  if (status.network !== 'none') for (let i = 0; i < 4; i++) rounded(ctx, 804 + 11 * i, timeY + 9 - 5 * i, 7, 9 + 5 * i, 2, i < status.signalBars ? '#111' : '#c5c5c5');
   if (status.network === 'wifi') {
     stroke(ctx, '#111', 4, () => { ctx.arc(884, timeY + 15, 18, -2.36, -.78); ctx.moveTo(877, timeY + 8); ctx.arc(884, timeY + 15, 10, -2.36, -.78); });
     ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(884, timeY + 15, 3, 0, Math.PI * 2); ctx.fill();
-  } else text(ctx, '4G', 867, timeY + 3, '700 24px "Inter Variable"', '#111');
+  } else text(ctx, status.network === 'none' ? 'No Service' : '4G', status.network === 'none' ? 805 : 867, timeY + 3, '700 20px "Inter Variable"', '#111');
   stroke(ctx, '#111', 3, () => ctx.roundRect(930, timeY - 13, 65, 28, 6));
   rounded(ctx, 997, timeY - 5, 4, 12, 2, '#111');
   rounded(ctx, 933, timeY - 10, 59, 22, 4, '#fff');
-  rounded(ctx, 933, timeY - 10, Math.max(4, 59 * status.batteryPercent / 100), 22, 3, '#e84640');
+  rounded(ctx, 933, timeY - 10, Math.max(4, 59 * status.batteryPercent / 100), 22, 3, status.batteryPercent <= 20 ? '#e84640' : '#8c8c8c');
   text(ctx, `${status.batteryPercent}%`, 966, timeY + 1, '700 17px "Inter Variable"', '#111', 'center');
 }
 
@@ -156,9 +165,9 @@ function messengerLock(ctx: CanvasRenderingContext2D, x: number, y: number, r: n
   stroke(ctx, '#fff', Math.max(2, r * .1), () => { ctx.arc(x, y, r * .17, Math.PI, 0); ctx.moveTo(x-r*.17,y);ctx.lineTo(x-r*.17,y-r*.12);ctx.moveTo(x+r*.17,y);ctx.lineTo(x+r*.17,y-r*.12); });
 }
 
-function drawMessenger(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], frame: number, capturedAtMs: number) {
+function drawMessenger(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], frame: number, capturedAtMs: number, deviceSeed?: number) {
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  drawDeviceStatus(ctx, capturedAtMs, frame, 68, 72);
+  drawDeviceStatus(ctx, capturedAtMs, frame, 68, 72, 'messenger', deviceSeed);
   arrow(ctx, 65, 179, '#050505'); avatar(ctx, 185, 179, 47); messengerLock(ctx, 219, 210, 13);
   rounded(ctx, 260, 168, 150, 24, 4, '#25262b');
   avatar(ctx, 540, 375, 132); messengerLock(ctx, 637, 472, 35);
@@ -215,10 +224,10 @@ function wallpaper(ctx: CanvasRenderingContext2D, telegram: boolean) {
 
 /** Original vector interfaces, sharing one deterministic preview/export renderer. */
 export function drawDailyScreen(canvas: HTMLCanvasElement, cues: readonly LyricCue[], frame: number,
-  options: { variant: DailyScreenVariant; capturedAtMs: number } = { variant: 'messages', capturedAtMs: 0 }) {
+  options: { variant: DailyScreenVariant; capturedAtMs: number; deviceSeed?: number } = { variant: 'messages', capturedAtMs: 0 }) {
   const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Canvas is unavailable.');
   const { variant, capturedAtMs } = options;
-  if (options.variant === 'messenger') { drawMessenger(ctx, cues, frame, capturedAtMs); return; }
+  if (options.variant === 'messenger') { drawMessenger(ctx, cues, frame, capturedAtMs, options.deviceSeed); return; }
   const chat = variant === 'whatsapp' || variant === 'telegram';
   const background = variant === 'whatsapp' ? '#efeae2' : variant === 'telegram' ? '#b7d5a4' : '#ffffff';
   const accent = variant === 'messages' ? '#087ff5' : variant === 'telegram' ? '#1685e6' : '#17191d';
@@ -227,7 +236,7 @@ export function drawDailyScreen(canvas: HTMLCanvasElement, cues: readonly LyricC
   ctx.clearRect(0, 0, WIDTH, HEIGHT); ctx.fillStyle = background; ctx.fillRect(0, 0, WIDTH, HEIGHT);
   if (chat) wallpaper(ctx, variant === 'telegram');
   ctx.fillStyle = variant === 'whatsapp' ? '#f6f4f0' : variant === 'telegram' ? '#f1f5ef' : '#ffffff'; ctx.fillRect(0, 0, WIDTH, variant === 'messages' ? 334 : 295);
-  drawDeviceStatus(ctx, capturedAtMs, frame, 130, 100);
+  drawDeviceStatus(ctx, capturedAtMs, frame, 130, 100, variant, options.deviceSeed);
   arrow(ctx, 76, 235, accent);
   if (variant === 'messages') {
     avatar(ctx, 540, 225, 50); rounded(ctx, 495, 288, 90, 17, 4, '#3f424a'); videoIcon(ctx, 908, 218, accent);

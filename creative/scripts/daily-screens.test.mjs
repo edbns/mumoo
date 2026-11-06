@@ -7,8 +7,13 @@ test('screen status is deterministic and chat timestamps use one tick', async ()
   try {
     const { screenDeviceStatus, formatChatTime, chatBubbleWidth } = await server.ssrLoadModule('/src/daily-screens.ts');
     const time = new Date(2026, 10, 6, 14, 7).getTime();
-    assert.deepEqual(screenDeviceStatus(time), screenDeviceStatus(time));
+    assert.deepEqual(screenDeviceStatus(time, 42, 'messages'), screenDeviceStatus(time, 42, 'messages'));
     assert.equal(screenDeviceStatus(time).batteryPercent, 12);
+    assert.equal(screenDeviceStatus(time).dynamicIsland, true);
+    const statuses = ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram'].map(id => screenDeviceStatus(time, 42, id));
+    assert.equal(new Set(statuses.map(s => s.batteryPercent)).size, 5);
+    assert.notDeepEqual(screenDeviceStatus(time, 42, 'messages'), screenDeviceStatus(time, 43, 'messages'));
+    for (const status of statuses) { assert.ok(status.batteryPercent >= 5 && status.batteryPercent <= 100); if (status.network === 'none') assert.equal(status.signalBars, 0); }
     assert.equal(formatChatTime(time, 0), '2:07 ✓');
     assert.ok(chatBubbleWidth(180, 72) <= 245);
     assert.ok(chatBubbleWidth(25, 72) >= 104);
@@ -28,6 +33,9 @@ test('five screen designs use a captured real time and reject invalid variants',
     assert.equal(formatScreenClock(nearNextMinute, 60).time, '2:08');
     const base = { version: 2, template: 'daily-screens', sourceSha256: 'a'.repeat(64), clipStartMs: 0, cues: [{ text: 'Hello', startMs: 0, endMs: 1000 }] };
     for (const { id } of SCREEN_DESIGNS) assert.doesNotThrow(() => validate({ ...base, dailyScreen: { variant: id, capturedAtMs } }, 15000));
+    assert.doesNotThrow(() => validate({ ...base, dailyScreen: { variant: 'messages', capturedAtMs, deviceSeed: 4294967295 } }, 15000));
+    assert.throws(() => validate({ ...base, dailyScreen: { variant: 'messages', capturedAtMs, deviceSeed: -1 } }, 15000));
+    assert.throws(() => validate({ ...base, dailyScreen: { variant: 'messages', capturedAtMs, deviceSeed: 1.5 } }, 15000));
     assert.throws(() => validate({ ...base, dailyScreen: { variant: 'invalid', capturedAtMs } }, 15000));
     assert.throws(() => validate({ ...base, dailyScreen: null }, 15000));
     assert.throws(() => validate({ ...base, dailyScreen: { variant: 'messages', capturedAtMs: 8640000000000000 } }, 15000));

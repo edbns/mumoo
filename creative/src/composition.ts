@@ -27,7 +27,7 @@ interface CompositionBase {
   sourceSha256: string;
   clipStartMs: number;
   assembly?: AssemblyPlan;
-  dailyScreen?: { variant: DailyScreenVariant; capturedAtMs: number };
+  dailyScreen?: { variant: DailyScreenVariant; capturedAtMs: number; deviceSeed?: number };
   lyricImpact?: { style: ImpactVariant; music: ImpactMusic | null };
 }
 
@@ -68,6 +68,7 @@ export function validate(value: unknown, sourceDurationMs: number): asserts valu
   if (template === 'daily-screens' && (!cues.length || cues.some(cue => !cue || typeof cue.text !== 'string' || !cue.text.trim()))) throw new Error('Daily Screens needs approved lyrics.');
   if (template === 'lyric-impact' && (!cues.length || cues.some(cue => !cue || typeof cue.text !== 'string' || !cue.text.trim()))) throw new Error('Lyric Impact needs approved lyrics.');
   if (candidate.dailyScreen !== undefined && (!candidate.dailyScreen || template !== 'daily-screens' || !DAILY_SCREEN_VARIANTS.includes(candidate.dailyScreen.variant) || !Number.isSafeInteger(candidate.dailyScreen.capturedAtMs) || candidate.dailyScreen.capturedAtMs < 0 || candidate.dailyScreen.capturedAtMs > 8640000000000000 - DURATION_MS)) throw new Error('Invalid Daily Screens design.');
+  if (candidate.dailyScreen?.deviceSeed !== undefined && (!Number.isInteger(candidate.dailyScreen.deviceSeed) || candidate.dailyScreen.deviceSeed < 0 || candidate.dailyScreen.deviceSeed > 0xffffffff)) throw new Error('Invalid Daily Screens device seed.');
   if (candidate.lyricImpact !== undefined) {
     const impact = candidate.lyricImpact;
     if (!impact || template !== 'lyric-impact' || !IMPACT_VARIANTS.includes(impact.style)) throw new Error('Invalid Lyric Impact design.');

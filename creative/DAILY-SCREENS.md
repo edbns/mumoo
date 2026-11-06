@@ -20,9 +20,10 @@ export use the same clock. The clock advances with the 15-second frame time.
 The one-at-a-time export queue can create one MP4 or a ZIP of all five; ZIP
 packing uses the MIT-licensed `fflate` library and keeps files in browser memory.
 
-All screens share simulated iOS-style status details: a captured local clock,
-dynamic-island silhouette, low battery and a stable per-composition cellular or
-Wi-Fi signal. Battery and signal are decorative, not the user's device readings.
+All screens share simulated iOS-style status details: a captured local clock and
+seeded variations of battery, signal, network and device shape. Each screen has
+its own deterministic profile for a creation. Battery and signal are decorative,
+not the user's device readings. The seed is saved with each exported composition.
 Future screen layouts should reuse the status treatment, and any notification
 badges must match actual simulated items rather than showing invented counts.
 

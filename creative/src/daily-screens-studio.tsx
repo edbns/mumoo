@@ -15,6 +15,7 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
   const [progress, setProgress] = useState<number>();
   const [variant, setVariant] = useState<DailyScreenVariant>('messages');
   const [capturedAtMs] = useState(() => Date.now());
+  const [deviceSeed] = useState(() => crypto.getRandomValues(new Uint32Array(1))[0]);
   const [exportLabel, setExportLabel] = useState('');
   const cues = profile.approvedLyrics?.cues ?? [];
   const cueKey = JSON.stringify(cues);
@@ -43,8 +44,8 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
   }, [token, genre, influence, cueKey, profile.videoType]);
 
   useEffect(() => {
-    if (eligible && canvas.current) drawDailyScreen(canvas.current, cues, playheadFrame(position), { variant, capturedAtMs });
-  }, [eligible, position, cueKey, variant, capturedAtMs]);
+    if (eligible && canvas.current) drawDailyScreen(canvas.current, cues, playheadFrame(position), { variant, capturedAtMs, deviceSeed });
+  }, [eligible, position, cueKey, variant, capturedAtMs, deviceSeed]);
 
   async function download(all = false) {
     if (!eligible || !cues.length) return;
@@ -55,7 +56,7 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
       let blob: Blob | undefined;
       for (let index = 0; index < selected.length; index++) {
         const design = selected[index]; setExportLabel(all ? `${design.name} · ${index + 1} of ${selected.length}` : design.name);
-        const dailyScreen = { variant: design.id, capturedAtMs };
+        const dailyScreen = { variant: design.id, capturedAtMs, deviceSeed };
         blob = await renderMp4({ ...composition, template: 'daily-screens', dailyScreen }, audio,
           frame => setProgress(Math.floor((index + frame / FRAMES) / selected.length * 100)),
           (target, frame) => drawDailyScreen(target, cues, frame, dailyScreen));
