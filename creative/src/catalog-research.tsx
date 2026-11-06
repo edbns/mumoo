@@ -3,7 +3,8 @@ import { StagingAccess } from './staging-access';
 import { mediaRequest } from './media-admin';
 
 type Asset = { id: string; type: 'image' | 'video'; title: string; previewUrl: string; sourceUrl: string; creator: string; provider: string; sourceCharacter: string; rights: { statement: string; licenseUrl: string }; review: { status: string }; adSafety: { status: string }; retainedMaster: { status: string } };
-type PixabayVideo = { id: string; title: string; sourceUrl: string; previewUrl: string | null; renderUrl: string; creator: string };
+type PixabayVideo = { id: string; title: string; sourceUrl: string; previewUrl: string | null; renderUrl: string | null; creator: string; license?: { code: string; name: string; attributionRequired: boolean }; accessMode?: string; downloadPermission?: string; durationMs?: number | null; width?: number | null; height?: number | null };
+type VimeoVideo = PixabayVideo & { limitations?: string[] };
 
 // Separate staging-only review surface. It does not change the creator flow.
 export function CatalogResearch() {
@@ -11,6 +12,9 @@ export function CatalogResearch() {
   const [message, setMessage] = useState(''); const [busy, setBusy] = useState(false); const [next, setNext] = useState<number | null>(null);
   const [pixabay, setPixabay] = useState<PixabayVideo[]>([]);
   const [pixabayQuery, setPixabayQuery] = useState(''); const [reviewedPixabay, setReviewedPixabay] = useState<Record<string, string>>({});
+  const [vimeo, setVimeo] = useState<VimeoVideo[]>([]);
+  const [vimeoQuery, setVimeoQuery] = useState(''); const [reviewedVimeo, setReviewedVimeo] = useState<Record<string, string>>({});
+  const [vimeoSummary, setVimeoSummary] = useState('');
   async function load(access: string, offset = 0) { const data = await mediaRequest(access, { operation: 'research-list', offset }); setItems(data.assets); setNext(data.nextOffset); }
   useEffect(() => { if (token) void load(token).catch(() => setMessage('Could not load the research catalog.')); }, [token]);
   async function discover() {
@@ -25,6 +29,16 @@ export function CatalogResearch() {
     try { const data = await mediaRequest(token, { operation: 'pixabay-search', query }); setPixabay(data.candidates); setPixabayQuery(query); setReviewedPixabay({}); setMessage(`Found ${data.candidates.length} Pixabay video candidates. They require review before use.`); }
     catch { setMessage('Pixabay search is unavailable. Try again later.'); } finally { setBusy(false); }
   }
+  async function searchVimeo() {
+    setBusy(true); setMessage('Searching Vimeo Creative Commons…'); setVimeo([]); setVimeoSummary('');
+    try {
+      const data = await mediaRequest(token, { operation: 'vimeo-search', query });
+      setVimeo(data.candidates || []); setVimeoQuery(query); setReviewedVimeo({});
+      const summary = data.summary || {};
+      setVimeoSummary(`${summary.total || 0} CC candidates · ${summary.downloadableViaApi || 0} with API download links · ${summary.discoveryOnly || 0} discovery-only. A Creative Commons label is not advertising clearance.`);
+      setMessage(`Found ${(data.candidates || []).length} Vimeo Creative Commons candidates.`);
+    } catch { setMessage('Vimeo search is unavailable. Try again later.'); } finally { setBusy(false); }
+  }
   async function reviewPixabay(item: PixabayVideo, safe: boolean) {
     if (safe && !window.confirm('Have you inspected this footage and confirmed both its reuse rights and its suitability for advertising, including identifiable people, property and brands?')) return;
     setBusy(true); setMessage('Saving the review…');
@@ -33,6 +47,15 @@ export function CatalogResearch() {
       setReviewedPixabay(items => ({ ...items, [item.id]: safe ? 'Reviewed for testing' : 'Rejected' }));
       setMessage('Review saved. This footage is not yet enabled for automatic videos.');
     } catch { setMessage('Review could not be saved. Search again and retry.'); } finally { setBusy(false); }
+  }
+  async function reviewVimeo(item: VimeoVideo, safe: boolean) {
+    if (safe && !window.confirm('Have you inspected this Vimeo page, confirmed the Creative Commons subtype, attribution requirements, and that a lawful downloadable source exists for advertising use?')) return;
+    setBusy(true); setMessage('Saving the Vimeo review…');
+    try {
+      await mediaRequest(token, { operation: 'vimeo-review', query: vimeoQuery, id: item.id, rightsStatus: safe ? 'APPROVED' : 'REJECTED', adSafety: safe ? 'SAFE' : 'BLOCKED' });
+      setReviewedVimeo(items => ({ ...items, [item.id]: safe ? 'Provenance recorded (export still gated)' : 'Rejected' }));
+      setMessage(item.renderUrl ? 'Review saved. API download was present; export eligibility still requires separate clearance.' : 'Review saved as discovery provenance. No lawful API download link was available for this result.');
+    } catch { setMessage('Vimeo review could not be saved. Search again and retry.'); } finally { setBusy(false); }
   }
   async function review(asset: Asset, status: 'SAFE' | 'REVIEW_REQUIRED' | 'BLOCKED') {
     if (status === 'SAFE' && !window.confirm('Have you inspected this asset and confirmed both its reuse rights and its suitability for advertising, including any people, brands and third-party rights?')) return;
@@ -65,7 +88,9 @@ export function CatalogResearch() {
     {!token ? <StagingAccess onAccess={setToken} /> : <><p>Owner-provided clips are for private staging tests only. They are not approved for advertising or release.</p><label>Add staging test clips<input type="file" accept="video/mp4" multiple disabled={busy} onChange={event => { void uploadTestFootage(event.target.files); event.target.value = ''; }} /></label><label>Search<input value={query} maxLength={80} onChange={event => setQuery(event.target.value)} /></label>
       <button disabled={busy || !query.trim()} onClick={() => void discover()}>Find Commons footage</button>
       <button disabled={busy || !query.trim()} onClick={() => void searchPixabay()}>Find Pixabay footage</button>
-      {pixabay.length > 0 && <><h2>Pixabay video candidates</h2><p>Source: <a href="https://pixabay.com/" target="_blank" rel="noreferrer">Pixabay</a>. These results are not yet approved or available for automatic videos.</p><div className="gallery-grid">{pixabay.map(item => <article className="gallery-card" key={item.id}><video src={item.renderUrl} poster={item.previewUrl || undefined} controls preload="none" onPlay={event => { const current = event.currentTarget; document.querySelectorAll('video').forEach(video => { if (video !== current) video.pause(); }); }} style={{ width: '100%', height: 180, objectFit: 'contain' }} /><strong>{item.title}</strong><p className="hint">By {item.creator} · Pixabay</p><a href={item.sourceUrl} target="_blank" rel="noreferrer">Inspect source and rights</a><p>{reviewedPixabay[item.id] || 'Review required'}</p><button disabled={busy} onClick={() => void reviewPixabay(item, true)}>Approve for testing</button><button disabled={busy} onClick={() => void reviewPixabay(item, false)}>Reject</button></article>)}</div></>}
+      <button disabled={busy || !query.trim()} onClick={() => void searchVimeo()}>Find Vimeo Creative Commons</button>
+      {pixabay.length > 0 && <><h2>Pixabay video candidates</h2><p>Source: <a href="https://pixabay.com/" target="_blank" rel="noreferrer">Pixabay</a>. These results are not yet approved or available for automatic videos.</p><div className="gallery-grid">{pixabay.map(item => <article className="gallery-card" key={item.id}>{item.renderUrl ? <video src={item.renderUrl} poster={item.previewUrl || undefined} controls preload="none" onPlay={event => { const current = event.currentTarget; document.querySelectorAll('video').forEach(video => { if (video !== current) video.pause(); }); }} style={{ width: '100%', height: 180, objectFit: 'contain' }} /> : item.previewUrl ? <img src={item.previewUrl} alt="" loading="lazy" style={{ width: '100%', height: 180, objectFit: 'contain' }} /> : null}<strong>{item.title}</strong><p className="hint">By {item.creator} · Pixabay</p><a href={item.sourceUrl} target="_blank" rel="noreferrer">Inspect source and rights</a><p>{reviewedPixabay[item.id] || 'Review required'}</p><button disabled={busy} onClick={() => void reviewPixabay(item, true)}>Approve for testing</button><button disabled={busy} onClick={() => void reviewPixabay(item, false)}>Reject</button></article>)}</div></>}
+      {vimeo.length > 0 && <><h2>Vimeo Creative Commons candidates</h2><p>Source: <a href="https://vimeo.com/creativecommons" target="_blank" rel="noreferrer">Vimeo Creative Commons</a>. Official API search prefers CC0 then CC BY. A Creative Commons label alone is not export clearance.</p>{vimeoSummary && <p className="hint">{vimeoSummary}</p>}<div className="gallery-grid">{vimeo.map(item => <article className="gallery-card" key={item.id}>{item.renderUrl ? <video src={item.renderUrl} poster={item.previewUrl || undefined} controls preload="none" onPlay={event => { const current = event.currentTarget; document.querySelectorAll('video').forEach(video => { if (video !== current) video.pause(); }); }} style={{ width: '100%', height: 180, objectFit: 'contain' }} /> : item.previewUrl ? <img src={item.previewUrl} alt="" loading="lazy" style={{ width: '100%', height: 180, objectFit: 'contain' }} /> : null}<strong>{item.title}</strong><p className="hint">By {item.creator} · {item.license?.code || 'CC'} · {item.accessMode || 'unknown access'}{item.durationMs ? ` · ${Math.round(item.durationMs / 1000)}s` : ''}{item.width && item.height ? ` · ${item.width}×${item.height}` : ''}</p><a href={item.sourceUrl} target="_blank" rel="noreferrer">Inspect source and rights</a><p>{reviewedVimeo[item.id] || 'Review required'}</p><p className="hint">{item.downloadPermission === 'api-download-link' ? 'API download link present; still needs clearance.' : 'Discovery metadata only — no lawful API download for this result.'}</p><button disabled={busy} onClick={() => void reviewVimeo(item, true)}>Record provenance</button><button disabled={busy} onClick={() => void reviewVimeo(item, false)}>Reject</button></article>)}</div></>}
       <p role="status">{message}</p><div className="gallery-grid">{items.filter(item => item.type === 'video').map(item => <article className="gallery-card" key={item.id}>
         {item.type === 'video' ? <video src={item.previewUrl} controls preload="none" onPlay={event => { const current = event.currentTarget; document.querySelectorAll('video').forEach(video => { if (video !== current) video.pause(); }); }} style={{ width: '100%', height: 180, objectFit: 'contain' }} /> : <img src={item.previewUrl} alt="" loading="lazy" style={{ width: '100%', height: 180, objectFit: 'contain' }} />}<strong>{item.title}</strong>
         <p className="hint">{item.provider} · {item.creator || 'Creator not recorded'} · {item.sourceCharacter}</p><p className="hint">{item.rights.statement}</p>

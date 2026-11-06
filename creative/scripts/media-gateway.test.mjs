@@ -95,6 +95,19 @@ test('owner footage upload requires tester access and stays within staging limit
     assert.equal((await media(upload(token, 'people,street'))).status, 200); assert.equal(calls, 1);
   } finally { globalThis.fetch = original; }
 });
+test('Vimeo discovery ops require access and reject hostile review payloads', async () => {
+  env(); const original = globalThis.fetch; let calls = 0;
+  globalThis.fetch = async (_url, options) => { calls++; const body = JSON.parse(options.body); assert.equal(body.operation, 'vimeo-search'); return Response.json({ candidates: [], summary: { total: 0, downloadableViaApi: 0, discoveryOnly: 0 } }); };
+  try {
+    assert.equal((await media(request('/api/media-catalog', { operation: 'vimeo-search', query: '' }))).status, 400);
+    assert.equal((await media(request('/api/media-catalog', { operation: 'vimeo-review', query: 'fog', id: 'vimeo-1', rightsStatus: 'APPROVED', adSafety: 'SAFE', renderUrl: 'https://evil.example' }))).status, 400);
+    assert.equal(calls, 0);
+    assert.equal((await media(request('/api/media-catalog', { operation: 'vimeo-search', query: 'abstract fog' }, 'invalid'))).status, 401);
+    assert.equal(calls, 0);
+    assert.equal((await media(request('/api/media-catalog', { operation: 'vimeo-search', query: 'abstract fog' }))).status, 200);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = original; }
+});
 test('Pixabay staging footage requires access and a trusted provider URL', async () => {
   env(); const original = globalThis.fetch; let count = 0;
   try {

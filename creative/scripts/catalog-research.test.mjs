@@ -15,6 +15,8 @@ test('research review stays separate from creator flow and requests explicit ad-
       if (input.operation === 'pixabay-review') { assert.equal(input.id, 'pixabay-1'); assert.equal(input.adSafety, 'SAFE'); return route.fulfill({ json: { review: { eligibleForCreation: false } } }); }
       if (input.operation === 'research-review') { assert.equal(input.adSafety, 'SAFE'); reviewed = true; return route.fulfill({ json: {} }); }
       if (input.operation === 'pixabay-search') return route.fulfill({ json: { candidates: [{ id: 'pixabay-1', title: 'City lights', creator: 'Creator', sourceUrl: 'https://pixabay.com/videos/id-1/', previewUrl: null, renderUrl: 'https://cdn.pixabay.com/video/test.mp4' }] } });
+      if (input.operation === 'vimeo-search') return route.fulfill({ json: { candidates: [{ id: 'vimeo-42', title: 'Fog loop', creator: 'Loop Artist', sourceUrl: 'https://vimeo.com/42', previewUrl: null, renderUrl: null, license: { code: 'CC0', name: 'CC0 1.0 Universal', attributionRequired: false }, accessMode: 'discovery-metadata-only', downloadPermission: 'not-granted-via-api', durationMs: 18000, width: 1920, height: 1080 }], summary: { total: 1, downloadableViaApi: 0, discoveryOnly: 1 } } });
+      if (input.operation === 'vimeo-review') { assert.equal(input.id, 'vimeo-42'); assert.equal(input.adSafety, 'SAFE'); return route.fulfill({ json: { review: { eligibleForCreation: false, exportEligible: false } } }); }
       return route.fulfill({ json: { assets: [{ id: 'commons2-1', type: 'video', title: 'Test source', previewUrl: '', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Example', creator: '', provider: 'Commons', sourceCharacter: 'unknown', rights: { statement: 'Item CC0', licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/' }, review: { status: 'PENDING' }, adSafety: { status: 'REVIEW_REQUIRED' }, retainedMaster: { status: 'NOT_RETAINED' } }], nextOffset: null } });
     });
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?catalog-research=1`);
@@ -30,5 +32,10 @@ test('research review stays separate from creator flow and requests explicit ad-
     await page.getByText('City lights').waitFor(); assert.ok(await page.getByText('These results are not yet approved or available for automatic videos.', { exact: false }).isVisible());
     page.once('dialog', dialog => dialog.accept()); await page.getByRole('button', { name: 'Approve for testing' }).click();
     await page.getByText('Review saved. This footage is not yet enabled for automatic videos.').waitFor();
+    await page.getByRole('button', { name: 'Find Vimeo Creative Commons' }).click();
+    await page.getByText('Fog loop').waitFor();
+    assert.ok(await page.getByText('Discovery metadata only', { exact: false }).isVisible());
+    page.once('dialog', dialog => dialog.accept()); await page.getByRole('button', { name: 'Record provenance' }).click();
+    await page.getByText('Review saved as discovery provenance', { exact: false }).waitFor();
   } finally { await browser.close(); await server.close(); }
 });
