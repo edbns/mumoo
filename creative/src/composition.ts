@@ -7,9 +7,7 @@ export const FRAMES = FPS * DURATION_MS / 1000;
 export const CANVAS_DAILY_SCREEN_VARIANTS = ['messages', 'whatsapp', 'telegram', 'messenger', 'instagram'] as const;
 export const DOM_DAILY_SCREEN_VARIANTS = ['dating', 'ride', 'food'] as const;
 export const SCENE_DAILY_SCREEN_VARIANTS = [
-  'package-tracking', 'banking-alert', 'order-update',
-  'lock-screen', 'missed-call',
-  'comment-thread', 'search-screen', 'notification-feed', 'story-reply', 'social-post',
+  'banking-alert', 'lock-screen', 'missed-call', 'search-screen',
 ] as const;
 export const DAILY_SCREEN_VARIANTS = [...CANVAS_DAILY_SCREEN_VARIANTS, ...DOM_DAILY_SCREEN_VARIANTS, ...SCENE_DAILY_SCREEN_VARIANTS] as const;
 export type CanvasDailyScreenVariant = typeof CANVAS_DAILY_SCREEN_VARIANTS[number];

@@ -12,16 +12,10 @@ export const SCREEN_DESIGNS: readonly { id: DailyScreenVariant; name: string; re
   { id: 'dating', name: 'Dating match', renderer: 'dom' },
   { id: 'ride', name: 'Ride', renderer: 'dom' },
   { id: 'food', name: 'Food delivery', renderer: 'dom' },
-  { id: 'package-tracking', name: 'Package tracking', renderer: 'scene' },
   { id: 'banking-alert', name: 'Banking alert', renderer: 'scene' },
-  { id: 'order-update', name: 'Order update', renderer: 'scene' },
   { id: 'lock-screen', name: 'Lock screen', renderer: 'scene' },
   { id: 'missed-call', name: 'Missed call', renderer: 'scene' },
-  { id: 'comment-thread', name: 'Comment thread', renderer: 'scene' },
   { id: 'search-screen', name: 'Search', renderer: 'scene' },
-  { id: 'notification-feed', name: 'Notifications', renderer: 'scene' },
-  { id: 'story-reply', name: 'Story reply', renderer: 'scene' },
-  { id: 'social-post', name: 'Social post', renderer: 'scene' },
 ];
 
 export const CANVAS_SCREEN_DESIGNS = SCREEN_DESIGNS.filter(design => design.renderer === 'canvas');
