@@ -1,7 +1,8 @@
 # Daily Screens 2.0 verification — 2026-11-06
 
-Checkout: `edbns/mumoo` branch `codex/staging-lyrics` (pre-deploy local work on this report).
+Checkout: `edbns/mumoo` branch `codex/staging-lyrics` commit **`64fe529`**.
 Private Brain remains separate at `/Users/sennie/Documents/ChatGPT/mumoo-brain-private` (`fcb0667`); no Brain source was copied into the public tree.
+Staging URL: https://mumoo-staging.netlify.app/ (live bundle includes `Dating match`, `Food delivery`, `html2canvas`, `Harbor Noodle`). Production unchanged.
 
 ## Results
 
@@ -11,7 +12,8 @@ Private Brain remains separate at `/Users/sennie/Documents/ChatGPT/mumoo-brain-p
 | 2. Contract / integration | **PASS** | Composition accepts eight variants; Canvas five + DOM three; lyric cue framing unchanged |
 | 3. Browser end-to-end (local mocked services) | **PASS** | `MUMOO_HEADLESS=1 node --test scripts/daily-screens-dom-browser.test.mjs` PASS; dating/ride/food previews + downloads |
 | 4. Real MP4 (local) | **PASS** | `creative/tmp-daily-dom/mumoo-{dating,ride,food}.mp4` each `h264 1080×1920 450 frames 30/1 aac 15.000s` |
-| 5. Staging acceptance (hosted unlock + real song) | **NOT TESTED** | Staging tester auth handled by owner outside chat; deploy pushed to `codex/staging-lyrics` for Netlify staging only |
+| 5. Staging deploy presence | **PASS** | Pushed `64fe529`; staging assets rotated to `/assets/index-BcJ0pDki.js` + `index-CSz_RnWL.css` with DOM design strings present |
+| 5b. Staging acceptance (hosted unlock + real song download) | **NOT TESTED** | Owner-controlled staging auth; no passwords requested or stored |
 | 6. Independent review | **NOT TESTED** | Owner creative review of visual fidelity vs Gummble references still required |
 | 7. Remaining / unverified | see below | |
 
