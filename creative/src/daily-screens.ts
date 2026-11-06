@@ -119,6 +119,55 @@ function paperclipIcon(ctx: CanvasRenderingContext2D, x: number, y: number, colo
   stroke(ctx, color, 5, () => { ctx.moveTo(x + 33, y + 7); ctx.lineTo(x + 10, y + 30); ctx.quadraticCurveTo(x + 1, y + 40, x + 10, y + 48); ctx.quadraticCurveTo(x + 18, y + 56, x + 28, y + 46); ctx.lineTo(x + 49, y + 25); ctx.quadraticCurveTo(x + 57, y + 17, x + 49, y + 9); ctx.quadraticCurveTo(x + 42, y + 3, x + 35, y + 10); ctx.lineTo(x + 17, y + 28); ctx.quadraticCurveTo(x + 13, y + 33, x + 17, y + 37); ctx.quadraticCurveTo(x + 21, y + 41, x + 26, y + 36); ctx.lineTo(x + 40, y + 22); });
 }
 
+// A neutral fictional contact preserves the shape of the reference without
+// reproducing its personal photograph or identifying name.
+function messengerLock(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, r + 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#050505'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.roundRect(x - r * .24, y, r * .48, r * .35, 2); ctx.fill();
+  stroke(ctx, '#fff', Math.max(2, r * .1), () => { ctx.arc(x, y, r * .17, Math.PI, 0); ctx.moveTo(x-r*.17,y);ctx.lineTo(x-r*.17,y-r*.12);ctx.moveTo(x+r*.17,y);ctx.lineTo(x+r*.17,y-r*.12); });
+}
+
+function drawMessenger(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], frame: number, capturedAtMs: number) {
+  const clock = formatScreenClock(capturedAtMs, frame);
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  text(ctx, clock.time, 68, 72, '600 36px "Inter Variable"', '#050505');
+  for (let i=0;i<4;i++) rounded(ctx, 846+i*12, 86-i*5, 8, 8+i*5, 3, '#a8a8a8');
+  stroke(ctx, '#111', 4, () => { ctx.arc(932, 89, 18, 3.9, 5.52); ctx.moveTo(923, 91); ctx.arc(932, 91, 10, 3.9, 5.52); });
+  stroke(ctx, '#777', 3, () => ctx.roundRect(966, 70, 46, 23, 5)); rounded(ctx, 970, 74, 31, 15, 2, '#65b774'); rounded(ctx, 1013, 77, 3, 8, 1, '#777');
+  arrow(ctx, 65, 179, '#050505'); avatar(ctx, 185, 179, 47); messengerLock(ctx, 219, 210, 13);
+  text(ctx, 'Alex', 260, 180, '700 42px "Inter Variable"', '#050505');
+  avatar(ctx, 540, 375, 132); messengerLock(ctx, 637, 472, 35);
+  text(ctx, 'Alex', 540, 550, '700 64px "Inter Variable"', '#050505', 'center');
+  text(ctx, 'Secret conversation', 540, 613, '400 37px "Inter Variable"', '#050505', 'center');
+  text(ctx, 'Encrypted end to end across all your active', 540, 672, '400 34px "Inter Variable"', '#858585', 'center');
+  text(ctx, 'mobile devices', 540, 716, '400 34px "Inter Variable"', '#858585', 'center');
+  const visible = dailyScreenFrame(cues, frame).lines;
+  ctx.font = '400 42px "Inter Variable"';
+  const items = visible.map(line => { const wrapped=wrapScreenText(ctx,line.text,650); return {line,wrapped,height:wrapped.length*54+30}; });
+  while (items.length > 1 && items.reduce((n,item)=>n+item.height+18,0)>760) items.shift();
+  let y=790;
+  for (const item of items) {
+    ctx.font = '400 42px "Inter Variable"'; const width=Math.min(720,Math.max(110,...item.wrapped.map(part=>ctx.measureText(part).width+54)));
+    const x=WIDTH-70-width; const offset=(1-Math.min(1,Math.max(0,(frame-item.line.startFrame+1)/5)))*12;
+    rounded(ctx,x,y+offset,width,item.height,32,'#1683ff');
+    item.wrapped.forEach((part,i)=>text(ctx,part,x+27,y+offset+39+i*54,'400 42px "Inter Variable"','#fff'));
+    y+=item.height+18;
+  }
+  ctx.fillStyle='#fff';ctx.fillRect(0,1580,WIDTH,190);
+  cameraIcon(ctx,42,1640,'#050505');pictureIcon(ctx,170,1640,'#050505');
+  ctx.fillStyle='#050505';ctx.beginPath();ctx.arc(328,1662,27,0,Math.PI*2);ctx.fill();
+  for(let i=0;i<5;i++) rounded(ctx,311+i*7,1652-Math.abs(2-i)*3,3,20+Math.abs(2-i)*6,2,'#fff');
+  rounded(ctx,414,1618,500,88,44,'#f4f4f4');
+  ctx.fillStyle='#c7cbcd';ctx.beginPath();ctx.arc(462,1662,29,0,Math.PI*2);ctx.fill();
+  stroke(ctx,'#fff',4,()=>{ctx.arc(462,1662,19,.2,5.1);ctx.moveTo(451,1649);ctx.lineTo(464,1662);});
+  text(ctx,'Aa',530,1662,'400 38px "Inter Variable"','#828282');
+  ctx.fillStyle='#050505';ctx.beginPath();ctx.arc(861,1662,27,0,Math.PI*2);ctx.fill(); smileIcon(ctx,839,1640,'#fff');
+  // Original vector hand silhouette rather than a platform logo.
+  ctx.fillStyle='#050505';ctx.beginPath();ctx.moveTo(982,1684);ctx.lineTo(982,1654);ctx.quadraticCurveTo(990,1648,994,1630);ctx.quadraticCurveTo(998,1618,1004,1625);ctx.lineTo(1004,1644);ctx.lineTo(1020,1644);ctx.quadraticCurveTo(1028,1644,1025,1655);ctx.lineTo(1019,1680);ctx.quadraticCurveTo(1017,1685,1010,1685);ctx.closePath();ctx.fill();
+  rounded(ctx,390,1795,300,10,5,'#050505');
+}
+
 const wallpaperTiles = new Map<boolean, HTMLCanvasElement>();
 function wallpaper(ctx: CanvasRenderingContext2D, telegram: boolean) {
   let tile = wallpaperTiles.get(telegram);
@@ -139,6 +188,7 @@ export function drawDailyScreen(canvas: HTMLCanvasElement, cues: readonly LyricC
   options: { variant: DailyScreenVariant; capturedAtMs: number } = { variant: 'messages', capturedAtMs: 0 }) {
   const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Canvas is unavailable.');
   const { variant, capturedAtMs } = options, clock = formatScreenClock(capturedAtMs, frame);
+  if (options.variant === 'messenger') { drawMessenger(ctx, cues, frame, capturedAtMs); return; }
   const chat = variant === 'whatsapp' || variant === 'telegram';
   const background = variant === 'whatsapp' ? '#efeae2' : variant === 'telegram' ? '#b7d5a4' : '#ffffff';
   const accent = variant === 'messages' ? '#087ff5' : variant === 'telegram' ? '#1685e6' : '#17191d';
