@@ -5,11 +5,13 @@ import { createServer } from 'vite';
 test('Lyric Impact catalog uses approved words, music signals, and validates 28 styles', async () => {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom', logLevel: 'error' });
   try {
-    const { IMPACT_STYLES, impactFrame, impactSignals, fitImpactText } = await server.ssrLoadModule('/src/lyric-impact.ts');
-    const { validate, IMPACT_VARIANTS } = await server.ssrLoadModule('/src/composition.ts');
+    const { IMPACT_STYLES, IMPACT_WORLD_FEATURES, impactFrame, impactSignals, fitImpactText, worldCompatible } = await server.ssrLoadModule('/src/lyric-impact.ts');
+    const { validate, IMPACT_VARIANTS, IMPACT_WORLDS } = await server.ssrLoadModule('/src/composition.ts');
     const cues = [{ text: 'No', startMs: 1000, endMs: 1250 }, { text: 'miro', startMs: 1250, endMs: 1600 }, { text: 'atrás.', startMs: 1600, endMs: 2100 }];
     assert.equal(IMPACT_STYLES.length, 28);
     assert.equal(IMPACT_VARIANTS.length, 28);
+    assert.equal(IMPACT_WORLDS.length, 3);
+    assert.equal(IMPACT_WORLD_FEATURES.length, 3);
     assert.deepEqual(IMPACT_STYLES.map(item => item.id), [...IMPACT_VARIANTS]);
     assert.equal(impactFrame(cues, 29).phrase, '');
     assert.equal(impactFrame(cues, 48).phrase, 'No miro atrás.');
@@ -17,9 +19,11 @@ test('Lyric Impact catalog uses approved words, music signals, and validates 28 
     assert.equal(impactFrame(cues, 63).phrase, '');
     assert.equal(impactFrame([{ text: 'End', startMs: 14990, endMs: 15000 }], 449).word, 'End');
     assert.equal(impactFrame([{ text: 'The', startMs: 14900, endMs: 14990 }, { text: 'end', startMs: 14990, endMs: 15000 }], 449).word, 'end');
-    const track = { beatsMs: [1000], energy: [{ timeMs: 0, rms: 0.2 }, { timeMs: 1000, rms: 0.8 }] };
+    const track = { beatsMs: [1000], energy: [{ timeMs: 0, rms: 0.2 }, { timeMs: 1000, rms: 0.8 }], onsetsMs: [1000], spectrum: [{ timeMs: 0, centroidHz: 800, lowShare: 0.4 }, { timeMs: 1000, centroidHz: 1600, lowShare: 0.2 }] };
     assert.ok(impactSignals(track, 1000).beat > impactSignals(track, 1400).beat);
     assert.deepEqual(impactSignals(track, 1000), impactSignals(track, 1000));
+    assert.equal(worldCompatible('cinematic-depth', 'tunnel'), true);
+    assert.equal(worldCompatible('cinematic-depth', 'mosaic'), false);
     const originalSegmenter = Intl.Segmenter;
     try {
       Intl.Segmenter = undefined;
@@ -31,8 +35,13 @@ test('Lyric Impact catalog uses approved words, music signals, and validates 28 
     for (const style of IMPACT_VARIANTS) {
       assert.doesNotThrow(() => validate({ ...base, lyricImpact: { style, music: track } }, 15000));
     }
+    for (const feature of IMPACT_WORLD_FEATURES) {
+      assert.doesNotThrow(() => validate({ ...base, lyricImpact: { style: feature.style, music: track, world: feature.world } }, 15000));
+      assert.equal(worldCompatible(feature.world, feature.style), true);
+    }
     assert.throws(() => validate({ ...base, cues: [] }, 15000));
     assert.throws(() => validate({ ...base, lyricImpact: { style: 'wrong', music: track } }, 15000));
     assert.throws(() => validate({ ...base, lyricImpact: { style: 'poster', music: track } }, 15000));
+    assert.throws(() => validate({ ...base, lyricImpact: { style: 'tunnel', music: track, world: 'not-a-world' } }, 15000));
   } finally { await server.close(); }
 });

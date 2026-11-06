@@ -59,11 +59,30 @@ test('Lyric Impact previews distinct catalog styles and exports the selected aud
       if (process.env.MUMOO_IMPACT_SAMPLE) writeFileSync(`${process.env.MUMOO_IMPACT_SAMPLE}-${name.toLowerCase()}.png`, shots[name.toLowerCase()]);
     }
     assert.equal(new Set(Object.values(shots).map(value => createHash('sha256').update(value).digest('hex'))).size, sampleNames.length);
+    // Featured cinematic worlds — distinct from bare typography, exportable as MP4.
+    await page.getByRole('button', { name: 'Cinematic Depth', exact: true }).click();
+    const depthShot = Buffer.from((await canvas.evaluate(el => el.toDataURL('image/png'))).split(',')[1], 'base64');
+    assert.notEqual(createHash('sha256').update(depthShot).digest('hex'), createHash('sha256').update(shots.tunnel).digest('hex'));
+    if (process.env.MUMOO_IMPACT_SAMPLE) writeFileSync(`${process.env.MUMOO_IMPACT_SAMPLE}-world-depth.png`, depthShot);
+    await page.getByRole('button', { name: 'Material Motion', exact: true }).click();
+    const materialShot = Buffer.from((await canvas.evaluate(el => el.toDataURL('image/png'))).split(',')[1], 'base64');
+    await page.getByRole('button', { name: 'Editorial Collage', exact: true }).click();
+    const collageShot = Buffer.from((await canvas.evaluate(el => el.toDataURL('image/png'))).split(',')[1], 'base64');
+    assert.equal(new Set([depthShot, materialShot, collageShot].map(value => createHash('sha256').update(value).digest('hex'))).size, 3);
+    if (process.env.MUMOO_IMPACT_SAMPLE) {
+      writeFileSync(`${process.env.MUMOO_IMPACT_SAMPLE}-world-material.png`, materialShot);
+      writeFileSync(`${process.env.MUMOO_IMPACT_SAMPLE}-world-collage.png`, collageShot);
+    }
     await page.getByRole('button', { name: 'Tunnel', exact: true }).click();
     const singlePending = page.waitForEvent('download', { timeout: 120000 }); await page.getByRole('button', { name: 'Download MP4' }).click();
     const single = await singlePending; assert.equal(single.suggestedFilename(), 'mumoo-lyric-impact-tunnel.mp4');
     const singleInfo = JSON.parse(execFileSync(ffprobe.path, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', await single.path()]));
     assert.deepEqual([singleInfo.streams[0].codec_name, singleInfo.streams[1].codec_name, singleInfo.format.duration], ['h264', 'aac', '15.000000']);
+    await page.getByRole('button', { name: 'Cinematic Depth', exact: true }).click();
+    const worldPending = page.waitForEvent('download', { timeout: 120000 }); await page.getByRole('button', { name: 'Download MP4' }).click();
+    const worldDownload = await worldPending; assert.equal(worldDownload.suggestedFilename(), 'mumoo-lyric-world-cinematic-depth.mp4');
+    const worldInfo = JSON.parse(execFileSync(ffprobe.path, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', await worldDownload.path()]));
+    assert.deepEqual([worldInfo.streams[0].codec_name, worldInfo.streams[0].width, worldInfo.streams[0].height, worldInfo.streams[0].nb_frames, worldInfo.streams[1].codec_name, worldInfo.format.duration], ['h264', 1080, 1920, '450', 'aac', '15.000000']);
     // Full 28-style ZIP is available in product UI; CI verifies a second distinct style export instead.
     await page.getByRole('button', { name: 'Collision', exact: true }).click();
     const started = performance.now(); const pending = page.waitForEvent('download', { timeout: 120000 }); await page.getByRole('button', { name: 'Download MP4' }).click();

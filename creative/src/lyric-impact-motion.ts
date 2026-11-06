@@ -107,8 +107,18 @@ export function hash01(seed: number, salt = 0) {
 
 export function fillScene(ctx: CanvasRenderingContext2D, color: string) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  // Visual worlds paint through this hook so the 28 lyric drawers stay unchanged.
+  // Dynamic import avoided: worlds registers the painter on first drawLyricImpact call.
+  if (paintWorldBackgroundHook?.(ctx)) return;
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+}
+
+type WorldFillHook = (ctx: CanvasRenderingContext2D) => boolean;
+let paintWorldBackgroundHook: WorldFillHook | null = null;
+
+export function setImpactWorldFillHook(hook: WorldFillHook | null) {
+  paintWorldBackgroundHook = hook;
 }
 
 export type DrawContext = {
