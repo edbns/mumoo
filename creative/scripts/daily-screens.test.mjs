@@ -62,8 +62,8 @@ test('Daily Screens preserves approved words and reveals them only on their time
     ];
     assert.deepEqual(dailyScreenFrame(cues, 29).lines, []);
     assert.deepEqual(dailyScreenFrame(cues, 30).lines.map(line => line.text), ['Make']);
-    assert.deepEqual(dailyScreenFrame(cues, 42).lines.map(line => line.text), ['Make', 'it', 'move!']);
-    assert.deepEqual(dailyScreenFrame(cues, 75).lines.map(line => line.text), ['Make', 'it', 'move!', 'Again.']);
+    assert.deepEqual(dailyScreenFrame(cues, 42).lines.map(line => line.text), ['Make it move!']);
+    assert.deepEqual(dailyScreenFrame(cues, 75).lines.map(line => line.text), ['Make it move!', 'Again.']);
     assert.deepEqual(dailyScreenFrame(cues, 75), dailyScreenFrame(cues, 75));
     assert.deepEqual(dailyScreenFrame([{ text: 'End', startMs: 14990, endMs: 15000 }], 449).lines.map(line => line.text), ['End']);
   } finally { await server.close(); }

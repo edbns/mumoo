@@ -93,10 +93,14 @@
 .mumoo-dating-names { display: flex; align-items: center; gap: 18px; font-size: 28px; font-weight: 700; }
 .mumoo-dating-sheet {
   position: absolute; left: 70px; right: 70px; bottom: 120px; background: #fff; color: #111;
-  border-radius: 40px; padding: 36px 40px 40px; min-height: 620px;
+  border-radius: 40px; padding: 36px 40px 40px; min-height: 700px;
+  display: flex; flex-direction: column;
 }
-.mumoo-dating-prompt { margin: 0 0 28px; text-align: center; color: #6b7280; font-size: 28px; font-weight: 600; }
-.mumoo-dating-messages { display: flex; flex-direction: column; gap: 18px; align-items: center; min-height: 320px; }
+.mumoo-dating-prompt { margin: 0 0 28px; text-align: center; color: #6b7280; font-size: 28px; font-weight: 600; flex: 0 0 auto; }
+.mumoo-dating-messages {
+  display: flex; flex-direction: column; gap: 18px; align-items: center; flex: 1 1 auto;
+  min-height: 0; overflow: hidden; margin-bottom: 28px;
+}
 .mumoo-dating-bubble {
   max-width: 820px; background: var(--dating-accent); color: var(--dating-ink); border-radius: 30px;
   padding: 24px 30px; font-size: 48px; font-weight: 600; line-height: 1.25; text-align: center;
@@ -104,7 +108,7 @@
   transform: translateY(var(--enter-y, 0)); opacity: var(--enter-opacity, 1);
 }
 .mumoo-dating-cta {
-  margin-top: 28px; height: 100px; border-radius: 50px; background: var(--dating-accent); color: var(--dating-ink);
+  flex: 0 0 auto; height: 100px; border-radius: 50px; background: var(--dating-accent); color: var(--dating-ink);
   display: grid; place-items: center; font-size: 36px; font-weight: 700;
 }
 

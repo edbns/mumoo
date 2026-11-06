@@ -10,19 +10,20 @@ interface is rendered afresh on every frame rather than placed over a
 screenshot. It is available only for Lyric Video in staging. Existing visuals
 remain available.
 
-The approved WhisperX cue timestamps are clip-relative milliseconds. Each cue
-becomes its own bubble on `ceil(startMs * 30 / 1000)` (same boundary as the
-lyric monitor), capped at frame 449, fully visible on that frame. Preview paints
-from a live audio playhead ref on every animation frame so React re-renders
-cannot lag lyrics behind the song. Preview and MP4 export both use
-`paintDailyScreen` (Canvas for all eight designs); the canvas remounts on every
-template switch so a stale bitmap cannot stick black. The original selected
-audio is used for preview and export. Font metrics are loaded before export.
-The actual local creation time is captured once when the screen opens and
-stored with the selected variant in the composition, so the preview and export
-use the same clock. The clock advances with the 15-second frame time. The
-one-at-a-time export queue can create one MP4 or a ZIP of all eight; ZIP packing
-uses the MIT-licensed `fflate` library and keeps files in browser memory.
+The approved WhisperX cue timestamps are clip-relative milliseconds. Words group
+into short chat lines (punctuation, pause, or ~line length) and appear on
+`ceil(startMs * 30 / 1000)` (same boundary as the lyric monitor), capped at
+frame 449. Preview paints from a live audio playhead ref on every animation
+frame so React re-renders cannot lag lyrics behind the song. Preview and MP4
+export both use `paintDailyScreen` (Canvas for all eight designs); the canvas
+remounts on every template switch so a stale bitmap cannot stick black. The
+original selected audio is used for preview and export. Font metrics are loaded
+before export. The actual local creation time is captured once when the screen
+opens and stored with the selected variant in the composition, so the preview
+and export use the same clock. The clock advances with the 15-second frame
+time. The one-at-a-time export queue can create one MP4 or a ZIP of all eight;
+ZIP packing uses the MIT-licensed `fflate` library and keeps files in browser
+memory.
 
 All screens share simulated iOS-style retention chrome: a live system clock,
 Dynamic Island, cellular bars, a Wi‑Fi icon (or 4G/5G label), red/green battery

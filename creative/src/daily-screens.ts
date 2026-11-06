@@ -71,17 +71,22 @@ type ScreenLine = { text: string; startFrame: number; active: boolean };
 // Same boundary as evaluate(): first frame at or after the WhisperX timestamp.
 const firstFrame = (ms: number) => Math.min(FRAMES - 1, Math.max(0, Math.ceil(ms * FPS / 1000)));
 
-// One bubble per approved cue so each WhisperX word lands on its own start time.
+// Group approved words into short chat lines (punctuation, pause, or ~line length).
 // No invented names or conversation — only approved lyric text.
 export function dailyScreenFrame(cues: readonly LyricCue[], frame: number): { lines: ScreenLine[] } {
   const lines: ScreenLine[] = [];
+  let current = ''; let startFrame = 0; let previous: LyricCue | undefined;
   for (const cue of cues) {
-    const start = firstFrame(cue.startMs);
-    if (start > frame) break;
-    lines.push({ text: cue.text, startFrame: start, active: true });
+    if (firstFrame(cue.startMs) > frame) break;
+    const startsLine = !previous || cue.startMs - previous.endMs > 450 || /[.!?。！？]$/u.test(previous.text) || [...`${current} ${cue.text}`].length > 32;
+    if (startsLine) {
+      if (current) lines.push({ text: current, startFrame, active: false });
+      current = cue.text; startFrame = firstFrame(cue.startMs);
+    } else current += ` ${cue.text}`;
+    previous = cue;
   }
-  if (lines.length) lines.forEach((line, index) => { line.active = index === lines.length - 1; });
-  return { lines: lines.slice(-6) };
+  if (current) lines.push({ text: current, startFrame, active: true });
+  return { lines: lines.slice(-4) };
 }
 
 function rounded(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, fill: string) {

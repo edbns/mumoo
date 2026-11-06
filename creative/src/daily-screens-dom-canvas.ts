@@ -92,11 +92,15 @@ function drawDating(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], fr
   text(ctx, '&', WIDTH / 2, 916, `700 28px "Inter Variable"`, '#fff', 'center');
   redact(ctx, 560, 900, 160, 32, 'rgba(0,0,0,0.55)');
 
-  // Lyric as the standout opening message — large and unmissable.
-  rounded(ctx, 70, 1100, 940, 620, 40, '#ffffff');
-  text(ctx, 'Say something that stands out', WIDTH / 2, 1165, `600 28px "Inter Variable"`, '#6b7280', 'center');
+  // White composer sheet — prompt, lyric bubbles, and CTA all fully inside.
+  const sheetTop = 1080;
+  const sheetHeight = 700;
+  const sheetBottom = sheetTop + sheetHeight;
+  const ctaTop = sheetBottom - 140;
+  rounded(ctx, 70, sheetTop, 940, sheetHeight, 40, '#ffffff');
+  text(ctx, 'Say something that stands out', WIDTH / 2, sheetTop + 55, `600 28px "Inter Variable"`, '#6b7280', 'center');
 
-  let y = 1230;
+  let y = sheetTop + 110;
   ctx.font = '600 48px "Inter Variable"';
   for (const line of lines) {
     const wrapped = wrapScreenText(ctx, line.text, 760);
@@ -104,16 +108,16 @@ function drawDating(ctx: CanvasRenderingContext2D, cues: readonly LyricCue[], fr
     const t = entrance(frame, line.startFrame);
     const w = Math.min(820, Math.max(180, ...wrapped.map(part => ctx.measureText(part).width)) + 60);
     const x = (WIDTH - w) / 2;
+    if (y + h > ctaTop - 24) break;
     ctx.globalAlpha = 0.45 + t * 0.55;
     rounded(ctx, x, y + (1 - t) * 16, w, h, 30, accent);
     wrapped.forEach((part, i) => text(ctx, part, WIDTH / 2, y + (1 - t) * 16 + 44 + i * 58, `600 48px "Inter Variable"`, inkOnAccent, 'center'));
     ctx.globalAlpha = 1;
     y += h + 22;
-    if (y > 1580) break;
   }
 
-  rounded(ctx, 120, 1640, 840, 100, 50, accent);
-  text(ctx, 'Send Message', WIDTH / 2, 1690, `700 36px "Inter Variable"`, inkOnAccent, 'center');
+  rounded(ctx, 120, ctaTop, 840, 100, 50, accent);
+  text(ctx, 'Send Message', WIDTH / 2, ctaTop + 50, `700 36px "Inter Variable"`, inkOnAccent, 'center');
   rounded(ctx, 390, 1865, 300, 10, 5, '#141416');
 }
 
