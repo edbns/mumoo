@@ -11,9 +11,9 @@ function clipMusic(profile: CreativeProfileV1): ImpactMusic | null {
   return { beatsMs: data.rhythm.beatsMs.slice(0, 500), energy: data.features.frames.slice(0, 2000).map(point => ({ timeMs: Math.max(0, Math.min(15000, Math.round(point.timeMs))), rms: Math.max(0, Math.min(1, point.rms)) })) };
 }
 
-export function LyricImpactStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onSeek, onBack, onDaily, onHuman, onCuriosity }: {
+export function LyricImpactStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onSeek, onBack, onDaily, onHuman, onCuriosity, onMontage }: {
   profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; token: string; position: number; playing: boolean; playbackError: string;
-  onPlay: () => void; onStop: () => void; onSeek: (ms: number) => void; onBack: () => void; onDaily: () => void; onHuman: () => void; onCuriosity: () => void;
+  onPlay: () => void; onStop: () => void; onSeek: (ms: number) => void; onBack: () => void; onDaily: () => void; onHuman: () => void; onCuriosity: () => void; onMontage: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [style, setStyle] = useState<ImpactVariant>('poster');
@@ -68,7 +68,7 @@ export function LyricImpactStudio({ profile, composition, audio, token, position
   return <main className="desktop gallery-page"><section className="gallery-shell">
     <p className="eyebrow">YOUR LYRIC VIDEO</p><h1>Lyric Impact</h1>
     <p className="intro">Your words take center stage.</p>
-    <div className="trim-actions"><button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back to lyrics</button><button className="secondary" disabled={progress !== undefined} onClick={onDaily}>Daily Screens</button><button className="secondary" disabled={progress !== undefined} onClick={onHuman}>Human Magnet</button><button className="secondary" disabled={progress !== undefined} onClick={onCuriosity}>Visual Curiosity</button></div>
+    <div className="trim-actions"><button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back to lyrics</button><button className="secondary" disabled={progress !== undefined} onClick={onDaily}>Daily Screens</button><button className="secondary" disabled={progress !== undefined} onClick={onHuman}>Human Magnet</button><button className="secondary" disabled={progress !== undefined} onClick={onCuriosity}>Visual Curiosity</button><button className="secondary" disabled={progress !== undefined} onClick={onMontage}>Rhythmic Montage</button></div>
     {!eligible && !error && <p role="status">Preparing your styles…</p>}
     {error && <p role="alert">{error}</p>}{playbackError && <p role="alert">{playbackError}</p>}
     {eligible && preparingMusic && <p role="status">Finishing music analysis for your styles…</p>}

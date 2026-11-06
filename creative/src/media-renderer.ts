@@ -1,4 +1,4 @@
-import { evaluate, HEIGHT, WIDTH, type Composition } from './composition';
+import { evaluate, FPS, HEIGHT, WIDTH, type Composition } from './composition';
 import { frameState, validateEditLyrics, type MediaAsset, type MediaEdit, type MediaShot } from './media-timeline';
 
 type Resource = { type: 'image'; node: HTMLImageElement } | { type: 'video'; node: HTMLVideoElement };
@@ -12,6 +12,7 @@ async function loadAsset(asset: MediaAsset): Promise<Resource> {
 
 export async function createMediaRenderer(canvas: HTMLCanvasElement, edit: MediaEdit, composition: Composition, measure?: (stage: string, ms: number) => void) {
   validateEditLyrics(edit, composition);
+  let currentEdit = edit;
   const resources = new Map<string, Resource>();
   try { for (const asset of edit.assets) { if (resources.has(asset.id)) throw new Error('Duplicate media identifier.'); const start = performance.now(); resources.set(asset.id, await loadAsset(asset)); measure?.('media_load', performance.now() - start); } }
   catch (error) { for (const resource of resources.values()) if (resource.type === 'video') { resource.node.pause(); resource.node.removeAttribute('src'); resource.node.load(); } throw error; }
@@ -24,7 +25,8 @@ export async function createMediaRenderer(canvas: HTMLCanvasElement, edit: Media
     const resource = resources.get(shot.assetId); if (!resource) throw new Error('An edit asset is unavailable.');
     const element = resource.node;
     if (resource.type === 'video') {
-      const local = Math.max(0, (timeMs - shot.startMs + (shot.sourceStartMs ?? 0)) / 1000) % resource.node.duration;
+      const shotStart = shot.startFrame === undefined ? shot.startMs : shot.startFrame * 1000 / FPS;
+      const local = Math.max(0, (timeMs - shotStart + (shot.sourceStartMs ?? 0)) / 1000) % resource.node.duration;
       if (Math.abs(resource.node.currentTime - local) > 0.001) { const start = performance.now(); await new Promise<void>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('Video frame seek timed out.')), 5000);
         resource.node.onseeked = () => { clearTimeout(timer); resolve(); }; resource.node.currentTime = local;
@@ -37,12 +39,12 @@ export async function createMediaRenderer(canvas: HTMLCanvasElement, edit: Media
     const drawStart = performance.now(); context!.drawImage(element, (WIDTH - width * scale) / 2, (HEIGHT - height * scale) / 2, width * scale, height * scale); context!.restore(); measure?.('draw_image', performance.now() - drawStart);
   }
   return { async render(frame: number) {
-    const state = frameState(edit, frame);
+    const state = frameState(currentEdit, frame);
     context.fillStyle = '#000'; context.fillRect(0, 0, WIDTH, HEIGHT);
     if (state.previous && state.mix < 1) await drawShot(state.previous, state.timeMs, 1, 1);
     await drawShot(state.shot, state.timeMs, state.mix, 1 + state.impact * 0.014);
     const text = evaluate(composition, frame).text;
     if (text) { context.save(); context.font = '800 112px "Inter Variable"'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.shadowColor = 'rgba(0,0,0,.8)'; context.shadowBlur = 12; context.fillStyle = '#fff'; context.fillText(text, WIDTH / 2, HEIGHT * 0.65, WIDTH * 0.82); context.restore(); }
     const copyStart = performance.now(); target.drawImage(frameCanvas, 0, 0); measure?.('canvas_copy', performance.now() - copyStart);
-  }, destroy() { for (const resource of resources.values()) if (resource.type === 'video') { resource.node.pause(); resource.node.removeAttribute('src'); resource.node.load(); } resources.clear(); } };
+  }, setEdit(next:MediaEdit) { validateEditLyrics(next,composition);if(next.assets.length!==edit.assets.length || next.assets.some((asset,i)=>asset.id!==edit.assets[i].id || asset.url!==edit.assets[i].url || asset.type!==edit.assets[i].type)) throw new Error('The updated edit uses different footage.');currentEdit=next; }, destroy() { for (const resource of resources.values()) if (resource.type === 'video') { resource.node.pause(); resource.node.removeAttribute('src'); resource.node.load(); } resources.clear(); } };
 }

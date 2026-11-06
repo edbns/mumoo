@@ -12,7 +12,7 @@ export function frameMotion(a: Uint8ClampedArray, b: Uint8ClampedArray): number 
   return difference / (a.length / 4 * 3 * 255);
 }
 
-type Observation = { offsetMs: number; motion: number; faceX: number | null; faceY: number | null };
+type Observation = { offsetMs: number; motion: number; faceX: number | null; faceY: number | null; contrast?: number };
 type Face = { boundingBox: { x: number; y: number; width: number; height: number } };
 type FaceDetectorConstructor = new (options: { fastMode: boolean; maxDetectedFaces: number }) => { detect: (source: CanvasImageSource) => Promise<Face[]> };
 
@@ -27,14 +27,14 @@ function event(video: HTMLVideoElement, name: string, signal: AbortSignal): Prom
   });
 }
 
-export async function inspectHumanFootage(url: string, requiredMs: number, signal: AbortSignal): Promise<Observation[]> {
+export async function inspectHumanFootage(url: string, requiredMs: number, signal: AbortSignal, detectFaces = true, measureContrast = false): Promise<Observation[]> {
   const video = document.createElement('video'); video.muted = true; video.playsInline = true; video.preload = 'auto';
   try {
     const loaded = event(video, 'loadeddata', signal); video.src = url; video.load(); await loaded;
     if (!Number.isFinite(video.duration) || video.duration * 1000 < requiredMs || !video.videoWidth || !video.videoHeight) throw new Error('Footage is too short.');
     const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64;
     const context = canvas.getContext('2d', { willReadFrequently: true }); if (!context) throw new Error('Footage inspection is unavailable.');
-    const Detector = (globalThis as typeof globalThis & { FaceDetector?: FaceDetectorConstructor }).FaceDetector;
+    const Detector = detectFaces ? (globalThis as typeof globalThis & { FaceDetector?: FaceDetectorConstructor }).FaceDetector : undefined;
     let detector: ReturnType<FaceDetectorConstructor['prototype']['detect']> | undefined;
     const result: Observation[] = [];
     async function seek(ms: number) {
@@ -53,8 +53,10 @@ export async function inspectHumanFootage(url: string, requiredMs: number, signa
           if (box) { faceX = Math.min(1, Math.max(0, (box.x + box.width / 2) / video.videoWidth)); faceY = Math.min(1, Math.max(0, (box.y + box.height / 2) / video.videoHeight)); }
         } catch { /* Optional browser capability. */ }
       }
+      let contrast=0;
+      if(measureContrast){let sum=0,squares=0;for(let i=0;i<a.length;i+=4){const light=(.2126*a[i]+.7152*a[i+1]+.0722*a[i+2])/255;sum+=light;squares+=light*light;}const count=a.length/4;contrast=Math.min(1,Math.sqrt(Math.max(0,squares/count-(sum/count)**2))*4);}
       await seek(Math.min(offsetMs + 200, video.duration * 1000 - 40)); context.drawImage(video, 0, 0, 64, 64);
-      result.push({ offsetMs, motion: frameMotion(a, context.getImageData(0, 0, 64, 64).data), faceX, faceY });
+      result.push({ offsetMs, motion: frameMotion(a, context.getImageData(0, 0, 64, 64).data), faceX, faceY, ...(measureContrast && {contrast}) });
     }
     return result;
   } finally { video.pause(); video.removeAttribute('src'); video.load(); }

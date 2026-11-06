@@ -10,9 +10,9 @@ function musicFor(profile: CreativeProfileV1): CuriosityMusic | null {
   return curiosityMusicFrom(profile.musicAnalysis.result);
 }
 
-export function VisualCuriosityStudio({ profile, composition, audio, position, playing, playbackError, onPlay, onStop, onSeek, onBack, onOther, onMedia }: {
+export function VisualCuriosityStudio({ profile, composition, audio, position, playing, playbackError, onPlay, onStop, onSeek, onBack, onOther, onMedia, onMontage }: {
   profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; position: number; playing: boolean; playbackError: string;
-  onPlay: () => void; onStop: () => void; onSeek: (ms:number) => void; onBack: () => void; onOther: () => void; onMedia: () => void;
+  onPlay: () => void; onStop: () => void; onSeek: (ms:number) => void; onBack: () => void; onOther: () => void; onMedia: () => void; onMontage: () => void;
 }) {
   const canvas=useRef<HTMLCanvasElement>(null); const [style,setStyle]=useState<CuriosityStyle>('liquid');
   const [progress,setProgress]=useState<number>(); const [error,setError]=useState(''); const [fontReady,setFontReady]=useState(false);
@@ -31,7 +31,7 @@ export function VisualCuriosityStudio({ profile, composition, audio, position, p
   return <main className="desktop gallery-page"><section className="gallery-shell">
     <p className="eyebrow">{profile.videoType==='lyric'?'YOUR LYRIC VIDEO':'YOUR MUSIC VIDEO'}</p><h1>Visual Curiosity</h1><p className="intro">Unexpected movement, made for your music.</p>
     <p className="hint">{profile.videoType==='lyric'?'Your approved lyrics appear with the music.':'Visual only · no lyrics'}</p>
-    <div className="trim-actions"><button className="secondary" disabled={progress!==undefined} onClick={onBack}>Back to music</button><button className="secondary" disabled={progress!==undefined} onClick={onOther}>{profile.videoType==='visual'?'Human Magnet':'Lyric formats'}</button>{profile.videoType==='visual' && <button className="secondary" disabled={progress!==undefined} onClick={onMedia}>Other visuals</button>}</div>
+    <div className="trim-actions"><button className="secondary" disabled={progress!==undefined} onClick={onBack}>Back to music</button><button className="secondary" disabled={progress!==undefined} onClick={onOther}>{profile.videoType==='visual'?'Human Magnet':'Lyric formats'}</button><button className="secondary" disabled={progress!==undefined} onClick={onMontage}>Rhythmic Montage</button>{profile.videoType==='visual' && <button className="secondary" disabled={progress!==undefined} onClick={onMedia}>Other visuals</button>}</div>
     <div className="daily-designs" role="group" aria-label="Choose a visual style">{CURIOSITY_STYLES.map(item=><button key={item.id} type="button" disabled={progress!==undefined} aria-pressed={style===item.id} onClick={()=>setStyle(item.id)}>{item.name}</button>)}</div>
     <p className="hint">{CURIOSITY_STYLES.find(item=>item.id===style)?.description}</p>
     {profile.musicAnalysis.status==='pending' && <p role="status">Finishing music analysis…</p>}

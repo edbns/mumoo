@@ -70,10 +70,10 @@ export function assembleMediaEdit(clip: ClipIdentity, analysis: MusicAnalysisSta
 export function frameState(edit: MediaEdit, frame: number) {
   if (!Number.isInteger(frame) || frame < 0 || frame >= FPS * DURATION_MS / 1000) throw new Error('Invalid frame.');
   const timeMs = frame * 1000 / FPS;
-  const index = edit.shots.findIndex(shot => timeMs >= shot.startMs && timeMs < shot.endMs);
+  const index = edit.shots.findIndex(shot => shot.startFrame !== undefined && shot.endFrame !== undefined ? frame >= shot.startFrame && frame < shot.endFrame : timeMs >= shot.startMs && timeMs < shot.endMs);
   if (index < 0) throw new Error('No shot for frame.');
   const shot = edit.shots[index];
-  const age = timeMs - shot.startMs;
+  const age = shot.startFrame === undefined ? timeMs - shot.startMs : (frame - shot.startFrame) * 1000 / FPS;
   return { timeMs, shot, previous: index > 0 ? edit.shots[index - 1] : null,
     mix: shot.transition === 'dissolve' ? Math.min(1, age / 300) : 1,
     impact: shot.transition === 'impact' ? Math.exp(-age / 120) : 0 };

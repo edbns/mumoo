@@ -8,6 +8,7 @@ type Footage = { video: HTMLVideoElement; texture: Texture };
 export async function createPixiDirectorRenderer(canvas: HTMLCanvasElement, edit: ExecutableEdit, composition: Composition) {
   const app = new Application();
   const footage = new Map<string, Footage>();
+  let currentEdit = edit;
   let initialized = false;
   const dispose = () => {
     for (const { video, texture } of footage.values()) { video.pause(); video.removeAttribute('src'); video.load(); texture.destroy(true); }
@@ -61,15 +62,20 @@ export async function createPixiDirectorRenderer(canvas: HTMLCanvasElement, edit
     return {
       async render(frame: number) {
         if (gl.isContextLost()) throw new Error('The WebGL context was lost. Reload and try again.');
-        const state = directorFrame(edit, frame);
+        const activeEdit = currentEdit;
+        const state = directorFrame(activeEdit, frame);
         previous.visible = false;
         if (state.previous && state.mix < 1) {
-          const last = directorFrame(edit, state.previous.endFrame - 1);
+          const last = directorFrame(activeEdit, state.previous.endFrame - 1);
           await show(previous, state.previous, last.sourceMs, last.scale);
         }
         await show(current, state.shot, state.sourceMs, state.scale); current.alpha = state.mix;
         lyric.text = evaluate(composition, frame).text;
         app.render();
+      },
+      setEdit(next: ExecutableEdit) {
+        if(next.clip.sourceSha256!==edit.clip.sourceSha256 || next.clip.offsetMs!==edit.clip.offsetMs || next.assets.length!==edit.assets.length || next.assets.some((asset,i)=>asset.id!==edit.assets[i].id || asset.url!==edit.assets[i].url || asset.type!==edit.assets[i].type)) throw new Error('The updated edit uses different footage.');
+        currentEdit=next;
       },
       destroy: dispose,
     };

@@ -16,6 +16,17 @@
   synchronized cues, shared by preview and export. The staging checks used real
   song audio with simulated alignment and analysis; live lyric verification is
   still required.
+- **Rhythmic Montage:** Three frame-based pacing patterns reuse the existing
+  footage and export paths. Beat and onset positions are edit opportunities;
+  where none are nearby, cuts use deterministic timing. Video pixel-change
+  and luminance contrast influence ordering when sampling succeeds, but they
+  do not establish semantic suitability. The existing Pixabay candidate pool
+  still relies on provider descriptions and remains staging research, not
+  commercial clearance. Creator-uploaded short video clips can loop inside a
+  shot. Source reuse and transition design need creative review.
+  Local real-song browser checks with simulated services measured around
+  13–75 seconds for the automatic footage test and 14–71 seconds for the
+  creator-upload test on the Intel Mac; performance varies with browser load.
 
 This record tracks creative limitations rather than claiming performance or
 commercial readiness. Pixabay staging research remains separate from rights

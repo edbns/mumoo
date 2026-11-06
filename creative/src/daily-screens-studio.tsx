@@ -5,9 +5,9 @@ import { drawDailyScreen, SCREEN_DESIGNS } from './daily-screens';
 import { renderMp4 } from './browser-export';
 import { loadFont } from './render';
 
-export function DailyScreensStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onSeek, onBack, onOther, onImpact, onHuman, onCuriosity }: {
+export function DailyScreensStudio({ profile, composition, audio, token, position, playing, playbackError, onPlay, onStop, onSeek, onBack, onOther, onImpact, onHuman, onCuriosity, onMontage }: {
   profile: CreativeProfileV1; composition: Composition; audio: AudioBuffer; token: string; position: number; playing: boolean;
-  playbackError: string; onPlay: () => void; onStop: () => void; onSeek: (ms: number) => void; onBack: () => void; onOther: () => void; onImpact: () => void; onHuman: () => void; onCuriosity: () => void;
+  playbackError: string; onPlay: () => void; onStop: () => void; onSeek: (ms: number) => void; onBack: () => void; onOther: () => void; onImpact: () => void; onHuman: () => void; onCuriosity: () => void; onMontage: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [eligible, setEligible] = useState(false); const [error, setError] = useState('');
@@ -72,7 +72,7 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
   return <main className="desktop gallery-page"><section className="gallery-shell">
     <p className="eyebrow">YOUR LYRIC VIDEO</p><h1>Daily Screens</h1>
     <p className="intro">Your lyrics, in a familiar everyday moment.</p>
-    <div className="trim-actions"><button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back to lyrics</button>{impactEligible && <button className="secondary" disabled={progress !== undefined} onClick={onImpact}>Lyric Impact</button>}<button className="secondary" disabled={progress !== undefined} onClick={onHuman}>Human Magnet</button><button className="secondary" disabled={progress !== undefined} onClick={onCuriosity}>Visual Curiosity</button><button className="secondary" disabled={progress !== undefined} onClick={onOther}>Other visuals</button></div>
+    <div className="trim-actions"><button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back to lyrics</button>{impactEligible && <button className="secondary" disabled={progress !== undefined} onClick={onImpact}>Lyric Impact</button>}<button className="secondary" disabled={progress !== undefined} onClick={onHuman}>Human Magnet</button><button className="secondary" disabled={progress !== undefined} onClick={onCuriosity}>Visual Curiosity</button><button className="secondary" disabled={progress !== undefined} onClick={onMontage}>Rhythmic Montage</button><button className="secondary" disabled={progress !== undefined} onClick={onOther}>Other visuals</button></div>
     {!eligible && !error && <p role="status">Preparing your recommendation…</p>}
     {error && <p role="alert">{error}</p>}
     {playbackError && <p role="alert">{playbackError}</p>}
