@@ -18,23 +18,15 @@ export type DomScreenProps = {
 function entranceStyle(frame: number, startFrame: number): CSSProperties {
   const progress = Math.min(1, Math.max(0, (frame - startFrame + 1) / 5));
   return {
-    ['--enter-y' as string]: `${(1 - progress) * 12}px`,
-    ['--enter-opacity' as string]: String(0.4 + progress * 0.6),
+    ['--enter-y' as string]: `${(1 - progress) * 14}px`,
+    ['--enter-opacity' as string]: String(0.45 + progress * 0.55),
   };
 }
 
 function DeviceChrome({
-  capturedAtMs,
-  frame,
-  variant,
-  deviceSeed,
-  light = false,
+  capturedAtMs, frame, variant, deviceSeed, light = false,
 }: {
-  capturedAtMs: number;
-  frame: number;
-  variant: DomDailyScreenVariant;
-  deviceSeed?: number;
-  light?: boolean;
+  capturedAtMs: number; frame: number; variant: DomDailyScreenVariant; deviceSeed?: number; light?: boolean;
 }) {
   const clock = formatScreenClock(capturedAtMs, frame);
   const status = screenDeviceStatus(capturedAtMs, deviceSeed, variant);
@@ -45,22 +37,18 @@ function DeviceChrome({
         <div className="mumoo-dom-status-time">{clock.time}</div>
         <div className="mumoo-dom-status-right">
           <div className="mumoo-dom-signal" aria-hidden="true">
-            {[1, 2, 3, 4].map(bar => (
-              <span key={bar} className={bar <= status.signalBars ? undefined : 'is-off'} />
-            ))}
+            {[1, 2, 3, 4].map(bar => <span key={bar} className={bar <= status.signalBars ? undefined : 'is-off'} />)}
           </div>
           {status.network !== 'none' ? <div className="mumoo-dom-network">{status.network}</div> : null}
-          <div className="mumoo-dom-battery" aria-hidden="true">
-            <i style={{ width: `${status.batteryPercent}%` }} />
-          </div>
+          <div className="mumoo-dom-battery" aria-hidden="true"><i style={{ width: `${status.batteryPercent}%` }} /></div>
         </div>
       </div>
     </>
   );
 }
 
-function Redact({ wide = false }: { wide?: boolean }) {
-  return <span className={`mumoo-redact ${wide ? 'is-wide' : ''}`} aria-hidden="true" />;
+function Redact({ wide = false, soft = false }: { wide?: boolean; soft?: boolean }) {
+  return <span className={`mumoo-redact ${wide ? 'is-wide' : ''} ${soft ? 'is-soft' : ''}`} aria-hidden="true" />;
 }
 
 function DatingScreen({ cues, frame, capturedAtMs, deviceSeed }: Omit<DomScreenProps, 'variant'>) {
@@ -69,29 +57,24 @@ function DatingScreen({ cues, frame, capturedAtMs, deviceSeed }: Omit<DomScreenP
   return (
     <div className={`mumoo-dom-screen mumoo-dating ${bumble ? 'is-bumble' : 'is-tinder'}`} data-variant="dating">
       <DeviceChrome capturedAtMs={capturedAtMs} frame={frame} variant="dating" deviceSeed={deviceSeed} light />
-      <div className="mumoo-dating-card" aria-hidden="true">
+      <div className="mumoo-dating-hero">
         <div className="mumoo-dating-faces">
           <div className="mumoo-dom-avatar mumoo-dating-face" />
           <div className="mumoo-dating-heart">♥</div>
           <div className="mumoo-dom-avatar mumoo-dating-face is-warm" />
         </div>
         <h2>It&apos;s a match!</h2>
-        <p className="mumoo-dating-sub">{bumble ? 'You both liked each other' : 'You and someone new liked each other'}</p>
-        <div className="mumoo-dating-names"><Redact /><span>&amp;</span><Redact /></div>
+        <p>{bumble ? 'You both liked each other' : 'You and someone new liked each other'}</p>
+        <div className="mumoo-dating-names"><Redact soft /><span>&amp;</span><Redact soft /></div>
       </div>
       <div className="mumoo-dating-sheet">
         <p className="mumoo-dating-prompt">Say something that stands out</p>
         <div className="mumoo-dating-messages">
           {lines.map(line => (
-            <div key={`${line.startFrame}-${line.text}`} className="mumoo-dating-bubble" style={entranceStyle(frame, line.startFrame)}>
-              {line.text}
-            </div>
+            <div key={`${line.startFrame}-${line.text}`} className="mumoo-dating-bubble" style={entranceStyle(frame, line.startFrame)}>{line.text}</div>
           ))}
         </div>
-        <div className="mumoo-dating-composer">
-          <span>Send a message</span>
-          <em aria-hidden="true">→</em>
-        </div>
+        <div className="mumoo-dating-cta">Send Message</div>
       </div>
       <div className="mumoo-dom-home" aria-hidden="true" />
     </div>
@@ -101,43 +84,45 @@ function DatingScreen({ cues, frame, capturedAtMs, deviceSeed }: Omit<DomScreenP
 function RideScreen({ cues, frame, capturedAtMs, deviceSeed }: Omit<DomScreenProps, 'variant'>) {
   const lines = dailyScreenFrame(cues, frame).lines;
   const progress = Math.min(1, frame / 449);
-  const eta = Math.max(1, Math.round(7 - progress * 5));
-  const carX = 220 + progress * 560;
-  const carY = 760 - progress * 380;
+  const eta = Math.max(1, Math.round(5 - progress * 4));
+  const carX = 200 + progress * 620;
+  const carY = 720 - progress * 360;
   return (
     <div className="mumoo-dom-screen mumoo-ride" data-variant="ride" style={{ ['--car-x' as string]: `${carX}px`, ['--car-y' as string]: `${carY}px` }}>
-      <DeviceChrome capturedAtMs={capturedAtMs} frame={frame} variant="ride" deviceSeed={deviceSeed} light />
+      <DeviceChrome capturedAtMs={capturedAtMs} frame={frame} variant="ride" deviceSeed={deviceSeed} />
       <div className="mumoo-ride-map" aria-hidden="true">
         <div className="mumoo-ride-route" />
-        <div className="mumoo-ride-pin">A</div>
-        <div className="mumoo-ride-car">●</div>
+        <div className="mumoo-ride-pin">P</div>
+        <div className="mumoo-ride-car" />
       </div>
       <div className="mumoo-ride-sheet">
-        <div className="mumoo-ride-handle" aria-hidden="true" />
-        <h2>{eta} min away</h2>
-        <p className="mumoo-ride-sub">Meet at the pin · Comfort</p>
+        <h2>Pickup in {eta} min</h2>
+        <div className="mumoo-ride-details">
+          <p>Meet at your pickup spot on</p>
+          <Redact wide />
+          <span>Same side of the street</span>
+        </div>
         <div className="mumoo-ride-driver">
-          <div className="mumoo-dom-avatar" aria-hidden="true" />
+          <div className="mumoo-ride-vehicle" aria-hidden="true">SUV</div>
           <div>
-            <Redact wide />
-            <span>4.97 · 312 trips</span>
-          </div>
-          <div className="mumoo-ride-plate">
             <Redact />
-            <strong>Black SUV</strong>
+            <span>Comfort</span>
+          </div>
+          <div className="mumoo-ride-rating">
+            <div className="mumoo-dom-avatar" />
+            <em>4.98</em>
+            <Redact />
           </div>
         </div>
         <p className="mumoo-ride-message-label">Message</p>
         <div className="mumoo-ride-messages">
           {lines.map(line => (
-            <div key={`${line.startFrame}-${line.text}`} className="mumoo-ride-note" style={entranceStyle(frame, line.startFrame)}>
-              {line.text}
-            </div>
+            <div key={`${line.startFrame}-${line.text}`} className="mumoo-ride-note" style={entranceStyle(frame, line.startFrame)}>{line.text}</div>
           ))}
         </div>
-        <div className="mumoo-ride-composer">Send a message…</div>
+        <div className="mumoo-ride-composer"><span>Message…</span><em>↑</em></div>
       </div>
-      <div className="mumoo-dom-home is-light" aria-hidden="true" />
+      <div className="mumoo-dom-home" aria-hidden="true" />
     </div>
   );
 }
@@ -146,56 +131,38 @@ function FoodScreen({ cues, frame, capturedAtMs, deviceSeed }: Omit<DomScreenPro
   const lines = dailyScreenFrame(cues, frame).lines;
   const progress = Math.min(1, frame / 449);
   const stage = progress < 0.25 ? 0 : progress < 0.55 ? 1 : progress < 0.82 ? 2 : 3;
-  const steps = [
-    { title: 'Order confirmed', detail: 'Kitchen has your order' },
-    { title: 'Preparing', detail: 'Being plated now' },
-    { title: 'On the way', detail: 'Courier left the restaurant' },
-    { title: 'Nearby', detail: 'Almost at your door' },
-  ];
-  const eta = Math.max(2, Math.round(22 - progress * 18));
+  const eta = Math.max(1, Math.round(18 - progress * 16));
   return (
     <div className="mumoo-dom-screen mumoo-food" data-variant="food">
       <DeviceChrome capturedAtMs={capturedAtMs} frame={frame} variant="food" deviceSeed={deviceSeed} />
-      <div className="mumoo-food-top">
-        <div className="mumoo-food-card">
-          <p className="eyebrow">Food delivery</p>
-          <div className="mumoo-food-name"><Redact wide /></div>
-          <p>Order · #4821</p>
-          <div className="mumoo-food-eta">
-            <span>Estimated arrival</span>
-            <strong>{eta} min</strong>
-          </div>
+      <div className="mumoo-food-map" aria-hidden="true">
+        <div className="mumoo-food-route" />
+        <div className="mumoo-food-store">S</div>
+        <div className="mumoo-food-home">H</div>
+        <div className="mumoo-food-courier-dot" style={{ left: `${24 + progress * 48}%`, top: `${28 + progress * 34}%` }}>●</div>
+      </div>
+      <div className="mumoo-food-sheet">
+        <p className="mumoo-food-eyebrow">Heading to</p>
+        <div className="mumoo-food-name"><Redact wide /></div>
+        <h2>{eta <= 2 ? 'Arriving now' : `Arriving in ${eta} min`}</h2>
+        <div className="mumoo-food-rail" aria-hidden="true">
+          {[0, 1, 2, 3].map(step => <i key={step} className={step <= stage ? 'is-on' : undefined} />)}
         </div>
-      </div>
-      <div className="mumoo-food-timeline">
-        {steps.map((step, index) => (
-          <div key={step.title} className={`mumoo-food-step ${index < stage ? 'is-done' : ''} ${index === stage ? 'is-active' : ''}`}>
-            <div className="mumoo-food-rail">
-              <div className="mumoo-food-dot" />
-              {index < steps.length - 1 ? <div className="mumoo-food-line" /> : null}
+        <div className="mumoo-food-feed">
+          {lines.map(line => (
+            <div key={`${line.startFrame}-${line.text}`} className="mumoo-food-update" style={entranceStyle(frame, line.startFrame)}>
+              <strong>Update</strong>{line.text}
             </div>
-            <div>
-              <h3>{step.title}</h3>
-              <p>{step.detail}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mumoo-food-feed">
-        {lines.map(line => (
-          <div key={`${line.startFrame}-${line.text}`} className="mumoo-food-update" style={entranceStyle(frame, line.startFrame)}>
-            <strong>Update</strong>
-            {line.text}
-          </div>
-        ))}
-      </div>
-      <div className="mumoo-food-courier">
-        <div className="mumoo-dom-avatar" aria-hidden="true" />
-        <div>
-          <div className="mumoo-food-courier-name"><Redact /></div>
-          <span>Electric bike</span>
+          ))}
         </div>
-        <em>On route</em>
+        <div className="mumoo-food-courier">
+          <div className="mumoo-dom-avatar" />
+          <div>
+            <span>Your courier</span>
+            <div className="mumoo-food-courier-name"><Redact soft /></div>
+          </div>
+          <em>On the way</em>
+        </div>
       </div>
       <div className="mumoo-dom-home" aria-hidden="true" />
     </div>
