@@ -12,6 +12,10 @@
   starting point; art direction, perceived material realism and music response
   need creator review. They use measured beat/onset/energy when available and
   deterministic ambient motion when it is not. No external media is required.
+  Visual mode does not use lyrics; Lyric Video mode requires creator-approved
+  synchronized cues, shared by preview and export. The staging checks used real
+  song audio with simulated alignment and analysis; live lyric verification is
+  still required.
 
 This record tracks creative limitations rather than claiming performance or
 commercial readiness. Pixabay staging research remains separate from rights
