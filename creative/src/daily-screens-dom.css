@@ -1,4 +1,4 @@
-/* Original Daily Screens 2.0 layouts. Fictional product chrome only; no logos or personal data. */
+/* Original Daily Screens 2.0 layouts. Fictional chrome only; names redacted; no logos. */
 .mumoo-dom-screen {
   box-sizing: border-box;
   width: 1080px;
@@ -13,9 +13,7 @@
 
 .mumoo-dom-screen *,
 .mumoo-dom-screen *::before,
-.mumoo-dom-screen *::after {
-  box-sizing: border-box;
-}
+.mumoo-dom-screen *::after { box-sizing: border-box; }
 
 .mumoo-dom-status {
   display: flex;
@@ -23,587 +21,221 @@
   justify-content: space-between;
   padding: 54px 48px 0 52px;
   height: 118px;
+  color: #1b1c20;
 }
 
-.mumoo-dom-status-time {
-  font-size: 34px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.mumoo-dom-status-right {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.mumoo-dom-signal {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 22px;
-}
-
-.mumoo-dom-signal span {
-  width: 6px;
-  background: #1b1c20;
-  border-radius: 1px;
-}
-
+.mumoo-dom-status.is-light { color: #ffffff; }
+.mumoo-dom-status-time { font-size: 34px; font-weight: 600; }
+.mumoo-dom-status-right { display: flex; align-items: center; gap: 14px; }
+.mumoo-dom-signal { display: flex; align-items: flex-end; gap: 3px; height: 22px; }
+.mumoo-dom-signal span { width: 6px; background: currentColor; border-radius: 1px; }
 .mumoo-dom-signal span:nth-child(1) { height: 7px; }
 .mumoo-dom-signal span:nth-child(2) { height: 11px; }
 .mumoo-dom-signal span:nth-child(3) { height: 15px; }
 .mumoo-dom-signal span:nth-child(4) { height: 20px; }
 .mumoo-dom-signal span.is-off { opacity: 0.22; }
-
-.mumoo-dom-network {
-  font-size: 18px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
+.mumoo-dom-network { font-size: 18px; font-weight: 600; text-transform: uppercase; }
 .mumoo-dom-battery {
-  width: 54px;
-  height: 26px;
-  border: 2px solid #1b1c20;
-  border-radius: 5px;
-  padding: 2px;
-  position: relative;
+  width: 54px; height: 26px; border: 2px solid currentColor; border-radius: 5px; padding: 2px; position: relative;
 }
-
 .mumoo-dom-battery::after {
-  content: "";
-  position: absolute;
-  right: -7px;
-  top: 7px;
-  width: 4px;
-  height: 10px;
-  border-radius: 0 2px 2px 0;
-  background: #1b1c20;
+  content: ""; position: absolute; right: -7px; top: 7px; width: 4px; height: 10px;
+  border-radius: 0 2px 2px 0; background: currentColor;
 }
-
-.mumoo-dom-battery i {
-  display: block;
-  height: 100%;
-  border-radius: 2px;
-  background: #34c759;
-}
-
+.mumoo-dom-battery i { display: block; height: 100%; border-radius: 2px; background: #34c759; }
 .mumoo-dom-island {
-  position: absolute;
-  top: 28px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 240px;
-  height: 68px;
-  border-radius: 34px;
-  background: #0b0b0d;
+  position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
+  width: 240px; height: 68px; border-radius: 34px; background: #0b0b0d;
 }
-
 .mumoo-dom-home {
-  position: absolute;
-  left: 390px;
-  bottom: 28px;
-  width: 300px;
-  height: 10px;
-  border-radius: 5px;
-  background: #141416;
+  position: absolute; left: 390px; bottom: 28px; width: 300px; height: 10px; border-radius: 5px; background: #141416;
 }
+.mumoo-dom-home.is-light { background: #141416; }
 
-/* Dating match / chat */
-.mumoo-dating {
-  background: #ffffff;
+.mumoo-redact {
+  display: inline-block; width: 140px; height: 28px; border-radius: 8px; background: #1d1e22; vertical-align: middle;
 }
+.mumoo-redact.is-wide { width: 260px; height: 36px; }
 
-.mumoo-dating-header {
-  display: grid;
-  grid-template-columns: 72px 1fr auto auto;
-  align-items: center;
-  gap: 18px;
-  padding: 18px 42px 22px;
-  border-bottom: 1px solid #ececef;
-}
-
-.mumoo-dating-back {
-  width: 44px;
-  height: 44px;
-  border: 0;
-  background: transparent;
-  color: #4b5fd3;
-  font-size: 42px;
-  line-height: 1;
-}
-
-.mumoo-dating-person {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-}
-
-.mumoo-dating-avatar,
 .mumoo-dom-avatar {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
+  width: 80px; height: 80px; border-radius: 50%; flex: 0 0 auto; position: relative;
   background:
     radial-gradient(circle at 35% 30%, #f7f7f8 0 18%, transparent 19%),
     linear-gradient(160deg, #d7dae2, #9ea4b2);
-  position: relative;
-  flex: 0 0 auto;
 }
-
-.mumoo-dating-avatar::after,
 .mumoo-dom-avatar::after {
-  content: "";
-  position: absolute;
-  inset: 24px 22px 18px;
-  border-radius: 40px 40px 28px 28px;
-  background: #7f8594;
+  content: ""; position: absolute; inset: 24px 22px 18px;
+  border-radius: 40px 40px 28px 28px; background: #7f8594;
 }
-
-.mumoo-dating-name {
-  width: 145px;
-  height: 20px;
-  border-radius: 4px;
-  background: #25262b;
-}
-
-.mumoo-dating-badge {
-  min-width: 135px;
-  height: 38px;
-  border-radius: 19px;
-  background: #f2f3f5;
-  color: #777b82;
-  font-size: 19px;
-  font-weight: 500;
-  display: grid;
-  place-items: center;
-  padding: 0 18px;
-}
-
-.mumoo-dating-menu {
-  color: #4b5fd3;
-  font-size: 35px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.mumoo-dating-body {
-  height: 1285px;
-  background: #f5f5f6;
-  padding: 40px 100px 24px;
-  overflow: hidden;
-}
-
-.mumoo-dating-match {
-  background: #fff;
-  border-radius: 27px;
-  padding: 28px 24px 34px;
-  display: grid;
-  justify-items: center;
-  gap: 18px;
-  margin-bottom: 28px;
-}
-
-.mumoo-dating-match .mumoo-dom-avatar {
-  width: 76px;
-  height: 76px;
-}
-
-.mumoo-dating-match p {
-  margin: 0;
-  font-size: 30px;
-  font-weight: 600;
-  color: #34373e;
-}
-
-.mumoo-dating-messages {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  align-items: flex-end;
-}
-
-.mumoo-dating-bubble {
-  max-width: 720px;
-  background: #586bd5;
-  color: #fff;
-  border-radius: 30px;
-  padding: 22px 29px;
-  font-size: 43px;
-  font-weight: 400;
-  line-height: 58px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  transform: translateY(var(--enter-y, 0px));
-  opacity: var(--enter-opacity, 1);
-}
-
-.mumoo-dating-composer {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 115px;
-  height: 190px;
-  background: #fff;
-  display: flex;
-  align-items: flex-start;
-  padding: 45px 90px 0;
-}
-
-.mumoo-dating-input {
-  flex: 1;
-  height: 82px;
-  border-radius: 41px;
-  background: #f4f5f7;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 34px 0 30px;
-  color: #a1a5ad;
-  font-size: 34px;
-}
-
-.mumoo-dating-tools {
-  display: flex;
-  gap: 28px;
-  color: #798090;
-  font-size: 34px;
-}
-
-/* Ride-hailing */
-.mumoo-ride {
-  background: #eef3f0;
-}
-
-.mumoo-ride-map {
-  position: absolute;
-  inset: 118px 0 520px;
+.mumoo-dom-avatar.is-warm {
   background:
-    linear-gradient(90deg, rgba(255,255,255,.35) 1px, transparent 1px) 0 0 / 96px 96px,
-    linear-gradient(rgba(255,255,255,.35) 1px, transparent 1px) 0 0 / 96px 96px,
-    linear-gradient(160deg, #c9ddd2, #9fbfb0 48%, #d7e5dc);
-  overflow: hidden;
+    radial-gradient(circle at 35% 30%, #fff6ee 0 18%, transparent 19%),
+    linear-gradient(160deg, #efe6d8, #b08978);
+}
+.mumoo-dom-avatar.is-warm::after { background: #8d6b5a; }
+
+/* Dating — Tinder / Bumble style match hook */
+.mumoo-dating { background: #0c0c0f; color: #fff; }
+.mumoo-dating.is-tinder { --dating-accent: #fe3c72; --dating-ink: #fff; }
+.mumoo-dating.is-bumble { --dating-accent: #ffc629; --dating-ink: #111; }
+.mumoo-dating-card {
+  margin: 24px 70px 0;
+  height: 980px;
+  border-radius: 42px;
+  padding: 120px 48px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55)),
+    linear-gradient(160deg, #4a1830, #fe3c72 48%, #1a0a14);
+}
+.mumoo-dating.is-bumble .mumoo-dating-card {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.65)),
+    linear-gradient(160deg, #3a3420, #c9a227 48%, #111111);
+}
+.mumoo-dating-faces { display: flex; align-items: center; gap: 18px; margin-bottom: 48px; }
+.mumoo-dating-face { width: 180px; height: 180px; }
+.mumoo-dating-face::after { inset: 52px 48px 40px; }
+.mumoo-dating-heart {
+  width: 80px; height: 80px; border-radius: 40px; background: var(--dating-accent);
+  color: var(--dating-ink); display: grid; place-items: center; font-size: 42px; font-weight: 700;
+}
+.mumoo-dating-card h2 {
+  margin: 0; font-size: 72px; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase;
+}
+.mumoo-dating-sub { margin: 18px 0 28px; font-size: 28px; color: rgba(255,255,255,0.82); }
+.mumoo-dating-names { display: flex; align-items: center; gap: 18px; font-size: 28px; font-weight: 600; }
+.mumoo-dating-sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 740px;
+  background: #ffffff; color: #111; border-radius: 48px 48px 0 0; padding: 36px 70px 120px;
+}
+.mumoo-dating-prompt { margin: 0 0 28px; text-align: center; color: #6b7280; font-size: 26px; font-weight: 600; }
+.mumoo-dating-messages { display: flex; flex-direction: column; gap: 18px; align-items: flex-end; min-height: 360px; }
+.mumoo-dating-bubble {
+  max-width: 780px; background: var(--dating-accent); color: var(--dating-ink);
+  border-radius: 28px; padding: 22px 28px; font-size: 44px; font-weight: 500; line-height: 1.25;
+  white-space: pre-wrap; word-break: break-word;
+  transform: translateY(var(--enter-y, 0px)); opacity: var(--enter-opacity, 1);
+}
+.mumoo-dating-composer {
+  margin-top: 28px; height: 88px; border-radius: 44px; background: #f3f4f6;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 18px 0 34px;
+  color: #9ca3af; font-size: 32px; font-weight: 500;
+}
+.mumoo-dating-composer em {
+  font-style: normal; width: 100px; height: 60px; border-radius: 30px; background: var(--dating-accent);
+  color: var(--dating-ink); display: grid; place-items: center; font-size: 34px; font-weight: 700;
 }
 
+/* Ride — Uber-like dark map + large lyric sheet */
+.mumoo-ride { background: #0e1116; color: #fff; }
+.mumoo-ride-map {
+  position: absolute; inset: 118px 0 1060px; overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px) 0 0 / 90px 90px,
+    linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px) 0 0 / 90px 90px,
+    #0e1116;
+}
 .mumoo-ride-route {
-  position: absolute;
-  left: 180px;
-  top: 220px;
-  width: 620px;
-  height: 760px;
-  border: 10px solid #1f6f54;
-  border-radius: 280px 120px 220px 160px;
-  border-left-color: transparent;
-  border-bottom-color: transparent;
-  transform: rotate(-18deg);
+  position: absolute; left: 180px; top: 300px; width: 680px; height: 520px;
+  border: 10px solid #fff; border-radius: 280px 120px 40px 180px;
+  border-left-color: transparent; border-bottom-color: transparent; transform: rotate(-18deg);
 }
-
-.mumoo-ride-pin,
+.mumoo-ride-pin, .mumoo-ride-car {
+  position: absolute; width: 54px; height: 54px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 24px; font-weight: 700;
+}
+.mumoo-ride-pin { left: 150px; top: 790px; background: #fff; color: #111; width: 54px; height: 54px; }
 .mumoo-ride-car {
-  position: absolute;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 24px;
-  font-weight: 700;
-  color: #fff;
-  box-shadow: 0 10px 24px rgba(20, 40, 30, 0.18);
+  left: var(--car-x, 220px); top: var(--car-y, 760px); width: 70px; height: 70px;
+  background: #000; color: #fff; border: 4px solid #fff;
 }
-
-.mumoo-ride-pin {
-  background: #17352b;
-  left: 250px;
-  top: 180px;
-}
-
-.mumoo-ride-car {
-  background: #ff5b26;
-  width: 72px;
-  height: 72px;
-  left: var(--car-x, 470px);
-  top: var(--car-y, 520px);
-  transition: none;
-}
-
-.mumoo-ride-header {
-  position: relative;
-  z-index: 2;
-  margin: 24px 42px 0;
-  background: rgba(255,255,255,.92);
-  border-radius: 28px;
-  padding: 28px 32px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 12px 30px rgba(23, 53, 43, 0.08);
-}
-
-.mumoo-ride-header strong {
-  display: block;
-  font-size: 34px;
-  font-weight: 700;
-}
-
-.mumoo-ride-header span {
-  color: #5f7168;
-  font-size: 24px;
-}
-
-.mumoo-ride-eta {
-  text-align: right;
-  color: #1f6f54;
-  font-size: 42px;
-  font-weight: 700;
-}
-
 .mumoo-ride-sheet {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 560px;
-  background: #ffffff;
-  border-radius: 42px 42px 0 0;
-  padding: 36px 48px 140px;
-  box-shadow: 0 -18px 40px rgba(20, 40, 30, 0.08);
+  position: absolute; left: 0; right: 0; bottom: 0; height: 1060px;
+  background: #fff; color: #111; border-radius: 40px 40px 0 0; padding: 28px 70px 120px;
 }
-
-.mumoo-ride-sheet h2 {
-  margin: 0 0 8px;
-  font-size: 40px;
-  font-weight: 700;
+.mumoo-ride-handle {
+  width: 100px; height: 8px; border-radius: 4px; background: #d4d4d8; margin: 0 auto 28px;
 }
-
-.mumoo-ride-sheet .mumoo-ride-sub {
-  margin: 0 0 28px;
-  color: #66756d;
-  font-size: 26px;
+.mumoo-ride-sheet h2 { margin: 0; font-size: 64px; font-weight: 800; }
+.mumoo-ride-sub { margin: 10px 0 28px; color: #6b7280; font-size: 28px; }
+.mumoo-ride-driver {
+  display: grid; grid-template-columns: 84px 1fr auto; gap: 22px; align-items: center;
+  background: #f4f4f5; border-radius: 28px; padding: 22px 28px; margin-bottom: 28px;
 }
-
-.mumoo-ride-progress {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 30px;
-}
-
-.mumoo-ride-progress div {
-  height: 10px;
-  border-radius: 999px;
-  background: #e4ebe7;
-}
-
-.mumoo-ride-progress div.is-on {
-  background: #1f6f54;
-}
-
-.mumoo-ride-messages {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
+.mumoo-ride-driver span { display: block; margin-top: 10px; color: #6b7280; font-size: 24px; }
+.mumoo-ride-plate { text-align: center; }
+.mumoo-ride-plate strong { display: block; margin-top: 12px; font-size: 24px; }
+.mumoo-ride-message-label { margin: 0 0 16px; font-size: 30px; font-weight: 700; }
+.mumoo-ride-messages { display: flex; flex-direction: column; gap: 20px; min-height: 360px; }
 .mumoo-ride-note {
-  background: #f3f7f5;
-  border-radius: 24px;
-  padding: 22px 26px;
-  font-size: 34px;
-  line-height: 1.35;
-  color: #24342d;
-  transform: translateY(var(--enter-y, 0px));
-  opacity: var(--enter-opacity, 1);
+  background: #111; color: #fff; border-radius: 28px; padding: 26px 30px;
+  font-size: 46px; font-weight: 500; line-height: 1.25; white-space: pre-wrap; word-break: break-word;
+  transform: translateY(var(--enter-y, 0px)); opacity: var(--enter-opacity, 1);
+}
+.mumoo-ride-composer {
+  margin-top: 24px; height: 80px; border-radius: 40px; background: #f4f4f5;
+  display: flex; align-items: center; padding: 0 34px; color: #9ca3af; font-size: 30px;
 }
 
-.mumoo-ride-note.is-driver {
-  background: #17352b;
-  color: #fff;
-  align-self: flex-start;
-  max-width: 86%;
-}
-
-.mumoo-ride-note.is-you {
-  background: #ff5b26;
-  color: #fff;
-  align-self: flex-end;
-  max-width: 86%;
-}
-
-/* Food delivery */
-.mumoo-food {
-  background: #fff8f2;
-}
-
-.mumoo-food-top {
-  padding: 24px 48px 0;
-}
-
+/* Food — keep loved layout; redact names; solid fills only */
+.mumoo-food { background: #fff7f0; }
+.mumoo-food-top { padding: 24px 48px 0; }
 .mumoo-food-card {
-  background: #fff;
-  border-radius: 34px;
-  padding: 34px 36px;
-  box-shadow: 0 16px 36px rgba(90, 48, 20, 0.08);
+  background: #fff; border-radius: 34px; padding: 34px 36px;
 }
-
 .mumoo-food-card .eyebrow {
-  margin: 0 0 10px;
-  color: #b15a2c;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  margin: 0 0 14px; color: #d35400; font-size: 22px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
 }
-
-.mumoo-food-card h2 {
-  margin: 0 0 8px;
-  font-size: 44px;
-  font-weight: 700;
-}
-
-.mumoo-food-card p {
-  margin: 0;
-  color: #7a6558;
-  font-size: 26px;
-}
-
+.mumoo-food-name { margin-bottom: 12px; }
+.mumoo-food-card p { margin: 0; color: #7a6558; font-size: 26px; }
 .mumoo-food-eta {
-  margin-top: 28px;
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
+  margin-top: 28px; display: flex; justify-content: space-between; align-items: end;
 }
-
-.mumoo-food-eta strong {
-  font-size: 64px;
-  line-height: 1;
-  color: #d35400;
-}
-
-.mumoo-food-timeline {
-  margin: 42px 48px 0;
-  display: grid;
-  gap: 0;
-}
-
+.mumoo-food-eta span { color: #7a6558; font-size: 24px; }
+.mumoo-food-eta strong { font-size: 58px; line-height: 1; color: #d35400; }
+.mumoo-food-timeline { margin: 42px 48px 0; }
 .mumoo-food-step {
-  display: grid;
-  grid-template-columns: 42px 1fr;
-  gap: 22px;
-  min-height: 128px;
+  display: grid; grid-template-columns: 42px 1fr; gap: 22px; min-height: 96px;
 }
-
-.mumoo-food-rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
+.mumoo-food-rail { display: flex; flex-direction: column; align-items: center; }
 .mumoo-food-dot {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #e8d7c8;
-  border: 4px solid #fff;
-  box-shadow: 0 0 0 2px #e8d7c8;
+  width: 28px; height: 28px; border-radius: 50%; background: #e8d7c8;
 }
-
 .mumoo-food-step.is-done .mumoo-food-dot,
-.mumoo-food-step.is-active .mumoo-food-dot {
-  background: #d35400;
-  box-shadow: 0 0 0 2px #d35400;
-}
-
-.mumoo-food-line {
-  flex: 1;
-  width: 4px;
-  background: #e8d7c8;
-  margin: 6px 0;
-}
-
-.mumoo-food-step.is-done .mumoo-food-line {
-  background: #d35400;
-}
-
-.mumoo-food-step h3 {
-  margin: 0 0 6px;
-  font-size: 32px;
-}
-
-.mumoo-food-step p {
-  margin: 0;
-  color: #7a6558;
-  font-size: 24px;
-}
-
-.mumoo-food-feed {
-  margin: 36px 48px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
+.mumoo-food-step.is-active .mumoo-food-dot { background: #d35400; }
+.mumoo-food-line { flex: 1; width: 4px; background: #e8d7c8; margin: 6px 0; }
+.mumoo-food-step.is-done .mumoo-food-line { background: #d35400; }
+.mumoo-food-step h3 { margin: 0 0 6px; font-size: 32px; }
+.mumoo-food-step p { margin: 0; color: #7a6558; font-size: 24px; }
+.mumoo-food-feed { margin: 28px 48px 0; display: flex; flex-direction: column; gap: 18px; }
 .mumoo-food-update {
-  background: #fff;
-  border-radius: 28px;
-  padding: 26px 28px;
-  box-shadow: 0 10px 24px rgba(90, 48, 20, 0.06);
-  font-size: 34px;
-  line-height: 1.35;
-  transform: translateY(var(--enter-y, 0px));
-  opacity: var(--enter-opacity, 1);
+  background: #ffffff; border-radius: 28px; padding: 26px 28px;
+  font-size: 36px; line-height: 1.3;
+  transform: translateY(var(--enter-y, 0px)); opacity: var(--enter-opacity, 1);
 }
-
 .mumoo-food-update strong {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 22px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #b15a2c;
+  display: block; margin-bottom: 10px; font-size: 22px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #d35400;
 }
-
 .mumoo-food-courier {
-  position: absolute;
-  left: 48px;
-  right: 48px;
-  bottom: 130px;
-  background: #1f1712;
-  color: #fff;
-  border-radius: 30px;
-  padding: 28px 30px;
-  display: grid;
-  grid-template-columns: 76px 1fr auto;
-  gap: 22px;
-  align-items: center;
+  position: absolute; left: 48px; right: 48px; bottom: 130px;
+  background: #1f1712; color: #fff; border-radius: 30px; padding: 28px 30px;
+  display: grid; grid-template-columns: 76px 1fr auto; gap: 22px; align-items: center;
 }
-
 .mumoo-food-courier .mumoo-dom-avatar {
-  width: 76px;
-  height: 76px;
+  width: 76px; height: 76px;
   background:
     radial-gradient(circle at 35% 30%, #fff 0 18%, transparent 19%),
     linear-gradient(160deg, #6d5848, #3a2d24);
 }
-
-.mumoo-food-courier .mumoo-dom-avatar::after {
-  background: #cbb5a4;
-}
-
-.mumoo-food-courier strong {
-  display: block;
-  font-size: 30px;
-}
-
-.mumoo-food-courier span {
-  color: #d7c4b4;
-  font-size: 22px;
-}
-
-.mumoo-food-courier em {
-  font-style: normal;
-  font-size: 28px;
-  font-weight: 700;
-  color: #ffb080;
-}
+.mumoo-food-courier .mumoo-dom-avatar::after { background: #cbb5a4; }
+.mumoo-food-courier-name { margin-bottom: 8px; }
+.mumoo-food-courier-name .mumoo-redact { background: #f5ebe3; }
+.mumoo-food-courier span { color: #d7c4b4; font-size: 22px; }
+.mumoo-food-courier em { font-style: normal; font-size: 28px; font-weight: 700; color: #ffb080; }

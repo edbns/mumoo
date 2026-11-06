@@ -6,7 +6,6 @@ import type { CreativeProfileV1 } from './creative-profile';
 import { SCREEN_DESIGNS } from './daily-screens';
 import { paintDailyScreen } from './daily-screens-paint';
 import { DomDailyScreen } from './daily-screens-dom';
-import { disposeDomDailyScreenCapture } from './daily-screens-capture';
 import { renderMp4 } from './browser-export';
 import { loadFont } from './render';
 
@@ -72,7 +71,6 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
   useEffect(() => () => {
     domRoot.current?.unmount();
     domRoot.current = null;
-    disposeDomDailyScreenCapture();
   }, []);
 
   async function download(all = false) {
@@ -95,7 +93,7 @@ export function DailyScreensStudio({ profile, composition, audio, token, positio
       const url = URL.createObjectURL(blob); const link = document.createElement('a');
       link.href = url; link.download = all ? 'mumoo-daily-screens.zip' : `mumoo-${variant}.mp4`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 30000);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'The video could not be exported.'); }
-    finally { setProgress(undefined); disposeDomDailyScreenCapture(); }
+    finally { setProgress(undefined); }
   }
 
   return <main className="desktop gallery-page"><section className="gallery-shell">

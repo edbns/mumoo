@@ -79,7 +79,7 @@ test('React Daily Screens dating, ride and food export synchronized MP4s', {
         [info.streams[0].codec_name, info.streams[0].width, info.streams[0].height, info.streams[0].nb_frames, info.streams[0].avg_frame_rate, info.streams[1].codec_name, info.format.duration],
         ['h264', 1080, 1920, '450', '30/1', 'aac', '15.000000'],
       );
-      const framePng = execFileSync(ffmpeg.path, ['-v', 'error', '-i', dest, '-vf', "select='eq(n,42)'", '-vsync', '0', '-frames:v', '1', join(OUT, `mumoo-${id}-frame42.png`)]);
+      const framePng = execFileSync(ffmpeg.path, ['-y', '-v', 'error', '-i', dest, '-vf', "select='eq(n,42)'", '-vsync', '0', '-frames:v', '1', join(OUT, `mumoo-${id}-frame42.png`)]);
       void framePng;
       exports[id] = { seconds, dest };
       t.diagnostic(`${id} export ${seconds.toFixed(2)} s → ${dest}`);
