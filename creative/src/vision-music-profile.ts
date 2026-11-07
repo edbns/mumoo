@@ -1,7 +1,8 @@
 import { DURATION_MS } from './composition';
 import { sameClip, type CreativeProfileV1 } from './creative-profile';
+import { deriveMusicIntent } from './music-intent';
 
-/** A compact clip-relative description of observations, never inferred mood. */
+/** A compact clip-relative description of observations, never inferred emotion-as-fact. */
 export function buildVisionMusicProfile(profile: CreativeProfileV1) {
   if (profile.musicAnalysis.status !== 'ready' || !sameClip(profile.clip, profile.musicAnalysis.clip)) return null;
   const a = profile.musicAnalysis.result;
@@ -21,11 +22,13 @@ export function buildVisionMusicProfile(profile: CreativeProfileV1) {
       .slice(0, 40)
       .map(cue => ({ text: cue.text.trim().slice(0, 120), startMs: cue.startMs, endMs: cue.endMs }))
     : [];
+  const intent = deriveMusicIntent(a);
   return { version: 1 as const, durationMs: DURATION_MS, clipSha256: a.clip.sha256,
     creator: { primaryGenre: profile.creator.primaryGenre.value, influence: profile.creator.influence?.value ?? null }, videoType: profile.videoType,
     measured: { tempo: a.rhythm.tempo, beatsMs: timed(a.rhythm.beatsMs), onsetsMs: timed(a.features.transientsMs),
       envelope: bins.map(b => ({ startMs: b.startMs, endMs: b.endMs, rmsMean: mean(b.rms), onsetMean: mean(b.onsetStrength) })),
       ...(a.temporalV1 && { temporal: { version: a.temporalV1.version, status: a.temporalV1.status, durationMs: a.temporalV1.durationMs, bins: a.temporalV1.bins, segments: a.temporalV1.segments } }) },
     lyricCues,
-    unavailable: ['vocal_character', 'emotion', 'isolated_bass', 'structural_events'] };
+    unavailable: ['vocal_character', 'emotion', 'isolated_bass', 'structural_events'],
+    ...(intent ? { intent } : {}) };
 }

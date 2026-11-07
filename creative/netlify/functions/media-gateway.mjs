@@ -17,7 +17,19 @@ function musicOnlyProfile(p) {
   const pick = (o, keys) => Object.fromEntries(keys.filter(k => o?.[k] !== undefined).map(k => [k, o[k]]));
   const band = b => pick(b, ['low','lowMid','midHighMid','high']);
   const temporal = m.temporal && { ...pick(m.temporal, ['version','status','durationMs']), bins: m.temporal.bins.map(b => ({ ...pick(b, ['startMs','endMs','relativeEnergy','onsetCount']), bandShares: band(b.bandShares) })), segments: m.temporal.segments.map(b => ({ ...pick(b, ['startMs','endMs','relativeEnergy','onsetsPerSecond','beatCount','energyChange']), bandShares: band(b.bandShares) })) };
-  return { version:p.version, durationMs:p.durationMs, clipSha256:p.clipSha256, videoType:p.videoType, creator:pick(c,['primaryGenre','influence']), measured: { tempo:pick(m.tempo,['status','bpm','gridBpm','alternativesBpm','intervalCount','supportFraction']), beatsMs:m.beatsMs, onsetsMs:m.onsetsMs, envelope:m.envelope.map(b => pick(b,['startMs','endMs','rmsMean','onsetMean'])), ...(temporal && {temporal}) }, lyricCues:[], unavailable:[] };
+  const intent = p.intent;
+  const vibes = new Set(['Uplifting/Energetic','Aggressive/Industrial','Ambient/Mellow','Dark/Cinematic']);
+  const safeIntent = intent && intent.version === 1 && intent.method === 'dsp-timbre-v1' && vibes.has(intent.vibe)
+    && ['high','medium','low'].includes(intent.cutRate) && ['saturated','high-contrast','cool-soft','desaturated'].includes(intent.palette)
+    && ['kinetic','restrained','balanced'].includes(intent.treatmentHint)
+    && (intent.bpm === null || intent.bpm === undefined || (Number.isSafeInteger(intent.bpm) && intent.bpm >= 1 && intent.bpm <= 400))
+    && typeof intent.brightnessHz === 'number' && Number.isFinite(intent.brightnessHz) && intent.brightnessHz >= 0 && intent.brightnessHz <= 12000
+    && typeof intent.noisiness === 'number' && Number.isFinite(intent.noisiness) && intent.noisiness >= 0 && intent.noisiness <= 1
+    && Array.isArray(intent.searchBias) && intent.searchBias.length >= 1 && intent.searchBias.length <= 8
+    && intent.searchBias.every(s => typeof s === 'string' && s.trim() && s.length <= 40)
+    ? pick(intent, ['version','method','bpm','brightnessHz','noisiness','vibe','cutRate','palette','searchBias','treatmentHint'])
+    : undefined;
+  return { version:p.version, durationMs:p.durationMs, clipSha256:p.clipSha256, videoType:p.videoType, creator:pick(c,['primaryGenre','influence']), measured: { tempo:pick(m.tempo,['status','bpm','gridBpm','alternativesBpm','intervalCount','supportFraction']), beatsMs:m.beatsMs, onsetsMs:m.onsetsMs, envelope:m.envelope.map(b => pick(b,['startMs','endMs','rmsMean','onsetMean'])), ...(temporal && {temporal}) }, lyricCues:[], unavailable:[], ...(safeIntent && { intent: safeIntent }) };
 }
 
 async function processRequest(request) {
