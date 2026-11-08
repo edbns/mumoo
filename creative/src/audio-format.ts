@@ -1,6 +1,19 @@
 /** Title and artist read from the file's own tags; both optional. */
 export interface SongTags { title?: string; artist?: string }
 
+/** The picture embedded in the file (front cover when marked), as the browser can decode it. */
+export interface SongCover { mime: 'image/jpeg' | 'image/png' | 'image/webp'; data: Uint8Array }
+
+const MAX_COVER_BYTES = 12 * 1024 * 1024;
+
+/** Identify the image by its own bytes; tags often lie about the type. */
+function pictureMime(data: Uint8Array): SongCover['mime'] | null {
+  if (data.length > 12 && data[0] === 0xff && data[1] === 0xd8) return 'image/jpeg';
+  if (data.length > 12 && data[0] === 0x89 && ascii(data, 1, 3) === 'PNG') return 'image/png';
+  if (data.length > 12 && ascii(data, 0, 4) === 'RIFF' && ascii(data, 8, 4) === 'WEBP') return 'image/webp';
+  return null;
+}
+
 /**
  * Format sniffing and tag reading for uploaded songs. Pure functions (no Web Audio),
  * so they can be tested in Node. Decoding itself is done by the browser in audio.ts.
@@ -40,43 +53,80 @@ function clean(value: string) {
   return value.replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
 }
 
-/** ID3v2.2/2.3/2.4 title and artist. Returns {} if the tag is absent or malformed. */
-function readId3(bytes: ArrayBuffer): SongTags {
-  const view = new Uint8Array(bytes);
-  const out: SongTags = {};
-  if (view.length < 10 || ascii(view, 0, 3) !== 'ID3') return out;
+interface Id3Frame { id: string; start: number; size: number }
+
+/** Walk the frames of an ID3v2.2/2.3/2.4 tag. Stops quietly at the first malformed frame. */
+function* id3Frames(view: Uint8Array): Generator<Id3Frame> {
+  if (view.length < 10 || ascii(view, 0, 3) !== 'ID3') return;
   const major = view[3];
-  if (major < 2 || major > 4) return out;
+  if (major < 2 || major > 4) return;
   const synchsafe = (o: number) => ((view[o] & 0x7f) << 21) | ((view[o + 1] & 0x7f) << 14) | ((view[o + 2] & 0x7f) << 7) | (view[o + 3] & 0x7f);
   const end = Math.min(view.length, 10 + synchsafe(6));
   const idLen = major === 2 ? 3 : 4;
   const headLen = major === 2 ? 6 : 10;
   for (let pos = 10; pos + headLen <= end;) {
     const id = ascii(view, pos, idLen);
-    if (!/^[A-Z0-9]+$/.test(id)) break;
+    if (!/^[A-Z0-9]+$/.test(id)) return;
     const sizeAt = pos + idLen;
     const size = major === 2
       ? (view[sizeAt] << 16) | (view[sizeAt + 1] << 8) | view[sizeAt + 2]
       : major === 4 ? synchsafe(sizeAt)
         : ((view[sizeAt] << 24) | (view[sizeAt + 1] << 16) | (view[sizeAt + 2] << 8) | view[sizeAt + 3]) >>> 0;
     const start = pos + headLen;
-    if (size < 2 || start + size > end) break;
+    if (size < 2 || start + size > end) return;
+    yield { id, start, size };
+    pos = start + size;
+  }
+}
+
+/** ID3v2.2/2.3/2.4 title and artist. Returns {} if the tag is absent or malformed. */
+function readId3(bytes: ArrayBuffer): SongTags {
+  const view = new Uint8Array(bytes);
+  const out: SongTags = {};
+  for (const { id, start, size } of id3Frames(view)) {
     const isTitle = id === 'TIT2' || id === 'TT2';
     const isArtist = id === 'TPE1' || id === 'TP1';
     if ((isTitle || isArtist) && size <= 4096) {
       const value = clean(decodeText(view.subarray(start + 1, start + size), view[start]).split('\0')[0]);
       if (value) out[isTitle ? 'title' : 'artist'] = value;
     }
-    pos = start + size;
   }
   return out;
 }
 
-/** MP4/M4A: moov > udta > meta > ilst > (©nam | ©ART) > data. */
-function readMp4(bytes: ArrayBuffer): SongTags {
+/** ID3 attached picture (APIC, or PIC in v2.2): <encoding><mime or 3-letter format><type><description><image>. */
+function coverFromId3(bytes: ArrayBuffer): { type: number; cover: SongCover } | null {
+  const view = new Uint8Array(bytes);
+  let best: { type: number; cover: SongCover } | null = null;
+  for (const { id, start, size } of id3Frames(view)) {
+    if (id !== 'APIC' && id !== 'PIC') continue;
+    const end = start + size;
+    const encoding = view[start];
+    let pos = start + 1;
+    if (id === 'PIC') pos += 3; // three-letter image format
+    else {
+      const stop = view.indexOf(0, pos); // zero-terminated mime type
+      if (stop < 0 || stop >= end) continue;
+      pos = stop + 1;
+    }
+    const type = view[pos++];
+    // The description ends with one zero byte (Latin-1/UTF-8) or an aligned pair (UTF-16).
+    const wide = encoding === 1 || encoding === 2;
+    while (pos < end && (wide ? !(view[pos] === 0 && view[pos + 1] === 0) : view[pos] !== 0)) pos += wide ? 2 : 1;
+    pos += wide ? 2 : 1;
+    if (pos >= end) continue;
+    const data = view.slice(pos, end);
+    const kind = pictureMime(data);
+    if (!kind || data.length > MAX_COVER_BYTES) continue;
+    if (!best || (type === 3 && best.type !== 3)) best = { type, cover: { mime: kind, data } };
+  }
+  return best;
+}
+
+/** Visit every item of an MP4/M4A tag list (moov > udta > meta > ilst) with its path, e.g. `moov/udta/meta/ilst/covr`. */
+function walkMp4(bytes: ArrayBuffer, visit: (key: string, body: number, stop: number) => void) {
   const view = new DataView(bytes);
   const u8 = new Uint8Array(bytes);
-  const out: SongTags = {};
   const walk = (start: number, end: number, path: string[], depth: number) => {
     if (depth > 6) return;
     for (let pos = start; pos + 8 <= end;) {
@@ -94,22 +144,87 @@ function readMp4(bytes: ArrayBuffer): SongTags {
         walk(body, stop, next, depth + 1);
       } else if (key === 'moov/udta/meta') {
         walk(body + 4, stop, next, depth + 1); // meta is a "full box": 4 bytes of version/flags
-      } else if (key === 'moov/udta/meta/ilst/\u00a9nam' || key === 'moov/udta/meta/ilst/\u00a9ART') {
-        for (let inner = body; inner + 16 <= stop;) {
-          const innerSize = view.getUint32(inner);
-          if (innerSize < 16 || inner + innerSize > stop) break;
-          if (ascii(u8, inner + 4, 4) === 'data' && innerSize - 16 <= 4096) {
-            const value = clean(new TextDecoder('utf-8').decode(u8.subarray(inner + 16, inner + innerSize)));
-            if (value) out[type === '\u00a9nam' ? 'title' : 'artist'] = value;
-          }
-          inner += innerSize;
-        }
+      } else {
+        visit(key, body, stop);
       }
       pos += size;
     }
   };
   walk(0, bytes.byteLength, [], 0);
+}
+
+/** Each ilst item holds `data` boxes: <size><'data'><type/flags 4><locale 4><payload>. */
+function mp4DataBoxes(view: DataView, u8: Uint8Array, body: number, stop: number, maxBytes: number): Uint8Array[] {
+  const out: Uint8Array[] = [];
+  for (let inner = body; inner + 16 <= stop;) {
+    const innerSize = view.getUint32(inner);
+    if (innerSize < 16 || inner + innerSize > stop) break;
+    if (ascii(u8, inner + 4, 4) === 'data' && innerSize - 16 <= maxBytes) out.push(u8.subarray(inner + 16, inner + innerSize));
+    inner += innerSize;
+  }
   return out;
+}
+
+/** MP4/M4A: title (©nam) and artist (©ART). */
+function readMp4(bytes: ArrayBuffer): SongTags {
+  const view = new DataView(bytes);
+  const u8 = new Uint8Array(bytes);
+  const out: SongTags = {};
+  walkMp4(bytes, (key, body, stop) => {
+    const field = key === 'moov/udta/meta/ilst/\u00a9nam' ? 'title' : key === 'moov/udta/meta/ilst/\u00a9ART' ? 'artist' : null;
+    if (!field) return;
+    for (const data of mp4DataBoxes(view, u8, body, stop, 4096)) {
+      const value = clean(new TextDecoder('utf-8').decode(data));
+      if (value) out[field] = value;
+    }
+  });
+  return out;
+}
+
+/** MP4/M4A cover art (covr). */
+function coverFromMp4(bytes: ArrayBuffer): SongCover | null {
+  const view = new DataView(bytes);
+  const u8 = new Uint8Array(bytes);
+  let found: SongCover | null = null;
+  walkMp4(bytes, (key, body, stop) => {
+    if (found || key !== 'moov/udta/meta/ilst/covr') return;
+    for (const data of mp4DataBoxes(view, u8, body, stop, MAX_COVER_BYTES)) {
+      const mime = pictureMime(data);
+      if (mime) { found = { mime, data: data.slice() }; return; }
+    }
+  });
+  return found;
+}
+
+/** FLAC PICTURE metadata block (type 6): all fields big-endian. */
+function coverFromFlac(bytes: ArrayBuffer): SongCover | null {
+  const view = new DataView(bytes);
+  const u8 = new Uint8Array(bytes);
+  let best: { type: number; cover: SongCover } | null = null;
+  for (let pos = 4; pos + 4 <= u8.length;) {
+    const last = (u8[pos] & 0x80) !== 0;
+    const kind = u8[pos] & 0x7f;
+    const length = (u8[pos + 1] << 16) | (u8[pos + 2] << 8) | u8[pos + 3];
+    const start = pos + 4;
+    const end = start + length;
+    if (end > u8.length) break;
+    if (kind === 6 && length > 32) {
+      const type = view.getUint32(start);
+      let at = start + 4;
+      const mimeLength = view.getUint32(at); at += 4 + mimeLength;
+      const descLength = view.getUint32(at); at += 4 + descLength;
+      at += 16; // width, height, depth, colors
+      const dataLength = view.getUint32(at); at += 4;
+      if (at + dataLength <= end && dataLength <= MAX_COVER_BYTES) {
+        const data = u8.slice(at, at + dataLength);
+        const mime = pictureMime(data);
+        if (mime && (!best || (type === 3 && best.type !== 3))) best = { type, cover: { mime, data } };
+      }
+    }
+    if (last) break;
+    pos = end;
+  }
+  return best?.cover ?? null;
 }
 
 /** Ogg/FLAC/Opus Vorbis comments. Each entry is stored as <u32 length><KEY=value>, so use the length to cut exactly. */
@@ -177,4 +292,14 @@ export function readSongTags(bytes: ArrayBuffer, format: AudioFormat | null): So
     if (format === 'ogg' || format === 'flac') return readVorbis(bytes);
   } catch { /* fall through */ }
   return {};
+}
+
+/** The cover art inside the file, if it has one. Never throws; WAV, Ogg and raw AAC are not supported. */
+export function readSongCover(bytes: ArrayBuffer, format: AudioFormat | null): SongCover | null {
+  try {
+    if (format === 'mp3') return coverFromId3(bytes)?.cover ?? null;
+    if (format === 'm4a') return coverFromMp4(bytes);
+    if (format === 'flac') return coverFromFlac(bytes);
+  } catch { /* fall through */ }
+  return null;
 }

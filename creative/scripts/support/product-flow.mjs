@@ -1,7 +1,11 @@
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import { createHash } from 'node:crypto';
-import { realpathSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import ffmpegPath from '@ffmpeg-installer/ffmpeg';
 
 /**
  * One harness for every browser test of the product flow:
@@ -82,10 +86,27 @@ export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = []
 }
 
 /** Step 1: song + genre, then Continue. */
-export async function uploadSong(page, { genre = 'Pop', seconds = 20, name = 'song.wav' } = {}) {
-  await page.locator('input[type=file]').setInputFiles({ name, mimeType: 'audio/wav', buffer: songWav(seconds) });
+export async function uploadSong(page, { genre = 'Pop', seconds = 20, name = 'song.wav', file } = {}) {
+  await page.locator('input[type=file]').setInputFiles(file ?? { name, mimeType: 'audio/wav', buffer: songWav(seconds) });
   await page.getByLabel('Primary genre').fill(genre);
   await page.getByText('Staging access enabled.').waitFor({ timeout: 15000 });
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByRole('heading', { name: 'Choose your 15 seconds' }).waitFor();
+}
+
+/** A real 20-second MP3 with a flat-colour cover embedded as an ID3 picture (made with the bundled ffmpeg). */
+export function songMp3WithCover(color) {
+  const dir = mkdtempSync(join(tmpdir(), 'mumoo-cover-'));
+  try {
+    const run = (...args) => {
+      const result = spawnSync(ffmpegPath.path, ['-v', 'error', '-y', ...args], { encoding: 'utf8' });
+      if (result.status !== 0) throw new Error(`ffmpeg failed: ${result.stderr}`);
+    };
+    run('-f', 'lavfi', '-i', `color=c=${color}:s=300x300`, '-frames:v', '1', join(dir, 'cover.png'));
+    run('-f', 'lavfi', '-i', 'sine=frequency=330:duration=20', '-i', join(dir, 'cover.png'), '-map', '0:a', '-map', '1:v',
+      '-c:a', 'libmp3lame', '-c:v', 'copy', '-id3v2_version', '3', '-metadata:s:v', 'comment=Cover (front)', join(dir, 'song.mp3'));
+    return { name: 'song.mp3', mimeType: 'audio/mpeg', buffer: readFileSync(join(dir, 'song.mp3')) };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }

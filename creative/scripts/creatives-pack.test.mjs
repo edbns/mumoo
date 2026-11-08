@@ -98,3 +98,22 @@ test('sad lyrics never land on a bright background', async () => {
     }
   } finally { await server.close(); }
 });
+
+test('the cover decides which backgrounds lead: warm cover → warm looks, cool cover → cool looks', async () => {
+  const { server, pack } = await load();
+  try {
+    const { default: bank } = await server.ssrLoadModule('/src/look-lab/bank.json');
+    const read = slug => bank.find(look => look.slug === slug).read;
+    const cover = (hex, extra) => ({ palette: [{ hex, share: 1 }], lightness: 0.5, saturation: 0.8, contrast: 0.5, hue: 20, warmth: 1, ...extra });
+    const withCover = value => ({ ...profile('Pop'), creator: { primaryGenre: { value: 'Pop', source: 'creator' }, cover: { value, source: 'embedded_metadata' } } });
+    const lead = value => pack.recommendCreativesPack(withCover(value)).slice(0, 3).map(slot => read(slot.bankId));
+
+    const warm = lead(cover('#e1782a'));
+    const cool = lead(cover('#2a3ea0', { hue: 230, warmth: 0, lightness: 0.25 }));
+    assert.ok(warm.every(look => look.warmth > 0.6), 'warm cover leads with warm backgrounds');
+    assert.ok(cool.every(look => look.warmth < 0.4), 'cool cover leads with cool backgrounds');
+
+    // No cover: nothing changes, still a full pack.
+    assert.equal(pack.recommendCreativesPack(profile('Pop')).length, 8);
+  } finally { await server.close(); }
+});

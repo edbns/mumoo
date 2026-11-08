@@ -103,3 +103,60 @@ test('reads Vorbis comments from ogg/flac and survives garbage', async () => {
     assert.deepEqual(mod.readSongTags(buf(broken), 'mp3'), {});
   } finally { await server.close(); }
 });
+
+const jpeg = (marker = 1) => cat(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]), new Uint8Array(20).fill(marker));
+const png = () => cat(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), new Uint8Array(20).fill(9));
+
+function apic(major, type, image, encoding = 0, description = 'cover') {
+  const wide = encoding === 1;
+  const desc = wide
+    ? cat(new Uint8Array([0xff, 0xfe]), ...[...description].map(c => new Uint8Array([c.charCodeAt(0), 0])), new Uint8Array([0, 0]))
+    : cat(enc(description), new Uint8Array([0]));
+  const payload = cat(new Uint8Array([encoding]), enc('image/jpeg'), new Uint8Array([0, type]), desc, image);
+  const size = major === 4 ? synch(payload.length) : u32(payload.length);
+  return cat(enc('APIC'), size, new Uint8Array(2), payload);
+}
+
+test('reads the front cover from an ID3 tag, whatever the description encoding', async () => {
+  const { server, mod } = await load();
+  try {
+    for (const major of [3, 4]) for (const encoding of [0, 1]) {
+      const frames = cat(id3Frame(major, 'TIT2', 'Song'), apic(major, 0, jpeg(2), encoding), apic(major, 3, jpeg(7), encoding, 'Front'));
+      const tag = cat(enc('ID3'), new Uint8Array([major, 0, 0]), synch(frames.length), frames, new Uint8Array(40));
+      const cover = mod.readSongCover(buf(tag), 'mp3');
+      assert.equal(cover.mime, 'image/jpeg');
+      assert.equal(cover.data.at(-1), 7, 'the front cover wins over other pictures');
+      assert.equal(mod.readSongTags(buf(tag), 'mp3').title, 'Song');
+    }
+    // A tag with no picture, or one whose bytes are not an image, gives no cover.
+    const frames = id3Frame(3, 'TIT2', 'Song');
+    const bare = cat(enc('ID3'), new Uint8Array([3, 0, 0]), synch(frames.length), frames);
+    assert.equal(mod.readSongCover(buf(bare), 'mp3'), null);
+    const fake = cat(enc('ID3'), new Uint8Array([3, 0, 0]), synch(apic(3, 3, enc('not an image at all, sorry')).length), apic(3, 3, enc('not an image at all, sorry')));
+    assert.equal(mod.readSongCover(buf(fake), 'mp3'), null);
+  } finally { await server.close(); }
+});
+
+const box = (type, ...body) => { const inner = cat(...body); return cat(u32(8 + inner.length), enc(type), inner); };
+
+test('reads cover art from M4A (covr) and FLAC (PICTURE), by the image bytes', async () => {
+  const { server, mod } = await load();
+  try {
+    const data = box('data', u32(14), u32(0), png());
+    const ilst = box('ilst', box('covr', data));
+    const m4a = cat(box('ftyp', enc('M4A '), u32(0)), box('moov', box('udta', box('meta', u32(0), ilst))));
+    const fromMp4 = mod.readSongCover(buf(m4a), 'm4a');
+    assert.equal(fromMp4.mime, 'image/png');
+    assert.equal(fromMp4.data.length, png().length);
+
+    const picture = (type, image) => cat(u32(type), u32(10), enc('image/jpeg'), u32(0), u32(1), u32(1), u32(24), u32(0), u32(image.length), image);
+    const block = (kind, last, body) => cat(new Uint8Array([(last ? 0x80 : 0) | kind, (body.length >> 16) & 255, (body.length >> 8) & 255, body.length & 255]), body);
+    const flac = cat(enc('fLaC'), block(0, false, new Uint8Array(34)), block(6, false, picture(0, jpeg(4))), block(6, true, picture(3, jpeg(8))));
+    const fromFlac = mod.readSongCover(buf(flac), 'flac');
+    assert.equal(fromFlac.mime, 'image/jpeg');
+    assert.equal(fromFlac.data.at(-1), 8);
+
+    assert.equal(mod.readSongCover(buf(pad(enc('RIFF'))), 'wav'), null);
+    assert.equal(mod.readSongCover(buf(enc('garbage')), 'flac'), null);
+  } finally { await server.close(); }
+});

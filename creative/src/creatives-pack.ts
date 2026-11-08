@@ -20,8 +20,10 @@ import { AD_PUNCH_META, type AdPunchStyle } from './ad-punch';
 import bankData from './look-lab/bank.json';
 import { laneFromLyrics, lyricMood } from './lyric-mood';
 import { TYPE_STYLES, type TypeStyleId } from './pack-type';
+import { coverFit, type LookRead } from './look-fit';
+import type { CoverRead } from './cover-palette';
 
-type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[] };
+type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[]; read: LookRead };
 const BANK_LOOKS = bankData as BankLook[];
 
 export type PackFamily = 'ad_punch';
@@ -98,6 +100,7 @@ function bankSlots(
   intent: MusicIntentV1 | null,
   seed: string,
   count: number,
+  cover: CoverRead | null,
 ): CreativesPackSlot[] {
   let looks = BANK_LOOKS.filter(look => look.lanes.includes(lane));
   if (!looks.length) looks = BANK_LOOKS.filter(look => look.lanes.includes('general'));
@@ -106,7 +109,11 @@ function bankSlots(
     const deep = looks.filter(look => look.tone === 'deep');
     if (deep.length >= 3) looks = deep;
   }
-  const backgrounds = seededOrder(looks, seed, look => look.slug);
+  // With a cover, backgrounds closest to its colours lead; the seed still shuffles near-equal ones between generations.
+  const backgrounds = cover
+    ? [...looks].sort((a, b) => (coverFit(cover, b.read) + hashPick(seed, b.slug, 1000) / 4000)
+      - (coverFit(cover, a.read) + hashPick(seed, a.slug, 1000) / 4000))
+    : seededOrder(looks, seed, look => look.slug);
   const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), seed, id => id);
   const pairs: { look: BankLook; type: TypeStyleId }[] = [];
   const used = new Set<string>();
@@ -190,10 +197,11 @@ export function readSong(profile: CreativeProfileV1) {
 
 export function recommendCreativesPack(profile: CreativeProfileV1, generation = 0): CreativesPackSlot[] {
   const { intent, mood, lane } = readSong(profile);
+  const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}`;
 
   const withPhoto = NOIR_LANES.includes(lane);
-  const slots = bankSlots(lane, mood.theme, intent, seed, withPhoto ? 7 : 8);
+  const slots = bankSlots(lane, mood.theme, intent, seed, withPhoto ? 7 : 8, cover);
   if (withPhoto) slots.push(adPunchSlot('noir', slots.length, intent, seed, lane));
   return slots;
 }

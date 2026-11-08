@@ -1,3 +1,4 @@
+import type { CoverRead } from './cover-palette';
 import { DURATION_MS, type LyricCue } from './composition';
 
 export interface ClipIdentity {
@@ -85,6 +86,8 @@ export interface CreativeProfileV1 {
     influence?: { value: string; source: 'creator' };
     title?: { value: string; source: 'embedded_metadata' | 'creator' };
     artist?: { value: string; source: 'embedded_metadata' | 'creator' };
+    /** What the cover art inside the uploaded file looks like (numbers only; the picture is never kept). */
+    cover?: { value: CoverRead; source: 'embedded_metadata' };
     creativeDirection?: { value: string; source: 'creator' };
   };
   musicAnalysis: MusicAnalysisState;

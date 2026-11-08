@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { decodeAudio, hashAudio, probeDurationMs } from './audio';
-import { ACCEPTED_AUDIO, ACCEPTED_LABEL, readSongTags, sniffAudioFormat, type SongTags } from './audio-format';
+import { ACCEPTED_AUDIO, ACCEPTED_LABEL, readSongCover, readSongTags, sniffAudioFormat, type SongTags } from './audio-format';
+import { describeCover, type CoverRead } from './cover-palette';
 import { DURATION_MS, validate, type Composition } from './composition';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { MusicAnalysisRunner } from './music-analysis-runner';
@@ -37,6 +38,7 @@ function App() {
   const selectedGenre = GENRES.find(item => item.toLowerCase() === genre.trim().toLowerCase());
   const genreValid = Boolean(selectedGenre);
   const [songTags, setSongTags] = useState<SongTags>();
+  const [songCover, setSongCover] = useState<CoverRead | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer>();
   const [lyricsState, setLyricsState] = useState({ busy: false, dirty: false });
   const [lyricsInfo, setLyricsInfo] = useState<{ language?: string; origin: 'transcribed' | 'typed' }>({ origin: 'transcribed' });
@@ -70,6 +72,7 @@ function App() {
       ...(influence.trim() && { influence: { value: influence.trim(), source: 'creator' as const } }),
       ...(songTags?.title && { title: { value: songTags.title, source: 'embedded_metadata' as const } }),
       ...(songTags?.artist && { artist: { value: songTags.artist, source: 'embedded_metadata' as const } }),
+      ...(songCover && { cover: { value: songCover, source: 'embedded_metadata' as const } }),
     },
     musicAnalysis: analysisForClip(musicAnalysis, clip),
     ...(inCreatives && { approvedLyrics: { cues: composition.cues, source: 'creator_reviewed' as const, ...lyricsInfo } }),
@@ -100,6 +103,7 @@ function App() {
     stop();
     setBuffer(undefined);
     setSongTags(undefined);
+    setSongCover(null);
     setInCreatives(false);
     setStep(1);
     setLyricsState({ busy: false, dirty: false });
@@ -113,7 +117,9 @@ function App() {
       const bytes = await file.arrayBuffer();
       const sourceSha256 = await hashAudio(bytes);
       // Tags and format are read from the original bytes before decoding detaches the buffer.
-      const tags = readSongTags(bytes, sniffAudioFormat(bytes));
+      const format = sniffAudioFormat(bytes);
+      const tags = readSongTags(bytes, format);
+      const cover = await describeCover(readSongCover(bytes, format));
       const audio = await decodeAudio(bytes, probedMs);
       validate({ ...INITIAL, sourceSha256 }, audio.duration * 1000);
       if (request !== upload.current) return;
@@ -124,6 +130,7 @@ function App() {
       currentClip.current = nextClip;
       setBuffer(audio);
       setSongTags(tags);
+      setSongCover(cover);
     } catch (cause) {
       if (request === upload.current) { setMusicAnalysis(NO_ANALYSIS); setError((cause as Error).message); }
     } finally {

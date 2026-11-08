@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canRunBrowserTests, lyricsResult, openProduct, uploadSong } from './support/product-flow.mjs';
+import { canRunBrowserTests, lyricsResult, openProduct, songMp3WithCover, uploadSong } from './support/product-flow.mjs';
 
 const SKIP = !canRunBrowserTests;
 const HEARD = 'louvado seja o Senhor Deus gloria e graça para sempre';
@@ -75,4 +75,33 @@ test('a worker failure is retried once, and a second failure keeps the user\'s w
     await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
     await page.locator('.lang-chip').waitFor({ timeout: 30000 });
   } finally { await product.close(); }
+});
+
+test('the cover inside the uploaded file steers which backgrounds lead', { timeout: 240000, skip: SKIP }, async () => {
+  const leading = async (color) => {
+    const product = await openProduct({ lyrics: () => lyricsResult('hold me close tonight', { language: 'en' }) });
+    const { page } = product;
+    try {
+      await uploadSong(page, { file: songMp3WithCover(color) });
+      await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
+      await page.locator('.lyrics-editor').waitFor({ timeout: 30000 });
+      await page.locator('.step-actions .primary-accent').click();
+      await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length === 8, null, { timeout: 30000 });
+      assert.deepEqual(product.errors, []);
+      await page.waitForTimeout(2500); // previews are painted asynchronously
+      if (process.env.MUMOO_SHOTS) await page.screenshot({ path: `${process.env.MUMOO_SHOTS}/cover-${color}.png`, fullPage: true });
+      // What the creator actually sees: how red-vs-blue the first three previews are (mean of R - B, -255…255).
+      return await page.evaluate(() => [...document.querySelectorAll('.creatives-pack-card canvas')].slice(0, 3).map(canvas => {
+        const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 4) sum += data[i] - data[i + 2];
+        return Math.round(sum / (data.length / 4));
+      }));
+    } finally { await product.close(); }
+  };
+  const warm = await leading('0xe1782a');
+  const cool = await leading('0x2a3ea0');
+  const mean = values => values.reduce((n, v) => n + v, 0) / values.length;
+  assert.ok(mean(warm) > 20, `warm cover leads with warm previews (red minus blue): ${warm}`);
+  assert.ok(mean(cool) < -10, `cool cover leads with cool previews (red minus blue): ${cool}`);
 });

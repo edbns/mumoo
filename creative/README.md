@@ -4,9 +4,9 @@ Turns a song into short 9:16 music-ad creatives. Every creative is a lyric video
 
 ## The flow
 
-1. **Upload** a song (MP3, M4A/AAC, WAV, FLAC, OGG/Opus, AIFF…) and pick the genre. The file is sniffed by its bytes, decoded in the browser and identified by a SHA-256 hash. Only title and artist tags are read.
+1. **Upload** a song (MP3, M4A/AAC, WAV, FLAC, OGG/Opus, AIFF…) and pick the genre. The file is sniffed by its bytes, decoded in the browser and identified by a SHA-256 hash. Only title, artist and the embedded cover art are read; the cover is turned into a few colour numbers (palette, brightness, saturation, warmth) in the browser and the picture itself is never kept or uploaded.
 2. **Your clip.** Drag the 15-second window on the waveform. The same page gets the lyrics: *transcribe* or *sync* typed words, in any language, then fix words in the editor and sync again. Lyrics come from `audio-intelligence/modal_lyrics_v2_staging.py` (Whisper + forced alignment) through the `transcribe-lyrics*` Netlify functions.
-3. **Creatives.** The song data (language, origin, lyric mood, genre, music analysis) goes to the "brain" (`creatives-pack.ts`, `readSong`), which picks the looks, type and motion. Previews are drawn with Pixi/WebGL.
+3. **Creatives.** The song data (language, origin, lyric mood, genre, music analysis) goes to the "brain" (`creatives-pack.ts`, `readSong`), which picks the looks, type and motion. When the file has a cover, the backgrounds closest to its colours lead (`look-fit.ts`). Previews are drawn with Pixi/WebGL.
 4. **Export.** `encode-creative*` Netlify functions start a Modal job that renders the frames with `render.html` (`pack-render-page.ts`) and encodes the MP4 with the song audio.
 
 Staging access is gated by an HMAC token (`netlify/lib/access.mjs`). There are no rate limits: the product is paid, so usage is paid for.
@@ -42,8 +42,8 @@ npm test
 | Area | Files |
 | --- | --- |
 | App | `main.tsx`, `waveform.tsx`, `lyrics-studio.tsx`, `creatives-pack-studio.tsx` |
-| Song in | `audio-format.ts`, `audio.ts`, `lyric-text.ts`, `lyrics-cloud.ts`, `music-analysis-runner.tsx`, `creative-profile.ts` |
-| Brain | `creatives-pack.ts`, `music-intent.ts`, `lyric-mood.ts`, `pack-feedback.ts` |
+| Song in | `audio-format.ts`, `cover-palette.ts`, `audio.ts`, `lyric-text.ts`, `lyrics-cloud.ts`, `music-analysis-runner.tsx`, `creative-profile.ts` |
+| Brain | `creatives-pack.ts`, `look-fit.ts`, `music-intent.ts`, `lyric-mood.ts`, `pack-feedback.ts` |
 | Look and motion | `pack-*.ts` (renderer, scenes, type, copy, looks), `ad-fonts.ts`, `ad-punch.ts` (style catalog), `lyric-motion.ts`, `punch-plates.ts` |
 | Cloud render | `render.html`, `pack-render-page.ts`, `pack-cloud-export.ts` |
 | Contract | `composition.ts` (clip + cues, validation, frame clock) |
@@ -52,6 +52,7 @@ npm test
 
 - `npm run bake:plates` runs automatically before `build`; it publishes the cleared photo plates (`punch-plates/`) and their baked looks to `public/`.
 - `npm run bake:looks` renders the looks over the plates (needs Playwright Chromium: `npx playwright install chromium --only-shell`).
+- `node scripts/measure-looks.mjs` measures the colours of every baked background into `src/look-lab/bank.json`; run it after `bake:looks` so cover matching stays accurate.
 - `node scripts/bake-paper-meshes.mjs` regenerates `src/paper-mesh-data.ts`.
 
 ## Decisions worth knowing

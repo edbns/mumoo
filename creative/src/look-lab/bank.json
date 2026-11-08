@@ -10,7 +10,36 @@
       "general"
     ],
     "desc": "A soft, blurred gradient shader effect dominated by cool tones creating an ethereal, atmospheric appearance. The composition features a dark central area with a deep charcoal-black (#111117) base that transitions smoothly into vibrant green",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#052004",
+          "share": 0.449
+        },
+        {
+          "hex": "#3b8c3e",
+          "share": 0.155
+        },
+        {
+          "hex": "#184615",
+          "share": 0.154
+        },
+        {
+          "hex": "#2b6c29",
+          "share": 0.138
+        },
+        {
+          "hex": "#4ba853",
+          "share": 0.105
+        }
+      ],
+      "lightness": 0.255,
+      "saturation": 0.699,
+      "contrast": 0.349,
+      "hue": 120,
+      "warmth": 0
+    }
   },
   {
     "slug": "lit-rays-5",
@@ -23,7 +52,28 @@
       "general"
     ],
     "desc": "A soft, ethereal shader effect dominated by subtle grayscale tones with gentle directional light rays. The composition features a multi-point gradient that creates smooth transitions between white (#ffffff), light gray (#d6d6d6), medium gra",
-    "tone": "bright"
+    "tone": "bright",
+    "read": {
+      "palette": [
+        {
+          "hex": "#c4cec3",
+          "share": 0.664
+        },
+        {
+          "hex": "#b4c0b7",
+          "share": 0.222
+        },
+        {
+          "hex": "#d6dcd5",
+          "share": 0.115
+        }
+      ],
+      "lightness": 0.791,
+      "saturation": 0.051,
+      "contrast": 0.072,
+      "hue": null,
+      "warmth": 0.5
+    }
   },
   {
     "slug": "sunrise",
@@ -36,7 +86,36 @@
       "general"
     ],
     "desc": "A radial gradient composition featuring a luminous spherical form at the center with warm orange and yellow tones that gradually transition outward. The sphere exhibits a soft, glowing quality with a bright yellow-white highlight on the rig",
-    "tone": "bright"
+    "tone": "bright",
+    "read": {
+      "palette": [
+        {
+          "hex": "#e1ab42",
+          "share": 0.382
+        },
+        {
+          "hex": "#db8237",
+          "share": 0.337
+        },
+        {
+          "hex": "#c06877",
+          "share": 0.136
+        },
+        {
+          "hex": "#c18898",
+          "share": 0.109
+        },
+        {
+          "hex": "#8541a6",
+          "share": 0.037
+        }
+      ],
+      "lightness": 0.593,
+      "saturation": 0.655,
+      "contrast": 0.19,
+      "hue": 26,
+      "warmth": 0.939
+    }
   },
   {
     "slug": "sunrise-2",
@@ -49,7 +128,36 @@
       "general"
     ],
     "desc": "A smooth, flowing gradient shader effect that transitions diagonally from the lower-left to upper-right. The composition features a warm-to-cool color progression starting with bright yellow (#fad041) in the bottom-left corner, transitionin",
-    "tone": "bright"
+    "tone": "bright",
+    "read": {
+      "palette": [
+        {
+          "hex": "#e3bf45",
+          "share": 0.486
+        },
+        {
+          "hex": "#e19036",
+          "share": 0.44
+        },
+        {
+          "hex": "#ed8648",
+          "share": 0.059
+        },
+        {
+          "hex": "#da6770",
+          "share": 0.01
+        },
+        {
+          "hex": "#c15a94",
+          "share": 0.005
+        }
+      ],
+      "lightness": 0.671,
+      "saturation": 0.721,
+      "contrast": 0.16,
+      "hue": 38,
+      "warmth": 0.998
+    }
   },
   {
     "slug": "venetian-noir-4",
@@ -61,7 +169,36 @@
       "general"
     ],
     "desc": "A dramatic chiaroscuro lighting effect simulating light passing through venetian blinds onto a textured plaster wall. The composition features a diamond-shaped aperture of bright cream-white light (#efe9dd) positioned in the upper-right qua",
-    "tone": "bright"
+    "tone": "bright",
+    "read": {
+      "palette": [
+        {
+          "hex": "#c9d3c3",
+          "share": 0.401
+        },
+        {
+          "hex": "#080e06",
+          "share": 0.201
+        },
+        {
+          "hex": "#a0aa98",
+          "share": 0.138
+        },
+        {
+          "hex": "#6e7866",
+          "share": 0.13
+        },
+        {
+          "hex": "#3b4434",
+          "share": 0.13
+        }
+      ],
+      "lightness": 0.52,
+      "saturation": 0.111,
+      "contrast": 0.613,
+      "hue": null,
+      "warmth": 0.5
+    }
   },
   {
     "slug": "liquid-cells-7",
@@ -73,7 +210,36 @@
       "general"
     ],
     "desc": "A vibrant gradient shader effect displaying a smooth wave-like form flowing diagonally across the composition from upper-left to lower-right. The primary visual element is a large, soft-edged curved shape with a magenta-pink core (#fc0050, ",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#da37bf",
+          "share": 0.281
+        },
+        {
+          "hex": "#d9369e",
+          "share": 0.26
+        },
+        {
+          "hex": "#d8357f",
+          "share": 0.187
+        },
+        {
+          "hex": "#d8365d",
+          "share": 0.152
+        },
+        {
+          "hex": "#e050c3",
+          "share": 0.121
+        }
+      ],
+      "lightness": 0.386,
+      "saturation": 0.737,
+      "contrast": 0.072,
+      "hue": 323,
+      "warmth": 0.297
+    }
   },
   {
     "slug": "neon-flow-5",
@@ -85,7 +251,36 @@
       "general"
     ],
     "desc": "A dynamic gradient shader effect dominated by warm to hot color transitions. The image features a primary swirling motion that blends deep red (#e63412) with golden yellow (#ffb703) in a fluid, organic pattern. A prominent blob-like formati",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#d74b19",
+          "share": 0.482
+        },
+        {
+          "hex": "#bc3c2e",
+          "share": 0.202
+        },
+        {
+          "hex": "#9f2a32",
+          "share": 0.142
+        },
+        {
+          "hex": "#7f1833",
+          "share": 0.132
+        },
+        {
+          "hex": "#eb5529",
+          "share": 0.042
+        }
+      ],
+      "lightness": 0.341,
+      "saturation": 0.831,
+      "contrast": 0.158,
+      "hue": 9,
+      "warmth": 1
+    }
   },
   {
     "slug": "paint-flow-3",
@@ -97,7 +292,36 @@
       "general"
     ],
     "desc": "A vibrant, dynamic gradient composition featuring soft-focus geometric shapes with intense color transitions. The image displays a layered blob-like structure with primary colors transitioning from deep purple (#57073c) and magenta tones in",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#5b3bbe",
+          "share": 0.259
+        },
+        {
+          "hex": "#37abce",
+          "share": 0.226
+        },
+        {
+          "hex": "#421255",
+          "share": 0.216
+        },
+        {
+          "hex": "#e6d650",
+          "share": 0.164
+        },
+        {
+          "hex": "#dd5562",
+          "share": 0.135
+        }
+      ],
+      "lightness": 0.431,
+      "saturation": 0.728,
+      "contrast": 0.496,
+      "hue": 263,
+      "warmth": 0.294
+    }
   },
   {
     "slug": "vibrant-waves-7",
@@ -109,7 +333,36 @@
       "general"
     ],
     "desc": "A smooth, flowing gradient shader effect that transitions from deep red (#c41232) in the upper left corner through warm orange (#d4880a) in the center, to golden yellow and peachy tones toward the lower right. The composition features organ",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#d38a3f",
+          "share": 0.513
+        },
+        {
+          "hex": "#cd7544",
+          "share": 0.237
+        },
+        {
+          "hex": "#c25a40",
+          "share": 0.104
+        },
+        {
+          "hex": "#c27b25",
+          "share": 0.083
+        },
+        {
+          "hex": "#ae3c30",
+          "share": 0.063
+        }
+      ],
+      "lightness": 0.529,
+      "saturation": 0.702,
+      "contrast": 0.149,
+      "hue": 26,
+      "warmth": 1
+    }
   },
   {
     "slug": "watercolor-on-paper-3",
@@ -122,7 +375,36 @@
       "gospel"
     ],
     "desc": "A soft, dreamy gradient composition featuring a multi-point color blend with warm peachy-orange tones dominating the center-right area, transitioning smoothly into pale mint-green and cream colors on the left side. The gradient has five dis",
-    "tone": "bright"
+    "tone": "bright",
+    "read": {
+      "palette": [
+        {
+          "hex": "#dceddc",
+          "share": 0.345
+        },
+        {
+          "hex": "#e8d663",
+          "share": 0.278
+        },
+        {
+          "hex": "#e2d594",
+          "share": 0.154
+        },
+        {
+          "hex": "#dee1bd",
+          "share": 0.148
+        },
+        {
+          "hex": "#e3b56b",
+          "share": 0.076
+        }
+      ],
+      "lightness": 0.853,
+      "saturation": 0.304,
+      "contrast": 0.11,
+      "hue": 50,
+      "warmth": 0.986
+    }
   },
   {
     "slug": "watercolor-on-paper-8",
@@ -135,7 +417,36 @@
       "gospel"
     ],
     "desc": "A smooth, ethereal gradient shader effect dominated by purple and pink tones with soft, blurred transitions. The composition features five gradient points creating a multi-directional color flow: deep purple (#5b2d8e) anchors the upper righ",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#4f267f",
+          "share": 0.332
+        },
+        {
+          "hex": "#724194",
+          "share": 0.227
+        },
+        {
+          "hex": "#ae81a9",
+          "share": 0.18
+        },
+        {
+          "hex": "#c99bbb",
+          "share": 0.179
+        },
+        {
+          "hex": "#90639c",
+          "share": 0.081
+        }
+      ],
+      "lightness": 0.395,
+      "saturation": 0.446,
+      "contrast": 0.35,
+      "hue": 282,
+      "warmth": 0
+    }
   },
   {
     "slug": "inbound-2",
@@ -147,7 +458,36 @@
       "party"
     ],
     "desc": "A dynamic digital visualization featuring multiple parallel glowing strands or light beams flowing diagonally from lower-left to upper-right across a dark background. The strands exhibit a vibrant cyan-to-blue color gradient, with the brigh",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#000402",
+          "share": 0.792
+        },
+        {
+          "hex": "#082b3c",
+          "share": 0.097
+        },
+        {
+          "hex": "#1d5b73",
+          "share": 0.052
+        },
+        {
+          "hex": "#4494a1",
+          "share": 0.036
+        },
+        {
+          "hex": "#7acacd",
+          "share": 0.023
+        }
+      ],
+      "lightness": 0.074,
+      "saturation": 0.702,
+      "contrast": 0.311,
+      "hue": null,
+      "warmth": 0.5
+    }
   },
   {
     "slug": "dark-and-stormy",
@@ -159,7 +499,36 @@
       "quiet"
     ],
     "desc": "A deeply atmospheric shader effect dominated by dark, moody tones with a predominantly dark-blue and navy color palette. The image shows a soft, blurred composition with two luminous, rounded shapes that appear to be glowing orbs or bokeh-l",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#000306",
+          "share": 0.351
+        },
+        {
+          "hex": "#010b18",
+          "share": 0.276
+        },
+        {
+          "hex": "#0b162b",
+          "share": 0.198
+        },
+        {
+          "hex": "#1a2641",
+          "share": 0.157
+        },
+        {
+          "hex": "#2b2d55",
+          "share": 0.018
+        }
+      ],
+      "lightness": 0.057,
+      "saturation": 0.755,
+      "contrast": 0.103,
+      "hue": 221,
+      "warmth": 0
+    }
   },
   {
     "slug": "network-lights",
@@ -171,7 +540,36 @@
       "party"
     ],
     "desc": "A dynamic audio visualization effect displayed against a deep dark navy background (#140038). The composition features vertical bar elements arranged in a wave-like pattern that flows horizontally across the frame. The b",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#01000e",
+          "share": 0.892
+        },
+        {
+          "hex": "#31244a",
+          "share": 0.039
+        },
+        {
+          "hex": "#e4ead2",
+          "share": 0.025
+        },
+        {
+          "hex": "#795e88",
+          "share": 0.023
+        },
+        {
+          "hex": "#a9a9ae",
+          "share": 0.021
+        }
+      ],
+      "lightness": 0.056,
+      "saturation": 0.592,
+      "contrast": 0.356,
+      "hue": null,
+      "warmth": 0.5
+    }
   },
   {
     "slug": "network-lights-3",
@@ -183,7 +581,36 @@
       "party"
     ],
     "desc": "A dynamic audio visualization featuring vertical bar equalizer columns arranged in a wave-like pattern against a deep dark navy background (#140038). The bars transition through a vibrant color gradient flowing from cyan",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#010110",
+          "share": 0.799
+        },
+        {
+          "hex": "#393861",
+          "share": 0.073
+        },
+        {
+          "hex": "#717096",
+          "share": 0.061
+        },
+        {
+          "hex": "#aeb8cd",
+          "share": 0.04
+        },
+        {
+          "hex": "#d2e9ef",
+          "share": 0.027
+        }
+      ],
+      "lightness": 0.104,
+      "saturation": 0.503,
+      "contrast": 0.444,
+      "hue": 238,
+      "warmth": 0.039
+    }
   },
   {
     "slug": "network-lights-6",
@@ -194,8 +621,37 @@
       "techno",
       "party"
     ],
-    "desc": "A dynamic audio visualization featuring vertical bars rendered as ASCII block characters (\u2588\u2589\u258a\u258b\u258c\u258d\u258e\u258f) against a deep dark purple background (#140038). The bars display a smooth gradient color transition flowing horizontall",
-    "tone": "deep"
+    "desc": "A dynamic audio visualization featuring vertical bars rendered as ASCII block characters (█▉▊▋▌▍▎▏) against a deep dark purple background (#140038). The bars display a smooth gradient color transition flowing horizontall",
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#06031e",
+          "share": 0.452
+        },
+        {
+          "hex": "#746890",
+          "share": 0.175
+        },
+        {
+          "hex": "#39305f",
+          "share": 0.164
+        },
+        {
+          "hex": "#a5a5b4",
+          "share": 0.116
+        },
+        {
+          "hex": "#d8e4e1",
+          "share": 0.092
+        }
+      ],
+      "lightness": 0.276,
+      "saturation": 0.431,
+      "contrast": 0.592,
+      "hue": 245,
+      "warmth": 0.088
+    }
   },
   {
     "slug": "royal-purple-5",
@@ -209,7 +665,36 @@
       "general"
     ],
     "desc": "Three dimensional glossy spheres with metallic surfaces positioned against a dark purple gradient background. The spheres feature highly reflective surfaces with bright white specular highlights at their tops, creating a",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#01020f",
+          "share": 0.549
+        },
+        {
+          "hex": "#19024b",
+          "share": 0.329
+        },
+        {
+          "hex": "#20363e",
+          "share": 0.064
+        },
+        {
+          "hex": "#c2d6d0",
+          "share": 0.033
+        },
+        {
+          "hex": "#617e7f",
+          "share": 0.024
+        }
+      ],
+      "lightness": 0.073,
+      "saturation": 0.754,
+      "contrast": 0.328,
+      "hue": 253,
+      "warmth": 0
+    }
   },
   {
     "slug": "synthesis",
@@ -221,7 +706,36 @@
       "quiet"
     ],
     "desc": "A smooth gradient shader effect transitioning from dark navy/black in the upper right to vibrant magenta and pink tones in the lower left and center. The composition features two primary sine wave components creating sof",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#000106",
+          "share": 0.584
+        },
+        {
+          "hex": "#b63aa3",
+          "share": 0.128
+        },
+        {
+          "hex": "#7c3a9f",
+          "share": 0.102
+        },
+        {
+          "hex": "#191840",
+          "share": 0.094
+        },
+        {
+          "hex": "#452d77",
+          "share": 0.092
+        }
+      ],
+      "lightness": 0.112,
+      "saturation": 0.671,
+      "contrast": 0.284,
+      "hue": 285,
+      "warmth": 0
+    }
   },
   {
     "slug": "shifted-swirls-9",
@@ -233,7 +747,28 @@
       "quiet"
     ],
     "desc": "A dark, atmospheric gradient shader effect dominated by deep purples and blacks with crimson red accents. The composition features a radial gradient emanating from the top center, transitioning from nearly black (#050212",
-    "tone": "deep"
+    "tone": "deep",
+    "read": {
+      "palette": [
+        {
+          "hex": "#000001",
+          "share": 0.436
+        },
+        {
+          "hex": "#29012a",
+          "share": 0.297
+        },
+        {
+          "hex": "#090020",
+          "share": 0.267
+        }
+      ],
+      "lightness": 0.019,
+      "saturation": 0.993,
+      "contrast": 0.042,
+      "hue": 288,
+      "warmth": 0
+    }
   },
   {
     "slug": "gradient-grid-4",
@@ -245,6 +780,35 @@
       "general"
     ],
     "desc": "A flowing gradient shader effect with smooth, organic color transitions creating a dreamlike atmosphere. The composition features a vibrant gradient that flows from hot pink (#ff4d8e) on the left side, transitioning thro",
-    "tone": "bright"
+    "tone": "bright",
+    "read": {
+      "palette": [
+        {
+          "hex": "#4c2047",
+          "share": 0.315
+        },
+        {
+          "hex": "#130516",
+          "share": 0.29
+        },
+        {
+          "hex": "#77398c",
+          "share": 0.18
+        },
+        {
+          "hex": "#8740ce",
+          "share": 0.154
+        },
+        {
+          "hex": "#b94c7e",
+          "share": 0.06
+        }
+      ],
+      "lightness": 0.198,
+      "saturation": 0.632,
+      "contrast": 0.262,
+      "hue": 290,
+      "warmth": 0.109
+    }
   }
 ]
