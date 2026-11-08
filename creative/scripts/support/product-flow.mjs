@@ -42,8 +42,9 @@ export function lyricsResult(text, { language = 'en', source = 'transcribed', st
 /**
  * Start the app and a browser with the Netlify boundary mocked.
  * `lyrics(meta)` receives {lines, language} and returns the worker result; every call is recorded.
+ * `analysis` replaces the default music-analysis answer (e.g. a real worker result).
  */
-export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = [] } = {}) {
+export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = [], analysis } = {}) {
   const server = await createServer({ server: { host: '127.0.0.1', port: 0, fs: { allow: [process.cwd(), realpathSync('node_modules')] } }, logLevel: 'error' });
   await server.listen();
   const browser = await chromium.launch({ headless: false, executablePath: BROWSER });
@@ -55,6 +56,7 @@ export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = []
   await page.route('**/.netlify/functions/analyze-music', route => {
     const hash = createHash('sha256').update(route.request().postDataBuffer()).digest('hex');
     analysisCalls.push(hash);
+    if (analysis) return route.fulfill({ json: analysis });
     return route.fulfill({ json: {
       version: 1, method: 'beat_this_librosa', clip: { durationMs: 15000, offsetMs: 0, sha256: hash },
       rhythm: { beatsMs: [1200, 3600, 7200, 10800], downbeatsMs: [], tempo: { status: 'estimated', bpm: 100, gridBpm: 100, alternativesBpm: [] } },
