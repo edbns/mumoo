@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEve
 import { playheadFrame, type Composition, type ImpactMusic } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
-import { adPunchFallbackText, recommendCreativesPack, type CreativesPackSlot } from './creatives-pack';
+import { adPunchFallbackText, recommendCreativesPack, SHELF_ROWS, type CreativesPackSlot, type ShelfRow } from './creatives-pack';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
 import { reportPackFeedback } from './pack-feedback';
@@ -91,13 +91,16 @@ export function CreativesPackStudio({
   const [progress, setProgress] = useState<number>();
   const [progressLabel, setProgressLabel] = useState('');
   const [plateUrl, setPlateUrl] = useState<string>();
-  /** Shelf stays hidden until every card poster is finished (incl. Noir Shaders bake). */
+  /** Ids of the cleared library photos; null until the library has been read. */
+  const [plates, setPlates] = useState<string[] | null>(null);
+  /** A row appears when all four of its posters are finished; the shelf is ready when every row is. */
+  const [readyRows, setReadyRows] = useState<ShelfRow[]>([]);
   const [shelfReady, setShelfReady] = useState(false);
   const [shelfStatus, setShelfStatus] = useState('Preparing creatives…');
   const music = useMemo(() => impactMusic(profile), [profile.musicAnalysis]);
   const pack = useMemo(
-    () => recommendCreativesPack(profile, generation),
-    [profile.clip.sourceSha256, profile.musicAnalysis, profile.approvedLyrics, profile.lyricMeaning, generation],
+    () => (plates ? recommendCreativesPack(profile, generation, plates) : []),
+    [profile.clip.sourceSha256, profile.musicAnalysis, profile.approvedLyrics, profile.lyricMeaning, generation, plates],
   );
   // The colours the lyrics ask for are part of what each card looks like, so a new grade repaints the shelf.
   const packKey = pack.map(item => `${item.id}:${item.grade ? Object.values(item.grade).join(',') : ''}`).join('|');
@@ -123,6 +126,7 @@ export function CreativesPackStudio({
       if (!alive) return;
       const first = manifest?.plates[0];
       setPlateUrl(first ? `${punchPlatesBase()}/${first.file}` : undefined);
+      setPlates(manifest?.plates.map(plate => plate.id) ?? []);
     });
     return () => { alive = false; };
   }, []);
@@ -140,6 +144,7 @@ export function CreativesPackStudio({
   useEffect(() => {
     setPicked([]);
     setPlayingId(null);
+    setReadyRows([]);
     setShelfReady(false);
     setShelfStatus('Preparing creatives…');
   }, [generation, profile.clip.sourceSha256]);
@@ -147,10 +152,11 @@ export function CreativesPackStudio({
   // Tear down shared WebGL when leaving the pack screen.
   useEffect(() => () => destroySharedPackRenderer(), []);
 
-  // Posters: finish every card (Shaders bake once for Noir) before revealing the shelf.
+  // Posters: paint card by card; each row is revealed as soon as its last card is done.
   useEffect(() => {
-    if (!fontReady || !approved) return;
+    if (!fontReady || !approved || !plates) return;
     let cancelled = false;
+    setReadyRows([]);
     setShelfReady(false);
     setShelfStatus('Preparing creatives…');
     setError('');
@@ -170,7 +176,7 @@ export function CreativesPackStudio({
           await blitPackFrame(
             canvas,
             packOpts(slot, base, impact, fallback, paintArgsRef.current.plateUrl),
-            slot.bankId ? posterFrame(base.cues) : 0,
+            posterFrame(base.cues),
           );
         } catch (cause) {
           if (!cancelled) {
@@ -178,6 +184,8 @@ export function CreativesPackStudio({
           }
         }
         await yieldFrame();
+        if (cancelled) return;
+        if (slots[index + 1]?.row !== slot.row) setReadyRows(rows => [...rows, slot.row]);
       }
       if (!cancelled) {
         setShelfStatus('');
@@ -185,7 +193,7 @@ export function CreativesPackStudio({
       }
     })();
     return () => { cancelled = true; };
-  }, [fontReady, approved, packKey, cueKey, music, fallbackText, plateUrl]);
+  }, [fontReady, approved, plates, packKey, cueKey, music, fallbackText, plateUrl]);
 
   // Live preview — only when shelf is ready + playhead frame changes.
   useEffect(() => {
@@ -233,7 +241,7 @@ export function CreativesPackStudio({
     const slot = pack[index];
     const canvas = canvasRefs.current[index];
     if (!canvas) return;
-    void blitPackFrame(canvas, packOpts(slot, composition, music, fallbackText, plateUrl), slot.bankId ? posterFrame(composition.cues) : 0)
+    void blitPackFrame(canvas, packOpts(slot, composition, music, fallbackText, plateUrl), posterFrame(composition.cues))
       .catch(cause => setError(friendlyError(cause, 'Preview failed (WebGL).')));
   }
 
@@ -327,12 +335,10 @@ export function CreativesPackStudio({
     }
   }
 
-  const busy = progress !== undefined || !shelfReady;
-
   return <main className="desktop gallery-page studio-shell"><section className="gallery-shell panel">
     <p className="eyebrow">Creatives pack</p>
-    <h1>{pack.length} recommended creatives</h1>
-    <p className="intro">Same cleared photo under finished looks ranked for this song. The shelf stays hidden until every creative is ready. Downloads render in the cloud, so your computer stays free.</p>
+    <h1>{pack.length ? `${pack.length} recommended creatives` : 'Recommended creatives'}</h1>
+    <p className="intro">Ranked for this song, one row at a time. Pick the ones you like and download them. Downloads render in the cloud, so your computer stays free.</p>
     <div className="trim-actions">
       <button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back</button>
       {shelfReady && (
@@ -360,51 +366,53 @@ export function CreativesPackStudio({
     {!shelfReady && approved && fontReady && (
       <p role="status">{shelfStatus || 'Preparing creatives…'}</p>
     )}
-    <div
-      className="creatives-pack-grid"
-      role="list"
-      aria-label="Recommended creatives"
-      aria-busy={!shelfReady}
-      // Keep canvases mounted (so we can paint) but invisible until every look is finished.
-      style={shelfReady ? undefined : { position: 'absolute', left: -99999, top: 0, visibility: 'hidden' }}
-    >
-      {pack.map((item, index) => {
-        const selected = picked.includes(item.id);
-        const isPlaying = playing && playingId === item.id;
-        return (
-          <button
-            type="button"
-            key={item.id}
-            className="creatives-pack-card"
-            role="listitem"
-            disabled={busy}
-            aria-pressed={selected}
-            aria-label={`Creative ${index + 1}${selected ? ', selected' : ''}`}
-            onClick={() => togglePick(item.id)}
-          >
-            <canvas
-              ref={node => { canvasRefs.current[index] = node; }}
-              width={PREVIEW_WIDTH}
-              height={PREVIEW_HEIGHT}
-              aria-hidden="true"
-            />
-            <span
-              className="creatives-pack-play"
-              role="button"
-              tabIndex={shelfReady ? 0 : -1}
-              aria-label={isPlaying ? 'Pause' : 'Play'}
-              onClick={event => togglePlay(item.id, event)}
-              onKeyDown={event => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  togglePlay(item.id, event);
-                }
-              }}
-            >{isPlaying ? '❚❚' : '▶'}</span>
-          </button>
-        );
-      })}
-    </div>
+    {SHELF_ROWS.filter(row => pack.some(item => item.row === row.id)).map(row => {
+      const rowReady = readyRows.includes(row.id);
+      return (
+        <section key={row.id} className="creatives-pack-row" aria-label={row.title} aria-busy={!rowReady}>
+          <h2>{row.title}</h2>
+          <div className="creatives-pack-grid" role="list">
+            {pack.map((item, index) => {
+              if (item.row !== row.id) return null;
+              const selected = picked.includes(item.id);
+              const isPlaying = playing && playingId === item.id;
+              return (
+                <button
+                  type="button"
+                  key={item.id}
+                  className={`creatives-pack-card${rowReady ? '' : ' pending'}`}
+                  role="listitem"
+                  disabled={!rowReady || progress !== undefined}
+                  aria-pressed={selected}
+                  aria-label={`${row.title} creative ${index + 1}${selected ? ', selected' : ''}`}
+                  onClick={() => togglePick(item.id)}
+                >
+                  <canvas
+                    ref={node => { canvasRefs.current[index] = node; }}
+                    width={PREVIEW_WIDTH}
+                    height={PREVIEW_HEIGHT}
+                    aria-hidden="true"
+                  />
+                  <span
+                    className="creatives-pack-play"
+                    role="button"
+                    tabIndex={shelfReady ? 0 : -1}
+                    aria-label={isPlaying ? 'Pause' : 'Play'}
+                    onClick={event => togglePlay(item.id, event)}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        togglePlay(item.id, event);
+                      }
+                    }}
+                  >{isPlaying ? '❚❚' : '▶'}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      );
+    })}
     {shelfReady && picked.length > 0 && (
       <div className="trim-actions creatives-pack-download">
         <button

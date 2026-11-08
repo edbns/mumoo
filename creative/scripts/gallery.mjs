@@ -39,9 +39,9 @@ for (const key of keys) {
     await page.locator('.lyrics-editor').waitFor({ timeout: 30000 });
     await page.locator('.step-actions .primary-accent').click();
     await page.getByText('Reading what your lyrics say').waitFor({ state: 'detached', timeout: 30000 });
-    await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length === 8, null, { timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length === 12 && !document.querySelector('.creatives-pack-card.pending'), null, { timeout: 30000 });
     await page.waitForTimeout(2500); // previews are painted asynchronously
-    await page.locator('.creatives-pack-card').first().locator('xpath=..').screenshot({ path: `${out}${key}.png` });
+    await page.locator('.gallery-shell').screenshot({ path: `${out}${key}.png` });
     console.log(`${key}: ${genreFor(key)}, lyrics ${reading.attitude}/${reading.sadness}/${reading.intensity} → ${out}${key}.png${product.errors.length ? ` (page errors: ${product.errors})` : ''}`);
   } finally { await product.close(); }
 }

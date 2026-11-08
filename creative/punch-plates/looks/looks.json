@@ -4,7 +4,7 @@
     {
       "look": "noir-mono",
       "plate": "burnnet-woman-1547507-1920",
-      "file": "noir-mono__burnnet-woman-1547507-1920.jpg"
+      "file": "bank__noir-mono-burnnet-woman-1547507-1920.jpg"
     },
     {
       "look": "bank",
@@ -105,6 +105,21 @@
       "look": "bank",
       "plate": "gradient-grid-4",
       "file": "bank__gradient-grid-4.jpg"
+    },
+    {
+      "look": "neon-night",
+      "plate": "burnnet-woman-1547507-1920",
+      "file": "bank__neon-night-burnnet-woman-1547507-1920.jpg"
+    },
+    {
+      "look": "golden-hour",
+      "plate": "burnnet-woman-1547507-1920",
+      "file": "bank__golden-hour-burnnet-woman-1547507-1920.jpg"
+    },
+    {
+      "look": "pop-print",
+      "plate": "burnnet-woman-1547507-1920",
+      "file": "bank__pop-print-burnnet-woman-1547507-1920.jpg"
     }
   ]
 }

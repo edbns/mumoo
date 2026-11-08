@@ -230,6 +230,8 @@ export function pickLayoutSeed(seed: string, salt: string) {
     rotate: (hashPick(seed, `rot:${salt}`, 1000) / 1000 - 0.5) * 0.08,
     grain: 0.06 + hashPick(seed, `grain:${salt}`, 100) / 100 * 0.12,
     scaleBias: 0.94 + hashPick(seed, `sc:${salt}`, 100) / 100 * 0.14,
+    /** Which colour a Pulise card opens on (0–3), so its four cards do not all start the same. */
+    cut: hashPick(seed, `cut:${salt}`, 4),
   };
 }
 

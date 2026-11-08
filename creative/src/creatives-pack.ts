@@ -18,6 +18,7 @@ import {
 } from './ad-fonts';
 import { AD_PUNCH_META, type AdPunchStyle } from './ad-punch';
 import bankData from './look-lab/bank.json';
+import photoLooks from './look-lab/photo-looks.json';
 import { laneFromMeaning, leansDeep, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, type TypeStyleId } from './pack-type';
@@ -29,9 +30,19 @@ const BANK_LOOKS = bankData as BankLook[];
 
 export type PackFamily = 'ad_punch';
 
+/** The shelf is four rows of four. A row is a kind of creative; it is revealed when all its cards are ready. */
+export const SHELF_ROWS = [
+  { id: 'library', title: 'Our photography' },
+  { id: 'looks', title: 'Moving backgrounds' },
+  { id: 'pulise', title: 'Pulise' },
+] as const;
+export type ShelfRow = (typeof SHELF_ROWS)[number]['id'];
+const ROW_SIZE = 4;
+
 export type CreativesPackSlot = {
   id: string;
   family: 'ad_punch';
+  row: ShelfRow;
   label: string;
   reason: string;
   style: AdPunchStyle;
@@ -90,8 +101,6 @@ const TYPE_ALLOW: Record<MoodLane, readonly TypeStyleId[]> = {
 
 const SOFT_FONTS: readonly AdFont[] = ['Abril Fatface', 'Oswald', 'Bebas Neue'];
 
-const NOIR_LANES: readonly MoodLane[] = ['quiet', 'dark', 'techno'];
-
 /**
  * Which tagged looks a lane may draw from. Club music is not one colour: a techno or house song also
  * suits the energetic party looks, so its pool is wide enough to have real variety.
@@ -105,7 +114,7 @@ function seededOrder<T>(items: readonly T[], seed: string, key: (item: T) => str
   return [...items].sort((a, b) => hashPick(seed, key(a), 99991) - hashPick(seed, key(b), 99991));
 }
 
-/** 8 cards: distinct (background, type) pairs, rotated by seed so no two generations look alike. */
+/** One row of cards: distinct (background, type) pairs, rotated by seed so no two generations look alike. */
 function bankSlots(
   lane: MoodLane,
   meaning: LyricMeaning | null,
@@ -130,9 +139,9 @@ function bankSlots(
   const ranked = cover || hasFeel(meaning)
     ? [...looks].sort((a, b) => fit(b) - fit(a))
     : seededOrder(looks, seed, look => look.slug);
-  // The cards must look different from each other: one per effect, at most two per colour family.
-  // A cover is the creator's own colour identity, so it may fill more of the shelf with its family.
-  const backgrounds = diversify(ranked, cover ? 4 : 2);
+  // The four cards must look different from each other: one per effect, one per colour family.
+  // A cover is the creator's own colour identity, so it may fill three of the four cards with its family.
+  const backgrounds = diversify(ranked, cover ? 3 : 1);
   const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), seed, id => id);
   const pairs: { look: BankLook; type: TypeStyleId }[] = [];
   const used = new Set<string>();
@@ -145,20 +154,53 @@ function bankSlots(
       pairs.push({ look, type });
     });
   }
-  return pairs.map(({ look, type }, index) => {
-    const base = adPunchSlot('bank', index, intent, seed, lane);
-    // Calm songs never get techy faces: the display font comes from a soft bank.
-    const soft = lane === 'gospel' || lane === 'quiet' ? seededOrder(SOFT_FONTS, `${seed}:${index}`, font => font) : null;
-    return {
-      ...base,
-      ...(soft ? { font: soft[0], fontSecondary: soft[1] } : {}),
-      id: `ad-bank-${look.slug}-${type}-${hashPick(seed, 'gen', 997).toString(36)}`,
-      label: `${type[0].toUpperCase()}${type.slice(1)} · ${look.title}`,
-      reason: `${lane} · lyrics ${meaning?.attitude ?? 'unread'} · ${look.title} · ${type}`,
-      bankId: look.slug,
-      typeStyle: type,
-    };
-  });
+  return pairs.map(({ look, type }, index) => bankCard('looks', look.slug, look.title, type, index, lane, meaning, intent, seed));
+}
+
+/** One card on the Look Bank world: a baked background image plus a lyric type style. */
+function bankCard(
+  row: ShelfRow,
+  bankId: string,
+  title: string,
+  type: TypeStyleId,
+  index: number,
+  lane: MoodLane,
+  meaning: LyricMeaning | null,
+  intent: MusicIntentV1 | null,
+  seed: string,
+): CreativesPackSlot {
+  const base = adPunchSlot('bank', index, intent, seed, lane, row);
+  // Calm songs never get techy faces: the display font comes from a soft bank.
+  const soft = lane === 'gospel' || lane === 'quiet' ? seededOrder(SOFT_FONTS, `${seed}:${index}`, font => font) : null;
+  return {
+    ...base,
+    ...(soft ? { font: soft[0], fontSecondary: soft[1] } : {}),
+    id: `ad-bank-${bankId}-${type}-${hashPick(seed, 'gen', 997).toString(36)}`,
+    label: `${type[0].toUpperCase()}${type.slice(1)} · ${title}`,
+    reason: `${lane} · lyrics ${meaning?.attitude ?? 'unread'} · ${title} · ${type}`,
+    bankId,
+    typeStyle: type,
+  };
+}
+
+/**
+ * The library row: the same cleared photo through each Shaders treatment, baked offline. With more photos
+ * in the library the seed deals a different one to each card.
+ */
+function librarySlots(
+  plates: readonly string[],
+  lane: MoodLane,
+  meaning: LyricMeaning | null,
+  intent: MusicIntentV1 | null,
+  seed: string,
+): CreativesPackSlot[] {
+  if (!plates.length) return [];
+  const photos = seededOrder(plates, seed, id => id);
+  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:library`, id => id);
+  return photoLooks.map((look, index) => bankCard(
+    'library', `${look.slug}-${photos[index % photos.length]}`, look.title, types[index % types.length],
+    ROW_SIZE + index, lane, meaning, intent, seed,
+  ));
 }
 
 function adPunchSlot(
@@ -167,6 +209,7 @@ function adPunchSlot(
   intent: MusicIntentV1 | null,
   seed: string,
   lane: MoodLane,
+  row: ShelfRow,
 ): CreativesPackSlot {
   const meta = AD_PUNCH_META.find(item => item.id === style) ?? AD_PUNCH_META[0];
   const salt = `${style}:${index}`;
@@ -185,6 +228,7 @@ function adPunchSlot(
   return {
     id: `ad-${style}-${index}-${hashPick(seed, 'gen', 997).toString(36)}-${hashPick(seed, salt, 0xffff).toString(16)}`,
     family: 'ad_punch',
+    row,
     label: meta.name,
     reason: intent
       ? `${lane} · ${intent.vibe} · ${font} · ${motion} · ${meta.name}`
@@ -214,16 +258,28 @@ export function readSong(profile: CreativeProfileV1) {
   return { intent, genre, language, meaning, lane };
 }
 
-export function recommendCreativesPack(profile: CreativeProfileV1, generation = 0): CreativesPackSlot[] {
+/** `plates` are the ids of the cleared library photos; without any, the library row is simply absent. */
+export function recommendCreativesPack(profile: CreativeProfileV1, generation = 0, plates: readonly string[] = []): CreativesPackSlot[] {
   const { intent, meaning, lane } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}`;
 
-  const withPhoto = NOIR_LANES.includes(lane);
-  const slots = bankSlots(lane, meaning, intent, seed, withPhoto ? 7 : 8, cover);
-  if (withPhoto) slots.push(adPunchSlot('noir', slots.length, intent, seed, lane));
+  const library = librarySlots(plates, lane, meaning, intent, seed);
+  const looks = bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover);
+  const pulise = puliseSlots(lane, intent, seed);
   const grade = moodGrade(meaning);
+  const slots = [...library, ...looks, ...pulise];
   return grade ? slots.map(slot => ({ ...slot, grade })) : slots;
+}
+
+/** Four Pulise cards: each its own face, each opening on a different colour. */
+function puliseSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string): CreativesPackSlot[] {
+  const faces = seededOrder(fontsForLane(lane), seed, font => font);
+  return Array.from({ length: ROW_SIZE }, (_, index) => {
+    const slot = adPunchSlot('pulise', index, intent, seed, lane, 'pulise');
+    const font = faces[index % faces.length];
+    return { ...slot, font, fontSecondary: pickSecondaryFont(font, seed, `pulise:${index}`, fontsForLane(lane)), layout: { ...slot.layout, cut: index } };
+  });
 }
 
 export function adPunchFallbackText(profile: CreativeProfileV1, intent: MusicIntentV1 | null): string {

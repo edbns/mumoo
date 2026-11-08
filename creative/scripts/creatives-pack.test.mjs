@@ -27,13 +27,20 @@ async function load() {
   return { server, pack };
 }
 
-test('pack is 8 cards with distinct background + type pairs', async () => {
+test('the shelf is three rows of four, each card distinct', async () => {
   const { server, pack } = await load();
   try {
     for (const genre of ['Gospel', 'Slap House', 'Pop', 'Ambient']) {
-      const slots = pack.recommendCreativesPack(profile(genre));
-      assert.equal(slots.length, 8, genre);
-      const bank = slots.filter(slot => slot.bankId);
+      const slots = pack.recommendCreativesPack(profile(genre), 0, ['burnnet-woman-1547507-1920']);
+      assert.equal(slots.length, 12, genre);
+      const library = slots.filter(slot => slot.row === 'library');
+      assert.deepEqual(library.map(slot => slot.bankId), ['noir-mono', 'neon-night', 'golden-hour', 'pop-print'].map(look => `${look}-burnnet-woman-1547507-1920`), `${genre} library looks`);
+      assert.equal(new Set(library.map(slot => slot.typeStyle)).size, 4, `${genre} library repeats a type style`);
+      for (const row of ['library', 'looks', 'pulise']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
+      assert.deepEqual(slots.map(slot => slot.row), ['library', 'library', 'library', 'library', 'looks', 'looks', 'looks', 'looks', 'pulise', 'pulise', 'pulise', 'pulise'], 'rows come in order');
+      const pulise = slots.filter(slot => slot.row === 'pulise');
+      assert.equal(new Set(pulise.map(slot => slot.layout.cut)).size, 4, `${genre} Pulise cards open on the same colour`);
+      const bank = slots.filter(slot => slot.row === 'looks');
       const pairs = new Set(bank.map(slot => `${slot.bankId}:${slot.typeStyle}`));
       assert.equal(pairs.size, bank.length, `${genre} repeats a background+type pair`);
       assert.equal(new Set(slots.map(slot => slot.id)).size, slots.length, `${genre} repeats an id`);
@@ -94,7 +101,7 @@ test('sad lyrics never land on a bright background', async () => {
     const tone = new Map(bank.map(item => [item.slug, item.tone]));
     for (const gen of [0, 1, 2]) {
       for (const slot of pack.recommendCreativesPack(profile('Ambient', 'tears fall like rain tonight alone', 'a'.repeat(64), { attitude: 'lonely', sadness: 3, intensity: 2 }), gen)) {
-        if (slot.bankId) assert.equal(tone.get(slot.bankId), 'deep', slot.bankId);
+        if (slot.row === 'looks') assert.equal(tone.get(slot.bankId), 'deep', slot.bankId);
       }
     }
   } finally { await server.close(); }
@@ -107,7 +114,7 @@ test('the cover decides which backgrounds lead: warm cover → warm looks, cool 
     const read = slug => bank.find(look => look.slug === slug).read;
     const cover = (hex, extra) => ({ palette: [{ hex, share: 1 }], lightness: 0.5, saturation: 0.8, contrast: 0.5, hue: 20, warmth: 1, ...extra });
     const withCover = value => ({ ...profile('Pop'), creator: { primaryGenre: { value: 'Pop', source: 'creator' }, cover: { value, source: 'embedded_metadata' } } });
-    const lead = value => pack.recommendCreativesPack(withCover(value)).slice(0, 3).map(slot => read(slot.bankId));
+    const lead = value => pack.recommendCreativesPack(withCover(value)).filter(slot => slot.row === 'looks').slice(0, 3).map(slot => read(slot.bankId));
 
     const warm = lead(cover('#e1782a'));
     const cool = lead(cover('#2a3ea0', { hue: 230, warmth: 0, lightness: 0.25 }));
@@ -115,7 +122,7 @@ test('the cover decides which backgrounds lead: warm cover → warm looks, cool 
     assert.ok(cool.every(look => look.warmth < 0.4), 'cool cover leads with cool backgrounds');
 
     // No cover: nothing changes, still a full pack.
-    assert.equal(pack.recommendCreativesPack(profile('Pop')).length, 8);
+    assert.equal(pack.recommendCreativesPack(profile('Pop')).length, 8, 'no library photos, no library row');
   } finally { await server.close(); }
 });
 
@@ -127,14 +134,14 @@ test('club songs get cards that look different: one per effect, at most two per 
     const look = slug => bank.find(item => item.slug === slug);
     for (const genre of ['House', 'Techno', 'Slap House', 'EDM']) {
       for (let generation = 0; generation < 12; generation++) {
-        const cards = pack.recommendCreativesPack(profile(genre, 'hello', 'b'.repeat(64)), generation).filter(slot => slot.bankId);
+        const cards = pack.recommendCreativesPack(profile(genre, 'hello', 'b'.repeat(64)), generation).filter(slot => slot.row === 'looks');
         const backgrounds = cards.map(slot => look(slot.bankId));
         const effects = backgrounds.map(item => effectFamily(item.slug));
         assert.equal(new Set(effects).size, effects.length, `${genre} #${generation} repeats an effect: ${effects}`);
         const families = backgrounds.map(item => colorFamily(item.read));
         const counts = families.reduce((all, name) => ({ ...all, [name]: (all[name] ?? 0) + 1 }), {});
         assert.ok(Math.max(...Object.values(counts)) <= 2, `${genre} #${generation} leans on one colour: ${JSON.stringify(counts)}`);
-        assert.ok(new Set(families).size >= 4, `${genre} #${generation} has too few colour families: ${families}`);
+        assert.ok(new Set(families).size >= 3, `${genre} #${generation} has too few colour families: ${families}`);
       }
     }
   } finally { await server.close(); }
@@ -170,7 +177,7 @@ test('the attitude of the words picks backgrounds that look like it', async () =
     const { default: bank } = await server.ssrLoadModule('/src/look-lab/bank.json');
     const fit = await server.ssrLoadModule('/src/look-fit.ts');
     const read = slug => bank.find(look => look.slug === slug).read;
-    const mean = (slots, key) => { const ids = slots.filter(slot => slot.bankId); return ids.reduce((n, slot) => n + read(slot.bankId)[key], 0) / ids.length; };
+    const mean = (slots, key) => { const ids = slots.filter(slot => slot.row === 'looks'); return ids.reduce((n, slot) => n + read(slot.bankId)[key], 0) / ids.length; };
     const sha = 'c'.repeat(64);
     const song = meaning => pack.recommendCreativesPack(profile('Pop', 'hello', sha, meaning));
 

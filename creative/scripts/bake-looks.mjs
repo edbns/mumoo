@@ -10,7 +10,7 @@
  * (Playwright's headless shell has no WebGPU). Override with LOOK_LAB_BROWSER.
  *
  * Reads:  punch-plates/out/plates.json (+ jpgs)
- * Writes: punch-plates/looks/{look}__{plate}.jpg + looks.json
+ * Writes: punch-plates/looks/bank__{look}-{plate}.jpg (photo looks) / bank__{slug}.jpg (backgrounds) + looks.json
  *         (republished to public/punch-plates/looks by bake-punch-plates.mjs)
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -24,7 +24,8 @@ const platesDir = join(root, 'punch-plates', 'out');
 const looksDir = join(root, 'punch-plates', 'looks');
 const publicPlates = join(root, 'public', 'punch-plates');
 const bank = JSON.parse(readFileSync(join(root, 'src', 'look-lab', 'bank.json'), 'utf8'));
-const ALL_LOOKS = ['noir-mono', ...bank.map(item => `bank-${item.slug}`)];
+const photoLooks = JSON.parse(readFileSync(join(root, 'src', 'look-lab', 'photo-looks.json'), 'utf8'));
+const ALL_LOOKS = [...photoLooks.map(item => item.slug), ...bank.map(item => `bank-${item.slug}`)];
 
 const BROWSERS = [
   process.env.LOOK_LAB_BROWSER,
@@ -90,7 +91,7 @@ async function main() {
           [look, plateUrl, isBank ? 1800 : 250, isBank ? 6 : 24],
         );
         const bytes = Buffer.from(dataUrl.split(',')[1], 'base64');
-        const file = isBank ? `bank__${plate.id}.jpg` : `${look}__${plate.id}.jpg`;
+        const file = isBank ? `bank__${plate.id}.jpg` : `bank__${look}-${plate.id}.jpg`;
         writeFileSync(join(looksDir, file), bytes);
         baked.push({ look: isBank ? 'bank' : look, plate: plate.id, file, bytes: bytes.length });
         console.log(`baked ${file} (${Math.round(bytes.length / 1024)} KB, ${Date.now() - started} ms)`);

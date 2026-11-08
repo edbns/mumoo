@@ -26,8 +26,8 @@ const PHASES = [
 const MIN_CUT_MS = 340;
 
 /** Which cut the field is on. Past 176 BPM every second beat cuts, so it never flashes more than three times a second. */
-export function puliseCuts(beatIndex: number, beatGapMs: number) {
-  return beatGapMs > 0 && beatGapMs < MIN_CUT_MS ? Math.floor(beatIndex / 2) : beatIndex;
+export function puliseCuts(beatIndex: number, beatGapMs: number, start = 0) {
+  return start + (beatGapMs > 0 && beatGapMs < MIN_CUT_MS ? Math.floor(beatIndex / 2) : beatIndex);
 }
 
 function neonText(label: string, font: string, size: number, color: string, glow: string, alpha = 1) {
@@ -66,13 +66,14 @@ export function createPuliseWorld(): PuliseWorld {
   return {
     root,
     update(input) {
-      const phase = PHASES[puliseCuts(input.beatIndex, input.beatGapMs) % PHASES.length];
+      const phase = PHASES[puliseCuts(input.beatIndex, input.beatGapMs, input.layout.cut) % PHASES.length];
       field.clear();
       field.rect(0, 0, WIDTH, HEIGHT);
       field.fill({ color: phase.field });
 
       clearLyrics();
-      const word = input.word || input.phrase;
+      // Between two sung words the last one stays up, so a pause never shrinks the whole line onto the screen.
+      const word = input.word || input.words.filter(item => item.startMs <= input.ms).at(-1)?.text || input.words[0]?.text || input.phrase;
       // One word on one line: long words shrink to fit the width instead of breaking.
       const fit = fitPackLines(word, input.font, 560, 940, 1);
       const hit = input.beat;
