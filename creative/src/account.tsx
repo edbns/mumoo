@@ -5,6 +5,13 @@ import { BetterAuthReactAdapter } from '@neon/auth/react/adapters';
 /** Neon Auth (managed Better Auth). The browser only ever talks to Neon's auth server and our own /api/account. */
 export const authClient = createAuthClient(import.meta.env.VITE_NEON_AUTH_URL, { adapter: BetterAuthReactAdapter() });
 
+type Outcome = Promise<{ error?: { message?: string } | null }>;
+/** Email-code sign-in is on the client at runtime, but this SDK version's typings leave it out. */
+const emailCode = authClient as unknown as {
+  emailOtp: { sendVerificationOtp(input: { email: string; type: 'sign-in' }): Outcome };
+  signIn: { emailOtp(input: { email: string; otp: string }): Outcome };
+};
+
 type Person = { email: string; lastSeenAt: string };
 
 /** Asks our server who is signed in; the server verifies the token and records the visit. */
@@ -23,7 +30,8 @@ export function AccountBar() {
   const user = session.data?.user;
   const [person, setPerson] = useState<Person | null>(null);
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<'in' | 'up'>('in');
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -34,25 +42,32 @@ export function AccountBar() {
     return () => { alive = false; };
   }, [user?.id]);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const email = String(form.get('email') || '').trim();
-    const password = String(form.get('password') || '');
+  /** Runs one request to Neon Auth. The client throws on a rejected request: a 4xx is the person's mistake, anything else is ours. */
+  async function attempt(run: () => Outcome, mistake: string) {
     setBusy(true); setError('');
     try {
-      const result = mode === 'up'
-        ? await authClient.signUp.email({ email, password, name: email.split('@')[0] })
-        : await authClient.signIn.email({ email, password });
-      if (result.error) setError(result.error.message || (mode === 'up' ? 'Could not create the account.' : 'Wrong email or password.'));
-      else setOpen(false);
+      const result = await run();
+      if (result.error) { setError(mistake); return false; }
+      return true;
     } catch (cause) {
-      // The Neon Auth client throws on a rejected request; a 4xx is the person's mistake, anything else is ours.
       const status = (cause as { status?: number }).status;
-      setError(status && status < 500
-        ? (mode === 'up' ? 'Could not create the account. Try another email or a longer password.' : 'Wrong email or password.')
-        : 'Sign in is unavailable right now. Try again in a moment.');
+      setError(status && status < 500 ? mistake : 'Sign in is unavailable right now. Try again in a moment.');
+      return false;
     } finally { setBusy(false); }
+  }
+
+  async function sendCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const address = String(new FormData(event.currentTarget).get('email') || '').trim();
+    if (await attempt(() => emailCode.emailOtp.sendVerificationOtp({ email: address, type: 'sign-in' }), 'Check the email address and try again.')) {
+      setEmail(address); setSent(true);
+    }
+  }
+
+  async function checkCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const otp = String(new FormData(event.currentTarget).get('code') || '').trim();
+    if (await attempt(() => emailCode.signIn.emailOtp({ email, otp }), 'That code is wrong or has expired.')) { setOpen(false); setSent(false); }
   }
 
   if (session.isPending) return <div className="account-bar" aria-busy="true" />;
@@ -63,14 +78,19 @@ export function AccountBar() {
       {error && <span role="alert" className="hint">{error}</span>}
     </div>;
   }
+  if (!open) return <div className="account-bar"><button type="button" className="link-button" onClick={() => setOpen(true)}>Sign in</button></div>;
   return <div className="account-bar">
-    {!open
-      ? <button type="button" className="link-button" onClick={() => setOpen(true)}>Sign in</button>
-      : <form className="account-form" onSubmit={event => void submit(event)}>
-        <input name="email" type="email" autoComplete="email" placeholder="Email" required aria-label="Email" />
-        <input name="password" type="password" autoComplete={mode === 'up' ? 'new-password' : 'current-password'} placeholder="Password" minLength={8} required aria-label="Password" />
-        <button type="submit" className="primary-accent" disabled={busy}>{mode === 'up' ? 'Create account' : 'Sign in'}</button>
-        <button type="button" className="link-button" onClick={() => { setMode(mode === 'up' ? 'in' : 'up'); setError(''); }}>{mode === 'up' ? 'I have an account' : 'Create an account'}</button>
+    {sent
+      ? <form className="account-form" onSubmit={event => void checkCode(event)}>
+        <span className="hint">We emailed a code to {email}</span>
+        <input name="code" inputMode="numeric" autoComplete="one-time-code" placeholder="Code" required aria-label="Code from your email" autoFocus />
+        <button type="submit" className="primary-accent" disabled={busy}>Sign in</button>
+        <button type="button" className="link-button" onClick={() => { setSent(false); setError(''); }}>Use another email</button>
+        {error && <span role="alert" className="hint">{error}</span>}
+      </form>
+      : <form className="account-form" onSubmit={event => void sendCode(event)}>
+        <input name="email" type="email" autoComplete="email" placeholder="Email" defaultValue={email} required aria-label="Email" autoFocus />
+        <button type="submit" className="primary-accent" disabled={busy}>Email me a code</button>
         {error && <span role="alert" className="hint">{error}</span>}
       </form>}
   </div>;
