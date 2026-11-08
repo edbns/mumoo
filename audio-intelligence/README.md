@@ -5,6 +5,7 @@ Cloud workers for the Creative Studio. Each runs on Modal (CPU only) and is call
 | Worker | File | Job |
 |---|---|---|
 | Lyrics | `modal_lyrics_v2_staging.py` | Transcribe (faster-whisper) and time every word (MMS forced alignment), in any language. Also times lyrics the user typed. |
+| Lyric meaning | `modal_lyric_meaning_staging.py` | What the approved words mean (attitude, sadness, intensity), read by Qwen3-8B (Apache 2.0) that we host ourselves on a GPU. Lyrics stay in memory for the request: no third party, no storage, no training. Under 12 words it answers "neutral" without asking the model. The first call after a quiet spell takes about a minute to wake the GPU. |
 | Music analysis | `modal_music_staging.py` | Beats, tempo and energy for a selected 15 seconds (`music_analysis.py`). |
 | Creatives encode | `modal_creatives_encode_staging.py` | Encodes the creatives pack to MP4. |
 

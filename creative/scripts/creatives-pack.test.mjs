@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
-function profile(genre = 'House', lyrics = 'hello', sha = 'a'.repeat(64)) {
+function profile(genre = 'House', lyrics = 'hello', sha = 'a'.repeat(64), meaning) {
   const frames = Array.from({ length: 20 }, (_, i) => ({
     timeMs: i * 100, rms: 0.2, onsetStrength: 1, centroidHz: 2200, bandwidthHz: 1600, rolloffHz: 3000,
   }));
@@ -17,14 +17,14 @@ function profile(genre = 'House', lyrics = 'hello', sha = 'a'.repeat(64)) {
       result: { rhythm: { tempo: { status: 'estimated', bpm: 125, gridBpm: 125, alternativesBpm: [] }, beatsMs: [1000, 2000] }, features: { transientsMs: [500, 1500], frames } },
     },
     approvedLyrics: { cues, source: 'creator_reviewed' },
+    ...(meaning && { lyricMeaning: { status: 'ready', meaning } }),
   };
 }
 
 async function load() {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
   const pack = await server.ssrLoadModule('/src/creatives-pack.ts');
-  const mood = await server.ssrLoadModule('/src/lyric-mood.ts');
-  return { server, pack, mood };
+  return { server, pack };
 }
 
 test('pack is 8 cards with distinct background + type pairs', async () => {
@@ -52,14 +52,15 @@ test('the brain matches type to mood (gospel is never stack/outline, club never 
 });
 
 test('lyrics steer the lane when genre does not lock it', async () => {
-  const { server, pack, mood } = await load();
+  const { server, pack } = await load();
   try {
-    assert.equal(mood.lyricMood([{ text: 'praise the lord for his grace and mercy' }]).theme, 'faith');
-    assert.equal(mood.lyricMood([{ text: 'we are tonight' }]).theme, 'neutral');
-    const faith = pack.recommendCreativesPack(profile('Pop', 'praise the lord for his grace and mercy'));
+    const spiritual = { attitude: 'spiritual', sadness: 0, intensity: 3 };
+    const faith = pack.recommendCreativesPack(profile('Pop', 'praise the lord', 'a'.repeat(64), spiritual));
     assert.ok(faith[0].reason.startsWith('gospel'), faith[0].reason);
+    const sad = pack.recommendCreativesPack(profile('Pop', 'hello', 'a'.repeat(64), { attitude: 'heartbroken', sadness: 3, intensity: 2 }));
+    assert.ok(sad[0].reason.startsWith('quiet'), sad[0].reason);
     // Genre lock wins over lyrics.
-    const club = pack.recommendCreativesPack(profile('Techno', 'praise the lord for his grace and mercy'));
+    const club = pack.recommendCreativesPack(profile('Techno', 'praise the lord', 'a'.repeat(64), spiritual));
     assert.ok(club[0].reason.startsWith('techno'), club[0].reason);
   } finally { await server.close(); }
 });
@@ -92,7 +93,7 @@ test('sad lyrics never land on a bright background', async () => {
     const bank = (await import('../src/look-lab/bank.json', { with: { type: 'json' } })).default;
     const tone = new Map(bank.map(item => [item.slug, item.tone]));
     for (const gen of [0, 1, 2]) {
-      for (const slot of pack.recommendCreativesPack(profile('Ambient', 'tears fall like rain tonight alone'), gen)) {
+      for (const slot of pack.recommendCreativesPack(profile('Ambient', 'tears fall like rain tonight alone', 'a'.repeat(64), { attitude: 'lonely', sadness: 3, intensity: 2 }), gen)) {
         if (slot.bankId) assert.equal(tone.get(slot.bankId), 'deep', slot.bankId);
       }
     }
@@ -136,5 +137,29 @@ test('club songs get cards that look different: one per effect, at most two per 
         assert.ok(new Set(families).size >= 4, `${genre} #${generation} has too few colour families: ${families}`);
       }
     }
+  } finally { await server.close(); }
+});
+
+test('the lyrics grade the colours and calm the beat without changing the look', async () => {
+  const { server, pack } = await load();
+  try {
+    const sha = 'a'.repeat(64);
+    const plain = pack.recommendCreativesPack(profile('Slap House', 'hello', sha));
+    // Words that say nothing change nothing.
+    assert.ok(plain.every(slot => !slot.grade));
+    const neutral = pack.recommendCreativesPack(profile('Slap House', 'hello', sha, { attitude: 'neutral', sadness: 0, intensity: 3 }));
+    assert.deepEqual(neutral.map(slot => slot.id), plain.map(slot => slot.id));
+    assert.ok(neutral.every(slot => !slot.grade));
+
+    // Sad words on a club song: same lane and looks, sadder colours, calmer hits.
+    const sad = pack.recommendCreativesPack(profile('Slap House', 'hello', sha, { attitude: 'heartbroken', sadness: 3, intensity: 2 }));
+    assert.ok(sad.every(slot => slot.reason.startsWith('techno')));
+    const grade = sad[0].grade;
+    assert.ok(grade.saturation < 1 && grade.warmth < 0 && grade.brightness < 1 && grade.calm > 0.5, JSON.stringify(grade));
+    assert.ok(sad.every(slot => slot.grade === grade));
+
+    // Defiant and forceful: warmer, punchier, no calming.
+    const defiant = pack.recommendCreativesPack(profile('Slap House', 'hello', sha, { attitude: 'defiant', sadness: 0, intensity: 4 }))[0].grade;
+    assert.ok(defiant.warmth > 0 && defiant.contrast > 1 && defiant.calm === 0, JSON.stringify(defiant));
   } finally { await server.close(); }
 });

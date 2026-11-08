@@ -6,7 +6,7 @@
  * Looks (Shaders.com recipes) are baked OFFLINE by the Look Lab into static JPEGs;
  * this file only loads them as textures. No WebGPU / Shaders in the browser.
  */
-import { Application, Assets, Rectangle, Texture } from 'pixi.js';
+import { Application, Assets, ColorMatrixFilter, Rectangle, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
 import type { AdFont, AdLayout, AdPalette, PackMotion } from './ad-fonts';
 import type { AdPunchStyle } from './ad-punch';
@@ -14,6 +14,7 @@ import { activePackCopy, packMeta, packReaction, packWordEnter } from './pack-co
 import { createPackScene } from './pack-scenes';
 import { bankBackgroundUrl, lookPlateUrl } from './pack-looks';
 import type { TypeStyleId } from './pack-type';
+import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
 export const PREVIEW_WIDTH = 360;
@@ -37,6 +38,8 @@ export type PackRendererOpts = {
   /** Look Bank card: baked Shaders Pro background id + lyric type style. */
   bankId?: string;
   typeStyle?: TypeStyleId;
+  /** What the lyrics do to colour and beat hits; absent = untouched. */
+  grade?: MoodGrade;
 };
 
 export type PackRenderer = {
@@ -115,6 +118,7 @@ export async function createPackRenderer(
 
     scene = createPackScene();
     app.stage.addChild(scene.root);
+    const gradeFilter = new ColorMatrixFilter();
 
     return {
       canvas,
@@ -157,7 +161,13 @@ export async function createPackRenderer(
           bankTex = bankTexture;
         }
 
-        const { ms, beat, energy } = packReaction(current.music, frame);
+        const reaction = packReaction(current.music, frame);
+        const { ms, energy } = reaction;
+        const beat = calmBeat(reaction.beat, current.grade);
+        if (current.grade) {
+          gradeFilter.matrix = gradeMatrix(current.grade) as ColorMatrixFilter['matrix'];
+          scene.root.filters = [gradeFilter];
+        } else scene.root.filters = [];
         const copy = activePackCopy(current.cues, frame, current.fallbackText || 'NOW');
         const wordEnter = packWordEnter(ms, copy.wordStartMs, Boolean(copy.word));
         scene.update({

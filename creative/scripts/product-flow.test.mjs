@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canRunBrowserTests, lyricsResult, openProduct, songMp3WithCover, uploadSong } from './support/product-flow.mjs';
+import { canRunBrowserTests, lyricsResult, NEUTRAL_READING, openProduct, songMp3WithCover, uploadSong } from './support/product-flow.mjs';
 
 const SKIP = !canRunBrowserTests;
 const HEARD = 'louvado seja o Senhor Deus gloria e graça para sempre';
 
 test('song → clip + lyrics → edit and sync again → creatives', { timeout: 180000, skip: SKIP }, async () => {
-  const lyricsCalls = [], analysisCalls = [];
+  const lyricsCalls = [], analysisCalls = [], meaningCalls = [];
   const product = await openProduct({
-    lyricsCalls, analysisCalls,
+    lyricsCalls, analysisCalls, meaningCalls,
     lyrics: ({ lines }) => lines
       ? lyricsResult(lines.flat().join(' '), { language: 'pt', source: 'supplied' })
       : lyricsResult(HEARD, { language: 'pt' }),
@@ -54,6 +54,11 @@ test('song → clip + lyrics → edit and sync again → creatives', { timeout: 
     await page.getByRole('heading', { name: /recommended creatives/ }).waitFor({ timeout: 30000 });
     await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length === 8, null, { timeout: 30000 });
     assert.equal(analysisCalls.length, 1);
+    // The words are read once per distinct text (heard, then edited), only after they are final, with nothing else attached.
+    assert.equal(meaningCalls.length, 2);
+    assert.deepEqual(Object.keys(meaningCalls[1]).sort(), ['language', 'lines']);
+    assert.equal(meaningCalls[1].language, 'pt');
+    assert.ok(meaningCalls[1].lines.join(' ').includes('graca amém'));
     assert.deepEqual(product.errors, []);
   } finally { await product.close(); }
 });
@@ -104,4 +109,39 @@ test('the cover inside the uploaded file steers which backgrounds lead', { timeo
   const mean = values => values.reduce((n, v) => n + v, 0) / values.length;
   assert.ok(mean(warm) > 20, `warm cover leads with warm previews (red minus blue): ${warm}`);
   assert.ok(mean(cool) < -10, `cool cover leads with cool previews (red minus blue): ${cool}`);
+});
+
+test('what the lyrics mean greys and cools the previews of the same song', { timeout: 240000, skip: SKIP }, async () => {
+  const preview = async (meaning) => {
+    const product = await openProduct({ meaning, lyrics: () => lyricsResult('you cannot change me', { language: 'en' }) });
+    const { page } = product;
+    try {
+      await uploadSong(page, { file: songMp3WithCover('0xe1782a') });
+      await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
+      await page.locator('.lyrics-editor').waitFor({ timeout: 30000 });
+      await page.locator('.step-actions .primary-accent').click();
+      await page.getByRole('heading', { name: /recommended creatives/ }).waitFor({ timeout: 30000 });
+      await page.getByText('Reading what your lyrics say').waitFor({ state: 'detached', timeout: 30000 });
+      await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length === 8, null, { timeout: 30000 });
+      await page.waitForTimeout(3000); // previews are painted asynchronously
+      assert.deepEqual(product.errors, []);
+      // Same song, same cards: how colourful (max - min channel) and how warm (R - B) the previews are on average.
+      return await page.evaluate(() => {
+        let spread = 0, warm = 0, pixels = 0;
+        for (const canvas of document.querySelectorAll('.creatives-pack-card canvas')) {
+          const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+          for (let i = 0; i < data.length; i += 4) {
+            spread += Math.max(data[i], data[i + 1], data[i + 2]) - Math.min(data[i], data[i + 1], data[i + 2]);
+            warm += data[i] - data[i + 2];
+            pixels++;
+          }
+        }
+        return { spread: spread / pixels, warm: warm / pixels };
+      });
+    } finally { await product.close(); }
+  };
+  const plain = await preview(NEUTRAL_READING);
+  const sad = await preview({ ...NEUTRAL_READING, attitude: 'heartbroken', sadness: 3, intensity: 2 });
+  assert.ok(sad.spread < plain.spread - 8, `sad words dull the previews: ${plain.spread} → ${sad.spread}`);
+  assert.ok(sad.warm < plain.warm - 8, `sad words cool the previews: ${plain.warm} → ${sad.warm}`);
 });

@@ -11,7 +11,9 @@ function validBody(v) {
   if (!['play', 'select', 'download'].includes(v.event)) return false;
   if (typeof v.clipSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(v.clipSha256)) return false;
   if (v.language !== null && !(typeof v.language === 'string' && /^[a-z]{2,3}$/.test(v.language))) return false;
-  if (v.lyricTheme !== null && !['faith', 'sorrow', 'love', 'party', 'rage', 'neutral'].includes(v.lyricTheme)) return false;
+  if (v.lyricAttitude !== null && !(typeof v.lyricAttitude === 'string' && /^[a-z]{3,16}$/.test(v.lyricAttitude))) return false;
+  if (v.lyricSadness !== null && !(Number.isInteger(v.lyricSadness) && v.lyricSadness >= 0 && v.lyricSadness <= 3)) return false;
+  if (v.lyricIntensity !== null && !(Number.isInteger(v.lyricIntensity) && v.lyricIntensity >= 1 && v.lyricIntensity <= 5)) return false;
   if (v.lyricsOrigin !== null && !['transcribed', 'typed'].includes(v.lyricsOrigin)) return false;
   if (typeof v.primaryGenre !== 'string' || !v.primaryGenre.trim() || v.primaryGenre.length > 80) return false;
   if (v.vibe !== null && typeof v.vibe !== 'string') return false;
@@ -45,7 +47,9 @@ async function processRequest(request) {
     feedback: data.event,
     clipSha256: data.clipSha256,
     language: data.language,
-    lyricTheme: data.lyricTheme,
+    lyricAttitude: data.lyricAttitude,
+    lyricSadness: data.lyricSadness,
+    lyricIntensity: data.lyricIntensity,
     lyricsOrigin: data.lyricsOrigin,
     primaryGenre: data.primaryGenre,
     vibe: data.vibe,

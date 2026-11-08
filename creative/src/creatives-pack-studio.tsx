@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { playheadFrame, type Composition, type ImpactMusic } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
-import { posterFrame } from './lyric-mood';
+import { posterFrame } from './lyric-motion';
 import { adPunchFallbackText, recommendCreativesPack, type CreativesPackSlot } from './creatives-pack';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
@@ -44,6 +44,7 @@ function packOpts(
     motion: slot.motion,
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
+    ...(slot.grade ? { grade: slot.grade } : {}),
     cues: composition.cues,
     music,
     fallbackText,
@@ -96,9 +97,10 @@ export function CreativesPackStudio({
   const music = useMemo(() => impactMusic(profile), [profile.musicAnalysis]);
   const pack = useMemo(
     () => recommendCreativesPack(profile, generation),
-    [profile.clip.sourceSha256, profile.musicAnalysis, profile.approvedLyrics, generation],
+    [profile.clip.sourceSha256, profile.musicAnalysis, profile.approvedLyrics, profile.lyricMeaning, generation],
   );
-  const packKey = pack.map(item => item.id).join('|');
+  // The colours the lyrics ask for are part of what each card looks like, so a new grade repaints the shelf.
+  const packKey = pack.map(item => `${item.id}:${item.grade ? Object.values(item.grade).join(',') : ''}`).join('|');
   const cueKey = JSON.stringify(composition.cues);
   const intent = useMemo(
     () => (profile.musicAnalysis.status === 'ready' ? deriveMusicIntent(profile.musicAnalysis.result) : null),
@@ -351,6 +353,8 @@ export function CreativesPackStudio({
     {!token && <p role="alert">Staging access is unavailable.</p>}
     {!approved && <p role="alert">Approve synced lyrics before downloading lyric creatives.</p>}
     {profile.musicAnalysis.status === 'pending' && <p role="status">Finishing music analysis for better ranking…</p>}
+    {profile.lyricMeaning?.status === 'pending' && <p role="status">Reading what your lyrics say…</p>}
+    {profile.lyricMeaning?.status === 'error' && <p className="hint">We could not read what your lyrics say, so these are matched to the sound alone.</p>}
     {error && <p role="alert">{error}</p>}
     {playbackError && <p role="alert">{playbackError}</p>}
     {!shelfReady && approved && fontReady && (
@@ -405,7 +409,7 @@ export function CreativesPackStudio({
       <div className="trim-actions creatives-pack-download">
         <button
           className="primary-accent"
-          disabled={!fontReady || !approved || progress !== undefined || profile.musicAnalysis.status === 'pending'}
+          disabled={!fontReady || !approved || progress !== undefined || profile.musicAnalysis.status === 'pending' || profile.lyricMeaning?.status === 'pending'}
           onClick={() => void downloadSelected()}
         >
           Download {picked.length === 1 ? 'MP4' : `${picked.length} creatives`}

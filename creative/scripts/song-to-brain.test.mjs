@@ -38,41 +38,41 @@ async function load() {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
   return {
     server,
-    mood: await server.ssrLoadModule('/src/lyric-mood.ts'),
+    meaning: await server.ssrLoadModule('/src/lyric-meaning.ts'),
     pack: await server.ssrLoadModule('/src/creatives-pack.ts'),
     text: await server.ssrLoadModule('/src/lyric-text.ts'),
   };
 }
 
-test('what the song says shapes the mood in English, Portuguese, Spanish and French', async () => {
-  const { server, mood } = await load();
+test('the model\'s answer is validated, never guessed at', async () => {
+  const { server, meaning } = await load();
   try {
-    const read = (text, language) => mood.lyricMood(cuesFor(text), language);
-    assert.equal(read('praise the lord for his grace and mercy', 'en').theme, 'faith');
-    assert.equal(read('louvado seja o Senhor Deus gloria e graça', 'pt').theme, 'faith');
-    assert.equal(read('gloria a Dios alabanza y gracia', 'es').theme, 'faith');
-    assert.equal(read('pleurer seul dans la nuit froide larmes', 'fr').theme, 'sorrow');
-    // Accents never block a match.
-    assert.equal(read('meu coração minha paixão amor', 'pt').theme, 'love');
-    // A language we have no word list for says so, instead of pretending to have read it.
-    const ja = read('夜に泣いている 一人', 'ja');
-    assert.deepEqual([ja.theme, ja.read], ['neutral', false]);
-    assert.equal(read('hello there friend', 'en').read, true);
+    const good = { version: 1, clarity: 'clear', attitude: 'defiant', sadness: 0, intensity: 4, gist: 'ignored' };
+    assert.deepEqual(meaning.parseLyricMeaning(good), { attitude: 'defiant', sadness: 0, intensity: 4 });
+    // A clip with too little to read says so, and means nothing.
+    assert.deepEqual(meaning.parseLyricMeaning({ ...good, clarity: 'thin', attitude: 'flirty' }), meaning.NEUTRAL_MEANING);
+    for (const bad of [null, {}, { ...good, version: 2 }, { ...good, attitude: 'furious' }, { ...good, sadness: 4 },
+      { ...good, sadness: 1.5 }, { ...good, intensity: 0 }, { ...good, intensity: '3' }]) {
+      assert.equal(meaning.parseLyricMeaning(bad), null, JSON.stringify(bad));
+    }
   } finally { await server.close(); }
 });
 
-test('the language travels with the lyrics into the recommendation', async () => {
+test('what the words mean shapes the recommendation, in any language', async () => {
   const { server, pack } = await load();
   try {
-    const faith = 'louvado seja o Senhor Deus gloria e graça';
     const lane = slots => slots[0].reason.split(' · ')[0];
-    assert.equal(lane(pack.recommendCreativesPack(profile(faith, { language: 'pt' }))), 'gospel');
-    // Same words read as English find nothing, so the lane must differ — proof the language is used.
-    assert.notEqual(lane(pack.recommendCreativesPack(profile(faith, { language: 'en' }))), 'gospel');
+    const read = (attitude, sadness = 0, intensity = 3) => ({ status: 'ready', meaning: { attitude, sadness, intensity } });
+    const words = 'louvado seja o Senhor Deus gloria e graça';
+    const withMeaning = (state, options) => ({ ...profile(words, options), lyricMeaning: state });
+    assert.equal(lane(pack.recommendCreativesPack(withMeaning(read('spiritual'), { language: 'pt' }))), 'gospel');
+    // Until the words are read, the brain only has the sound.
+    assert.notEqual(lane(pack.recommendCreativesPack(withMeaning(undefined, { language: 'pt' }))), 'gospel');
+    assert.notEqual(lane(pack.recommendCreativesPack(withMeaning({ status: 'error' }, { language: 'pt' }))), 'gospel');
     // Typed or heard makes no difference to the recommendation.
     assert.deepEqual(
-      pack.recommendCreativesPack(profile(faith, { language: 'pt', origin: 'typed' })).map(slot => slot.id),
-      pack.recommendCreativesPack(profile(faith, { language: 'pt', origin: 'transcribed' })).map(slot => slot.id),
+      pack.recommendCreativesPack(withMeaning(read('spiritual'), { language: 'pt', origin: 'typed' })).map(slot => slot.id),
+      pack.recommendCreativesPack(withMeaning(read('spiritual'), { language: 'pt', origin: 'transcribed' })).map(slot => slot.id),
     );
   } finally { await server.close(); }
 });

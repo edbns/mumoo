@@ -22,7 +22,7 @@ import modal
 APP = "mumoo-lyric-meaning-staging"
 MODEL_REPO = "Qwen/Qwen3-8B"
 MODEL_DIR = "/models/qwen3-8b"
-MAX_LINES = 60
+MAX_LINES = 120
 MAX_LINE_CHARS = 200
 MAX_WORDS = 120
 MIN_WORDS = 12

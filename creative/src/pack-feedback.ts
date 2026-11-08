@@ -13,7 +13,7 @@ export function reportPackFeedback(
   extras?: { selectedIds?: string[]; generation?: number },
 ) {
   if (!token) return;
-  const { intent, genre, language, mood, lane } = readSong(profile);
+  const { intent, genre, language, meaning, lane } = readSong(profile);
   const body = {
     version: 1,
     event,
@@ -22,7 +22,9 @@ export function reportPackFeedback(
     vibe: intent?.vibe ?? null,
     lane,
     language: language ?? null,
-    lyricTheme: mood.read ? mood.theme : null,
+    lyricAttitude: meaning?.attitude ?? null,
+    lyricSadness: meaning?.sadness ?? null,
+    lyricIntensity: meaning?.intensity ?? null,
     lyricsOrigin: profile.approvedLyrics?.origin ?? null,
     slot: {
       id: slot.id,

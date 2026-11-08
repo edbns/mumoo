@@ -1,6 +1,7 @@
 """
-Cut the loudest 15 seconds of every reference song and run the real cloud music analysis on it.
-Songs: scripts/fixtures/<Title>-<kind>.wav (git-ignored). Writes scripts/fixtures/analysis/<kind>.json,
+Cut the loudest 15 seconds of every reference song and run the real cloud workers on it: music analysis,
+lyrics transcription and lyric meaning. Songs: scripts/fixtures/<Title>-<kind>.wav (git-ignored). Writes
+scripts/fixtures/analysis/<kind>.json, <kind>-lyrics.json (what was heard and what it means),
 <kind>-clip.wav (exactly what the worker receives) and <kind>-upload.wav (17 s, for the gallery's upload step).
 
   python3 scripts/analyze-songs.py [kind ...]
@@ -20,6 +21,8 @@ HEADER = struct.pack("<4sI4s4sIHHIIHH4sI", b"RIFF", WAV_SIZE - 8, b"WAVE", b"fmt
 
 songs = {p.stem.rsplit('-', 1)[1].lower(): p for p in sorted(FIX.glob('*-*.wav')) if p.stem.rsplit('-', 1)[-1].isalpha()}
 fn = modal.Function.from_name('mumoo-music-analysis-staging', 'analyze_selected', environment_name='mumoo-staging')
+lyrics_job = modal.Function.from_name('mumoo-lyrics-v2-staging', 'lyrics_job', environment_name='mumoo-staging')
+reader = modal.Cls.from_name('mumoo-lyric-meaning-staging', 'Reader', environment_name='mumoo-staging')()
 
 
 def decode(path, *extra):
@@ -38,5 +41,11 @@ for key in sys.argv[1:] or list(songs):
     result = json.loads(fn.remote(wav))
     result['_pick'] = {'file': songs[key].name, 'songSeconds': round(total, 1), 'startSeconds': start}
     (OUT / f'{key}.json').write_text(json.dumps(result))
+    heard = lyrics_job.remote(wav, None, None)
+    lines = {}
+    for word in heard['words']:
+        lines.setdefault(word['line'], []).append(word['text'])
+    reading = reader.read.remote([' '.join(words) for _, words in sorted(lines.items())], heard.get('language'))
+    (OUT / f'{key}-lyrics.json').write_text(json.dumps({'heard': heard, 'reading': reading}, ensure_ascii=False))
     tempo = result['rhythm']['tempo']
-    print(f"{key:10s} {total:6.1f}s start {start:3d}s  grid {tempo['gridBpm']} ({tempo['status']})  beats {len(result['rhythm']['beatsMs'])}", flush=True)
+    print(f"{key:10s} {total:6.1f}s start {start:3d}s  grid {tempo['gridBpm']} ({tempo['status']})  beats {len(result['rhythm']['beatsMs'])}  lyrics {reading['attitude']} sadness {reading['sadness']} intensity {reading['intensity']}", flush=True)

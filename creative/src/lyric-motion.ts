@@ -62,3 +62,12 @@ function easeOutCubic(t: number) {
 export function entrance(ms: number, startMs: number, duration = 280) {
   return easeOutCubic(Math.max(0, ms - startMs) / duration);
 }
+
+/** Frame where the first phrase is almost fully sung — the card poster shows real type, not an empty frame. */
+export function posterFrame(cues: readonly LyricCue[]): number {
+  const phrase = phrasesFor(cues)[0];
+  if (!phrase) return 0;
+  const end = phrase.words[phrase.words.length - 1].endMs;
+  const ms = phrase.startMs + (end - phrase.startMs) * 0.85;
+  return Math.max(0, Math.min(FRAMES - 1, Math.round(ms * FPS / 1000)));
+}

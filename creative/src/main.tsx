@@ -6,6 +6,7 @@ import { describeCover, type CoverRead } from './cover-palette';
 import { DURATION_MS, validate, type Composition } from './composition';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { MusicAnalysisRunner } from './music-analysis-runner';
+import { useLyricMeaning } from './lyric-meaning-cloud';
 import { CreativesPackStudio } from './creatives-pack-studio';
 import { StagingAccess } from './staging-access';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
@@ -64,6 +65,9 @@ function App() {
   const clipValid = Boolean(buffer && Number.isSafeInteger(composition.clipStartMs) &&
     composition.clipStartMs >= 0 && composition.clipStartMs <= buffer.duration * 1000 - DURATION_MS);
   const clip: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: DURATION_MS };
+  // The words are read the moment they are final (synced and not being edited), so the answer is ready by the creatives screen.
+  const lyricMeaning = useLyricMeaning(accessToken, composition.cues, lyricsInfo.language,
+    IS_ALIGNMENT_STAGING && clipValid && !lyricsState.busy && !lyricsState.dirty);
     const profile: CreativeProfileV1 | null = clipValid && genreValid ? {
     version: 1,
     clip,
@@ -75,6 +79,7 @@ function App() {
       ...(songCover && { cover: { value: songCover, source: 'embedded_metadata' as const } }),
     },
     musicAnalysis: analysisForClip(musicAnalysis, clip),
+    ...(lyricMeaning && { lyricMeaning }),
     ...(inCreatives && { approvedLyrics: { cues: composition.cues, source: 'creator_reviewed' as const, ...lyricsInfo } }),
   } : null;
   const valid = (() => {

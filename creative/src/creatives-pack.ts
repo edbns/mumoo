@@ -18,7 +18,8 @@ import {
 } from './ad-fonts';
 import { AD_PUNCH_META, type AdPunchStyle } from './ad-punch';
 import bankData from './look-lab/bank.json';
-import { laneFromLyrics, lyricMood } from './lyric-mood';
+import { laneFromMeaning, leansDeep, type LyricMeaning } from './lyric-meaning';
+import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, type TypeStyleId } from './pack-type';
 import { coverFit, diversify, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
@@ -42,6 +43,8 @@ export type CreativesPackSlot = {
   /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
   bankId?: string;
   typeStyle?: TypeStyleId;
+  /** What the lyrics do to the colours and the beat. Absent when the words change nothing. */
+  grade?: MoodGrade;
 };
 
 function hashPick(seed: string, salt: string, modulo: number) {
@@ -105,7 +108,7 @@ function seededOrder<T>(items: readonly T[], seed: string, key: (item: T) => str
 /** 8 cards: distinct (background, type) pairs, rotated by seed so no two generations look alike. */
 function bankSlots(
   lane: MoodLane,
-  themeLabel: string,
+  meaning: LyricMeaning | null,
   intent: MusicIntentV1 | null,
   seed: string,
   count: number,
@@ -115,7 +118,7 @@ function bankSlots(
   let looks = BANK_LOOKS.filter(look => look.lanes.some(tag => pool.includes(tag)));
   if (!looks.length) looks = BANK_LOOKS.filter(look => look.lanes.includes('general'));
   // A sad or angry song never sits on a sunny background ("match" policy).
-  if (themeLabel === 'sorrow' || themeLabel === 'rage') {
+  if (leansDeep(meaning)) {
     const deep = looks.filter(look => look.tone === 'deep');
     if (deep.length >= 3) looks = deep;
   }
@@ -148,7 +151,7 @@ function bankSlots(
       ...(soft ? { font: soft[0], fontSecondary: soft[1] } : {}),
       id: `ad-bank-${look.slug}-${type}-${hashPick(seed, 'gen', 997).toString(36)}`,
       label: `${type[0].toUpperCase()}${type.slice(1)} · ${look.title}`,
-      reason: `${lane} · lyrics ${themeLabel} · ${look.title} · ${type}`,
+      reason: `${lane} · lyrics ${meaning?.attitude ?? 'unread'} · ${look.title} · ${type}`,
       bankId: look.slug,
       typeStyle: type,
     };
@@ -194,7 +197,7 @@ function adPunchSlot(
 
 /**
  * What the brain understood about this song: how it sounds (intent), what the creator said it is (genre),
- * and what it says (lyric mood, in its language). The recommendation and the feedback log both use this,
+ * and what it says (the meaning of its lyrics). The recommendation and the feedback log both use this,
  * so what we learn from is exactly what we decided on.
  */
 export function readSong(profile: CreativeProfileV1) {
@@ -202,21 +205,22 @@ export function readSong(profile: CreativeProfileV1) {
   const intent = analysis ? deriveMusicIntent(analysis) : null;
   const genre = profile.creator.primaryGenre.value || '';
   const language = profile.approvedLyrics?.language;
-  const mood = lyricMood(profile.approvedLyrics?.cues ?? [], language);
+  const meaning = profile.lyricMeaning?.status === 'ready' ? profile.lyricMeaning.meaning : null;
   const genreLocked = GOSPEL_GENRE.test(genre.toLowerCase()) || CLUB_GENRE.test(genre.toLowerCase());
-  const lane = laneFromLyrics(moodLane(intent, genre), genreLocked, mood);
-  return { intent, genre, language, mood, lane };
+  const lane = laneFromMeaning(moodLane(intent, genre), genreLocked, meaning);
+  return { intent, genre, language, meaning, lane };
 }
 
 export function recommendCreativesPack(profile: CreativeProfileV1, generation = 0): CreativesPackSlot[] {
-  const { intent, mood, lane } = readSong(profile);
+  const { intent, meaning, lane } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}`;
 
   const withPhoto = NOIR_LANES.includes(lane);
-  const slots = bankSlots(lane, mood.theme, intent, seed, withPhoto ? 7 : 8, cover);
+  const slots = bankSlots(lane, meaning, intent, seed, withPhoto ? 7 : 8, cover);
   if (withPhoto) slots.push(adPunchSlot('noir', slots.length, intent, seed, lane));
-  return slots;
+  const grade = moodGrade(meaning);
+  return grade ? slots.map(slot => ({ ...slot, grade })) : slots;
 }
 
 export function adPunchFallbackText(profile: CreativeProfileV1, intent: MusicIntentV1 | null): string {

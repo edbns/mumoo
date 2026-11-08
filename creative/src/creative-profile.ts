@@ -1,5 +1,6 @@
 import type { CoverRead } from './cover-palette';
 import { DURATION_MS, type LyricCue } from './composition';
+import type { LyricMeaningState } from './lyric-meaning';
 
 export interface ClipIdentity {
   sourceSha256: string;
@@ -92,5 +93,7 @@ export interface CreativeProfileV1 {
   };
   musicAnalysis: MusicAnalysisState;
   /** Timed words the creator reviewed. `language` is an ISO 639 code; `origin` says whether we heard them or the creator typed them. */
+  /** What the approved words mean, once our own model has read them. Absent until asked for. */
+  lyricMeaning?: LyricMeaningState;
   approvedLyrics?: { cues: LyricCue[]; source: 'creator_reviewed'; language?: string; origin: 'transcribed' | 'typed' };
 }

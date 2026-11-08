@@ -42,9 +42,11 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "palette", "layout", "motion",
-    "cues", "music", "fallbackText", "bankId", "typeStyle",
+    "cues", "music", "fallbackText", "bankId", "typeStyle", "grade",
 }
 TYPE_STYLES = {"typewriter", "karaoke", "stack", "minimal", "editorial", "outline"}
+# What the lyrics do to colour and beat hits: five numbers, each inside the range the app can produce.
+GRADE_RANGES = {"saturation": (0.55, 1.15), "warmth": (-1, 1), "brightness": (0.8, 1), "contrast": (1, 1.1), "calm": (0, 1)}
 
 # One image for the whole app (the module imports fastapi at top level).
 image = (
@@ -201,6 +203,14 @@ def parse_meta(raw: str) -> tuple[str, dict]:
         raise ValueError("bankId")
     if "typeStyle" in opts and opts["typeStyle"] not in TYPE_STYLES:
         raise ValueError("typeStyle")
+    grade = opts.get("grade")
+    if grade is not None:
+        if not isinstance(grade, dict) or set(grade) != set(GRADE_RANGES):
+            raise ValueError("grade")
+        for key, (low, high) in GRADE_RANGES.items():
+            value = grade[key]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not low <= value <= high:
+                raise ValueError("grade")
     cues = opts.get("cues")
     if not isinstance(cues, list) or len(cues) > 160:
         raise ValueError("cues")

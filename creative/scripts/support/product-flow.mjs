@@ -43,8 +43,10 @@ export function lyricsResult(text, { language = 'en', source = 'transcribed', st
  * Start the app and a browser with the Netlify boundary mocked.
  * `lyrics(meta)` receives {lines, language} and returns the worker result; every call is recorded.
  * `analysis` replaces the default music-analysis answer (e.g. a real worker result).
+ * `meaning` is what the lyric-meaning worker says about the words (default: nothing in particular); each request body is recorded.
  */
-export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = [], analysis } = {}) {
+export const NEUTRAL_READING = { version: 1, clarity: 'clear', attitude: 'neutral', sadness: 0, intensity: 3 };
+export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = [], meaningCalls = [], analysis, meaning = NEUTRAL_READING } = {}) {
   const server = await createServer({ server: { host: '127.0.0.1', port: 0, fs: { allow: [process.cwd(), realpathSync('node_modules')] } }, logLevel: 'error' });
   await server.listen();
   const browser = await chromium.launch({ headless: false, executablePath: BROWSER });
@@ -80,9 +82,19 @@ export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = []
       : route.fulfill({ json: result });
   });
 
+  let reading = { polls: 0 };
+  await page.route('**/.netlify/functions/read-lyric-meaning', route => {
+    meaningCalls.push(route.request().postDataJSON());
+    reading = { polls: 0 };
+    return route.fulfill({ status: 202, json: { id: 'fc-meaning01' } });
+  });
+  await page.route('**/.netlify/functions/read-lyric-meaning-status*', route => ++reading.polls < 2
+    ? route.fulfill({ status: 202, json: { status: 'running' } })
+    : route.fulfill({ json: meaning }));
+
   await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/`);
   return {
-    page, errors, analysisCalls, lyricsCalls,
+    page, errors, analysisCalls, lyricsCalls, meaningCalls,
     close: async () => { await browser.close(); await server.close(); },
   };
 }
