@@ -12,9 +12,7 @@ import { LyricsStudio } from './lyrics-studio';
 import { Waveform } from './waveform';
 import './style.css';
 
-const INITIAL: Extract<Composition, { version: 2 }> = {
-  version: 2, template: 'scribble', sourceSha256: '', clipStartMs: 0, cues: [],
-};
+const INITIAL: Composition = { sourceSha256: '', clipStartMs: 0, cues: [] };
 
 
 const GENRES = [

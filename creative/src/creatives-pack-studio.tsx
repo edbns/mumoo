@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { lyricsFor, playheadFrame, type Composition, type ImpactMusic } from './composition';
+import { playheadFrame, type Composition, type ImpactMusic } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-mood';
 import { adPunchFallbackText, recommendCreativesPack, type CreativesPackSlot } from './creatives-pack';
-import { loadFont } from './render';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
 import { reportPackFeedback } from './pack-feedback';
@@ -29,10 +28,6 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   };
 }
 
-function compositionFor(base: Composition): Composition {
-  return { ...base, dailyScreen: undefined, lyricImpact: undefined };
-}
-
 function packOpts(
   slot: CreativesPackSlot,
   composition: Composition,
@@ -49,7 +44,7 @@ function packOpts(
     motion: slot.motion,
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
-    cues: lyricsFor(composition),
+    cues: composition.cues,
     music,
     fallbackText,
     ...(plateUrl ? { plateUrl } : {}),
@@ -104,7 +99,7 @@ export function CreativesPackStudio({
     [profile.clip.sourceSha256, profile.musicAnalysis, profile.approvedLyrics, generation],
   );
   const packKey = pack.map(item => item.id).join('|');
-  const cueKey = JSON.stringify(lyricsFor(composition));
+  const cueKey = JSON.stringify(composition.cues);
   const intent = useMemo(
     () => (profile.musicAnalysis.status === 'ready' ? deriveMusicIntent(profile.musicAnalysis.result) : null),
     [profile.musicAnalysis],
@@ -133,8 +128,8 @@ export function CreativesPackStudio({
   useEffect(() => {
     let alive = true;
     setFontReady(false);
-    const sample = lyricsFor(composition).map(cue => cue.text).join(' ') || fallbackText;
-    void Promise.all([loadFont(sample), loadDisplayFonts(sample)])
+    const sample = composition.cues.map(cue => cue.text).join(' ') || fallbackText;
+    void loadDisplayFonts(sample)
       .then(() => { if (alive) setFontReady(true); })
       .catch(() => { if (alive) setFontReady(true); });
     return () => { alive = false; };
@@ -172,8 +167,8 @@ export function CreativesPackStudio({
         try {
           await blitPackFrame(
             canvas,
-            packOpts(slot, compositionFor(base), impact, fallback, paintArgsRef.current.plateUrl),
-            slot.bankId ? posterFrame(lyricsFor(base)) : 0,
+            packOpts(slot, base, impact, fallback, paintArgsRef.current.plateUrl),
+            slot.bankId ? posterFrame(base.cues) : 0,
           );
         } catch (cause) {
           if (!cancelled) {
@@ -200,7 +195,7 @@ export function CreativesPackStudio({
     if (!canvas) return;
     let alive = true;
     let raf = 0;
-    const edit = compositionFor(composition);
+    const edit = composition;
     const opts = packOpts(slot, edit, music, fallbackText, plateUrl);
     let painting = false;
     let lastFrame = -1;
@@ -236,7 +231,7 @@ export function CreativesPackStudio({
     const slot = pack[index];
     const canvas = canvasRefs.current[index];
     if (!canvas) return;
-    void blitPackFrame(canvas, packOpts(slot, compositionFor(composition), music, fallbackText, plateUrl), slot.bankId ? posterFrame(lyricsFor(composition)) : 0)
+    void blitPackFrame(canvas, packOpts(slot, composition, music, fallbackText, plateUrl), slot.bankId ? posterFrame(composition.cues) : 0)
       .catch(cause => setError(friendlyError(cause, 'Preview failed (WebGL).')));
   }
 
@@ -286,7 +281,7 @@ export function CreativesPackStudio({
         const id = await submitCloudJob({
           token,
           wav,
-          opts: packOpts(slot, compositionFor(composition), music, fallbackText, plateUrl),
+          opts: packOpts(slot, composition, music, fallbackText, plateUrl),
           plateUrl,
         });
         jobs.push({ slot, id });

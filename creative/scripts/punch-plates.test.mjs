@@ -29,13 +29,10 @@ test('bake-punch-plates writes 1080×1920 proxies and a rights manifest', () => 
   }
 });
 
-test('punch plate helpers expose billboard/collision styles and safe ids', async () => {
+test('punch plate helpers accept safe ids', async () => {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom', logLevel: 'error' });
   try {
     const mod = await server.ssrLoadModule('/src/punch-plates.ts');
-    assert.ok(mod.PUNCH_PLATE_STYLES.has('billboard'));
-    assert.ok(mod.PUNCH_PLATE_STYLES.has('collision'));
-    assert.ok(!mod.PUNCH_PLATE_STYLES.has('monument'));
     assert.equal(mod.isPunchPlateId('ember-dusk'), true);
     assert.equal(mod.isPunchPlateId('../no'), false);
     assert.equal(mod.punchPlatesBase(), '/punch-plates');

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'vite';
 
-test('clip identity isolates shared analysis, and legacy compositions still validate', async () => {
+test('clip identity isolates shared analysis, and compositions validate', async () => {
   const server = await createServer({ server: { middlewareMode: true }, optimizeDeps: { noDiscovery: true }, appType: 'custom', logLevel: 'error' });
   try {
     const { sameClip, analysisForClip, acceptsAnalysis } = await server.ssrLoadModule('/src/creative-profile.ts');
@@ -17,9 +17,12 @@ test('clip identity isolates shared analysis, and legacy compositions still vali
     assert.equal(acceptsAnalysis(clip, ready), true);
     assert.equal(acceptsAnalysis({ ...clip, offsetMs: 2001 }, ready), false);
     assert.equal(acceptsAnalysis(null, ready), false);
-    const base = { template: 'scribble', sourceSha256: clip.sourceSha256, clipStartMs: clip.offsetMs };
-    assert.doesNotThrow(() => validate({ ...base, version: 1, lyric: { text: 'hello', startMs: 0, endMs: 1000 } }, 18000));
-    assert.doesNotThrow(() => validate({ ...base, version: 2, cues: [] }, 18000));
+    const base = { sourceSha256: clip.sourceSha256, clipStartMs: clip.offsetMs };
+    assert.doesNotThrow(() => validate({ ...base, cues: [{ text: 'hello', startMs: 0, endMs: 1000 }] }, 18000));
+    assert.doesNotThrow(() => validate({ ...base, cues: [] }, 18000));
+    assert.throws(() => validate({ ...base, cues: [{ text: ' ', startMs: 0, endMs: 1000 }] }, 18000));
+    assert.throws(() => validate({ ...base, cues: [{ text: 'late', startMs: 14000, endMs: 15001 }] }, 18000));
+    assert.throws(() => validate({ ...base, clipStartMs: 4000 }, 18000));
   } finally {
     await server.close();
   }

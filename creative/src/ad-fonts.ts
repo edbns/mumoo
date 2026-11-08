@@ -1,3 +1,4 @@
+import '@fontsource-variable/inter';
 import '@fontsource/dela-gothic-one/latin-400.css';
 import '@fontsource/abril-fatface/latin-400.css';
 import '@fontsource/bebas-neue/latin-400.css';
@@ -134,9 +135,6 @@ const SLAM_DARK: readonly AdPalette[] = [
   { bg: '#080808', ink: '#f0f0f0', accent: '#ff3b00', wash: '#080808' },
 ];
 
-/** Full slam bank (tests / fallback). */
-export const SLAM_PALETTE_BANK: readonly AdPalette[] = [...SLAM_CLUB, ...SLAM_SOFT, ...SLAM_DARK];
-
 export function hashPick(seed: string, salt: string, modulo: number) {
   let h = 2166136261;
   const text = `${seed}:${salt}`;
@@ -164,17 +162,6 @@ export function pickPackFont(lane: MoodLane, vibe: IntentVibe | null, seed: stri
   const overlap = laneFonts.filter(f => vibeFonts.includes(f));
   const bank = overlap.length ? overlap : laneFonts;
   return bank[hashPick(seed, `pack-font:${salt}`, bank.length)];
-}
-
-/** @deprecated Prefer pickPackFont — kept for non-pack callers. Strict vibe bank, no lottery. */
-export function pickAdFont(vibe: IntentVibe | null, seed: string, salt: string): AdFont {
-  const prefer = fontsForVibe(vibe);
-  return prefer[hashPick(seed, `font:${salt}`, prefer.length)];
-}
-
-/** @deprecated Equal-weight lottery — do not use for mood pack. */
-export function pickRisoFont(seed: string, salt: string): AdFont {
-  return AD_FONTS[hashPick(seed, `riso-font:${salt}`, AD_FONTS.length)];
 }
 
 export function pickSecondaryFont(primary: AdFont, seed: string, salt: string, bank?: readonly AdFont[]): AdFont {
@@ -249,7 +236,7 @@ export function pickLayoutSeed(seed: string, salt: string) {
 export type AdLayout = ReturnType<typeof pickLayoutSeed>;
 
 /** Faces used by the lyric type system (fixed per style, not part of the random font banks). */
-const TYPE_FACES = ['700 120px "Space Mono"', '400 120px "Outfit"', 'italic 700 120px "Playfair Display"'] as const;
+const TYPE_FACES = ['800 120px "Inter Variable"', '700 120px "Space Mono"', '400 120px "Outfit"', 'italic 700 120px "Playfair Display"'] as const;
 
 export async function loadDisplayFonts(text: string) {
   const sample = `${text} NOW PLAYING LYRICS 9:41`.trim() || 'MUMOO';

@@ -5,4 +5,3 @@ export function trace(stage: string, info: Omit<Event, 'stage' | 'at'> = {}) {
   events.push({ at: new Date().toISOString(), stage, ...info });
   if (events.length > 100) events.shift();
 }
-export function traces() { return [...events]; }

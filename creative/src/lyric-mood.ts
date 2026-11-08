@@ -1,5 +1,5 @@
 import { FPS, FRAMES, type LyricCue } from './composition';
-import { phrasesFor } from './lyric-impact-motion';
+import { phrasesFor } from './lyric-motion';
 import type { MoodLane } from './ad-fonts';
 
 /**

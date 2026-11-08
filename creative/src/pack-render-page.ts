@@ -6,7 +6,6 @@
 import { DURATION_MS, FPS, HEIGHT, WIDTH } from './composition';
 import { loadDisplayFonts } from './ad-fonts';
 import { createPackRenderer, type PackRenderer, type PackRendererOpts } from './pack-renderer';
-import { loadFont } from './render';
 
 const FRAMES = Math.round((DURATION_MS / 1000) * FPS);
 let renderer: PackRenderer | null = null;
@@ -19,7 +18,7 @@ type PackFramePage = {
 const api: PackFramePage = {
   async prepare(opts) {
     const sample = opts.cues.map(cue => cue.text).join(' ') || opts.fallbackText;
-    await Promise.all([loadFont(sample), loadDisplayFonts(sample)]);
+    await loadDisplayFonts(sample);
     renderer?.destroy();
     // A fresh canvas per prepare(): a destroyed Pixi app leaves its GL context on the old element.
     document.getElementById('c')?.remove();

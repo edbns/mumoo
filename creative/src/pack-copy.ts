@@ -1,8 +1,7 @@
 import { FPS, type ImpactMusic, type LyricCue } from './composition';
-import { entrance, impactFrame, impactSignals } from './ad-punch-fit';
-import { AD_PUNCH_META, type AdPunchStyle } from './ad-punch';
+import { entrance, impactFrame, impactSignals } from './lyric-motion';
+import { AD_PUNCH_META, type AdBaseId, type AdBeatProp, type AdPunchStyle } from './ad-punch';
 import type { AdFont, AdLayout, AdPalette, PackMotion } from './ad-fonts';
-import type { AdBaseId, AdBeatProp } from './ad-worlds';
 import type { TimedWord, TypeStyleId } from './pack-type';
 
 export type PackSceneInput = {

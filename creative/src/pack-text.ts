@@ -1,5 +1,5 @@
 import type { AdFont } from './ad-fonts';
-import { wrapFit } from './ad-punch-fit';
+import { wrapFit } from './text-wrap';
 
 /** Shared 2D context used only for text metrics — never the design surface. */
 let measureCtx: CanvasRenderingContext2D | null = null;
