@@ -2,7 +2,11 @@
 body { margin: 0; background: #f7f7f8; color: #171717; font-family: "Inter Variable", system-ui, sans-serif; }
 .masthead { max-width: 962px; margin: auto; padding: 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .masthead img { display: block; object-fit: contain; }
-.masthead span { color: #5a5a62; font-size: 12px; }
+.masthead > span { color: #5a5a62; font-size: 12px; margin-right: auto; }
+.account-bar { display: flex; align-items: center; gap: 12px; font-size: 13px; min-height: 36px; }
+.account-bar .account-email { color: #3d3d44; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.account-form input { width: 170px; padding: 8px 10px; font-size: 13px; }
 .intro { margin: -12px 0 24px; color: #5a5a62; font-size: 14px; line-height: 1.5; }
 :focus-visible { outline: 2px solid #c33b13; outline-offset: 3px; }
 .desktop { display: grid; grid-template-columns: minmax(320px, 450px) minmax(300px, 440px); gap: 24px; justify-content: center; padding: 12px 24px 32px; }

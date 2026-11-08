@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { Suspense, lazy, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { decodeAudio, hashAudio, probeDurationMs } from './audio';
 import { ACCEPTED_AUDIO, ACCEPTED_LABEL, readSongCover, readSongTags, sniffAudioFormat, type SongTags } from './audio-format';
@@ -13,6 +13,9 @@ import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 import { LyricsStudio } from './lyrics-studio';
 import { Waveform } from './waveform';
 import './style.css';
+
+// Sign-in pulls in the auth client; it loads beside the page instead of in front of it.
+const AccountBar = lazy(() => import('./account').then(module => ({ default: module.AccountBar })));
 
 const INITIAL: Composition = { sourceSha256: '', clipStartMs: 0, cues: [] };
 
@@ -195,7 +198,7 @@ function App() {
   }
 
   return <>
-    <header className="masthead"><img src="/brand/mumoo-logo.png" alt="mumoo" width="144" height="36" /><span>Creative Studio</span></header>
+    <header className="masthead"><img src="/brand/mumoo-logo.png" alt="mumoo" width="144" height="36" /><span>Creative Studio</span><Suspense fallback={null}><AccountBar /></Suspense></header>
     {!inCreatives ? <main className="desktop trim">
       <section>
         <p className="eyebrow">0{step} / {step === 1 ? 'MUSIC' : 'YOUR CLIP'}</p>

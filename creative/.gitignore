@@ -16,3 +16,9 @@ reference/LyricalStudio/
 # Local Netlify state and test output
 .netlify/
 tmp-*/
+.neon
+.env.local
+
+# Neon / local secrets
+.env
+.env.local

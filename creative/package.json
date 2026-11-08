@@ -9,8 +9,9 @@
     "bake:plates": "node scripts/bake-punch-plates.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts",
-    "test": "node --test scripts/*.test.mjs",
-    "bake:looks": "node scripts/bake-looks.mjs"
+    "test": "node --env-file-if-exists=.env.local --test scripts/*.test.mjs",
+    "bake:looks": "node scripts/bake-looks.mjs",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.2.5",
@@ -25,7 +26,12 @@
     "@fontsource/playfair-display": "^5.3.0",
     "@fontsource/rubik-mono-one": "^5.2.5",
     "@fontsource/space-mono": "^5.3.0",
+    "@neon/auth": "^0.8.2",
+    "@neon/config": "^1.13.0",
+    "@neon/env": "^2.1.0",
+    "@neondatabase/serverless": "^1.2.0",
     "fflate": "0.8.3",
+    "jose": "^6.2.15",
     "pixi-filters": "^6.1.5",
     "pixi.js": "8.22.0",
     "react": "19.1.0",

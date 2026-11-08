@@ -1,2 +1,5 @@
 .DS_Store
 creative/tmp-daily-dom/
+
+# Local Netlify folder
+.netlify
