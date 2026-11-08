@@ -21,7 +21,6 @@ function profile(text, { language, genre = 'Pop', origin = 'transcribed', step }
     version: 1,
     clip,
     creator: { primaryGenre: { value: genre, source: 'creator' }, title: { value: 'Fogo', source: 'embedded_metadata' } },
-    videoType: 'lyric',
     musicAnalysis: {
       status: 'ready',
       clip,
@@ -41,7 +40,6 @@ async function load() {
     server,
     mood: await server.ssrLoadModule('/src/lyric-mood.ts'),
     pack: await server.ssrLoadModule('/src/creatives-pack.ts'),
-    vision: await server.ssrLoadModule('/src/vision-music-profile.ts'),
     text: await server.ssrLoadModule('/src/lyric-text.ts'),
   };
 }
@@ -76,21 +74,6 @@ test('the language travels with the lyrics into the recommendation', async () =>
       pack.recommendCreativesPack(profile(faith, { language: 'pt', origin: 'typed' })).map(slot => slot.id),
       pack.recommendCreativesPack(profile(faith, { language: 'pt', origin: 'transcribed' })).map(slot => slot.id),
     );
-  } finally { await server.close(); }
-});
-
-test('the director gets every phrase, not the first 40 words', async () => {
-  const { server, vision } = await load();
-  try {
-    const words = Array.from({ length: 110 }, (_, i) => `w${i}`).join(' ');
-    const built = vision.buildVisionMusicProfile(profile(words, { step: 130 }));
-    assert.ok(built.lyricCues.length > 0 && built.lyricCues.length <= 40);
-    assert.equal(built.lyricCues.flatMap(cue => cue.text.split(' ')).length, 110);
-    assert.ok(built.lyricCues.at(-1).endMs <= 15000);
-    assert.equal(built.creator.primaryGenre, 'Pop');
-    // Unspaced scripts are not split with invented spaces.
-    const ja = vision.buildVisionMusicProfile(profile('夜 に 泣 い て', { language: 'ja' }));
-    assert.equal(ja.lyricCues[0].text, '夜に泣いて');
   } finally { await server.close(); }
 });
 

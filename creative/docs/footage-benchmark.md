@@ -1,7 +1,0 @@
-# Staging footage export benchmark
-
-The earlier approximately 88-second test recorded only end-to-end wall time; it did not record enough stage data to reconstruct its exact breakdown. The following is a fresh instrumented run of the same two Wikimedia source files on the same Intel Mac, in hardware-backed headed Brave. It is a local technical benchmark using a test audio buffer, not a hosted real-song latency measurement.
-
-The measured browser export took **35.28 s**; the whole test including browser and server setup took **39.32 s**. The two footage loads took **1.57 s** in total. Across 457 individual seeks, HTML video seeking took **32.86 s**. Frame-render callbacks totaled **34.57 s**, including those same loads and seeks. Canvas drawing totaled **0.12 s** and the off-screen copy **0.009 s**. Video submission calls totaled **0.12 s**, audio processing **0.081 s**, startup **0.35 s**, and final muxing **0.082 s**.
-
-These figures overlap: video and audio run concurrently; frame rendering contains loading, seeking, and drawing; encoder work can continue asynchronously. They must not be added together or interpreted as complete codec timings. The observed bottleneck was repeated video seeks, not established full encoding cost. Cross-origin resource timing was incomplete. The prior 88-second run cannot be ascribed the same precise breakdown, and load, cache, device, source codecs and frame rates can change results. The test verified 450 video frames, 15 seconds, H.264/AAC.

@@ -11,7 +11,6 @@ function profile(genre = 'House', lyrics = 'hello', sha = 'a'.repeat(64)) {
     version: 1,
     clip: { sourceSha256: sha, offsetMs: 0, durationMs: 15000 },
     creator: { primaryGenre: { value: genre, source: 'creator' } },
-    videoType: 'lyric',
     musicAnalysis: {
       status: 'ready',
       clip: { sourceSha256: sha, offsetMs: 0, durationMs: 15000 },

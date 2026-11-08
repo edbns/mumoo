@@ -114,8 +114,9 @@ export function analyzeTexture(texture: Texture): TexturePalette {
   const best = bins.reduce((a, b) => (b.w > a.w ? b : a));
   let accent: string;
   if (best.w > 0.5) {
-    let [h, s, l] = rgbToHsl(best.r / best.w, best.g / best.w, best.b / best.w);
-    s = Math.max(0.55, s);
+    const [h, saturation, lightness] = rgbToHsl(best.r / best.w, best.g / best.w, best.b / best.w);
+    const s = Math.max(0.55, saturation);
+    let l = lightness;
     for (let step = 0; step < 14; step++) {
       const [r, g, b] = hslToRgb(h, s, l);
       if (contrast(relLum(r, g, b), meanLum) >= 3) break;

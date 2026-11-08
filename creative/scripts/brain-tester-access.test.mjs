@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import handler from '../netlify/functions/brain-tester-access.mjs';
-import { validAccess } from '../netlify/functions/brain-gateway.mjs';
+import { validAccess } from '../netlify/lib/access.mjs';
 
 test('staging open access mints a short-lived signed token without a password', async () => {
   const previous = { ...process.env };

@@ -49,20 +49,6 @@ function hashPick(seed: string, salt: string, modulo: number) {
   return Math.abs(h) % Math.max(1, modulo);
 }
 
-function intentTags(intent: MusicIntentV1 | null): string[] {
-  if (!intent) return ['balanced'];
-  const tags = [intent.treatmentHint, intent.cutRate, intent.vibe.toLowerCase()];
-  if (/aggressive|industrial/i.test(intent.vibe)) tags.push('aggressive', 'kinetic', 'high');
-  if (/uplifting|energetic/i.test(intent.vibe)) tags.push('uplifting', 'kinetic', 'saturated');
-  if (/ambient|mellow/i.test(intent.vibe)) tags.push('ambient', 'mellow', 'restrained');
-  if (/dark|cinematic/i.test(intent.vibe)) tags.push('cinematic', 'dark', 'balanced');
-  return tags;
-}
-
-function scoreTags(itemTags: string[], wanted: string[]) {
-  return itemTags.reduce((sum, tag) => sum + (wanted.includes(tag) ? 1 : 0), 0);
-}
-
 export type { MoodLane };
 
 const GOSPEL_GENRE = /gospel|worship|christian|hymn|spiritual|choir/;
@@ -83,20 +69,6 @@ export function moodLane(intent: MusicIntentV1 | null, genre: string): MoodLane 
   }
   return 'general';
 }
-
-/**
- * Mood → plate. Slam family on shelf; riso/noir parked.
- * Font/color/motion are NOT random templates — picked from lane banks in adPunchSlot.
- */
-/** Photo treatments first — brain ranks which graphic worlds sit on the cleared still. */
-const LANE_ALLOW: Record<MoodLane, readonly AdPunchStyle[]> = {
-  party: ['pulse', 'oil', 'riso', 'paper-cutout', 'slam-flash', 'pulse-beast', 'slam-split', 'slam'],
-  techno: ['pulse', 'noir', 'oil', 'riso', 'slam-flash', 'pulse-scratch', 'slam', 'slam-split'],
-  quiet: ['oil', 'noir', 'lyric-hold', 'paper-cutout', 'riso', 'slam-rise', 'pulse', 'slam'],
-  gospel: ['oil', 'paper-cutout', 'riso', 'lyric-hold', 'slam-rise', 'pulse', 'noir', 'slam'],
-  dark: ['noir', 'oil', 'pulse-scratch', 'pulse', 'slam-split', 'riso', 'paper-cutout', 'lyric-hold'],
-  general: ['pulse', 'oil', 'noir', 'paper-cutout', 'riso', 'slam', 'slam-flash', 'lyric-hold'],
-};
 
 /**
  * Typography is a mood decision. "match" policy: the style always agrees with what the song feels like.
@@ -163,27 +135,6 @@ function bankSlots(
   });
 }
 
-function pickAdPunchStyles(intent: MusicIntentV1 | null, genre: string, seed: string): AdPunchStyle[] {
-  const lane = moodLane(intent, genre);
-  const order = LANE_ALLOW[lane];
-  const allowed = new Set(order);
-  const wanted = intentTags(intent);
-  const rank = (id: AdPunchStyle) => {
-    const idx = order.indexOf(id);
-    return idx < 0 ? 999 : idx;
-  };
-  return [...AD_PUNCH_META]
-    .filter(item => allowed.has(item.id))
-    .sort((a, b) => {
-      const laneDiff = rank(a.id) - rank(b.id);
-      if (laneDiff) return laneDiff;
-      const diff = scoreTags(b.tags, wanted) - scoreTags(a.tags, wanted);
-      if (diff) return diff;
-      return hashPick(seed, a.id, 997) - hashPick(seed, b.id, 997);
-    })
-    .map(item => item.id);
-}
-
 function adPunchSlot(
   style: AdPunchStyle,
   index: number,
@@ -221,14 +172,25 @@ function adPunchSlot(
   };
 }
 
-export function recommendCreativesPack(profile: CreativeProfileV1, generation = 0): CreativesPackSlot[] {
+/**
+ * What the brain understood about this song: how it sounds (intent), what the creator said it is (genre),
+ * and what it says (lyric mood, in its language). The recommendation and the feedback log both use this,
+ * so what we learn from is exactly what we decided on.
+ */
+export function readSong(profile: CreativeProfileV1) {
   const analysis = profile.musicAnalysis.status === 'ready' ? profile.musicAnalysis.result : null;
   const intent = analysis ? deriveMusicIntent(analysis) : null;
   const genre = profile.creator.primaryGenre.value || '';
-  const mood = lyricMood(profile.approvedLyrics?.cues ?? [], profile.approvedLyrics?.language);
+  const language = profile.approvedLyrics?.language;
+  const mood = lyricMood(profile.approvedLyrics?.cues ?? [], language);
   const genreLocked = GOSPEL_GENRE.test(genre.toLowerCase()) || CLUB_GENRE.test(genre.toLowerCase());
   const lane = laneFromLyrics(moodLane(intent, genre), genreLocked, mood);
-  const seed = `${profile.clip.sourceSha256}:${profile.videoType}:${generation}:${lane}`;
+  return { intent, genre, language, mood, lane };
+}
+
+export function recommendCreativesPack(profile: CreativeProfileV1, generation = 0): CreativesPackSlot[] {
+  const { intent, mood, lane } = readSong(profile);
+  const seed = `${profile.clip.sourceSha256}:${generation}:${lane}`;
 
   const withPhoto = NOIR_LANES.includes(lane);
   const slots = bankSlots(lane, mood.theme, intent, seed, withPhoto ? 7 : 8);

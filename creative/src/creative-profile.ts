@@ -87,7 +87,6 @@ export interface CreativeProfileV1 {
     artist?: { value: string; source: 'embedded_metadata' | 'creator' };
     creativeDirection?: { value: string; source: 'creator' };
   };
-  videoType: 'lyric' | 'visual';
   musicAnalysis: MusicAnalysisState;
   /** Timed words the creator reviewed. `language` is an ISO 639 code; `origin` says whether we heard them or the creator typed them. */
   approvedLyrics?: { cues: LyricCue[]; source: 'creator_reviewed'; language?: string; origin: 'transcribed' | 'typed' };

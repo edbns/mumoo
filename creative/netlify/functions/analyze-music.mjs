@@ -1,4 +1,4 @@
-import { validAccess } from './brain-gateway.mjs';
+import { validAccess } from '../lib/access.mjs';
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
 const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const MODAL_ENDPOINT = 'https://edbns-mumoo-staging--mumoo-music-analysis-staging-analyze-clip.us-east.modal.run';

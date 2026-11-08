@@ -50,7 +50,7 @@ test('song → clip + lyrics → edit and sync again → creatives', { timeout: 
 
     // Continue → the music analysis of this exact clip is requested and creatives are recommended.
     await next.click();
-    await page.getByRole('button', { name: /Mumoo creatives/ }).click();
+    assert.equal(await page.getByText('Upload media').count(), 0, 'no Director gate any more');
     await page.getByRole('heading', { name: /recommended creatives/ }).waitFor({ timeout: 30000 });
     await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length === 8, null, { timeout: 30000 });
     assert.equal(analysisCalls.length, 1);

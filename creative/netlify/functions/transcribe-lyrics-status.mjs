@@ -1,4 +1,4 @@
-import { validAccess } from './brain-gateway.mjs';
+import { validAccess } from '../lib/access.mjs';
 
 /** Poll a lyrics job: 202 while running, 200 + JSON words when done. */
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';

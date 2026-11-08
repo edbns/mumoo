@@ -29,8 +29,7 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   };
 }
 
-function compositionFor(slot: CreativesPackSlot, base: Composition, _music: ImpactMusic | null): Composition {
-  void slot;
+function compositionFor(base: Composition): Composition {
   return { ...base, dailyScreen: undefined, lyricImpact: undefined };
 }
 
@@ -72,7 +71,7 @@ function yieldFrame() {
 
 export function CreativesPackStudio({
   profile, composition, audio, token, position, getPosition, playing, playbackError,
-  onPlay, onStop, onBack, onUploadMedia,
+  onPlay, onStop, onBack,
 }: {
   profile: CreativeProfileV1;
   composition: Composition;
@@ -86,7 +85,6 @@ export function CreativesPackStudio({
   onStop: () => void;
   onSeek?: (ms: number) => void;
   onBack: () => void;
-  onUploadMedia: () => void;
 }) {
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const [generation, setGeneration] = useState(0);
@@ -103,7 +101,7 @@ export function CreativesPackStudio({
   const music = useMemo(() => impactMusic(profile), [profile.musicAnalysis]);
   const pack = useMemo(
     () => recommendCreativesPack(profile, generation),
-    [profile.clip.sourceSha256, profile.videoType, profile.musicAnalysis, generation],
+    [profile.clip.sourceSha256, profile.musicAnalysis, profile.approvedLyrics, generation],
   );
   const packKey = pack.map(item => item.id).join('|');
   const cueKey = JSON.stringify(lyricsFor(composition));
@@ -112,8 +110,7 @@ export function CreativesPackStudio({
     [profile.musicAnalysis],
   );
   const fallbackText = useMemo(() => adPunchFallbackText(profile, intent), [profile, intent]);
-  const approved = profile.videoType === 'visual'
-    || Boolean(profile.approvedLyrics?.source === 'creator_reviewed' && profile.approvedLyrics.cues.length);
+  const approved = Boolean(profile.approvedLyrics?.cues.length);
   const activeId = playingId || pack[0]?.id || null;
   const activeSlot = pack.find(item => item.id === activeId) ?? pack[0];
   const getPositionRef = useRef(getPosition ?? (() => position));
@@ -148,7 +145,7 @@ export function CreativesPackStudio({
     setPlayingId(null);
     setShelfReady(false);
     setShelfStatus('Preparing creatives…');
-  }, [generation, profile.clip.sourceSha256, profile.videoType]);
+  }, [generation, profile.clip.sourceSha256]);
 
   // Tear down shared WebGL when leaving the pack screen.
   useEffect(() => () => destroySharedPackRenderer(), []);
@@ -175,7 +172,7 @@ export function CreativesPackStudio({
         try {
           await blitPackFrame(
             canvas,
-            packOpts(slot, compositionFor(slot, base, impact), impact, fallback, paintArgsRef.current.plateUrl),
+            packOpts(slot, compositionFor(base), impact, fallback, paintArgsRef.current.plateUrl),
             slot.bankId ? posterFrame(lyricsFor(base)) : 0,
           );
         } catch (cause) {
@@ -203,7 +200,7 @@ export function CreativesPackStudio({
     if (!canvas) return;
     let alive = true;
     let raf = 0;
-    const edit = compositionFor(slot, composition, music);
+    const edit = compositionFor(composition);
     const opts = packOpts(slot, edit, music, fallbackText, plateUrl);
     let painting = false;
     let lastFrame = -1;
@@ -239,7 +236,7 @@ export function CreativesPackStudio({
     const slot = pack[index];
     const canvas = canvasRefs.current[index];
     if (!canvas) return;
-    void blitPackFrame(canvas, packOpts(slot, compositionFor(slot, composition, music), music, fallbackText, plateUrl), slot.bankId ? posterFrame(lyricsFor(composition)) : 0)
+    void blitPackFrame(canvas, packOpts(slot, compositionFor(composition), music, fallbackText, plateUrl), slot.bankId ? posterFrame(lyricsFor(composition)) : 0)
       .catch(cause => setError(friendlyError(cause, 'Preview failed (WebGL).')));
   }
 
@@ -289,7 +286,7 @@ export function CreativesPackStudio({
         const id = await submitCloudJob({
           token,
           wav,
-          opts: packOpts(slot, compositionFor(slot, composition, music), music, fallbackText, plateUrl),
+          opts: packOpts(slot, compositionFor(composition), music, fallbackText, plateUrl),
           plateUrl,
         });
         jobs.push({ slot, id });
@@ -341,7 +338,6 @@ export function CreativesPackStudio({
     <p className="intro">Same cleared photo under finished looks ranked for this song. The shelf stays hidden until every creative is ready. Downloads render in the cloud, so your computer stays free.</p>
     <div className="trim-actions">
       <button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back</button>
-      <button className="secondary" disabled={progress !== undefined} onClick={onUploadMedia}>Cut my footage instead</button>
       {shelfReady && (
         <button
           className="secondary"
@@ -423,38 +419,5 @@ export function CreativesPackStudio({
     )}
     {progress !== undefined && <p role="status">{progressLabel || 'Working…'} · {progress}%</p>}
     {activeSlot && shelfReady && <span className="visually-hidden">Previewing creative {pack.findIndex(item => item.id === activeSlot.id) + 1}</span>}
-  </section></main>;
-}
-
-export function CreativesGate({
-  videoType, onUploadMedia, onProceed, onBack,
-}: {
-  videoType: 'lyric' | 'visual';
-  onUploadMedia: () => void;
-  onProceed: () => void;
-  onBack: () => void;
-}) {
-  return <main className="desktop gallery-page studio-shell"><section className="gallery-shell panel">
-    <p className="eyebrow">Creatives</p>
-    <h1>Build your pack</h1>
-    <p className="intro">
-      {videoType === 'lyric'
-        ? 'Upload your own clips for a Director cut, or continue into Mumoo creatives ranked for this song.'
-        : 'Visual-only skips lyric sync. Upload footage for Director, or open recommended music creatives.'}
-    </p>
-    <div className="gate-actions">
-      <button type="button" className="gate-card" onClick={onUploadMedia}>
-        <strong>Upload media</strong>
-        <span>Director cut timed to your track — your files only.</span>
-      </button>
-      <button type="button" className="gate-card" onClick={onProceed}>
-        <strong>Mumoo creatives</strong>
-        <span>Recommended Meta-ready plates for this song.</span>
-      </button>
-    </div>
-    <div className="trim-actions">
-      <button className="secondary" onClick={onBack}>Back</button>
-    </div>
-    <p className="hint">Director uses only files you upload — no stock internet footage.</p>
   </section></main>;
 }

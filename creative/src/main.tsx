@@ -1,14 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { decodeAudio, hashAudio, probeDurationMs } from './audio';
 import { ACCEPTED_AUDIO, ACCEPTED_LABEL, readSongTags, sniffAudioFormat, type SongTags } from './audio-format';
 import { DURATION_MS, validate, type Composition } from './composition';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { MusicAnalysisRunner } from './music-analysis-runner';
-import { MediaStudio } from './media-studio';
-import { CreativesGate, CreativesPackStudio } from './creatives-pack-studio';
-import { MediaAdmin } from './media-admin';
-import { CatalogResearch } from './catalog-research';
+import { CreativesPackStudio } from './creatives-pack-studio';
 import { StagingAccess } from './staging-access';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 import { LyricsStudio } from './lyrics-studio';
@@ -27,24 +24,17 @@ const GENRES = [
   'Rap / Hip-hop', 'Reggae', 'Rock', 'Techno', 'Trap', 'World', 'Other / Not sure',
 ];
 
-type CreativesStage = 'gate' | 'director' | 'pack';
-
-/** Every MUMOO video is a lyric video. */
-const videoType = 'lyric' as const;
-
 const clock = (ms: number) => `${Math.floor(ms / 60_000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
 function App() {
   const [accessToken, setAccessToken] = useState('');
-  const [editingVisual, setEditingVisual] = useState(false);
-  const [creativesStage, setCreativesStage] = useState<CreativesStage>('gate');
+  const [inCreatives, setInCreatives] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [genre, setGenre] = useState('');
   const [influence, setInfluence] = useState('');
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
   const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
-  const [analysisAttempt, setAnalysisAttempt] = useState(0);
   const currentClip = useRef<ClipIdentity | null>(null);
   const selectedGenre = GENRES.find(item => item.toLowerCase() === genre.trim().toLowerCase());
   const genreValid = Boolean(selectedGenre);
@@ -74,8 +64,7 @@ function App() {
   const clipValid = Boolean(buffer && Number.isSafeInteger(composition.clipStartMs) &&
     composition.clipStartMs >= 0 && composition.clipStartMs <= buffer.duration * 1000 - DURATION_MS);
   const clip: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: DURATION_MS };
-  const activeComposition = composition;
-  const profile: CreativeProfileV1 | null = clipValid && genreValid ? {
+    const profile: CreativeProfileV1 | null = clipValid && genreValid ? {
     version: 1,
     clip,
     creator: {
@@ -84,14 +73,13 @@ function App() {
       ...(songTags?.title && { title: { value: songTags.title, source: 'embedded_metadata' as const } }),
       ...(songTags?.artist && { artist: { value: songTags.artist, source: 'embedded_metadata' as const } }),
     },
-    videoType,
     musicAnalysis: analysisForClip(musicAnalysis, clip),
-    ...(editingVisual && { approvedLyrics: { cues: composition.cues, source: 'creator_reviewed' as const, ...lyricsInfo } }),
+    ...(inCreatives && { approvedLyrics: { cues: composition.cues, source: 'creator_reviewed' as const, ...lyricsInfo } }),
   } : null;
   const valid = (() => {
     if (!buffer) return false;
     try {
-      validate(activeComposition, buffer.duration * 1000);
+      validate(composition, buffer.duration * 1000);
       return true;
     } catch {
       return false;
@@ -114,7 +102,7 @@ function App() {
     stop();
     setBuffer(undefined);
     setSongTags(undefined);
-    setEditingVisual(false);
+    setInCreatives(false);
     setStep(1);
     setLyricsState({ busy: false, dirty: false });
     setLyricsInfo({ origin: 'transcribed' });
@@ -190,16 +178,15 @@ function App() {
     setComposition(current => ({ ...current, clipStartMs, cues: current.clipStartMs === clipStartMs ? current.cues : [] }));
   }
 
-  function openStage(visual: boolean) {
+  function openCreatives(open: boolean) {
     stop();
     seekTo(0);
-    if (visual) setCreativesStage('gate');
-    setEditingVisual(visual);
+    setInCreatives(open);
   }
 
   return <>
     <header className="masthead"><img src="/brand/mumoo-logo.png" alt="mumoo" width="144" height="36" /><span>Creative Studio</span></header>
-    {!editingVisual ? <main className="desktop trim">
+    {!inCreatives ? <main className="desktop trim">
       <section>
         <p className="eyebrow">0{step} / {step === 1 ? 'MUSIC' : 'YOUR CLIP'}</p>
         <h1>{step === 1 ? 'Upload your song' : 'Choose your 15 seconds'}</h1>
@@ -233,33 +220,16 @@ function App() {
           <div className="trim-actions step-actions">
             <button className="secondary" onClick={() => { stop(); setStep(1); }}>Back</button>
             <button className="primary-accent" disabled={!valid || !clipValid || !genreValid || composition.cues.length === 0 || lyricsState.busy || lyricsState.dirty}
-              onClick={() => { stop(); openStage(true); }}>Continue</button>
+              onClick={() => openCreatives(true)}>Continue</button>
             {lyricsState.dirty && <span className="hint">Sync your edits first.</span>}
           </div>
         </>}
         {step === 2 && (error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
       </section>
     </main> : profile && buffer && (
-      creativesStage === 'gate' ? <CreativesGate
-        videoType={videoType}
-        onBack={() => openStage(false)}
-        onUploadMedia={() => { stop(); setCreativesStage('director'); }}
-        onProceed={() => { stop(); setCreativesStage('pack'); }}
-      /> : creativesStage === 'director' ? <MediaStudio
+      <CreativesPackStudio
         profile={profile}
-        composition={activeComposition}
-        audio={buffer}
-        token={accessToken}
-        position={position}
-        playing={playing}
-        playbackError={error}
-        onPlay={() => void play()}
-        onStop={stop}
-        onBack={() => { stop(); setCreativesStage('gate'); }}
-        onRetry={() => { setMusicAnalysis(NO_ANALYSIS); setAnalysisAttempt(n => n + 1); }}
-      /> : <CreativesPackStudio
-        profile={profile}
-        composition={activeComposition}
+        composition={composition}
         audio={buffer}
         token={accessToken}
         position={position}
@@ -268,16 +238,14 @@ function App() {
         playbackError={error}
         onPlay={() => void play()}
         onStop={stop}
-        onBack={() => { stop(); setCreativesStage('gate'); }}
-        onUploadMedia={() => { stop(); setCreativesStage('director'); }}
+        onBack={() => openCreatives(false)}
       />
     )}
-    {buffer && clipValid && IS_ALIGNMENT_STAGING && (composition.cues.length > 0 || editingVisual) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs + ':' + analysisAttempt}
+    {buffer && clipValid && IS_ALIGNMENT_STAGING && (composition.cues.length > 0 || inCreatives) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs}
       audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} accessToken={accessToken} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}
 
     <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>
   </>;
 }
 
-const params = new URLSearchParams(location.search);
-createRoot(document.getElementById('root')!).render(IS_ALIGNMENT_STAGING && params.get('catalog-research') === '1' ? <CatalogResearch /> : IS_ALIGNMENT_STAGING && params.get('media-admin') === '1' ? <MediaAdmin /> : <App />);
+createRoot(document.getElementById('root')!).render(<App />);

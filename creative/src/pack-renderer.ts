@@ -113,7 +113,7 @@ export async function createPackRenderer(
     const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
     if (!gl) throw new Error('WebGL is unavailable for creatives.');
 
-    scene = createPackScene(app);
+    scene = createPackScene();
     app.stage.addChild(scene.root);
 
     return {

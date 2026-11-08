@@ -1,24 +1,18 @@
-import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
+import { validAccess } from '../lib/access.mjs';
 
 const SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const ORIGIN = 'https://mumoo-staging.netlify.app';
 const LIMIT = 4096;
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
 
-function validAccess(token, key, now = Math.floor(Date.now() / 1000)) {
-  if (typeof key !== 'string' || key.length < 32 || !/^\d{10}\.[a-f0-9]{64}$/.test(token)) return false;
-  const [expiry, signature] = token.split('.');
-  if (Number(expiry) <= now || Number(expiry) > now + 86400) return false;
-  const expected = createHmac('sha256', key).update(`mumoo-brain-staging:${expiry}`).digest();
-  const supplied = Buffer.from(signature, 'hex');
-  return supplied.length === expected.length && timingSafeEqual(supplied, expected);
-}
-
 function validBody(v) {
   if (!v || typeof v !== 'object' || v.version !== 1) return false;
   if (!['play', 'select', 'download'].includes(v.event)) return false;
   if (typeof v.clipSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(v.clipSha256)) return false;
-  if (!['lyric', 'visual'].includes(v.videoType)) return false;
+  if (v.language !== null && !(typeof v.language === 'string' && /^[a-z]{2,3}$/.test(v.language))) return false;
+  if (v.lyricTheme !== null && !['faith', 'sorrow', 'love', 'party', 'rage', 'neutral'].includes(v.lyricTheme)) return false;
+  if (v.lyricsOrigin !== null && !['transcribed', 'typed'].includes(v.lyricsOrigin)) return false;
   if (typeof v.primaryGenre !== 'string' || !v.primaryGenre.trim() || v.primaryGenre.length > 80) return false;
   if (v.vibe !== null && typeof v.vibe !== 'string') return false;
   if (typeof v.lane !== 'string' || v.lane.length > 24) return false;
@@ -50,7 +44,9 @@ async function processRequest(request) {
     time: new Date().toISOString(),
     feedback: data.event,
     clipSha256: data.clipSha256,
-    videoType: data.videoType,
+    language: data.language,
+    lyricTheme: data.lyricTheme,
+    lyricsOrigin: data.lyricsOrigin,
     primaryGenre: data.primaryGenre,
     vibe: data.vibe,
     lane: data.lane,

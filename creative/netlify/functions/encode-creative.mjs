@@ -1,4 +1,4 @@
-import { validAccess } from './brain-gateway.mjs';
+import { validAccess } from '../lib/access.mjs';
 
 /**
  * Submit a cloud render job. Tiny request (≈960 KB WAV + JSON); returns a job id at once.

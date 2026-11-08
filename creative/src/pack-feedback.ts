@@ -1,7 +1,6 @@
 import type { CreativeProfileV1 } from './creative-profile';
 import type { CreativesPackSlot } from './creatives-pack';
-import { moodLane } from './creatives-pack';
-import { deriveMusicIntent } from './music-intent';
+import { readSong } from './creatives-pack';
 
 export type PackFeedbackEvent = 'play' | 'select' | 'download';
 
@@ -14,15 +13,17 @@ export function reportPackFeedback(
   extras?: { selectedIds?: string[]; generation?: number },
 ) {
   if (!token) return;
-  const intent = profile.musicAnalysis.status === 'ready' ? deriveMusicIntent(profile.musicAnalysis.result) : null;
+  const { intent, genre, language, mood, lane } = readSong(profile);
   const body = {
     version: 1,
     event,
     clipSha256: profile.clip.sourceSha256,
-    videoType: profile.videoType,
-    primaryGenre: profile.creator.primaryGenre.value,
+    primaryGenre: genre,
     vibe: intent?.vibe ?? null,
-    lane: moodLane(intent, profile.creator.primaryGenre.value),
+    lane,
+    language: language ?? null,
+    lyricTheme: mood.read ? mood.theme : null,
+    lyricsOrigin: profile.approvedLyrics?.origin ?? null,
     slot: {
       id: slot.id,
       style: slot.style,

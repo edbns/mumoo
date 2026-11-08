@@ -2,7 +2,7 @@
  * Pixi pack scenes — WebGL design surface for Creatives Pack.
  * Canvas is only the blit/encode buffer (via Application canvas).
  */
-import { Container, Graphics, Sprite, Text, type Application } from 'pixi.js';
+import { Container, Graphics, Sprite, Text } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
 import { META_SAFE_BOTTOM } from './ad-punch';
 import { fitPackLines } from './pack-text';
@@ -66,7 +66,7 @@ export type PackScene = {
 };
 
 /** Build the pack scene graph once; update() mutates for each frame. */
-export function createPackScene(_app: Application): PackScene {
+export function createPackScene(): PackScene {
   const root = new Container();
   const photo = new Sprite();
   photo.anchor.set(0.5);

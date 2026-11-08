@@ -1,4 +1,4 @@
-import { validAccess } from './brain-gateway.mjs';
+import { validAccess } from '../lib/access.mjs';
 
 /**
  * Start a lyrics job (transcribe + time words, any language). Tiny request: a 15 s mono 16 kHz WAV

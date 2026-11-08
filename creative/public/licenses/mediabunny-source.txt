@@ -1,3 +1,0 @@
-The MP4 exporter includes Mediabunny 1.65.1 under the Mozilla Public License 2.0.
-Corresponding upstream source is included in the published package:
-https://registry.npmjs.org/mediabunny/-/mediabunny-1.65.1.tgz
