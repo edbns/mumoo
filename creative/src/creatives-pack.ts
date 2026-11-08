@@ -20,7 +20,7 @@ import { AD_PUNCH_META, type AdPunchStyle } from './ad-punch';
 import bankData from './look-lab/bank.json';
 import { laneFromLyrics, lyricMood } from './lyric-mood';
 import { TYPE_STYLES, type TypeStyleId } from './pack-type';
-import { coverFit, type LookRead } from './look-fit';
+import { coverFit, diversify, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
 
 type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[]; read: LookRead };
@@ -89,6 +89,15 @@ const SOFT_FONTS: readonly AdFont[] = ['Abril Fatface', 'Oswald', 'Bebas Neue'];
 
 const NOIR_LANES: readonly MoodLane[] = ['quiet', 'dark', 'techno'];
 
+/**
+ * Which tagged looks a lane may draw from. Club music is not one colour: a techno or house song also
+ * suits the energetic party looks, so its pool is wide enough to have real variety.
+ */
+const LANE_POOL: Partial<Record<MoodLane, readonly string[]>> = {
+  techno: ['techno', 'party'],
+  party: ['party', 'techno'],
+};
+
 function seededOrder<T>(items: readonly T[], seed: string, key: (item: T) => string): T[] {
   return [...items].sort((a, b) => hashPick(seed, key(a), 99991) - hashPick(seed, key(b), 99991));
 }
@@ -102,7 +111,8 @@ function bankSlots(
   count: number,
   cover: CoverRead | null,
 ): CreativesPackSlot[] {
-  let looks = BANK_LOOKS.filter(look => look.lanes.includes(lane));
+  const pool = LANE_POOL[lane] ?? [lane];
+  let looks = BANK_LOOKS.filter(look => look.lanes.some(tag => pool.includes(tag)));
   if (!looks.length) looks = BANK_LOOKS.filter(look => look.lanes.includes('general'));
   // A sad or angry song never sits on a sunny background ("match" policy).
   if (themeLabel === 'sorrow' || themeLabel === 'rage') {
@@ -110,10 +120,13 @@ function bankSlots(
     if (deep.length >= 3) looks = deep;
   }
   // With a cover, backgrounds closest to its colours lead; the seed still shuffles near-equal ones between generations.
-  const backgrounds = cover
+  const ranked = cover
     ? [...looks].sort((a, b) => (coverFit(cover, b.read) + hashPick(seed, b.slug, 1000) / 4000)
       - (coverFit(cover, a.read) + hashPick(seed, a.slug, 1000) / 4000))
     : seededOrder(looks, seed, look => look.slug);
+  // The cards must look different from each other: one per effect, at most two per colour family.
+  // A cover is the creator's own colour identity, so it may fill more of the shelf with its family.
+  const backgrounds = diversify(ranked, cover ? 4 : 2);
   const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), seed, id => id);
   const pairs: { look: BankLook; type: TypeStyleId }[] = [];
   const used = new Set<string>();

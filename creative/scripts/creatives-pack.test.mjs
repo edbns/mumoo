@@ -117,3 +117,24 @@ test('the cover decides which backgrounds lead: warm cover → warm looks, cool 
     assert.equal(pack.recommendCreativesPack(profile('Pop')).length, 8);
   } finally { await server.close(); }
 });
+
+test('club songs get cards that look different: one per effect, at most two per colour family', async () => {
+  const { server, pack } = await load();
+  try {
+    const { default: bank } = await server.ssrLoadModule('/src/look-lab/bank.json');
+    const { colorFamily, effectFamily } = await server.ssrLoadModule('/src/look-fit.ts');
+    const look = slug => bank.find(item => item.slug === slug);
+    for (const genre of ['House', 'Techno', 'Slap House', 'EDM']) {
+      for (let generation = 0; generation < 12; generation++) {
+        const cards = pack.recommendCreativesPack(profile(genre, 'hello', 'b'.repeat(64)), generation).filter(slot => slot.bankId);
+        const backgrounds = cards.map(slot => look(slot.bankId));
+        const effects = backgrounds.map(item => effectFamily(item.slug));
+        assert.equal(new Set(effects).size, effects.length, `${genre} #${generation} repeats an effect: ${effects}`);
+        const families = backgrounds.map(item => colorFamily(item.read));
+        const counts = families.reduce((all, name) => ({ ...all, [name]: (all[name] ?? 0) + 1 }), {});
+        assert.ok(Math.max(...Object.values(counts)) <= 2, `${genre} #${generation} leans on one colour: ${JSON.stringify(counts)}`);
+        assert.ok(new Set(families).size >= 4, `${genre} #${generation} has too few colour families: ${families}`);
+      }
+    }
+  } finally { await server.close(); }
+});

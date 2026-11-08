@@ -28,3 +28,38 @@ export function coverFit(cover: CoverRead, look: LookRead): number {
     + 0.15 * (1 - Math.abs(cover.saturation - look.saturation))
     + 0.15 * (1 - Math.abs(cover.warmth - look.warmth));
 }
+
+/** Colour family of a background as the eye reads it: very dark ones are one family whatever their tint. */
+export function colorFamily(read: LookRead): string {
+  if (read.lightness < 0.15) return 'dark';
+  if (read.hue === null || read.saturation < 0.2) return 'neutral';
+  const hue = read.hue;
+  if (hue >= 340 || hue < 50) return 'red-orange';
+  if (hue < 170) return 'yellow-green';
+  if (hue < 255) return 'cyan-blue';
+  if (hue < 300) return 'violet';
+  return 'pink';
+}
+
+/** Backgrounds made by the same effect (`network-lights`, `network-lights-3`…) look alike even when numbered apart. */
+export const effectFamily = (slug: string) => slug.replace(/-\d+$/, '');
+
+/**
+ * Put backgrounds in an order whose first cards are as different as possible: one per effect and at most
+ * `perColor` per colour family. Whatever cannot satisfy that keeps its original order after them, so the
+ * input order (cover fit, or the seeded shuffle) still decides among equally different candidates.
+ */
+export function diversify<T extends { slug: string; read: LookRead }>(ordered: readonly T[], perColor = 2): T[] {
+  const first: T[] = [];
+  const effects = new Set<string>();
+  const colors = new Map<string, number>();
+  for (const look of ordered) {
+    const effect = effectFamily(look.slug);
+    const color = colorFamily(look.read);
+    if (effects.has(effect) || (colors.get(color) ?? 0) >= perColor) continue;
+    effects.add(effect);
+    colors.set(color, (colors.get(color) ?? 0) + 1);
+    first.push(look);
+  }
+  return [...first, ...ordered.filter(look => !first.includes(look))];
+}
