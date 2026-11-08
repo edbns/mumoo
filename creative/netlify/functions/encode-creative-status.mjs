@@ -56,5 +56,3 @@ export default async function encodeCreativeStatus(request) {
     return error(504, 'The cloud render worker did not respond in time.');
   }
 }
-
-export const config = { rateLimit: { windowSize: 60, windowLimit: 240, aggregateBy: ['ip'] } };

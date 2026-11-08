@@ -42,9 +42,6 @@ worker_image = (
         "clip = np.zeros(330750, dtype=np.float32); clip[2000::11025] = 1; features(clip)\"",
     )
 )
-rate_state = modal.Dict.from_name("mumoo-music-staging-rate-v2", create_if_missing=True)
-DAILY_LIMIT = 120
-PER_MINUTE_LIMIT = 8
 has_processed = False
 
 
@@ -57,7 +54,7 @@ def log_stage(stage, event, started=None):
 
 
 @app.function(image=worker_image, cpu=(1, 1), memory=(2048, 2048), min_containers=0,
-              max_containers=1, scaledown_window=8, timeout=45)
+              max_containers=10, scaledown_window=8, timeout=45)
 def analyze_selected(audio: bytes):
     log_stage("worker_input", "start")
     started = time.perf_counter()
@@ -92,7 +89,7 @@ def music_authorized(access, supplied, signing_key, bridge, now=None):
     return bridged or legacy
 
 
-@app.function(image=gateway_image, cpu=0.125, memory=128, min_containers=0, max_containers=1,
+@app.function(image=gateway_image, cpu=0.125, memory=128, min_containers=0, max_containers=10,
               scaledown_window=5, timeout=53, secrets=[modal.Secret.from_name("mumoo-music-staging-access"), modal.Secret.from_name("mumoo-music-bridge")])
 @modal.fastapi_endpoint(method="POST", docs=False)
 async def analyze_clip(request: Request):
@@ -110,11 +107,6 @@ async def analyze_clip(request: Request):
         body.extend(chunk)
     if len(body) != WAV_SIZE or body[:44] != WAV_HEADER:
         raise HTTPException(400, "Expected exactly 15 seconds of mono PCM WAV.")
-    now = time.time()
-    recent = [stamp for stamp in await rate_state.get.aio("requests", []) if now - stamp < 86400]
-    if len(recent) >= DAILY_LIMIT or sum(now - stamp < 60 for stamp in recent) >= PER_MINUTE_LIMIT:
-        raise HTTPException(429, "The shared staging music-analysis limit was reached.")
-    await rate_state.put.aio("requests", [*recent, now])
     try:
         log_stage("worker_dispatch", "start")
         payload = await analyze_selected.remote.aio(bytes(body))

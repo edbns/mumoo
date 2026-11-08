@@ -22,7 +22,6 @@ import re
 import struct
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 from fastapi import HTTPException, Request, Response
@@ -39,9 +38,6 @@ WAV_DATA = SAMPLE_RATE * DURATION_S * 2
 WAV_BYTES = 44 + WAV_DATA
 BODY_LIMIT = 2_000_000
 META_LIMIT = 400_000
-RATE_WINDOW = 60
-RATE_LIMIT = 12
-DAILY_LIMIT = 80
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
@@ -57,7 +53,6 @@ image = (
     .pip_install("fastapi==0.115.12", "python-multipart==0.0.20", "playwright==1.52.0")
 )
 app = modal.App(APP)
-rate_state = modal.Dict.from_name("mumoo-creatives-encode-staging-rate", create_if_missing=True)
 secret = modal.Secret.from_name("mumoo-music-bridge")
 
 
@@ -222,13 +217,6 @@ def parse_meta(raw: str) -> tuple[str, dict]:
 @modal.fastapi_endpoint(method="POST", docs=False)
 async def submit(request: Request):
     authorized(request)
-    now = time.time()
-    daily = [stamp for stamp in rate_state.get("requests", []) if now - stamp < 86_400]
-    if len(daily) >= DAILY_LIMIT:
-        raise HTTPException(429, "Daily staging render limit reached.")
-    if sum(now - stamp < RATE_WINDOW for stamp in daily) >= RATE_LIMIT:
-        raise HTTPException(429, "Render limit reached. Wait a minute and try again.")
-
     try:
         form = await request.form()
         audio_file = form.get("audio")
@@ -242,7 +230,6 @@ async def submit(request: Request):
     except (TypeError, ValueError, binascii.Error, json.JSONDecodeError, AttributeError):
         raise HTTPException(400, "Expected a 15s mono 32kHz WAV and valid render metadata.") from None
 
-    rate_state["requests"] = [*daily, now]
     call = await render_job.spawn.aio(audio, opts, plate)
     return {"id": call.object_id}
 

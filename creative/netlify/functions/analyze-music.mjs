@@ -38,5 +38,3 @@ export default async function analyzeMusic(request) {
     return error(504, 'The music analysis worker did not respond in time.');
   }
 }
-
-export const config = { rateLimit: { windowSize: 60, windowLimit: 5, aggregateBy: ['ip'] } };
