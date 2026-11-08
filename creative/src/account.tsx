@@ -14,12 +14,17 @@ const emailCode = authClient as unknown as {
 
 type Person = { email: string; lastSeenAt: string };
 
-/** Asks our server who is signed in; the server verifies the token and records the visit. */
-async function loadPerson(): Promise<Person> {
-  // Neon Auth hands the browser a signed JWT on the session (this SDK version has no separate token call).
+/** The signed JWT Neon Auth keeps on the session (this SDK version has no separate token call), or null when signed out. */
+export async function sessionToken(): Promise<string | null> {
   const { data } = await authClient.getSession();
   const token = data?.session?.token;
-  if (!token || token.split('.').length !== 3) throw new Error('Your session could not be verified.');
+  return token && token.split('.').length === 3 ? token : null;
+}
+
+/** Asks our server who is signed in; the server verifies the token and records the visit. */
+async function loadPerson(): Promise<Person> {
+  const token = await sessionToken();
+  if (!token) throw new Error('Your session could not be verified.');
   const response = await fetch('/api/account', { headers: { Authorization: `Bearer ${token}` } });
   if (!response.ok) throw new Error('Your account is unavailable right now.');
   return response.json() as Promise<Person>;

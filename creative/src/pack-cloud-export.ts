@@ -119,11 +119,13 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
 
 /** Poll until the MP4 is ready. Cheap: one tiny GET every 1.5 s, no work on this machine. */
 export async function awaitCloudJob(token: string, id: string): Promise<Blob> {
+  // Signed-in people get the finished video kept in their history; the token is good for far longer than a render.
+  const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
   const deadline = Date.now() + JOB_TIMEOUT_MS;
   while (Date.now() < deadline) {
     await sleep(POLL_MS);
     const response = await fetch(`/.netlify/functions/encode-creative-status?id=${encodeURIComponent(id)}`, {
-      headers: { 'x-mumoo-brain-access': token },
+      headers: { 'x-mumoo-brain-access': token, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
     });
     if (response.status === 202) continue;
     if (!response.ok) throw new Error(await errorMessage(response));

@@ -1,6 +1,9 @@
 import { validAccess } from '../lib/access.mjs';
+import { personFrom, recordPerson } from '../lib/person.mjs';
+import { saveRender } from '../lib/renders.mjs';
+import { storageReady } from '../lib/storage.mjs';
 
-/** Poll a cloud render job: 202 while running, 200 + MP4 when done. */
+/** Poll a cloud render job: 202 while running, 200 + MP4 when done. A signed-in person's finished MP4 is also kept in their history. */
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
 const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const MODAL_STATUS =
@@ -10,6 +13,19 @@ const CALL_ID = /^fc-[A-Za-z0-9]{8,48}$/;
 
 function error(status, message) {
   return Response.json({ error: message }, { status, headers });
+}
+
+/** 'saved', 'full' (over their storage allowance) or 'off' (signed out, or history unavailable). Never blocks the download. */
+async function keepForPerson(request, jobId, mp4) {
+  if (!storageReady() || !process.env.DATABASE_URL) return 'off';
+  const person = await personFrom(request);
+  if (!person) return 'off';
+  try {
+    await recordPerson(person);
+    return (await saveRender(person.id, jobId, mp4)) ? 'saved' : 'full';
+  } catch {
+    return 'off';
+  }
 }
 
 export default async function encodeCreativeStatus(request) {
@@ -37,10 +53,12 @@ export default async function encodeCreativeStatus(request) {
     if (response.ok) {
       const mp4 = await response.arrayBuffer();
       if (mp4.byteLength < 1000) return error(502, 'Cloud render returned an empty file.');
+      const kept = await keepForPerson(request, id, mp4);
       return new Response(mp4, {
         status: 200,
         headers: {
           ...headers,
+          'X-Mumoo-History': kept,
           'Content-Type': 'video/mp4',
           'Content-Disposition': 'attachment; filename="mumoo-creative.mp4"',
         },
