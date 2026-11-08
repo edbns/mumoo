@@ -21,6 +21,6 @@ Code today:
 | Plate | Pulse behavior | Props |
 |-------|----------------|-------|
 | `paper-cutout` | Layers lift / shift on beat | none / beast / scratch |
-| `pulse` | Full-bleed flash (Nosebleeds) | none / beast / scratch |
+| `pulise` | Neon red / white / black field cuts on the beat, one big word at a time | none |
 
 **Next plates from the list:** Risograph → Graphic Noir → Bauhaus/Brutal → later Low-poly with assets.

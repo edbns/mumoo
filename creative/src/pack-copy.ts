@@ -11,6 +11,9 @@ export type PackSceneInput = {
   motion?: PackMotion;
   beat: number;
   energy: number;
+  /** How many beats have passed, and the gap before the latest one (ms; 0 when unknown). */
+  beatIndex: number;
+  beatGapMs: number;
   frame: number;
   palette: AdPalette;
   layout: AdLayout;

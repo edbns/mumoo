@@ -21,7 +21,7 @@ export const PREVIEW_WIDTH = 360;
 export const PREVIEW_HEIGHT = 640;
 
 /** Bases that composite the cleared still under their graphic world. */
-const PHOTO_BASES = new Set(['pulse', 'paper-cutout', 'riso', 'noir', 'oil', 'hold']);
+const PHOTO_BASES = new Set(['paper-cutout', 'riso', 'noir', 'oil', 'hold']);
 
 export type PackRendererOpts = {
   style: AdPunchStyle;
@@ -162,7 +162,7 @@ export async function createPackRenderer(
         }
 
         const reaction = packReaction(current.music, frame);
-        const { ms, energy } = reaction;
+        const { ms, energy, beatIndex, beatGapMs } = reaction;
         const beat = calmBeat(reaction.beat, current.grade);
         if (current.grade) {
           gradeFilter.matrix = gradeMatrix(current.grade) as ColorMatrixFilter['matrix'];
@@ -177,6 +177,8 @@ export async function createPackRenderer(
           motion: current.motion,
           beat,
           energy,
+          beatIndex,
+          beatGapMs,
           frame,
           palette: current.palette,
           layout: current.layout,

@@ -34,11 +34,15 @@ export function impactFrame(cues: readonly LyricCue[], frame: number) {
 }
 
 export function impactSignals(music: ImpactMusic | null, ms: number) {
-  if (!music) return { beat: 0, energy: 0 };
+  if (!music) return { beat: 0, energy: 0, beatIndex: 0, beatGapMs: 0 };
   let recent = -Infinity;
+  let previous = -Infinity;
+  let beatIndex = 0;
   for (const beat of music.beatsMs) {
     if (beat > ms) break;
+    previous = recent;
     recent = beat;
+    beatIndex += 1;
   }
   const beat = Math.exp(-Math.max(0, ms - recent) / 110);
   let rms = 0;
@@ -46,7 +50,7 @@ export function impactSignals(music: ImpactMusic | null, ms: number) {
     if (point.timeMs > ms) break;
     rms = point.rms;
   }
-  return { beat, energy: Math.max(0, Math.min(1, rms * 3)) };
+  return { beat, energy: Math.max(0, Math.min(1, rms * 3)), beatIndex, beatGapMs: Number.isFinite(previous) ? recent - previous : 0 };
 }
 
 function clamp01(value: number) {

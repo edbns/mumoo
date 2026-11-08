@@ -4,7 +4,6 @@
  */
 import { Container, Graphics, Sprite, Text } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
-import { META_SAFE_BOTTOM } from './ad-punch';
 import { fitPackLines } from './pack-text';
 import { holdGate, type PackSceneInput } from './pack-copy';
 import { createPaperWorld, paintPaperLyrics } from './pack-paper';
@@ -13,6 +12,7 @@ import { createNoirWorld } from './pack-noir';
 import { createOilWorld } from './pack-oil';
 import { createSlamWorld } from './pack-slam';
 import { createBankWorld } from './pack-bank';
+import { createPuliseWorld } from './pack-pulise';
 
 export type { PackSceneInput } from './pack-copy';
 
@@ -83,7 +83,9 @@ export function createPackScene(): PackScene {
   const slam = createSlamWorld();
   const bank = createBankWorld();
   bank.root.visible = false;
-  root.addChild(photo, bg, world, paper.root, riso.root, noir.root, oil.root, slam.root, bank.root, props, lyrics);
+  const pulise = createPuliseWorld();
+  pulise.root.visible = false;
+  root.addChild(photo, bg, world, paper.root, riso.root, noir.root, oil.root, slam.root, bank.root, pulise.root, props, lyrics);
 
   const topBar = new Graphics();
   const bottomBar = new Graphics();
@@ -103,25 +105,10 @@ export function createPackScene(): PackScene {
     }
   }
 
-  function setPulseWorldVisible(on: boolean) {
+  function setFlatWorldVisible(on: boolean) {
     bg.visible = on;
     world.visible = on;
     if (!on) photo.visible = false;
-  }
-
-  function applyPulsePlate(input: PackSceneInput) {
-    const texture = input.plateTexture;
-    if (!texture) {
-      photo.visible = false;
-      return false;
-    }
-    photo.texture = texture;
-    const tw = Math.max(1, texture.width);
-    const th = Math.max(1, texture.height);
-    const scale = Math.max(WIDTH / tw, HEIGHT / th);
-    photo.scale.set(scale);
-    photo.visible = true;
-    return true;
   }
 
   function updateProps(input: PackSceneInput, accent: string) {
@@ -163,30 +150,6 @@ export function createPackScene(): PackScene {
     }
   }
 
-  function updatePulseLyrics(input: PackSceneInput, ink: string, accent: string) {
-    clearLyrics();
-    const fit = fitPackLines(input.phrase, input.font, 150, 920, 4);
-    const scale = (1 + input.beat * 0.1) * input.layout.scaleBias;
-    const cy = input.prop === 'beast' ? HEIGHT * 0.72 : HEIGHT * 0.48;
-    const group = new Container();
-    group.position.set(WIDTH / 2 + input.layout.driftX * 0.15, Math.min(cy, META_SAFE_BOTTOM - 80));
-    group.scale.set(scale);
-    fit.lines.forEach((line, i) => {
-      const y = (i - (fit.lines.length - 1) / 2) * fit.size * 0.88;
-      const shadow = makeText(line, input.font, fit.size, accent);
-      shadow.position.set(8, y + 8);
-      const main = makeText(line, input.font, fit.size, ink);
-      main.position.set(0, y);
-      group.addChild(shadow, main);
-    });
-    if (input.word && input.word !== input.phrase) {
-      const hot = makeText(input.word, input.fontSecondary, Math.max(44, fit.size * 0.34), accent, 0.9 + input.wordEnter * 0.1);
-      hot.position.set(0, fit.lines.length * fit.size * 0.4 + (1 - input.wordEnter) * 16);
-      group.addChild(hot);
-    }
-    lyrics.addChild(group);
-  }
-
   function updateHoldLyrics(input: PackSceneInput) {
     clearLyrics();
     const hold = holdGate(input.beat);
@@ -221,40 +184,22 @@ export function createPackScene(): PackScene {
     lyrics.addChild(group);
   }
 
-  function updatePulse(input: PackSceneInput) {
+  function updatePulise(input: PackSceneInput) {
+    setFlatWorldVisible(false);
     paper.root.visible = false;
     riso.root.visible = false;
     noir.root.visible = false;
     oil.root.visible = false;
     slam.root.visible = false;
-    setPulseWorldVisible(true);
-    const threshold = 0.48 - input.energy * 0.12;
-    const wantFlip = input.beat > threshold;
-    const flipped = wantFlip && (input.energy < 0.72 || input.frame % 2 === 0);
-    const hasPhoto = applyPulsePlate(input);
-    const plateBg = flipped ? input.palette.accent : '#050505';
-    const ink = flipped ? (hasPhoto ? '#f5f5f5' : '#050505') : '#f5f5f5';
-    const accent = flipped ? (hasPhoto ? input.palette.accent : '#f5f5f5') : input.palette.accent;
-    const barH = 10 + input.energy * 22 + input.beat * 28;
-
     bg.clear();
-    bg.rect(0, 0, WIDTH, HEIGHT);
-    if (hasPhoto) {
-      // Lighter scrim so the graded photo stays visible; still readable for type.
-      bg.fill({ color: flipped ? plateBg : '#000000', alpha: flipped ? 0.28 : 0.38 });
-    } else {
-      bg.fill({ color: plateBg });
-    }
-    holdFrame.clear();
     topBar.clear();
     bottomBar.clear();
-    topBar.rect(0, 0, WIDTH, barH);
-    topBar.fill({ color: accent });
-    bottomBar.rect(0, HEIGHT - barH, WIDTH, barH);
-    bottomBar.fill({ color: accent });
-
-    updateProps(input, accent);
-    updatePulseLyrics(input, ink, accent);
+    holdFrame.clear();
+    beast.clear();
+    beastShadow.clear();
+    scratches.clear();
+    clearLyrics();
+    pulise.update(input);
   }
 
   function updateHold(input: PackSceneInput) {
@@ -263,7 +208,7 @@ export function createPackScene(): PackScene {
     noir.root.visible = false;
     oil.root.visible = false;
     slam.root.visible = false;
-    setPulseWorldVisible(true);
+    setFlatWorldVisible(true);
     bg.clear();
     bg.rect(0, 0, WIDTH, HEIGHT);
     bg.fill({ color: input.palette.bg || '#0c0c10' });
@@ -279,7 +224,7 @@ export function createPackScene(): PackScene {
   }
 
   function updatePaper(input: PackSceneInput) {
-    setPulseWorldVisible(false);
+    setFlatWorldVisible(false);
     riso.root.visible = false;
     noir.root.visible = false;
     oil.root.visible = false;
@@ -296,7 +241,7 @@ export function createPackScene(): PackScene {
   }
 
   function updateRiso(input: PackSceneInput) {
-    setPulseWorldVisible(false);
+    setFlatWorldVisible(false);
     paper.root.visible = false;
     noir.root.visible = false;
     oil.root.visible = false;
@@ -314,7 +259,7 @@ export function createPackScene(): PackScene {
   }
 
   function updateNoir(input: PackSceneInput) {
-    setPulseWorldVisible(false);
+    setFlatWorldVisible(false);
     paper.root.visible = false;
     riso.root.visible = false;
     oil.root.visible = false;
@@ -332,7 +277,7 @@ export function createPackScene(): PackScene {
   }
 
   function updateOil(input: PackSceneInput) {
-    setPulseWorldVisible(false);
+    setFlatWorldVisible(false);
     paper.root.visible = false;
     riso.root.visible = false;
     noir.root.visible = false;
@@ -350,7 +295,7 @@ export function createPackScene(): PackScene {
   }
 
   function updateSlam(input: PackSceneInput) {
-    setPulseWorldVisible(false);
+    setFlatWorldVisible(false);
     paper.root.visible = false;
     riso.root.visible = false;
     noir.root.visible = false;
@@ -368,7 +313,7 @@ export function createPackScene(): PackScene {
   }
 
   function updateBank(input: PackSceneInput) {
-    setPulseWorldVisible(false);
+    setFlatWorldVisible(false);
     paper.root.visible = false;
     riso.root.visible = false;
     noir.root.visible = false;
@@ -390,14 +335,15 @@ export function createPackScene(): PackScene {
     update(input: PackSceneInput) {
       // Every world hides the others; the bank world is the one the legacy updaters don't know.
       bank.root.visible = input.base === 'bank';
+      pulise.root.visible = input.base === 'pulise';
       if (input.base === 'bank') updateBank(input);
+      else if (input.base === 'pulise') updatePulise(input);
       else if (input.base === 'hold') updateHold(input);
       else if (input.base === 'paper-cutout') updatePaper(input);
       else if (input.base === 'riso') updateRiso(input);
       else if (input.base === 'noir') updateNoir(input);
       else if (input.base === 'oil') updateOil(input);
-      else if (input.base === 'slam') updateSlam(input);
-      else updatePulse(input);
+      else updateSlam(input);
     },
     destroy() {
       clearLyrics();
@@ -407,6 +353,7 @@ export function createPackScene(): PackScene {
       oil.destroy();
       slam.destroy();
       bank.destroy();
+      pulise.destroy();
       root.destroy({ children: true });
     },
   };

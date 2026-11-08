@@ -2,7 +2,7 @@ import { HEIGHT } from './composition';
 
 /** What each creatives-pack style is made of; the drawing lives in pack-renderer.ts (Pixi WebGL). */
 
-export const AD_BASES = ['pulse', 'paper-cutout', 'riso', 'noir', 'oil', 'slam', 'hold', 'bank'] as const;
+export const AD_BASES = ['pulise', 'paper-cutout', 'riso', 'noir', 'oil', 'slam', 'hold', 'bank'] as const;
 export type AdBaseId = (typeof AD_BASES)[number];
 
 /** Elements that ride the beat on top of the base. */
@@ -22,9 +22,7 @@ export const AD_PUNCH_STYLES = [
   'paper-cutout',
   'paper-cutout-beast',
   'paper-cutout-scratch',
-  'pulse',
-  'pulse-beast',
-  'pulse-scratch',
+  'pulise',
   'lyric-hold',
   'bank',
 ] as const;
@@ -48,9 +46,7 @@ export const AD_PUNCH_META: {
   { id: 'paper-cutout', name: 'Paper Cutout', description: 'Cleared photo under stacked cut-paper sheets', tags: ['uplifting', 'balanced', 'saturated', 'kinetic', 'restrained'], base: 'paper-cutout', prop: 'none' },
   { id: 'paper-cutout-beast', name: 'Paper · Beast', description: 'Paper cutout plate + beast prop on the pulse', tags: ['uplifting', 'kinetic', 'high', 'saturated', 'aggressive'], base: 'paper-cutout', prop: 'beast' },
   { id: 'paper-cutout-scratch', name: 'Paper · Scratch', description: 'Paper cutout plate + scratch flares on hits', tags: ['cinematic', 'balanced', 'kinetic', 'restrained'], base: 'paper-cutout', prop: 'scratch' },
-  { id: 'pulse', name: 'Pulse', description: 'Graphic pulse plate — Nosebleeds flash', tags: ['aggressive', 'kinetic', 'high', 'dark', 'cinematic'], base: 'pulse', prop: 'none' },
-  { id: 'pulse-beast', name: 'Pulse · Beast', description: 'Pulse plate + animal head hitting with the beat', tags: ['uplifting', 'kinetic', 'high', 'saturated', 'aggressive'], base: 'pulse', prop: 'beast' },
-  { id: 'pulse-scratch', name: 'Pulse · Scratch', description: 'Pulse plate + scratches that flare on hits', tags: ['cinematic', 'dark', 'balanced', 'kinetic'], base: 'pulse', prop: 'scratch' },
+  { id: 'pulise', name: 'Pulise', description: 'Neon red and neon white cut hard on every beat, one big word at a time', tags: ['aggressive', 'kinetic', 'high', 'saturated', 'dark', 'cinematic'], base: 'pulise', prop: 'none' },
   { id: 'bank', name: 'Look Bank', description: 'Shaders Pro background + trend lyric type', tags: ['uplifting', 'balanced', 'saturated', 'kinetic', 'restrained', 'mellow', 'cinematic', 'dark', 'ambient'], base: 'bank', prop: 'none' },
   { id: 'lyric-hold', name: 'Lyric Hold', description: 'Quiet hold — no beat prop', tags: ['cinematic', 'dark', 'balanced', 'restrained', 'ambient', 'mellow'], base: 'hold', prop: 'none' },
 ];
