@@ -121,6 +121,8 @@ export type DrawContext = {
   reaction: ReturnType<typeof impactSignals>;
   enter: number;
   wordEnter: number;
+  /** Cleared still plate for punch styles (billboard / collision). */
+  plate?: CanvasImageSource;
 };
 
 export function prepareDraw(

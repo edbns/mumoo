@@ -10,6 +10,12 @@ import {
   hash01,
   lerp,
 } from './lyric-impact-motion';
+import { drawPunchPlateBackground } from './punch-plates';
+
+function fillPaperOrPlate(draw: DrawContext, paper: string) {
+  if (draw.plate) drawPunchPlateBackground(draw.ctx, draw.plate);
+  else fillScene(draw.ctx, paper);
+}
 
 export type ImpactStyleMeta = { id: ImpactVariant; name: string; description: string; accent: string; ink: string; paper: string };
 
@@ -83,7 +89,7 @@ const drawers: Record<ImpactVariant, Drawer> = {
 
   billboard(draw, meta) {
     const { ctx, state, wordEnter, reaction } = draw;
-    fillScene(ctx, meta.paper);
+    fillPaperOrPlate(draw, meta.paper);
     if (!state.word) return;
     const fit = fitImpactText(ctx, state.word.toLocaleUpperCase(), 1000, 260, 900, 2);
     const scale = lerp(1.08, 1.0, wordEnter) + reaction.beat * 0.02;
@@ -468,7 +474,7 @@ const drawers: Record<ImpactVariant, Drawer> = {
 
   collision(draw, meta) {
     const { ctx, state, enter, reaction } = draw;
-    fillScene(ctx, meta.paper);
+    fillPaperOrPlate(draw, meta.paper);
     if (!state.phrase) return;
     const parts = state.phrase.split(/\s+/).filter(Boolean);
     const mid = Math.max(1, Math.ceil(parts.length / 2));

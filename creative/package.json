@@ -4,20 +4,37 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/bake-punch-plates.mjs",
     "build": "vite build",
+    "bake:plates": "node scripts/bake-punch-plates.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts",
     "test": "node --test scripts/*.test.mjs",
-    "export": "node scripts/export.mjs"
+    "export": "node scripts/export.mjs",
+    "bake:looks": "node scripts/bake-looks.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.2.5",
+    "@fontsource/abril-fatface": "5.3.0",
+    "@fontsource/anton": "^5.2.5",
+    "@fontsource/archivo-black": "^5.2.5",
+    "@fontsource/audiowide": "5.3.0",
+    "@fontsource/bebas-neue": "5.3.0",
+    "@fontsource/dela-gothic-one": "5.3.0",
+    "@fontsource/oswald": "^5.2.5",
+    "@fontsource/outfit": "^5.2.5",
+    "@fontsource/playfair-display": "^5.3.0",
+    "@fontsource/rubik-mono-one": "^5.2.5",
+    "@fontsource/space-mono": "^5.3.0",
+    "@fontsource/work-sans": "^5.2.5",
     "@huggingface/transformers": "4.3.2",
     "fflate": "0.8.3",
     "mediabunny": "1.65.1",
+    "pixi-filters": "^6.1.5",
     "pixi.js": "8.22.0",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "svg-mesh-3d": "^1.1.0"
   },
   "devDependencies": {
     "@ffmpeg-installer/ffmpeg": "1.1.0",
@@ -26,6 +43,7 @@
     "@types/react-dom": "19.1.6",
     "eslint": "10.14.0",
     "playwright": "1.64.1",
+    "shaders": "^4.0.7",
     "typescript": "5.8.3",
     "typescript-eslint": "8.72.1",
     "vite": "6.4.5"

@@ -3,3 +3,16 @@ dist/
 *.mp4
 
 scripts/fixtures/
+
+# Lyric Punch cleared masters + baked proxies (served via public/ at build)
+punch-plates/masters/*
+!punch-plates/masters/.gitkeep
+punch-plates/out/
+public/punch-plates/
+
+# Upstream MIT reference clone — laws live in LAYOUT-LAWS.md; do not vendor their code.
+reference/LyricalStudio/
+
+# Local Netlify state and test output
+.netlify/
+tmp-*/

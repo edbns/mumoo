@@ -1,5 +1,7 @@
 import { DURATION_MS } from './composition';
 import { sameClip, type CreativeProfileV1 } from './creative-profile';
+import { joinWords } from './lyric-text';
+import { phrasesFor } from './lyric-impact-motion';
 import { deriveMusicIntent } from './music-intent';
 
 /** A compact clip-relative description of observations, never inferred emotion-as-fact. */
@@ -16,11 +18,12 @@ export function buildVisionMusicProfile(profile: CreativeProfileV1) {
   }
   const mean = (items: number[]) => items.length ? Math.round((items.reduce((s, n) => s + n, 0) / items.length) * 1000000) / 1000000 : null;
   const timed = (values: number[]) => values.filter((n, i) => Number.isSafeInteger(n) && n >= 0 && n < DURATION_MS && (i === 0 || n >= values[i - 1])).slice(0, 1000);
+  // The director plans by phrase, not by word: a 15 s clip can hold 100+ words but only a few phrases.
   const lyricCues = profile.videoType === 'lyric' && Array.isArray(profile.approvedLyrics?.cues)
-    ? profile.approvedLyrics.cues
-      .filter(cue => cue && typeof cue.text === 'string' && cue.text.trim() && Number.isSafeInteger(cue.startMs) && Number.isSafeInteger(cue.endMs) && cue.startMs >= 0 && cue.endMs > cue.startMs && cue.endMs <= DURATION_MS)
+    ? phrasesFor(profile.approvedLyrics.cues
+      .filter(cue => cue && typeof cue.text === 'string' && cue.text.trim() && Number.isSafeInteger(cue.startMs) && Number.isSafeInteger(cue.endMs) && cue.startMs >= 0 && cue.endMs > cue.startMs && cue.endMs <= DURATION_MS))
       .slice(0, 40)
-      .map(cue => ({ text: cue.text.trim().slice(0, 120), startMs: cue.startMs, endMs: cue.endMs }))
+      .map(phrase => ({ text: joinWords(phrase.words.map(word => word.text.trim())).slice(0, 120), startMs: phrase.startMs, endMs: phrase.words[phrase.words.length - 1].endMs }))
     : [];
   const intent = deriveMusicIntent(a);
   return { version: 1 as const, durationMs: DURATION_MS, clipSha256: a.clip.sha256,

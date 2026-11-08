@@ -42,7 +42,9 @@ worker_image = (
         "clip = np.zeros(330750, dtype=np.float32); clip[2000::11025] = 1; features(clip)\"",
     )
 )
-rate_state = modal.Dict.from_name("mumoo-music-staging-rate", create_if_missing=True)
+rate_state = modal.Dict.from_name("mumoo-music-staging-rate-v2", create_if_missing=True)
+DAILY_LIMIT = 120
+PER_MINUTE_LIMIT = 8
 has_processed = False
 
 
@@ -110,7 +112,7 @@ async def analyze_clip(request: Request):
         raise HTTPException(400, "Expected exactly 15 seconds of mono PCM WAV.")
     now = time.time()
     recent = [stamp for stamp in await rate_state.get.aio("requests", []) if now - stamp < 86400]
-    if len(recent) >= 30 or sum(now - stamp < 60 for stamp in recent) >= 3:
+    if len(recent) >= DAILY_LIMIT or sum(now - stamp < 60 for stamp in recent) >= PER_MINUTE_LIMIT:
         raise HTTPException(429, "The shared staging music-analysis limit was reached.")
     await rate_state.put.aio("requests", [*recent, now])
     try:

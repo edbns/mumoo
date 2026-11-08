@@ -21,7 +21,7 @@ export function directorExecutionEdit(clip: ClipIdentity, blueprint: unknown, lo
   if (clip.durationMs !== DURATION_MS || composition.sourceSha256 !== clip.sourceSha256 || composition.clipStartMs !== clip.offsetMs) throw new Error('The director plan does not match the selected music.');
   if (!blueprint || typeof blueprint !== 'object') throw new Error('Director plan unavailable.');
   const b = blueprint as Record<string, unknown>;
-  if (b.version !== 1 || b.status !== 'ready' || b.scope !== 'staging-test-only' || b.durationMs !== DURATION_MS || !Array.isArray(b.assets) || b.assets.length < 2 || b.assets.length > 4) throw new Error('Unsupported director plan.');
+  if (b.version !== 1 || b.status !== 'ready' || b.scope !== 'staging-test-only' || b.durationMs !== DURATION_MS || !Array.isArray(b.assets) || b.assets.length < 2 || b.assets.length > 8) throw new Error('Unsupported director plan.');
   const assets: MediaAsset[] = b.assets.map((asset: unknown) => {
     if (!asset || typeof asset !== 'object') throw new Error('Invalid media.');
     const a = asset as Record<string, unknown>;

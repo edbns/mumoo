@@ -1,0 +1,250 @@
+[
+  {
+    "slug": "illuminated-clouds-3",
+    "title": "Illuminated Clouds 3",
+    "presetId": "73b3daaf-bcf6-466d-b04c-41a58b903cf0",
+    "mood": "calm",
+    "lanes": [
+      "gospel",
+      "quiet",
+      "general"
+    ],
+    "desc": "A soft, blurred gradient shader effect dominated by cool tones creating an ethereal, atmospheric appearance. The composition features a dark central area with a deep charcoal-black (#111117) base that transitions smoothly into vibrant green",
+    "tone": "deep"
+  },
+  {
+    "slug": "lit-rays-5",
+    "title": "Lit Rays 5",
+    "presetId": "9805d872-d2c8-4f65-b82c-b78cb8d6f711",
+    "mood": "calm",
+    "lanes": [
+      "gospel",
+      "quiet",
+      "general"
+    ],
+    "desc": "A soft, ethereal shader effect dominated by subtle grayscale tones with gentle directional light rays. The composition features a multi-point gradient that creates smooth transitions between white (#ffffff), light gray (#d6d6d6), medium gra",
+    "tone": "bright"
+  },
+  {
+    "slug": "sunrise",
+    "title": "Sunrise",
+    "presetId": "11006561-c37d-4612-935d-cf13b0163fb1",
+    "mood": "calm",
+    "lanes": [
+      "gospel",
+      "quiet",
+      "general"
+    ],
+    "desc": "A radial gradient composition featuring a luminous spherical form at the center with warm orange and yellow tones that gradually transition outward. The sphere exhibits a soft, glowing quality with a bright yellow-white highlight on the rig",
+    "tone": "bright"
+  },
+  {
+    "slug": "sunrise-2",
+    "title": "Sunrise 2",
+    "presetId": "2bba2212-b1c1-4403-94a0-2914572ef018",
+    "mood": "calm",
+    "lanes": [
+      "gospel",
+      "quiet",
+      "general"
+    ],
+    "desc": "A smooth, flowing gradient shader effect that transitions diagonally from the lower-left to upper-right. The composition features a warm-to-cool color progression starting with bright yellow (#fad041) in the bottom-left corner, transitionin",
+    "tone": "bright"
+  },
+  {
+    "slug": "venetian-noir-4",
+    "title": "Venetian Noir 4",
+    "presetId": "c3834c3b-48f8-41ff-acec-09887bc8468c",
+    "mood": "intense",
+    "lanes": [
+      "quiet",
+      "general"
+    ],
+    "desc": "A dramatic chiaroscuro lighting effect simulating light passing through venetian blinds onto a textured plaster wall. The composition features a diamond-shaped aperture of bright cream-white light (#efe9dd) positioned in the upper-right qua",
+    "tone": "bright"
+  },
+  {
+    "slug": "liquid-cells-7",
+    "title": "Liquid Cells 7",
+    "presetId": "cc7fa785-1cdc-4040-93b4-393d5abfe0aa",
+    "mood": "joy",
+    "lanes": [
+      "party",
+      "general"
+    ],
+    "desc": "A vibrant gradient shader effect displaying a smooth wave-like form flowing diagonally across the composition from upper-left to lower-right. The primary visual element is a large, soft-edged curved shape with a magenta-pink core (#fc0050, ",
+    "tone": "deep"
+  },
+  {
+    "slug": "neon-flow-5",
+    "title": "Neon Flow 5",
+    "presetId": "51f6d605-893e-4d1e-8286-38d6cee58609",
+    "mood": "joy",
+    "lanes": [
+      "party",
+      "general"
+    ],
+    "desc": "A dynamic gradient shader effect dominated by warm to hot color transitions. The image features a primary swirling motion that blends deep red (#e63412) with golden yellow (#ffb703) in a fluid, organic pattern. A prominent blob-like formati",
+    "tone": "deep"
+  },
+  {
+    "slug": "paint-flow-3",
+    "title": "Paint Flow 3",
+    "presetId": "6d752d59-424f-4459-bea1-edfa8bd4dc18",
+    "mood": "joy",
+    "lanes": [
+      "party",
+      "general"
+    ],
+    "desc": "A vibrant, dynamic gradient composition featuring soft-focus geometric shapes with intense color transitions. The image displays a layered blob-like structure with primary colors transitioning from deep purple (#57073c) and magenta tones in",
+    "tone": "deep"
+  },
+  {
+    "slug": "vibrant-waves-7",
+    "title": "Vibrant Waves 7",
+    "presetId": "01cdebd0-0085-453f-babd-250c9eb7abb1",
+    "mood": "joy",
+    "lanes": [
+      "party",
+      "general"
+    ],
+    "desc": "A smooth, flowing gradient shader effect that transitions from deep red (#c41232) in the upper left corner through warm orange (#d4880a) in the center, to golden yellow and peachy tones toward the lower right. The composition features organ",
+    "tone": "deep"
+  },
+  {
+    "slug": "watercolor-on-paper-3",
+    "title": "Watercolor on Paper 3",
+    "presetId": "f89648af-c805-435b-bf7a-dc2e6a7e6115",
+    "mood": "love",
+    "lanes": [
+      "quiet",
+      "general",
+      "gospel"
+    ],
+    "desc": "A soft, dreamy gradient composition featuring a multi-point color blend with warm peachy-orange tones dominating the center-right area, transitioning smoothly into pale mint-green and cream colors on the left side. The gradient has five dis",
+    "tone": "bright"
+  },
+  {
+    "slug": "watercolor-on-paper-8",
+    "title": "Watercolor on Paper 8",
+    "presetId": "6a010ff3-005e-4c89-9206-886df4ebb21b",
+    "mood": "love",
+    "lanes": [
+      "quiet",
+      "general",
+      "gospel"
+    ],
+    "desc": "A smooth, ethereal gradient shader effect dominated by purple and pink tones with soft, blurred transitions. The composition features five gradient points creating a multi-directional color flow: deep purple (#5b2d8e) anchors the upper righ",
+    "tone": "deep"
+  },
+  {
+    "slug": "inbound-2",
+    "title": "Inbound 2",
+    "presetId": "0085fcee-e250-4a21-8302-3bc120c5cf01",
+    "mood": "punch",
+    "lanes": [
+      "techno",
+      "party"
+    ],
+    "desc": "A dynamic digital visualization featuring multiple parallel glowing strands or light beams flowing diagonally from lower-left to upper-right across a dark background. The strands exhibit a vibrant cyan-to-blue color gradient, with the brigh",
+    "tone": "deep"
+  },
+  {
+    "slug": "dark-and-stormy",
+    "title": "Dark and Stormy",
+    "presetId": "4b34818b-7708-4384-bea3-e1316a73e1b5",
+    "mood": "sad",
+    "lanes": [
+      "dark",
+      "quiet"
+    ],
+    "desc": "A deeply atmospheric shader effect dominated by dark, moody tones with a predominantly dark-blue and navy color palette. The image shows a soft, blurred composition with two luminous, rounded shapes that appear to be glowing orbs or bokeh-l",
+    "tone": "deep"
+  },
+  {
+    "slug": "network-lights",
+    "title": "Network Lights",
+    "presetId": "29dbd0ad-1b7e-41ea-a3c2-778addcde91f",
+    "mood": "intense",
+    "lanes": [
+      "techno",
+      "party"
+    ],
+    "desc": "A dynamic audio visualization effect displayed against a deep dark navy background (#140038). The composition features vertical bar elements arranged in a wave-like pattern that flows horizontally across the frame. The b",
+    "tone": "deep"
+  },
+  {
+    "slug": "network-lights-3",
+    "title": "Network Lights 3",
+    "presetId": "b5f89796-960d-4e2e-80cf-7ddc19ac965c",
+    "mood": "intense",
+    "lanes": [
+      "techno",
+      "party"
+    ],
+    "desc": "A dynamic audio visualization featuring vertical bar equalizer columns arranged in a wave-like pattern against a deep dark navy background (#140038). The bars transition through a vibrant color gradient flowing from cyan",
+    "tone": "deep"
+  },
+  {
+    "slug": "network-lights-6",
+    "title": "Network Lights 6",
+    "presetId": "f4375c79-971e-432a-9781-43503666c6b3",
+    "mood": "intense",
+    "lanes": [
+      "techno",
+      "party"
+    ],
+    "desc": "A dynamic audio visualization featuring vertical bars rendered as ASCII block characters (\u2588\u2589\u258a\u258b\u258c\u258d\u258e\u258f) against a deep dark purple background (#140038). The bars display a smooth gradient color transition flowing horizontall",
+    "tone": "deep"
+  },
+  {
+    "slug": "royal-purple-5",
+    "title": "Royal Purple 5",
+    "presetId": "ead4d1be-95a6-452c-820d-5b0afcc774bf",
+    "mood": "intense",
+    "lanes": [
+      "dark",
+      "techno",
+      "party",
+      "general"
+    ],
+    "desc": "Three dimensional glossy spheres with metallic surfaces positioned against a dark purple gradient background. The spheres feature highly reflective surfaces with bright white specular highlights at their tops, creating a",
+    "tone": "deep"
+  },
+  {
+    "slug": "synthesis",
+    "title": "Synthesis",
+    "presetId": "c91ae513-d656-4f32-933f-fdcd579495e2",
+    "mood": "sad",
+    "lanes": [
+      "dark",
+      "quiet"
+    ],
+    "desc": "A smooth gradient shader effect transitioning from dark navy/black in the upper right to vibrant magenta and pink tones in the lower left and center. The composition features two primary sine wave components creating sof",
+    "tone": "deep"
+  },
+  {
+    "slug": "shifted-swirls-9",
+    "title": "Shifted Swirls 9",
+    "presetId": "cd806edc-954f-4a22-b42b-4ba55e5d58dd",
+    "mood": "sad",
+    "lanes": [
+      "dark",
+      "quiet"
+    ],
+    "desc": "A dark, atmospheric gradient shader effect dominated by deep purples and blacks with crimson red accents. The composition features a radial gradient emanating from the top center, transitioning from nearly black (#050212",
+    "tone": "deep"
+  },
+  {
+    "slug": "gradient-grid-4",
+    "title": "Gradient Grid 4",
+    "presetId": "22c71e1e-ced2-4041-bb49-e26cfc8d31bb",
+    "mood": "intense",
+    "lanes": [
+      "party",
+      "general"
+    ],
+    "desc": "A flowing gradient shader effect with smooth, organic color transitions creating a dreamlike atmosphere. The composition features a vibrant gradient that flows from hot pink (#ff4d8e) on the left side, transitioning thro",
+    "tone": "bright"
+  }
+]

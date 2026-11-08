@@ -1,7 +1,6 @@
-import { DURATION_MS, type LyricCue } from './composition';
-
 export const IS_ALIGNMENT_STAGING = location.hostname === 'mumoo-staging.netlify.app' || (import.meta.env.DEV && location.hostname === '127.0.0.1');
 
+/** 16-bit mono PCM WAV (44-byte header). */
 export function encodePcmWav(samples: Float32Array, rate: number) {
   const bytes = new Uint8Array(44 + samples.length * 2);
   const view = new DataView(bytes.buffer);
@@ -22,46 +21,4 @@ export function encodePcmWav(samples: Float32Array, rate: number) {
     view.setInt16(44 + index * 2, Math.round(Math.max(-1, Math.min(1, sample)) * 32767), true);
   });
   return bytes;
-}
-
-function encodeWav(samples: Float32Array, rate: number) {
-  const bytes = encodePcmWav(samples, rate);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 8192) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-  }
-  return btoa(binary);
-}
-
-export async function syncStagingLyrics(samples: Float32Array, rate: number, lyrics: string, signal: AbortSignal) {
-  const response = await fetch('/.netlify/functions/align-lyrics', {
-    method: 'POST', signal,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audio: encodeWav(samples, rate), lyrics, language: 'en' }),
-  });
-  const result = await response.json().catch(() => null);
-  if (!response.ok) {
-    if (typeof result?.error === 'string') throw new Error(result.error);
-    if (response.status === 429) throw new Error('Staging sync is rate-limited. Wait a minute and try again.');
-    if (response.status === 504) throw new Error('Lyric sync timed out. Try syncing again.');
-    throw new Error(`Staging sync could not complete (HTTP ${response.status}). Try again in a moment.`);
-  }
-  if (result?.version !== 1 || result.method !== 'whisperx_supplied_lyrics' || !Array.isArray(result.words)) {
-    throw new Error('The worker returned an invalid alignment.');
-  }
-  const cues: LyricCue[] = [];
-  const unmatched: string[] = [];
-  for (const word of result.words) {
-    if (typeof word?.text !== 'string') throw new Error('The worker returned an invalid word.');
-    if (word.status !== 'aligned') {
-      unmatched.push(word.text);
-      continue;
-    }
-    if (!Number.isInteger(word.startMs) || !Number.isInteger(word.endMs) ||
-        word.startMs < (cues.at(-1)?.endMs ?? 0) || word.endMs > DURATION_MS || word.startMs >= word.endMs) {
-      throw new Error('The worker returned an invalid word range.');
-    }
-    cues.push({ text: word.text, startMs: word.startMs, endMs: word.endMs });
-  }
-  return { cues, unmatched };
 }

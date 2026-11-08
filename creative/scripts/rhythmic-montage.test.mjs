@@ -18,7 +18,9 @@ test('montage styles make distinct, frame-exact, bounded edits driven by music a
     assert.deepEqual(pulse,montageEdit(base,analysis,'pulse',movement));
     assert.notDeepEqual(pulse.shots.map(s=>s.startFrame),contrast.shots.map(s=>s.startFrame));
     assert.notDeepEqual(contrast.shots.map(s=>s.startFrame),flow.shots.map(s=>s.startFrame));
-    assert.equal(pulse.shots[0].assetId,'pixabay-2');
+    // Pulse densifies the director plan in place — opening stays on the planned opening asset.
+    assert.equal(pulse.shots[0].assetId,'pixabay-1');
+    assert.ok(pulse.shots.filter(s=>s.assetId==='pixabay-1').length>=2);
     for(const edit of [pulse,contrast,flow]){assert.equal(edit.shots[0].startFrame,0);assert.equal(edit.shots.at(-1).endFrame,450);for(let i=0;i<edit.shots.length;i++){const s=edit.shots[i];assert.equal(directorFrame(edit,s.startFrame).shot.assetId,s.assetId);assert.ok(s.sourceInMs>=1000&&s.sourceOutMs<=6000);if(i)assert.equal(edit.shots[i-1].endFrame,s.startFrame);}}
     const fallback=montageEdit(base,{status:'unavailable',reason:'not_requested'},'pulse',{});assert.equal(fallback.shots.at(-1).endFrame,450);
     const local={version:1,clip,durationMs:15000,assets,shots:assets.map((a,i)=>({assetId:a.id,startMs:i*5000,endMs:(i+1)*5000,transition:'cut'}))};

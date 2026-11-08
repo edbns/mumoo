@@ -8,7 +8,7 @@ export interface MediaEdit { version: 1; clip: ClipIdentity; durationMs: typeof 
 /** Validate a Core-only research plan after all media was fetched by the authenticated gateway. */
 export function researchDirectorEdit(clip: ClipIdentity, blueprint: unknown, loaded: Map<string, string>): MediaEdit {
   const plan = blueprint as { version?: unknown; status?: unknown; durationMs?: unknown; scope?: unknown; assets?: unknown; shots?: unknown };
-  if (!plan || plan.version !== 1 || plan.status !== 'ready' || plan.durationMs !== DURATION_MS || !Array.isArray(plan.assets) || plan.assets.length < 2 || plan.assets.length > 4 || !Array.isArray(plan.shots) || plan.shots.length < 2 || plan.shots.length > 4) throw new Error('Not enough approved media for this test.');
+  if (!plan || plan.version !== 1 || plan.status !== 'ready' || plan.durationMs !== DURATION_MS || !Array.isArray(plan.assets) || plan.assets.length < 2 || plan.assets.length > 8 || !Array.isArray(plan.shots) || plan.shots.length < 2 || plan.shots.length > 8) throw new Error('Not enough approved media for this test.');
   const assets: MediaAsset[] = plan.assets.map((item: { id?: unknown; type?: unknown; title?: unknown; rights?: unknown; adSafety?: unknown }) => {
     const approved = typeof item.id === 'string' && !item.id.startsWith('owned-') && item.rights === 'APPROVED' && item.adSafety === 'SAFE';
     const stagingTest = plan.scope === 'staging-test-only' && typeof item.id === 'string' && /^(?:owned-[a-f0-9]{24}|pixabay-\d+|vimeo-\d+)$/.test(item.id) && item.type === 'video' && item.rights === 'STAGING_TEST_ONLY' && item.adSafety === 'REVIEW_REQUIRED';
@@ -26,7 +26,7 @@ export function researchDirectorEdit(clip: ClipIdentity, blueprint: unknown, loa
 /** Accept only a bounded, contiguous director plan for reviewed Commons video. */
 export function directorEdit(clip: ClipIdentity, blueprint: unknown): MediaEdit {
   const value = blueprint as { version?: unknown; status?: unknown; durationMs?: unknown; assets?: unknown; shots?: unknown };
-  if (!value || value.version !== 1 || value.status !== 'ready' || value.durationMs !== DURATION_MS || !Array.isArray(value.assets) || value.assets.length < 2 || value.assets.length > 4 || !Array.isArray(value.shots) || value.shots.length < 2 || value.shots.length > 4) throw new Error('A video cannot be assembled from the approved footage yet.');
+  if (!value || value.version !== 1 || value.status !== 'ready' || value.durationMs !== DURATION_MS || !Array.isArray(value.assets) || value.assets.length < 2 || value.assets.length > 8 || !Array.isArray(value.shots) || value.shots.length < 2 || value.shots.length > 8) throw new Error('A video cannot be assembled from the approved footage yet.');
   const assets: MediaAsset[] = value.assets.map((asset: { id?: unknown; type?: unknown; assetUrl?: unknown; title?: unknown; status?: unknown; commercialUseEligible?: unknown }) => {
     if (typeof asset.id !== 'string' || !/^commons-\d+$/.test(asset.id) || asset.type !== 'video' || asset.status !== 'approved' || asset.commercialUseEligible !== true || typeof asset.title !== 'string' || typeof asset.assetUrl !== 'string') throw new Error('Unapproved footage.');
     const url = new URL(asset.assetUrl); if (url.protocol !== 'https:' || url.hostname !== 'upload.wikimedia.org' || url.port || url.username || url.password || url.search || url.hash || !url.pathname.endsWith('.webm')) throw new Error('Invalid footage source.');

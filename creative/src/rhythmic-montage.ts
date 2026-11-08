@@ -47,13 +47,22 @@ export function montageEdit<T extends MediaEdit | ExecutableEdit>(base:T, analys
   if(ranked.length<2)throw new Error('At least two media files are needed for this montage.');
   if(base.version===2){
     const ranges=new Map<string,typeof base.shots>();for(const shot of base.shots){const entries=ranges.get(shot.assetId)??[];entries.push(shot);ranges.set(shot.assetId,entries);}let previous='';
+    const used=new Set<string>();
     const shots=boundaries.slice(0,-1).map((startFrame,i)=>{
       const endFrame=boundaries[i+1],length=Math.ceil((endFrame-startFrame)*1000/FPS);
       const candidates=ranked.filter(a=>(ranges.get(a.id)??[]).some(r=>r.sourceOutMs-r.sourceInMs>=length));
       if(!candidates.length)throw new Error('The selected footage is too short for this montage.');
-      const preferred=candidates[i%candidates.length], chosen=preferred.id===previous && candidates.length>1 ? candidates.find(a=>a.id!==previous)! : preferred;
-      const sameAsPrevious=chosen.id===previous;previous=chosen.id;const options=ranges.get(chosen.id)!.filter(r=>r.sourceOutMs-r.sourceInMs>=length);const original=options[i%options.length];const spare=original.sourceOutMs-original.sourceInMs-length;
-      const sourceInMs=original.sourceInMs+Math.floor(spare*(i%3)/3);
+      // Densify the director timeline: keep the planned asset for this frame instead of A-B-C rotating.
+      const planned=base.shots.find(s=>startFrame>=s.startFrame && startFrame<s.endFrame)?.assetId;
+      const plannedOk=planned && candidates.some(a=>a.id===planned) ? candidates.find(a=>a.id===planned)! : null;
+      const fresh=candidates.find(a=>!used.has(a.id) && a.id!==previous);
+      const preferred=plannedOk || fresh || candidates.find(a=>a.id!==previous) || candidates[0];
+      const chosen=preferred;
+      const sameAsPrevious=chosen.id===previous;previous=chosen.id;used.add(chosen.id);
+      if(used.size>=candidates.length) used.clear();
+      const options=ranges.get(chosen.id)!.filter(r=>r.sourceOutMs-r.sourceInMs>=length);const original=options[i%options.length];const spare=original.sourceOutMs-original.sourceInMs-length;
+      // Walk source windows so reuse is a new segment, not the same three frames.
+      const sourceInMs=original.sourceInMs+Math.floor(spare*((i*5)%7)/7);
       const dissolve=i>0 && !sameAsPrevious && (style==='flow'||(style==='contrast'&&i%2===0));
       return {assetId:chosen.id,startFrame,endFrame,sourceInMs,sourceOutMs:sourceInMs+length,transition:{type:dissolve?'dissolve' as const:'cut' as const,durationFrames:dissolve?Math.min(9,endFrame-startFrame):0},crop:{...original.crop}};
     });

@@ -2,6 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FRAMES, HEIGHT, WIDTH, playheadFrame, type Composition, type ImpactMusic, type ImpactVariant } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { IMPACT_STYLES } from './lyric-impact';
+import {
+  loadPunchPlate,
+  loadPunchPlatesManifest,
+  punchPlatesBase,
+  PUNCH_PLATE_STYLES,
+  type PunchPlateMeta,
+} from './punch-plates';
 import { draw, loadFont } from './render';
 import { renderMp4 } from './browser-export';
 
@@ -23,13 +30,23 @@ export function LyricImpactStudio({ profile, composition, audio, token, position
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [style, setStyle] = useState<ImpactVariant>('monument');
+  const [plateId, setPlateId] = useState<string | undefined>();
+  const [plates, setPlates] = useState<PunchPlateMeta[]>([]);
+  const [plateReady, setPlateReady] = useState(true);
   const [eligible, setEligible] = useState(false); const [error, setError] = useState('');
   const [progress, setProgress] = useState<number>(); const [label, setLabel] = useState('');
   const cues = profile.approvedLyrics?.cues ?? []; const cueKey = JSON.stringify(cues);
   const genre = profile.creator.primaryGenre.value; const influence = profile.creator.influence?.value;
   const preparingMusic = profile.musicAnalysis.status === 'pending';
   const music = useMemo(() => clipMusic(profile), [profile.musicAnalysis]);
-  const impactComposition: Composition = { ...composition, template: 'lyric-impact', dailyScreen: undefined, lyricImpact: { style, music } };
+  const platesSupported = PUNCH_PLATE_STYLES.has(style);
+  const activePlateId = platesSupported ? plateId : undefined;
+  const impactComposition: Composition = {
+    ...composition,
+    template: 'lyric-impact',
+    dailyScreen: undefined,
+    lyricImpact: { style, music, ...(activePlateId && { plateId: activePlateId }) },
+  };
   const selectedMeta = IMPACT_STYLES.find(item => item.id === style) ?? IMPACT_STYLES[0];
 
   useEffect(() => {
@@ -49,18 +66,44 @@ export function LyricImpactStudio({ profile, composition, audio, token, position
   }, [token, genre, influence, cueKey, profile.videoType]);
 
   useEffect(() => {
-    if (eligible && canvas.current) draw(canvas.current, impactComposition, playheadFrame(position));
-  }, [eligible, position, cueKey, style, music]);
+    let cancelled = false;
+    void loadPunchPlatesManifest().then(manifest => {
+      if (!cancelled) setPlates(manifest?.plates ?? []);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!activePlateId) { setPlateReady(true); return; }
+    let cancelled = false;
+    setPlateReady(false);
+    void loadPunchPlate(activePlateId).then(bitmap => {
+      if (!cancelled) setPlateReady(Boolean(bitmap));
+    });
+    return () => { cancelled = true; };
+  }, [activePlateId]);
+
+  useEffect(() => {
+    if (eligible && plateReady && canvas.current) draw(canvas.current, impactComposition, playheadFrame(position));
+  }, [eligible, plateReady, position, cueKey, style, music, activePlateId]);
 
   async function download(all = false) {
-    if (!eligible || !cues.length || preparingMusic) return;
+    if (!eligible || !cues.length || preparingMusic || !plateReady) return;
     onStop(); setError(''); setProgress(0);
     try {
+      if (activePlateId) {
+        const bitmap = await loadPunchPlate(activePlateId);
+        if (!bitmap) throw new Error('Background plate could not be loaded.');
+      }
       const selected = all ? IMPACT_STYLES : IMPACT_STYLES.filter(item => item.id === style);
       const files: Record<string, Uint8Array> = {}; let blob: Blob | undefined;
       for (let index = 0; index < selected.length; index++) {
         const item = selected[index]; setLabel(all ? `${item.name} · ${index + 1} of ${selected.length}` : item.name);
-        const edit: Composition = { ...impactComposition, lyricImpact: { style: item.id, music } };
+        const usePlate = PUNCH_PLATE_STYLES.has(item.id) ? activePlateId : undefined;
+        const edit: Composition = {
+          ...impactComposition,
+          lyricImpact: { style: item.id, music, ...(usePlate && { plateId: usePlate }) },
+        };
         blob = await renderMp4(edit, audio, frame => setProgress(Math.floor((index + frame / FRAMES) / selected.length * 100)));
         if (all) files[`mumoo-lyric-impact-${item.id}.mp4`] = new Uint8Array(await blob.arrayBuffer());
       }
@@ -101,10 +144,44 @@ export function LyricImpactStudio({ profile, composition, audio, token, position
         ))}
       </div>
       <p className="hint">{selectedMeta.name} · {selectedMeta.description} · {IMPACT_STYLES.length} designs</p>
+      {platesSupported && plates.length > 0 && (
+        <>
+          <p className="eyebrow">Background plate</p>
+          <p className="hint">Cleared stills under Billboard and Collision. None keeps the solid field.</p>
+          <div className="punch-plate-gallery" role="group" aria-label="Choose a background plate">
+            <button
+              type="button"
+              className="punch-plate-card"
+              disabled={progress !== undefined}
+              aria-pressed={!plateId}
+              onClick={() => setPlateId(undefined)}
+            >
+              <span className="punch-plate-none">None</span>
+              <strong>Solid</strong>
+            </button>
+            {plates.map(plate => (
+              <button
+                type="button"
+                key={plate.id}
+                className="punch-plate-card"
+                disabled={progress !== undefined}
+                aria-pressed={plateId === plate.id}
+                aria-label={plate.id}
+                onClick={() => setPlateId(plate.id)}
+              >
+                <img src={`${punchPlatesBase()}/${plate.thumb}`} alt="" width={90} height={160} loading="lazy" />
+                <strong>{plate.id}</strong>
+                <small>{plate.mood.slice(0, 2).join(' · ') || plate.license}</small>
+              </button>
+            ))}
+          </div>
+          {plateId && !plateReady && <p role="status">Loading background…</p>}
+        </>
+      )}
       <div className="gallery-user-preview"><canvas ref={canvas} width={WIDTH} height={HEIGHT} aria-label="Lyric Impact preview" onContextMenu={event => event.preventDefault()} /><span className="preview-mark">PREVIEW</span></div>
       <div className="trim-actions"><button disabled={progress !== undefined} onClick={() => playing ? onStop() : onPlay()}>{playing ? 'Pause' : 'Play'}</button>
-        <button disabled={progress !== undefined || preparingMusic} onClick={() => void download()}>Download MP4</button>
-        <button className="secondary" disabled={progress !== undefined || preparingMusic} onClick={() => void download(true)}>Download all styles</button></div>
+        <button disabled={progress !== undefined || preparingMusic || !plateReady} onClick={() => void download()}>Download MP4</button>
+        <button className="secondary" disabled={progress !== undefined || preparingMusic || !plateReady} onClick={() => void download(true)}>Download all styles</button></div>
       <label className="daily-seek">Seek preview<input type="range" min={0} max={15000} step={1} value={Math.floor(position)} disabled={progress !== undefined} onChange={event => onSeek(event.target.valueAsNumber)} /></label>
       {progress !== undefined && <p role="status">Creating {label} · {progress}%</p>}</>}
   </section></main>;

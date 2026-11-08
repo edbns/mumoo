@@ -34,7 +34,7 @@ const RECIPES: Record<IntentVibe, Omit<MusicIntentV1, 'version' | 'method' | 'bp
     cutRate: 'high',
     palette: 'high-contrast',
     treatmentHint: 'kinetic',
-    searchBias: ['street crowd motion', 'industrial night', 'glitch city', 'running crowd'],
+    searchBias: ['factory sparks metal', 'concrete underpass night', 'welding industrial', 'subway tunnel motion'],
   },
   'Ambient/Mellow': {
     cutRate: 'low',

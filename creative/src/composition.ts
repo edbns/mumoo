@@ -51,7 +51,7 @@ interface CompositionBase {
   clipStartMs: number;
   assembly?: AssemblyPlan;
   dailyScreen?: { variant: DailyScreenVariant; capturedAtMs: number; deviceSeed?: number };
-  lyricImpact?: { style: ImpactVariant; music: ImpactMusic | null };
+  lyricImpact?: { style: ImpactVariant; music: ImpactMusic | null; plateId?: string };
 }
 
 export type Composition = CompositionBase & (
@@ -72,7 +72,7 @@ function isTime(value: unknown): value is number {
 
 export function validate(value: unknown, sourceDurationMs: number): asserts value is Composition {
   if (!Number.isFinite(sourceDurationMs) || sourceDurationMs < DURATION_MS) {
-    throw new Error('Choose a WAV at least 15 seconds long.');
+    throw new Error('Choose a song at least 15 seconds long.');
   }
   if (!value || typeof value !== 'object') throw new Error('Invalid composition.');
   const candidate = value as Composition;
@@ -95,6 +95,9 @@ export function validate(value: unknown, sourceDurationMs: number): asserts valu
   if (candidate.lyricImpact !== undefined) {
     const impact = candidate.lyricImpact;
     if (!impact || template !== 'lyric-impact' || !IMPACT_VARIANTS.includes(impact.style)) throw new Error('Invalid Lyric Impact design.');
+    if (impact.plateId !== undefined && (typeof impact.plateId !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(impact.plateId))) {
+      throw new Error('Invalid Lyric Impact plate.');
+    }
     const music = impact.music;
     if (music !== null && (!music || !Array.isArray(music.beatsMs) || music.beatsMs.length > 500 || !music.beatsMs.every((n, i) => isTime(n) && n <= DURATION_MS && (!i || n >= music.beatsMs[i - 1])) || !Array.isArray(music.energy) || music.energy.length > 2000 || !music.energy.every((e, i) => e && isTime(e.timeMs) && e.timeMs <= DURATION_MS && (!i || e.timeMs >= music.energy[i - 1].timeMs) && Number.isFinite(e.rms) && e.rms >= 0 && e.rms <= 1))) throw new Error('Invalid Lyric Impact music.');
   }

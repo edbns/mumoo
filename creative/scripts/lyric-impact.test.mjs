@@ -34,5 +34,7 @@ test('Lyric Impact catalog uses approved words, music signals, and validates 28 
     assert.throws(() => validate({ ...base, cues: [] }, 15000));
     assert.throws(() => validate({ ...base, lyricImpact: { style: 'wrong', music: track } }, 15000));
     assert.throws(() => validate({ ...base, lyricImpact: { style: 'poster', music: track } }, 15000));
+    assert.doesNotThrow(() => validate({ ...base, lyricImpact: { style: 'billboard', music: track, plateId: 'ember-dusk' } }, 15000));
+    assert.throws(() => validate({ ...base, lyricImpact: { style: 'billboard', music: track, plateId: '../x' } }, 15000));
   } finally { await server.close(); }
 });

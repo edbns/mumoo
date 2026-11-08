@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "looks": [
+    {
+      "look": "noir-mono",
+      "plate": "burnnet-woman-1547507-1920",
+      "file": "noir-mono__burnnet-woman-1547507-1920.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "illuminated-clouds-3",
+      "file": "bank__illuminated-clouds-3.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "lit-rays-5",
+      "file": "bank__lit-rays-5.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "sunrise",
+      "file": "bank__sunrise.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "sunrise-2",
+      "file": "bank__sunrise-2.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "venetian-noir-4",
+      "file": "bank__venetian-noir-4.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "liquid-cells-7",
+      "file": "bank__liquid-cells-7.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "neon-flow-5",
+      "file": "bank__neon-flow-5.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "paint-flow-3",
+      "file": "bank__paint-flow-3.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "vibrant-waves-7",
+      "file": "bank__vibrant-waves-7.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "watercolor-on-paper-3",
+      "file": "bank__watercolor-on-paper-3.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "watercolor-on-paper-8",
+      "file": "bank__watercolor-on-paper-8.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "inbound-2",
+      "file": "bank__inbound-2.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "dark-and-stormy",
+      "file": "bank__dark-and-stormy.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "network-lights",
+      "file": "bank__network-lights.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "network-lights-3",
+      "file": "bank__network-lights-3.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "network-lights-6",
+      "file": "bank__network-lights-6.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "royal-purple-5",
+      "file": "bank__royal-purple-5.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "synthesis",
+      "file": "bank__synthesis.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "shifted-swirls-9",
+      "file": "bank__shifted-swirls-9.jpg"
+    },
+    {
+      "look": "bank",
+      "plate": "gradient-grid-4",
+      "file": "bank__gradient-grid-4.jpg"
+    }
+  ]
+}

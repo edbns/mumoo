@@ -29,6 +29,8 @@ test('DSP Intent maps brightness and noisiness into four vibes', async () => {
 
     const aggressive = deriveMusicIntent({ ...base, features: { ...base.features, frames: frames({ centroid: 2600, bandwidth: 2800 }) } });
     assert.equal(aggressive.vibe, 'Aggressive/Industrial');
+    assert.ok(aggressive.searchBias.every(s => !/danc|party|club|crowd celebration/i.test(s)));
+    assert.ok(aggressive.searchBias.some(s => /factory|sparks|concrete|welding|subway|industrial/i.test(s)));
 
     const mellow = deriveMusicIntent({ ...base, features: { ...base.features, frames: frames({ centroid: 900, bandwidth: 400 }) } });
     assert.equal(mellow.vibe, 'Ambient/Mellow');
