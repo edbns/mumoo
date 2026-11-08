@@ -21,7 +21,7 @@ import bankData from './look-lab/bank.json';
 import { laneFromMeaning, leansDeep, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, type TypeStyleId } from './pack-type';
-import { coverFit, diversify, type LookRead } from './look-fit';
+import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
 
 type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[]; read: LookRead };
@@ -122,10 +122,13 @@ function bankSlots(
     const deep = looks.filter(look => look.tone === 'deep');
     if (deep.length >= 3) looks = deep;
   }
-  // With a cover, backgrounds closest to its colours lead; the seed still shuffles near-equal ones between generations.
-  const ranked = cover
-    ? [...looks].sort((a, b) => (coverFit(cover, b.read) + hashPick(seed, b.slug, 1000) / 4000)
-      - (coverFit(cover, a.read) + hashPick(seed, a.slug, 1000) / 4000))
+  // Backgrounds closest to the cover's colours and to what the words feel like lead; the seed still shuffles
+  // near-equal ones between generations. With neither, the seed alone decides.
+  const fit = (look: BankLook) => (cover ? coverFit(cover, look.read) : 0)
+    + (hasFeel(meaning) ? attitudeFit(meaning, look.read) : 0)
+    + hashPick(seed, look.slug, 1000) / 4000;
+  const ranked = cover || hasFeel(meaning)
+    ? [...looks].sort((a, b) => fit(b) - fit(a))
     : seededOrder(looks, seed, look => look.slug);
   // The cards must look different from each other: one per effect, at most two per colour family.
   // A cover is the creator's own colour identity, so it may fill more of the shelf with its family.

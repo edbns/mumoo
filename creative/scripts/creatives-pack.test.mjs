@@ -163,3 +163,32 @@ test('the lyrics grade the colours and calm the beat without changing the look',
     assert.ok(defiant.warmth > 0 && defiant.contrast > 1 && defiant.calm === 0, JSON.stringify(defiant));
   } finally { await server.close(); }
 });
+
+test('the attitude of the words picks backgrounds that look like it', async () => {
+  const { server, pack } = await load();
+  try {
+    const { default: bank } = await server.ssrLoadModule('/src/look-lab/bank.json');
+    const fit = await server.ssrLoadModule('/src/look-fit.ts');
+    const read = slug => bank.find(look => look.slug === slug).read;
+    const mean = (slots, key) => { const ids = slots.filter(slot => slot.bankId); return ids.reduce((n, slot) => n + read(slot.bankId)[key], 0) / ids.length; };
+    const sha = 'c'.repeat(64);
+    const song = meaning => pack.recommendCreativesPack(profile('Pop', 'hello', sha, meaning));
+
+    // Words with no particular feel leave the recommendation exactly as the sound made it.
+    assert.deepEqual(song({ attitude: 'neutral', sadness: 0, intensity: 3 }).map(slot => slot.id), song(undefined).map(slot => slot.id));
+
+    // Tender words lead with lighter, warmer pictures than angry ones; sad ones go darker and cooler still.
+    const tender = song({ attitude: 'tender', sadness: 0, intensity: 2 });
+    const angry = song({ attitude: 'angry', sadness: 0, intensity: 5 });
+    const lonely = song({ attitude: 'lonely', sadness: 3, intensity: 1 });
+    assert.ok(mean(tender, 'lightness') > mean(angry, 'lightness') + 0.1, 'tender is lighter than angry');
+    assert.ok(mean(lonely, 'warmth') < mean(tender, 'warmth'), 'lonely is cooler than tender');
+
+    // The fit itself: a defiant song suits a dark, saturated, warm look better than a pale grey one.
+    const defiant = { attitude: 'defiant', sadness: 0, intensity: 4 };
+    assert.ok(fit.attitudeFit(defiant, read('neon-flow-5')) > fit.attitudeFit(defiant, read('lit-rays-5')) + 0.2);
+    // More sadness always asks for a darker, cooler picture, never a brighter one.
+    const dark = fit.attitudeFit({ ...defiant, sadness: 3 }, read('shifted-swirls-9')) - fit.attitudeFit({ ...defiant, sadness: 0 }, read('shifted-swirls-9'));
+    assert.ok(dark > 0, 'a very dark look fits better as sadness grows');
+  } finally { await server.close(); }
+});
