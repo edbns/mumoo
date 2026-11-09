@@ -42,7 +42,7 @@ export function createPhotoFilters(): PhotoFilters {
   const duotone = new ColorMatrixFilter();
   const split = new RGBSplitFilter({ red: { x: 0, y: 0 }, green: { x: 0, y: 0 }, blue: { x: 0, y: 0 } });
   const halftone = new DotFilter({ scale: 1, angle: 5, grayscale: true });
-  const glow = new AdvancedBloomFilter({ threshold: 0.4, bloomScale: 0.8, brightness: 1, blur: 6, quality: 4 });
+  const glow = new AdvancedBloomFilter({ threshold: 0.65, bloomScale: 0.4, brightness: 1, blur: 6, quality: 4 });
   const all: Filter[] = [duotone, split, halftone, glow];
 
   return {
@@ -62,7 +62,7 @@ export function createPhotoFilters(): PhotoFilters {
         duotone.matrix = duotoneMatrix(colors, 1) as ColorMatrixFilter['matrix'];
         sprite.filters = [halftone, duotone];
       } else {
-        glow.bloomScale = 0.7 + 1.6 * beat;
+        glow.bloomScale = 0.4 + 1.2 * beat;
         sprite.filters = [glow];
       }
     },

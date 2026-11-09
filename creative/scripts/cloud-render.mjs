@@ -7,6 +7,7 @@
  *   LYRICS=0 node scripts/cloud-render.mjs dust techno  lyrics off
  *   SEED=4 node scripts/cloud-render.mjs dust slaphouse pick the colour pair
  *   node scripts/cloud-render.mjs pulise reggaeton      a library style, through the deployed staging site
+ *   BANK=lit-rays-5 node scripts/cloud-render.mjs bank techno
  *
  * Dust and Filter use PHOTO (default: our cleared library photo) and call the worker directly with your Modal
  * login, because the public endpoint only hands the worker a photo for a signed-in person. The library styles go
@@ -55,6 +56,7 @@ const opts = {
   fallbackText: '',
   lyrics,
   ...(photoStyle ? { colors: dustColors(Number(process.env.SEED || 7)) } : {}),
+  ...(style === 'bank' ? { bankId: process.env.BANK || 'neon-flow-5', typeStyle: 'karaoke' } : {}),
   ...(style === 'filter' ? { filter: process.env.FILTER || 'duotone', typeStyle: 'stack' } : {}),
 };
 const wav = canonicalWav();

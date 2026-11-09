@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { createAuthClient } from '@neon/auth';
 import { BetterAuthReactAdapter } from '@neon/auth/react/adapters';
+import { MyLibrary } from './my-library';
 
 /** Neon Auth (managed Better Auth). The browser only ever talks to Neon's auth server and our own /api/account. */
 export const authClient = createAuthClient(import.meta.env.VITE_NEON_AUTH_URL, { adapter: BetterAuthReactAdapter() });
@@ -12,13 +13,25 @@ const emailCode = authClient as unknown as {
   signIn: { emailOtp(input: { email: string; otp: string }): Outcome };
 };
 
-type Person = { email: string; lastSeenAt: string };
+type Person = { email: string; lastSeenAt: string; storage: { used: number; quota: number } };
 
 /** The signed JWT Neon Auth keeps on the session (this SDK version has no separate token call), or null when signed out. */
 export async function sessionToken(): Promise<string | null> {
   const { data } = await authClient.getSession();
   const token = data?.session?.token;
   return token && token.split('.').length === 3 ? token : null;
+}
+
+/** One request to our own API as the signed-in person. Throws the server's own words when it refuses. */
+export async function accountFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const token = await sessionToken();
+  if (!token) throw new Error('Sign in to continue.');
+  const response = await fetch(path, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token}` } });
+  if (!response.ok) {
+    const result = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(result?.error || 'This is unavailable right now. Try again in a moment.');
+  }
+  return response;
 }
 
 /** Asks our server who is signed in; the server verifies the token and records the visit. */
@@ -39,6 +52,7 @@ export function AccountBar() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [library, setLibrary] = useState(false);
 
   useEffect(() => {
     if (!user) { setPerson(null); return; }
@@ -79,7 +93,9 @@ export function AccountBar() {
   if (user) {
     return <div className="account-bar">
       <span className="account-email" title={person ? `Last seen ${new Date(person.lastSeenAt).toLocaleString()}` : undefined}>{user.email}</span>
+      <button type="button" className="link-button" onClick={() => setLibrary(true)}>My library</button>
       <button type="button" className="link-button" onClick={() => void authClient.signOut()}>Sign out</button>
+      {library && <MyLibrary onClose={() => setLibrary(false)} />}
       {error && <span role="alert" className="hint">{error}</span>}
     </div>;
   }
