@@ -120,10 +120,21 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .cart-head h2 { margin: 0; font-size: 17px; }
 .cart-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .cart-line { display: grid; grid-template-columns: 54px 1fr auto; align-items: center; gap: 12px; }
-.cart-line canvas, .cart-missing { width: 54px; aspect-ratio: 9 / 16; border-radius: 8px; background: #111; object-fit: cover; }
+.cart-line img, .cart-missing { width: 54px; aspect-ratio: 9 / 16; border-radius: 8px; background: #111; object-fit: cover; }
 .cart-missing { display: grid; place-items: center; padding: 4px; color: #fff; font-size: 10px; text-align: center; }
 .cart-line-text { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .cart-line-text span { color: #5a5a62; }
+.cart-working { font-size: 12px; color: #5a5a62; }
+.cart-progress { display: flex; flex-direction: column; gap: 6px; }
+.cart-progress progress { width: 100%; }
+.download-notice {
+  position: fixed; left: 50%; bottom: 20px; z-index: 20; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px));
+  padding: 12px 16px; border-radius: 12px; background: #17171a; color: #fff; box-shadow: 0 12px 32px #0003;
+  display: flex; align-items: center; gap: 14px; font-size: 14px;
+}
+.download-notice.error { background: #8f1d0c; }
+.download-notice .link-button { color: #fff; }
+.staging-gate { max-width: 962px; margin: 0 auto; padding: 0 24px; }
 .cart-foot { display: flex; flex-direction: column; gap: 10px; margin-top: auto; padding-top: 14px; border-top: 1px solid #e4e4e7; }
 .cart-total { display: flex; justify-content: space-between; margin: 0; font-size: 15px; }
 

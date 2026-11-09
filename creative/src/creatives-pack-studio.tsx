@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type MutableRefObject } from 'react';
 import { FPS, playheadFrame, type Composition, type ImpactMusic } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
 import { adPunchFallbackText, recommendRow, SHELF_ROWS, type CreativesPackSlot, type PlateRef, type ShelfRow } from './creatives-pack';
-import { Cart, type CartLine } from './cart-panel';
-import { CART_LIMIT, useCart, type CartItem } from './cart';
+import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
+import type { CartDownload } from './use-cart-download';
+import { friendlyError } from './friendly-error';
 import { PictureDialog } from './picture-dialog';
 import { PICTURE_RULES, type PictureUse, type Upload } from './uploads';
-import { useUploads } from './use-uploads';
+import type { Uploads } from './use-uploads';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
 import { reportPackFeedback } from './pack-feedback';
@@ -18,8 +19,9 @@ import {
   destroySharedPackRenderer,
   type PackRendererOpts,
 } from './pack-renderer';
-import { awaitCloudJob, clipToMonoWav, submitCloudJob } from './pack-cloud-export';
+import { clipToMonoWav, submitCloudJob } from './pack-cloud-export';
 import { loadPunchPlatesManifest } from './punch-plates';
+import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 
 function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   if (profile.musicAnalysis.status !== 'ready') return null;
@@ -78,15 +80,6 @@ function posterAt(composition: Composition, music: ImpactMusic | null, lyrics: b
   return lyrics ? posterFrame(composition.cues) : Math.round(((music?.beatsMs[1] ?? 500) + 120) * FPS / 1000);
 }
 
-/** After a new deploy, an already-open tab asks for chunk files that no longer exist. */
-function friendlyError(cause: unknown, fallback: string): string {
-  const message = cause instanceof Error ? cause.message : '';
-  if (/dynamically imported module|Importing a module script failed|Loading chunk/i.test(message)) {
-    return 'MUMOO was just updated. Reload this page to continue.';
-  }
-  return message || fallback;
-}
-
 function yieldFrame() {
   return new Promise<void>(resolve => setTimeout(resolve, 0));
 }
@@ -98,7 +91,7 @@ const FRESH_ROWS = Object.fromEntries(SHELF_ROWS.map(row => [row.id, { generatio
 
 export function CreativesPackStudio({
   profile, composition, audio, token, position, getPosition, playing, playbackError,
-  onPlay, onStop, onBack,
+  cart, download, uploads, downloadRef, onPlay, onStop, onBack,
 }: {
   profile: CreativeProfileV1;
   composition: Composition;
@@ -108,6 +101,12 @@ export function CreativesPackStudio({
   getPosition?: () => number;
   playing: boolean;
   playbackError: string;
+  /** The cart and the download live in the app, so they are the same on every page. */
+  cart: Cart;
+  download: CartDownload;
+  uploads: Uploads;
+  /** Where the app finds this page's download, which needs the music and pictures only this page has. */
+  downloadRef: MutableRefObject<(() => void) | null>;
   onPlay: () => void;
   onStop: () => void;
   onSeek?: (ms: number) => void;
@@ -117,13 +116,8 @@ export function CreativesPackStudio({
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [fontReady, setFontReady] = useState(false);
   const [error, setError] = useState('');
-  const [progress, setProgress] = useState<number>();
-  const [progressLabel, setProgressLabel] = useState('');
   /** Every row has its own Refresh and (where it makes sense) its own Lyrics switch, so a change repaints one row only. */
   const [controls, setControls] = useState(FRESH_ROWS);
-  const uploads = useUploads();
-  const cart = useCart(`${profile.clip.sourceSha256}:${profile.clip.offsetMs}`);
-  const [cartOpen, setCartOpen] = useState(false);
   const [dialog, setDialog] = useState<PictureUse | null>(null);
   /** Which picture each own-picture row draws from: the id of one of the person's pictures, or null for our approved photography. */
   const [chosen, setChosen] = useState<Record<PictureUse, string | null>>({ dust: null, filter: null });
@@ -340,6 +334,8 @@ export function CreativesPackStudio({
       return;
     }
     const use = useOf(slot.row);
+    const card = canvasRefs.current.get(slot.id);
+    if (!card) return;
     const item: CartItem = {
       id: slot.id,
       row: slot.row,
@@ -347,6 +343,7 @@ export function CreativesPackStudio({
       lyrics: lyricsOn(slot.row),
       uploadId: use ? (pictures[use]?.id ?? null) : null,
       generation: controls[slot.row].generation,
+      thumb: cardThumbnail(card),
     };
     cart.add(item);
     reportPackFeedback(token, profile, 'select', slot, { selectedIds: [...cart.items.map(held => held.id), slot.id], generation: item.generation });
@@ -359,24 +356,9 @@ export function CreativesPackStudio({
     return upload ? { available: true, picture: drawingFrom(upload) } : { available: false };
   }
 
-  const lines: CartLine[] = cart.items.map(item => ({
-    item,
-    title: `${SHELF_ROWS.find(row => row.id === item.row)?.title ?? ''} · ${item.slot.label}`,
-    available: pictureFor(item).available,
-  }));
-
-  function openCart() {
-    stopPlayback();
-    setCartOpen(true);
-  }
-
-  function paintCartPoster(item: CartItem, canvas: HTMLCanvasElement) {
-    return blitPackFrame(canvas, packOpts(item.slot, composition, music, fallbackText, item.lyrics, pictureFor(item).picture), posterAt(composition, music, item.lyrics));
-  }
-
   function togglePlay(id: string, event: MouseEvent | KeyboardEvent) {
     event.stopPropagation();
-    if (!allReady || !fontReady || progress !== undefined) return;
+    if (!allReady || !fontReady) return;
     if (playing && playingId === id) {
       onStop();
       setPlayingId(null);
@@ -389,78 +371,47 @@ export function CreativesPackStudio({
     onPlay();
   }
 
-  async function downloadCart() {
-    const selectedSlots = cart.items.filter(item => pictureFor(item).available);
-    if (progress !== undefined || !selectedSlots.length) return;
+  /**
+   * Starts one cloud render per cart item. Waiting for them, handing over the file and emptying the cart happen in
+   * the app, so they survive a refresh and work from any page.
+   */
+  function downloadCart() {
+    const items = cart.items.filter(item => pictureFor(item).available);
+    if (download.progress !== null || !items.length) return;
     onStop(); setPlayingId(null); setError('');
-    setProgress(0);
-    setProgressLabel('Preparing audio…');
-    // Let React paint the progress state before any work.
-    await yieldFrame();
-    try {
-      // 1) One small WAV for the whole batch (≈960 KB).
+    download.start(songKeyOf(profile.clip.sourceSha256, profile.clip.offsetMs), items, async report => {
+      report('Preparing audio…');
+      // Let React paint the progress state before any work.
+      await yieldFrame();
+      // One small WAV for the whole batch (≈960 KB).
       const wav = await clipToMonoWav(audio, composition.clipStartMs);
-      // 2) Submit every job now — the cloud renders them in parallel; we only hold job ids.
-      setProgressLabel(selectedSlots.length > 1 ? `Starting ${selectedSlots.length} cloud renders…` : 'Starting cloud render…');
-      const jobs: { item: CartItem; id: string }[] = [];
-      for (const item of selectedSlots) {
+      report(items.length > 1 ? `Starting ${items.length} cloud renders…` : 'Starting cloud render…');
+      // Every job is submitted now; the cloud renders them in parallel and we only hold job ids.
+      const ids: string[] = [];
+      for (const item of items) {
         await yieldFrame();
-        const id = await submitCloudJob({
+        ids.push(await submitCloudJob({
           token,
           wav,
           opts: packOpts(item.slot, composition, music, fallbackText, item.lyrics, pictureFor(item).picture),
           ...(item.uploadId ? { uploadId: item.uploadId } : {}),
-        });
-        jobs.push({ item, id });
+        }));
+        reportPackFeedback(token, profile, 'download', item.slot, { selectedIds: cart.items.map(held => held.id), generation: item.generation });
       }
-      // 3) Poll. Nothing heavy runs here.
-      let done = 0;
-      setProgressLabel(selectedSlots.length > 1 ? `Rendering 0 of ${selectedSlots.length} in the cloud…` : 'Rendering in the cloud…');
-      const blobs = await Promise.all(jobs.map(async job => {
-        const blob = await awaitCloudJob(token, job.id);
-        done += 1;
-        setProgress(Math.floor((done / jobs.length) * 100));
-        if (jobs.length > 1) setProgressLabel(`Rendering ${done} of ${jobs.length} in the cloud…`);
-        reportPackFeedback(token, profile, 'download', job.item.slot, { selectedIds: cart.items.map(held => held.id), generation: job.item.generation });
-        return blob;
-      }));
-
-      const multi = blobs.length > 1;
-      let blob = blobs[0];
-      if (multi) {
-        setProgressLabel('Zipping…');
-        await yieldFrame();
-        const files: Record<string, Uint8Array> = {};
-        for (let index = 0; index < blobs.length; index++) {
-          files[`mumoo-creative-${index + 1}.mp4`] = new Uint8Array(await blobs[index].arrayBuffer());
-        }
-        const { zipSync } = await import('fflate');
-        blob = new Blob([zipSync(files, { level: 0 }) as BlobPart], { type: 'application/zip' });
-      }
-      if (!blob) throw new Error('No video was created.');
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = multi ? 'mumoo-creatives.zip' : 'mumoo-creative.mp4';
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
-    } catch (cause) {
-      setError(friendlyError(cause, 'The creative could not be exported.'));
-    } finally {
-      setProgress(undefined);
-      setProgressLabel('');
-    }
+      return ids;
+    });
   }
+  downloadRef.current = downloadCart;
+  useEffect(() => () => { downloadRef.current = null; }, []);
 
-  const exporting = progress !== undefined;
   return <main className="desktop gallery-page studio-shell"><section className="gallery-shell panel">
     <p className="eyebrow">Creatives pack</p>
     <h1>{pack.length ? `${pack.length} recommended creatives` : 'Recommended creatives'}</h1>
     <p className="intro">Ranked for this song, one row at a time. Each row has its own controls, so changing one row only redraws that row. Add the creatives you like to your cart, refresh for more, and download them together from the cart. Videos render in the cloud, so your computer stays free.</p>
     <div className="trim-actions">
-      <button className="secondary" disabled={exporting} onClick={onBack}>Back</button>
+      <button className="secondary" onClick={onBack}>Back</button>
     </div>
-    {!token && <p role="alert">Staging access is unavailable.</p>}
+    {!token && !IS_ALIGNMENT_STAGING && <p role="alert">Staging access is unavailable.</p>}
     {profile.musicAnalysis.status === 'pending' && <p role="status">Finishing music analysis for better ranking…</p>}
     {profile.lyricMeaning?.status === 'pending' && <p role="status">Reading what your lyrics say…</p>}
     {profile.lyricMeaning?.status === 'error' && <p className="hint">We could not read what your lyrics say, so these are matched to the sound alone.</p>}
@@ -480,18 +431,17 @@ export function CreativesPackStudio({
                   type="checkbox"
                   role="switch"
                   checked={controls[def.id].lyrics}
-                  disabled={exporting}
                   onChange={event => change(def.id, { lyrics: event.target.checked })}
                 />
                 <span>Lyrics</span>
               </label>}
-              {def.upload && <button type="button" className="secondary" disabled={exporting} onClick={() => { stopPlayback(); setDialog(def.upload ?? null); }}>
+              {def.upload && <button type="button" className="secondary" onClick={() => { stopPlayback(); setDialog(def.upload ?? null); }}>
                 {def.upload === 'dust' ? 'Upload photo' : 'Upload photo, video or GIF'}
               </button>}
               <button
                 type="button"
                 className="secondary"
-                disabled={exporting || !rowReady}
+                disabled={!rowReady}
                 onClick={() => change(def.id, { generation: controls[def.id].generation + 1 })}
                 aria-label={`Refresh ${def.title}`}
               >Refresh</button>
@@ -514,7 +464,7 @@ export function CreativesPackStudio({
                     <button
                       type="button"
                       className="creatives-pack-play"
-                      disabled={!rowReady || exporting}
+                      disabled={!rowReady}
                       aria-label={`${isPlaying ? 'Pause' : 'Play'} ${def.title} creative ${index + 1}`}
                       onClick={event => togglePlay(item.id, event)}
                     >{isPlaying ? '❚❚' : '▶'}</button>
@@ -522,7 +472,7 @@ export function CreativesPackStudio({
                   <button
                     type="button"
                     className={inCart ? 'creatives-pack-add in-cart' : 'creatives-pack-add secondary'}
-                    disabled={!rowReady || exporting || (!inCart && cart.full)}
+                    disabled={!rowReady || (!inCart && cart.full)}
                     aria-pressed={inCart}
                     title={!inCart && cart.full ? `Your cart is full (${CART_LIMIT})` : undefined}
                     onClick={() => toggleCart(item)}
@@ -545,17 +495,5 @@ export function CreativesPackStudio({
         onChoose={id => { stopPlayback(); setChosen(current => ({ ...current, [use]: id })); }}
       />
     ))}
-    <Cart
-      lines={lines}
-      open={cartOpen}
-      busy={exporting || !fontReady || profile.musicAnalysis.status === 'pending' || profile.lyricMeaning?.status === 'pending'}
-      status={exporting ? `${progressLabel || 'Working…'} · ${progress}%` : ''}
-      onOpen={openCart}
-      onClose={() => setCartOpen(false)}
-      onRemove={cart.remove}
-      onDownload={() => void downloadCart()}
-      paint={paintCartPoster}
-      onError={cause => setError(friendlyError(cause, 'Preview failed (WebGL).'))}
-    />
   </section></main>;
 }

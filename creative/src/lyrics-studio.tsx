@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { LyricCue } from './composition';
 import {
   LYRIC_LANGUAGES, MAX_LYRIC_WORDS, clipToWav16k, groupLines, languageName,
   runLyricsJob, wordsToText, type LyricWord, type LyricsResult,
@@ -15,7 +14,7 @@ const clock = (ms: number) => `0:${String(Math.floor(Math.max(0, ms) / 1000)).pa
  * One text box is the whole editor — fix words, add missing ones, press Sync again.
  */
 export function LyricsStudio({
-  audio, clipStartMs, token, position, playing, onPlay, onSeek, onLyrics, onState,
+  audio, clipStartMs, token, position, playing, initial, onPlay, onSeek, onLyrics, onState,
 }: {
   audio: AudioBuffer;
   clipStartMs: number;
@@ -23,19 +22,23 @@ export function LyricsStudio({
   /** Playhead inside the clip, ms. */
   position: number;
   playing: boolean;
+  /** Lyrics already timed for this clip (a returning visit): the editor opens on them instead of the start. */
+  initial?: { words: LyricWord[]; language?: string; origin: 'transcribed' | 'typed' };
   onPlay: () => void;
   onSeek: (ms: number) => void;
-  onLyrics: (lyrics: { cues: LyricCue[]; language?: string; origin: 'transcribed' | 'typed' }) => void;
+  onLyrics: (lyrics: { words: LyricWord[]; language?: string; origin: 'transcribed' | 'typed' }) => void;
   /** Tells the page whether lyrics are being worked on / edited and not yet synced. */
   onState: (state: { busy: boolean; dirty: boolean }) => void;
 }) {
-  const [phase, setPhase] = useState<Phase>('start');
+  const [phase, setPhase] = useState<Phase>(initial ? 'edit' : 'start');
   const [language, setLanguage] = useState('auto');
   const [pasting, setPasting] = useState(false);
-  const [text, setText] = useState('');
-  const [syncedText, setSyncedText] = useState('');
-  const [words, setWords] = useState<LyricWord[]>([]);
-  const [detected, setDetected] = useState<LyricsResult>();
+  const [text, setText] = useState(() => initial ? wordsToText(initial.words) : '');
+  const [syncedText, setSyncedText] = useState(text);
+  const [words, setWords] = useState<LyricWord[]>(initial?.words ?? []);
+  const [detected, setDetected] = useState<LyricsResult | undefined>(() => initial?.origin === 'transcribed'
+    ? { source: 'transcribed', language: initial.language, alternatives: [], words: initial.words }
+    : undefined);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [elapsed, setElapsed] = useState(0);
@@ -66,7 +69,7 @@ export function LyricsStudio({
     setWords(result.words);
     const heardLanguage = wasMode === 'transcribe' ? result.language : detected?.language ?? result.language;
     onLyrics({
-      cues: result.words.map(({ text: word, startMs, endMs }) => ({ text: word, startMs, endMs })),
+      words: result.words,
       language: language !== 'auto' ? language : heardLanguage,
       origin: wasMode === 'transcribe' || detected ? 'transcribed' : 'typed',
     });

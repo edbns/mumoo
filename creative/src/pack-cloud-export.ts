@@ -8,13 +8,15 @@
  * The cloud renders the same Pixi scene in headless Chromium (parallel frame ranges).
  */
 import { DURATION_MS } from './composition';
+import { sleep } from './lyrics-cloud';
 import type { PackRendererOpts } from './pack-renderer';
 
 const SAMPLE_RATE = 32_000;
 const WAV_SAMPLES = SAMPLE_RATE * (DURATION_MS / 1000);
 const WAV_BYTES = 44 + WAV_SAMPLES * 2;
 const POLL_MS = 1500;
-const JOB_TIMEOUT_MS = 900_000;
+/** How long a render is waited for before giving up. */
+export const JOB_TIMEOUT_MS = 900_000;
 
 function yieldToUi(): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, 0));
@@ -78,8 +80,6 @@ export async function clipToMonoWav(audio: AudioBuffer, clipStartMs: number): Pr
   return new Uint8Array(buffer);
 }
 
-const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
-
 async function errorMessage(response: Response): Promise<string> {
   const result = await response.json().catch(() => null) as { error?: string } | null;
   return result?.error || 'Cloud encode is temporarily unavailable. Reload and try again.';
@@ -118,15 +118,16 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
   return result.id;
 }
 
-/** Poll until the MP4 is ready. Cheap: one tiny GET every 1.5 s, no work on this machine. */
-export async function awaitCloudJob(token: string, id: string): Promise<Blob> {
+/** Poll until the MP4 is ready. Cheap: one tiny GET every 1.5 s, no work on this machine. Aborting the signal stops it. */
+export async function awaitCloudJob(token: string, id: string, signal?: AbortSignal): Promise<Blob> {
   // Signed-in people get the finished video kept in their history; the token is good for far longer than a render.
   const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
   const deadline = Date.now() + JOB_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    await sleep(POLL_MS);
+    await sleep(POLL_MS, signal);
     const response = await fetch(`/.netlify/functions/encode-creative-status?id=${encodeURIComponent(id)}`, {
       headers: { 'x-mumoo-brain-access': token, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+      signal,
     });
     if (response.status === 202) continue;
     if (!response.ok) throw new Error(await errorMessage(response));
