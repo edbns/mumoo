@@ -12,7 +12,7 @@ then concatenates the ranges and muxes the audio.
 
 The browser sends only data (style, colours, cues, music). The worker loads the page and the
 baked look backgrounds from the staging site; no URLs come from clients. A person's own picture
-(Dust, Riso, Our photography) arrives as fields (Dust and Riso: a photo and its cut-out mask; Our photography: a photo or a prepared clip), sent by our
+(Dust, Riso, Window, Our photography) arrives as fields (Dust and Riso: a photo and its cut-out mask; Our photography: a photo or a prepared clip; Window: either), sent by our
 server after it read them from that person's storage, and is handed to the page when it asks.
 """
 from __future__ import annotations
@@ -50,13 +50,21 @@ CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
-    "motionShots", "cutSeed", "inkSet", "sprayPalette",
+    "motionShots", "cutSeed", "inkSet", "sprayPalette", "windowMode", "windowPalette", "windowAllowed",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
-# The kinds of creative the page draws, the Riso ink sets and the Spray walls it knows (creative/src/ad-punch.ts, riso-look.ts, spray-look.ts; a test keeps these in step).
-STYLES = {"bank", "pulise", "dust", "filter", "riso", "spray"}
+# The kinds of creative the page draws, the Riso ink sets, the Spray walls and the Window screens and faces it knows (creative/src/ad-punch.ts, riso-look.ts, spray-look.ts, window-look.ts, window-deal.ts; a test keeps these in step).
+STYLES = {"bank", "pulise", "dust", "filter", "riso", "spray", "window"}
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
 SPRAY_PALETTES = {"neon-night", "neon-plum", "neon-navy", "bold-offwhite", "bold-grey", "bold-pastel"}
+WINDOW_PALETTES = {
+    "black", "off-white", "sand", "hot-red", "orange", "sun-yellow", "acid-yellow", "lime",
+    "green", "deep-green", "teal", "cyan", "cobalt", "violet", "magenta", "hot-pink",
+}
+WINDOW_FACES = {"Anton", "Big Shoulders Display", "Staatliches", "Bangers", "Barlow Condensed"}
+# What a Window card shows through its word: our approved photo (a person stands in front of the word, or not), one baked effect, one baked background, or the person's own photo or clip.
+WINDOW_MODES = {"person", "plain", "effect", "bank"}
+WINDOW_KEYS = ("windowMode", "windowPalette", "windowAllowed")
 # Styles drawn from a person cut out of a photo: an approved plate (`plateId`) or the person's own photo and cut-out mask.
 CUT_OUT_STYLES = {"dust", "riso"}
 # Lyric type styles and display fonts the page knows (creative/src/pack-type.ts, font-catalog.ts; a test keeps these in step).
@@ -254,6 +262,19 @@ def parse_meta(raw: str) -> dict:
             raise ValueError(key)
         if opts["style"] == style and "seed" not in layout:
             raise ValueError("layout")
+    # Window is drawn from a seed (the screen flips), a kind of picture, the screen it opens on and the screens it may flip to, in one of its condensed faces.
+    if opts["style"] == "window":
+        allowed = opts.get("windowAllowed")
+        if not all(key in opts for key in WINDOW_KEYS) or "seed" not in layout or opts["windowMode"] not in WINDOW_MODES:
+            raise ValueError("window")
+        if not isinstance(allowed, list) or not 0 < len(allowed) <= len(WINDOW_PALETTES) or len(set(allowed)) != len(allowed):
+            raise ValueError("windowAllowed")
+        if not all(isinstance(id_, str) and id_ in WINDOW_PALETTES for id_ in allowed) or opts["windowPalette"] not in allowed:
+            raise ValueError("windowPalette")
+        if opts["font"] not in WINDOW_FACES:
+            raise ValueError("font")
+    elif any(key in opts for key in WINDOW_KEYS):
+        raise ValueError("window")
     if "bankId" in opts and (not isinstance(opts["bankId"], str) or not ID_RE.match(opts["bankId"])):
         raise ValueError("bankId")
     for key in ("plateId", "effectId"):
@@ -299,6 +320,38 @@ def parse_meta(raw: str) -> dict:
     return json.loads(json.dumps(opts))
 
 
+def window_media(opts: dict, media: dict[str, bytes]) -> set[str]:
+    """The media a Window card takes: none when it is drawn from one of our pictures (the one its mode names); else, for `person` and `plain`,
+    the person's own photo with its cut-out mask (the mask is used only by `person`) or, for `plain`, their own clip."""
+    mode = opts["windowMode"]
+    ours = {"person": "plateId", "plain": "plateId", "effect": "effectId", "bank": "bankId"}[mode]
+    named = {key for key in ("plateId", "effectId", "bankId") if key in opts}
+    if named == {ours}:
+        return set()
+    if named or mode not in ("person", "plain") or (mode == "person" and "motion" in media):
+        raise ValueError("media")
+    return {"photo", "cutout"} if "photo" in media else {"motion"}
+
+
+def check_media(opts: dict, media: dict[str, bytes]) -> None:
+    """Dust and Riso are drawn from an approved photo (`plateId`) and Our photography (style "filter") from one baked effect on it
+    (`effectId`); the page loads either from the site itself. All three can instead be drawn from the person's own picture:
+    Dust and Riso a photo with its cut-out mask, Our photography a photo or a clip. Window has its own rules (`window_media`).
+    Nothing else takes a picture (Spray takes none). Raises ValueError when the media sent is not exactly what the card needs."""
+    if opts["style"] == "window":
+        wanted = window_media(opts, media)
+    else:
+        approved = {"dust": "plateId", "riso": "plateId", "filter": "effectId"}.get(opts["style"])
+        named = {key for key in ("plateId", "effectId") if key in opts}
+        wanted = set()
+        if approved and approved not in named:
+            wanted = {"photo", "cutout"} if opts["style"] in CUT_OUT_STYLES else ({"photo"} if "photo" in media else {"motion"})
+        if named - {approved}:
+            raise ValueError("media")
+    if set(media) != wanted:
+        raise ValueError("media")
+
+
 @app.function(image=image, secrets=[secret], timeout=30, scaledown_window=10)
 @modal.fastapi_endpoint(method="POST", docs=False)
 async def submit(request: Request):
@@ -322,16 +375,7 @@ async def submit(request: Request):
                     raise ValueError(name)
         if "photo" in media and media["photo"][:3] != b"\xff\xd8\xff":
             raise ValueError("photo")
-        # Dust and Riso are drawn from an approved photo (`plateId`) and Our photography (style "filter") from one baked effect on it
-        # (`effectId`); the page loads either from the site itself. All three can instead be drawn from the person's own picture:
-        # Dust and Riso a photo with its cut-out mask, Our photography a photo or a clip. Nothing else takes a picture (Spray takes none).
-        approved = {"dust": "plateId", "riso": "plateId", "filter": "effectId"}.get(opts["style"])
-        named = {key for key in ("plateId", "effectId") if key in opts}
-        wanted: set[str] = set()
-        if approved and approved not in named:
-            wanted = {"photo", "cutout"} if opts["style"] in CUT_OUT_STYLES else ({"photo"} if "photo" in media else {"motion"})
-        if set(media) != wanted or named - {approved}:
-            raise ValueError("media")
+        check_media(opts, media)
     except (TypeError, ValueError, binascii.Error, json.JSONDecodeError, AttributeError):
         raise HTTPException(400, "Expected a 15s mono 32kHz WAV and valid render metadata.") from None
 
