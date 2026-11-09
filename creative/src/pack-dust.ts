@@ -137,7 +137,8 @@ void main() {
     sway += push * (hash(aRand.x * 91.0 + uIds[k] * 7.3) - 0.5);
   }
   // A word arrives from the viewer (uEnter falls from 1) and leaves toward them (uExit rises to 1).
-  travel += (uEnter * 1.1 + uExit * 1.7) * depth;
+  // A word comes in and goes out a shorter way than a photo grain, so on a fast song it never leaves the frame.
+  travel += (uEnter * mix(1.1, 0.5, uWord) + uExit * mix(1.7, 0.8, uWord)) * depth;
   // Coming closer: the grain slides away from the focus point, grows, and softens.
   vec2 out_ = aOrigin - uFocus;
   vec2 place = uFocus + out_ * (1.0 + travel * 1.3);
@@ -187,13 +188,17 @@ function glow() {
   return Texture.from(canvas);
 }
 
+/** The biggest a lyric word is set, and the widest it may be: a word thrown at the viewer on a fast beat must still sit inside the frame. */
+const WORD_SIZE = 200;
+const WORD_WIDTH = 800;
+
 /** Where the lyric word sits: low in the frame, clear of the platform's buttons and caption. */
 const WORD_Y = Math.min(HEIGHT * 0.8, META_SAFE_BOTTOM - 120);
-export const WORD_GRAINS = 16_000;
+export const WORD_GRAINS = 24_000;
 
 /** Turns one lyric word into grains, fitted on one line. Cached by the caller: the same word always gives the same grains. */
 export function sampleWord(text: string, font: AdFont, grains = WORD_GRAINS): DustPoints {
-  const fit = fitPackLines(text, font, 260, 940, 1);
+  const fit = fitPackLines(text, font, WORD_SIZE, WORD_WIDTH, 1);
   const height = Math.ceil(fit.size * 1.4);
   const canvas = document.createElement('canvas');
   canvas.width = WIDTH;
@@ -266,7 +271,7 @@ function grainLayer(points: DustPoints, word: boolean) {
         uPower: { value: 1, type: 'f32' },
         uLoose: { value: 0, type: 'f32' },
         uFocus: { value: centre(points, word ? 0.5 : 0.4), type: 'vec2<f32>' },
-        uGrain: { value: word ? 2.1 : 2.4, type: 'f32' },
+        uGrain: { value: word ? 1.7 : 2.4, type: 'f32' },
         uDust: { value: new Float32Array(3), type: 'vec3<f32>' },
         uShade: { value: new Float32Array(3), type: 'vec3<f32>' },
       },
@@ -428,7 +433,7 @@ export function createDustWorld(points: DustPoints): DustWorld {
         lyric.load(grains);
       }
       // The word is made of dust, drawn in the dust colour and barely moved by the beat so it stays on the picture and readable.
-      beats(lyric, input, 0.15);
+      beats(lyric, input, 0.06);
       const age = Math.max(0, (input.ms - word.startMs) / 1000);
       const leaves = word.nextStartMs - word.endMs >= LEAVE_GAP_MS;
       Object.assign(lyric.uniforms, {
