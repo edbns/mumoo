@@ -9,7 +9,8 @@
  *   node scripts/cloud-render.mjs pulise reggaeton      a library style, through the deployed staging site
  *   BANK=lit-rays-5 node scripts/cloud-render.mjs bank techno
  *
- * Dust and Filter use PHOTO (default: our cleared library photo) and call the worker directly with your Modal
+ * Dust uses PHOTO (default: our cleared library photo) with its cut-out CUTOUT (default: that photo's). A Filter uses
+ * PHOTO, or a clip MOTION instead; cut-outs and clips are made by scripts/prepare-sample.mjs. They call the worker directly with your Modal
  * login, because the public endpoint only hands the worker a photo for a signed-in person. The library styles go
  * through the deployed site, which must carry the code you want drawn.
  */
@@ -60,7 +61,7 @@ const opts = {
   ...(style === 'filter' ? { filter: process.env.FILTER || 'duotone', typeStyle: 'stack' } : {}),
 };
 const wav = canonicalWav();
-const file = `scripts/fixtures/exports/cloud-${style}${style === 'filter' ? `-${opts.filter}` : ''}-${clip}${lyrics ? '' : '-nolyrics'}.mp4`;
+const file = `scripts/fixtures/exports/cloud-${style}${style === 'filter' ? `-${opts.filter}` : ''}-${clip}${process.env.MOTION ? '-motion' : ''}${lyrics ? '' : '-nolyrics'}.mp4`;
 mkdirSync('scripts/fixtures/exports', { recursive: true });
 const started = Date.now();
 
@@ -70,7 +71,10 @@ if (photoStyle) {
   writeFileSync(wavFile, wav);
   writeFileSync(optsFile, JSON.stringify(opts));
   const run = spawnSync('python3', ['../audio-intelligence/render_creative_staging.py', '--wav', wavFile, '--opts', optsFile,
-    '--photo', process.env.PHOTO || 'public/punch-plates/burnnet-woman-1547507-1920.jpg', '--out', file], { stdio: 'inherit' });
+    ...(style === 'dust'
+      ? ['--photo', process.env.PHOTO || 'public/punch-plates/burnnet-woman-1547507-1920.jpg', '--cutout', process.env.CUTOUT || 'scripts/fixtures/prepared/woman.cutout.png']
+      : process.env.MOTION ? ['--motion', process.env.MOTION] : ['--photo', process.env.PHOTO || 'public/punch-plates/burnnet-woman-1547507-1920.jpg']),
+    '--out', file], { stdio: 'inherit' });
   if (run.status !== 0) throw new Error('The cloud render failed.');
 } else {
   const headers = { Origin: SITE, 'Content-Type': 'application/json' };

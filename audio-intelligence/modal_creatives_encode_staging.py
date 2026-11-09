@@ -2,7 +2,7 @@
 
 Exact-match architecture (the browser never renders or encodes):
 
-  submit  POST  multipart {audio: 15s mono 32k WAV, meta: JSON, image?: JPEG}  ->  {"id": "fc-..."}   (instant)
+  submit  POST  multipart {audio: 15s mono 32k WAV, meta: JSON, photo?, cutout?, motion?}  ->  {"id": "fc-..."}   (instant)
   status  GET   ?id=fc-...                                       ->  202 running | 200 MP4 | 4xx/5xx
 
 The job renders the SAME Pixi scene the user previewed (same worlds, fonts, baked
@@ -11,9 +11,9 @@ are split into ranges rendered in parallel containers; ffmpeg encodes each range
 then concatenates the ranges and muxes the audio.
 
 The browser sends only data (style, colours, cues, music). The worker loads the page and the
-baked look backgrounds from the staging site; no URLs come from clients. A person's own photo
-(Dust, Filter) arrives as a JPEG field, sent by our server after it read the photo from that
-person's storage, and is handed to the page when it asks for it.
+baked look backgrounds from the staging site; no URLs come from clients. A person's own picture
+(Dust, Filter) arrives as fields (Dust: a photo and its cut-out mask; a Filter: a photo or a prepared clip), sent by our
+server after it read them from that person's storage, and is handed to the page when it asks.
 """
 from __future__ import annotations
 
@@ -40,8 +40,11 @@ WAV_DATA = SAMPLE_RATE * DURATION_S * 2
 WAV_BYTES = 44 + WAV_DATA
 BODY_LIMIT = 2_000_000
 PHOTO_LIMIT = 3_000_000
+CUTOUT_LIMIT = 1_000_000
+MOTION_LIMIT = 40_000_000
 META_LIMIT = 400_000
-PHOTO_PATH = "/own-photo.jpg"
+MEDIA_PATHS = {"photo": "/own-photo.jpg", "cutout": "/own-cutout.png", "motion": "/own-motion.mp4"}
+MEDIA_TYPES = {"photo": "image/jpeg", "cutout": "image/png", "motion": "video/mp4"}
 FILTERS = {"duotone", "split", "halftone", "glow"}
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
@@ -92,6 +95,11 @@ def run(cmd: list[str], cwd: Path, timeout: int) -> None:
         raise RuntimeError(f"ffmpeg failed. {detail}".strip()) from None
 
 
+def handing(body: bytes, content_type: str):
+    """A route handler that serves one file. (Playwright passes extra arguments to any handler with defaults, so it is a closure.)"""
+    return lambda route: route.fulfill(body=body, content_type=content_type)
+
+
 @app.function(
     image=image,
     cpu=4,
@@ -101,12 +109,11 @@ def run(cmd: list[str], cwd: Path, timeout: int) -> None:
     scaledown_window=10,
     timeout=270,
 )
-def render_chunk(opts: dict, photo: bytes | None, start: int, end: int) -> bytes:
+def render_chunk(opts: dict, media: dict[str, bytes], start: int, end: int) -> bytes:
     """Render frames [start, end) of the real Pixi scene to a silent H.264 segment."""
     from playwright.sync_api import sync_playwright
 
-    if photo is not None:
-        opts = {**opts, "photoUrl": PHOTO_PATH}
+    opts = {**opts, **{f"{name}Url": MEDIA_PATHS[name] for name in media}}
     with tempfile.TemporaryDirectory(prefix="mumoo-chunk-") as directory:
         out = Path(directory) / "seg.mp4"
         encoder = subprocess.Popen(
@@ -135,14 +142,20 @@ def render_chunk(opts: dict, photo: bytes | None, start: int, end: int) -> bytes
                     ],
                 )
                 page = browser.new_page(viewport={"width": 1080, "height": 1920}, device_scale_factor=1)
-                if photo is not None:
-                    page.route(
-                        f"**{PHOTO_PATH}",
-                        lambda route: route.fulfill(body=photo, content_type="image/jpeg"),
-                    )
+                for name in media:
+                    page.route(f"**{MEDIA_PATHS[name]}", handing(media[name], MEDIA_TYPES[name]))
                 page.goto(f"{SITE}/render.html", wait_until="load", timeout=60_000)
                 page.wait_for_function("window.mumooPack", timeout=60_000)
-                page.evaluate("o => window.mumooPack.prepare(o)", opts)
+                problems: list[str] = []
+                page.on("console", lambda message: problems.append(message.text[:200]) if message.type == "error" else None)
+                page.on("pageerror", lambda error: problems.append(str(error)[:200]))
+                try:
+                    page.evaluate(
+                        "o => Promise.race([window.mumooPack.prepare(o), new Promise((_, stop) => setTimeout(() => stop(new Error('prepare stalled')), 90000))])",
+                        opts,
+                    )
+                except Exception as stalled:
+                    raise RuntimeError(f"Scene could not start: {str(stalled)[:200]} {problems[-3:]}") from None
                 for frame in range(start, end):
                     data = page.evaluate("n => window.mumooPack.frame(n, true)", frame)
                     assert encoder.stdin is not None
@@ -171,11 +184,11 @@ def render_chunk(opts: dict, photo: bytes | None, start: int, end: int) -> bytes
     scaledown_window=10,
     timeout=290,
 )
-def render_job(audio: bytes, opts: dict, photo: bytes | None) -> bytes:
+def render_job(audio: bytes, opts: dict, media: dict[str, bytes]) -> bytes:
     """Fan the frame ranges out in parallel, then concat + mux audio."""
     ranges = [(i, min(i + CHUNK_FRAMES, FRAMES)) for i in range(0, FRAMES, CHUNK_FRAMES)]
     segments = list(render_chunk.map(
-        [opts] * len(ranges), [photo] * len(ranges),
+        [opts] * len(ranges), [media] * len(ranges),
         [r[0] for r in ranges], [r[1] for r in ranges],
     ))
     with tempfile.TemporaryDirectory(prefix="mumoo-mux-") as directory:
@@ -255,17 +268,25 @@ async def submit(request: Request):
         if len(audio) > BODY_LIMIT or not wav_header_ok(audio):
             raise ValueError("audio")
         opts = parse_meta(str(meta_raw))
-        photo_file = form.get("image")
-        photo = await photo_file.read() if photo_file is not None else None
-        if photo is not None and (len(photo) > PHOTO_LIMIT or photo[:3] != b"\xff\xd8\xff"):
+        media: dict[str, bytes] = {}
+        for name, limit in (("photo", PHOTO_LIMIT), ("cutout", CUTOUT_LIMIT), ("motion", MOTION_LIMIT)):
+            field = form.get(name)
+            if field is not None:
+                media[name] = await field.read()
+                if len(media[name]) > limit:
+                    raise ValueError(name)
+        if "photo" in media and media["photo"][:3] != b"\xff\xd8\xff":
             raise ValueError("photo")
-        # Dust and Filter are made of a person's photo; no other style takes one.
-        if (opts["style"] in ("dust", "filter")) != (photo is not None):
-            raise ValueError("photo")
+        # Dust is one photo with its cut-out mask. A Filter is one photo, or one clip. No other style takes a picture.
+        wanted = {"dust": {"photo", "cutout"}}.get(opts["style"])
+        if opts["style"] == "filter":
+            wanted = {"photo"} if "photo" in media else {"motion"}
+        if set(media) != (wanted or set()):
+            raise ValueError("media")
     except (TypeError, ValueError, binascii.Error, json.JSONDecodeError, AttributeError):
         raise HTTPException(400, "Expected a 15s mono 32kHz WAV and valid render metadata.") from None
 
-    call = await render_job.spawn.aio(audio, opts, photo)
+    call = await render_job.spawn.aio(audio, opts, media)
     return {"id": call.object_id}
 
 

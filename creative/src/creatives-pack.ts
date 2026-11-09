@@ -1,4 +1,5 @@
 import type { CreativeProfileV1 } from './creative-profile';
+import type { PictureUse } from './uploads';
 import { deriveMusicIntent, type MusicIntentV1 } from './music-intent';
 import {
   fontsForLane,
@@ -25,15 +26,23 @@ const BANK_LOOKS = bankData as BankLook[];
 
 export type PackFamily = 'ad_punch';
 
-/** The shelf is rows of four. A row is a kind of creative; it is revealed when all its cards are ready. */
-export const SHELF_ROWS = [
-  { id: 'library', title: 'Our photography' },
-  { id: 'looks', title: 'Moving backgrounds' },
-  { id: 'pulise', title: 'Pulise' },
-  { id: 'dust', title: 'Dust' },
-  { id: 'filter', title: 'Filters' },
-] as const;
-export type ShelfRow = (typeof SHELF_ROWS)[number]['id'];
+export type ShelfRow = 'library' | 'looks' | 'pulise' | 'dust' | 'filter';
+
+/**
+ * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
+ * never redraws (or re-renders) another:
+ *   lyrics  'switch': the row has its own Lyrics on/off. 'always': made of the lyrics, so there is no switch.
+ *   upload  the row is made from the person's own picture, kept for this use.
+ * Every row has its own Refresh.
+ */
+export type ShelfRowDef = { id: ShelfRow; title: string; lyrics: 'switch' | 'always'; upload?: PictureUse };
+export const SHELF_ROWS: readonly ShelfRowDef[] = [
+  { id: 'library', title: 'Our photography', lyrics: 'switch' },
+  { id: 'looks', title: 'Moving backgrounds', lyrics: 'switch' },
+  { id: 'pulise', title: 'Pulise', lyrics: 'always' },
+  { id: 'dust', title: 'Dust', lyrics: 'switch', upload: 'dust' },
+  { id: 'filter', title: 'Filters', lyrics: 'switch', upload: 'filter' },
+];
 const ROW_SIZE = 4;
 
 export type CreativesPackSlot = {
@@ -244,48 +253,46 @@ export function readSong(profile: CreativeProfileV1) {
 }
 
 /**
- * `plates` are the ids of the cleared library photos; without any, the library row is simply absent.
- * Pulise is made of the lyrics, so with lyrics switched off its row is absent too.
+ * One row of the shelf for this song. `generation` is that row's own Refresh count. `plates` are the ids of the
+ * cleared library photos (without any, the library row is simply absent).
  */
-export function recommendCreativesPack(profile: CreativeProfileV1, generation = 0, plates: readonly string[] = [], lyrics = true): CreativesPackSlot[] {
+export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly string[] = []): CreativesPackSlot[] {
   const { intent, meaning, lane } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
-  const seed = `${profile.clip.sourceSha256}:${generation}:${lane}`;
-
-  const library = librarySlots(plates, lane, meaning, intent, seed);
-  const looks = bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover);
-  const pulise = puliseSlots(lane, intent, seed);
+  const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
+  const slots = {
+    library: () => librarySlots(plates, lane, meaning, intent, seed),
+    looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
+    pulise: () => puliseSlots(lane, intent, seed),
+    dust: () => dustSlots(lane, intent, seed, cover?.hue),
+    filter: () => filterSlots(lane, intent, seed, cover?.hue),
+  }[row]();
   const grade = moodGrade(meaning);
-  const slots = [...library, ...looks, ...(lyrics ? pulise : [])];
   return grade ? slots.map(slot => ({ ...slot, grade })) : slots;
 }
 
-/**
- * The shelf for a person's own photo: Dust and Filters only (the other styles are made of lyrics and photography
- * we hold). Both rows carry colour pairs; when the cover has a colour, the first cards of each row grow from it.
- */
-export function recommendOwnPhotoPack(profile: CreativeProfileV1, generation = 0): CreativesPackSlot[] {
-  const { intent, meaning, lane } = readSong(profile);
-  const cover = profile.creator.cover?.value ?? null;
-  const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:own`;
-  const colorsFor = (row: ShelfRow, index: number) =>
-    dustColors(hashPick(seed, `colors:${row}:${index}`, 1_000_000), cover?.hue != null && index < 2 ? cover.hue : undefined);
-  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
-  const dust = Array.from({ length: ROW_SIZE }, (_, index): CreativesPackSlot => ({
+/** Colours for card `index` of a Dust or Filter row; when the cover has a colour, the first two cards grow from it. */
+function cardColors(seed: string, index: number, coverHue: number | null | undefined) {
+  return dustColors(hashPick(seed, `colors:${index}`, 1_000_000), coverHue != null && index < 2 ? coverHue : undefined);
+}
+
+function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined): CreativesPackSlot[] {
+  return Array.from({ length: ROW_SIZE }, (_, index) => ({
     ...adPunchSlot('dust', index, intent, seed, lane, 'dust'),
-    colors: colorsFor('dust', index),
+    colors: cardColors(seed, index, coverHue),
   }));
-  const filters = PHOTO_FILTERS.map((filter, index): CreativesPackSlot => ({
+}
+
+function filterSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined): CreativesPackSlot[] {
+  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
+  return PHOTO_FILTERS.map((filter, index) => ({
     ...adPunchSlot('filter', index, intent, seed, lane, 'filter'),
     id: `ad-filter-${filter}-${hashPick(seed, 'gen', 997).toString(36)}`,
     label: PHOTO_FILTER_NAMES[filter],
     filter,
-    colors: colorsFor('filter', index),
+    colors: cardColors(seed, index, coverHue),
     typeStyle: types[index % types.length],
   }));
-  const grade = moodGrade(meaning);
-  const slots = [...dust, ...filters];
-  return grade ? slots.map(slot => ({ ...slot, grade })) : slots;
 }
 
 /** Four Pulise cards: each its own face, each opening on a different colour. */

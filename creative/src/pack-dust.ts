@@ -35,49 +35,35 @@ function generator(seed: number) {
 }
 
 /**
- * Turns a photo into grains. The photo is fitted to cover the frame. If its edges are one plain colour
- * (a studio backdrop) the grains stay on the subject; a busy photo is dusted whole.
+ * Turns a photo into grains. The photo is fitted to cover the frame and its cut-out `mask` keeps the grains on
+ * the subject. A mask that finds almost nothing (a landscape, a pattern) means there is no subject, so the whole
+ * frame turns to dust.
  */
-export function sampleDust(image: CanvasImageSource & { width: number; height: number }, grains = DUST_GRAINS): DustPoints {
+export function sampleDust(
+  image: CanvasImageSource & { width: number; height: number },
+  mask: CanvasImageSource & { width: number; height: number },
+  grains = DUST_GRAINS,
+): DustPoints {
   const scale = 0.5;
   const w = Math.round(WIDTH * scale);
   const h = Math.round(HEIGHT * scale);
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) throw new Error('Canvas 2D is unavailable.');
-  const cover = Math.max(w / image.width, h / image.height);
-  ctx.drawImage(image, (w - image.width * cover) / 2, (h - image.height * cover) / 2, image.width * cover, image.height * cover);
-  const pixels = ctx.getImageData(0, 0, w, h).data;
+  const read = (picture: CanvasImageSource & { width: number; height: number }) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Canvas 2D is unavailable.');
+    const cover = Math.max(w / picture.width, h / picture.height);
+    ctx.drawImage(picture, (w - picture.width * cover) / 2, (h - picture.height * cover) / 2, picture.width * cover, picture.height * cover);
+    return ctx.getImageData(0, 0, w, h).data;
+  };
+  const pixels = read(image);
+  const cut = read(mask);
   const at = (x: number, y: number) => (Math.min(h - 1, Math.max(0, y)) * w + Math.min(w - 1, Math.max(0, x))) * 4;
 
-  // The backdrop: everything connected to the photo's edge that changes only gently from one pixel to the next
-  // (a studio wall, even with a light gradient). Anything the fill cannot reach is the subject. A busy photo
-  // where the fill swallows almost nothing is dusted whole.
-  const reach = new Uint8Array(w * h);
-  const queue: number[] = [];
-  const seed = (x: number, y: number) => {
-    const n = y * w + x;
-    if (!reach[n]) { reach[n] = 1; queue.push(n); }
-  };
-  for (let x = 0; x < w; x++) { seed(x, 0); seed(x, h - 1); }
-  for (let y = 0; y < h; y++) { seed(0, y); seed(w - 1, y); }
-  const gap = (a: number, b: number) => Math.abs(pixels[a * 4] - pixels[b * 4]) + Math.abs(pixels[a * 4 + 1] - pixels[b * 4 + 1]) + Math.abs(pixels[a * 4 + 2] - pixels[b * 4 + 2]);
-  for (let head = 0; head < queue.length; head++) {
-    const n = queue[head];
-    const x = n % w;
-    const y = (n - x) / w;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = x + dx;
-      const ny = y + dy;
-      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-      const m = ny * w + nx;
-      if (!reach[m] && gap(n, m) < 14) { reach[m] = 1; queue.push(m); }
-    }
-  }
-  const backdrop = queue.length / (w * h);
-  const subject = (i: number) => backdrop < 0.12 || !reach[i / 4];
+  let found = 0;
+  for (let i = 0; i < cut.length; i += 16) if (cut[i] > 127) found++;
+  const subject = found / (cut.length / 16) >= 0.08 ? (i: number) => cut[i] > 127 : () => true;
   let covered = 0;
   for (let i = 0; i < pixels.length; i += 16) if (subject(i)) covered++;
   const share = Math.max(0.05, covered / (pixels.length / 16));

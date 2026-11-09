@@ -91,19 +91,19 @@ export type CloudJobInput = {
   wav: Uint8Array;
   /** Exactly what the shelf preview renders — the cloud draws the same scene, frame for frame. */
   opts: PackRendererOpts;
-  /** Dust and Filter draw the signed-in person's own photo: its id in their storage. The server fetches it. */
-  photoId?: string;
+  /** Dust and Filter draw the signed-in person's own picture: its id in their storage. The server fetches it. */
+  uploadId?: string;
 };
 
 /** Submit one render job. Returns immediately with a job id. */
 export async function submitCloudJob(input: CloudJobInput): Promise<string> {
   const form = new FormData();
   form.append('audio', new Blob([input.wav as BlobPart], { type: 'audio/wav' }), 'clip.wav');
-  // Data only. The photo itself never leaves the person's storage through the browser again.
-  const { photoUrl: _photoUrl, ...scene } = input.opts;
-  void _photoUrl;
+  // Data only. The picture itself never leaves the person's storage through the browser again.
+  const { photoUrl: _photo, cutoutUrl: _cutout, motionUrl: _motion, ...scene } = input.opts;
+  void [_photo, _cutout, _motion];
   form.append('meta', JSON.stringify({
-    ...(input.photoId ? { upload: input.photoId } : {}),
+    ...(input.uploadId ? { upload: input.uploadId } : {}),
     opts: { ...scene, fallbackText: (scene.fallbackText || 'NOW').slice(0, 80) },
   }));
   const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);

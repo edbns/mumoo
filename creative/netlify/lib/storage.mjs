@@ -23,6 +23,14 @@ export async function getObject(key) {
   return new Uint8Array(await response.arrayBuffer());
 }
 
+/** The object's size in bytes, or null when it does not exist. */
+export async function objectSize(key) {
+  const response = await aws().fetch(objectUrl(key), { method: 'HEAD' });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Storage could not check the file (${response.status}).`);
+  return Number(response.headers.get('content-length'));
+}
+
 export async function deleteObject(key) {
   const response = await aws().fetch(objectUrl(key), { method: 'DELETE' });
   if (!response.ok) throw new Error(`Storage refused the delete (${response.status}).`);
@@ -35,4 +43,11 @@ export async function signedDownload(key, filename, seconds = 900) {
   // No filename means the file is shown in place (a photo preview) rather than saved.
   if (filename) url.searchParams.set('response-content-disposition', `attachment; filename="${filename}"`);
   return (await aws().sign(url, { method: 'GET', aws: { signQuery: true } })).url;
+}
+
+/** A link that lets one file be uploaded straight to storage (the browser or the worker PUTs to it), for `seconds`. */
+export async function signedUpload(key, seconds = 1800) {
+  const url = new URL(objectUrl(key));
+  url.searchParams.set('X-Amz-Expires', String(seconds));
+  return (await aws().sign(url, { method: 'PUT', aws: { signQuery: true } })).url;
 }

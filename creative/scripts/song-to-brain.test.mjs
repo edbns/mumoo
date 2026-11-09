@@ -58,6 +58,9 @@ test('the model\'s answer is validated, never guessed at', async () => {
   } finally { await server.close(); }
 });
 
+/** The Moving backgrounds row stands for the shelf: every row reads the song the same way. */
+const recommend = (pack, person) => pack.recommendRow('looks', person, 0);
+
 test('what the words mean shapes the recommendation, in any language', async () => {
   const { server, pack } = await load();
   try {
@@ -65,14 +68,14 @@ test('what the words mean shapes the recommendation, in any language', async () 
     const read = (attitude, sadness = 0, intensity = 3) => ({ status: 'ready', meaning: { attitude, sadness, intensity } });
     const words = 'louvado seja o Senhor Deus gloria e graça';
     const withMeaning = (state, options) => ({ ...profile(words, options), lyricMeaning: state });
-    assert.equal(lane(pack.recommendCreativesPack(withMeaning(read('spiritual'), { language: 'pt' }))), 'gospel');
+    assert.equal(lane(recommend(pack, withMeaning(read('spiritual'), { language: 'pt' }))), 'gospel');
     // Until the words are read, the brain only has the sound.
-    assert.notEqual(lane(pack.recommendCreativesPack(withMeaning(undefined, { language: 'pt' }))), 'gospel');
-    assert.notEqual(lane(pack.recommendCreativesPack(withMeaning({ status: 'error' }, { language: 'pt' }))), 'gospel');
+    assert.notEqual(lane(recommend(pack, withMeaning(undefined, { language: 'pt' }))), 'gospel');
+    assert.notEqual(lane(recommend(pack, withMeaning({ status: 'error' }, { language: 'pt' }))), 'gospel');
     // Typed or heard makes no difference to the recommendation.
     assert.deepEqual(
-      pack.recommendCreativesPack(withMeaning(read('spiritual'), { language: 'pt', origin: 'typed' })).map(slot => slot.id),
-      pack.recommendCreativesPack(withMeaning(read('spiritual'), { language: 'pt', origin: 'transcribed' })).map(slot => slot.id),
+      recommend(pack, withMeaning(read('spiritual'), { language: 'pt', origin: 'typed' })).map(slot => slot.id),
+      recommend(pack, withMeaning(read('spiritual'), { language: 'pt', origin: 'transcribed' })).map(slot => slot.id),
     );
   } finally { await server.close(); }
 });

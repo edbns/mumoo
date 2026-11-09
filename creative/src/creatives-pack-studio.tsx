@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEve
 import { FPS, playheadFrame, type Composition, type ImpactMusic } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
-import { adPunchFallbackText, recommendCreativesPack, recommendOwnPhotoPack, SHELF_ROWS, type CreativesPackSlot, type ShelfRow } from './creatives-pack';
-import { OwnPhotos } from './own-photos';
-import type { Upload } from './uploads';
+import { adPunchFallbackText, recommendRow, SHELF_ROWS, type CreativesPackSlot, type ShelfRow } from './creatives-pack';
+import { PictureDialog } from './picture-dialog';
+import { PICTURE_RULES, type PictureUse, type Upload } from './uploads';
+import { useUploads } from './use-uploads';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
 import { reportPackFeedback } from './pack-feedback';
@@ -31,13 +32,22 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   };
 }
 
+/** The links a shelf card needs to draw the person's own picture: Dust a photo and its cut-out, a Filter a photo or a clip. */
+type Picture = Pick<PackRendererOpts, 'photoUrl' | 'cutoutUrl' | 'motionUrl'>;
+
+function drawingFrom(upload: Upload | null): Picture | undefined {
+  if (!upload?.url) return undefined;
+  if (upload.motionUrl) return { motionUrl: upload.motionUrl };
+  return { photoUrl: upload.url, ...(upload.cutoutUrl ? { cutoutUrl: upload.cutoutUrl } : {}) };
+}
+
 function packOpts(
   slot: CreativesPackSlot,
   composition: Composition,
   music: ImpactMusic | null,
   fallbackText: string,
   lyrics: boolean,
-  photoUrl?: string,
+  picture?: Picture,
 ): PackRendererOpts {
   return {
     style: slot.style,
@@ -48,13 +58,13 @@ function packOpts(
     ...(slot.filter ? { filter: slot.filter } : {}),
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
-    ...(slot.grade ? { grade: slot.grade } : {}),
-    // With lyrics off nothing about the words is used or sent anywhere.
+    // With lyrics off nothing about the words is used or sent anywhere, not even what they mean.
+    ...(slot.grade && lyrics ? { grade: slot.grade } : {}),
     cues: lyrics ? composition.cues : [],
     music,
     fallbackText: lyrics ? fallbackText : '',
     lyrics,
-    ...(photoUrl ? { photoUrl } : {}),
+    ...picture,
   };
 }
 
@@ -76,6 +86,11 @@ function yieldFrame() {
   return new Promise<void>(resolve => setTimeout(resolve, 0));
 }
 
+type RowView = { slots: CreativesPackSlot[]; note: string };
+type RowControls = { generation: number; lyrics: boolean };
+
+const FRESH_ROWS = Object.fromEntries(SHELF_ROWS.map(row => [row.id, { generation: 0, lyrics: true }])) as Record<ShelfRow, RowControls>;
+
 export function CreativesPackStudio({
   profile, composition, audio, token, position, getPosition, playing, playbackError,
   onPlay, onStop, onBack,
@@ -93,52 +108,83 @@ export function CreativesPackStudio({
   onSeek?: (ms: number) => void;
   onBack: () => void;
 }) {
-  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
-  const [generation, setGeneration] = useState(0);
+  const canvasRefs = useRef(new Map<string, HTMLCanvasElement>());
   const [picked, setPicked] = useState<string[]>([]);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [fontReady, setFontReady] = useState(false);
   const [error, setError] = useState('');
   const [progress, setProgress] = useState<number>();
   const [progressLabel, setProgressLabel] = useState('');
-  /** Whose pictures the shelf is made from: the photography we hold, or one of the person's own photos. */
-  const [source, setSource] = useState<'ours' | 'own'>('ours');
-  const [photo, setPhoto] = useState<Upload | null>(null);
-  const photoUrl = source === 'own' ? photo?.url : undefined;
+  /** Every row has its own Refresh and (where it makes sense) its own Lyrics switch, so a change repaints one row only. */
+  const [controls, setControls] = useState(FRESH_ROWS);
+  const uploads = useUploads();
+  const [dialog, setDialog] = useState<PictureUse | null>(null);
+  const [chosenFilter, setChosenFilter] = useState<string | null>(null);
   /** Ids of the cleared library photos; null until the library has been read. */
   const [plates, setPlates] = useState<string[] | null>(null);
-  /** A row appears when all four of its posters are finished; the shelf is ready when every row is. */
+  /** A row appears when all four of its posters are finished. */
   const [readyRows, setReadyRows] = useState<ShelfRow[]>([]);
-  const [shelfReady, setShelfReady] = useState(false);
-  const [shelfStatus, setShelfStatus] = useState('Preparing creatives…');
-  /** The person can switch the lyrics off to get plain moving visuals for any post. */
-  const [lyrics, setLyrics] = useState(true);
+  const [shelfStatus, setShelfStatus] = useState('');
   const music = useMemo(() => impactMusic(profile), [profile.musicAnalysis]);
-  const pack = useMemo(
-    () => (source === 'own'
-      ? (photo ? recommendOwnPhotoPack(profile, generation) : [])
-      : (plates ? recommendCreativesPack(profile, generation, plates, lyrics) : [])),
-    [profile.clip.sourceSha256, profile.musicAnalysis, profile.approvedLyrics, profile.lyricMeaning, profile.creator.cover, generation, plates, lyrics, source, photo?.id],
-  );
-  const picturesReady = source === 'own' || Boolean(plates);
-  // The colours the lyrics ask for are part of what each card looks like, so a new grade repaints the shelf.
-  const packKey = pack.map(item => `${item.id}:${item.grade ? Object.values(item.grade).join(',') : ''}`).join('|');
-  const cueKey = JSON.stringify(composition.cues);
   const intent = useMemo(
     () => (profile.musicAnalysis.status === 'ready' ? deriveMusicIntent(profile.musicAnalysis.result) : null),
     [profile.musicAnalysis],
   );
   const fallbackText = useMemo(() => adPunchFallbackText(profile, intent), [profile, intent]);
-  // Lyrics are only needed when they are on.
-  const approved = !lyrics || Boolean(profile.approvedLyrics?.cues.length);
-  const activeId = playingId || pack[0]?.id || null;
-  const activeSlot = pack.find(item => item.id === activeId) ?? pack[0];
+  const hasLyrics = Boolean(profile.approvedLyrics?.cues.length);
+  const lyricsOn = (row: ShelfRow) => SHELF_ROWS.find(def => def.id === row)?.lyrics === 'always' || controls[row].lyrics;
+
+  // The picture each own-picture row draws from. Links are renewed from time to time, so rows are keyed by id, not link.
+  const ready = (use: PictureUse) => (uploads.list ?? []).filter(item => item.use === use && item.status === 'ready' && item.url);
+  const pictures: Record<PictureUse, Upload | null> = {
+    dust: ready('dust')[0] ?? null,
+    filter: ready('filter').find(item => item.id === chosenFilter) ?? ready('filter')[0] ?? null,
+  };
+  const pictureOf = (row: ShelfRow) => drawingFrom(row === 'dust' ? pictures.dust : row === 'filter' ? pictures.filter : null);
+  const pictureIds = `${pictures.dust?.id ?? ''}|${pictures.filter?.id ?? ''}`;
+
+  const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
+    if (def.upload) {
+      const own = (uploads.list ?? []).filter(item => item.use === def.upload);
+      if (!uploads.signedIn) return [def.id, { slots: [], note: uploads.pending ? '' : 'Sign in (top right) to use your own picture. It stays private to you.' }];
+      if (uploads.list === null) return [def.id, { slots: [], note: 'Reading your pictures…' }];
+      if (!pictures[def.upload]) {
+        const note = own.some(item => item.status === 'preparing') ? 'Preparing your picture…'
+          : own.some(item => item.status === 'failed') ? 'Your last upload could not be prepared. Open Upload to see why.'
+            : def.upload === 'dust' ? 'Upload one photo to see Dust made from it.' : 'Upload a photo, video or GIF to see Filters made from it.';
+        return [def.id, { slots: [], note }];
+      }
+    }
+    if (lyricsOn(def.id) && !hasLyrics) {
+      return [def.id, { slots: [], note: def.lyrics === 'always' ? 'Pulise is made of your lyrics. Approve your synced lyrics first.' : 'Approve your synced lyrics, or switch this row’s lyrics off.' }];
+    }
+    if (def.id === 'library' && !plates) return [def.id, { slots: [], note: '' }];
+    return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? []), note: '' }];
+  })) as Record<ShelfRow, RowView>, [
+    profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover,
+    controls, plates, hasLyrics, pictureIds, uploads.list === null, uploads.signedIn, uploads.pending,
+    uploads.list?.map(item => `${item.id}:${item.status}`).join(),
+  ]);
+  const pack = SHELF_ROWS.flatMap(def => view[def.id].slots);
+  const paintedRows = SHELF_ROWS.filter(def => view[def.id].slots.length > 0);
+  const allReady = paintedRows.every(def => readyRows.includes(def.id));
+
+  const cueKey = JSON.stringify(composition.cues);
+  // What every card depends on besides its own row: the song and its words.
+  const songKey = `${profile.clip.sourceSha256}|${cueKey}|${fallbackText}|${music?.beatsMs.join(',') ?? ''}`;
+  const rowKey = (row: ShelfRow) => {
+    const { slots } = view[row];
+    if (!slots.length) return '';
+    return `${songKey}|${lyricsOn(row)}|${row === 'dust' ? pictures.dust?.id : row === 'filter' ? pictures.filter?.id : ''}|${slots.map(slot => `${slot.id}:${slot.grade ? Object.values(slot.grade).join(',') : ''}`).join(',')}`;
+  };
+  const rowKeys = SHELF_ROWS.map(def => rowKey(def.id)).join('\n');
+
   const getPositionRef = useRef(getPosition ?? (() => position));
   getPositionRef.current = getPosition ?? (() => position);
-  const playingIdRef = useRef(playingId);
-  playingIdRef.current = playingId;
-  const paintArgsRef = useRef({ pack, composition, music, fallbackText, photoUrl, lyrics });
-  paintArgsRef.current = { pack, composition, music, fallbackText, photoUrl, lyrics };
+  const latest = useRef({ view, composition, music, fallbackText, lyricsOn, pictureOf, rowKey });
+  latest.current = { view, composition, music, fallbackText, lyricsOn, pictureOf, rowKey };
+  const painted = useRef(new Map<ShelfRow, string>());
+  const playingSlot = pack.find(item => item.id === playingId) ?? null;
 
   useEffect(() => {
     let alive = true;
@@ -159,72 +205,63 @@ export function CreativesPackStudio({
     return () => { alive = false; };
   }, [cueKey, fallbackText]);
 
+  // Cards that no longer exist cannot stay picked or playing.
   useEffect(() => {
-    setPicked([]);
-    setPlayingId(null);
-    setReadyRows([]);
-    setShelfReady(false);
-    setShelfStatus('Preparing creatives…');
-  }, [generation, profile.clip.sourceSha256, source, photo?.id]);
+    setPicked(current => (current.every(id => pack.some(slot => slot.id === id)) ? current : current.filter(id => pack.some(slot => slot.id === id))));
+    setPlayingId(current => (current && !pack.some(slot => slot.id === current) ? null : current));
+  }, [pack.map(slot => slot.id).join()]);
 
   // Tear down shared WebGL when leaving the pack screen.
   useEffect(() => () => destroySharedPackRenderer(), []);
 
-  // Posters: paint card by card; each row is revealed as soon as its last card is done.
+  // Posters: only rows whose own inputs changed are painted again; a row appears when its last card is done.
   useEffect(() => {
-    if (!fontReady || !approved || !picturesReady) return;
+    if (!fontReady) return;
+    const keys = new Map(SHELF_ROWS.map(def => [def.id, latest.current.rowKey(def.id)] as const));
+    const stale = SHELF_ROWS.filter(def => painted.current.get(def.id) !== keys.get(def.id));
+    for (const def of stale) painted.current.delete(def.id);
+    setReadyRows(rows => rows.filter(id => !stale.some(def => def.id === id)));
     let cancelled = false;
-    setReadyRows([]);
-    setShelfReady(false);
-    setShelfStatus('Preparing creatives…');
-    setError('');
     void (async () => {
-      const { pack: slots, composition: base, music: impact, fallbackText: fallback, lyrics: withLyrics } = paintArgsRef.current;
-      // Wait a frame so hidden canvases are mounted with refs.
+      // Wait a frame so the cards' canvases are mounted.
       await yieldFrame();
-      for (let index = 0; index < slots.length; index++) {
-        if (cancelled) return;
-        const slot = slots[index];
-        setShelfStatus(`Preparing creative ${index + 1} of ${slots.length}…`);
-        // Allow React to paint status before heavy blit / possible Noir bake.
-        await yieldFrame();
-        const canvas = canvasRefs.current[index];
-        if (!canvas) continue;
-        try {
-          await blitPackFrame(
-            canvas,
-            packOpts(slot, base, impact, fallback, withLyrics, paintArgsRef.current.photoUrl),
-            posterAt(base, impact, withLyrics),
-          );
-        } catch (cause) {
-          if (!cancelled) {
-            setError(friendlyError(cause, 'One creative could not be prepared.'));
+      for (const def of stale) {
+        const key = keys.get(def.id);
+        const { slots } = latest.current.view[def.id];
+        if (!key || !slots.length) continue;
+        setError('');
+        for (let index = 0; index < slots.length; index++) {
+          if (cancelled) return;
+          setShelfStatus(`Preparing ${def.title}, creative ${index + 1} of ${slots.length}…`);
+          await yieldFrame();
+          const canvas = canvasRefs.current.get(slots[index].id);
+          if (!canvas) continue;
+          const { composition: base, music: impact, fallbackText: fallback } = latest.current;
+          const withLyrics = latest.current.lyricsOn(def.id);
+          try {
+            await blitPackFrame(canvas, packOpts(slots[index], base, impact, fallback, withLyrics, latest.current.pictureOf(def.id)), posterAt(base, impact, withLyrics));
+          } catch (cause) {
+            if (!cancelled) setError(friendlyError(cause, 'One creative could not be prepared.'));
           }
+          await yieldFrame();
         }
-        await yieldFrame();
         if (cancelled) return;
-        if (slots[index + 1]?.row !== slot.row) setReadyRows(rows => [...rows, slot.row]);
+        painted.current.set(def.id, key);
+        setReadyRows(rows => [...rows, def.id]);
       }
-      if (!cancelled) {
-        setShelfStatus('');
-        setShelfReady(true);
-      }
+      if (!cancelled) setShelfStatus('');
     })();
     return () => { cancelled = true; };
-  }, [fontReady, approved, picturesReady, packKey, cueKey, music, fallbackText, photoUrl, lyrics]);
+  }, [fontReady, rowKeys]);
 
-  // Live preview — only when shelf is ready + playhead frame changes.
+  // Live preview: only when everything is painted and the playhead frame changes.
   useEffect(() => {
-    if (!shelfReady || !fontReady || !approved || !playing || !playingId) return;
-    const index = pack.findIndex(item => item.id === playingId);
-    if (index < 0) return;
-    const slot = pack[index];
-    const canvas = canvasRefs.current[index];
+    if (!allReady || !fontReady || !playing || !playingSlot) return;
+    const canvas = canvasRefs.current.get(playingSlot.id);
     if (!canvas) return;
     let alive = true;
     let raf = 0;
-    const edit = composition;
-    const opts = packOpts(slot, edit, music, fallbackText, lyrics, photoUrl);
+    const opts = packOpts(playingSlot, composition, music, fallbackText, lyricsOn(playingSlot.row), pictureOf(playingSlot.row));
     let painting = false;
     let lastFrame = -1;
 
@@ -250,31 +287,40 @@ export function CreativesPackStudio({
       alive = false;
       cancelAnimationFrame(raf);
     };
-  }, [shelfReady, fontReady, approved, pack, composition, music, playing, playingId, fallbackText, photoUrl, lyrics]);
+  }, [allReady, fontReady, playing, playingSlot?.id, rowKeys, composition, music, fallbackText]);
 
   function paintPoster(id: string | null) {
-    if (!id || !shelfReady || !fontReady || !approved) return;
-    const index = pack.findIndex(item => item.id === id);
-    if (index < 0) return;
-    const slot = pack[index];
-    const canvas = canvasRefs.current[index];
-    if (!canvas) return;
-    void blitPackFrame(canvas, packOpts(slot, composition, music, fallbackText, lyrics, photoUrl), posterAt(composition, music, lyrics))
+    const slot = pack.find(item => item.id === id);
+    const canvas = slot && canvasRefs.current.get(slot.id);
+    if (!slot || !canvas || !allReady || !fontReady) return;
+    const withLyrics = lyricsOn(slot.row);
+    void blitPackFrame(canvas, packOpts(slot, composition, music, fallbackText, withLyrics, pictureOf(slot.row)), posterAt(composition, music, withLyrics))
       .catch(cause => setError(friendlyError(cause, 'Preview failed (WebGL).')));
+  }
+
+  /** Any change to a row stops playback first, so the one shared drawing surface is never used twice at once. */
+  function stopPlayback() {
+    onStop();
+    setPlayingId(null);
+  }
+
+  function change(row: ShelfRow, next: Partial<RowControls>) {
+    stopPlayback();
+    setControls(current => ({ ...current, [row]: { ...current[row], ...next } }));
   }
 
   function togglePick(id: string) {
     setPicked(current => {
       const next = current.includes(id) ? current.filter(item => item !== id) : [...current, id];
       const slot = pack.find(item => item.id === id);
-      if (slot && next.includes(id)) reportPackFeedback(token, profile, 'select', slot, { selectedIds: next, generation });
+      if (slot && next.includes(id)) reportPackFeedback(token, profile, 'select', slot, { selectedIds: next, generation: controls[slot.row].generation });
       return next;
     });
   }
 
   function togglePlay(id: string, event: MouseEvent | KeyboardEvent) {
     event.stopPropagation();
-    if (!shelfReady || !fontReady || !approved || progress !== undefined) return;
+    if (!allReady || !fontReady || progress !== undefined) return;
     if (playing && playingId === id) {
       onStop();
       setPlayingId(null);
@@ -286,13 +332,13 @@ export function CreativesPackStudio({
     if (playing) onStop();
     if (previous && previous !== id) paintPoster(previous);
     const slot = pack.find(item => item.id === id);
-    if (slot) reportPackFeedback(token, profile, 'play', slot, { generation });
+    if (slot) reportPackFeedback(token, profile, 'play', slot, { generation: controls[slot.row].generation });
     onPlay();
   }
 
   async function downloadSelected() {
     const selectedSlots = pack.filter(item => picked.includes(item.id));
-    if (!approved || progress !== undefined || !selectedSlots.length || (source === 'own' && !photo)) return;
+    if (progress !== undefined || !selectedSlots.length) return;
     onStop(); setPlayingId(null); setError('');
     setProgress(0);
     setProgressLabel('Preparing audio…');
@@ -306,11 +352,12 @@ export function CreativesPackStudio({
       const jobs: { slot: CreativesPackSlot; id: string }[] = [];
       for (const slot of selectedSlots) {
         await yieldFrame();
+        const own = slot.row === 'dust' ? pictures.dust : slot.row === 'filter' ? pictures.filter : null;
         const id = await submitCloudJob({
           token,
           wav,
-          opts: packOpts(slot, composition, music, fallbackText, lyrics, photoUrl),
-          photoId: source === 'own' ? photo?.id : undefined,
+          opts: packOpts(slot, composition, music, fallbackText, lyricsOn(slot.row), pictureOf(slot.row)),
+          uploadId: own?.id,
         });
         jobs.push({ slot, id });
       }
@@ -322,7 +369,7 @@ export function CreativesPackStudio({
         done += 1;
         setProgress(Math.floor((done / jobs.length) * 100));
         if (jobs.length > 1) setProgressLabel(`Rendering ${done} of ${jobs.length} in the cloud…`);
-        reportPackFeedback(token, profile, 'download', job.slot, { selectedIds: picked, generation });
+        reportPackFeedback(token, profile, 'download', job.slot, { selectedIds: picked, generation: controls[job.slot.row].generation });
         return blob;
       }));
 
@@ -353,61 +400,54 @@ export function CreativesPackStudio({
     }
   }
 
+  const exporting = progress !== undefined;
   return <main className="desktop gallery-page studio-shell"><section className="gallery-shell panel">
     <p className="eyebrow">Creatives pack</p>
     <h1>{pack.length ? `${pack.length} recommended creatives` : 'Recommended creatives'}</h1>
-    <p className="intro">Ranked for this song, one row at a time. Pick the ones you like and download them. Downloads render in the cloud, so your computer stays free.</p>
+    <p className="intro">Ranked for this song, one row at a time. Each row has its own controls, so changing one row only redraws that row. Pick the creatives you like and download them. Downloads render in the cloud, so your computer stays free.</p>
     <div className="trim-actions">
-      <button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back</button>
-      <div className="source-switch" role="group" aria-label="Pictures">
-        {([['ours', 'Our photography'], ['own', 'Your photo']] as const).map(([id, name]) => (
-          <button key={id} type="button" aria-pressed={source === id} disabled={progress !== undefined} onClick={() => { onStop(); setPlayingId(null); setSource(id); }}>{name}</button>
-        ))}
-      </div>
-      <label className="lyrics-switch">
-        <input
-          type="checkbox"
-          role="switch"
-          checked={lyrics}
-          disabled={progress !== undefined}
-          onChange={event => { onStop(); setPlayingId(null); setLyrics(event.target.checked); }}
-        />
-        <span>Lyrics</span>
-      </label>
-      {shelfReady && (
-        <button
-          className="secondary"
-          disabled={progress !== undefined}
-          onClick={() => {
-            onStop();
-            setPlayingId(null);
-            setGeneration(n => n + 1);
-          }}
-          aria-label="Refresh recommendations"
-        >
-          Refresh
-        </button>
-      )}
+      <button className="secondary" disabled={exporting} onClick={onBack}>Back</button>
     </div>
-    {source === 'own' && <OwnPhotos chosen={photo} onChoose={setPhoto} disabled={progress !== undefined} />}
     {!token && <p role="alert">Staging access is unavailable.</p>}
-    {!approved && <p role="alert">Approve synced lyrics before downloading lyric creatives, or switch the lyrics off.</p>}
     {profile.musicAnalysis.status === 'pending' && <p role="status">Finishing music analysis for better ranking…</p>}
     {profile.lyricMeaning?.status === 'pending' && <p role="status">Reading what your lyrics say…</p>}
     {profile.lyricMeaning?.status === 'error' && <p className="hint">We could not read what your lyrics say, so these are matched to the sound alone.</p>}
     {error && <p role="alert">{error}</p>}
     {playbackError && <p role="alert">{playbackError}</p>}
-    {!shelfReady && approved && fontReady && (
-      <p role="status">{shelfStatus || 'Preparing creatives…'}</p>
-    )}
-    {SHELF_ROWS.filter(row => pack.some(item => item.row === row.id)).map(row => {
-      const rowReady = readyRows.includes(row.id);
+    {shelfStatus && <p role="status">{shelfStatus}</p>}
+    {SHELF_ROWS.filter(def => def.upload || view[def.id].slots.length || view[def.id].note).map(def => {
+      const { slots, note } = view[def.id];
+      const rowReady = readyRows.includes(def.id);
       return (
-        <section key={row.id} className="creatives-pack-row" aria-label={row.title} aria-busy={!rowReady}>
-          <h2>{row.title}</h2>
-          <div className="creatives-pack-grid" role="list">
-            {pack.map((item, index) => {
-              if (item.row !== row.id) return null;
+        <section key={def.id} className="creatives-pack-row" aria-label={def.title} aria-busy={slots.length > 0 && !rowReady}>
+          <div className="creatives-pack-row-head">
+            <h2>{def.title}</h2>
+            <div className="row-controls">
+              {def.lyrics === 'switch' && <label className="lyrics-switch">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={controls[def.id].lyrics}
+                  disabled={exporting}
+                  onChange={event => change(def.id, { lyrics: event.target.checked })}
+                />
+                <span>Lyrics</span>
+              </label>}
+              {def.upload && <button type="button" className="secondary" disabled={exporting} onClick={() => { stopPlayback(); setDialog(def.upload ?? null); }}>
+                {def.upload === 'dust' ? 'Upload photo' : 'Upload photo, video or GIF'}
+              </button>}
+              <button
+                type="button"
+                className="secondary"
+                disabled={exporting || !rowReady}
+                onClick={() => change(def.id, { generation: controls[def.id].generation + 1 })}
+                aria-label={`Refresh ${def.title}`}
+              >Refresh</button>
+            </div>
+          </div>
+          {note && <p className="hint creatives-pack-row-note" role="status">{note}</p>}
+          {slots.length > 0 && <div className="creatives-pack-grid" role="list">
+            {slots.map((item, index) => {
               const selected = picked.includes(item.id);
               const isPlaying = playing && playingId === item.id;
               return (
@@ -416,13 +456,13 @@ export function CreativesPackStudio({
                   key={item.id}
                   className={`creatives-pack-card${rowReady ? '' : ' pending'}`}
                   role="listitem"
-                  disabled={!rowReady || progress !== undefined}
+                  disabled={!rowReady || exporting}
                   aria-pressed={selected}
-                  aria-label={`${row.title} creative ${index + 1}${selected ? ', selected' : ''}`}
+                  aria-label={`${def.title} creative ${index + 1}${selected ? ', selected' : ''}`}
                   onClick={() => togglePick(item.id)}
                 >
                   <canvas
-                    ref={node => { canvasRefs.current[index] = node; }}
+                    ref={node => { if (node) canvasRefs.current.set(item.id, node); else canvasRefs.current.delete(item.id); }}
                     width={PREVIEW_WIDTH}
                     height={PREVIEW_HEIGHT}
                     aria-hidden="true"
@@ -430,7 +470,7 @@ export function CreativesPackStudio({
                   <span
                     className="creatives-pack-play"
                     role="button"
-                    tabIndex={shelfReady ? 0 : -1}
+                    tabIndex={allReady ? 0 : -1}
                     aria-label={isPlaying ? 'Pause' : 'Play'}
                     onClick={event => togglePlay(item.id, event)}
                     onKeyDown={event => {
@@ -443,22 +483,32 @@ export function CreativesPackStudio({
                 </button>
               );
             })}
-          </div>
+          </div>}
         </section>
       );
     })}
-    {shelfReady && picked.length > 0 && (
+    {(Object.keys(PICTURE_RULES) as PictureUse[]).map(use => (
+      <PictureDialog
+        key={use}
+        use={use}
+        open={dialog === use}
+        onClose={() => setDialog(current => (current === use ? null : current))}
+        uploads={uploads}
+        chosenId={pictures[use]?.id ?? null}
+        onChoose={id => { if (use === 'filter') { stopPlayback(); setChosenFilter(id); } }}
+      />
+    ))}
+    {allReady && picked.length > 0 && (
       <div className="trim-actions creatives-pack-download">
         <button
           className="primary-accent"
-          disabled={!fontReady || !approved || progress !== undefined || profile.musicAnalysis.status === 'pending' || profile.lyricMeaning?.status === 'pending'}
+          disabled={!fontReady || exporting || profile.musicAnalysis.status === 'pending' || profile.lyricMeaning?.status === 'pending'}
           onClick={() => void downloadSelected()}
         >
           Download {picked.length === 1 ? 'MP4' : `${picked.length} creatives`}
         </button>
       </div>
     )}
-    {progress !== undefined && <p role="status">{progressLabel || 'Working…'} · {progress}%</p>}
-    {activeSlot && shelfReady && <span className="visually-hidden">Previewing creative {pack.findIndex(item => item.id === activeSlot.id) + 1}</span>}
+    {exporting && <p role="status">{progressLabel || 'Working…'} · {progress}%</p>}
   </section></main>;
 }

@@ -21,6 +21,9 @@ function profile(genre = 'House', lyrics = 'hello', sha = 'a'.repeat(64), meanin
   };
 }
 
+/** The rows made from our own material, in shelf order. Dust and Filters need a person's picture and are tested apart. */
+const shelf = (pack, person, generation = 0, plates = []) => ['library', 'looks', 'pulise'].flatMap(row => pack.recommendRow(row, person, generation, plates));
+
 async function load() {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
   const pack = await server.ssrLoadModule('/src/creatives-pack.ts');
@@ -31,7 +34,7 @@ test('the shelf is three rows of four, each card distinct', async () => {
   const { server, pack } = await load();
   try {
     for (const genre of ['Gospel', 'Slap House', 'Pop', 'Ambient']) {
-      const slots = pack.recommendCreativesPack(profile(genre), 0, ['burnnet-woman-1547507-1920']);
+      const slots = shelf(pack, profile(genre), 0, ['burnnet-woman-1547507-1920']);
       assert.equal(slots.length, 12, genre);
       const library = slots.filter(slot => slot.row === 'library');
       assert.deepEqual(library.map(slot => slot.bankId), ['noir-mono', 'neon-night', 'golden-hour', 'pop-print'].map(look => `${look}-burnnet-woman-1547507-1920`), `${genre} library looks`);
@@ -51,9 +54,9 @@ test('the shelf is three rows of four, each card distinct', async () => {
 test('the brain matches type to mood (gospel is never stack/outline, club never minimal)', async () => {
   const { server, pack } = await load();
   try {
-    const gospel = pack.recommendCreativesPack(profile('Gospel')).filter(slot => slot.typeStyle);
+    const gospel = shelf(pack, profile('Gospel')).filter(slot => slot.typeStyle);
     for (const slot of gospel) assert.ok(['editorial', 'minimal', 'typewriter', 'karaoke'].includes(slot.typeStyle), slot.typeStyle);
-    const club = pack.recommendCreativesPack(profile('Slap House')).filter(slot => slot.typeStyle);
+    const club = shelf(pack, profile('Slap House')).filter(slot => slot.typeStyle);
     for (const slot of club) assert.ok(['stack', 'outline', 'karaoke', 'typewriter'].includes(slot.typeStyle), slot.typeStyle);
   } finally { await server.close(); }
 });
@@ -62,12 +65,12 @@ test('lyrics steer the lane when genre does not lock it', async () => {
   const { server, pack } = await load();
   try {
     const spiritual = { attitude: 'spiritual', sadness: 0, intensity: 3 };
-    const faith = pack.recommendCreativesPack(profile('Pop', 'praise the lord', 'a'.repeat(64), spiritual));
+    const faith = shelf(pack, profile('Pop', 'praise the lord', 'a'.repeat(64), spiritual));
     assert.ok(faith[0].reason.startsWith('gospel'), faith[0].reason);
-    const sad = pack.recommendCreativesPack(profile('Pop', 'hello', 'a'.repeat(64), { attitude: 'heartbroken', sadness: 3, intensity: 2 }));
+    const sad = shelf(pack, profile('Pop', 'hello', 'a'.repeat(64), { attitude: 'heartbroken', sadness: 3, intensity: 2 }));
     assert.ok(sad[0].reason.startsWith('quiet'), sad[0].reason);
     // Genre lock wins over lyrics.
-    const club = pack.recommendCreativesPack(profile('Techno', 'praise the lord', 'a'.repeat(64), spiritual));
+    const club = shelf(pack, profile('Techno', 'praise the lord', 'a'.repeat(64), spiritual));
     assert.ok(club[0].reason.startsWith('techno'), club[0].reason);
   } finally { await server.close(); }
 });
@@ -76,10 +79,10 @@ test('seeded: stable for same input, different across generations and songs', as
   const { server, pack } = await load();
   try {
     const key = slots => slots.map(slot => slot.id).join('|');
-    const a = pack.recommendCreativesPack(profile('Pop'), 0);
-    assert.equal(key(a), key(pack.recommendCreativesPack(profile('Pop'), 0)));
-    assert.notEqual(key(a), key(pack.recommendCreativesPack(profile('Pop'), 1)));
-    assert.notEqual(key(a), key(pack.recommendCreativesPack(profile('Pop', 'hello', 'b'.repeat(64)), 0)));
+    const a = shelf(pack, profile('Pop'), 0);
+    assert.equal(key(a), key(shelf(pack, profile('Pop'), 0)));
+    assert.notEqual(key(a), key(shelf(pack, profile('Pop'), 1)));
+    assert.notEqual(key(a), key(shelf(pack, profile('Pop', 'hello', 'b'.repeat(64)), 0)));
   } finally { await server.close(); }
 });
 
@@ -87,7 +90,7 @@ test('club songs keep club fonts', async () => {
   const { server, pack } = await load();
   try {
     const club = new Set(['Anton', 'Bebas Neue', 'Audiowide', 'Rubik Mono One', 'Archivo Black', 'Dela Gothic One']);
-    for (const slot of pack.recommendCreativesPack(profile('Slap House'))) {
+    for (const slot of shelf(pack, profile('Slap House'))) {
       assert.ok(club.has(slot.font), slot.font);
       assert.ok(club.has(slot.fontSecondary), slot.fontSecondary);
     }
@@ -100,7 +103,7 @@ test('sad lyrics never land on a bright background', async () => {
     const bank = (await import('../src/look-lab/bank.json', { with: { type: 'json' } })).default;
     const tone = new Map(bank.map(item => [item.slug, item.tone]));
     for (const gen of [0, 1, 2]) {
-      for (const slot of pack.recommendCreativesPack(profile('Ambient', 'tears fall like rain tonight alone', 'a'.repeat(64), { attitude: 'lonely', sadness: 3, intensity: 2 }), gen)) {
+      for (const slot of shelf(pack, profile('Ambient', 'tears fall like rain tonight alone', 'a'.repeat(64), { attitude: 'lonely', sadness: 3, intensity: 2 }), gen)) {
         if (slot.row === 'looks') assert.equal(tone.get(slot.bankId), 'deep', slot.bankId);
       }
     }
@@ -114,7 +117,7 @@ test('the cover decides which backgrounds lead: warm cover → warm looks, cool 
     const read = slug => bank.find(look => look.slug === slug).read;
     const cover = (hex, extra) => ({ palette: [{ hex, share: 1 }], lightness: 0.5, saturation: 0.8, contrast: 0.5, hue: 20, warmth: 1, ...extra });
     const withCover = value => ({ ...profile('Pop'), creator: { primaryGenre: { value: 'Pop', source: 'creator' }, cover: { value, source: 'embedded_metadata' } } });
-    const lead = value => pack.recommendCreativesPack(withCover(value)).filter(slot => slot.row === 'looks').slice(0, 3).map(slot => read(slot.bankId));
+    const lead = value => shelf(pack, withCover(value)).filter(slot => slot.row === 'looks').slice(0, 3).map(slot => read(slot.bankId));
 
     const warm = lead(cover('#e1782a'));
     const cool = lead(cover('#2a3ea0', { hue: 230, warmth: 0, lightness: 0.25 }));
@@ -122,7 +125,7 @@ test('the cover decides which backgrounds lead: warm cover → warm looks, cool 
     assert.ok(cool.every(look => look.warmth < 0.4), 'cool cover leads with cool backgrounds');
 
     // No cover: nothing changes, still a full pack.
-    assert.equal(pack.recommendCreativesPack(profile('Pop')).length, 8, 'no library photos, no library row');
+    assert.equal(shelf(pack, profile('Pop')).length, 8, 'no library photos, no library row');
   } finally { await server.close(); }
 });
 
@@ -134,7 +137,7 @@ test('club songs get cards that look different: one per effect, at most two per 
     const look = slug => bank.find(item => item.slug === slug);
     for (const genre of ['House', 'Techno', 'Slap House', 'EDM']) {
       for (let generation = 0; generation < 12; generation++) {
-        const cards = pack.recommendCreativesPack(profile(genre, 'hello', 'b'.repeat(64)), generation).filter(slot => slot.row === 'looks');
+        const cards = shelf(pack, profile(genre, 'hello', 'b'.repeat(64)), generation).filter(slot => slot.row === 'looks');
         const backgrounds = cards.map(slot => look(slot.bankId));
         const effects = backgrounds.map(item => effectFamily(item.slug));
         assert.equal(new Set(effects).size, effects.length, `${genre} #${generation} repeats an effect: ${effects}`);
@@ -151,22 +154,22 @@ test('the lyrics grade the colours and calm the beat without changing the look',
   const { server, pack } = await load();
   try {
     const sha = 'a'.repeat(64);
-    const plain = pack.recommendCreativesPack(profile('Slap House', 'hello', sha));
+    const plain = shelf(pack, profile('Slap House', 'hello', sha));
     // Words that say nothing change nothing.
     assert.ok(plain.every(slot => !slot.grade));
-    const neutral = pack.recommendCreativesPack(profile('Slap House', 'hello', sha, { attitude: 'neutral', sadness: 0, intensity: 3 }));
+    const neutral = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'neutral', sadness: 0, intensity: 3 }));
     assert.deepEqual(neutral.map(slot => slot.id), plain.map(slot => slot.id));
     assert.ok(neutral.every(slot => !slot.grade));
 
     // Sad words on a club song: same lane and looks, sadder colours, calmer hits.
-    const sad = pack.recommendCreativesPack(profile('Slap House', 'hello', sha, { attitude: 'heartbroken', sadness: 3, intensity: 2 }));
+    const sad = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'heartbroken', sadness: 3, intensity: 2 }));
     assert.ok(sad.every(slot => slot.reason.startsWith('techno')));
     const grade = sad[0].grade;
     assert.ok(grade.saturation < 1 && grade.warmth < 0 && grade.brightness < 1 && grade.calm > 0.5, JSON.stringify(grade));
-    assert.ok(sad.every(slot => slot.grade === grade));
+    assert.ok(sad.every(slot => JSON.stringify(slot.grade) === JSON.stringify(grade)));
 
     // Defiant and forceful: warmer, punchier, no calming.
-    const defiant = pack.recommendCreativesPack(profile('Slap House', 'hello', sha, { attitude: 'defiant', sadness: 0, intensity: 4 }))[0].grade;
+    const defiant = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'defiant', sadness: 0, intensity: 4 }))[0].grade;
     assert.ok(defiant.warmth > 0 && defiant.contrast > 1 && defiant.calm === 0, JSON.stringify(defiant));
   } finally { await server.close(); }
 });
@@ -179,7 +182,7 @@ test('the attitude of the words picks backgrounds that look like it', async () =
     const read = slug => bank.find(look => look.slug === slug).read;
     const mean = (slots, key) => { const ids = slots.filter(slot => slot.row === 'looks'); return ids.reduce((n, slot) => n + read(slot.bankId)[key], 0) / ids.length; };
     const sha = 'c'.repeat(64);
-    const song = meaning => pack.recommendCreativesPack(profile('Pop', 'hello', sha, meaning));
+    const song = meaning => shelf(pack, profile('Pop', 'hello', sha, meaning));
 
     // Words with no particular feel leave the recommendation exactly as the sound made it.
     assert.deepEqual(song({ attitude: 'neutral', sadness: 0, intensity: 3 }).map(slot => slot.id), song(undefined).map(slot => slot.id));
@@ -200,12 +203,33 @@ test('the attitude of the words picks backgrounds that look like it', async () =
   } finally { await server.close(); }
 });
 
-test('with lyrics off the shelf drops the lyric-only Pulise row and keeps the rest', async () => {
+test('every row is recommended on its own, so refreshing one never changes another', async () => {
   const { server, pack } = await load();
   try {
-    const slots = pack.recommendCreativesPack(profile('House'), 0, ['burnnet-woman-1547507-1920'], false);
-    assert.deepEqual(slots.map(slot => slot.row), ['library', 'library', 'library', 'library', 'looks', 'looks', 'looks', 'looks']);
-  } finally {
-    await server.close();
-  }
+    const person = profile('Pop');
+    const ids = (row, generation) => pack.recommendRow(row, person, generation, ['burnnet-woman-1547507-1920']).map(slot => slot.id).join();
+    for (const row of pack.SHELF_ROWS.map(def => def.id)) {
+      assert.equal(pack.recommendRow(row, person, 0, ['burnnet-woman-1547507-1920']).length, 4, `${row} has four cards`);
+      assert.equal(ids(row, 0), ids(row, 0), `${row} is repeatable`);
+      assert.notEqual(ids(row, 0), ids(row, 1), `${row} changes when refreshed`);
+    }
+    // Refreshing Dust leaves the Filters row exactly as it was.
+    assert.equal(ids('filter', 0), ids('filter', 0));
+    const filters = pack.recommendRow('filter', person, 0);
+    assert.deepEqual(filters.map(slot => slot.filter), ['duotone', 'split', 'halftone', 'glow']);
+    assert.ok(pack.recommendRow('dust', person, 0).every(slot => slot.colors && slot.row === 'dust'));
+  } finally { await server.close(); }
+});
+
+test('rows say what they own: lyrics switch, upload kind, and Pulise only refreshes', async () => {
+  const { server, pack } = await load();
+  try {
+    const rows = Object.fromEntries(pack.SHELF_ROWS.map(def => [def.id, def]));
+    assert.equal(rows.pulise.lyrics, 'always');
+    assert.equal(rows.pulise.upload, undefined);
+    assert.equal(rows.dust.upload, 'dust');
+    assert.equal(rows.filter.upload, 'filter');
+    for (const row of ['library', 'looks', 'dust', 'filter']) assert.equal(rows[row].lyrics, 'switch', row);
+    for (const row of ['library', 'looks', 'pulise']) assert.equal(rows[row].upload, undefined, `${row} takes no upload`);
+  } finally { await server.close(); }
 });

@@ -1,11 +1,11 @@
 import { validAccess } from '../lib/access.mjs';
 import { personFrom } from '../lib/person.mjs';
-import { uploadBytes } from '../lib/uploads.mjs';
+import { uploadMedia } from '../lib/uploads.mjs';
 
 /**
  * Submit a cloud render job. Tiny request (≈960 KB WAV + JSON); returns a job id at once.
- * A library plate is fetched by the Modal worker itself. A person's own photo (`upload` in the meta) is read
- * here from that signed-in person's storage and handed on, so the browser never sends an image or a link.
+ * A person's own picture (`upload` in the meta) is read here from that signed-in person's storage and handed on,
+ * so the browser never sends an image, a video or a link.
  */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
@@ -50,12 +50,16 @@ export default async function encodeCreative(request) {
     const outbound = new FormData();
     outbound.append('audio', audio, 'clip.wav');
     if (upload !== undefined) {
-      if (!UUID.test(upload)) return error(400, 'Invalid photo.');
+      if (!UUID.test(upload)) return error(400, 'Invalid picture.');
       const person = await personFrom(request);
-      if (!person) return error(401, 'Sign in to use your own photo.');
-      const photo = await uploadBytes(person.id, upload);
-      if (!photo) return error(404, 'That photo was not found.');
-      outbound.append('image', new Blob([photo], { type: 'image/jpeg' }), 'photo.jpg');
+      if (!person) return error(401, 'Sign in to use your own pictures.');
+      const media = await uploadMedia(person.id, upload);
+      if (!media) return error(404, 'That picture was not found, or is still being prepared.');
+      // A picture kept for Filters cannot be sent to Dust, and the other way round.
+      if (media.use !== scene.opts?.style) return error(400, 'That picture is kept for a different style.');
+      if (media.photo) outbound.append('photo', new Blob([media.photo], { type: 'image/jpeg' }), 'photo.jpg');
+      if (media.cutout) outbound.append('cutout', new Blob([media.cutout], { type: 'image/png' }), 'cutout.png');
+      if (media.motion) outbound.append('motion', new Blob([media.motion], { type: 'video/mp4' }), 'motion.mp4');
     }
     outbound.append('meta', JSON.stringify(scene));
 

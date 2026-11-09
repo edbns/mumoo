@@ -24,11 +24,11 @@ export async function personFrom(request) {
   }
 }
 
-/** Records that this person was here (powers history and reminders) and returns their row. */
+/** Records that this person was here (restarts the inactivity clock) and returns their row. */
 export async function recordPerson(person) {
   const [row] = await db()`
     insert into app_users (id, email) values (${person.id}, ${person.email})
-    on conflict (id) do update set email = excluded.email, last_seen_at = now()
+    on conflict (id) do update set email = excluded.email, last_seen_at = now(), reminded_60_at = null, reminded_83_at = null
     returning id, email, created_at, last_seen_at`;
   return row;
 }

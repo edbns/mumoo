@@ -19,6 +19,7 @@ import type { TypeStyleId } from './pack-type';
 import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
 import { dustWordAt, sampleDust, type DustPoints } from './pack-dust';
+import { loadMotion, type Motion } from './pack-motion';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
 export const PREVIEW_WIDTH = 360;
@@ -32,8 +33,10 @@ export type PackRendererOpts = {
   cues: readonly LyricCue[];
   music: ImpactMusic | null;
   fallbackText: string;
-  /** The person's own photo, for Dust and Filter. */
+  /** The person's own picture. Dust: a photo with its cut-out mask. A Filter: a photo, or a clip (a video or GIF). */
   photoUrl?: string;
+  cutoutUrl?: string;
+  motionUrl?: string;
   /** Look Bank card: baked Shaders Pro background id + lyric type style. */
   bankId?: string;
   typeStyle?: TypeStyleId;
@@ -72,8 +75,12 @@ export async function createPackRenderer(
   let photoUrlLoaded = '';
   let bankTexture: Texture | null = null;
   let bankUrlLoaded = '';
+  let cutoutTexture: Texture | null = null;
+  let cutoutUrlLoaded = '';
+  let motion: Motion | null = null;
+  let motionUrlLoaded = '';
   let dustPoints: DustPoints | null = null;
-  let dustUrl = '';
+  let dustKey = '';
 
   const dispose = () => {
     scene?.destroy();
@@ -82,24 +89,36 @@ export async function createPackRenderer(
     photoUrlLoaded = '';
     bankTexture = null;
     bankUrlLoaded = '';
+    cutoutTexture = null;
+    cutoutUrlLoaded = '';
+    motion?.destroy();
+    motion = null;
+    motionUrlLoaded = '';
     dustPoints = null;
-    dustUrl = '';
+    dustKey = '';
     if (initialized) app.destroy(false, { children: true });
     initialized = false;
   };
 
-  async function ensurePhotoTexture(url: string | undefined) {
-    if (!url) {
-      photoTexture = null;
-      photoUrlLoaded = '';
-      return;
+  async function loadTexture(url: string) {
+    return await Assets.load({ src: url, parser: 'texture' }) as Texture;
+  }
+
+  /** Reads the person's picture (still, cut-out, clip) once per link; a missing one is an error, never a stand-in. */
+  async function ensurePicture(photoUrl: string | undefined, cutoutUrl: string | undefined, motionUrl: string | undefined) {
+    if (photoUrl !== photoUrlLoaded || (photoUrl && !photoTexture)) {
+      photoUrlLoaded = photoUrl ?? '';
+      photoTexture = photoUrl ? await loadTexture(photoUrl).catch(() => null) : null;
     }
-    if (url === photoUrlLoaded && photoTexture) return;
-    photoUrlLoaded = url;
-    try {
-      photoTexture = await Assets.load({ src: url, parser: 'texture' }) as Texture;
-    } catch {
-      photoTexture = null;
+    if (cutoutUrl !== (cutoutUrlLoaded || undefined) || (cutoutUrl && !cutoutTexture)) {
+      cutoutUrlLoaded = cutoutUrl ?? '';
+      cutoutTexture = cutoutUrl ? await loadTexture(cutoutUrl).catch(() => null) : null;
+    }
+    if (motionUrl !== (motionUrlLoaded || undefined)) {
+      motion?.destroy();
+      motion = null;
+      motionUrlLoaded = motionUrl ?? '';
+      if (motionUrl) motion = await loadMotion(motionUrl);
     }
   }
 
@@ -136,8 +155,9 @@ export async function createPackRenderer(
         if (!scene) throw new Error('Pack renderer was destroyed.');
         if (gl.isContextLost()) throw new Error('The WebGL context was lost. Reload and try again.');
         const { style } = current;
-        const ownPhoto = style === 'dust' || style === 'filter';
-        await ensurePhotoTexture(ownPhoto ? current.photoUrl : undefined);
+        const ownPicture = style === 'dust' || style === 'filter';
+        if (ownPicture) await ensurePicture(current.photoUrl, current.cutoutUrl, current.motionUrl);
+        else await ensurePicture(undefined, undefined, undefined);
 
         let bankTex: Texture | null = null;
         if (style === 'bank' && current.bankId) {
@@ -153,19 +173,24 @@ export async function createPackRenderer(
           bankTex = bankTexture;
         }
 
-        // Dust: the photo is read into grains once per photo, then every frame is a function of the clock.
-        if (style === 'dust') {
-          const resource = photoTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
-          if (!resource || !current.photoUrl) throw new Error('Dust needs a photo.');
-          if (dustUrl !== current.photoUrl || !dustPoints) {
-            dustPoints = sampleDust(resource);
-            dustUrl = current.photoUrl;
-          }
-        }
-        if (style === 'filter' && !photoTexture) throw new Error('Filter needs a photo.');
-
         const reaction = packReaction(current.music, frame);
         const { ms, energy, beatIndex, beatGapMs } = reaction;
+        // A video or GIF shows the clip's frame for this moment.
+        if (motion) await motion.seek(ms);
+
+        // Dust: the picture is read into grains once, then every frame is a function of the clock.
+        if (style === 'dust') {
+          const picture = photoTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
+          const mask = cutoutTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
+          if (!picture || !mask) throw new Error('Dust needs a photo and its cut-out.');
+          const key = `${current.photoUrl}|${current.cutoutUrl}`;
+          if (dustKey !== key || !dustPoints) {
+            dustPoints = sampleDust(picture, mask);
+            dustKey = key;
+          }
+        }
+        if (style === 'filter' && !photoTexture && !motion) throw new Error('Filter needs a picture.');
+
         const beat = calmBeat(reaction.beat, current.grade);
         if (current.grade) {
           gradeFilter.matrix = gradeMatrix(current.grade) as ColorMatrixFilter['matrix'];
@@ -188,7 +213,7 @@ export async function createPackRenderer(
           wordEnter,
           ms,
           words: copy.words,
-          background: style === 'filter' ? photoTexture : bankTex,
+          background: style === 'filter' ? (motion?.texture ?? photoTexture) : bankTex,
           filter: current.filter,
           colors: current.colors,
           typeStyle: current.typeStyle,
