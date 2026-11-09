@@ -15,13 +15,15 @@ import { createPackScene } from './pack-scenes';
 import { bankBackgroundUrl, lookPlateUrl } from './pack-looks';
 import type { TypeStyleId } from './pack-type';
 import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
+import type { DustColors } from './dust-colors';
+import { dustWordAt, sampleDust, type DustPoints } from './pack-dust';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
 export const PREVIEW_WIDTH = 360;
 export const PREVIEW_HEIGHT = 640;
 
 /** Bases that composite the cleared still under their graphic world. */
-const PHOTO_BASES = new Set(['paper-cutout', 'riso', 'noir', 'oil', 'hold']);
+const PHOTO_BASES = new Set(['paper-cutout', 'riso', 'noir', 'oil', 'hold', 'dust']);
 
 export type PackRendererOpts = {
   style: AdPunchStyle;
@@ -40,6 +42,10 @@ export type PackRendererOpts = {
   typeStyle?: TypeStyleId;
   /** What the lyrics do to colour and beat hits; absent = untouched. */
   grade?: MoodGrade;
+  /** False when lyrics are switched off: nothing is written on the picture. Default true. */
+  lyrics?: boolean;
+  /** Dust card: the ground and dust colours (the photo is `plateUrl`). */
+  dust?: DustColors;
 };
 
 export type PackRenderer = {
@@ -56,6 +62,8 @@ let shared: PackRenderer | null = null;
 export async function createPackRenderer(
   canvas: HTMLCanvasElement,
   opts: PackRendererOpts,
+  /** Edge smoothing on the whole surface. The cloud turns it off for Dust: its grains are already soft, and it costs 6× the time there. */
+  antialias = true,
 ): Promise<PackRenderer> {
   const app = new Application();
   let initialized = false;
@@ -67,6 +75,8 @@ export async function createPackRenderer(
   let lookUrlLoaded = '';
   let bankTexture: Texture | null = null;
   let bankUrlLoaded = '';
+  let dustPoints: DustPoints | null = null;
+  let dustUrl = '';
 
   const dispose = () => {
     scene?.destroy();
@@ -77,6 +87,8 @@ export async function createPackRenderer(
     lookUrlLoaded = '';
     bankTexture = null;
     bankUrlLoaded = '';
+    dustPoints = null;
+    dustUrl = '';
     if (initialized) app.destroy(false, { children: true });
     initialized = false;
   };
@@ -106,7 +118,7 @@ export async function createPackRenderer(
       preference: 'webgl',
       autoStart: false,
       sharedTicker: false,
-      antialias: true,
+      antialias,
       background: '#000000',
       resolution: 1,
     });
@@ -161,6 +173,16 @@ export async function createPackRenderer(
           bankTex = bankTexture;
         }
 
+        // Dust: the photo is read into grains once per photo, then every frame is a function of the clock.
+        if (meta.base === 'dust') {
+          const resource = plateTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
+          if (!resource || !current.plateUrl) throw new Error('Dust needs a photo.');
+          if (dustUrl !== current.plateUrl || !dustPoints) {
+            dustPoints = sampleDust(resource);
+            dustUrl = current.plateUrl;
+          }
+        }
+
         const reaction = packReaction(current.music, frame);
         const { ms, energy, beatIndex, beatGapMs } = reaction;
         const beat = calmBeat(reaction.beat, current.grade);
@@ -195,6 +217,12 @@ export async function createPackRenderer(
           words: copy.words,
           bankTexture: bankTex,
           typeStyle: current.typeStyle,
+          lyrics: current.lyrics !== false,
+          dustPoints: meta.base === 'dust' ? dustPoints : null,
+          dust: current.dust,
+          beatsMs: current.music?.beatsMs ?? [],
+          downbeatsMs: current.music?.downbeatsMs ?? [],
+          dustWord: current.lyrics !== false ? dustWordAt(current.cues, ms) : null,
         });
         app.render();
       },

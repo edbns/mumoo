@@ -258,8 +258,11 @@ export function readSong(profile: CreativeProfileV1) {
   return { intent, genre, language, meaning, lane };
 }
 
-/** `plates` are the ids of the cleared library photos; without any, the library row is simply absent. */
-export function recommendCreativesPack(profile: CreativeProfileV1, generation = 0, plates: readonly string[] = []): CreativesPackSlot[] {
+/**
+ * `plates` are the ids of the cleared library photos; without any, the library row is simply absent.
+ * Pulise is made of the lyrics, so with lyrics switched off its row is absent too.
+ */
+export function recommendCreativesPack(profile: CreativeProfileV1, generation = 0, plates: readonly string[] = [], lyrics = true): CreativesPackSlot[] {
   const { intent, meaning, lane } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}`;
@@ -268,7 +271,7 @@ export function recommendCreativesPack(profile: CreativeProfileV1, generation = 
   const looks = bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover);
   const pulise = puliseSlots(lane, intent, seed);
   const grade = moodGrade(meaning);
-  const slots = [...library, ...looks, ...pulise];
+  const slots = [...library, ...looks, ...(lyrics ? pulise : [])];
   return grade ? slots.map(slot => ({ ...slot, grade })) : slots;
 }
 

@@ -5,9 +5,9 @@
  * draw the same frame. Two colours rule the look: the ground and the dust; the photo's own light and shadow
  * only decide how much of the dust colour each grain gets.
  */
-import { Container, Geometry, Graphics, Mesh, Shader, Sprite, Text, Texture } from 'pixi.js';
+import { Buffer, BufferUsage, Container, Geometry, Graphics, Mesh, Shader, Sprite, Texture } from 'pixi.js';
 import { DURATION_MS, HEIGHT, WIDTH } from './composition';
-import { contrast, hexToRgb, luminance, type DustColors } from './dust-colors';
+import { hexToRgb, luminance, type DustColors } from './dust-colors';
 import { META_SAFE_BOTTOM } from './ad-punch';
 import type { AdFont } from './ad-fonts';
 import { fitPackLines } from './pack-text';
@@ -120,6 +120,9 @@ uniform float uIds[${BEATS}];
 uniform float uStrength[${BEATS}];
 uniform float uDecay;
 uniform float uInvert;
+uniform float uWord;
+uniform float uEnter;
+uniform float uExit;
 uniform float uPower;
 uniform float uLoose;
 uniform vec2 uFocus;
@@ -136,16 +139,19 @@ void main() {
   // How far this grain has flown toward the viewer. Most barely move; a deep few surge past the camera.
   float travel = 0.0;
   float sway = 0.0;
+  // A photo grain is mostly shallow with a few deep ones; every grain of a word is deep enough to be seen flying.
+  float depth = mix(0.015 + 0.985 * pow(aRand.z, 4.0), 0.35 + 0.65 * aRand.z, uWord);
   // The burst spreads out from the middle of the picture like a ring.
   float ripple = length(aOrigin - uFocus) / 1100.0 * 0.12;
   for (int k = 0; k < ${BEATS}; k++) {
     float age = uAges[k] - ripple - aRand.z * 0.04;
     if (age <= 0.0) continue;
     float push = (1.0 - exp(-age * 14.0)) * exp(-age * uDecay * (1.0 - 0.5 * aRand.z)) * uStrength[k];
-    float depth = 0.015 + 0.985 * pow(aRand.z, 4.0);
     travel += push * uPower * depth;
     sway += push * (hash(aRand.x * 91.0 + uIds[k] * 7.3) - 0.5);
   }
+  // A word arrives from the viewer (uEnter falls from 1) and leaves toward them (uExit rises to 1).
+  travel += (uEnter * 1.1 + uExit * 1.7) * depth;
   // Coming closer: the grain slides away from the focus point, grows, and softens.
   vec2 out_ = aOrigin - uFocus;
   vec2 place = uFocus + out_ * (1.0 + travel * 1.3);
@@ -157,9 +163,9 @@ void main() {
   gl_Position = vec4((mvp * vec3(place, 1.0)).xy, 0.0, 1.0);
   float light = pow(smoothstep(0.0, 1.0, aRand.w), 0.8);
   // On a light ground the dust is the ink: the photo's shadows get it, so the picture still reads as a photo.
-  float tone = mix(light, 1.0 - light, uInvert);
+  float tone = mix(mix(light, 1.0 - light, uInvert), 1.0, uWord);
   float near = smoothstep(0.15, 1.1, travel);
-  float alpha = mix(0.3, 1.0, tone) * (1.0 - 0.6 * near);
+  float alpha = mix(0.3, 1.0, tone) * (1.0 - 0.6 * near) * (1.0 - uExit) * (1.0 - 0.7 * uEnter);
   vColor = vec4(mix(uShade, uDust, tone) * alpha, alpha);
   vQuad = aPosition;
   vSoft = near;
@@ -195,40 +201,62 @@ function glow() {
   return Texture.from(canvas);
 }
 
-export type DustInput = {
-  ms: number;
-  /** Every beat in the clip, in ms. */
-  beatsMs: readonly number[];
-  /** The first beat of each bar, in ms: these scatter the picture hardest. */
-  downbeatsMs?: readonly number[];
-  /** 0–1 pulse of the latest beat. */
-  beat: number;
-  colors: DustColors;
-  word: string;
-  font: AdFont;
-  /** How hard each beat scatters the grains; 1 is the designed amount. */
-  power?: number;
+/** Where the lyric word sits: low in the frame, clear of the platform's buttons and caption. */
+const WORD_Y = Math.min(HEIGHT * 0.8, META_SAFE_BOTTOM - 120);
+export const WORD_GRAINS = 16_000;
+
+/** Turns one lyric word into grains, fitted on one line. Cached by the caller: the same word always gives the same grains. */
+export function sampleWord(text: string, font: AdFont, grains = WORD_GRAINS): DustPoints {
+  const fit = fitPackLines(text, font, 260, 940, 1);
+  const height = Math.ceil(fit.size * 1.4);
+  const canvas = document.createElement('canvas');
+  canvas.width = WIDTH;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('Canvas 2D is unavailable.');
+  ctx.fillStyle = '#fff';
+  ctx.font = `400 ${fit.size}px "${font}"`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(fit.lines.join(' '), WIDTH / 2, height / 2);
+  const alpha = ctx.getImageData(0, 0, WIDTH, height).data;
+  let covered = 0;
+  for (let i = 3; i < alpha.length; i += 4) if (alpha[i] > 127) covered++;
+  const step = Math.max(1.2, Math.sqrt(Math.max(1, covered) / grains));
+  const random = generator(0x6c79 + text.length);
+  const kept: number[] = [];
+  for (let y = step / 2; y < height; y += step) {
+    for (let x = step / 2; x < WIDTH; x += step) {
+      const gx = x + (random() - 0.5) * step;
+      const gy = y + (random() - 0.5) * step;
+      if (alpha[(Math.min(height - 1, Math.round(gy)) * WIDTH + Math.min(WIDTH - 1, Math.round(gx))) * 4 + 3] <= 127) continue;
+      kept.push(gx, gy - height / 2 + WORD_Y, random(), random(), random(), 1);
+    }
+  }
+  return { data: new Float32Array(kept), count: kept.length / 6 };
+}
+
+const CORNERS = new Float32Array([-1, -1, 1, -1, 1, 1, -1, 1]);
+const centre = (points: DustPoints, at: number) => {
+  let x = 0;
+  let top = HEIGHT;
+  let bottom = 0;
+  for (let n = 0; n < points.count; n++) {
+    x += points.data[n * 6];
+    top = Math.min(top, points.data[n * 6 + 1]);
+    bottom = Math.max(bottom, points.data[n * 6 + 1]);
+  }
+  return new Float32Array([x / Math.max(1, points.count), top + (bottom - top) * at]);
 };
 
-export type DustWorld = {
-  root: Container;
-  update(input: DustInput): void;
-  destroy(): void;
-};
-
-export function createDustWorld(points: DustPoints): DustWorld {
-  const root = new Container();
-  const ground = new Graphics();
-  const halo = new Sprite(glow());
-  halo.anchor.set(0.5);
-  halo.position.set(WIDTH / 2, HEIGHT * 0.42);
-
-  const corners = new Float32Array([-1, -1, 1, -1, 1, 1, -1, 1]);
+/** One layer of grains: a mesh, its buffer and the uniforms that move it. */
+function grainLayer(points: DustPoints, word: boolean) {
+  const buffer = new Buffer({ data: points.data, usage: BufferUsage.VERTEX | BufferUsage.COPY_DST });
   const geometry = new Geometry({
     attributes: {
-      aPosition: { buffer: corners, format: 'float32x2', stride: 8, offset: 0 },
-      aOrigin: { buffer: points.data, format: 'float32x2', stride: 24, offset: 0, instance: true },
-      aRand: { buffer: points.data, format: 'float32x4', stride: 24, offset: 8, instance: true },
+      aPosition: { buffer: CORNERS, format: 'float32x2', stride: 8, offset: 0 },
+      aOrigin: { buffer, format: 'float32x2', stride: 24, offset: 0, instance: true },
+      aRand: { buffer, format: 'float32x4', stride: 24, offset: 8, instance: true },
     },
     indexBuffer: new Uint32Array([0, 1, 2, 0, 2, 3]),
     instanceCount: points.count,
@@ -246,61 +274,149 @@ export function createDustWorld(points: DustPoints): DustWorld {
         uStrength: { value: strength, type: 'f32', size: BEATS },
         uDecay: { value: 3, type: 'f32' },
         uInvert: { value: 0, type: 'f32' },
+        uWord: { value: word ? 1 : 0, type: 'f32' },
+        uEnter: { value: 0, type: 'f32' },
+        uExit: { value: 0, type: 'f32' },
         uPower: { value: 1, type: 'f32' },
         uLoose: { value: 0, type: 'f32' },
-        uFocus: { value: new Float32Array(2), type: 'vec2<f32>' },
-        uGrain: { value: 2.4, type: 'f32' },
+        uFocus: { value: centre(points, word ? 0.5 : 0.4), type: 'vec2<f32>' },
+        uGrain: { value: word ? 2.1 : 2.4, type: 'f32' },
         uDust: { value: new Float32Array(3), type: 'vec3<f32>' },
         uShade: { value: new Float32Array(3), type: 'vec3<f32>' },
       },
     },
   });
-  const grains = new Mesh({ geometry, shader });
-  grains.cullable = false;
-  const lyric = new Text({ text: '', style: { fontFamily: 'Anton', fontSize: 120, fill: '#ffffff', align: 'center', wordWrap: false } });
-  lyric.anchor.set(0.5);
-  lyric.position.set(WIDTH / 2, Math.min(HEIGHT * 0.8, META_SAFE_BOTTOM - 120));
-  root.addChild(ground, halo, grains, lyric);
+  const mesh = new Mesh({ geometry, shader });
+  mesh.cullable = false;
+  const group = shader.resources.dust;
+  return {
+    mesh,
+    ages,
+    ids,
+    strength,
+    uniforms: group.uniforms as Record<string, number | Float32Array>,
+    flush: () => group.update(),
+    /** Swap in another set of grains (a new lyric word) without rebuilding the mesh. */
+    load(next: DustPoints) {
+      buffer.data = next.data;
+      geometry.instanceCount = next.count;
+      group.uniforms.uFocus = centre(next, 0.5);
+    },
+    destroy() {
+      geometry.destroy();
+      mesh.destroy();
+    },
+  };
+}
 
-  const uniforms = shader.resources.dust;
-  // The dust flies out from a point a little above the middle of the subject, so a face near the top moves least.
-  let fx = 0;
-  let top = HEIGHT;
-  let bottom = 0;
-  for (let n = 0; n < points.count; n++) {
-    fx += points.data[n * 6];
-    top = Math.min(top, points.data[n * 6 + 1]);
-    bottom = Math.max(bottom, points.data[n * 6 + 1]);
-  }
-  uniforms.uniforms.uFocus = new Float32Array([fx / points.count, top + (bottom - top) * 0.4]);
+function gradient(stops: [number, string][], width: number, height: number) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas 2D is unavailable.');
+  const fill = width > height ? ctx.createLinearGradient(0, 0, width, 0) : ctx.createLinearGradient(0, 0, 0, height);
+  for (const [at, color] of stops) fill.addColorStop(at, color);
+  ctx.fillStyle = fill;
+  ctx.fillRect(0, 0, width, height);
+  return Texture.from(canvas);
+}
+
+export type DustWord = {
+  text: string;
+  startMs: number;
+  endMs: number;
+  /** When the next word starts (ms), or Infinity after the last. A word only leaves if there is a pause before it. */
+  nextStartMs: number;
+};
+
+/** The lyric word on screen at `ms`: the latest one that has started. Nothing before the first word. */
+export function dustWordAt(cues: readonly { text: string; startMs: number; endMs: number }[], ms: number): DustWord | null {
+  let index = -1;
+  for (let i = 0; i < cues.length && cues[i].startMs <= ms; i++) index = i;
+  if (index < 0) return null;
+  const cue = cues[index];
+  return { text: cue.text.toLocaleUpperCase(), startMs: cue.startMs, endMs: cue.endMs, nextStartMs: cues[index + 1]?.startMs ?? Infinity };
+}
+
+export type DustInput = {
+  ms: number;
+  /** Every beat in the clip, in ms. */
+  beatsMs: readonly number[];
+  /** The first beat of each bar, in ms: these scatter the picture hardest. */
+  downbeatsMs?: readonly number[];
+  /** 0–1 pulse of the latest beat. */
+  beat: number;
+  colors: DustColors;
+  font: AdFont;
+  /** The lyric word to show as dust. Absent means lyrics are off (or nothing is sung yet): the photo stands alone. */
+  word?: DustWord | null;
+  /** How hard each beat scatters the grains; 1 is the designed amount. */
+  power?: number;
+};
+
+export type DustWorld = {
+  root: Container;
+  update(input: DustInput): void;
+  destroy(): void;
+};
+
+/** Pause before the next word that lets a word dissolve; shorter gaps hand over directly. */
+const LEAVE_GAP_MS = 140;
+
+export function createDustWorld(points: DustPoints): DustWorld {
+  const root = new Container();
+  const ground = new Graphics();
+  const halo = new Sprite(glow());
+  halo.anchor.set(0.5);
+  halo.position.set(WIDTH / 2, HEIGHT * 0.42);
+  const photo = grainLayer(points, false);
+  // Calms the photo behind the lyric so the word stays readable; coloured by the ground, so it belongs to the template.
+  const scrim = new Sprite(gradient([[0, 'rgba(255,255,255,0)'], [1, 'rgba(255,255,255,0.88)']], 2, 256));
+  scrim.width = WIDTH;
+  scrim.height = HEIGHT * 0.42;
+  scrim.position.set(0, HEIGHT - scrim.height);
+  const empty: DustPoints = { data: new Float32Array(6), count: 0 };
+  const lyric = grainLayer(empty, true);
+  root.addChild(ground, halo, photo.mesh, scrim, lyric.mesh);
+
+  const words = new Map<string, DustPoints>();
+  let shown = '';
   let painted = '';
+
+  function beats(layer: ReturnType<typeof grainLayer>, input: DustInput, power: number) {
+    const { ms, beatsMs } = input;
+    let last = -1;
+    for (let i = 0; i < beatsMs.length && beatsMs[i] <= ms; i++) last = i;
+    for (let k = 0; k < BEATS; k++) {
+      const index = last - k;
+      layer.ages[k] = index >= 0 ? (ms - beatsMs[index]) / 1000 : 0;
+      layer.ids[k] = index;
+      // The bar's first beat breaks the picture up hard; the others only ruffle it.
+      layer.strength[k] = index >= 0 && (input.downbeatsMs ?? []).some(d => Math.abs(d - beatsMs[index]) < 45) ? 1 : 0.22;
+    }
+    // Whatever the tempo, the nearer grains have come home by the next beat; the far ones linger like dust in air.
+    const gap = last > 0 ? (beatsMs[last] - beatsMs[last - 1]) / 1000 : 0.5;
+    const progress = Math.min(1, ms / DURATION_MS);
+    const dust = hexToRgb(input.colors.dust);
+    const base = hexToRgb(input.colors.ground);
+    Object.assign(layer.uniforms, {
+      uDecay: Math.LN10 * 1.5 / Math.min(1.2, Math.max(0.28, gap)),
+      uTime: ms / 1000,
+      uPower: (input.power ?? 1) * power * (0.8 + 0.3 * progress),
+      uLoose: progress,
+      uInvert: luminance(input.colors.ground) > luminance(input.colors.dust) ? 1 : 0,
+      uDust: new Float32Array(dust),
+      uShade: new Float32Array(base.map((v, i) => v * 0.8 + dust[i] * 0.2)),
+    });
+  }
 
   return {
     root,
     update(input) {
-      const { ms, beatsMs, colors } = input;
-      let last = -1;
-      for (let i = 0; i < beatsMs.length && beatsMs[i] <= ms; i++) last = i;
-      for (let k = 0; k < BEATS; k++) {
-        const index = last - k;
-        ages[k] = index >= 0 ? (ms - beatsMs[index]) / 1000 : 0;
-        ids[k] = index;
-        // The bar's first beat breaks the picture up hard; the others only ruffle it.
-        strength[k] = index >= 0 && (input.downbeatsMs ?? []).some(d => Math.abs(d - beatsMs[index]) < 45) ? 1 : 0.22;
-      }
-      // Whatever the tempo, the nearer grains have come home by the next beat; the far ones linger like dust in air.
-      const gap = last > 0 ? (beatsMs[last] - beatsMs[last - 1]) / 1000 : 0.5;
-      uniforms.uniforms.uDecay = Math.LN10 * 1.5 / Math.min(1.2, Math.max(0.28, gap));
-      const progress = Math.min(1, ms / DURATION_MS);
-      uniforms.uniforms.uTime = ms / 1000;
-      uniforms.uniforms.uPower = (input.power ?? 1) * (0.8 + 0.3 * progress);
-      uniforms.uniforms.uLoose = progress;
-      const dust = hexToRgb(colors.dust);
-      const base = hexToRgb(colors.ground);
-      uniforms.uniforms.uInvert = luminance(colors.ground) > luminance(colors.dust) ? 1 : 0;
-      uniforms.uniforms.uDust = new Float32Array(dust);
-      uniforms.uniforms.uShade = new Float32Array(base.map((v, i) => v * 0.8 + dust[i] * 0.2));
-      uniforms.update();
+      const { colors } = input;
+      beats(photo, input, 1);
+      photo.flush();
 
       const key = `${colors.ground}${colors.dust}`;
       if (key !== painted) {
@@ -309,23 +425,36 @@ export function createDustWorld(points: DustPoints): DustWorld {
         ground.rect(0, 0, WIDTH, HEIGHT);
         ground.fill({ color: colors.ground });
         halo.tint = colors.dust;
+        scrim.tint = colors.ground;
       }
       halo.alpha = 0.16 + input.beat * 0.2;
       halo.scale.set(5.2 + input.beat * 0.5);
 
-      // One word, in whichever of white or near-black reads against the ground, with a ground-coloured keyline.
-      const ink = contrast(colors.ground, '#ffffff') >= contrast(colors.ground, '#0b0b0d') ? '#ffffff' : '#0b0b0d';
-      const fit = fitPackLines(input.word, input.font, 200, 900, 1);
-      lyric.text = fit.lines.join(' ');
-      lyric.style = {
-        fontFamily: input.font, fontSize: fit.size, fill: ink, align: 'center', wordWrap: false,
-        stroke: { color: colors.ground, width: Math.max(4, fit.size * 0.06), join: 'round' },
-      };
-      lyric.scale.set(1 + input.beat * 0.05);
+      const word = input.word;
+      scrim.visible = Boolean(word);
+      lyric.mesh.visible = Boolean(word);
+      if (!word) return;
+      const id = `${input.font}|${word.text}`;
+      if (id !== shown) {
+        shown = id;
+        let grains = words.get(id);
+        if (!grains) { grains = sampleWord(word.text, input.font); words.set(id, grains); }
+        lyric.load(grains);
+      }
+      // The word is made of dust, drawn in the dust colour and pulsed a little by the beat so it stays readable.
+      beats(lyric, input, 0.3);
+      const age = Math.max(0, (input.ms - word.startMs) / 1000);
+      const leaves = word.nextStartMs - word.endMs >= LEAVE_GAP_MS;
+      Object.assign(lyric.uniforms, {
+        uEnter: Math.exp(-age * 7),
+        uExit: leaves ? Math.min(1, Math.max(0, (input.ms - word.endMs - 80) / 220)) : 0,
+      });
+      lyric.flush();
     },
     destroy() {
+      photo.destroy();
+      lyric.destroy();
       root.destroy({ children: true });
-      geometry.destroy();
     },
   };
 }

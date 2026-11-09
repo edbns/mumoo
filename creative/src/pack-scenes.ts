@@ -13,6 +13,7 @@ import { createOilWorld } from './pack-oil';
 import { createSlamWorld } from './pack-slam';
 import { createBankWorld } from './pack-bank';
 import { createPuliseWorld } from './pack-pulise';
+import { createDustWorld, type DustPoints, type DustWorld } from './pack-dust';
 
 export type { PackSceneInput } from './pack-copy';
 
@@ -85,7 +86,11 @@ export function createPackScene(): PackScene {
   bank.root.visible = false;
   const pulise = createPuliseWorld();
   pulise.root.visible = false;
-  root.addChild(photo, bg, world, paper.root, riso.root, noir.root, oil.root, slam.root, bank.root, pulise.root, props, lyrics);
+  // The dust world is built from the photo's grains, so it exists once a photo has been read.
+  let dust: { points: DustPoints; world: DustWorld } | null = null;
+  const dustLayer = new Container();
+  dustLayer.visible = false;
+  root.addChild(photo, bg, world, paper.root, riso.root, noir.root, oil.root, slam.root, bank.root, pulise.root, dustLayer, props, lyrics);
 
   const topBar = new Graphics();
   const bottomBar = new Graphics();
@@ -200,6 +205,38 @@ export function createPackScene(): PackScene {
     scratches.clear();
     clearLyrics();
     pulise.update(input);
+  }
+
+  function updateDust(input: PackSceneInput) {
+    if (!input.dustPoints || !input.dust) throw new Error('Dust needs a photo and its two colours.');
+    setFlatWorldVisible(false);
+    paper.root.visible = false;
+    riso.root.visible = false;
+    noir.root.visible = false;
+    oil.root.visible = false;
+    slam.root.visible = false;
+    bg.clear();
+    topBar.clear();
+    bottomBar.clear();
+    holdFrame.clear();
+    beast.clear();
+    beastShadow.clear();
+    scratches.clear();
+    clearLyrics();
+    if (dust?.points !== input.dustPoints) {
+      dust?.world.destroy();
+      dust = { points: input.dustPoints, world: createDustWorld(input.dustPoints) };
+      dustLayer.addChild(dust.world.root);
+    }
+    dust.world.update({
+      ms: input.ms,
+      beatsMs: input.beatsMs,
+      downbeatsMs: input.downbeatsMs,
+      beat: input.beat,
+      colors: input.dust,
+      font: input.font,
+      word: input.lyrics ? input.dustWord : null,
+    });
   }
 
   function updateHold(input: PackSceneInput) {
@@ -336,7 +373,9 @@ export function createPackScene(): PackScene {
       // Every world hides the others; the bank world is the one the legacy updaters don't know.
       bank.root.visible = input.base === 'bank';
       pulise.root.visible = input.base === 'pulise';
-      if (input.base === 'bank') updateBank(input);
+      dustLayer.visible = input.base === 'dust';
+      if (input.base === 'dust') updateDust(input);
+      else if (input.base === 'bank') updateBank(input);
       else if (input.base === 'pulise') updatePulise(input);
       else if (input.base === 'hold') updateHold(input);
       else if (input.base === 'paper-cutout') updatePaper(input);
@@ -354,6 +393,7 @@ export function createPackScene(): PackScene {
       slam.destroy();
       bank.destroy();
       pulise.destroy();
+      dust?.world.destroy();
       root.destroy({ children: true });
     },
   };

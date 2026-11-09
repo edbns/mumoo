@@ -199,3 +199,13 @@ test('the attitude of the words picks backgrounds that look like it', async () =
     assert.ok(dark > 0, 'a very dark look fits better as sadness grows');
   } finally { await server.close(); }
 });
+
+test('with lyrics off the shelf drops the lyric-only Pulise row and keeps the rest', async () => {
+  const { server, pack } = await load();
+  try {
+    const slots = pack.recommendCreativesPack(profile('House'), 0, ['burnnet-woman-1547507-1920'], false);
+    assert.deepEqual(slots.map(slot => slot.row), ['library', 'library', 'library', 'library', 'looks', 'looks', 'looks', 'looks']);
+  } finally {
+    await server.close();
+  }
+});

@@ -25,7 +25,7 @@ const api: PackFramePage = {
     const canvas = document.createElement('canvas');
     canvas.id = 'c';
     document.body.appendChild(canvas);
-    renderer = await createPackRenderer(canvas, opts);
+    renderer = await createPackRenderer(canvas, opts, opts.style !== 'dust');
     // Warm every texture/look before the first captured frame.
     await renderer.render(0);
     return { frames: FRAMES, fps: FPS, width: WIDTH, height: HEIGHT };

@@ -6,16 +6,18 @@ import { Application, Assets } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
 import { loadDisplayFonts } from './ad-fonts';
 import { impactSignals } from './lyric-motion';
-import { createDustWorld, sampleDust, type DustWorld } from './pack-dust';
+import { createDustWorld, dustWordAt, sampleDust, type DustWorld } from './pack-dust';
 import { dustColors, type DustColors } from './dust-colors';
 
-type Setup = { imageUrl: string; beatsMs: number[]; downbeatsMs: number[]; grains?: number; antialias?: boolean };
-type Moment = { ms: number; colors?: DustColors; seed?: number; hue?: number; word?: string; power?: number };
+type Cue = { text: string; startMs: number; endMs: number };
+type Setup = { imageUrl: string; beatsMs: number[]; downbeatsMs: number[]; cues: Cue[]; grains?: number; antialias?: boolean };
+type Moment = { ms: number; colors?: DustColors; seed?: number; hue?: number; lyrics?: boolean; power?: number };
 
 let app: Application | null = null;
 let world: DustWorld | null = null;
 let beatsMs: number[] = [];
 let downbeatsMs: number[] = [];
+let cues: Cue[] = [];
 
 const lab = {
   async prepare(setup: Setup) {
@@ -32,6 +34,7 @@ const lab = {
     app.stage.addChild(world.root);
     beatsMs = setup.beatsMs;
     downbeatsMs = setup.downbeatsMs;
+    cues = setup.cues;
     return { grains: points.count, sampleMs: Math.round(performance.now() - started) };
   },
   /** Draws one moment; returns the draw time in ms and, when asked, the frame as JPEG (read in the same task it was drawn in). */
@@ -45,7 +48,7 @@ const lab = {
       downbeatsMs,
       beat,
       colors: moment.colors ?? dustColors(moment.seed ?? 1, moment.hue),
-      word: moment.word ?? 'HELLO',
+      word: moment.lyrics === false ? null : dustWordAt(cues, moment.ms),
       font: 'Anton',
       power: moment.power,
     });

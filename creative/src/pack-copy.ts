@@ -3,6 +3,8 @@ import { entrance, impactFrame, impactSignals } from './lyric-motion';
 import { AD_PUNCH_META, type AdBaseId, type AdBeatProp, type AdPunchStyle } from './ad-punch';
 import type { AdFont, AdLayout, AdPalette, PackMotion } from './ad-fonts';
 import type { TimedWord, TypeStyleId } from './pack-type';
+import type { DustColors } from './dust-colors';
+import type { DustPoints, DustWord } from './pack-dust';
 
 export type PackSceneInput = {
   base: AdBaseId;
@@ -35,6 +37,14 @@ export type PackSceneInput = {
   /** Look Bank: baked Shaders Pro background and the lyric type style for this card. */
   bankTexture?: import('pixi.js').Texture | null;
   typeStyle?: TypeStyleId;
+  /** False when the person switched lyrics off: no words anywhere, only the picture. */
+  lyrics: boolean;
+  /** Dust: the photo as grains, the two colours, every beat, and the lyric word now on screen (null when none). */
+  dustPoints?: DustPoints | null;
+  dust?: DustColors;
+  beatsMs: readonly number[];
+  downbeatsMs: readonly number[];
+  dustWord: DustWord | null;
 };
 
 export function activePackCopy(cues: readonly LyricCue[], frame: number, fallback: string) {

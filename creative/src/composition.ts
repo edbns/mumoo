@@ -4,7 +4,7 @@ export const FPS = 30;
 export const DURATION_MS = 15_000;
 export const FRAMES = FPS * DURATION_MS / 1000;
 
-export interface ImpactMusic { beatsMs: number[]; energy: { timeMs: number; rms: number }[] }
+export interface ImpactMusic { beatsMs: number[]; /** The first beat of each bar; the Dust scene breaks up hardest on these. */ downbeatsMs?: number[]; energy: { timeMs: number; rms: number }[] }
 
 /** One timed word (or short phrase) of the lyrics, in milliseconds from the start of the 15-second clip. */
 export interface LyricCue { text: string; startMs: number; endMs: number }

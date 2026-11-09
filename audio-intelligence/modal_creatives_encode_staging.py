@@ -42,8 +42,9 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "palette", "layout", "motion",
-    "cues", "music", "fallbackText", "bankId", "typeStyle", "grade",
+    "cues", "music", "fallbackText", "bankId", "typeStyle", "grade", "lyrics", "dust",
 }
+HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
 TYPE_STYLES = {"typewriter", "karaoke", "stack", "minimal", "editorial", "outline"}
 # What the lyrics do to colour and beat hits: five numbers, each inside the range the app can produce.
 GRADE_RANGES = {"saturation": (0.55, 1.15), "warmth": (-1, 1), "brightness": (0.8, 1), "contrast": (1, 1.1), "calm": (0, 1)}
@@ -106,7 +107,7 @@ def render_chunk(opts: dict, plate: str, start: int, end: int) -> bytes:
             [
                 "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
                 "-f", "image2pipe", "-framerate", str(FPS), "-c:v", "mjpeg", "-i", "pipe:0",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-maxrate", "14M", "-bufsize", "28M",
                 "-pix_fmt", "yuv420p", "-color_range", "tv",
                 "-bf", "0", "-g", str(FPS), "-keyint_min", str(FPS),
                 "-x264-params", "scenecut=0",
@@ -211,6 +212,14 @@ def parse_meta(raw: str) -> tuple[str, dict]:
             value = grade[key]
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not low <= value <= high:
                 raise ValueError("grade")
+    if "lyrics" in opts and not isinstance(opts["lyrics"], bool):
+        raise ValueError("lyrics")
+    dust = opts.get("dust")
+    if dust is not None and (
+        not isinstance(dust, dict) or set(dust) != {"ground", "dust"}
+        or not all(isinstance(v, str) and HEX_RE.match(v) for v in dust.values())
+    ):
+        raise ValueError("dust")
     cues = opts.get("cues")
     if not isinstance(cues, list) or len(cues) > 160:
         raise ValueError("cues")

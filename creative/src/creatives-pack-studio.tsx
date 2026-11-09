@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { playheadFrame, type Composition, type ImpactMusic } from './composition';
+import { FPS, playheadFrame, type Composition, type ImpactMusic } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
 import { adPunchFallbackText, recommendCreativesPack, SHELF_ROWS, type CreativesPackSlot, type ShelfRow } from './creatives-pack';
@@ -21,6 +21,7 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   const data = profile.musicAnalysis.result;
   return {
     beatsMs: data.rhythm.beatsMs.slice(0, 500),
+    downbeatsMs: data.rhythm.downbeatsMs.slice(0, 200),
     energy: data.features.frames.slice(0, 2000).map(point => ({
       timeMs: Math.max(0, Math.min(15000, Math.round(point.timeMs))),
       rms: Math.max(0, Math.min(1, point.rms)),
@@ -33,6 +34,7 @@ function packOpts(
   composition: Composition,
   music: ImpactMusic | null,
   fallbackText: string,
+  lyrics: boolean,
   plateUrl?: string,
 ): PackRendererOpts {
   return {
@@ -45,11 +47,18 @@ function packOpts(
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
     ...(slot.grade ? { grade: slot.grade } : {}),
-    cues: composition.cues,
+    // With lyrics off nothing about the words is used or sent anywhere.
+    cues: lyrics ? composition.cues : [],
     music,
-    fallbackText,
+    fallbackText: lyrics ? fallbackText : '',
+    lyrics,
     ...(plateUrl ? { plateUrl } : {}),
   };
+}
+
+/** The moment a still card shows: the words at their strongest, or, with lyrics off, just after a beat. */
+function posterAt(composition: Composition, music: ImpactMusic | null, lyrics: boolean) {
+  return lyrics ? posterFrame(composition.cues) : Math.round(((music?.beatsMs[1] ?? 500) + 120) * FPS / 1000);
 }
 
 /** After a new deploy, an already-open tab asks for chunk files that no longer exist. */
@@ -97,10 +106,12 @@ export function CreativesPackStudio({
   const [readyRows, setReadyRows] = useState<ShelfRow[]>([]);
   const [shelfReady, setShelfReady] = useState(false);
   const [shelfStatus, setShelfStatus] = useState('Preparing creatives…');
+  /** The person can switch the lyrics off to get plain moving visuals for any post. */
+  const [lyrics, setLyrics] = useState(true);
   const music = useMemo(() => impactMusic(profile), [profile.musicAnalysis]);
   const pack = useMemo(
-    () => (plates ? recommendCreativesPack(profile, generation, plates) : []),
-    [profile.clip.sourceSha256, profile.musicAnalysis, profile.approvedLyrics, profile.lyricMeaning, generation, plates],
+    () => (plates ? recommendCreativesPack(profile, generation, plates, lyrics) : []),
+    [profile.clip.sourceSha256, profile.musicAnalysis, profile.approvedLyrics, profile.lyricMeaning, generation, plates, lyrics],
   );
   // The colours the lyrics ask for are part of what each card looks like, so a new grade repaints the shelf.
   const packKey = pack.map(item => `${item.id}:${item.grade ? Object.values(item.grade).join(',') : ''}`).join('|');
@@ -110,15 +121,16 @@ export function CreativesPackStudio({
     [profile.musicAnalysis],
   );
   const fallbackText = useMemo(() => adPunchFallbackText(profile, intent), [profile, intent]);
-  const approved = Boolean(profile.approvedLyrics?.cues.length);
+  // Lyrics are only needed when they are on.
+  const approved = !lyrics || Boolean(profile.approvedLyrics?.cues.length);
   const activeId = playingId || pack[0]?.id || null;
   const activeSlot = pack.find(item => item.id === activeId) ?? pack[0];
   const getPositionRef = useRef(getPosition ?? (() => position));
   getPositionRef.current = getPosition ?? (() => position);
   const playingIdRef = useRef(playingId);
   playingIdRef.current = playingId;
-  const paintArgsRef = useRef({ pack, composition, music, fallbackText, plateUrl });
-  paintArgsRef.current = { pack, composition, music, fallbackText, plateUrl };
+  const paintArgsRef = useRef({ pack, composition, music, fallbackText, plateUrl, lyrics });
+  paintArgsRef.current = { pack, composition, music, fallbackText, plateUrl, lyrics };
 
   useEffect(() => {
     let alive = true;
@@ -161,7 +173,7 @@ export function CreativesPackStudio({
     setShelfStatus('Preparing creatives…');
     setError('');
     void (async () => {
-      const { pack: slots, composition: base, music: impact, fallbackText: fallback } = paintArgsRef.current;
+      const { pack: slots, composition: base, music: impact, fallbackText: fallback, lyrics: withLyrics } = paintArgsRef.current;
       // Wait a frame so hidden canvases are mounted with refs.
       await yieldFrame();
       for (let index = 0; index < slots.length; index++) {
@@ -175,8 +187,8 @@ export function CreativesPackStudio({
         try {
           await blitPackFrame(
             canvas,
-            packOpts(slot, base, impact, fallback, paintArgsRef.current.plateUrl),
-            posterFrame(base.cues),
+            packOpts(slot, base, impact, fallback, withLyrics, paintArgsRef.current.plateUrl),
+            posterAt(base, impact, withLyrics),
           );
         } catch (cause) {
           if (!cancelled) {
@@ -193,7 +205,7 @@ export function CreativesPackStudio({
       }
     })();
     return () => { cancelled = true; };
-  }, [fontReady, approved, plates, packKey, cueKey, music, fallbackText, plateUrl]);
+  }, [fontReady, approved, plates, packKey, cueKey, music, fallbackText, plateUrl, lyrics]);
 
   // Live preview — only when shelf is ready + playhead frame changes.
   useEffect(() => {
@@ -206,7 +218,7 @@ export function CreativesPackStudio({
     let alive = true;
     let raf = 0;
     const edit = composition;
-    const opts = packOpts(slot, edit, music, fallbackText, plateUrl);
+    const opts = packOpts(slot, edit, music, fallbackText, lyrics, plateUrl);
     let painting = false;
     let lastFrame = -1;
 
@@ -232,7 +244,7 @@ export function CreativesPackStudio({
       alive = false;
       cancelAnimationFrame(raf);
     };
-  }, [shelfReady, fontReady, approved, pack, composition, music, playing, playingId, fallbackText, plateUrl]);
+  }, [shelfReady, fontReady, approved, pack, composition, music, playing, playingId, fallbackText, plateUrl, lyrics]);
 
   function paintPoster(id: string | null) {
     if (!id || !shelfReady || !fontReady || !approved) return;
@@ -241,7 +253,7 @@ export function CreativesPackStudio({
     const slot = pack[index];
     const canvas = canvasRefs.current[index];
     if (!canvas) return;
-    void blitPackFrame(canvas, packOpts(slot, composition, music, fallbackText, plateUrl), posterFrame(composition.cues))
+    void blitPackFrame(canvas, packOpts(slot, composition, music, fallbackText, lyrics, plateUrl), posterAt(composition, music, lyrics))
       .catch(cause => setError(friendlyError(cause, 'Preview failed (WebGL).')));
   }
 
@@ -291,7 +303,7 @@ export function CreativesPackStudio({
         const id = await submitCloudJob({
           token,
           wav,
-          opts: packOpts(slot, composition, music, fallbackText, plateUrl),
+          opts: packOpts(slot, composition, music, fallbackText, lyrics, plateUrl),
           plateUrl,
         });
         jobs.push({ slot, id });
@@ -341,6 +353,16 @@ export function CreativesPackStudio({
     <p className="intro">Ranked for this song, one row at a time. Pick the ones you like and download them. Downloads render in the cloud, so your computer stays free.</p>
     <div className="trim-actions">
       <button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back</button>
+      <label className="lyrics-switch">
+        <input
+          type="checkbox"
+          role="switch"
+          checked={lyrics}
+          disabled={progress !== undefined}
+          onChange={event => { onStop(); setPlayingId(null); setLyrics(event.target.checked); }}
+        />
+        <span>Lyrics</span>
+      </label>
       {shelfReady && (
         <button
           className="secondary"
@@ -357,7 +379,7 @@ export function CreativesPackStudio({
       )}
     </div>
     {!token && <p role="alert">Staging access is unavailable.</p>}
-    {!approved && <p role="alert">Approve synced lyrics before downloading lyric creatives.</p>}
+    {!approved && <p role="alert">Approve synced lyrics before downloading lyric creatives, or switch the lyrics off.</p>}
     {profile.musicAnalysis.status === 'pending' && <p role="status">Finishing music analysis for better ranking…</p>}
     {profile.lyricMeaning?.status === 'pending' && <p role="status">Reading what your lyrics say…</p>}
     {profile.lyricMeaning?.status === 'error' && <p className="hint">We could not read what your lyrics say, so these are matched to the sound alone.</p>}

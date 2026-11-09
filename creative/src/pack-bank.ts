@@ -80,12 +80,13 @@ export function createBankWorld(): BankWorld {
       bg.visible = true;
 
       scrim.clear();
-      if (palette.scrim.alpha > 0) {
+      // The scrim only exists to keep lyrics readable; with lyrics off the background shows as it is.
+      if (input.lyrics && palette.scrim.alpha > 0) {
         scrim.rect(0, 0, WIDTH, HEIGHT);
         scrim.fill({ color: palette.scrim.color, alpha: palette.scrim.alpha });
       }
 
-      const words: TimedWord[] = input.words.length
+      const words: TimedWord[] = !input.lyrics ? [] : input.words.length
         ? [...input.words]
         : [{ text: input.phrase, startMs: 0, endMs: 600 }];
       type.paint(style, {

@@ -169,3 +169,10 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .step-actions { align-items: center; margin-top: 4px; }
 .secondary { background: #f0f0f2; color: #171717; }
 .primary-accent { background: #e3521b; color: white; }
+.lyrics-switch { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; user-select: none; }
+.lyrics-switch input { appearance: none; width: 40px; height: 24px; margin: 0; border-radius: 12px; background: #c9c9cf; position: relative; cursor: pointer; transition: background .15s; }
+.lyrics-switch input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.lyrics-switch input:checked { background: #ff5b26; }
+.lyrics-switch input:checked::after { transform: translateX(16px); }
+.lyrics-switch input:focus-visible { outline: 2px solid #171717; outline-offset: 2px; }
+.lyrics-switch input:disabled { opacity: .5; cursor: default; }
