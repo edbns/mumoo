@@ -15,7 +15,7 @@ import { cssFont, displayFace, setCase, type AdFont } from './ad-fonts';
 import { hexToRgb } from './dust-colors';
 import { textMeasureCtx } from './pack-text';
 import {
-  SAFE_BOX, WORD_CENTRE, coverSize, groupAt, layoutWords, personStage, personWords, pictureScale, punchAt, screenAt, windowScale, wordGroups,
+  SAFE_BOX, WORD_CENTRE, coverSize, groupAt, layoutWords, legiblePalettes, personStage, personWords, pictureScale, punchAt, screenAt, windowScale, wordGroups,
   type Measure, type WindowLayout, type WordGroup,
 } from './window-look';
 
@@ -203,6 +203,28 @@ export function pictureColours(picture: WindowPicture): string[] {
   const { data } = readFrame(picture.texture, pictureScale(0, 0, Boolean(stage)), top, rows, COLOUR_CELL);
   const hex = (at: number) => `#${[0, 1, 2].map(channel => data[at + channel].toString(16).padStart(2, '0')).join('')}`;
   return Array.from({ length: data.length / 4 }, (_, pixel) => hex(pixel * 4));
+}
+
+/** A cut-out has a person in it when the mask is clear of her at the edges: she covers at least this much of the frame, and no more than this much (more is a mask of the whole picture). */
+const PERSON_SHARE = { least: 0.08, most: 0.7 } as const;
+
+/** Whether the cut-out's mask has a clear person in it, so that she can stand in front of the word. */
+export function personStands(cutout: Texture): boolean {
+  const { data } = readFrame(cutout, 1, 0, HEIGHT, HEAD_CELL);
+  let covered = 0;
+  for (let at = 0; at < data.length; at += 4) if (data[at] > 127) covered++;
+  const share = covered / (data.length / 4);
+  return share >= PERSON_SHARE.least && share <= PERSON_SHARE.most;
+}
+
+/** What is known of a picture before cards are dealt from it: the screens that read against it as it is, and, when a person stands in it, with her in front. */
+export type WindowReading = { plain: string[]; person: string[] | null };
+
+export function readWindowPicture(texture: Texture, cutout?: Texture): WindowReading {
+  const plain = legiblePalettes(pictureColours({ texture }));
+  if (!plain.length) throw new Error('No screen colour reads clearly against this picture. Try another one.');
+  const person = cutout && personStands(cutout) ? legiblePalettes(pictureColours({ texture, cutout })) : [];
+  return { plain, person: person.length ? person : null };
 }
 
 /** The laid-out words as one picture: their letters, white on clear. */

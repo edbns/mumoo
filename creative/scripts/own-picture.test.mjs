@@ -1,11 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer as createFileServer } from 'node:http';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { homedir, platform } from 'node:os';
-import { join } from 'node:path';
-import { chromium } from 'playwright';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'vite';
+import { launchChromium } from './support/chromium.mjs';
 
 /**
  * The page draws a person's own picture from a signed storage link. In the browser that link used to be shown
@@ -13,7 +11,8 @@ import { createServer } from 'vite';
  * own request for the same link then failed: every card stayed black. This runs the real renderer in headless
  * Chromium against a stand-in for storage that answers like Cloudflare R2 (CORS headers only when the request
  * has an Origin, `Vary: Origin`, ETag and Last-Modified, no Cache-Control, a bare 304 on revalidation). Skipped where no Chromium is installed.
- * It also draws a Riso card from a person's own photo and its cut-out, and a card of Our photography from one of its baked effects, which the page loads from the site.
+ * It also draws a Riso card from a person's own photo and its cut-out, a card of Our photography from one of its baked effects, which the page loads from the site,
+ * and Window cards of every kind of picture.
  */
 const PHOTO = readFileSync('public/punch-plates/burnnet-woman-1547507-1920.jpg');
 const CUTOUT = readFileSync('public/punch-plates/burnnet-woman-1547507-1920.cut.png');
@@ -41,25 +40,7 @@ function storage() {
   return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve({ server, url: `http://127.0.0.1:${server.address().port}` })));
 }
 
-/** Whichever headless Chromium Playwright has installed (its revision need not be the one this Playwright asks for). */
-function installedChromium() {
-  const caches = [process.env.PLAYWRIGHT_BROWSERS_PATH, join(homedir(), platform() === 'darwin' ? 'Library/Caches/ms-playwright' : '.cache/ms-playwright')];
-  for (const cache of caches.filter(path => path && existsSync(path))) {
-    for (const folder of readdirSync(cache).filter(name => name.startsWith('chromium_headless_shell-'))) {
-      for (const build of readdirSync(join(cache, folder)).filter(name => name.startsWith('chrome-headless-shell-'))) {
-        const executable = join(cache, folder, build, 'chrome-headless-shell');
-        if (existsSync(executable)) return executable;
-      }
-    }
-  }
-  return null;
-}
-
-async function browser() {
-  const executablePath = installedChromium();
-  if (!executablePath) return null;
-  return chromium.launch({ executablePath, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-}
+const browser = launchChromium;
 
 /** Draws frame 30 of a card in the page and returns how bright it is (0 black … 255 white). */
 function frameBrightness(page, cardOpts) {
@@ -187,6 +168,54 @@ test('a Riso card draws a person\'s own photo and its cut-out from storage, and 
     assert.ok(await frameBrightness(page, riso(own)) > 100, 'the card shows the photo on paper, not black');
     await assert.rejects(frameBrightness(page, riso({ photoUrl: own.photoUrl })), /cut-out/);
     await assert.rejects(frameBrightness(page, riso({ ...own, inkSet: undefined })), /ink set/);
+  } finally {
+    await chrome.close();
+    await site.close();
+    files.server.close();
+  }
+});
+
+test('a Window card draws our photo, a person\'s own photo with and without her in front, our effect and our background, and refuses every other combination', { timeout: 240000 }, async (t) => {
+  const chrome = await browser();
+  if (!chrome) return t.skip('no Chromium installed');
+  const files = await storage();
+  const site = await createServer({ server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+  await site.listen();
+  try {
+    const { WINDOW_PALETTES } = await site.ssrLoadModule('/src/window-look.ts');
+    const { default: bank } = await site.ssrLoadModule('/src/look-lab/bank.json');
+    const ids = WINDOW_PALETTES.map(palette => palette.id);
+    const page = await chrome.newPage();
+    // The site serves the baked effects and backgrounds from public/ once they are published; here they are read from where they are committed.
+    await page.route('**/punch-plates/effects/*.jpg', route => route.fulfill({ path: `punch-plates/effects/${new URL(route.request().url()).pathname.split('/').pop()}` }));
+    await page.route('**/punch-plates/looks/*.jpg', route => route.fulfill({ path: `punch-plates/looks/${new URL(route.request().url()).pathname.split('/').pop()}` }));
+    await page.goto(`${site.resolvedUrls.local[0]}render.html`);
+    await page.waitForFunction(() => 'mumooPack' in window, null, { timeout: 60000 });
+    const card = (extra) => ({ ...opts(undefined), style: 'window', typeStyle: undefined, fallbackText: 'HELLO', lyrics: true, font: 'Anton', fontSecondary: 'Anton', windowMode: 'plain', windowPalette: 'black', windowAllowed: ids, ...extra });
+    const own = { photoUrl: `${files.url}/own.jpg?signature=1`, cutoutUrl: `${files.url}/cutout.png?signature=1` };
+    const woman = 'burnnet-woman-1547507-1920';
+    const brightness = palette => [1, 3, 5].reduce((sum, at) => sum + parseInt(palette.screen.slice(at, at + 2), 16), 0);
+    const light = WINDOW_PALETTES.reduce((best, palette) => (brightness(palette) > brightness(best) ? palette : best)).id;
+
+    const black = await frameBrightness(page, card({ plateId: woman }));
+    assert.ok(black > 2, `our photo shows through the word, not black (${black})`);
+    assert.ok(await frameBrightness(page, card({ plateId: woman, windowPalette: light })) > black + 40, 'the screen colour is what is drawn around the word');
+    assert.ok(await frameBrightness(page, card({ windowMode: 'plain', photoUrl: own.photoUrl, cutoutUrl: undefined })) > 2, 'a person\'s own photo, plain');
+    assert.ok(await frameBrightness(page, card({ windowMode: 'person', ...own })) > 2, 'a person\'s own photo with her in front');
+    assert.ok(await frameBrightness(page, card({ windowMode: 'person', plateId: woman })) > 2, 'our woman in front of the word');
+    assert.ok(await frameBrightness(page, card({ windowMode: 'effect', effectId: 'tropical-ascii-cam-1' })) > 2, 'one of our effects in the letters');
+    assert.ok(await frameBrightness(page, card({ windowMode: 'bank', bankId: bank[0].slug })) > 2, 'one of our backgrounds in the letters');
+
+    // A mistake in a card is an error, never a picture drawn around it.
+    await assert.rejects(frameBrightness(page, card({ windowMode: 'person', photoUrl: own.photoUrl })), /cut-out/, 'her in front needs her cut-out');
+    await assert.rejects(frameBrightness(page, card({ windowMode: 'person', motionUrl: `${files.url}/own.mp4` })), /not a video/, 'nobody stands in front of a video');
+    await assert.rejects(frameBrightness(page, card({ windowMode: 'effect', effectId: 'tropical-ascii-cam-1', photoUrl: own.photoUrl })), /exactly one picture/, 'an effect is never mixed with the person\'s own photo');
+    await assert.rejects(frameBrightness(page, card({ windowMode: 'effect', plateId: woman })), /exactly one picture/, 'an effect card must name an effect');
+    await assert.rejects(frameBrightness(page, card({ windowMode: 'plain', plateId: woman, bankId: bank[0].slug })), /exactly one picture/);
+    await assert.rejects(frameBrightness(page, card({ windowMode: 'plain' })), /exactly one picture/, 'no picture at all');
+    await assert.rejects(frameBrightness(page, card({ plateId: woman, windowPalette: undefined })), /screen colour/);
+    await assert.rejects(frameBrightness(page, card({ plateId: woman, windowPalette: 'chartreuse-ish' })), /no such screen colour/);
+    await assert.rejects(frameBrightness(page, card({ plateId: woman, windowAllowed: undefined })), /screen colour/);
   } finally {
     await chrome.close();
     await site.close();

@@ -12,6 +12,7 @@
     "test": "node --env-file-if-exists=.env.local --test scripts/*.test.mjs",
     "bake:looks": "node scripts/bake-looks.mjs",
     "bake:photo-effects": "node scripts/bake-photo-effects.mjs",
+    "bake:window-readings": "node scripts/window-readings.mjs",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs"
   },
   "dependencies": {

@@ -15,6 +15,7 @@ import { STYLE_NAMES, type AdPunchStyle } from './ad-punch';
 import { dustColors, type DustColors } from './dust-colors';
 import { RISO_INK_SETS } from './riso-look';
 import { SPRAY_PALETTES } from './spray-look';
+import { dealWindow, type WindowMode, type WindowOwn } from './window-deal';
 import bankData from './look-lab/bank.json';
 import effectsData from '../punch-plates/effects/effects.json';
 import { laneFromMeaning, leansDeep, type LyricMeaning } from './lyric-meaning';
@@ -33,7 +34,7 @@ const PHOTO_EFFECTS = effectsData as PhotoEffect[];
 export type PackFamily = 'ad_punch';
 
 /** Every row that can be dealt. 'looks' (Moving backgrounds) is dealt but not on the shelf: see SHELF_ROWS. */
-export type ShelfRow = 'photography' | 'looks' | 'riso' | 'spray' | 'pulise' | 'dust';
+export type ShelfRow = 'photography' | 'looks' | 'riso' | 'spray' | 'window' | 'pulise' | 'dust';
 
 /**
  * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
@@ -47,6 +48,7 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'photography', title: 'Our photography', lyrics: 'switch', upload: 'filter' },
   { id: 'riso', title: 'Riso', lyrics: 'switch', upload: 'riso' },
   { id: 'spray', title: 'Spray', lyrics: 'always' },
+  { id: 'window', title: 'Window', lyrics: 'always', upload: 'window' },
   // "Moving backgrounds" (id 'looks', the Shaders backgrounds under lyric type) is off the shelf until its backgrounds are good enough.
   // To bring it back, add { id: 'looks', title: 'Moving backgrounds', lyrics: 'switch' } here.
   { id: 'pulise', title: 'Pulise', lyrics: 'always' },
@@ -66,13 +68,17 @@ export type CreativesPackSlot = {
   layout: AdLayout;
   /** Dust: the two colours of this card. */
   colors?: DustColors;
-  /** Dust and Riso: the approved photo this card is drawn from, until the person uses their own. */
+  /** Dust, Riso and Window: the approved photo this card is drawn from, until the person uses their own. */
   plateId?: string;
   /** Riso: the ink set of this card (`RISO_INK_SETS` id). */
   inkSet?: string;
   /** Spray: the wall and paints of this card (`SPRAY_PALETTES` id). */
   sprayPalette?: string;
-  /** Our photography: which arrangement of the person's video or GIF this card plays (its cut speed follows the card's place). */
+  /** Window: the kind of picture seen through the word, the screen colour the card opens on, and the colours its screen may flip to (all of which read against the picture). */
+  windowMode?: WindowMode;
+  windowPalette?: string;
+  windowAllowed?: string[];
+  /** Our photography and Window: which arrangement of the person's video or GIF this card plays (its cut speed follows the card's place). */
   cutSeed?: number;
   /** Our photography: the baked effect on our approved photo (`punch-plates/effects/{id}.jpg`), until the person uses their own picture. */
   effectId?: string;
@@ -260,14 +266,15 @@ export function readSong(profile: CreativeProfileV1) {
 /** An approved photo; `cutout` says it also has the mask Dust needs. */
 export type PlateRef = { id: string; cutout: boolean };
 
-/** Riso and Spray are drawn in the inks and paints they were dealt: a mood grade over them would recolour the design. */
-const UNGRADED: readonly ShelfRow[] = ['riso', 'spray'];
+/** Riso, Spray and Window are drawn in the inks, paints and screen colours they were dealt: a mood grade over them would recolour the design. */
+const UNGRADED: readonly ShelfRow[] = ['riso', 'spray', 'window'];
 
 /**
  * One row of the shelf for this song. `generation` is that row's own Refresh count. `plates` are the approved
- * photos Dust and Riso are drawn from (the person's own picture, if any, replaces them in the app).
+ * photos Dust, Riso and Window are drawn from (the person's own picture, if any, replaces them in the app); `own` is
+ * what is known of the person's own picture for Window, which is dealt from it instead of ours.
  */
-export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = []): CreativesPackSlot[] {
+export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], own: WindowOwn | null = null): CreativesPackSlot[] {
   const { intent, meaning, lane } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
@@ -277,6 +284,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, cutOutPlates),
     spray: () => spraySlots(lane, intent, seed),
+    window: () => windowSlots(lane, intent, seed, plates, own),
     pulise: () => puliseSlots(lane, intent, seed),
     dust: () => dustSlots(lane, intent, seed, cover?.hue, cutOutPlates),
   }[row]();
@@ -329,6 +337,24 @@ function spraySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string):
     ...adPunchSlot('spray', index, intent, seed, lane, 'spray', face),
     label: sentence(walls[index].name),
     sprayPalette: walls[index].id,
+  }));
+}
+
+/** Four Window cards, mixing kinds of picture, screen colours and condensed faces by the seed (see window-deal.ts). Every card is made of the lyrics. */
+function windowSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, plates: readonly PlateRef[], own: WindowOwn | null): CreativesPackSlot[] {
+  return dealWindow(seed, plates, own).map((card, index) => ({
+    // Window sets one face of type: the second is the same, so nothing else is asked of the worker.
+    ...adPunchSlot('window', index, intent, seed, lane, 'window', { font: card.font, fontSecondary: card.font }),
+    label: sentence(card.palette.replace('-', ' ')),
+    reason: `${lane} · ${card.mode} · ${card.palette} · ${card.font}`,
+    windowMode: card.mode,
+    windowPalette: card.palette,
+    windowAllowed: card.allowed,
+    ...(card.plateId ? { plateId: card.plateId } : {}),
+    ...(card.effectId ? { effectId: card.effectId } : {}),
+    ...(card.bankId ? { bankId: card.bankId } : {}),
+    // A video or GIF of the person's own is cut differently for each card.
+    ...(own?.clip ? { cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index } : {}),
   }));
 }
 

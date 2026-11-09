@@ -12,7 +12,7 @@ export const CART_LIMIT = 24;
 export const CART_SONGS = 8;
 const KEY = 'mumoo-cart';
 /** Bumped whenever a card gains or loses a field, or a row leaves the shelf, so an old cart is dropped instead of drawn wrongly. */
-const VERSION = 4;
+const VERSION = 5;
 
 /** A small picture of the card, so the cart can show it on any page without drawing anything. */
 export const THUMB_WIDTH = 180;

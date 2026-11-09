@@ -106,6 +106,28 @@ test('a Riso photo is cut out like a Dust one, and each row keeps its own', { sk
   });
 }));
 
+test('a Window photo is cut out like a Dust one, a Window video is kept as a clip, and each row keeps its own', { skip: !READY, timeout: 90000 }, () => withPerson(async (sql, userId) => {
+  await withWorker(() => ({ ok: true, bytes: { cutout: 500 } }), async () => {
+    const photo = await saveUpload(userId, 'window', jpeg(1000));
+    const riso = await saveUpload(userId, 'riso', jpeg(1100));
+    const rows = await listUploads(userId);
+    assert.deepEqual(rows.map(row => [row.id, row.use, row.status]).sort(), [[photo.id, 'window', 'ready'], [riso.id, 'riso', 'ready']].sort(), 'one picture per row');
+    assert.ok(rows.every(row => row.cutoutUrl), 'a Window photo gets a cut-out, so a person can stand in front of the word');
+    const media = await uploadMedia(userId, photo.id);
+    assert.equal(media.use, 'window');
+    assert.equal(media.photo.length, 1000);
+    assert.equal(media.cutout.length, 500);
+  });
+  const reserved = await reserveMotion(userId, 'window', 'video/mp4', 1000);
+  assert.ok(reserved.id && reserved.putUrl);
+  const [row] = await sql`select use, kind, status from uploads where id = ${reserved.id}`;
+  assert.deepEqual({ ...row }, { use: 'window', kind: 'motion', status: 'preparing' });
+  const next = await reserveMotion(userId, 'window', 'image/gif', 1000);
+  assert.ok(next.id, 'a new Window picture replaces the old reservation');
+  assert.equal((await sql`select 1 from uploads where id = ${reserved.id}`).length, 0, 'one Window picture is kept');
+  assert.equal((await sql`select 1 from uploads where user_id = ${userId} and use = 'riso'`).length, 1, 'the Riso photo is not touched');
+}));
+
 test('a photo the worker cannot prepare is removed and reported once; the old one stays', { skip: !READY, timeout: 90000 }, () => withPerson(async (_sql, userId) => {
   let outcome = { ok: true, bytes: { cutout: 500 } };
   await withWorker(() => outcome, async () => {
@@ -125,18 +147,21 @@ test('only JPEGs of a sensible size are accepted, and only for a known row', { s
   assert.deepEqual(await saveUpload(userId, 'filter', new Uint8Array(100).fill(1)), { refused: 'format' });
   assert.deepEqual(await saveUpload(userId, 'filter', jpeg(3_000_001)), { refused: 'size' });
   assert.deepEqual(await saveUpload(userId, 'poster', jpeg(100)), { refused: 'format' });
-  assert.deepEqual(await reserveMotion(userId, 'application/pdf', 100), { refused: 'format' });
-  assert.deepEqual(await reserveMotion(userId, 'image/gif', 25_000_001), { refused: 'size' });
+  assert.deepEqual(await reserveMotion(userId, 'filter', 'application/pdf', 100), { refused: 'format' });
+  assert.deepEqual(await reserveMotion(userId, 'filter', 'image/gif', 25_000_001), { refused: 'size' });
+  assert.deepEqual(await reserveMotion(userId, 'window', 'image/gif', 25_000_001), { refused: 'size' });
+  assert.deepEqual(await reserveMotion(userId, 'dust', 'video/mp4', 1000), { refused: 'format' }, 'Dust and Riso take photos only');
+  assert.deepEqual(await reserveMotion(userId, 'riso', 'video/mp4', 1000), { refused: 'format' });
 }));
 
 test('a video reservation that never arrived gives its room back, by time or when the next picture is added', { skip: !READY, timeout: 60000 }, () => withPerson(async (sql, userId) => {
-  const { id, putUrl } = await reserveMotion(userId, 'video/mp4', 1000);
+  const { id, putUrl } = await reserveMotion(userId, 'filter', 'video/mp4', 1000);
   assert.ok(id && putUrl);
   assert.equal((await listUploads(userId)).filter(item => item.status === 'preparing').length, 1);
   await sql`update uploads set created_at = now() - interval '2 hours' where id = ${id}`;
   assert.deepEqual(await listUploads(userId), [], 'the reservation was never used, so it is gone');
 
-  const abandoned = await reserveMotion(userId, 'video/mp4', 1000);
+  const abandoned = await reserveMotion(userId, 'filter', 'video/mp4', 1000);
   const next = await saveUpload(userId, 'filter', jpeg(500));
   assert.deepEqual((await listUploads(userId)).map(item => item.id), [next.id], `a new picture clears reservation ${abandoned.id}`);
 }));

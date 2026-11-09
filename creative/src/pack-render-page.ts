@@ -8,8 +8,8 @@ import type { AdPunchStyle } from './ad-punch';
 import { createPackRenderer, type PackRenderer, type PackRendererOpts } from './pack-renderer';
 
 const FRAMES = Math.round((DURATION_MS / 1000) * FPS);
-/** Dust grains, Riso dot screens and Spray grains are soft or drawn by shader already: edge smoothing only costs time here (6× under software GL). */
-const SMOOTH_ALREADY: readonly AdPunchStyle[] = ['dust', 'riso', 'spray'];
+/** Dust grains, Riso dot screens, Spray grains and the Window's one full-frame shader are soft or drawn by shader already: edge smoothing only costs time here (6× under software GL). */
+const SMOOTH_ALREADY: readonly AdPunchStyle[] = ['dust', 'riso', 'spray', 'window'];
 let renderer: PackRenderer | null = null;
 
 type PackFramePage = {

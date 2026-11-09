@@ -7,8 +7,9 @@ import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from '
 import type { CartDownload } from './use-cart-download';
 import { friendlyError } from './friendly-error';
 import { PictureUpload } from './picture-upload';
-import { needsCutout, type PictureUse, type Upload } from './uploads';
+import { photoOnly, type PictureUse, type Upload } from './uploads';
 import type { Uploads } from './use-uploads';
+import { useWindowOwn } from './use-window-own';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
 import { reportPackFeedback } from './pack-feedback';
@@ -36,7 +37,7 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   };
 }
 
-/** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust and Riso a photo and its cut-out, Our photography a photo or a clip. */
+/** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust and Riso a photo and its cut-out, Our photography a photo or a clip, Window either (the cut-out is used by the cards that have her in front). */
 type Picture = Pick<PackRendererOpts, 'photoUrl' | 'cutoutUrl' | 'motionUrl' | 'motionShots'>;
 
 function drawingFrom(upload: Upload | null): Picture | undefined {
@@ -61,6 +62,7 @@ function packOpts(
     ...(slot.colors ? { colors: slot.colors } : {}),
     ...(slot.inkSet ? { inkSet: slot.inkSet } : {}),
     ...(slot.sprayPalette ? { sprayPalette: slot.sprayPalette } : {}),
+    ...(slot.windowMode ? { windowMode: slot.windowMode, windowPalette: slot.windowPalette, windowAllowed: slot.windowAllowed } : {}),
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
     ...(slot.cutSeed != null ? { cutSeed: slot.cutSeed } : {}),
@@ -70,7 +72,7 @@ function packOpts(
     music,
     fallbackText: lyrics ? fallbackText : '',
     lyrics,
-    // Our approved photo (Dust, Riso) or its baked effect (Our photography), unless the person chose their own picture, which replaces it.
+    // Our approved photo (Dust, Riso, Window) or its baked effect (Our photography, Window; a Window may also draw a baked background), unless the person chose their own picture, which replaces it.
     ...(picture ?? (slot.plateId ? { plateId: slot.plateId } : slot.effectId ? { effectId: slot.effectId } : {})),
   };
 }
@@ -136,29 +138,32 @@ export function CreativesPackStudio({
   // Links are renewed from time to time, so rows are keyed by id, not link.
   const useOf = (row: ShelfRow) => SHELF_ROWS.find(def => def.id === row)?.upload;
   const ownPicture = (use: PictureUse) => (uploads.list ?? []).find(item => item.use === use && item.status === 'ready' && item.url) ?? null;
-  const pictures: Record<PictureUse, Upload | null> = { dust: ownPicture('dust'), riso: ownPicture('riso'), filter: ownPicture('filter') };
+  const pictures: Record<PictureUse, Upload | null> = { dust: ownPicture('dust'), riso: ownPicture('riso'), filter: ownPicture('filter'), window: ownPicture('window') };
+  const windowOwn = useWindowOwn(pictures.window);
   const pictureOf = (row: ShelfRow) => {
     const use = useOf(row);
     return use ? drawingFrom(pictures[use]) : undefined;
   };
-  const pictureIds = `${pictures.dust?.id ?? 'ours'}|${pictures.riso?.id ?? 'ours'}|${pictures.filter?.id ?? 'ours'}`;
+  const pictureIds = `${pictures.dust?.id ?? 'ours'}|${pictures.riso?.id ?? 'ours'}|${pictures.filter?.id ?? 'ours'}|${pictures.window?.id ?? 'ours'}`;
 
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
     // Dust and Riso are made from approved photos that have a cut-out; Our photography needs no photo of ours, its looks are baked.
-    if (def.upload && needsCutout(def.upload) && !pictures[def.upload]) {
+    if (def.upload && photoOnly(def.upload) && !pictures[def.upload]) {
       if (plates === null) {
         return [def.id, { slots: [], note: '' }];
       } else if (!plates.some(plate => plate.cutout)) {
         return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? 'We have no approved photos for this yet. Sign in (top right) to use your own.' : `We have no approved photos for this yet. Upload one photo to see ${def.title} made from it.` }];
       }
     }
+    // Window is dealt once it knows its pictures: the person's own, once it has been read (what shows in the letters decides the colours), or our approved photos.
+    if (def.id === 'window' && (pictures.window ? !windowOwn.own : plates === null)) return [def.id, { slots: [], note: windowOwn.problem }];
     if (lyricsOn(def.id) && !hasLyrics) {
       return [def.id, { slots: [], note: def.lyrics === 'always' ? `${def.title} is made of your lyrics. Approve your synced lyrics first.` : 'Approve your synced lyrics, or switch this row’s lyrics off.' }];
     }
-    return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? []), note: '' }];
+    return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? [], def.id === 'window' ? windowOwn.own : null), note: '' }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover,
-    controls, plates, hasLyrics, pictureIds, uploads.signedIn, uploads.pending,
+    controls, plates, hasLyrics, pictureIds, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem,
   ]);
   const pack = SHELF_ROWS.flatMap(def => view[def.id].slots);
   const paintedRows = SHELF_ROWS.filter(def => view[def.id].slots.length > 0);

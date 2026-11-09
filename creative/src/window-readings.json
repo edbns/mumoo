@@ -1,0 +1,919 @@
+{
+ "bank:dark-and-stormy": {
+  "plain": [
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "teal",
+   "cyan",
+   "cobalt",
+   "violet",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:gradient-grid-4": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:illuminated-clouds-3": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:inbound-2": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "violet",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:liquid-cells-7": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "cyan",
+   "cobalt"
+  ],
+  "person": null
+ },
+ "bank:lit-rays-5": {
+  "plain": [
+   "black",
+   "hot-red",
+   "orange",
+   "deep-green",
+   "teal",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "bank:neon-flow-5": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "cyan",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:network-lights": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "violet",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:network-lights-3": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:network-lights-6": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:paint-flow-3": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "cyan",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:royal-purple-5": {
+  "plain": [
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "teal",
+   "cyan",
+   "cobalt",
+   "violet",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:shifted-swirls-9": {
+  "plain": [
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "teal",
+   "cyan",
+   "cobalt",
+   "violet",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:sunrise": {
+  "plain": [
+   "black",
+   "off-white",
+   "hot-red",
+   "acid-yellow",
+   "deep-green",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "bank:sunrise-2": {
+  "plain": [
+   "black",
+   "hot-red",
+   "deep-green",
+   "teal",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "bank:synthesis": {
+  "plain": [
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "teal",
+   "cyan",
+   "cobalt",
+   "violet",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:venetian-noir-4": {
+  "plain": [
+   "black",
+   "off-white",
+   "hot-red",
+   "acid-yellow",
+   "deep-green",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "bank:vibrant-waves-7": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "bank:watercolor-on-paper-3": {
+  "plain": [
+   "black",
+   "hot-red",
+   "orange",
+   "green",
+   "deep-green",
+   "teal",
+   "cobalt",
+   "violet",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "bank:watercolor-on-paper-8": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "teal",
+   "cyan",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:broken-track-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "violet"
+  ],
+  "person": null
+ },
+ "effect:container-ship-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:damaged-sensor-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:dither-cam-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:dithered-reveal-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:focal-plane-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:glass-facets-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:glass-facets-2": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "violet"
+  ],
+  "person": null
+ },
+ "effect:glitch-trail-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:impression-trail-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "violet"
+  ],
+  "person": null
+ },
+ "effect:impression-trail-2": {
+  "plain": [
+   "black",
+   "hot-red",
+   "orange",
+   "deep-green",
+   "teal",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:impression-trail-3": {
+  "plain": [
+   "black",
+   "hot-red",
+   "orange",
+   "deep-green",
+   "teal",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:impression-trail-4": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "violet"
+  ],
+  "person": null
+ },
+ "effect:impression-trail-6": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:impression-trail-7": {
+  "plain": [
+   "black",
+   "hot-red",
+   "deep-green",
+   "teal",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:impression-trail-8": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "cyan",
+   "cobalt"
+  ],
+  "person": null
+ },
+ "effect:impression-trail-9": {
+  "plain": [
+   "black",
+   "hot-red",
+   "orange",
+   "deep-green",
+   "teal",
+   "cobalt",
+   "violet",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:liquid-reveal-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:magnify-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:noise-passes-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:onward-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "violet",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:pixel-reveal-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "deep-green",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:pixel-reveal-2": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:prime-lens-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:quantized-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:shuffle-sort-1": {
+  "plain": [
+   "black",
+   "hot-red",
+   "orange",
+   "deep-green",
+   "teal",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:tinted-lenses-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:tinted-lenses-2": {
+  "plain": [
+   "black",
+   "hot-red",
+   "orange",
+   "deep-green",
+   "teal",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:tinted-lenses-3": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "violet"
+  ],
+  "person": null
+ },
+ "effect:tinted-lenses-4": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:tinted-lenses-5": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "violet"
+  ],
+  "person": null
+ },
+ "effect:tinted-lenses-6": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "deep-green",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "effect:tinted-lenses-7": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:tinted-lenses-8": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:tropical-ascii-cam-1": {
+  "plain": [
+   "off-white",
+   "sand",
+   "hot-red",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "deep-green",
+   "teal",
+   "cyan",
+   "cobalt",
+   "violet",
+   "magenta",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:uncertain-blueprint-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sand",
+   "orange",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "green",
+   "teal",
+   "cyan",
+   "hot-pink"
+  ],
+  "person": null
+ },
+ "effect:water-colors-1": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": null
+ },
+ "plate:burnnet-woman-1547507-1920": {
+  "plain": [
+   "black",
+   "off-white",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cobalt",
+   "violet",
+   "magenta"
+  ],
+  "person": [
+   "black",
+   "off-white",
+   "sand",
+   "sun-yellow",
+   "acid-yellow",
+   "lime",
+   "deep-green",
+   "cyan",
+   "cobalt",
+   "violet"
+  ]
+ }
+}

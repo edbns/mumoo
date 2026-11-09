@@ -9,6 +9,7 @@ import { createPuliseWorld } from './pack-pulise';
 import { createDustWorld, type DustPoints, type DustWorld } from './pack-dust';
 import { createRisoWorld, type RisoWorld } from './pack-riso';
 import { createSprayWorld, type SprayWorld } from './pack-spray';
+import { createWindowWorld, type WindowWorld } from './pack-window';
 import type { RisoPhoto } from './riso-photo';
 
 export type { PackSceneInput } from './pack-copy';
@@ -28,10 +29,11 @@ export function createPackScene(): PackScene {
   // The dust world is built from the photo's grains, so it exists once a photo has been read.
   let dust: { points: DustPoints; world: DustWorld } | null = null;
   const dustLayer = new Container();
-  // Riso and Spray are built for one card (its seed, and Riso its photo) and given back as soon as another style or card is drawn:
+  // Riso, Spray and Window are built for one card (its seed, and Riso its photo) and given back as soon as another style or card is drawn:
   // a Spray wall alone is tens of MB of vertex data, and the shelf draws one poster after another on this one scene.
   let riso: { photo: RisoPhoto; seed: number; world: RisoWorld } | null = null;
   let spray: { seed: number; world: SprayWorld } | null = null;
+  let knockout: { seed: number; world: WindowWorld } | null = null;
   const printLayer = new Container();
   root.addChild(picture.root, pulise.root, dustLayer, printLayer);
 
@@ -73,17 +75,32 @@ export function createPackScene(): PackScene {
     spray.world.update({ ms: input.ms, beatsMs: input.beatsMs, downbeatsMs: input.downbeatsMs, cues: input.cues, palette: input.palette, font: input.font });
   }
 
+  function updateWindow(input: PackSceneInput) {
+    if (!input.windowPicture || !input.windowPalette) throw new Error('Window needs a picture and a screen colour.');
+    if (knockout?.seed !== input.seed) {
+      knockout?.world.destroy();
+      knockout = { seed: input.seed, world: createWindowWorld(input.seed) };
+      printLayer.addChild(knockout.world.root);
+    }
+    knockout.world.update({
+      ms: input.ms, beatsMs: input.beatsMs, downbeatsMs: input.downbeatsMs, cues: input.cues,
+      palette: input.windowPalette, allowed: input.windowAllowed, font: input.font, picture: input.windowPicture,
+    });
+  }
+
   return {
     root,
     update(input) {
       if (input.style !== 'riso') { riso?.world.destroy(); riso = null; }
       if (input.style !== 'spray') { spray?.world.destroy(); spray = null; }
+      if (input.style !== 'window') { knockout?.world.destroy(); knockout = null; }
       picture.root.visible = input.style === 'bank' || input.style === 'filter';
       pulise.root.visible = input.style === 'pulise';
       dustLayer.visible = input.style === 'dust';
       if (input.style === 'dust') updateDust(input);
       else if (input.style === 'riso') updateRiso(input);
       else if (input.style === 'spray') updateSpray(input);
+      else if (input.style === 'window') updateWindow(input);
       else if (input.style === 'pulise') pulise.update(input);
       else picture.update(input);
     },
@@ -93,6 +110,7 @@ export function createPackScene(): PackScene {
       dust?.world.destroy();
       riso?.world.destroy();
       spray?.world.destroy();
+      knockout?.world.destroy();
       root.destroy({ children: true });
     },
   };

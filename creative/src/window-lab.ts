@@ -5,7 +5,7 @@
 import { Application, ImageSource, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH, type LyricCue } from './composition';
 import { ensureFonts, type AdFont } from './ad-fonts';
-import { createWindowWorld, pictureColours, type WindowPicture, type WindowWorld } from './pack-window';
+import { createWindowWorld, pictureColours, readWindowPicture, type WindowPicture, type WindowReading, type WindowWorld } from './pack-window';
 
 export type WindowStill = {
   seed: number;
@@ -42,6 +42,11 @@ const pictureOf = async (photoUrl: string, cutoutUrl?: string): Promise<WindowPi
 /** The colours of a picture as it shows in the letters, for judging which screens read against it. */
 async function colours(photoUrl: string, cutoutUrl?: string): Promise<string[]> {
   return pictureColours(await pictureOf(photoUrl, cutoutUrl));
+}
+
+/** What the shelf's deal needs to know of a picture (see `readWindowPicture`). */
+async function reading(photoUrl: string, cutoutUrl?: string): Promise<WindowReading> {
+  return readWindowPicture(await textureOf(photoUrl), cutoutUrl ? await textureOf(cutoutUrl) : undefined);
 }
 
 async function still(request: WindowStill): Promise<string> {
@@ -89,4 +94,4 @@ async function contactSheet(urls: string[], columns: number, width: number, gap:
   return canvas.toDataURL('image/png');
 }
 
-Object.assign(window, { windowLab: { still, colours, contactSheet } });
+Object.assign(window, { windowLab: { still, colours, reading, contactSheet } });

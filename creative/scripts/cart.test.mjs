@@ -11,7 +11,7 @@ const item = (id, row = 'pulise') => ({ id, row, slot: { id, row, label: 'x' }, 
 const cartOf = (carts, key) => cartFor(carts, key).map(held => held.id);
 
 test('a saved cart comes back with its pictures', () => {
-  const carts = [{ songKey: 'song:0', items: [item('a'), item('b', 'dust'), item('c', 'riso'), item('d', 'spray')] }];
+  const carts = [{ songKey: 'song:0', items: [item('a'), item('b', 'dust'), item('c', 'riso'), item('d', 'spray'), item('e', 'window')] }];
   assert.deepEqual(readCarts(writeCarts(carts)), carts);
 });
 
@@ -67,7 +67,7 @@ test('nothing saved, damaged or from an old version is no carts', () => {
   assert.deepEqual(readCarts(JSON.stringify({ version: 2, carts: [{ songKey: 's:0', items: [item('a')] }] })), []);
   // Version 3 carts may hold Moving backgrounds cards, a row that is no longer on the shelf.
   assert.deepEqual(readCarts(JSON.stringify({ version: 3, carts: [{ songKey: 's:0', items: [item('a', 'looks')] }] })), []);
-  assert.deepEqual(readCarts(JSON.stringify({ version: 4, carts: 'x' })), []);
+  assert.deepEqual(readCarts(JSON.stringify({ version: 5, carts: 'x' })), []);
 });
 
 test('one damaged cart is dropped without costing the others', () => {
@@ -76,7 +76,7 @@ test('one damaged cart is dropped without costing the others', () => {
   for (const damage of [{ thumb: undefined }, { thumb: 'data:image/png;base64,AAAA' }, { thumb: `data:image/jpeg;base64,${'A'.repeat(70_000)}` }, { row: 'nowhere' }, { row: 'looks' }, { id: 7 }]) {
     assert.deepEqual(readCarts(writeCarts([bad(damage), good])), [good]);
   }
-  assert.deepEqual(readCarts(JSON.stringify({ version: 4, carts: [{ songKey: 'e:0', items: [] }, good, good] })), [good]);
+  assert.deepEqual(readCarts(JSON.stringify({ version: 5, carts: [{ songKey: 'e:0', items: [] }, good, good] })), [good]);
 });
 
 test('a cart over the limit is not trusted', () => {

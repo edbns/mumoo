@@ -9,6 +9,7 @@ import type { DustPoints, DustWord } from './pack-dust';
 import type { RisoInkSet } from './riso-look';
 import type { RisoPhoto } from './riso-photo';
 import type { SprayPalette } from './spray-look';
+import type { WindowPicture } from './pack-window';
 
 export type PackSceneInput = {
   style: AdPunchStyle;
@@ -46,6 +47,10 @@ export type PackSceneInput = {
   inks?: RisoInkSet['inks'];
   risoPhoto?: RisoPhoto | null;
   palette?: SprayPalette;
+  /** Window: the picture seen through the word (with the cut-out of a person to stand in front), the screen colour the card opens on, and the colours it may flip to. */
+  windowPicture?: WindowPicture;
+  windowPalette?: string;
+  windowAllowed?: readonly string[];
 };
 
 export function activePackCopy(cues: readonly LyricCue[], frame: number, fallback: string) {

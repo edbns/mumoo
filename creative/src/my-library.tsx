@@ -82,7 +82,7 @@ export function MyLibrary({ onClose }: { onClose: () => void }) {
       </li>)}
     </ul>
     <h3>Photos and videos</h3>
-    {photos?.length === 0 && <p className="hint">The photo, video or GIF you add for Our photography, and the photos you add for Riso and Dust, are kept here, private to you.</p>}
+    {photos?.length === 0 && <p className="hint">The photo, video or GIF you add for Our photography and for Window, and the photos you add for Riso and Dust, are kept here, private to you.</p>}
     <ul className="library-photos">
       {photos?.map(photo => <li key={photo.id}>
         {photo.url ? <img src={photo.url} alt="" /> : <span className="hint">{photo.status === 'failed' ? photo.error : 'Preparing…'}</span>}

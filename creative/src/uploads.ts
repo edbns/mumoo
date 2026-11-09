@@ -2,10 +2,10 @@ import { accountFetch } from './account';
 import { shrinkPhoto } from './photo-shrink';
 
 /** Which row of the shelf a picture is kept for. */
-export type PictureUse = 'dust' | 'filter' | 'riso';
+export type PictureUse = 'dust' | 'filter' | 'riso' | 'window';
 
-/** Dust and Riso are drawn from a person cut out of the photo, so their photos are prepared in the cloud before they are ready. */
-export const needsCutout = (use: PictureUse) => use === 'dust' || use === 'riso';
+/** Dust and Riso are made only of a person cut out of a photo, so they take photos and nothing else. (A Window photo is cut out too, but a Window also takes a video or GIF.) */
+export const photoOnly = (use: PictureUse) => use === 'dust' || use === 'riso';
 
 /**
  * A person's own picture, kept privately in their storage (each row keeps one; a new one replaces it).
@@ -41,6 +41,7 @@ export const ACCEPT: Record<PictureUse, string> = {
   dust: PHOTO_TYPES.join(','),
   riso: PHOTO_TYPES.join(','),
   filter: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
+  window: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
 };
 
 /** Answers of the uploads API: the person's pictures as they now are. */
@@ -82,13 +83,13 @@ function send(url: string, file: File, onProgress: (share: number) => void): Pro
   });
 }
 
-async function addMotion(file: File, onProgress: (share: number) => void): Promise<Upload[]> {
+async function addMotion(file: File, use: PictureUse, onProgress: (share: number) => void): Promise<Upload[]> {
   const seconds = await videoSeconds(file);
   if (seconds !== null && seconds > MAX_SECONDS) throw new Error(`Videos can be up to ${MAX_SECONDS} seconds long.`);
   const reserved = await accountFetch('/api/uploads?kind=motion', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: file.type, bytes: file.size }),
+    body: JSON.stringify({ use, type: file.type, bytes: file.size }),
   }).then(response => response.json() as Promise<{ id: string; putUrl: string }>);
   try {
     await send(reserved.putUrl, file, onProgress);
@@ -101,7 +102,7 @@ async function addMotion(file: File, onProgress: (share: number) => void): Promi
 
 /**
  * Adds a picture for a row, replacing the one it has. A photo is shrunk and sent in one request; a Filter photo
- * is ready as soon as it is stored. A Dust or Riso photo is cut out, and a video or GIF prepared, in the cloud: the
+ * is ready as soon as it is stored. A Dust, Riso or Window photo is cut out, and a video or GIF prepared, in the cloud: the
  * answer lists it as `preparing` until `listUploads` says it is ready. Resolves with the person's pictures.
  */
 export async function addUpload(file: File, use: PictureUse, onProgress: (share: number) => void = () => undefined): Promise<Upload[]> {
@@ -110,9 +111,9 @@ export async function addUpload(file: File, use: PictureUse, onProgress: (share:
     const photo = await shrinkPhoto(file);
     return pictures(await accountFetch(`/api/uploads?kind=photo&use=${use}`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: photo }));
   }
-  if (needsCutout(use)) throw new Error(`${use === 'dust' ? 'Dust' : 'Riso'} uses a photo (JPEG, PNG or WebP).`);
+  if (photoOnly(use)) throw new Error(`${use === 'dust' ? 'Dust' : 'Riso'} uses a photo (JPEG, PNG or WebP).`);
   const limit = MOTION_LIMITS[file.type];
   if (!limit) throw new Error('Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.');
   if (file.size > limit) throw new Error(`That ${file.type === 'image/gif' ? 'GIF' : 'video'} is larger than ${limit / 1e6} MB.`);
-  return addMotion(file, onProgress);
+  return addMotion(file, use, onProgress);
 }

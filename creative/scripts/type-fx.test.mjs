@@ -143,7 +143,7 @@ function profile(genre, lyrics, meaning, sha = 'a'.repeat(64)) {
 }
 
 const PLATES = [{ id: 'burnnet-woman-1547507-1920', cutout: true }];
-const ROWS = ['photography', 'looks', 'riso', 'spray', 'pulise', 'dust'];
+const ROWS = ['photography', 'looks', 'riso', 'spray', 'window', 'pulise', 'dust'];
 
 /** Every row of every refresh of a song, with the lane it was dealt in. */
 function refreshes(pack, song, count = 12) {
@@ -163,7 +163,9 @@ test('the four cards of a row differ in face and in motion, on every refresh, in
           assert.equal(slots.length, 4, where);
           assert.equal(new Set(slots.map(slot => slot.font)).size, 4, `${where} repeats a face: ${slots.map(slot => slot.font)}`);
           for (const slot of slots) {
-            assert.notEqual(slot.font, slot.fontSecondary, `${where}: a card pairs a face with itself`);
+            // Window is one word in one face; every other row pairs two.
+            if (slot.row === 'window') assert.equal(slot.font, slot.fontSecondary, `${where}: Window sets its word in one face`);
+            else assert.notEqual(slot.font, slot.fontSecondary, `${where}: a card pairs a face with itself`);
             assert.ok(slot.font in catalog.DISPLAY_FACES && slot.fontSecondary in catalog.DISPLAY_FACES);
           }
           if (slots[0].typeStyle) assert.equal(new Set(slots.map(slot => slot.typeStyle)).size, 4, `${where} repeats a type style: ${slots.map(slot => slot.typeStyle)}`);
@@ -226,13 +228,13 @@ test('refreshing brings different motion: each mood rotates through most of its 
   } finally { await server.close(); }
 });
 
-test('Dust, Pulise, Riso and Spray keep their own look: the fonts are all that varies between cards, their motion and colours are the template\'s own', async () => {
+test('Dust, Pulise, Riso, Spray and Window keep their own look: the fonts are all that varies between cards, their motion and colours are the template\'s own', async () => {
   const { server, pack } = await load();
   try {
     for (const song of LANE_SONGS) {
       const person = profile(...song);
       for (const generation of [0, 3, 7]) {
-        for (const row of ['dust', 'pulise', 'riso', 'spray']) {
+        for (const row of ['dust', 'pulise', 'riso', 'spray', 'window']) {
           const slots = pack.recommendRow(row, person, generation, PLATES);
           for (const slot of slots) {
             assert.deepEqual(Object.keys(slot.layout).sort(), ['cut', 'rotate', 'scaleBias', 'seed'], `${row} carries a look the template does not have`);

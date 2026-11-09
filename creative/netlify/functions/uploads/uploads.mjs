@@ -19,8 +19,8 @@ const pictures = async (status, userId) => reply(status, { uploads: await entrie
 /**
  * Your own pictures: at most one for each row of the shelf, and a new one replaces the old.
  *   GET    lists them (a picture still being prepared is settled first)
- *   POST   ?kind=photo&use=dust|filter|riso  a JPEG body (Dust and Riso have its subject cut out)
- *   POST   ?kind=motion JSON {type, bytes}: reserves room (Filters only), returns {id, putUrl} to send the video or GIF to
+ *   POST   ?kind=photo&use=dust|filter|riso|window  a JPEG body (Dust, Riso and Window have its subject cut out)
+ *   POST   ?kind=motion JSON {use, type, bytes}: reserves room (Filters and Window only), returns {id, putUrl} to send the video or GIF to
  *   PUT    ?id=…        the video or GIF has been sent: start preparing it
  *   DELETE ?id=…        removes it and everything made from it
  * Adding a picture is the person's confirmation that they own the rights to it; the time is kept with it.
@@ -35,14 +35,14 @@ export default async function handler(request) {
   if (request.method === 'GET') return reply(200, { uploads: await listUploads(person.id) });
   if (request.method === 'POST') {
     if (params.get('kind') === 'motion') {
-      const { type, bytes } = await request.json().catch(() => ({}));
-      if (typeof type !== 'string' || !Number.isInteger(bytes) || bytes < 1) return reply(400, { error: 'Say what the file is and how big.' });
-      const result = await reserveMotion(person.id, type, bytes);
+      const { use, type, bytes } = await request.json().catch(() => ({}));
+      if (typeof use !== 'string' || typeof type !== 'string' || !Number.isInteger(bytes) || bytes < 1) return reply(400, { error: 'Say what the file is for, what it is and how big.' });
+      const result = await reserveMotion(person.id, use, type, bytes);
       return result.refused ? refuse(result.refused) : reply(201, result);
     }
     if (Number(request.headers.get('content-length') || 0) > MAX_PHOTO_BYTES) return refuse('size');
     const use = params.get('use') ?? '';
-    if (!USES.includes(use)) return reply(400, { error: 'Say whether the photo is for Dust, Riso or Our photography.' });
+    if (!USES.includes(use)) return reply(400, { error: 'Say whether the photo is for Dust, Riso, Window or Our photography.' });
     const result = await guarded(saveUpload(person.id, use, new Uint8Array(await request.arrayBuffer())), { failed: true });
     if (result.failed) return reply(502, { error: 'We could not start preparing that photo. Try again.' });
     return result.refused ? refuse(result.refused) : pictures(201, person.id);

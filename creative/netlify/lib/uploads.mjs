@@ -8,6 +8,7 @@ import { deleteObject, getObject, objectSize, putObject, signedDownload, signedU
  *   dust    a photo (the browser shrinks it to a JPEG) and a cut-out mask of its subject
  *   riso    the same as dust: a Riso print is a halftone of the person, so it needs her cut-out
  *   filter  a photo as it is, or a video or GIF prepared into a small clip with a poster
+ *   window  either: a photo gets a cut-out like dust (a person can stand in front of the word), a video or GIF a clip like filter
  *
  * A new picture replaces the one before it: the old one (rows and files) is removed the moment the new one is
  * ready, so until then the row keeps drawing the old one. Uploading is the person's confirmation that they own
@@ -20,9 +21,11 @@ import { deleteObject, getObject, objectSize, putObject, signedDownload, signedU
 export const MAX_PHOTO_BYTES = 3_000_000;
 export const MAX_GIF_BYTES = 25_000_000;
 export const MAX_VIDEO_BYTES = 150_000_000;
-export const USES = ['dust', 'filter', 'riso'];
-/** The rows whose picture is a person that is cut out. */
-const CUTOUT_USES = ['dust', 'riso'];
+export const USES = ['dust', 'filter', 'riso', 'window'];
+/** The rows whose photo is cut out (the subject's mask is made by the worker). */
+const CUTOUT_USES = ['dust', 'riso', 'window'];
+/** The rows that also take a video or GIF. */
+export const MOTION_USES = ['filter', 'window'];
 export const MOTION_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'image/gif'];
 
 const PREPARE = 'https://edbns-mumoo-staging--mumoo-prepare-media-staging';
@@ -71,7 +74,7 @@ async function startPreparing(userId, id, kind) {
   await db()`update uploads set job_id = ${result.id} where id = ${id}`;
 }
 
-/** Stores one photo for a row. For Dust and Riso its subject is then cut out; for Filters it is ready at once and replaces the old one. Returns `{ id }` or `{ refused }`. */
+/** Stores one photo for a row. For Dust, Riso and Window its subject is then cut out; for Filters it is ready at once and replaces the old one. Returns `{ id }` or `{ refused }`. */
 export async function saveUpload(userId, use, bytes) {
   if (!USES.includes(use) || !isJpeg(bytes)) return { refused: 'format' };
   const refused = await refusal(userId, use, bytes.length, MAX_PHOTO_BYTES);
@@ -91,14 +94,14 @@ export async function saveUpload(userId, use, bytes) {
   return { id };
 }
 
-/** Reserves room for a video or GIF (Filters only) and returns a link to send it to straight from the browser. */
-export async function reserveMotion(userId, type, bytes) {
-  if (!MOTION_TYPES.includes(type)) return { refused: 'format' };
-  const refused = await refusal(userId, 'filter', bytes, type === 'image/gif' ? MAX_GIF_BYTES : MAX_VIDEO_BYTES);
+/** Reserves room for a video or GIF (Filters and Window only) and returns a link to send it to straight from the browser. */
+export async function reserveMotion(userId, use, type, bytes) {
+  if (!MOTION_USES.includes(use) || !MOTION_TYPES.includes(type)) return { refused: 'format' };
+  const refused = await refusal(userId, use, bytes, type === 'image/gif' ? MAX_GIF_BYTES : MAX_VIDEO_BYTES);
   if (refused) return { refused };
-  await clearStale(userId, 'filter');
+  await clearStale(userId, use);
   const id = crypto.randomUUID();
-  await db()`insert into uploads (id, user_id, bytes, rights_confirmed_at, kind, use, status) values (${id}, ${userId}, ${bytes}, now(), 'motion', 'filter', 'preparing')`;
+  await db()`insert into uploads (id, user_id, bytes, rights_confirmed_at, kind, use, status) values (${id}, ${userId}, ${bytes}, now(), 'motion', ${use}, 'preparing')`;
   return { id, putUrl: await signedUpload(KEYS.source(userId, id)) };
 }
 
@@ -156,7 +159,7 @@ export async function entries(userId) {
     createdAt: row.created_at,
     ...(row.status === 'ready' ? {
       url: await signedDownload(KEYS.still(userId, row.id)),
-      ...(CUTOUT_USES.includes(row.use) ? { cutoutUrl: await signedDownload(KEYS.cutout(userId, row.id)) } : {}),
+      ...(row.kind === 'photo' && CUTOUT_USES.includes(row.use) ? { cutoutUrl: await signedDownload(KEYS.cutout(userId, row.id)) } : {}),
       ...(row.kind === 'motion' ? { motionUrl: await signedDownload(KEYS.motion(userId, row.id)), shots: row.shots } : {}),
     } : {}),
   })));
@@ -175,7 +178,7 @@ export async function listUploads(userId) {
 
 /**
  * What a render needs of a ready picture, with the row it is kept for: Dust and Riso take the photo and its cut-out,
- * a Filter takes the photo or the clip. Null when it is not ready or not theirs.
+ * a Filter takes the photo or the clip, a Window the photo and its cut-out or the clip. Null when it is not ready or not theirs.
  */
 export async function uploadMedia(userId, id) {
   const [row] = await db()`select kind, use from uploads where id = ${id} and user_id = ${userId} and status = 'ready'`;

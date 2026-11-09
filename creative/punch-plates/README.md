@@ -33,7 +33,13 @@ Photos without a cut-out still work for Our photography, but Dust skips them.
 npm run bake:plates
 ```
 
-4. Vite/Netlify serves `public/punch-plates/` (generated, not committed). Masters never ship.
+4. Window deals its cards from `src/window-readings.json`: which screen colours read against each approved photo, baked effect and baked background. Bake it again (it needs the headless Chromium Playwright installed, and the published proxies from step 3) whenever a photo, effect or background is added or changes; `npm test` fails when the table is out of date:
+
+```bash
+npm run bake:window-readings
+```
+
+5. Vite/Netlify serves `public/punch-plates/` (generated, not committed). Masters never ship.
 
 Without masters, the bake script writes four dark gradient placeholders so staging still works.
 

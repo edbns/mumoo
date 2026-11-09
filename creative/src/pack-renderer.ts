@@ -24,6 +24,9 @@ import { plateCutoutUrl, plateUrl } from './punch-plates';
 import { risoInkSetById } from './riso-look';
 import { prepareRisoPhoto, type RisoPhoto } from './riso-photo';
 import { sprayPaletteById } from './spray-look';
+import { WINDOW_PALETTE_IDS } from './window-look';
+import type { WindowMode } from './window-deal';
+import type { WindowPicture } from './pack-window';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
 export const PREVIEW_WIDTH = 360;
@@ -37,11 +40,11 @@ export type PackRendererOpts = {
   cues: readonly LyricCue[];
   music: ImpactMusic | null;
   fallbackText: string;
-  /** Dust and Riso: an approved photo (and its cut-out), found the same way in the browser and in the cloud. */
+  /** Dust, Riso and Window: an approved photo (and its cut-out), found the same way in the browser and in the cloud. */
   plateId?: string;
-  /** Our photography: one baked effect on our approved photo, found the same way. */
+  /** Our photography and Window: one baked effect on our approved photo, found the same way. */
   effectId?: string;
-  /** Or the person's own picture, which replaces ours. Dust and Riso: a photo with its cut-out mask. Our photography: a photo, or a clip (a video or GIF) drawn plain. */
+  /** Or the person's own picture, which replaces ours. Dust and Riso: a photo with its cut-out mask. Our photography: a photo, or a clip (a video or GIF) drawn plain. Window: a photo with its cut-out (used only when the card has her in front), or a clip drawn plain. */
   photoUrl?: string;
   cutoutUrl?: string;
   motionUrl?: string;
@@ -60,11 +63,15 @@ export type PackRendererOpts = {
   /** Riso: the id of the card's ink set (riso-look.ts). Spray: the id of its wall and paints (spray-look.ts). */
   inkSet?: string;
   sprayPalette?: string;
+  /** Window: what is seen through the word (`windowMode`), the screen colour the card opens on, and the colours it may flip to. */
+  windowMode?: WindowMode;
+  windowPalette?: string;
+  windowAllowed?: readonly string[];
 };
 
 /** The font families a card draws with, so each is fetched (from this site) the first time a card needs it, not before. */
 function familiesFor(opts: PackRendererOpts): string[] {
-  if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'spray') return [opts.font];
+  if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'spray' || opts.style === 'window') return [opts.font];
   if (opts.style === 'pulise') return [opts.font, opts.fontSecondary];
   return opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [];
 }
@@ -84,6 +91,37 @@ let shared: PackRenderer | null = null;
 
 /** What a card without music or lyrics holds. One array, so a world that compares by identity does not take it for new input every frame. */
 const NOTHING: readonly never[] = [];
+
+/**
+ * Reads a picture into a texture. It is fetched fresh, never from the browser's cache: a signed link that
+ * was once shown in an <img> sits in the cache without CORS headers, and reusing it here would fail.
+ */
+export async function loadTexture(url: string, what: string): Promise<Texture> {
+  const response = await fetch(url, { cache: 'no-store' }).catch(() => null);
+  if (!response?.ok) throw new Error(`${what} could not be loaded${response ? ` (${response.status})` : ''}. Reload the page, or go back to our photography.`);
+  const bitmap = await createImageBitmap(await response.blob()).catch(() => null);
+  if (!bitmap) throw new Error(`${what} could not be read as a picture.`);
+  return Texture.from(bitmap);
+}
+
+/**
+ * Where a Window card's picture comes from: its mode says which of our pictures (an approved photo for `person` and `plain`,
+ * an effect for `effect`, a background for `bank`), or `person` and `plain` can be the person's own photo or clip. Exactly one.
+ * Anything else is a mistake in the card, and is not drawn around.
+ */
+function checkWindow(opts: PackRendererOpts): WindowMode {
+  const { windowMode: mode, windowPalette: palette, windowAllowed: allowed } = opts;
+  if (!mode || !palette || !allowed) throw new Error('Window needs a kind of picture, a screen colour and the colours it may flip to.');
+  if (![palette, ...allowed].every(id => WINDOW_PALETTE_IDS.includes(id))) throw new Error('Window has no such screen colour.');
+  const ours = { person: opts.plateId, plain: opts.plateId, effect: opts.effectId, bank: opts.bankId }[mode];
+  const named = [opts.plateId, opts.effectId, opts.bankId].filter(Boolean).length;
+  const own = Boolean(opts.photoUrl || opts.motionUrl);
+  const fromOurs = Boolean(ours) && named === 1 && !own;
+  const fromOwn = (mode === 'person' || mode === 'plain') && named === 0 && own;
+  if (fromOurs === fromOwn) throw new Error(`A Window card with ${mode} needs exactly one picture of the right kind.`);
+  if (mode === 'person' && opts.motionUrl) throw new Error('A person can only stand in front of a photo, not a video.');
+  return mode;
+}
 
 export async function createPackRenderer(
   canvas: HTMLCanvasElement,
@@ -139,27 +177,21 @@ export async function createPackRenderer(
   };
 
   /**
-   * Reads a picture into a texture. It is fetched fresh, never from the browser's cache: a signed link that
-   * was once shown in an <img> sits in the cache without CORS headers, and reusing it here would fail.
+   * Reads the person's picture (still, cut-out, clip) once per link; one that cannot be read is an error, never a stand-in.
+   * A picture that is replaced is given back to the GPU at once: the shelf draws one card after another, and Window
+   * brings her cut-out in and out with every card.
    */
-  async function loadTexture(url: string, what: string): Promise<Texture> {
-    const response = await fetch(url, { cache: 'no-store' }).catch(() => null);
-    if (!response?.ok) throw new Error(`${what} could not be loaded${response ? ` (${response.status})` : ''}. Reload the page, or go back to our photography.`);
-    const bitmap = await createImageBitmap(await response.blob()).catch(() => null);
-    if (!bitmap) throw new Error(`${what} could not be read as a picture.`);
-    return Texture.from(bitmap);
-  }
-
-  /** Reads the person's picture (still, cut-out, clip) once per link; one that cannot be read is an error, never a stand-in. */
   async function ensurePicture(photoUrl: string | undefined, cutoutUrl: string | undefined, motionUrl: string | undefined) {
     if (photoUrl !== photoUrlLoaded || (photoUrl && !photoTexture)) {
       photoUrlLoaded = '';
+      photoTexture?.destroy(true);
       photoTexture = null;
       if (photoUrl) photoTexture = await loadTexture(photoUrl, 'The photo');
       photoUrlLoaded = photoUrl ?? '';
     }
     if (cutoutUrl !== (cutoutUrlLoaded || undefined) || (cutoutUrl && !cutoutTexture)) {
       cutoutUrlLoaded = '';
+      cutoutTexture?.destroy(true);
       cutoutTexture = null;
       if (cutoutUrl) cutoutTexture = await loadTexture(cutoutUrl, 'The photo’s cut-out');
       cutoutUrlLoaded = cutoutUrl ?? '';
@@ -213,22 +245,27 @@ export async function createPackRenderer(
         // Our photography draws one baked effect, or (replacing it) the person's own picture, never both.
         if (style === 'filter' && current.effectId && (current.photoUrl || current.motionUrl)) throw new Error('Our photography draws an effect or the person’s own picture, not both.');
         const ownBackdrop = style === 'filter' && !current.effectId;
+        const windowMode = style === 'window' ? checkWindow(current) : null;
+        const windowOwn = windowMode === 'person' || windowMode === 'plain';
         if (style === 'riso' && !current.inkSet) throw new Error('Riso needs an ink set.');
         if (style === 'spray' && !current.sprayPalette) throw new Error('Spray needs a wall and paints.');
-        const cutOut = style === 'dust' || style === 'riso';
-        const ownPicture = cutOut || ownBackdrop;
-        const photoUrl = cutOut && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
+        // Window brings her cut-out only for a card with her in front; a plain card of the same photo does not read it.
+        const cutOut = style === 'dust' || style === 'riso' || windowMode === 'person';
+        const ownPicture = cutOut || ownBackdrop || windowOwn;
+        const photoUrl = (cutOut || windowOwn) && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
         const cutoutUrl = cutOut ? (current.plateId ? plateCutoutUrl(current.plateId) : current.cutoutUrl) : undefined;
         if (ownPicture) await ensurePicture(photoUrl, cutoutUrl, current.motionUrl);
         else await ensurePicture(undefined, undefined, undefined);
 
-        // A baked still: a Look Bank background or a photography effect. One that cannot be loaded shows the downtime message.
-        const stillUrl = style === 'bank' && current.bankId ? bankBackgroundUrl(current.bankId)
-          : style === 'filter' && current.effectId ? photoEffectUrl(current.effectId)
+        // A baked still: a Look Bank background, a photography effect, or a Window's effect or background. One that cannot be loaded shows the downtime message (a Window card has none: it throws).
+        const stillUrl = (style === 'bank' || windowMode === 'bank') && current.bankId ? bankBackgroundUrl(current.bankId)
+          : (style === 'filter' || windowMode === 'effect') && current.effectId ? photoEffectUrl(current.effectId)
           : null;
         let still: Texture | null = null;
         if (stillUrl) {
           if (stillUrl !== stillUrlLoaded || !stillTexture) {
+            // The still of the card before is given back: Window deals a different one to every card, and each is a full-frame picture.
+            if (stillTexture) await Assets.unload(stillUrlLoaded);
             stillUrlLoaded = stillUrl;
             try {
               stillTexture = await Assets.load(stillUrl) as Texture;
@@ -275,6 +312,14 @@ export async function createPackRenderer(
           }
         }
         if (ownBackdrop && !photoTexture && !motion) throw new Error('Our photography needs an effect or a picture.');
+        // Window: the picture behind the word is the clip's frame, the photo, or the baked still; her cut-out stands in front when the card says so.
+        let windowPicture: WindowPicture | undefined;
+        if (windowMode) {
+          const texture = motion?.texture ?? photoTexture ?? still;
+          if (!texture) throw new Error('The picture for this Window could not be loaded. Reload the page.');
+          if (windowMode === 'person' && !cutoutTexture) throw new Error('Window needs her cut-out to stand her in front.');
+          windowPicture = { texture, ...(windowMode === 'person' && cutoutTexture ? { cutout: cutoutTexture } : {}) };
+        }
 
         const beat = calmBeat(reaction.beat, current.grade);
         if (current.grade) {
@@ -311,6 +356,9 @@ export async function createPackRenderer(
           inks: style === 'riso' && current.inkSet ? risoInkSetById(current.inkSet).inks : undefined,
           risoPhoto: style === 'riso' ? risoPhoto : null,
           palette: style === 'spray' && current.sprayPalette ? sprayPaletteById(current.sprayPalette) : undefined,
+          windowPicture,
+          windowPalette: current.windowPalette,
+          windowAllowed: current.windowAllowed,
         });
         app.render();
       },
