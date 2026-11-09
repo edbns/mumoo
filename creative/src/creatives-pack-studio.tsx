@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEve
 import { FPS, playheadFrame, type Composition, type ImpactMusic } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
-import { adPunchFallbackText, recommendRow, SHELF_ROWS, type CreativesPackSlot, type ShelfRow } from './creatives-pack';
+import { adPunchFallbackText, recommendRow, SHELF_ROWS, type CreativesPackSlot, type PlateRef, type ShelfRow } from './creatives-pack';
 import { PictureDialog } from './picture-dialog';
 import { PICTURE_RULES, type PictureUse, type Upload } from './uploads';
 import { useUploads } from './use-uploads';
@@ -32,7 +32,7 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   };
 }
 
-/** The links a shelf card needs to draw the person's own picture: Dust a photo and its cut-out, a Filter a photo or a clip. */
+/** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust a photo and its cut-out, a Filter a photo or a clip. */
 type Picture = Pick<PackRendererOpts, 'photoUrl' | 'cutoutUrl' | 'motionUrl'>;
 
 function drawingFrom(upload: Upload | null): Picture | undefined {
@@ -64,7 +64,8 @@ function packOpts(
     music,
     fallbackText: lyrics ? fallbackText : '',
     lyrics,
-    ...picture,
+    // Our approved photo, unless the person chose their own.
+    ...(picture ? picture : slot.plateId ? { plateId: slot.plateId } : {}),
   };
 }
 
@@ -119,9 +120,10 @@ export function CreativesPackStudio({
   const [controls, setControls] = useState(FRESH_ROWS);
   const uploads = useUploads();
   const [dialog, setDialog] = useState<PictureUse | null>(null);
-  const [chosenFilter, setChosenFilter] = useState<string | null>(null);
-  /** Ids of the cleared library photos; null until the library has been read. */
-  const [plates, setPlates] = useState<string[] | null>(null);
+  /** Which picture each own-picture row draws from: the id of one of the person's pictures, or null for our approved photography. */
+  const [chosen, setChosen] = useState<Record<PictureUse, string | null>>({ dust: null, filter: null });
+  /** The approved photos; null until they have been read. */
+  const [plates, setPlates] = useState<PlateRef[] | null>(null);
   /** A row appears when all four of its posters are finished. */
   const [readyRows, setReadyRows] = useState<ShelfRow[]>([]);
   const [shelfStatus, setShelfStatus] = useState('');
@@ -135,34 +137,39 @@ export function CreativesPackStudio({
   const lyricsOn = (row: ShelfRow) => SHELF_ROWS.find(def => def.id === row)?.lyrics === 'always' || controls[row].lyrics;
 
   // The picture each own-picture row draws from. Links are renewed from time to time, so rows are keyed by id, not link.
-  const ready = (use: PictureUse) => (uploads.list ?? []).filter(item => item.use === use && item.status === 'ready' && item.url);
+  const useOf = (row: ShelfRow) => SHELF_ROWS.find(def => def.id === row)?.upload;
+  const own = (use: PictureUse) => (uploads.list ?? []).filter(item => item.use === use);
   const pictures: Record<PictureUse, Upload | null> = {
-    dust: ready('dust')[0] ?? null,
-    filter: ready('filter').find(item => item.id === chosenFilter) ?? ready('filter')[0] ?? null,
+    dust: own('dust').find(item => item.id === chosen.dust && item.status === 'ready' && item.url) ?? null,
+    filter: own('filter').find(item => item.id === chosen.filter && item.status === 'ready' && item.url) ?? null,
   };
-  const pictureOf = (row: ShelfRow) => drawingFrom(row === 'dust' ? pictures.dust : row === 'filter' ? pictures.filter : null);
-  const pictureIds = `${pictures.dust?.id ?? ''}|${pictures.filter?.id ?? ''}`;
+  const pictureOf = (row: ShelfRow) => {
+    const use = useOf(row);
+    return use ? drawingFrom(pictures[use]) : undefined;
+  };
+  const pictureIds = `${pictures.dust?.id ?? 'ours'}|${pictures.filter?.id ?? 'ours'}`;
 
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
+    let note = '';
     if (def.upload) {
-      const own = (uploads.list ?? []).filter(item => item.use === def.upload);
-      if (!uploads.signedIn) return [def.id, { slots: [], note: uploads.pending ? '' : 'Sign in (top right) to use your own picture. It stays private to you.' }];
-      if (uploads.list === null) return [def.id, { slots: [], note: 'Reading your pictures…' }];
-      if (!pictures[def.upload]) {
-        const note = own.some(item => item.status === 'preparing') ? 'Preparing your picture…'
-          : own.some(item => item.status === 'failed') ? 'Your last upload could not be prepared. Open Upload to see why.'
-            : def.upload === 'dust' ? 'Upload one photo to see Dust made from it.' : 'Upload a photo, video or GIF to see Filters made from it.';
-        return [def.id, { slots: [], note }];
+      const mine = own(def.upload);
+      if (pictures[def.upload]) {
+        // Drawn from their own picture.
+      } else if (plates === null) {
+        return [def.id, { slots: [], note: '' }];
+      } else if (!plates.some(plate => def.upload === 'filter' || plate.cutout)) {
+        const ask = def.upload === 'dust' ? 'Upload one photo to see Dust made from it.' : 'Upload a photo, video or GIF to see it here.';
+        return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? 'We have no approved photos for this yet. Sign in (top right) to use your own.' : `We have no approved photos for this yet. ${ask}` }];
       }
+      if (mine.some(item => item.status === 'preparing')) note = 'Preparing your picture. It replaces ours as soon as it is ready.';
     }
     if (lyricsOn(def.id) && !hasLyrics) {
       return [def.id, { slots: [], note: def.lyrics === 'always' ? 'Pulise is made of your lyrics. Approve your synced lyrics first.' : 'Approve your synced lyrics, or switch this row’s lyrics off.' }];
     }
-    if (def.id === 'library' && !plates) return [def.id, { slots: [], note: '' }];
-    return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? []), note: '' }];
+    return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? []), note }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover,
-    controls, plates, hasLyrics, pictureIds, uploads.list === null, uploads.signedIn, uploads.pending,
+    controls, plates, hasLyrics, pictureIds, uploads.signedIn, uploads.pending,
     uploads.list?.map(item => `${item.id}:${item.status}`).join(),
   ]);
   const pack = SHELF_ROWS.flatMap(def => view[def.id].slots);
@@ -175,7 +182,7 @@ export function CreativesPackStudio({
   const rowKey = (row: ShelfRow) => {
     const { slots } = view[row];
     if (!slots.length) return '';
-    return `${songKey}|${lyricsOn(row)}|${row === 'dust' ? pictures.dust?.id : row === 'filter' ? pictures.filter?.id : ''}|${slots.map(slot => `${slot.id}:${slot.grade ? Object.values(slot.grade).join(',') : ''}`).join(',')}`;
+    return `${songKey}|${lyricsOn(row)}|${pictureIds}|${slots.map(slot => `${slot.id}:${slot.grade ? Object.values(slot.grade).join(',') : ''}`).join(',')}`;
   };
   const rowKeys = SHELF_ROWS.map(def => rowKey(def.id)).join('\n');
 
@@ -190,7 +197,7 @@ export function CreativesPackStudio({
     let alive = true;
     void loadPunchPlatesManifest().then(manifest => {
       if (!alive) return;
-      setPlates(manifest?.plates.map(plate => plate.id) ?? []);
+      setPlates(manifest?.plates.map(plate => ({ id: plate.id, cutout: Boolean(plate.cutout) })) ?? []);
     });
     return () => { alive = false; };
   }, []);
@@ -204,6 +211,20 @@ export function CreativesPackStudio({
       .catch(() => { if (alive) setFontReady(true); });
     return () => { alive = false; };
   }, [cueKey, fallbackText]);
+
+  // A picture the person has just added is the one they want to see; ones that were already there stay unused until chosen.
+  const seen = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (uploads.list === null) { seen.current = null; return; }
+    const readyNow = uploads.list.filter(item => item.status === 'ready');
+    if (seen.current === null) { seen.current = new Set(readyNow.map(item => item.id)); return; }
+    for (const item of readyNow) {
+      if (seen.current.has(item.id)) continue;
+      seen.current.add(item.id);
+      stopPlayback();
+      setChosen(current => ({ ...current, [item.use]: item.id }));
+    }
+  }, [uploads.list]);
 
   // Cards that no longer exist cannot stay picked or playing.
   useEffect(() => {
@@ -352,12 +373,13 @@ export function CreativesPackStudio({
       const jobs: { slot: CreativesPackSlot; id: string }[] = [];
       for (const slot of selectedSlots) {
         await yieldFrame();
-        const own = slot.row === 'dust' ? pictures.dust : slot.row === 'filter' ? pictures.filter : null;
+        const use = useOf(slot.row);
+        const picture = use ? pictures[use] : null;
         const id = await submitCloudJob({
           token,
           wav,
           opts: packOpts(slot, composition, music, fallbackText, lyricsOn(slot.row), pictureOf(slot.row)),
-          uploadId: own?.id,
+          uploadId: picture?.id,
         });
         jobs.push({ slot, id });
       }
@@ -495,7 +517,7 @@ export function CreativesPackStudio({
         onClose={() => setDialog(current => (current === use ? null : current))}
         uploads={uploads}
         chosenId={pictures[use]?.id ?? null}
-        onChoose={id => { if (use === 'filter') { stopPlayback(); setChosenFilter(id); } }}
+        onChoose={id => { stopPlayback(); setChosen(current => ({ ...current, [use]: id })); }}
       />
     ))}
     {allReady && picked.length > 0 && (

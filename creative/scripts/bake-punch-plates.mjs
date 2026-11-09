@@ -5,7 +5,8 @@
  *   node scripts/bake-punch-plates.mjs
  *
  * Reads:  punch-plates/masters/*.jpg|png|webp (+ optional *.json sidecar)
- * Writes: punch-plates/out/{id}.jpg, {id}-thumb.jpg, plates.json
+ *         punch-plates/cutouts/{id}.png  the subject's cut-out mask (Dust needs one; see scripts/prepare-sample.mjs)
+ * Writes: punch-plates/out/{id}.jpg, {id}-thumb.jpg, {id}.cut.png, plates.json
  *         public/punch-plates/  (Vite/Netlify static copy — not committed)
  *
  * Masters stay local. Only small proxies are served.
@@ -22,6 +23,7 @@ import ffmpegPath from '@ffmpeg-installer/ffmpeg';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const mastersDir = join(root, 'punch-plates', 'masters');
 const outDir = join(root, 'punch-plates', 'out');
+const cutoutsDir = join(root, 'punch-plates', 'cutouts');
 const publicDir = join(root, 'public', 'punch-plates');
 const WIDTH = 1080;
 const HEIGHT = 1920;
@@ -120,7 +122,7 @@ function publish(outBase) {
     const looksOut = join(publicDir, 'looks');
     mkdirSync(looksOut, { recursive: true });
     for (const name of readdirSync(looksSrc)) {
-      if (/\.(jpe?g|json)$/i.test(name)) copyFileSync(join(looksSrc, name), join(looksOut, name));
+      if (/\.jpe?g$/i.test(name)) copyFileSync(join(looksSrc, name), join(looksOut, name));
     }
     console.log('published looks →', looksOut);
   }
@@ -144,11 +146,15 @@ function main() {
     if (used.has(id)) id = `${id}-${used.size}`;
     used.add(id);
     const baked = bakeStill(input, id, outDir);
+    // A photo with a cut-out can also be turned into Dust.
+    const cutout = existsSync(join(cutoutsDir, `${id}.png`));
+    if (cutout) copyFileSync(join(cutoutsDir, `${id}.png`), join(outDir, `${id}.cut.png`));
     plates.push({
       id,
       type: 'still',
       file: baked.file,
       thumb: baked.thumb,
+      ...(cutout ? { cutout: `${id}.cut.png` } : {}),
       mood: Array.isArray(side.mood) ? side.mood.map(String).slice(0, 8) : [],
       license: typeof side.license === 'string' ? side.license : 'cleared-internal',
       sourceUrl: typeof side.sourceUrl === 'string' ? side.sourceUrl : '',

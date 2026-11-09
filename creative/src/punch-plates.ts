@@ -3,6 +3,8 @@ export type PunchPlateMeta = {
   type: 'still';
   file: string;
   thumb: string;
+  /** The subject's cut-out mask, when it has one (Dust is made of photos that do). */
+  cutout?: string;
   mood: string[];
   license: string;
   sourceUrl: string;
@@ -25,6 +27,10 @@ export function punchPlatesBase(): string {
   if (typeof env === 'string' && env.trim()) return env.replace(/\/$/, '');
   return '/punch-plates';
 }
+
+/** An approved photo, as the app and the cloud renderer both find it. */
+export const plateUrl = (id: string) => `${punchPlatesBase()}/${id}.jpg`;
+export const plateCutoutUrl = (id: string) => `${punchPlatesBase()}/${id}.cut.png`;
 
 export function isPunchPlateId(value: unknown): value is string {
   return typeof value === 'string' && PLATE_ID.test(value);

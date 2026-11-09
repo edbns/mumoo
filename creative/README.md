@@ -50,8 +50,8 @@ npm test
 
 ## Baking assets
 
-- `npm run bake:plates` runs automatically before `build`; it publishes the cleared photo plates (`punch-plates/`) and their baked looks to `public/`.
-- `npm run bake:looks` renders the looks over the plates (needs Playwright Chromium: `npx playwright install chromium --only-shell`).
+- `npm run bake:plates` runs automatically before `build`; it publishes the approved photos (`punch-plates/masters`), their cut-outs (`punch-plates/cutouts`, which Dust needs) and the baked backgrounds to `public/`.
+- `npm run bake:looks` renders the Moving backgrounds from their Shaders recipes (needs a WebGPU-capable Chrome or Brave).
 - `node scripts/measure-looks.mjs` measures the colours of every baked background into `src/look-lab/bank.json`; run it after `bake:looks` so cover matching stays accurate.
 - `node scripts/bake-paper-meshes.mjs` regenerates `src/paper-mesh-data.ts`.
 

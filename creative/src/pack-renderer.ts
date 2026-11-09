@@ -20,6 +20,7 @@ import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
 import { dustWordAt, sampleDust, type DustPoints } from './pack-dust';
 import { loadMotion, type Motion } from './pack-motion';
+import { plateCutoutUrl, plateUrl } from './punch-plates';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
 export const PREVIEW_WIDTH = 360;
@@ -33,7 +34,9 @@ export type PackRendererOpts = {
   cues: readonly LyricCue[];
   music: ImpactMusic | null;
   fallbackText: string;
-  /** The person's own picture. Dust: a photo with its cut-out mask. A Filter: a photo, or a clip (a video or GIF). */
+  /** An approved photo (and its cut-out, for Dust): found the same way in the browser and in the cloud. */
+  plateId?: string;
+  /** Or the person's own picture. Dust: a photo with its cut-out mask. A Filter: a photo, or a clip (a video or GIF). */
   photoUrl?: string;
   cutoutUrl?: string;
   motionUrl?: string;
@@ -156,7 +159,9 @@ export async function createPackRenderer(
         if (gl.isContextLost()) throw new Error('The WebGL context was lost. Reload and try again.');
         const { style } = current;
         const ownPicture = style === 'dust' || style === 'filter';
-        if (ownPicture) await ensurePicture(current.photoUrl, current.cutoutUrl, current.motionUrl);
+        const photoUrl = current.plateId ? plateUrl(current.plateId) : current.photoUrl;
+        const cutoutUrl = style === 'dust' ? (current.plateId ? plateCutoutUrl(current.plateId) : current.cutoutUrl) : undefined;
+        if (ownPicture) await ensurePicture(photoUrl, cutoutUrl, current.motionUrl);
         else await ensurePicture(undefined, undefined, undefined);
 
         let bankTex: Texture | null = null;
@@ -183,7 +188,7 @@ export async function createPackRenderer(
           const picture = photoTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
           const mask = cutoutTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
           if (!picture || !mask) throw new Error('Dust needs a photo and its cut-out.');
-          const key = `${current.photoUrl}|${current.cutoutUrl}`;
+          const key = `${photoUrl}|${cutoutUrl}`;
           if (dustKey !== key || !dustPoints) {
             dustPoints = sampleDust(picture, mask);
             dustKey = key;

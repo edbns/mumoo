@@ -33,7 +33,7 @@ export const PICTURE_RULES: Record<PictureUse, { limit: number; accepts: string;
     limit: 1,
     accepts: PHOTO_TYPES.join(','),
     rules: [
-      'One photo only: JPEG, PNG or WebP, up to 25 MB.',
+      'One photo only: JPEG, PNG or WebP, up to 25 MB. Until you add one, Dust is made from our approved photography.',
       'Best with one clear subject (a person, an object) against any background. It is cut out and turned into dust.',
       'Adding another needs the current one removed first.',
     ],
@@ -42,7 +42,7 @@ export const PICTURE_RULES: Record<PictureUse, { limit: number; accepts: string;
     limit: 6,
     accepts: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
     rules: [
-      'A photo (JPEG, PNG or WebP, up to 25 MB), a video (MP4, MOV or WebM, up to 150 MB and 60 seconds) or a GIF (up to 25 MB).',
+      'Until you add your own, this row shows our approved photography. Use a photo (JPEG, PNG or WebP, up to 25 MB), a video (MP4, MOV or WebM, up to 150 MB and 60 seconds) or a GIF (up to 25 MB).',
       'Videos and GIFs use their first 15 seconds, shown in portrait.',
       'Up to 6 pictures are kept. Remove one to add another.',
     ],

@@ -50,7 +50,7 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
-    "cues", "music", "fallbackText", "bankId", "typeStyle", "grade", "lyrics", "colors", "filter",
+    "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "filter",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
 TYPE_STYLES = {"typewriter", "karaoke", "stack", "minimal", "editorial", "outline"}
@@ -222,6 +222,8 @@ def parse_meta(raw: str) -> dict:
             raise ValueError(key)
     if "bankId" in opts and (not isinstance(opts["bankId"], str) or not ID_RE.match(opts["bankId"])):
         raise ValueError("bankId")
+    if "plateId" in opts and (not isinstance(opts["plateId"], str) or not ID_RE.match(opts["plateId"])):
+        raise ValueError("plateId")
     if "typeStyle" in opts and opts["typeStyle"] not in TYPE_STYLES:
         raise ValueError("typeStyle")
     grade = opts.get("grade")
@@ -277,11 +279,13 @@ async def submit(request: Request):
                     raise ValueError(name)
         if "photo" in media and media["photo"][:3] != b"\xff\xd8\xff":
             raise ValueError("photo")
-        # Dust is one photo with its cut-out mask. A Filter is one photo, or one clip. No other style takes a picture.
-        wanted = {"dust": {"photo", "cutout"}}.get(opts["style"])
-        if opts["style"] == "filter":
-            wanted = {"photo"} if "photo" in media else {"motion"}
-        if set(media) != (wanted or set()):
+        # Dust and Filter are drawn from an approved photo (`plateId`, which the page loads from the site itself) or
+        # from the person's own picture: Dust a photo with its cut-out mask, a Filter a photo or a clip. Nothing else takes a picture.
+        own = opts["style"] in ("dust", "filter")
+        wanted: set[str] = set()
+        if own and "plateId" not in opts:
+            wanted = {"photo", "cutout"} if opts["style"] == "dust" else ({"photo"} if "photo" in media else {"motion"})
+        if set(media) != wanted or ("plateId" in opts and not own):
             raise ValueError("media")
     except (TypeError, ValueError, binascii.Error, json.JSONDecodeError, AttributeError):
         raise HTTPException(400, "Expected a 15s mono 32kHz WAV and valid render metadata.") from None

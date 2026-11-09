@@ -17,13 +17,23 @@ Cleared photo backgrounds for Lyric Impact (billboard / collision first).
 }
 ```
 
-2. Bake proxies (1080×1920 JPEG + thumb + `plates.json`):
+2. For Dust, each photo also needs a cut-out of its subject. Make it on our cloud worker (no laptop load) and keep it in `cutouts/{id}.png`:
+
+```bash
+npm run bake:plates   # first bake, so the 1080×1920 proxy exists
+node scripts/prepare-sample.mjs photo punch-plates/out/{id}.jpg punch-plates/cutouts/{id}
+mv punch-plates/cutouts/{id}.cutout.png punch-plates/cutouts/{id}.png
+```
+
+Photos without a cut-out still work for Our photography, but Dust skips them.
+
+3. Bake proxies (1080×1920 JPEG + thumb + `plates.json`):
 
 ```bash
 npm run bake:plates
 ```
 
-3. Vite/Netlify serves `public/punch-plates/` (generated, not committed). Masters never ship.
+4. Vite/Netlify serves `public/punch-plates/` (generated, not committed). Masters never ship.
 
 Without masters, the bake script writes four dark gradient placeholders so staging still works.
 

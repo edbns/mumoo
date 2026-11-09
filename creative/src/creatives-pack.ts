@@ -14,7 +14,6 @@ import { STYLE_NAMES, type AdPunchStyle } from './ad-punch';
 import { dustColors, type DustColors } from './dust-colors';
 import { PHOTO_FILTERS, PHOTO_FILTER_NAMES, type PhotoFilterId } from './pack-filter';
 import bankData from './look-lab/bank.json';
-import photoLooks from './look-lab/photo-looks.json';
 import { laneFromMeaning, leansDeep, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, type TypeStyleId } from './pack-type';
@@ -26,22 +25,21 @@ const BANK_LOOKS = bankData as BankLook[];
 
 export type PackFamily = 'ad_punch';
 
-export type ShelfRow = 'library' | 'looks' | 'pulise' | 'dust' | 'filter';
+export type ShelfRow = 'photography' | 'looks' | 'pulise' | 'dust';
 
 /**
  * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
  * never redraws (or re-renders) another:
  *   lyrics  'switch': the row has its own Lyrics on/off. 'always': made of the lyrics, so there is no switch.
- *   upload  the row is made from the person's own picture, kept for this use.
+ *   upload  the row shows our approved photography, and the person can use their own picture instead (kept for this use).
  * Every row has its own Refresh.
  */
 export type ShelfRowDef = { id: ShelfRow; title: string; lyrics: 'switch' | 'always'; upload?: PictureUse };
 export const SHELF_ROWS: readonly ShelfRowDef[] = [
-  { id: 'library', title: 'Our photography', lyrics: 'switch' },
+  { id: 'photography', title: 'Our photography', lyrics: 'switch', upload: 'filter' },
   { id: 'looks', title: 'Moving backgrounds', lyrics: 'switch' },
   { id: 'pulise', title: 'Pulise', lyrics: 'always' },
   { id: 'dust', title: 'Dust', lyrics: 'switch', upload: 'dust' },
-  { id: 'filter', title: 'Filters', lyrics: 'switch', upload: 'filter' },
 ];
 const ROW_SIZE = 4;
 
@@ -57,6 +55,8 @@ export type CreativesPackSlot = {
   layout: AdLayout;
   /** Dust and Filter: the two colours of this card. */
   colors?: DustColors;
+  /** Dust and Filter: the approved photo this card is drawn from, until the person uses their own. */
+  plateId?: string;
   /** Filter: how the person's photo is treated. */
   filter?: PhotoFilterId;
   /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
@@ -162,12 +162,11 @@ function bankSlots(
       pairs.push({ look, type });
     });
   }
-  return pairs.map(({ look, type }, index) => bankCard('looks', look.slug, look.title, type, index, lane, meaning, intent, seed));
+  return pairs.map(({ look, type }, index) => bankCard(look.slug, look.title, type, index, lane, meaning, intent, seed));
 }
 
 /** One card on the Look Bank world: a baked background image plus a lyric type style. */
 function bankCard(
-  row: ShelfRow,
   bankId: string,
   title: string,
   type: TypeStyleId,
@@ -177,7 +176,7 @@ function bankCard(
   intent: MusicIntentV1 | null,
   seed: string,
 ): CreativesPackSlot {
-  const base = adPunchSlot('bank', index, intent, seed, lane, row);
+  const base = adPunchSlot('bank', index, intent, seed, lane, 'looks');
   // Calm songs never get techy faces: the display font comes from a soft bank.
   const soft = lane === 'gospel' || lane === 'quiet' ? seededOrder(SOFT_FONTS, `${seed}:${index}`, font => font) : null;
   return {
@@ -189,26 +188,6 @@ function bankCard(
     bankId,
     typeStyle: type,
   };
-}
-
-/**
- * The library row: the same cleared photo through each Shaders treatment, baked offline. With more photos
- * in the library the seed deals a different one to each card.
- */
-function librarySlots(
-  plates: readonly string[],
-  lane: MoodLane,
-  meaning: LyricMeaning | null,
-  intent: MusicIntentV1 | null,
-  seed: string,
-): CreativesPackSlot[] {
-  if (!plates.length) return [];
-  const photos = seededOrder(plates, seed, id => id);
-  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:library`, id => id);
-  return photoLooks.map((look, index) => bankCard(
-    'library', `${look.slug}-${photos[index % photos.length]}`, look.title, types[index % types.length],
-    ROW_SIZE + index, lane, meaning, intent, seed,
-  ));
 }
 
 function adPunchSlot(
@@ -252,20 +231,22 @@ export function readSong(profile: CreativeProfileV1) {
   return { intent, genre, language, meaning, lane };
 }
 
+/** An approved photo; `cutout` says it also has the mask Dust needs. */
+export type PlateRef = { id: string; cutout: boolean };
+
 /**
- * One row of the shelf for this song. `generation` is that row's own Refresh count. `plates` are the ids of the
- * cleared library photos (without any, the library row is simply absent).
+ * One row of the shelf for this song. `generation` is that row's own Refresh count. `plates` are the approved
+ * photos Our photography and Dust are drawn from (the person's own picture, if any, replaces them in the app).
  */
-export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly string[] = []): CreativesPackSlot[] {
+export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = []): CreativesPackSlot[] {
   const { intent, meaning, lane } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
   const slots = {
-    library: () => librarySlots(plates, lane, meaning, intent, seed),
+    photography: () => photographySlots(lane, intent, seed, cover?.hue, plates.map(plate => plate.id)),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     pulise: () => puliseSlots(lane, intent, seed),
-    dust: () => dustSlots(lane, intent, seed, cover?.hue),
-    filter: () => filterSlots(lane, intent, seed, cover?.hue),
+    dust: () => dustSlots(lane, intent, seed, cover?.hue, plates.filter(plate => plate.cutout).map(plate => plate.id)),
   }[row]();
   const grade = moodGrade(meaning);
   return grade ? slots.map(slot => ({ ...slot, grade })) : slots;
@@ -276,22 +257,31 @@ function cardColors(seed: string, index: number, coverHue: number | null | undef
   return dustColors(hashPick(seed, `colors:${index}`, 1_000_000), coverHue != null && index < 2 ? coverHue : undefined);
 }
 
-function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined): CreativesPackSlot[] {
+/** With more approved photos the seed deals a different one to each card; with none the card waits for the person's own. */
+function dealt(plateIds: readonly string[], seed: string, index: number): { plateId?: string } {
+  if (!plateIds.length) return {};
+  return { plateId: seededOrder(plateIds, seed, id => id)[index % plateIds.length] };
+}
+
+function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined, plateIds: readonly string[]): CreativesPackSlot[] {
   return Array.from({ length: ROW_SIZE }, (_, index) => ({
     ...adPunchSlot('dust', index, intent, seed, lane, 'dust'),
     colors: cardColors(seed, index, coverHue),
+    ...dealt(plateIds, seed, index),
   }));
 }
 
-function filterSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined): CreativesPackSlot[] {
+/** Our photography: an approved photo (or the person's own) through four treatments. */
+function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined, plateIds: readonly string[]): CreativesPackSlot[] {
   const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
   return PHOTO_FILTERS.map((filter, index) => ({
-    ...adPunchSlot('filter', index, intent, seed, lane, 'filter'),
+    ...adPunchSlot('filter', index, intent, seed, lane, 'photography'),
     id: `ad-filter-${filter}-${hashPick(seed, 'gen', 997).toString(36)}`,
     label: PHOTO_FILTER_NAMES[filter],
     filter,
     colors: cardColors(seed, index, coverHue),
     typeStyle: types[index % types.length],
+    ...dealt(plateIds, seed, index),
   }));
 }
 

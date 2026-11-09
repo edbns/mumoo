@@ -1,6 +1,6 @@
 /**
  * Look Lab page logic — runs ONLY inside the offline bake (scripts/bake-looks.mjs).
- * Exposes window.bakeLook(lookId, plateUrl) → JPEG data URL.
+ * Exposes window.bakeLook(lookId) → JPEG data URL.
  */
 import { createShader, isWebGPUSupported } from 'shaders/js';
 import { lookRecipe, type LookId } from './recipes';
@@ -19,7 +19,7 @@ function frames(n: number): Promise<void> {
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 function looksPainted(ctx: CanvasRenderingContext2D, minSpread: number): boolean {
-  // A real photo is never flat: sample a coarse grid and require tonal spread.
+  // A painted background is never flat: sample a coarse grid and require tonal spread.
   let min = 255;
   let max = 0;
   for (let gy = 1; gy < 8; gy++) {
@@ -33,7 +33,7 @@ function looksPainted(ctx: CanvasRenderingContext2D, minSpread: number): boolean
   return max - min > minSpread;
 }
 
-async function bakeLook(lookId: LookId, plateUrl: string, settleMs = 250, minSpread = 24): Promise<string> {
+async function bakeLook(lookId: LookId, settleMs = 1800, minSpread = 6): Promise<string> {
   if (!isWebGPUSupported()) throw new Error('WebGPU is not available in this browser.');
   const canvas = document.createElement('canvas');
   canvas.width = W;
@@ -45,7 +45,7 @@ async function bakeLook(lookId: LookId, plateUrl: string, settleMs = 250, minSpr
   let failed: (e: Error) => void = () => undefined;
   const readyPromise = new Promise<void>((resolve, reject) => { ready = resolve; failed = reject; });
 
-  const recipe = lookRecipe(lookId, plateUrl ? new URL(plateUrl, location.origin).href : '');
+  const recipe = lookRecipe(lookId);
   const shader = await createShader(canvas, recipe.preset, {
     ...recipe.options,
     observeElement: false,

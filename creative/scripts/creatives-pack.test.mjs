@@ -21,8 +21,9 @@ function profile(genre = 'House', lyrics = 'hello', sha = 'a'.repeat(64), meanin
   };
 }
 
-/** The rows made from our own material, in shelf order. Dust and Filters need a person's picture and are tested apart. */
-const shelf = (pack, person, generation = 0, plates = []) => ['library', 'looks', 'pulise'].flatMap(row => pack.recommendRow(row, person, generation, plates));
+const PLATES = [{ id: 'burnnet-woman-1547507-1920', cutout: true }];
+/** Every row of the shelf, in order. */
+const shelf = (pack, person, generation = 0, plates = PLATES) => pack.SHELF_ROWS.flatMap(row => pack.recommendRow(row.id, person, generation, plates));
 
 async function load() {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
@@ -30,17 +31,18 @@ async function load() {
   return { server, pack };
 }
 
-test('the shelf is three rows of four, each card distinct', async () => {
+test('the shelf is four rows of four, each card distinct', async () => {
   const { server, pack } = await load();
   try {
     for (const genre of ['Gospel', 'Slap House', 'Pop', 'Ambient']) {
-      const slots = shelf(pack, profile(genre), 0, ['burnnet-woman-1547507-1920']);
-      assert.equal(slots.length, 12, genre);
-      const library = slots.filter(slot => slot.row === 'library');
-      assert.deepEqual(library.map(slot => slot.bankId), ['noir-mono', 'neon-night', 'golden-hour', 'pop-print'].map(look => `${look}-burnnet-woman-1547507-1920`), `${genre} library looks`);
-      assert.equal(new Set(library.map(slot => slot.typeStyle)).size, 4, `${genre} library repeats a type style`);
-      for (const row of ['library', 'looks', 'pulise']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
-      assert.deepEqual(slots.map(slot => slot.row), ['library', 'library', 'library', 'library', 'looks', 'looks', 'looks', 'looks', 'pulise', 'pulise', 'pulise', 'pulise'], 'rows come in order');
+      const slots = shelf(pack, profile(genre));
+      assert.equal(slots.length, 16, genre);
+      assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', 'looks', 'pulise', 'dust'], 'rows come in order');
+      for (const row of ['photography', 'looks', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
+      const photography = slots.filter(slot => slot.row === 'photography');
+      assert.deepEqual(photography.map(slot => slot.filter), ['duotone', 'split', 'halftone', 'glow']);
+      assert.equal(new Set(photography.map(slot => slot.typeStyle)).size, 4, `${genre} photography repeats a type style`);
+      assert.ok([...photography, ...slots.filter(slot => slot.row === 'dust')].every(slot => slot.plateId === 'burnnet-woman-1547507-1920'), 'drawn from the approved photo');
       const pulise = slots.filter(slot => slot.row === 'pulise');
       assert.equal(new Set(pulise.map(slot => slot.layout.cut)).size, 4, `${genre} Pulise cards open on the same colour`);
       const bank = slots.filter(slot => slot.row === 'looks');
@@ -48,6 +50,18 @@ test('the shelf is three rows of four, each card distinct', async () => {
       assert.equal(pairs.size, bank.length, `${genre} repeats a background+type pair`);
       assert.equal(new Set(slots.map(slot => slot.id)).size, slots.length, `${genre} repeats an id`);
     }
+  } finally { await server.close(); }
+});
+
+test('Dust only uses approved photos that have a cut-out, and waits for the person\'s own when there are none', async () => {
+  const { server, pack } = await load();
+  try {
+    const person = profile('Pop');
+    const plates = [{ id: 'no-mask', cutout: false }, { id: 'with-mask', cutout: true }];
+    assert.ok(pack.recommendRow('dust', person, 0, plates).every(slot => slot.plateId === 'with-mask'));
+    assert.deepEqual(new Set(pack.recommendRow('photography', person, 0, plates).map(slot => slot.plateId)), new Set(['no-mask', 'with-mask']), 'photography deals every approved photo');
+    assert.ok(pack.recommendRow('dust', person, 0, [{ id: 'no-mask', cutout: false }]).every(slot => slot.plateId === undefined));
+    assert.ok(pack.recommendRow('photography', person, 0, []).every(slot => slot.plateId === undefined));
   } finally { await server.close(); }
 });
 
@@ -125,7 +139,7 @@ test('the cover decides which backgrounds lead: warm cover → warm looks, cool 
     assert.ok(cool.every(look => look.warmth < 0.4), 'cool cover leads with cool backgrounds');
 
     // No cover: nothing changes, still a full pack.
-    assert.equal(shelf(pack, profile('Pop')).length, 8, 'no library photos, no library row');
+    assert.equal(shelf(pack, profile('Pop')).length, 16, 'still a full shelf');
   } finally { await server.close(); }
 });
 
@@ -207,17 +221,15 @@ test('every row is recommended on its own, so refreshing one never changes anoth
   const { server, pack } = await load();
   try {
     const person = profile('Pop');
-    const ids = (row, generation) => pack.recommendRow(row, person, generation, ['burnnet-woman-1547507-1920']).map(slot => slot.id).join();
+    const ids = (row, generation) => pack.recommendRow(row, person, generation, PLATES).map(slot => slot.id).join();
     for (const row of pack.SHELF_ROWS.map(def => def.id)) {
-      assert.equal(pack.recommendRow(row, person, 0, ['burnnet-woman-1547507-1920']).length, 4, `${row} has four cards`);
+      assert.equal(pack.recommendRow(row, person, 0, PLATES).length, 4, `${row} has four cards`);
       assert.equal(ids(row, 0), ids(row, 0), `${row} is repeatable`);
       assert.notEqual(ids(row, 0), ids(row, 1), `${row} changes when refreshed`);
     }
-    // Refreshing Dust leaves the Filters row exactly as it was.
-    assert.equal(ids('filter', 0), ids('filter', 0));
-    const filters = pack.recommendRow('filter', person, 0);
-    assert.deepEqual(filters.map(slot => slot.filter), ['duotone', 'split', 'halftone', 'glow']);
-    assert.ok(pack.recommendRow('dust', person, 0).every(slot => slot.colors && slot.row === 'dust'));
+    // Refreshing Dust leaves Our photography exactly as it was.
+    assert.equal(ids('photography', 0), ids('photography', 0));
+    assert.ok(pack.recommendRow('dust', person, 0, PLATES).every(slot => slot.colors && slot.row === 'dust'));
   } finally { await server.close(); }
 });
 
@@ -228,8 +240,8 @@ test('rows say what they own: lyrics switch, upload kind, and Pulise only refres
     assert.equal(rows.pulise.lyrics, 'always');
     assert.equal(rows.pulise.upload, undefined);
     assert.equal(rows.dust.upload, 'dust');
-    assert.equal(rows.filter.upload, 'filter');
-    for (const row of ['library', 'looks', 'dust', 'filter']) assert.equal(rows[row].lyrics, 'switch', row);
-    for (const row of ['library', 'looks', 'pulise']) assert.equal(rows[row].upload, undefined, `${row} takes no upload`);
+    assert.equal(rows.photography.upload, 'filter');
+    for (const row of ['photography', 'looks', 'dust']) assert.equal(rows[row].lyrics, 'switch', row);
+    for (const row of ['looks', 'pulise']) assert.equal(rows[row].upload, undefined, `${row} takes no upload`);
   } finally { await server.close(); }
 });

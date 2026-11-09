@@ -3,13 +3,14 @@ import { PICTURE_RULES, type PictureUse } from './uploads';
 import type { Uploads } from './use-uploads';
 
 const COPY: Record<PictureUse, { title: string; add: string }> = {
-  dust: { title: 'Your photo for Dust', add: 'Choose a photo' },
-  filter: { title: 'Your pictures for Filters', add: 'Choose a photo, video or GIF' },
+  dust: { title: 'Use your own photo for Dust', add: 'Choose a photo' },
+  filter: { title: 'Use your own media for Our photography', add: 'Choose a photo, video or GIF' },
 };
 
 /**
  * The pop-up for one row's own pictures: what it accepts and how many it keeps, the rights confirmation, the
- * pictures it holds (choose which one the row draws from, or remove one), and the file picker.
+ * pictures it holds (choose which one the row draws from, or "Ours" for our approved photography, or remove
+ * one), and the file picker.
  */
 export function PictureDialog({ use, open, onClose, uploads, chosenId, onChoose }: {
   use: PictureUse;
@@ -17,7 +18,7 @@ export function PictureDialog({ use, open, onClose, uploads, chosenId, onChoose 
   onClose: () => void;
   uploads: Uploads;
   chosenId: string | null;
-  onChoose: (id: string) => void;
+  onChoose: (id: string | null) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -47,7 +48,8 @@ export function PictureDialog({ use, open, onClose, uploads, chosenId, onChoose 
       ? <p className="hint">Sign in (top right) to add your own picture. It stays private to you.</p>
       : <>
         <p className="hint">{mine.length} of {rules.limit} in use</p>
-        {mine.length > 0 && <ul className="own-photo-list">
+        <ul className="own-photo-list">
+          <li><button type="button" className="ours-tile" aria-pressed={chosenId === null} onClick={() => onChoose(null)}>Ours</button></li>
           {mine.map(item => <li key={item.id}>
             {item.status === 'ready' && item.url
               ? <button type="button" aria-pressed={chosenId === item.id} aria-label={item.kind === 'motion' ? 'Use this video' : 'Use this photo'} onClick={() => onChoose(item.id)}>
@@ -59,7 +61,7 @@ export function PictureDialog({ use, open, onClose, uploads, chosenId, onChoose 
               </div>}
             <button type="button" className="link-button" disabled={sending} onClick={() => void uploads.remove(item.id)}>Remove</button>
           </li>)}
-        </ul>}
+        </ul>
         <label className="rights">
           <input type="checkbox" checked={rights} onChange={event => setRights(event.target.checked)} />
           <span>I own this or have the right to use it, and the people in it are happy for me to.</span>
