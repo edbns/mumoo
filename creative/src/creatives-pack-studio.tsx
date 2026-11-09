@@ -3,6 +3,8 @@ import { FPS, playheadFrame, type Composition, type ImpactMusic } from './compos
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
 import { adPunchFallbackText, recommendRow, SHELF_ROWS, type CreativesPackSlot, type PlateRef, type ShelfRow } from './creatives-pack';
+import { Cart, type CartLine } from './cart-panel';
+import { CART_LIMIT, useCart, type CartItem } from './cart';
 import { PictureDialog } from './picture-dialog';
 import { PICTURE_RULES, type PictureUse, type Upload } from './uploads';
 import { useUploads } from './use-uploads';
@@ -55,6 +57,7 @@ function packOpts(
     fontSecondary: slot.fontSecondary,
     layout: slot.layout,
     ...(slot.colors ? { colors: slot.colors } : {}),
+    ...(slot.pulise ? { pulise: slot.pulise } : {}),
     ...(slot.filter ? { filter: slot.filter } : {}),
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
@@ -111,7 +114,6 @@ export function CreativesPackStudio({
   onBack: () => void;
 }) {
   const canvasRefs = useRef(new Map<string, HTMLCanvasElement>());
-  const [picked, setPicked] = useState<string[]>([]);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [fontReady, setFontReady] = useState(false);
   const [error, setError] = useState('');
@@ -120,6 +122,8 @@ export function CreativesPackStudio({
   /** Every row has its own Refresh and (where it makes sense) its own Lyrics switch, so a change repaints one row only. */
   const [controls, setControls] = useState(FRESH_ROWS);
   const uploads = useUploads();
+  const cart = useCart(`${profile.clip.sourceSha256}:${profile.clip.offsetMs}`);
+  const [cartOpen, setCartOpen] = useState(false);
   const [dialog, setDialog] = useState<PictureUse | null>(null);
   /** Which picture each own-picture row draws from: the id of one of the person's pictures, or null for our approved photography. */
   const [chosen, setChosen] = useState<Record<PictureUse, string | null>>({ dust: null, filter: null });
@@ -227,9 +231,8 @@ export function CreativesPackStudio({
     }
   }, [uploads.list]);
 
-  // Cards that no longer exist cannot stay picked or playing.
+  // A card that no longer exists cannot stay playing. (Cards in the cart are kept on purpose.)
   useEffect(() => {
-    setPicked(current => (current.every(id => pack.some(slot => slot.id === id)) ? current : current.filter(id => pack.some(slot => slot.id === id))));
     setPlayingId(current => (current && !pack.some(slot => slot.id === current) ? null : current));
   }, [pack.map(slot => slot.id).join()]);
 
@@ -330,13 +333,45 @@ export function CreativesPackStudio({
     setControls(current => ({ ...current, [row]: { ...current[row], ...next } }));
   }
 
-  function togglePick(id: string) {
-    setPicked(current => {
-      const next = current.includes(id) ? current.filter(item => item !== id) : [...current, id];
-      const slot = pack.find(item => item.id === id);
-      if (slot && next.includes(id)) reportPackFeedback(token, profile, 'select', slot, { selectedIds: next, generation: controls[slot.row].generation });
-      return next;
-    });
+  /** A card goes into the cart exactly as it is now, so refreshing its row afterwards cannot lose it. */
+  function toggleCart(slot: CreativesPackSlot) {
+    if (cart.has(slot.id)) {
+      cart.remove(slot.id);
+      return;
+    }
+    const use = useOf(slot.row);
+    const item: CartItem = {
+      id: slot.id,
+      row: slot.row,
+      slot,
+      lyrics: lyricsOn(slot.row),
+      uploadId: use ? (pictures[use]?.id ?? null) : null,
+      generation: controls[slot.row].generation,
+    };
+    cart.add(item);
+    reportPackFeedback(token, profile, 'select', slot, { selectedIds: [...cart.items.map(held => held.id), slot.id], generation: item.generation });
+  }
+
+  /** What a cart item is drawn from now: the person's own picture (if it is still there) or our photography. */
+  function pictureFor(item: CartItem): { available: boolean; picture?: Picture } {
+    if (item.uploadId === null) return { available: true };
+    const upload = (uploads.list ?? []).find(candidate => candidate.id === item.uploadId && candidate.status === 'ready' && candidate.url);
+    return upload ? { available: true, picture: drawingFrom(upload) } : { available: false };
+  }
+
+  const lines: CartLine[] = cart.items.map(item => ({
+    item,
+    title: `${SHELF_ROWS.find(row => row.id === item.row)?.title ?? ''} · ${item.slot.label}`,
+    available: pictureFor(item).available,
+  }));
+
+  function openCart() {
+    stopPlayback();
+    setCartOpen(true);
+  }
+
+  function paintCartPoster(item: CartItem, canvas: HTMLCanvasElement) {
+    return blitPackFrame(canvas, packOpts(item.slot, composition, music, fallbackText, item.lyrics, pictureFor(item).picture), posterAt(composition, music, item.lyrics));
   }
 
   function togglePlay(id: string, event: MouseEvent | KeyboardEvent) {
@@ -354,8 +389,8 @@ export function CreativesPackStudio({
     onPlay();
   }
 
-  async function downloadSelected() {
-    const selectedSlots = pack.filter(item => picked.includes(item.id));
+  async function downloadCart() {
+    const selectedSlots = cart.items.filter(item => pictureFor(item).available);
     if (progress !== undefined || !selectedSlots.length) return;
     onStop(); setPlayingId(null); setError('');
     setProgress(0);
@@ -367,18 +402,16 @@ export function CreativesPackStudio({
       const wav = await clipToMonoWav(audio, composition.clipStartMs);
       // 2) Submit every job now — the cloud renders them in parallel; we only hold job ids.
       setProgressLabel(selectedSlots.length > 1 ? `Starting ${selectedSlots.length} cloud renders…` : 'Starting cloud render…');
-      const jobs: { slot: CreativesPackSlot; id: string }[] = [];
-      for (const slot of selectedSlots) {
+      const jobs: { item: CartItem; id: string }[] = [];
+      for (const item of selectedSlots) {
         await yieldFrame();
-        const use = useOf(slot.row);
-        const picture = use ? pictures[use] : null;
         const id = await submitCloudJob({
           token,
           wav,
-          opts: packOpts(slot, composition, music, fallbackText, lyricsOn(slot.row), pictureOf(slot.row)),
-          uploadId: picture?.id,
+          opts: packOpts(item.slot, composition, music, fallbackText, item.lyrics, pictureFor(item).picture),
+          ...(item.uploadId ? { uploadId: item.uploadId } : {}),
         });
-        jobs.push({ slot, id });
+        jobs.push({ item, id });
       }
       // 3) Poll. Nothing heavy runs here.
       let done = 0;
@@ -388,7 +421,7 @@ export function CreativesPackStudio({
         done += 1;
         setProgress(Math.floor((done / jobs.length) * 100));
         if (jobs.length > 1) setProgressLabel(`Rendering ${done} of ${jobs.length} in the cloud…`);
-        reportPackFeedback(token, profile, 'download', job.slot, { selectedIds: picked, generation: controls[job.slot.row].generation });
+        reportPackFeedback(token, profile, 'download', job.item.slot, { selectedIds: cart.items.map(held => held.id), generation: job.item.generation });
         return blob;
       }));
 
@@ -423,7 +456,7 @@ export function CreativesPackStudio({
   return <main className="desktop gallery-page studio-shell"><section className="gallery-shell panel">
     <p className="eyebrow">Creatives pack</p>
     <h1>{pack.length ? `${pack.length} recommended creatives` : 'Recommended creatives'}</h1>
-    <p className="intro">Ranked for this song, one row at a time. Each row has its own controls, so changing one row only redraws that row. Pick the creatives you like and download them. Downloads render in the cloud, so your computer stays free.</p>
+    <p className="intro">Ranked for this song, one row at a time. Each row has its own controls, so changing one row only redraws that row. Add the creatives you like to your cart, refresh for more, and download them together from the cart. Videos render in the cloud, so your computer stays free.</p>
     <div className="trim-actions">
       <button className="secondary" disabled={exporting} onClick={onBack}>Back</button>
     </div>
@@ -467,39 +500,34 @@ export function CreativesPackStudio({
           {note && <p className="hint creatives-pack-row-note" role="status">{note}</p>}
           {slots.length > 0 && <div className="creatives-pack-grid" role="list">
             {slots.map((item, index) => {
-              const selected = picked.includes(item.id);
+              const inCart = cart.has(item.id);
               const isPlaying = playing && playingId === item.id;
               return (
-                <button
-                  type="button"
-                  key={item.id}
-                  className={`creatives-pack-card${rowReady ? '' : ' pending'}`}
-                  role="listitem"
-                  disabled={!rowReady || exporting}
-                  aria-pressed={selected}
-                  aria-label={`${def.title} creative ${index + 1}${selected ? ', selected' : ''}`}
-                  onClick={() => togglePick(item.id)}
-                >
-                  <canvas
-                    ref={node => { if (node) canvasRefs.current.set(item.id, node); else canvasRefs.current.delete(item.id); }}
-                    width={PREVIEW_WIDTH}
-                    height={PREVIEW_HEIGHT}
-                    aria-hidden="true"
-                  />
-                  <span
-                    className="creatives-pack-play"
-                    role="button"
-                    tabIndex={allReady ? 0 : -1}
-                    aria-label={isPlaying ? 'Pause' : 'Play'}
-                    onClick={event => togglePlay(item.id, event)}
-                    onKeyDown={event => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        togglePlay(item.id, event);
-                      }
-                    }}
-                  >{isPlaying ? '❚❚' : '▶'}</span>
-                </button>
+                <div key={item.id} className="creatives-pack-item" role="listitem">
+                  <div className={`creatives-pack-card${rowReady ? '' : ' pending'}`}>
+                    <canvas
+                      ref={node => { if (node) canvasRefs.current.set(item.id, node); else canvasRefs.current.delete(item.id); }}
+                      width={PREVIEW_WIDTH}
+                      height={PREVIEW_HEIGHT}
+                      aria-hidden="true"
+                    />
+                    <button
+                      type="button"
+                      className="creatives-pack-play"
+                      disabled={!rowReady || exporting}
+                      aria-label={`${isPlaying ? 'Pause' : 'Play'} ${def.title} creative ${index + 1}`}
+                      onClick={event => togglePlay(item.id, event)}
+                    >{isPlaying ? '❚❚' : '▶'}</button>
+                  </div>
+                  <button
+                    type="button"
+                    className={inCart ? 'creatives-pack-add in-cart' : 'creatives-pack-add secondary'}
+                    disabled={!rowReady || exporting || (!inCart && cart.full)}
+                    aria-pressed={inCart}
+                    title={!inCart && cart.full ? `Your cart is full (${CART_LIMIT})` : undefined}
+                    onClick={() => toggleCart(item)}
+                  >{inCart ? 'In cart ✓' : 'Add to cart'}</button>
+                </div>
               );
             })}
           </div>}
@@ -517,17 +545,17 @@ export function CreativesPackStudio({
         onChoose={id => { stopPlayback(); setChosen(current => ({ ...current, [use]: id })); }}
       />
     ))}
-    {allReady && picked.length > 0 && (
-      <div className="trim-actions creatives-pack-download">
-        <button
-          className="primary-accent"
-          disabled={!fontReady || exporting || profile.musicAnalysis.status === 'pending' || profile.lyricMeaning?.status === 'pending'}
-          onClick={() => void downloadSelected()}
-        >
-          Download {picked.length === 1 ? 'MP4' : `${picked.length} creatives`}
-        </button>
-      </div>
-    )}
-    {exporting && <p role="status">{progressLabel || 'Working…'} · {progress}%</p>}
+    <Cart
+      lines={lines}
+      open={cartOpen}
+      busy={exporting || !fontReady || profile.musicAnalysis.status === 'pending' || profile.lyricMeaning?.status === 'pending'}
+      status={exporting ? `${progressLabel || 'Working…'} · ${progress}%` : ''}
+      onOpen={openCart}
+      onClose={() => setCartOpen(false)}
+      onRemove={cart.remove}
+      onDownload={() => void downloadCart()}
+      paint={paintCartPoster}
+      onError={cause => setError(friendlyError(cause, 'Preview failed (WebGL).'))}
+    />
   </section></main>;
 }

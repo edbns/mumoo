@@ -104,9 +104,29 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 }
 .creatives-pack-card {
   position: relative; display: block; padding: 0; border: 2px solid transparent; border-radius: 14px;
-  overflow: hidden; background: #111; aspect-ratio: 9 / 16; cursor: pointer;
+  overflow: hidden; background: #111; aspect-ratio: 9 / 16;
 }
-.creatives-pack-card[aria-pressed="true"] { border-color: #ff5b26; }
+.creatives-pack-item { display: flex; flex-direction: column; gap: 8px; }
+.creatives-pack-add { width: 100%; }
+.creatives-pack-add.in-cart { background: #e3521b; }
+.cart-button { position: relative; display: inline-flex; align-items: center; gap: 8px; }
+.cart-count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #e3521b; color: #fff; font-size: 12px; line-height: 20px; text-align: center; }
+#masthead-cart { margin-left: auto; }
+.cart-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 10; width: min(380px, 100vw); padding: 20px; overflow-y: auto;
+  background: #fff; border-left: 1px solid #e4e4e7; box-shadow: -12px 0 32px #0000001f; display: flex; flex-direction: column; gap: 14px;
+}
+.cart-head { display: flex; align-items: center; justify-content: space-between; }
+.cart-head h2 { margin: 0; font-size: 17px; }
+.cart-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.cart-line { display: grid; grid-template-columns: 54px 1fr auto; align-items: center; gap: 12px; }
+.cart-line canvas, .cart-missing { width: 54px; aspect-ratio: 9 / 16; border-radius: 8px; background: #111; object-fit: cover; }
+.cart-missing { display: grid; place-items: center; padding: 4px; color: #fff; font-size: 10px; text-align: center; }
+.cart-line-text { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.cart-line-text span { color: #5a5a62; }
+.cart-foot { display: flex; flex-direction: column; gap: 10px; margin-top: auto; padding-top: 14px; border-top: 1px solid #e4e4e7; }
+.cart-total { display: flex; justify-content: space-between; margin: 0; font-size: 15px; }
+
 .creatives-pack-card canvas { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; opacity: 1; transition: opacity .45s ease; }
 .creatives-pack-card.pending { cursor: default; }
 .creatives-pack-card.pending canvas { opacity: 0; }
@@ -119,7 +139,6 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
   border-radius: 999px; display: grid; place-items: center; background: #0000008c; color: #fff;
   font-size: 18px; line-height: 1; pointer-events: auto;
 }
-.creatives-pack-download { margin-top: 18px; }
 .primary-accent { background: #e3521b; }
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;

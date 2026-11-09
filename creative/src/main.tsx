@@ -198,7 +198,7 @@ function App() {
   }
 
   return <>
-    <header className="masthead"><img src="/brand/mumoo-logo.png" alt="mumoo" width="144" height="36" /><span>Creative Studio</span><Suspense fallback={null}><AccountBar /></Suspense></header>
+    <header className="masthead"><img src="/brand/mumoo-logo.png" alt="mumoo" width="144" height="36" /><span>Creative Studio</span><div id="masthead-cart" /><Suspense fallback={null}><AccountBar /></Suspense></header>
     {!inCreatives ? <main className="desktop trim">
       <section>
         <p className="eyebrow">0{step} / {step === 1 ? 'MUSIC' : 'YOUR CLIP'}</p>
