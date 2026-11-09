@@ -1,0 +1,74 @@
+{
+  "presetId": "4f6eb840-6662-44a1-affd-8507555bc8d6",
+  "title": "Impression Trail 2",
+  "collection": "Impression Trail",
+  "description": "A picturesque European countryside scene featuring brick and stone buildings with terracotta tile roofs reflected in still water. The shader effect applies a dithering pattern using blue noise with colors transitioning between deep purple (#28244d) and mauve pink (#cd97c7), creating a stylized, pointillist aesthetic that overlays the photorealistic image. The dither effect has a pixel size of 3, producing visible dot patterns across the entire composition. A subtle paper texture with 0.21 roughness and 0.2 displacement adds tactile graininess throughout, while simplex noise introduces fine atmospheric variation with minimal contrast. The ChromaFlow component remains inactive (visible: false) but is configured for potential chromatic aberration effects. The overall result is a fine-art, hand-painted quality applied to the architectural and natural elements - the weeping willow trees on the left, the stone bridge, the multi-story buildings with their characteristic European proportions, and the mirror-like water surface. The color mapping creates threshold variations that modulate the dither intensity from 0.1 to 0.79 based on the inactive ChromaFlow alpha channel, though this effect is currently suppressed. The combination produces an impressionistic, almost textile-like rendering of the scene.",
+  "config": {
+    "components": [
+      {
+        "type": "ChromaFlow",
+        "id": "idmostv5d9xi2rmvn45",
+        "props": {
+          "baseColor": "#ffffff",
+          "downColor": "#ffffff",
+          "intensity": 1.4,
+          "leftColor": "#ffffff",
+          "momentum": 10,
+          "radius": 4,
+          "rightColor": "#ffffff",
+          "upColor": "#ffffff",
+          "visible": false
+        }
+      },
+      {
+        "type": "Dither",
+        "id": "idmostw28g48qt8zni3",
+        "props": {
+          "colorA": "#28244d",
+          "colorB": "#cd97c7",
+          "colorMode": "source",
+          "pattern": "blueNoise",
+          "pixelSize": 3,
+          "threshold": {
+            "type": "map",
+            "source": "idmostv5d9xi2rmvn45",
+            "channel": "alpha",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 0.79,
+            "outputMin": 0.1
+          }
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmostsrlvujw3m2cxq",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/gZx9yjLKI7VJ.jpeg"
+            }
+          },
+          {
+            "type": "SimplexNoise",
+            "id": "idmostyudffvj5c2ytd",
+            "props": {
+              "balance": -0.5,
+              "colorA": "#ffffff17",
+              "colorB": "#00000000"
+            }
+          }
+        ]
+      },
+      {
+        "type": "Paper",
+        "id": "idmosuclugd98j22ng0",
+        "props": {
+          "displacement": 0.2,
+          "grainScale": 0.1,
+          "roughness": 0.21
+        }
+      }
+    ]
+  },
+  "options": {}
+}

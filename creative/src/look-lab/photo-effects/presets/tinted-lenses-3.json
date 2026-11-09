@@ -1,0 +1,42 @@
+{
+  "presetId": "b4fd186e-c61e-42fc-9dc0-6adf9c4fc1e0",
+  "title": "Tinted Lenses 4",
+  "collection": "Tinted Lenses",
+  "description": "A silhouetted figure of a person is displayed against a gradient background transitioning from yellow-green on the left to coral-red on the right. The figure itself is rendered in deep magenta-red (#b8073f) with bright neon green (#07e558) highlights creating a striking duotone effect, particularly visible on the face and upper body areas. The entire composition is overlaid with a fluted glass effect featuring vertical bars at a 24-degree angle, creating a refractive distortion pattern that mimics ribbed glass or venetian blinds. The glass effect has a softness value of 0.29, producing a subtle blur and refraction with a refraction strength of 2.65, causing the colors and details to shimmer and wave slightly. The bars are evenly spaced with a frequency of 9, and the effect includes wave distortion with an amplitude of 0.06 and frequency of 1.5, adding subtle undulation to the glass texture. The lighting angle is set to -90 degrees, creating highlights that enhance the glass-like appearance. The overall mood is modern, artistic, and somewhat ethereal, with the combination of the duotone coloring and glass refraction creating a contemporary, stylized portrait effect.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmp9vwu29h2rghfjbf",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/e7Jy8b5il0_q.png"
+        }
+      },
+      {
+        "type": "Duotone",
+        "id": "idmp9w2zfpxq5gjw31t",
+        "props": {
+          "colorA": "#b8073f",
+          "colorB": "#07e558"
+        }
+      },
+      {
+        "type": "FlutedGlass",
+        "id": "idmp9vwxt2vbum507fe",
+        "props": {
+          "aberration": 0,
+          "angle": 24,
+          "frequency": 9,
+          "highlight": 0,
+          "highlightSoftness": 0,
+          "lightAngle": -90,
+          "refraction": 2.65,
+          "softness": 0.29,
+          "speed": 0.05
+        }
+      }
+    ]
+  },
+  "options": {}
+}

@@ -1,0 +1,42 @@
+{
+  "presetId": "08258f10-3ffa-4d1c-b432-1355f043cc7c",
+  "title": "Dither Cam",
+  "collection": "Dither Cam",
+  "description": "A monochromatic night-vision or thermal imaging aesthetic rendered in lime-green (#afff08) against a deep forest-green background (#021f04). The image displays a dithered pixelated texture with a bayer8 pattern creating a grainy, low-resolution surveillance camera quality. The composition shows an interior architectural space with geometric planes and angular surfaces. A wave distortion effect at 218 degrees with square waveform creates subtle undulating ripples across the entire frame, producing a liquid-like warping of the scene. The distortion strength of 0.54 creates noticeable but not extreme warping, particularly visible on flat surfaces and edges. Multiple bright lime-green highlights and glowing points suggest light sources or reflective surfaces within the space. The pixelation at size 2 combined with the dither pattern creates a characteristic CRT monitor or thermal imaging scan-line appearance. The overall mood is cyberpunk, surveillance-oriented, and digitally degraded, with the wave distortion adding an unsettling, reality-bending quality to the architectural forms. Spatial depth is suggested through overlapping planes and perspective lines, though the distortion effect obscures precise spatial relationships.",
+  "config": {
+    "components": [
+      {
+        "type": "Dither",
+        "id": "idmkexsirpuqme310ag",
+        "props": {
+          "colorA": "#021f04",
+          "colorB": "#afff08",
+          "pattern": "bayer8",
+          "pixelSize": 2,
+          "threshold": 0.47
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmpr8ns0ucjo1vf67i",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/4-Df3YeTFWg0.png"
+            }
+          },
+          {
+            "type": "WaveDistortion",
+            "id": "idmkexyi4bvi04l95hr",
+            "props": {
+              "angle": 218,
+              "frequency": 2.2,
+              "strength": 0.54,
+              "waveType": "square"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "options": {}
+}

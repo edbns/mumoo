@@ -1,0 +1,68 @@
+{
+  "presetId": "628b4023-a9a6-4fc4-8903-8a62b3803490",
+  "title": "Glass Facets 2",
+  "collection": "Glass Facets",
+  "description": "A sophisticated 3D rendered scene featuring three metallic chess pieces (a pawn, king, and queen) arranged on a reflective dark surface against a pure black background. The chess pieces are rendered with high-quality glass and metallic shader effects, displaying realistic chromatic aberration and light refraction. The pieces exhibit bright white highlights and specular reflections that create a luminous, polished appearance. The leftmost pawn is smaller and positioned lower, the central king piece is tallest with a distinctive crown and appears to have a subtle motion blur or dynamic quality, and the rightmost queen maintains an elegant upright posture. The reflective surface beneath the pieces shows mirror-like reflections with soft edge gradients that fade into the black background. The lighting is dramatic and directional, coming from approximately the upper left at 227 degrees, creating sharp highlights on the metallic surfaces and subtle fresnel effects along the edges. The overall atmosphere is elegant, high-contrast, and cinematic with a deep sense of depth created by the 3D glass shader with 0.16 aberration value and ping-pong refraction animation.",
+  "config": {
+    "components": [
+      {
+        "type": "SolidColor",
+        "id": "idmswo2dv3z6zicxa7g",
+        "props": {
+          "color": "#000000"
+        }
+      },
+      {
+        "type": "Glass",
+        "id": "idmswnx4p8oenx776tw",
+        "props": {
+          "aberration": 0.16,
+          "cutout": true,
+          "edgeSoftness": 0.68,
+          "fresnel": 0.03,
+          "fresnelSoftness": 0,
+          "highlight": 0,
+          "highlightSoftness": 0,
+          "lightAngle": 227,
+          "refraction": {
+            "mode": "ping-pong",
+            "type": "auto-animate",
+            "speed": 0.3,
+            "outputMax": 1,
+            "outputMin": 0
+          },
+          "shape": {
+            "type": "cube3D",
+            "sizeX": 0.6,
+            "sizeY": 0.6,
+            "sizeZ": 0.6,
+            "rounding": 0.02,
+            "rotX": {
+              "type": "auto-animate",
+              "mode": "loop",
+              "outputMin": -180,
+              "outputMax": 180,
+              "speed": 0.1,
+              "easing": "linear"
+            },
+            "rotY": 35,
+            "rotZ": 0
+          },
+          "shapeType": "cube3D",
+          "thickness": 0.53
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmswnwzfacty7ya7c0",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/znaj-fL3K6x0.webp"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "options": {}
+}

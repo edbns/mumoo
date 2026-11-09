@@ -1,0 +1,73 @@
+{
+  "presetId": "a0912364-b1d6-4beb-aefc-0b2d15f2a229",
+  "title": "Impression Trail 3",
+  "collection": "Impression Trail",
+  "description": "A vibrant lime-green background (#7dc310) with a sophisticated dithering effect applied across the entire composition. The dither pattern uses blue noise with a 3-pixel size, creating a granular, stippled texture throughout. Overlaid on this are organic, cloud-like formations rendered in white (#ffffff) with varying opacity levels, distributed across the upper portion and scattered throughout the middle and lower sections. These white elements appear to be noise-based textures with soft, diffused edges. The overall effect combines a retro computer graphics aesthetic with modern shader techniques. A subtle paper texture with displacement (0.2) and low roughness (0.21) adds tactile quality and micro-surface variation. The composition has a slightly noisy, analog quality enhanced by the SimplexNoise layer (colorA: #ffffff17) which introduces fine white grain at low opacity. The spatial distribution creates depth through varying opacity and scale, with denser dithering patterns in certain regions. The atmosphere is clean, minimalist, and slightly grainy, suggesting a digital art piece with intentional texture layering. The blend modes are set to normal throughout, maintaining color integrity while building visual complexity through layering.",
+  "config": {
+    "components": [
+      {
+        "type": "ChromaFlow",
+        "id": "idmostv5d9xi2rmvn45",
+        "props": {
+          "baseColor": "#ffffff",
+          "downColor": "#ffffff",
+          "intensity": 1.4,
+          "leftColor": "#ffffff",
+          "momentum": 10,
+          "radius": 4,
+          "rightColor": "#ffffff",
+          "upColor": "#ffffff",
+          "visible": false
+        }
+      },
+      {
+        "type": "Dither",
+        "id": "idmostw28g48qt8zni3",
+        "props": {
+          "colorA": "#7dc310",
+          "colorB": "#ffefe6",
+          "pattern": "blueNoise",
+          "pixelSize": 3,
+          "threshold": {
+            "type": "map",
+            "source": "idmostv5d9xi2rmvn45",
+            "channel": "alpha",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 0.79,
+            "outputMin": 0.1
+          }
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmostsrlvujw3m2cxq",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/gZx9yjLKI7VJ.jpeg"
+            }
+          },
+          {
+            "type": "SimplexNoise",
+            "id": "idmostyudffvj5c2ytd",
+            "props": {
+              "balance": -0.5,
+              "colorA": "#ffffff17",
+              "colorB": "#00000000"
+            }
+          }
+        ]
+      },
+      {
+        "type": "Paper",
+        "id": "idmosuclugd98j22ng0",
+        "props": {
+          "displacement": 0.2,
+          "grainScale": 0.1,
+          "roughness": 0.21
+        }
+      }
+    ]
+  },
+  "options": {}
+}

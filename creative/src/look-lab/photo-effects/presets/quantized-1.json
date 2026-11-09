@@ -1,0 +1,66 @@
+{
+  "presetId": "8be79c0b-e832-484e-b4d1-fa71507afa0b",
+  "title": "Quantized",
+  "collection": "Quantized",
+  "description": "A heavily degraded and distorted retro digital image showing what appears to be a spaceship or aircraft scene rendered in low-resolution pixelated style. The composition features a blue and purple upper section representing sky or space, with gray metallic structures and white highlights suggesting mechanical elements or spacecraft. The lower portion contains red, magenta, and pink geometric shapes with yellow and orange accent lights, possibly representing explosions, fire, or energy effects. The entire image is affected by multiple degradation layers: VHS-style scan lines create horizontal striations across the frame, glitch artifacts introduce RGB color separation and chromatic aberration particularly visible in the blue and red channels, compression artifacts create blocky distortions throughout, and pixelation at scale 19 gives the whole composition a chunky, 8-bit aesthetic. A ChromaFlow effect adds directional color bleeding with blue base color and multi-directional color shifts (green up, red down, blue left, yellow right) creating a sense of motion and instability. The overall mood is chaotic, retro-futuristic, and digitally corrupted, reminiscent of 1980s arcade games or VHS-recorded video game footage experiencing severe signal degradation.",
+  "config": {
+    "components": [
+      {
+        "type": "Pixelate",
+        "id": "idmr7729riz1qvzpihm",
+        "props": {
+          "scale": 19,
+          "visible": false
+        },
+        "children": [
+          {
+            "type": "ChromaFlow",
+            "id": "idmr770nixcalce95pp",
+            "props": {
+              "intensity": 1.5,
+              "momentum": 12,
+              "radius": 4.7,
+              "visible": true
+            }
+          }
+        ]
+      },
+      {
+        "type": "ImageTexture",
+        "id": "idmr76u2uqu95vmpu40",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/4-Df3YeTFWg0.png",
+          "visible": true
+        }
+      },
+      {
+        "type": "CompressionArtifacts",
+        "id": "idmr770a9ko1ct1tijp",
+        "props": {
+          "blendMode": "normal-oklab",
+          "maskSource": "idmr7729riz1qvzpihm",
+          "maskType": "alphaInverted",
+          "quality": 1,
+          "visible": true
+        }
+      },
+      {
+        "type": "VHS",
+        "id": "idmr77341331g5nxpfh",
+        "props": {
+          "scanlineNoise": 0.25
+        }
+      },
+      {
+        "type": "Glitch",
+        "id": "idmr7737maozbsq960j",
+        "props": {
+          "colorBarIntensity": 0.03,
+          "intensity": 0.21
+        }
+      }
+    ]
+  },
+  "options": {}
+}

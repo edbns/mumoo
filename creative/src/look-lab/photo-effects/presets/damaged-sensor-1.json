@@ -1,0 +1,57 @@
+{
+  "presetId": "bcc78aa9-67c6-45e1-9ff5-2dfae0ae0825",
+  "title": "Damaged Sensor",
+  "collection": "Damaged Sensor",
+  "description": "An overhead view of an empty room with white walls and a large rectangular opening or window on the far wall. The opening displays a vibrant gradient image with diagonal color transitions flowing from orange/brown in the upper left, through purple and magenta in the center, to cyan and light-green in the lower right. The image is heavily affected by a glitch shader effect creating chromatic aberration with distinct red and cyan color channel separation visible along edges and throughout the composition. RGB shift distortion of 17 pixels creates a characteristic digital corruption look with color fringing. The glitch effect includes block-like artifacts and mirror distortions (66% intensity) that fragment and displace portions of the gradient. A VHS effect adds analog video tape artifacts including scanline noise (15% intensity), subtle wobble (9%), and smear (-18%) creating a retro video degradation appearance. The posterize effect with difference blend mode reduces color depth to 4 levels, creating banding and harsh color transitions. Cyan-tinted window frames on both sides of the room and ceiling-mounted fixtures with turquoise accents reinforce the digital corruption aesthetic. The overall mood is dystopian and glitchy, evoking corrupted digital media and analog video decay. The composition uses strong geometric perspective with the gradient wall as the focal point, surrounded by architectural elements that frame the distorted imagery.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmp9uqqfn77r848emk",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/SKw1IfXrImks.png"
+        }
+      },
+      {
+        "type": "Glitch",
+        "id": "idmp9uqx8i9v9gofvac",
+        "props": {
+          "blockDensity": 11,
+          "colorBarIntensity": 0.03,
+          "intensity": 0.36,
+          "mirrorAmount": 0.66,
+          "rgbShift": 17,
+          "scanlineIntensity": 0.08,
+          "speed": 0.9
+        }
+      },
+      {
+        "type": "Sharpness",
+        "id": "idmp9usnw3gd5qfgrgw",
+        "props": {
+          "sharpness": 1,
+          "visible": true
+        }
+      },
+      {
+        "type": "VHS",
+        "id": "idmp9urtfmjtgw2u848",
+        "props": {
+          "scanlineNoise": 0.15,
+          "smear": -0.18,
+          "wobble": 0.09
+        }
+      },
+      {
+        "type": "Posterize",
+        "id": "idmp9utfqk23so5pn5v",
+        "props": {
+          "blendMode": "difference",
+          "intensity": 4
+        }
+      }
+    ]
+  },
+  "options": {}
+}

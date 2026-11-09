@@ -1,0 +1,43 @@
+{
+  "presetId": "c3aa6504-80c3-490b-9e9e-fcb1ee3f1114",
+  "title": "Tinted Lenses 8",
+  "collection": "Tinted Lenses",
+  "description": "A silhouetted figure wearing a wide-brimmed hat and long coat stands against a dark purple background with horizontal linear striations. The figure's face and upper body are illuminated with a pale lavender-white glow that creates a ethereal, ghostly appearance. The background features evenly-spaced horizontal lines that create a ribbed or fluted glass effect, giving the composition a sense of depth and refraction. The overall atmosphere is moody and cinematic with a duotone color grading transitioning from deep dark purple (#1a0533) in the shadows to bright lavender (#c4a3ff) in the highlights. The fluted glass shader creates a subtle wave distortion across the entire image, with the refraction effect most prominent around the figure's silhouette. The lighting appears to come from above and slightly to the left, creating dramatic contrast between the illuminated face and the dark clothing. The image has a film noir aesthetic with supernatural or cyberpunk undertones, enhanced by the smooth gradient transitions and the refractive glass texture overlay.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmp9vwu29h2rghfjbf",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/e7Jy8b5il0_q.png"
+        }
+      },
+      {
+        "type": "Duotone",
+        "id": "idmp9w2zfpxq5gjw31t",
+        "props": {
+          "blend": 0.78,
+          "colorA": "#1a0533",
+          "colorB": "#c4a3ff"
+        }
+      },
+      {
+        "type": "FlutedGlass",
+        "id": "idmp9vwxt2vbum507fe",
+        "props": {
+          "aberration": 0,
+          "angle": 70,
+          "frequency": 9,
+          "highlight": 0,
+          "highlightSoftness": 0,
+          "lightAngle": -90,
+          "refraction": 2.65,
+          "softness": 0.29,
+          "speed": 0.05
+        }
+      }
+    ]
+  },
+  "options": {}
+}

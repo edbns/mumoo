@@ -1,0 +1,52 @@
+{
+  "presetId": "9b4a84c6-e29f-4e03-b8d9-4f082809263d",
+  "title": "Water Colors",
+  "collection": "Water Colors",
+  "description": "A radial burst shader effect emanating from a central point, creating a dynamic starburst pattern. The composition features multiple thin, geometric lines radiating outward from a dark center point, creating a sense of explosive motion and energy. The color palette transitions smoothly across the spectrum with dominant warm tones (reds and oranges) on the right side and cooler tones (blues and cyans) on the left side. The radiating lines appear to have a teal or cyan stroke color that contrasts sharply against the warm background. The effect includes a film stock texture overlay with subtle halation (light bloom) creating a vintage photographic quality. A watercolor effect adds organic bleed and paper texture, softening the geometric precision of the lines and creating a painterly quality. The overall mood is energetic and dynamic, with the radial composition suggesting motion, expansion, or a burst of light. The image has a dreamlike, artistic quality enhanced by the combination of geometric precision and organic texture effects. Shadows and depth are created through the layering of the film stock effect and the contrast between the dark center and bright radiating areas.",
+  "config": {
+    "components": [
+      {
+        "type": "InkFlow",
+        "id": "idmswnjoqwivwan0mjz",
+        "props": {
+          "decay": 0.2,
+          "radius": 1,
+          "visible": false
+        }
+      },
+      {
+        "type": "ImageTexture",
+        "id": "idmswnivc4pf9av9l0k",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/4z90VWdfIihd.webp"
+        }
+      },
+      {
+        "type": "FilmStock",
+        "id": "idmswnni3jsr8yanqnz",
+        "props": {
+          "stock": "mono400",
+          "strength": {
+            "type": "map",
+            "source": "idmswnjoqwivwan0mjz",
+            "channel": "alphaInverted",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 1,
+            "outputMin": 0
+          }
+        }
+      },
+      {
+        "type": "Watercolor",
+        "id": "idmswno7jcuxvosla1b",
+        "props": {
+          "bleed": 1.99,
+          "paper": 0.52
+        }
+      }
+    ]
+  },
+  "options": {}
+}

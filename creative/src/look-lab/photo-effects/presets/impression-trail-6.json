@@ -1,0 +1,73 @@
+{
+  "presetId": "f9b80530-fc58-4f85-9e20-644e6112d4bf",
+  "title": "Impression Trail 4",
+  "collection": "Impression Trail",
+  "description": "A digital shader effect displaying a topographic or elevation map rendered with a distinctive dithered aesthetic. The image features a bright blue background (#3b4be9) with lime-green (#68dc1e) pixelated patterns creating a stippled, dotted texture throughout. The green pixels form geographical contours and landmass shapes across the top and scattered throughout the composition, resembling an abstract map or terrain visualization. The dithering effect uses a blue noise pattern with 3-pixel blocks, creating a granular, retro-digital appearance. The green elements appear to represent elevated areas or data points, while the blue represents lower elevations or empty space. A subtle paper texture overlay adds fine grain and displacement to the entire composition, creating a slightly rough, tactile quality. The overall mood is technical and analytical, with a cyberpunk or data-visualization aesthetic. The image has a flat, 2D appearance with no depth or perspective distortion, maintaining consistent pixel density across the frame.",
+  "config": {
+    "components": [
+      {
+        "type": "ChromaFlow",
+        "id": "idmostv5d9xi2rmvn45",
+        "props": {
+          "baseColor": "#ffffff",
+          "downColor": "#ffffff",
+          "intensity": 1.4,
+          "leftColor": "#ffffff",
+          "momentum": 10,
+          "radius": 4,
+          "rightColor": "#ffffff",
+          "upColor": "#ffffff",
+          "visible": false
+        }
+      },
+      {
+        "type": "Dither",
+        "id": "idmostw28g48qt8zni3",
+        "props": {
+          "colorA": "#3b4be9",
+          "colorB": "#68dc1e",
+          "pattern": "blueNoise",
+          "pixelSize": 3,
+          "threshold": {
+            "type": "map",
+            "source": "idmostv5d9xi2rmvn45",
+            "channel": "alpha",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 0.79,
+            "outputMin": 0.1
+          }
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmostsrlvujw3m2cxq",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/gZx9yjLKI7VJ.jpeg"
+            }
+          },
+          {
+            "type": "SimplexNoise",
+            "id": "idmostyudffvj5c2ytd",
+            "props": {
+              "balance": -0.5,
+              "colorA": "#ffffff17",
+              "colorB": "#00000000"
+            }
+          }
+        ]
+      },
+      {
+        "type": "Paper",
+        "id": "idmosuclugd98j22ng0",
+        "props": {
+          "displacement": 0.2,
+          "grainScale": 0.1,
+          "roughness": 0.21
+        }
+      }
+    ]
+  },
+  "options": {}
+}

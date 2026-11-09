@@ -1,0 +1,38 @@
+{
+  "presetId": "8187fa41-52be-46c4-88a9-2d682c973592",
+  "title": "Fluid Displacement",
+  "collection": "Fluid Displacement",
+  "description": "A surreal, dreamlike landscape rendered with fluid, organic distortion effects. The scene depicts a cityscape with tall buildings emerging from or submerged within thick, billowing clouds or fog. The dominant visual effect is a wavy, undulating displacement that creates a liquid, ink-like quality throughout the entire composition. The sky features a warm, glowing sunset with a bright yellow sun positioned in the upper right, casting golden and orange hues across the scene. The clouds have smooth, flowing contours with wave-like patterns that suggest the DisplacementMap effect is actively warping the underlying ImageTexture. The buildings appear semi-transparent and ethereal, with their forms softened and distorted by the displacement effect. The overall atmosphere is ethereal and contemplative, with a strong sense of movement and fluidity despite the static nature of the architecture. The color palette transitions from warm peachy-orange tones in the sky to cooler blue-gray tones in the clouds and building silhouettes. The InkFlow component (though set to invisible) is driving the displacement patterns, creating organic, flowing distortions with a decay of 0.5 and momentum of 0.6, resulting in smooth, wave-like undulations throughout the composition.",
+  "config": {
+    "components": [
+      {
+        "type": "InkFlow",
+        "id": "idmrydfuvhyiyuuof28",
+        "props": {
+          "color1": "#ff0000",
+          "color2": "#0bff00",
+          "color3": "#2900ff",
+          "colorMode": "custom",
+          "visible": false
+        }
+      },
+      {
+        "type": "ImageTexture",
+        "id": "idmrz7cpa287xujv4ng",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/qUHb49Fj-Hf2.webp"
+        }
+      },
+      {
+        "type": "DisplacementMap",
+        "id": "idmrydgejhjhale9r7s",
+        "props": {
+          "amount": 0.15,
+          "source": "idmrydfuvhyiyuuof28"
+        }
+      }
+    ]
+  },
+  "options": {}
+}

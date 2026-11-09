@@ -1,0 +1,70 @@
+{
+  "presetId": "7ae18a80-8739-46e9-86ff-f7eb2056a12c",
+  "title": "Focal Plane 2",
+  "collection": "Focal Plane",
+  "description": "A serene beach sunset scene featuring a golden sun positioned at the horizon line, creating a bright warm glow that reflects across calm ocean waters. The foreground shows wet sand with gentle wave foam in the lower portion, rendered with soft focus and shallow depth of field. The perspective effect creates a subtle 3D tilted view that responds to mouse movement, giving the image an interactive dimensional quality. A tilt-shift blur effect is applied at approximately 86 degrees, keeping the horizon and sun sharp while progressively blurring the foreground sand and waves. The entire composition is framed with a subtle black vignette that darkens the edges while maintaining focus on the central sunset area. The atmosphere is peaceful and contemplative, with warm golden-orange tones dominating the sky and water reflections. The zoom level of 1.2x brings the viewer closer to the scene, emphasizing the intimate quality of the moment. The overall effect combines photographic realism with interactive shader effects that respond to user input.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmot2te77w9zxxe1zr",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/m7ZcKzqaSoTV.png"
+        }
+      },
+      {
+        "type": "Perspective",
+        "id": "idmot326d6l2s7h74i4",
+        "props": {
+          "fov": 64,
+          "pan": {
+            "axis": "x",
+            "type": "mouse",
+            "momentum": 0.3,
+            "outputMax": 5.5,
+            "outputMin": -5.5,
+            "smoothing": 0.4
+          },
+          "zoom": 1.2
+        }
+      },
+      {
+        "type": "TiltShift",
+        "id": "idmot2v833ison1v5us",
+        "props": {
+          "angle": 86,
+          "center": {
+            "type": "mouse-position",
+            "reach": 0.3,
+            "originX": 0.5,
+            "originY": 0.5,
+            "momentum": 0.45,
+            "smoothing": 0.25
+          },
+          "falloff": 0.4,
+          "intensity": 34,
+          "width": 0.2
+        }
+      },
+      {
+        "type": "Vignette",
+        "id": "idmot2wcynbau6cfict",
+        "props": {
+          "center": {
+            "type": "mouse-position",
+            "reach": 1.05,
+            "originX": 0.5,
+            "originY": 0.5,
+            "momentum": 0.15,
+            "smoothing": 0.9
+          },
+          "falloff": 0.73,
+          "intensity": 0.26,
+          "radius": 0.7
+        }
+      }
+    ]
+  },
+  "options": {}
+}

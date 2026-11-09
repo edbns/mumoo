@@ -1,0 +1,59 @@
+{
+  "presetId": "5eabcbad-36b5-4c3a-9a32-20dbf54364a6",
+  "title": "Container Ship",
+  "collection": "Container Ship",
+  "description": "A pixelated ASCII art effect displaying a portrait rendered through a grid of block characters (▁▂▃▄▅▆▇█). The image features a dark navy background (#0c0b17) with a layered depth effect created by vertical bar characters that fade from left to right. The central portrait shows a face with distinct color separation: white highlights on the face and eyes, blue tones in the clothing/upper body, red and pink tones in the middle sections, and darker burgundy/maroon accents. The ASCII characters vary in height based on luminosity mapping, creating a relief-like 3D appearance. A ChromaFlow effect with white directional colors adds subtle chromatic aberration and glow around the edges. The overall composition has a retro digital aesthetic with strong contrast between the dark background and the colorful portrait, creating a moody, technical atmosphere reminiscent of early computer graphics or glitch art.",
+  "config": {
+    "components": [
+      {
+        "type": "ChromaFlow",
+        "id": "idmot2nu7k5xbjsnmcu",
+        "props": {
+          "baseColor": "#ffffff",
+          "downColor": "#ffffff",
+          "intensity": 1.4,
+          "leftColor": "#ffffff",
+          "momentum": 10,
+          "rightColor": "#ffffff",
+          "upColor": "#ffffff",
+          "visible": false
+        }
+      },
+      {
+        "type": "SolidColor",
+        "id": "idmot2oysdlajezf31j",
+        "props": {
+          "color": "#0c0b17"
+        }
+      },
+      {
+        "type": "Ascii",
+        "id": "idmot2lgru8fkd42tb2",
+        "props": {
+          "characters": "▁▂▃▄▅▆▇█",
+          "fontFamily": "Geist Mono",
+          "gamma": {
+            "type": "map",
+            "source": "idmot2nu7k5xbjsnmcu",
+            "channel": "alpha",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 3,
+            "outputMin": 0
+          }
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmot2lcfh0zeoirhm4",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/kv1Vyv0Fd3uy.jpeg"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "options": {}
+}

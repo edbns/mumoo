@@ -1,0 +1,65 @@
+{
+  "presetId": "299d9cdb-bfdb-4233-9c5c-88423b1a3ad3",
+  "title": "Glass Facets",
+  "collection": "Glass Facets",
+  "description": "A dramatic 3D rendered scene featuring four metallic chess pieces arranged on a reflective dark surface against a pure black background. From left to right: a pawn, a bishop, a king (center, tallest piece), and a queen. The pieces are rendered with highly polished silver metallic material exhibiting strong specular highlights and reflections. The lighting creates bright white highlights along the upper edges and surfaces of each piece, with subtle chromatic aberration visible at the edges creating a slight iridescent quality. The glass shader effect with 0.16 aberration produces a subtle color fringing around the pieces' silhouettes. The reflective floor beneath the pieces shows mirror-like reflections of the chess pieces themselves, creating a sense of depth and dimensionality. The background features subtle geometric angular shapes in very dark gray tones, creating a modern, minimalist aesthetic. The overall mood is sophisticated and contemplative, with high contrast between the bright metallic pieces and the dark surroundings. The lighting angle at 227 degrees creates dramatic side-lighting that emphasizes the three-dimensional form of each piece. The fresnel effect with 0.03 intensity adds subtle edge highlighting, particularly visible on the curved surfaces of the pieces.",
+  "config": {
+    "components": [
+      {
+        "type": "SolidColor",
+        "id": "idmswo2dv3z6zicxa7g",
+        "props": {
+          "color": "#000000"
+        }
+      },
+      {
+        "type": "Glass",
+        "id": "idmswnx4p8oenx776tw",
+        "props": {
+          "aberration": 0.16,
+          "cutout": true,
+          "edgeSoftness": 0.68,
+          "fresnel": 0.03,
+          "fresnelSoftness": 0,
+          "highlight": 0,
+          "highlightSoftness": 0,
+          "lightAngle": 227,
+          "refraction": {
+            "mode": "ping-pong",
+            "type": "auto-animate",
+            "speed": 0.3,
+            "outputMax": 1,
+            "outputMin": 0
+          },
+          "shape": {
+            "type": "octahedron3D",
+            "radius": 1.305,
+            "rotX": 11,
+            "rotY": {
+              "type": "auto-animate",
+              "mode": "loop",
+              "outputMin": -180,
+              "outputMax": 180,
+              "speed": 0.1,
+              "easing": "linear"
+            },
+            "rotZ": -15
+          },
+          "shapeType": "octahedron3D",
+          "thickness": 0.53
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmswnwzfacty7ya7c0",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/znaj-fL3K6x0.webp"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "options": {}
+}

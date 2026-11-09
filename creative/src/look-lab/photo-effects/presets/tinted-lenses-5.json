@@ -1,0 +1,42 @@
+{
+  "presetId": "de699cf0-44e8-4e57-86fe-41360b7eb27a",
+  "title": "Tinted Lenses 5",
+  "collection": "Tinted Lenses",
+  "description": "A silhouetted human figure rendered in warm terracotta and dusty rose tones against a gradient coral-pink background. The figure displays a distinctive horizontal line-based distortion effect that creates a glitch-like, fragmented appearance throughout the entire form. The distortion manifests as evenly-spaced horizontal bands that shift and displace the figure's outline, creating a striped, shattered glass effect. The figure appears to be standing upright in a neutral pose. The fluted glass effect with vertical/horizontal refraction creates a refractive quality that makes the figure appear to vibrate or shimmer with subtle wave-like distortions. The overall atmosphere is ethereal and dreamlike, with soft edges and a hazy quality. The color palette transitions from deeper coral-red tones in the figure to lighter peachy-pink and mauve tones, creating depth and dimension. The background maintains a consistent warm coral-pink hue with subtle texture variations. The effect suggests digital glitch art combined with optical glass distortion, creating a sense of movement or instability despite the static pose.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmp9vwu29h2rghfjbf",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/e7Jy8b5il0_q.png"
+        }
+      },
+      {
+        "type": "Duotone",
+        "id": "idmp9w2zfpxq5gjw31t",
+        "props": {
+          "colorA": "#cd5746",
+          "colorB": "#daaca8"
+        }
+      },
+      {
+        "type": "FlutedGlass",
+        "id": "idmp9vwxt2vbum507fe",
+        "props": {
+          "aberration": 0,
+          "angle": 281,
+          "frequency": 18,
+          "highlight": 0,
+          "highlightSoftness": 0,
+          "lightAngle": -90,
+          "refraction": 2.65,
+          "softness": 0.79,
+          "speed": 0.05
+        }
+      }
+    ]
+  },
+  "options": {}
+}

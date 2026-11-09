@@ -1,0 +1,48 @@
+{
+  "presetId": "3ae43706-ba57-4884-845f-1cc5b413ef59",
+  "title": "Tropical Ascii Cam",
+  "collection": "Tropical Ascii Cam",
+  "description": "A digital ASCII art shader effect displaying a dense grid of small characters (⌁⌗⌔⌭) creating a textured, pixelated appearance. The composition features a deep purple base color (#1f0e45) that dominates the background. Overlaid on this are flowing, organic patterns created by the ASCII characters in varying colors. The upper-left and lower-left quadrants display warm golden-yellow (#ffbf00) characters forming concentrated clusters and diagonal streaks. The center and right portions showcase cyan (#0aa9ff) and light-blue (#004ad4) characters creating wave-like formations and gradient transitions. The characters appear to flow in a directional pattern, suggesting movement from left to right and top to bottom, creating a sense of data flow or digital wind. The overall effect resembles a heat map or data visualization with a cyberpunk aesthetic. The spacing between characters is uniform at 1 unit with a cell size of 24 pixels, creating a crisp, retro computer terminal appearance. The tritone color mapping creates smooth transitions between the three primary colors, with the blend midpoint at 0.23 emphasizing the darker tones. The image has a glowing, luminescent quality typical of CRT monitor displays or neon signage.",
+  "config": {
+    "components": [
+      {
+        "type": "SolidColor",
+        "id": "idmkexmoi3ldwkag5c7",
+        "props": {
+          "color": "#1f0e45"
+        }
+      },
+      {
+        "type": "Ascii",
+        "id": "idmkeh8trkkl7vxwcmq",
+        "props": {
+          "cellSize": 24,
+          "characters": "⌁⌗⌔⌭"
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmpr8suw8dmd7m7z1u",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/-LZu18iRqHyW.png"
+            }
+          },
+          {
+            "type": "Tritone",
+            "id": "idmkeh7lxx38c47oyxc",
+            "props": {
+              "blendMid": 0.23,
+              "colorA": "#004ad4",
+              "colorB": "#ffbf00",
+              "colorC": "#0aa9ff",
+              "colorSpace": "oklch",
+              "visible": true
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "options": {}
+}

@@ -1,0 +1,73 @@
+{
+  "presetId": "e6f5d552-fd35-4024-afd4-caa3b0d3695a",
+  "title": "Uncertain Blueprint",
+  "collection": "Uncertain Blueprint",
+  "description": "A striking chalkboard-style shader effect featuring a vibrant royal blue background (#224dc9) with a distinctive chalk aesthetic. The composition displays three palm or fern-like botanical forms rendered in off-white/cream chalk color (#fff3eb) with detailed feathered textures and fine linear striations. The plants appear to be growing from thin vertical stems positioned at regular intervals across the composition. The chalk rendering creates a hand-drawn quality with visible grain texture (0.45 intensity) and subtle shading that gives dimensional depth to the foliage. Diagonal striping patterns (-63 degree angle) are integrated throughout, creating a hatched texture overlay that enhances the chalkboard aesthetic. A subtle glitch effect with RGB color shifting (0.5 intensity) adds a digital distortion quality, particularly visible as minor chromatic aberration around the edges of the chalk forms. The overall mood is artistic and educational, reminiscent of botanical illustrations on a chalkboard. The image exhibits a slight pixelated quality from the glitch component, with block density artifacts creating a contemporary digital-analog fusion. The composition uses mirror edge handling for the striping patterns, creating seamless tiling effects. The chalkboard grain and edge sensitivity (0.5) work together to produce authentic chalk dust appearance with soft, slightly fuzzy boundaries around the plant forms.",
+  "config": {
+    "components": [
+      {
+        "type": "BarShift",
+        "id": "idmrm6aqp7kcs4wa9rc",
+        "props": {
+          "angle": 89,
+          "intensity": 0.7,
+          "seed": 52,
+          "speed": 0.3,
+          "visible": false
+        },
+        "children": [
+          {
+            "type": "Stripes",
+            "id": "idmrm6ai17y32nnr284",
+            "props": {
+              "angle": -63,
+              "balance": 0.4,
+              "density": 1,
+              "speed": 0.1
+            }
+          }
+        ]
+      },
+      {
+        "type": "ImageTexture",
+        "id": "idmrm69y7nh4gbkfvdu",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/C5reGnLQSVvg.webp"
+        }
+      },
+      {
+        "type": "Chalkboard",
+        "id": "idmrm6jz5dn1h5uhbpp",
+        "props": {
+          "boardColor": "#224dc9",
+          "chalkColor": "#fff3eb"
+        }
+      },
+      {
+        "type": "Glitch",
+        "id": "idmrm6hue3jidwpram7",
+        "props": {
+          "blockDensity": 2,
+          "colorBarIntensity": 0,
+          "intensity": {
+            "type": "map",
+            "source": "idmrm6aqp7kcs4wa9rc",
+            "channel": "luminance",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 1,
+            "outputMin": 0
+          },
+          "mirrorAmount": 0.43,
+          "rgbShift": 0.5,
+          "scanlineIntensity": 0,
+          "speed": 0.1
+        }
+      }
+    ]
+  },
+  "options": {
+    "toneMapping": "cineon"
+  }
+}

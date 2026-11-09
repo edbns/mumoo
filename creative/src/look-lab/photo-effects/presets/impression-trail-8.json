@@ -1,0 +1,72 @@
+{
+  "presetId": "425bfb35-ae0a-4648-9ceb-bd5856756667",
+  "title": "Impression Trail 7",
+  "collection": "Impression Trail",
+  "description": "A high-contrast black and white dithered image depicting a nighttime residential scene. The composition shows a cottage or house with a pitched roof and chimneys silhouetted against a lighter sky. The foreground features a road or pathway rendered in light gray tones. The dithering effect creates a grainy, stippled texture throughout using blue noise pattern with 3-pixel size, producing a characteristic halftone appearance reminiscent of vintage newspaper printing or low-resolution digital imagery. The ChromaFlow component (currently invisible) would normally add directional color bleeding, while the SimplexNoise overlay adds subtle organic texture variation. The Paper texture component introduces fine surface roughness and displacement at 0.2 intensity, creating tactile micro-variations across the entire image. The threshold mapping from the ChromaFlow alpha channel (0.1 to 0.79 range) controls dither intensity variation, creating areas of denser and sparser dot patterns that enhance depth perception. The overall mood is atmospheric and moody, with strong contrast between the dark silhouetted structures and the lighter sky, enhanced by the granular dithering that breaks up flat areas into textured patterns.",
+  "config": {
+    "components": [
+      {
+        "type": "ChromaFlow",
+        "id": "idmostv5d9xi2rmvn45",
+        "props": {
+          "baseColor": "#ffffff",
+          "downColor": "#ffffff",
+          "intensity": 1.4,
+          "leftColor": "#ffffff",
+          "momentum": 10,
+          "radius": 4,
+          "rightColor": "#ffffff",
+          "upColor": "#ffffff",
+          "visible": false
+        }
+      },
+      {
+        "type": "Dither",
+        "id": "idmostw28g48qt8zni3",
+        "props": {
+          "colorA": "#000000",
+          "pattern": "blueNoise",
+          "pixelSize": 3,
+          "threshold": {
+            "type": "map",
+            "source": "idmostv5d9xi2rmvn45",
+            "channel": "alpha",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 0.79,
+            "outputMin": 0.1
+          }
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmostsrlvujw3m2cxq",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/gZx9yjLKI7VJ.jpeg"
+            }
+          },
+          {
+            "type": "SimplexNoise",
+            "id": "idmostyudffvj5c2ytd",
+            "props": {
+              "balance": -0.5,
+              "colorA": "#ffffff17",
+              "colorB": "#00000000"
+            }
+          }
+        ]
+      },
+      {
+        "type": "Paper",
+        "id": "idmosuclugd98j22ng0",
+        "props": {
+          "displacement": 0.2,
+          "grainScale": 0.1,
+          "roughness": 0.21
+        }
+      }
+    ]
+  },
+  "options": {}
+}

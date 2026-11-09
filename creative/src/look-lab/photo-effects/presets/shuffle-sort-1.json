@@ -1,0 +1,116 @@
+{
+  "presetId": "c735b866-c963-4082-95d9-36f436c25118",
+  "title": "Shuffle Sort",
+  "collection": "Shuffle Sort",
+  "description": "An aerial landscape photograph of a coastal region with a pixelated/glitch art effect applied. The image shows a curved peninsula or headland with residential buildings, surrounded by turquoise-blue water on the left and golden-brown agricultural fields on the right. The composition features vertical and horizontal rectangular bands of varying opacity that create a fragmented, data-mosaic appearance, as if the image has been digitally sliced and recombined. The sky transitions from deep blue at the top to lighter cream tones near the horizon. The pixelate effect creates blocky distortions with a scale of 5 pixels, while a stretch effect applied vertically creates subtle warping along the horizontal axis. Horizontal bar shifts with 3 bands create subtle striping artifacts. The overall mood is surreal and contemporary, blending natural landscape photography with digital glitch aesthetics. The color palette is dominated by cool ocean blues contrasting with warm earth tones, creating a striking visual tension between the natural environment and artificial digital manipulation.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmro62tr3nx49e8z3a",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/TRyhpyEcjzqa.webp"
+        }
+      },
+      {
+        "type": "Pixelate",
+        "id": "idmro63xdd93ga5u72s",
+        "props": {
+          "scale": 5,
+          "visible": false
+        },
+        "children": [
+          {
+            "type": "FractalNoise",
+            "id": "idmro6396uu83gncl5p",
+            "props": {
+              "contrast": 1,
+              "detail": 1,
+              "octaves": 2,
+              "speed": 0.41,
+              "stops": [
+                {
+                  "color": "#000000",
+                  "position": 0
+                },
+                {
+                  "color": "#000000",
+                  "position": 0.4948
+                },
+                {
+                  "color": "#ffffff",
+                  "position": 1
+                }
+              ]
+            }
+          },
+          {
+            "type": "BrightnessContrast",
+            "id": "idmro668vw1hgt5j163",
+            "props": {
+              "brightness": 0.26,
+              "contrast": 0.96
+            }
+          },
+          {
+            "type": "Exposure",
+            "id": "idmro66ugak3vfbi573",
+            "props": {
+              "exposure": 50
+            }
+          },
+          {
+            "type": "CursorTrail",
+            "id": "idmro6dsu4ts18z99uw",
+            "props": {
+              "radius": 2,
+              "stops": [
+                {
+                  "color": "#000000",
+                  "position": 0
+                },
+                {
+                  "color": "#000000",
+                  "position": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "type": "Stretch",
+        "id": "idmro64c2fq9sfw23pi",
+        "props": {
+          "center": {
+            "x": 0,
+            "y": 0.5
+          },
+          "strength": {
+            "type": "map",
+            "curve": 0,
+            "source": "idmro63xdd93ga5u72s",
+            "channel": "luminance",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 1,
+            "outputMin": 0
+          },
+          "visible": true
+        }
+      },
+      {
+        "type": "BarShift",
+        "id": "idmro6am5ymk2hj4gxr",
+        "props": {
+          "count": 3,
+          "intensity": 0.04,
+          "seed": 73,
+          "visible": true
+        }
+      }
+    ]
+  },
+  "options": {}
+}

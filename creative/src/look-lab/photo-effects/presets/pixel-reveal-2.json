@@ -1,0 +1,80 @@
+{
+  "presetId": "b8f0920e-2d43-4d83-a217-e2c77f7a09fc",
+  "title": "Pixel Reveal 2",
+  "collection": "Pixel Reveal",
+  "description": "A sophisticated shader composition featuring a deep teal background (#003325) overlaid with a dense circular dot pattern that creates a halftone effect. The image displays a luxurious interior scene with golden metallic circular elements arranged in organic clusters at the top and right side, creating a bokeh-like effect with varying opacity levels. The pixelated texture layer (scale 40-1000 pixels with 0.39 gap) creates a mosaic-like quality across the entire composition. A CMYK halftone pattern with 145 frequency and 45-degree angle is applied at 30% opacity using colorDodge blend mode, adding subtle cyan, magenta, yellow, and black dot patterns that enhance the printed aesthetic. The scene includes decorative elements like potted plants on the left, a small decorative tray in the center, and what appears to be a textured wall or furniture piece on the right. The overall mood is elegant and contemporary with a warm golden accent against the cool teal base, creating a sophisticated depth through layered transparency and blending modes. The ChromaFlow component (though invisible) influences the pixelation scale mapping, while the image texture is masked to create selective visibility patterns.",
+  "config": {
+    "components": [
+      {
+        "type": "ChromaFlow",
+        "id": "idmostv5d9xi2rmvn45",
+        "props": {
+          "baseColor": "#ffffff",
+          "downColor": "#ffffff",
+          "intensity": 1.5,
+          "leftColor": "#ffffff",
+          "momentum": 32,
+          "radius": 4,
+          "rightColor": "#ffffff",
+          "upColor": "#ffffff",
+          "visible": false
+        }
+      },
+      {
+        "type": "SolidColor",
+        "id": "idmot2j6hkatqkuyc1v",
+        "props": {
+          "color": "#003325"
+        }
+      },
+      {
+        "type": "Pixelate",
+        "id": "idmot2a1w6g1hb7aovg",
+        "props": {
+          "gap": 0.39,
+          "roundness": 1,
+          "scale": {
+            "type": "map",
+            "curve": -1,
+            "source": "idmostv5d9xi2rmvn45",
+            "channel": "alpha",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 1000,
+            "outputMin": 40
+          }
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmostsrlvujw3m2cxq",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/NMawZng4b6R4.png"
+            }
+          }
+        ]
+      },
+      {
+        "type": "ImageTexture",
+        "id": "idmot2imaux6i9uqs3o",
+        "props": {
+          "maskSource": "idmostv5d9xi2rmvn45",
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/NMawZng4b6R4.png"
+        }
+      },
+      {
+        "type": "Halftone",
+        "id": "idmot2fstocgjsqzber",
+        "props": {
+          "blendMode": "colorDodge",
+          "frequency": 145,
+          "opacity": 0.3,
+          "style": "cmyk"
+        }
+      }
+    ]
+  },
+  "options": {}
+}

@@ -1,0 +1,69 @@
+{
+  "presetId": "06fd87c3-a25d-4281-b42f-bd77941c3754",
+  "title": "Pixel Reveal",
+  "collection": "Pixel Reveal",
+  "description": "A luxurious interior design scene featuring a deep teal/dark-green wall as the dominant background. A modern sectional sofa with vertical channel quilting in olive-green velvet is positioned centrally, adorned with a cream-colored round pillow. Above the sofa, a cluster of seven woven circular wall art pieces in natural tan and beige tones creates an organic focal point with radiating line patterns. The scene incorporates a pixelated mosaic effect that progressively dissolves from sharp definition to increasingly pixelated blocks, particularly visible on the right and left edges of the composition, creating a gradient transition from detailed to abstracted. A subtle halftone pattern with CMYK color separation (cyan, magenta, yellow, black) is overlaid at low opacity with a color dodge blend mode, adding a print-like texture and slight color fringing. A green cylindrical side table with decorative objects sits beside the sofa. The overall aesthetic combines contemporary minimalism with artistic texture effects, creating depth through the interplay of pixelation and halftone screening that fragments the image into a mosaic-like composition while maintaining the cohesive interior design narrative.",
+  "config": {
+    "components": [
+      {
+        "type": "ChromaFlow",
+        "id": "idmostv5d9xi2rmvn45",
+        "props": {
+          "baseColor": "#ffffff",
+          "downColor": "#ffffff",
+          "intensity": 1.5,
+          "leftColor": "#ffffff",
+          "momentum": 32,
+          "radius": 4,
+          "rightColor": "#ffffff",
+          "upColor": "#ffffff",
+          "visible": false
+        }
+      },
+      {
+        "type": "ImageTexture",
+        "id": "idmostsrlvujw3m2cxq",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/NMawZng4b6R4.png"
+        }
+      },
+      {
+        "type": "Pixelate",
+        "id": "idmot2a1w6g1hb7aovg",
+        "props": {
+          "scale": {
+            "type": "map",
+            "curve": -1,
+            "source": "idmostv5d9xi2rmvn45",
+            "channel": "alpha",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 1000,
+            "outputMin": 29
+          }
+        }
+      },
+      {
+        "type": "ImageTexture",
+        "id": "idmot2dbqc9l1sb04fo",
+        "props": {
+          "maskSource": "idmostv5d9xi2rmvn45",
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/NMawZng4b6R4.png"
+        }
+      },
+      {
+        "type": "Halftone",
+        "id": "idmot2fstocgjsqzber",
+        "props": {
+          "blendMode": "colorDodge",
+          "frequency": 145,
+          "opacity": 0.3,
+          "style": "cmyk"
+        }
+      }
+    ]
+  },
+  "options": {}
+}

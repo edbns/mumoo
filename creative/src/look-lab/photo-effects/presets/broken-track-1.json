@@ -1,0 +1,60 @@
+{
+  "presetId": "cbf7d4cd-0862-4849-be79-b76f66816a6e",
+  "title": "Broken Track",
+  "collection": "Broken Track",
+  "description": "A high-contrast black and white photograph of classic automobiles displayed in a showroom or garage setting, viewed from a low angle perspective. The image features three vintage cars with prominent white-wall tires and detailed wheel designs. The composition uses dramatic diagonal lines created by the car bodies and floor markings that lead the viewer's eye through the frame. The grayscale treatment eliminates all color information, creating a stark, film noir aesthetic. A wave distortion effect with a sawtooth pattern at 60-degree angle creates subtle horizontal rippling across the entire image, giving it a slightly unstable, dreamlike quality. The shatter effect with high intensity (6) and significant crack width (2.3) introduces fragmented glass-like breaks throughout the composition, particularly visible as dark linear cracks overlaying the vehicles and background. A dither pattern using 8x8 Bayer matrix with white pixels on transparent background creates a grainy, halftone texture that adds noise and reduces smooth tonal transitions, enhancing the vintage or degraded photographic quality. The combination produces a moody, atmospheric effect reminiscent of damaged archival photography or a corrupted digital image. Lighting is dramatic with strong highlights on the wheel details and car surfaces contrasting against deep black shadows in the background and recessed areas.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idml8pwgyckfnuvh4c7",
+        "props": {
+          "objectFit": "cover",
+          "transform": {
+            "scale": 0.87
+          },
+          "url": "https://rgqpsgmnzmniyzelfbfx.supabase.co/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/VndlthoLOyC_.jpeg"
+        }
+      },
+      {
+        "type": "Grayscale",
+        "id": "idml8pwup79sxq8ps6g"
+      },
+      {
+        "type": "WaveDistortion",
+        "id": "idml8q05wskpfiucxpt",
+        "props": {
+          "angle": 60,
+          "edges": "mirror",
+          "frequency": 2.3,
+          "speed": 1.1,
+          "strength": 0.1,
+          "waveType": "sawtooth"
+        }
+      },
+      {
+        "type": "Shatter",
+        "id": "idml8pyaxxeimj7cigc",
+        "props": {
+          "chromaticSplit": 0,
+          "crackWidth": 2.3,
+          "decay": 0.5,
+          "intensity": 6,
+          "radius": 1,
+          "refractionStrength": 2.3,
+          "shardLighting": 0.3
+        }
+      },
+      {
+        "type": "Dither",
+        "id": "idml8pxbf3g587xchfw",
+        "props": {
+          "colorMode": "source",
+          "pattern": "bayer8",
+          "threshold": 0.68
+        }
+      }
+    ]
+  },
+  "options": {}
+}

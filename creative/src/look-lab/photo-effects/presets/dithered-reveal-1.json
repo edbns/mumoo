@@ -1,0 +1,69 @@
+{
+  "presetId": "dc52e98f-ad0c-4a71-8418-683ac3f72463",
+  "title": "Dithered Reveal",
+  "collection": "Dithered Reveal",
+  "description": "An ice cave interior photographed from within, featuring a solitary figure in dark clothing with an orange/red helmet standing on white snow-covered ground. The cave walls are composed of massive ice formations in shades of white and pale blue-gray, creating dramatic textured surfaces with deep shadows on the left side. Brilliant blue light streams through an opening in the cave ceiling, creating a striking contrast between the cool blue illumination and the warm orange helmet. The composition uses strong directional lighting that emphasizes the three-dimensional ice formations and creates a sense of depth and scale. A dithered texture overlay with a bayer4 pattern adds subtle grain and visual noise throughout the image, enhancing the atmospheric quality. The blend mode of linear dodge on the upper image layer creates a luminous glow effect, particularly visible in the brighter areas where the blue light penetrates. The overall mood is one of exploration, isolation, and awe-inspiring natural beauty, with a cool color temperature dominated by blues and whites contrasted against warm accent colors.",
+  "config": {
+    "components": [
+      {
+        "type": "Blob",
+        "id": "idmpfrizgqtkwnqtrvg",
+        "props": {
+          "center": {
+            "type": "mouse-position",
+            "reach": 0.65,
+            "originX": 0.5,
+            "originY": 0.5,
+            "momentum": 0.15,
+            "smoothing": 0.65
+          },
+          "deformation": 1,
+          "size": 0.45,
+          "softness": 2,
+          "speed": 2,
+          "visible": false
+        }
+      },
+      {
+        "type": "SolidColor",
+        "id": "idmpfrifulb2ta1uqwo",
+        "props": {
+          "color": "#08101f"
+        }
+      },
+      {
+        "type": "Dither",
+        "id": "idmpfrr8g0s8laqqxs1",
+        "props": {
+          "colorB": "#30404a",
+          "pixelSize": 3,
+          "spread": 0.67,
+          "threshold": 0.4
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmpfrpae5hpsc8m5oe",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/jtOBXMVnOU2O.jpeg"
+            }
+          }
+        ]
+      },
+      {
+        "type": "ImageTexture",
+        "id": "idmpfrllq3nrafkp9bc",
+        "props": {
+          "blendMode": "linearDodge",
+          "maskSource": "idmpfrizgqtkwnqtrvg",
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/jtOBXMVnOU2O.jpeg"
+        }
+      }
+    ]
+  },
+  "options": {
+    "toneMapping": "neutral"
+  }
+}

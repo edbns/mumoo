@@ -1,0 +1,42 @@
+{
+  "presetId": "bbaf1db7-1c1a-41be-b21d-6b67d004a644",
+  "title": "Tinted Lenses 2",
+  "collection": "Tinted Lenses",
+  "description": "A vibrant gradient background transitioning from hot magenta (#e62067) to bright pink (#e44ecc) dominates the composition. The image features a semi-transparent silhouette of a person wearing a hat, positioned in the center-right area, created through the duotone effect that maps the underlying image texture to the magenta-pink color palette. The figure appears to be tilted at an angle, creating dynamic visual movement. A prominent fluted glass effect overlays the entire composition with diagonal linear refractions at approximately 125 degrees, creating a series of parallel glass-like bars that distort and refract the underlying image. These glass bars have a softness value of 0.29, creating subtle blurring and light diffusion along their edges. The refraction strength of 2.65 produces noticeable bending and warping of the magenta-pink tones, with wave patterns (amplitude 0.06, frequency 1.5) adding subtle undulation to the glass effect. The overall mood is modern, sleek, and ethereal, with the combination of duotone coloring and glass refraction creating a contemporary aesthetic. The edges use mirror reflection for the glass effect, creating seamless continuation at boundaries. The lighting appears cool and synthetic, enhanced by the glass effect's interaction with the underlying duotone gradient.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmp9vwu29h2rghfjbf",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/e7Jy8b5il0_q.png"
+        }
+      },
+      {
+        "type": "Duotone",
+        "id": "idmp9w2zfpxq5gjw31t",
+        "props": {
+          "colorA": "#e62067",
+          "colorB": "#e44ecc"
+        }
+      },
+      {
+        "type": "FlutedGlass",
+        "id": "idmp9vwxt2vbum507fe",
+        "props": {
+          "aberration": 0,
+          "angle": 125,
+          "frequency": 9,
+          "highlight": 0,
+          "highlightSoftness": 0,
+          "lightAngle": -90,
+          "refraction": 2.65,
+          "softness": 0.29,
+          "speed": 0.05
+        }
+      }
+    ]
+  },
+  "options": {}
+}

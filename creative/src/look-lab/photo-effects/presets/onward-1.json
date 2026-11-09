@@ -1,0 +1,88 @@
+{
+  "presetId": "3c2e8bed-724c-4652-89e3-3bf6e7bfc55d",
+  "title": "Onward",
+  "collection": "Onward",
+  "description": "A layered digital shader effect featuring a dark, atmospheric composition with a teal-to-black gradient background. The primary visual element consists of thousands of small cyan and white play button chevrons (▶ symbols) arranged in a dense grid pattern across the entire canvas. These chevrons vary in opacity and color intensity, creating a sense of depth and movement. The chevrons appear brighter and more saturated in the upper portion and right edges of the image, transitioning to darker, more transparent versions toward the center and lower portions. Overlaid on this grid is a subtle photographic texture of what appears to be an industrial or architectural structure (possibly a ship or building) rendered at very low opacity (5%), creating a ghostly, barely visible background image. A fine halftone pattern with CMYK color separation is applied at minimal opacity (3%), adding a subtle print-like texture with cyan, magenta, yellow, and black dot patterns at 45-degree angles. The overall effect creates a sense of digital flow, data visualization, or streaming media, with the play symbols suggesting video playback or forward motion. The composition has a cyberpunk aesthetic with cool color temperatures dominating the palette.",
+  "config": {
+    "components": [
+      {
+        "type": "Chevron",
+        "id": "idmp9u36biscp9tmph9",
+        "props": {
+          "angle": -180,
+          "balance": 0.32,
+          "count": 1,
+          "softness": 0.11,
+          "speed": 0.3,
+          "visible": false
+        }
+      },
+      {
+        "type": "SolidColor",
+        "id": "idmp9uc7t5wavrtd1q1",
+        "props": {
+          "color": "#111117"
+        }
+      },
+      {
+        "type": "ImageTexture",
+        "id": "idmp9u6osqnzp0127hj",
+        "props": {
+          "objectFit": "cover",
+          "opacity": 0.05,
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/o8OBqtUrhQiV.png"
+        }
+      },
+      {
+        "type": "Ascii",
+        "id": "idmp9txmqpsvsujqjxd",
+        "props": {
+          "cellSize": 47,
+          "characters": "▶▷",
+          "fontFamily": "Geist Mono",
+          "gamma": 0.25,
+          "spacing": {
+            "type": "map",
+            "curve": 0,
+            "source": "idmp9u36biscp9tmph9",
+            "channel": "luminance",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 1,
+            "outputMin": 0
+          }
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmp9udez9gzjk329nm",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/o8OBqtUrhQiV.png"
+            }
+          },
+          {
+            "type": "FractalNoise",
+            "id": "idmp9ufggo4ujo8b43e",
+            "props": {
+              "contrast": 1,
+              "detail": 3,
+              "octaves": 1,
+              "opacity": 0.05,
+              "speed": 0.96
+            }
+          }
+        ]
+      },
+      {
+        "type": "Halftone",
+        "id": "idmp9ue56y42vttmtw9",
+        "props": {
+          "opacity": 0.03,
+          "style": "cmyk"
+        }
+      }
+    ]
+  },
+  "options": {}
+}

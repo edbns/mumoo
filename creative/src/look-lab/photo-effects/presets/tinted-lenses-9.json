@@ -1,0 +1,43 @@
+{
+  "presetId": "690880fc-4ae5-4f65-ac3a-e9b23dfa4491",
+  "title": "Tinted Lenses 7",
+  "collection": "Tinted Lenses",
+  "description": "A dark, atmospheric shader effect dominated by deep burgundy and black tones. The composition features a silhouetted figure or form in the center-right portion of the frame, rendered almost entirely in black against a gradient background. The background transitions from very dark near-black in the upper left to deep maroon and burgundy tones in the center and right areas. Vertical fluted glass bars create a refractive distortion effect across the entire image, producing subtle light refraction and chromatic aberration that creates a sense of depth and movement. The bars are angled at approximately 162 degrees, creating diagonal striations that obscure and fragment the underlying image. The overall effect is moody and cinematic, with the fluted glass creating a sense of looking through a textured, refractive surface. The opacity and blend of the duotone effect (72% blend) creates a rich, desaturated color palette where the deep purple-black (#0a0218) and dark crimson (#7a0030) colors dominate. The softness parameter (0.29) on the glass effect creates a slightly diffused, hazy quality. The refraction value of 2.65 produces noticeable light bending and distortion, while the wave amplitude and frequency create subtle undulating patterns across the surface.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmp9vwu29h2rghfjbf",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/e7Jy8b5il0_q.png"
+        }
+      },
+      {
+        "type": "Duotone",
+        "id": "idmp9w2zfpxq5gjw31t",
+        "props": {
+          "blend": 0.72,
+          "colorA": "#0a0218",
+          "colorB": "#7a0030"
+        }
+      },
+      {
+        "type": "FlutedGlass",
+        "id": "idmp9vwxt2vbum507fe",
+        "props": {
+          "aberration": 0,
+          "angle": 162,
+          "frequency": 9,
+          "highlight": 0,
+          "highlightSoftness": 0,
+          "lightAngle": -90,
+          "refraction": 2.65,
+          "softness": 0.29,
+          "speed": 0.05
+        }
+      }
+    ]
+  },
+  "options": {}
+}

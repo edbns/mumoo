@@ -1,0 +1,68 @@
+{
+  "presetId": "0bf91bb5-d301-466c-8a0a-ef6c8a98469a",
+  "title": "Prime Lens",
+  "collection": "Prime Lens",
+  "description": "A highly blurred and distorted image featuring a bokeh lens effect with chromatic aberration. The composition shows a diagonal golden-yellow line or edge cutting through the frame from upper left to lower right, creating a strong directional element. The background consists of heavily defocused bokeh circles in multiple colors including greens, purples, magentas, and yellows, creating a dreamy, out-of-focus appearance. The bokeh effect is enhanced with 6-blade aperture shapes visible in the highlights, particularly noticeable in the brighter areas. A subtle lens distortion with swirl effect (0.09 intensity) warps the image slightly around the mouse-tracked center point. The chromatic fringing (0.2 intensity) creates subtle color separation, particularly visible on the golden edge where red and cyan fringes appear. The overall mood is ethereal and abstract, with a shallow depth-of-field simulation that keeps the viewer's attention on the bright diagonal element while the rest dissolves into colorful bokeh. The image has a cinematic quality with enhanced highlight gain (9.1) making bright areas glow prominently. The lens distortion creates a subtle bulge effect (-0.1) that slightly compresses the edges while maintaining focus toward the center.",
+  "config": {
+    "components": [
+      {
+        "type": "Circle",
+        "id": "idmswndtu31k0ijducg",
+        "props": {
+          "center": {
+            "type": "mouse-position",
+            "originX": 0.5,
+            "originY": 0.5,
+            "smoothing": 0.3
+          },
+          "radius": 2,
+          "softness": 1,
+          "visible": false
+        }
+      },
+      {
+        "type": "ImageTexture",
+        "id": "idmswmikkdh68i7wwni",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/jFUVzzadcHOZ.webp"
+        }
+      },
+      {
+        "type": "BokehBlur",
+        "id": "idmswndp0zcb3g0r9yg",
+        "props": {
+          "highlightGain": 9.1,
+          "highlightThreshold": 0.28,
+          "radius": {
+            "type": "map",
+            "source": "idmswndtu31k0ijducg",
+            "channel": "alphaInverted",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 29,
+            "outputMin": 0
+          }
+        }
+      },
+      {
+        "type": "LensDistortion",
+        "id": "idmswmitb7pbx9juqhs",
+        "props": {
+          "center": {
+            "type": "mouse-position",
+            "originX": 0.5,
+            "originY": 0.5,
+            "momentum": 0.1,
+            "smoothing": 0.3
+          },
+          "focusCenter": 1,
+          "lensBulge": -0.1,
+          "spread": 0.26,
+          "swirl": 0.09
+        }
+      }
+    ]
+  },
+  "options": {}
+}

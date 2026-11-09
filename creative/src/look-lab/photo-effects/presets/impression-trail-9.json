@@ -1,0 +1,73 @@
+{
+  "presetId": "47d4837a-9c3a-498e-bf96-0085d4792c5b",
+  "title": "Impression Trail 5",
+  "collection": "Impression Trail",
+  "description": "A dithered pointillist effect rendered across a cream-colored background (#eef1db). The image displays a sophisticated blue noise dithering pattern with perlin noise texture overlays creating a grainy, stippled appearance. Blue dots (#5670f4) of varying density are scattered across the composition, forming loose clusters and patterns that suggest underlying geographic or topographic data. The dithering creates a halftone-like quality with pixel size of 3, producing a granular, almost newspaper-print aesthetic. A subtle paper texture overlay adds tactile roughness with displacement of 0.2 and grain scale of 0.1, enhancing the organic, hand-crafted feel. The blue noise pattern is dynamically mapped to an alpha channel with threshold values ranging from 0.1 to 0.79, creating areas of varying density and visual interest. The overall composition has a muted, academic quality with soft transitions between dense and sparse dot clusters, suggesting a data visualization or abstract geographic representation. The blend mode is set to normal with full opacity, allowing the underlying texture to remain visible while the dithering effect dominates the visual presentation.",
+  "config": {
+    "components": [
+      {
+        "type": "ChromaFlow",
+        "id": "idmostv5d9xi2rmvn45",
+        "props": {
+          "baseColor": "#ffffff",
+          "downColor": "#ffffff",
+          "intensity": 1.4,
+          "leftColor": "#ffffff",
+          "momentum": 10,
+          "radius": 4,
+          "rightColor": "#ffffff",
+          "upColor": "#ffffff",
+          "visible": false
+        }
+      },
+      {
+        "type": "Dither",
+        "id": "idmostw28g48qt8zni3",
+        "props": {
+          "colorA": "#eef1db",
+          "colorB": "#5670f4",
+          "pattern": "blueNoise",
+          "pixelSize": 3,
+          "threshold": {
+            "type": "map",
+            "source": "idmostv5d9xi2rmvn45",
+            "channel": "alpha",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 0.79,
+            "outputMin": 0.1
+          }
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmostsrlvujw3m2cxq",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/gZx9yjLKI7VJ.jpeg"
+            }
+          },
+          {
+            "type": "SimplexNoise",
+            "id": "idmostyudffvj5c2ytd",
+            "props": {
+              "balance": -0.5,
+              "colorA": "#ffffff17",
+              "colorB": "#00000000"
+            }
+          }
+        ]
+      },
+      {
+        "type": "Paper",
+        "id": "idmosuclugd98j22ng0",
+        "props": {
+          "displacement": 0.2,
+          "grainScale": 0.1,
+          "roughness": 0.21
+        }
+      }
+    ]
+  },
+  "options": {}
+}

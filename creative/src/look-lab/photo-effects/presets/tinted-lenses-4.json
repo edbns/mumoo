@@ -1,0 +1,42 @@
+{
+  "presetId": "c6559677-f2ee-4c0f-9291-46a825a41648",
+  "title": "Tinted Lenses 9",
+  "collection": "Tinted Lenses",
+  "description": "A high-contrast black and white image featuring vertical fluted glass bars creating a striped pattern across the entire frame. The glass effect produces refractive distortions with wavy, undulating surfaces that bend and refract light. In the center of the composition, there are bright white highlights and semi-transparent areas showing distorted shapes, possibly silhouettes or figures, rendered ghostly and ethereal through the glass refraction. The duotone effect maps the original image to a range between deep black (#0f0f0f) and off-white (#f9f5ff), creating a dramatic chiaroscuro effect. The fluted glass shader with 13 frequency bars creates regular vertical striations with soft edges and mirror reflections. The refraction value of 4 produces significant light bending, while the wave amplitude of 0.06 and wave frequency of 1.5 create subtle undulating distortions across the glass surface. The overall mood is cinematic and mysterious, with a film noir aesthetic. The lighting angle at -90 degrees creates top-down illumination, emphasizing the three-dimensional quality of the glass bars. The softness value of 1 ensures smooth transitions between the glass effects and underlying content.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmp9wiq1vmzmuilreu",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/e7Jy8b5il0_q.png"
+        }
+      },
+      {
+        "type": "Duotone",
+        "id": "idmp9wiq1vzks0p608s",
+        "props": {
+          "blend": 0.78,
+          "colorA": "#0f0f0f",
+          "colorB": "#f9f5ff"
+        }
+      },
+      {
+        "type": "FlutedGlass",
+        "id": "idmp9wiq1vgvu1tjfvk",
+        "props": {
+          "aberration": 0,
+          "frequency": 13,
+          "highlight": 0,
+          "highlightSoftness": 0,
+          "lightAngle": -90,
+          "refraction": 4,
+          "softness": 1,
+          "speed": 0.05
+        }
+      }
+    ]
+  },
+  "options": {}
+}

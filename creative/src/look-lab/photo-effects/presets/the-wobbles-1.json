@@ -1,0 +1,33 @@
+{
+  "presetId": "11e6ec9a-de3e-4754-a0ea-fa25769d00f7",
+  "title": "The Wobbles",
+  "collection": "The Wobbles",
+  "description": "A stunning landscape photograph featuring a dramatic mountain valley with a pristine alpine lake. The composition uses a natural frame created by towering cliff faces on both sides, with warm golden-orange sunlight illuminating the rocky peaks during golden hour. The water surface displays a perfect mirror reflection of the surrounding mountains and sky, creating a serene cyan-blue tone in the lower portion. The image employs a 3D surface effect that adds subtle depth and dimensionality to the water, with gentle wave-like distortions that suggest movement while maintaining the reflective quality. The lighting is directional, coming from the upper left, casting warm amber and orange tones across the cliff faces and rocky terrain. The foreground contains scattered boulders with warm rust and brown coloring, while the middle ground shows the crystalline blue water with visible rock formations beneath the surface. The background mountains fade into a hazy peachy-pink atmosphere near the horizon. The overall mood is serene and majestic, with a dreamlike quality enhanced by the soft, diffused lighting and the mirror-like water reflection. The shader creates a subtle 3D relief effect on the water surface with gentle undulations, while maintaining high glossiness and reflectivity. The fractal wave pattern adds organic complexity without overwhelming the natural landscape beauty.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmswmap8t02828puih",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/1iOmKxfw2kML.webp"
+        }
+      },
+      {
+        "type": "Surface3D",
+        "id": "idmswmccl4ap8bit2yq",
+        "props": {
+          "amplitude": 0.31,
+          "cursorIntensity": 1.44,
+          "edgePinning": 1,
+          "frequency": 1.7,
+          "highlights": 0,
+          "lighting": 13,
+          "lightX": -0.3,
+          "tilt": 0
+        }
+      }
+    ]
+  },
+  "options": {}
+}

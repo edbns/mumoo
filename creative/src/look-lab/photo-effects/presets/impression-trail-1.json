@@ -1,0 +1,73 @@
+{
+  "presetId": "ab6ddb55-6151-4504-a07b-e3e2028d5442",
+  "title": "Impression Trail 6",
+  "collection": "Impression Trail",
+  "description": "A warm-toned shader effect displaying a thermal or heat-map aesthetic with a dominant coral-red background (#c14b4e). The image shows a dithered pattern using blue noise with a pixelated appearance (3-pixel size), creating a grainy, stippled texture throughout. Golden-yellow (#f5b43b) particles and dotted patterns are scattered across the composition, forming abstract architectural or landscape silhouettes in the upper and middle portions. The dithering threshold is dynamically mapped from an invisible ChromaFlow component, creating varying density of the gold-yellow speckles that concentrate in certain areas to suggest depth and form. A subtle paper texture overlay (roughness 0.21, displacement 0.2) adds tactile grain and surface irregularity. Simplex noise with minimal opacity creates additional subtle texture variation. The overall effect resembles a thermal imaging visualization or a retro computer-generated landscape, with the dithering pattern giving it a pixelated, low-resolution aesthetic reminiscent of early digital art or thermal cameras. The composition has a dreamlike, atmospheric quality with warm colors dominating and creating a sense of heat or energy.",
+  "config": {
+    "components": [
+      {
+        "type": "ChromaFlow",
+        "id": "idmostv5d9xi2rmvn45",
+        "props": {
+          "baseColor": "#ffffff",
+          "downColor": "#ffffff",
+          "intensity": 1.4,
+          "leftColor": "#ffffff",
+          "momentum": 10,
+          "radius": 4,
+          "rightColor": "#ffffff",
+          "upColor": "#ffffff",
+          "visible": false
+        }
+      },
+      {
+        "type": "Dither",
+        "id": "idmostw28g48qt8zni3",
+        "props": {
+          "colorA": "#c14b4e",
+          "colorB": "#f5b43b",
+          "pattern": "blueNoise",
+          "pixelSize": 3,
+          "threshold": {
+            "type": "map",
+            "source": "idmostv5d9xi2rmvn45",
+            "channel": "alpha",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 0.79,
+            "outputMin": 0.1
+          }
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmostsrlvujw3m2cxq",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/gZx9yjLKI7VJ.jpeg"
+            }
+          },
+          {
+            "type": "SimplexNoise",
+            "id": "idmostyudffvj5c2ytd",
+            "props": {
+              "balance": -0.5,
+              "colorA": "#ffffff17",
+              "colorB": "#00000000"
+            }
+          }
+        ]
+      },
+      {
+        "type": "Paper",
+        "id": "idmosuclugd98j22ng0",
+        "props": {
+          "displacement": 0.2,
+          "grainScale": 0.1,
+          "roughness": 0.21
+        }
+      }
+    ]
+  },
+  "options": {}
+}

@@ -1,0 +1,964 @@
+[
+  {
+    "id": "broken-track-1",
+    "title": "Broken Track",
+    "collection": "Broken Track",
+    "presetId": "cbf7d4cd-0862-4849-be79-b76f66816a6e",
+    "file": "broken-track-1.jpg",
+    "palette": [
+      {
+        "hex": "#040703",
+        "share": 0.493
+      },
+      {
+        "hex": "#ecf5eb",
+        "share": 0.148
+      },
+      {
+        "hex": "#3a4339",
+        "share": 0.141
+      }
+    ],
+    "mood": "graphic",
+    "lightness": 0.318,
+    "saturation": 0.084,
+    "warmth": 0.5,
+    "diffFromPhoto": 0.24
+  },
+  {
+    "id": "container-ship-1",
+    "title": "Container Ship",
+    "collection": "Container Ship",
+    "presetId": "5eabcbad-36b5-4c3a-9a32-20dbf54364a6",
+    "file": "container-ship-1.jpg",
+    "palette": [
+      {
+        "hex": "#26251f",
+        "share": 0.281
+      },
+      {
+        "hex": "#0a0904",
+        "share": 0.263
+      },
+      {
+        "hex": "#474238",
+        "share": 0.194
+      }
+    ],
+    "mood": "techno",
+    "lightness": 0.207,
+    "saturation": 0.286,
+    "warmth": 0.5,
+    "diffFromPhoto": 0.239
+  },
+  {
+    "id": "damaged-sensor-1",
+    "title": "Damaged Sensor",
+    "collection": "Damaged Sensor",
+    "presetId": "bcc78aa9-67c6-45e1-9ff5-2dfae0ae0825",
+    "file": "damaged-sensor-1.jpg",
+    "palette": [
+      {
+        "hex": "#535c51",
+        "share": 0.263
+      },
+      {
+        "hex": "#475042",
+        "share": 0.257
+      },
+      {
+        "hex": "#080702",
+        "share": 0.171
+      }
+    ],
+    "mood": "glitchy",
+    "lightness": 0.225,
+    "saturation": 0.273,
+    "warmth": 0.5,
+    "diffFromPhoto": 0.226
+  },
+  {
+    "id": "dither-cam-1",
+    "title": "Dither Cam",
+    "collection": "Dither Cam",
+    "presetId": "08258f10-3ffa-4d1c-b432-1355f043cc7c",
+    "file": "dither-cam-1.jpg",
+    "palette": [
+      {
+        "hex": "#021a00",
+        "share": 0.618
+      },
+      {
+        "hex": "#91cf33",
+        "share": 0.129
+      },
+      {
+        "hex": "#204706",
+        "share": 0.11
+      }
+    ],
+    "mood": "retro",
+    "lightness": 0.23,
+    "saturation": 0.836,
+    "warmth": 0,
+    "diffFromPhoto": 0.356
+  },
+  {
+    "id": "dithered-reveal-1",
+    "title": "Dithered Reveal",
+    "collection": "Dithered Reveal",
+    "presetId": "dc52e98f-ad0c-4a71-8418-683ac3f72463",
+    "file": "dithered-reveal-1.jpg",
+    "palette": [
+      {
+        "hex": "#040408",
+        "share": 0.537
+      },
+      {
+        "hex": "#53554d",
+        "share": 0.157
+      },
+      {
+        "hex": "#322b29",
+        "share": 0.14
+      }
+    ],
+    "mood": "moody",
+    "lightness": 0.166,
+    "saturation": 0.292,
+    "warmth": 0.5,
+    "diffFromPhoto": 0.275
+  },
+  {
+    "id": "focal-plane-1",
+    "title": "Focal Plane 1",
+    "collection": "Focal Plane",
+    "presetId": "26aba152-8a70-4e4f-81eb-66d25debfb40",
+    "file": "focal-plane-1.jpg",
+    "palette": [
+      {
+        "hex": "#16120a",
+        "share": 0.267
+      },
+      {
+        "hex": "#b6ac97",
+        "share": 0.205
+      },
+      {
+        "hex": "#dbe3d6",
+        "share": 0.186
+      }
+    ],
+    "mood": "soft",
+    "lightness": 0.444,
+    "saturation": 0.209,
+    "warmth": 1,
+    "diffFromPhoto": 0.142
+  },
+  {
+    "id": "glass-facets-1",
+    "title": "Glass Facets 1",
+    "collection": "Glass Facets",
+    "presetId": "299d9cdb-bfdb-4233-9c5c-88423b1a3ad3",
+    "file": "glass-facets-1.jpg",
+    "palette": [
+      {
+        "hex": "#16120b",
+        "share": 0.271
+      },
+      {
+        "hex": "#dae3d7",
+        "share": 0.215
+      },
+      {
+        "hex": "#574036",
+        "share": 0.184
+      }
+    ],
+    "mood": "editorial",
+    "lightness": 0.447,
+    "saturation": 0.203,
+    "warmth": 0.998,
+    "diffFromPhoto": 0.081
+  },
+  {
+    "id": "glass-facets-2",
+    "title": "Glass Facets 2",
+    "collection": "Glass Facets",
+    "presetId": "628b4023-a9a6-4fc4-8903-8a62b3803490",
+    "file": "glass-facets-2.jpg",
+    "palette": [
+      {
+        "hex": "#18150d",
+        "share": 0.303
+      },
+      {
+        "hex": "#b3ab96",
+        "share": 0.218
+      },
+      {
+        "hex": "#554639",
+        "share": 0.217
+      }
+    ],
+    "mood": "bold",
+    "lightness": 0.395,
+    "saturation": 0.235,
+    "warmth": 1,
+    "diffFromPhoto": 0.165
+  },
+  {
+    "id": "glitch-trail-1",
+    "title": "Glitch Trail",
+    "collection": "Glitch Trail",
+    "presetId": "b21dd29d-92a4-4bc4-937f-edb846d7871d",
+    "file": "glitch-trail-1.jpg",
+    "palette": [
+      {
+        "hex": "#14100b",
+        "share": 0.29
+      },
+      {
+        "hex": "#dbe5d8",
+        "share": 0.234
+      },
+      {
+        "hex": "#533d31",
+        "share": 0.171
+      }
+    ],
+    "mood": "glitchy",
+    "lightness": 0.448,
+    "saturation": 0.226,
+    "warmth": 0.918,
+    "diffFromPhoto": 0.02
+  },
+  {
+    "id": "impression-trail-1",
+    "title": "Impression Trail 1",
+    "collection": "Impression Trail",
+    "presetId": "ab6ddb55-6151-4504-a07b-e3e2028d5442",
+    "file": "impression-trail-1.jpg",
+    "palette": [
+      {
+        "hex": "#a45041",
+        "share": 0.575
+      },
+      {
+        "hex": "#bf8341",
+        "share": 0.187
+      },
+      {
+        "hex": "#d6ac40",
+        "share": 0.101
+      }
+    ],
+    "mood": "warm",
+    "lightness": 0.448,
+    "saturation": 0.628,
+    "warmth": 1,
+    "diffFromPhoto": 0.267
+  },
+  {
+    "id": "impression-trail-2",
+    "title": "Impression Trail 2",
+    "collection": "Impression Trail",
+    "presetId": "afb58c31-08af-4f4f-947e-4e704b9b7ba2",
+    "file": "impression-trail-2.jpg",
+    "palette": [
+      {
+        "hex": "#e0e4a8",
+        "share": 0.615
+      },
+      {
+        "hex": "#ccadb0",
+        "share": 0.157
+      },
+      {
+        "hex": "#d6caab",
+        "share": 0.106
+      }
+    ],
+    "mood": "playful",
+    "lightness": 0.781,
+    "saturation": 0.278,
+    "warmth": 0.763,
+    "diffFromPhoto": 0.431
+  },
+  {
+    "id": "impression-trail-3",
+    "title": "Impression Trail 3",
+    "collection": "Impression Trail",
+    "presetId": "a0912364-b1d6-4beb-aefc-0b2d15f2a229",
+    "file": "impression-trail-3.jpg",
+    "palette": [
+      {
+        "hex": "#80bd2e",
+        "share": 0.528
+      },
+      {
+        "hex": "#b1cf87",
+        "share": 0.161
+      },
+      {
+        "hex": "#8fc24a",
+        "share": 0.151
+      }
+    ],
+    "mood": "fresh",
+    "lightness": 0.708,
+    "saturation": 0.557,
+    "warmth": 0,
+    "diffFromPhoto": 0.255
+  },
+  {
+    "id": "impression-trail-4",
+    "title": "Impression Trail 4",
+    "collection": "Impression Trail",
+    "presetId": "4f6eb840-6662-44a1-affd-8507555bc8d6",
+    "file": "impression-trail-4.jpg",
+    "palette": [
+      {
+        "hex": "#13150c",
+        "share": 0.386
+      },
+      {
+        "hex": "#484234",
+        "share": 0.224
+      },
+      {
+        "hex": "#b7bdb1",
+        "share": 0.168
+      }
+    ],
+    "mood": "editorial",
+    "lightness": 0.357,
+    "saturation": 0.164,
+    "warmth": 0.5,
+    "diffFromPhoto": 0.114
+  },
+  {
+    "id": "impression-trail-6",
+    "title": "Impression Trail 6",
+    "collection": "Impression Trail",
+    "presetId": "f9b80530-fc58-4f85-9e20-644e6112d4bf",
+    "file": "impression-trail-6.jpg",
+    "palette": [
+      {
+        "hex": "#2f46ce",
+        "share": 0.603
+      },
+      {
+        "hex": "#54949e",
+        "share": 0.176
+      },
+      {
+        "hex": "#74ce38",
+        "share": 0.094
+      }
+    ],
+    "mood": "cool",
+    "lightness": 0.395,
+    "saturation": 0.703,
+    "warmth": 0,
+    "diffFromPhoto": 0.33
+  },
+  {
+    "id": "impression-trail-7",
+    "title": "Impression Trail 7",
+    "collection": "Impression Trail",
+    "presetId": "39411a61-ffe5-400c-9c00-20ba9fe57cf6",
+    "file": "impression-trail-7.jpg",
+    "palette": [
+      {
+        "hex": "#69df97",
+        "share": 0.609
+      },
+      {
+        "hex": "#75b7ac",
+        "share": 0.161
+      },
+      {
+        "hex": "#6ecca0",
+        "share": 0.108
+      }
+    ],
+    "mood": "fresh",
+    "lightness": 0.707,
+    "saturation": 0.482,
+    "warmth": 0,
+    "diffFromPhoto": 0.354
+  },
+  {
+    "id": "impression-trail-8",
+    "title": "Impression Trail 8",
+    "collection": "Impression Trail",
+    "presetId": "425bfb35-ae0a-4648-9ceb-bd5856756667",
+    "file": "impression-trail-8.jpg",
+    "palette": [
+      {
+        "hex": "#020502",
+        "share": 0.597
+      },
+      {
+        "hex": "#a3aba2",
+        "share": 0.145
+      },
+      {
+        "hex": "#e8f1e7",
+        "share": 0.109
+      }
+    ],
+    "mood": "graphic",
+    "lightness": 0.264,
+    "saturation": 0.083,
+    "warmth": 0.5,
+    "diffFromPhoto": 0.237
+  },
+  {
+    "id": "impression-trail-9",
+    "title": "Impression Trail 9",
+    "collection": "Impression Trail",
+    "presetId": "47d4837a-9c3a-498e-bf96-0085d4792c5b",
+    "file": "impression-trail-9.jpg",
+    "palette": [
+      {
+        "hex": "#deebcc",
+        "share": 0.62
+      },
+      {
+        "hex": "#aabbd1",
+        "share": 0.158
+      },
+      {
+        "hex": "#c6d4ce",
+        "share": 0.115
+      }
+    ],
+    "mood": "dreamy",
+    "lightness": 0.817,
+    "saturation": 0.177,
+    "warmth": 0,
+    "diffFromPhoto": 0.467
+  },
+  {
+    "id": "liquid-reveal-1",
+    "title": "Liquid Reveal",
+    "collection": "Liquid Reveal",
+    "presetId": "50f5a15f-fd6b-404b-a81e-01fc746fb8b0",
+    "file": "liquid-reveal-1.jpg",
+    "palette": [
+      {
+        "hex": "#15120b",
+        "share": 0.276
+      },
+      {
+        "hex": "#dbe4d8",
+        "share": 0.233
+      },
+      {
+        "hex": "#4f3c32",
+        "share": 0.183
+      }
+    ],
+    "mood": "dreamy",
+    "lightness": 0.447,
+    "saturation": 0.187,
+    "warmth": 0.998,
+    "diffFromPhoto": 0.018
+  },
+  {
+    "id": "magnify-1",
+    "title": "Magnify",
+    "collection": "Magnify",
+    "presetId": "a61a3409-0486-4706-b38c-5f4bbfb2c336",
+    "file": "magnify-1.jpg",
+    "palette": [
+      {
+        "hex": "#15120b",
+        "share": 0.294
+      },
+      {
+        "hex": "#dde5d9",
+        "share": 0.248
+      },
+      {
+        "hex": "#513e33",
+        "share": 0.175
+      }
+    ],
+    "mood": "bright",
+    "lightness": 0.448,
+    "saturation": 0.183,
+    "warmth": 0.997,
+    "diffFromPhoto": 0.104
+  },
+  {
+    "id": "noise-passes-1",
+    "title": "Noise Passes",
+    "collection": "Noise Passes",
+    "presetId": "25255ad0-01c8-4b60-9c7e-243e17d83dcb",
+    "file": "noise-passes-1.jpg",
+    "palette": [
+      {
+        "hex": "#18140d",
+        "share": 0.278
+      },
+      {
+        "hex": "#dae3d7",
+        "share": 0.23
+      },
+      {
+        "hex": "#513f34",
+        "share": 0.183
+      }
+    ],
+    "mood": "dreamy",
+    "lightness": 0.447,
+    "saturation": 0.186,
+    "warmth": 0.998,
+    "diffFromPhoto": 0.03
+  },
+  {
+    "id": "onward-1",
+    "title": "Onward",
+    "collection": "Onward",
+    "presetId": "3c2e8bed-724c-4652-89e3-3bf6e7bfc55d",
+    "file": "onward-1.jpg",
+    "palette": [
+      {
+        "hex": "#080f07",
+        "share": 0.498
+      },
+      {
+        "hex": "#22281d",
+        "share": 0.252
+      },
+      {
+        "hex": "#373f33",
+        "share": 0.181
+      }
+    ],
+    "mood": "techno",
+    "lightness": 0.134,
+    "saturation": 0.286,
+    "warmth": 0.5,
+    "diffFromPhoto": 0.322
+  },
+  {
+    "id": "pixel-reveal-1",
+    "title": "Pixel Reveal 1",
+    "collection": "Pixel Reveal",
+    "presetId": "06fd87c3-a25d-4281-b42f-bd77941c3754",
+    "file": "pixel-reveal-1.jpg",
+    "palette": [
+      {
+        "hex": "#14100a",
+        "share": 0.272
+      },
+      {
+        "hex": "#dce4d8",
+        "share": 0.259
+      },
+      {
+        "hex": "#b7af9e",
+        "share": 0.182
+      }
+    ],
+    "mood": "playful",
+    "lightness": 0.474,
+    "saturation": 0.172,
+    "warmth": 0.957,
+    "diffFromPhoto": 0.092
+  },
+  {
+    "id": "pixel-reveal-2",
+    "title": "Pixel Reveal 2",
+    "collection": "Pixel Reveal",
+    "presetId": "b8f0920e-2d43-4d83-a217-e2c77f7a09fc",
+    "file": "pixel-reveal-2.jpg",
+    "palette": [
+      {
+        "hex": "#0e2513",
+        "share": 0.408
+      },
+      {
+        "hex": "#2f4632",
+        "share": 0.262
+      },
+      {
+        "hex": "#586e5b",
+        "share": 0.171
+      }
+    ],
+    "mood": "moody",
+    "lightness": 0.311,
+    "saturation": 0.299,
+    "warmth": 0.206,
+    "diffFromPhoto": 0.188
+  },
+  {
+    "id": "prime-lens-1",
+    "title": "Prime Lens",
+    "collection": "Prime Lens",
+    "presetId": "0bf91bb5-d301-466c-8a0a-ef6c8a98469a",
+    "file": "prime-lens-1.jpg",
+    "palette": [
+      {
+        "hex": "#15140d",
+        "share": 0.253
+      },
+      {
+        "hex": "#dbe4d7",
+        "share": 0.245
+      },
+      {
+        "hex": "#b2ab96",
+        "share": 0.185
+      }
+    ],
+    "mood": "soft",
+    "lightness": 0.47,
+    "saturation": 0.188,
+    "warmth": 0.863,
+    "diffFromPhoto": 0.041
+  },
+  {
+    "id": "quantized-1",
+    "title": "Quantized",
+    "collection": "Quantized",
+    "presetId": "8be79c0b-e832-484e-b4d1-fa71507afa0b",
+    "file": "quantized-1.jpg",
+    "palette": [
+      {
+        "hex": "#060703",
+        "share": 0.335
+      },
+      {
+        "hex": "#dee6db",
+        "share": 0.24
+      },
+      {
+        "hex": "#b9aba1",
+        "share": 0.156
+      }
+    ],
+    "mood": "glitchy",
+    "lightness": 0.433,
+    "saturation": 0.136,
+    "warmth": 0.5,
+    "diffFromPhoto": 0.046
+  },
+  {
+    "id": "shuffle-sort-1",
+    "title": "Shuffle Sort",
+    "collection": "Shuffle Sort",
+    "presetId": "c735b866-c963-4082-95d9-36f436c25118",
+    "file": "shuffle-sort-1.jpg",
+    "palette": [
+      {
+        "hex": "#d7e2d6",
+        "share": 0.408
+      },
+      {
+        "hex": "#15130c",
+        "share": 0.194
+      },
+      {
+        "hex": "#b7bdaf",
+        "share": 0.18
+      }
+    ],
+    "mood": "editorial",
+    "lightness": 0.577,
+    "saturation": 0.115,
+    "warmth": 0.5,
+    "diffFromPhoto": 0.148
+  },
+  {
+    "id": "tinted-lenses-1",
+    "title": "Tinted Lenses 1",
+    "collection": "Tinted Lenses",
+    "presetId": "bbaf1db7-1c1a-41be-b21d-6b67d004a644",
+    "file": "tinted-lenses-1.jpg",
+    "palette": [
+      {
+        "hex": "#c33359",
+        "share": 0.394
+      },
+      {
+        "hex": "#c251af",
+        "share": 0.211
+      },
+      {
+        "hex": "#c7396b",
+        "share": 0.178
+      }
+    ],
+    "mood": "bold",
+    "lightness": 0.371,
+    "saturation": 0.683,
+    "warmth": 0.694,
+    "diffFromPhoto": 0.273
+  },
+  {
+    "id": "tinted-lenses-2",
+    "title": "Tinted Lenses 2",
+    "collection": "Tinted Lenses",
+    "presetId": "e3844f81-5fc8-4a8d-a760-1f2ba2a8579b",
+    "file": "tinted-lenses-2.jpg",
+    "palette": [
+      {
+        "hex": "#63cd34",
+        "share": 0.408
+      },
+      {
+        "hex": "#a6d737",
+        "share": 0.193
+      },
+      {
+        "hex": "#72d039",
+        "share": 0.164
+      }
+    ],
+    "mood": "fresh",
+    "lightness": 0.704,
+    "saturation": 0.745,
+    "warmth": 0,
+    "diffFromPhoto": 0.302
+  },
+  {
+    "id": "tinted-lenses-3",
+    "title": "Tinted Lenses 3",
+    "collection": "Tinted Lenses",
+    "presetId": "b4fd186e-c61e-42fc-9dc0-6adf9c4fc1e0",
+    "file": "tinted-lenses-3.jpg",
+    "palette": [
+      {
+        "hex": "#982531",
+        "share": 0.401
+      },
+      {
+        "hex": "#60d356",
+        "share": 0.203
+      },
+      {
+        "hex": "#904d36",
+        "share": 0.144
+      }
+    ],
+    "mood": "bold",
+    "lightness": 0.425,
+    "saturation": 0.652,
+    "warmth": 0.64,
+    "diffFromPhoto": 0.231
+  },
+  {
+    "id": "tinted-lenses-4",
+    "title": "Tinted Lenses 4",
+    "collection": "Tinted Lenses",
+    "presetId": "c6559677-f2ee-4c0f-9291-46a825a41648",
+    "file": "tinted-lenses-4.jpg",
+    "palette": [
+      {
+        "hex": "#030803",
+        "share": 0.557
+      },
+      {
+        "hex": "#b6bfb9",
+        "share": 0.174
+      },
+      {
+        "hex": "#2f392f",
+        "share": 0.116
+      }
+    ],
+    "mood": "graphic",
+    "lightness": 0.241,
+    "saturation": 0.114,
+    "warmth": 0.5,
+    "diffFromPhoto": 0.219
+  },
+  {
+    "id": "tinted-lenses-5",
+    "title": "Tinted Lenses 5",
+    "collection": "Tinted Lenses",
+    "presetId": "de699cf0-44e8-4e57-86fe-41360b7eb27a",
+    "file": "tinted-lenses-5.jpg",
+    "palette": [
+      {
+        "hex": "#ae5b3d",
+        "share": 0.399
+      },
+      {
+        "hex": "#c1a493",
+        "share": 0.219
+      },
+      {
+        "hex": "#b5664f",
+        "share": 0.16
+      }
+    ],
+    "mood": "warm",
+    "lightness": 0.508,
+    "saturation": 0.484,
+    "warmth": 1,
+    "diffFromPhoto": 0.227
+  },
+  {
+    "id": "tinted-lenses-6",
+    "title": "Tinted Lenses 6",
+    "collection": "Tinted Lenses",
+    "presetId": "ab2ac5e3-3a10-4858-b5fb-259916eba82d",
+    "file": "tinted-lenses-6.jpg",
+    "palette": [
+      {
+        "hex": "#47a16f",
+        "share": 0.427
+      },
+      {
+        "hex": "#9bc539",
+        "share": 0.201
+      },
+      {
+        "hex": "#58a864",
+        "share": 0.151
+      }
+    ],
+    "mood": "fresh",
+    "lightness": 0.598,
+    "saturation": 0.578,
+    "warmth": 0,
+    "diffFromPhoto": 0.284
+  },
+  {
+    "id": "tinted-lenses-7",
+    "title": "Tinted Lenses 7",
+    "collection": "Tinted Lenses",
+    "presetId": "c3aa6504-80c3-490b-9e9e-fcb1ee3f1114",
+    "file": "tinted-lenses-7.jpg",
+    "palette": [
+      {
+        "hex": "#06011e",
+        "share": 0.494
+      },
+      {
+        "hex": "#887db8",
+        "share": 0.184
+      },
+      {
+        "hex": "#1d1638",
+        "share": 0.171
+      }
+    ],
+    "mood": "moody",
+    "lightness": 0.169,
+    "saturation": 0.488,
+    "warmth": 0,
+    "diffFromPhoto": 0.247
+  },
+  {
+    "id": "tinted-lenses-8",
+    "title": "Tinted Lenses 8",
+    "collection": "Tinted Lenses",
+    "presetId": "9e95cb7c-3ad1-4bf0-b7e7-b6dc51c5c367",
+    "file": "tinted-lenses-8.jpg",
+    "palette": [
+      {
+        "hex": "#7346e4",
+        "share": 0.454
+      },
+      {
+        "hex": "#d57191",
+        "share": 0.21
+      },
+      {
+        "hex": "#a159c4",
+        "share": 0.129
+      }
+    ],
+    "mood": "playful",
+    "lightness": 0.42,
+    "saturation": 0.606,
+    "warmth": 0.152,
+    "diffFromPhoto": 0.309
+  },
+  {
+    "id": "tropical-ascii-cam-1",
+    "title": "Tropical Ascii Cam",
+    "collection": "Tropical Ascii Cam",
+    "presetId": "3ae43706-ba57-4884-845f-1cc5b413ef59",
+    "file": "tropical-ascii-cam-1.jpg",
+    "palette": [
+      {
+        "hex": "#101542",
+        "share": 0.605
+      },
+      {
+        "hex": "#1b153e",
+        "share": 0.188
+      },
+      {
+        "hex": "#221733",
+        "share": 0.09
+      }
+    ],
+    "mood": "techno",
+    "lightness": 0.099,
+    "saturation": 0.7,
+    "warmth": 0,
+    "diffFromPhoto": 0.357
+  },
+  {
+    "id": "uncertain-blueprint-1",
+    "title": "Uncertain Blueprint",
+    "collection": "Uncertain Blueprint",
+    "presetId": "e6f5d552-fd35-4024-afd4-caa3b0d3695a",
+    "file": "uncertain-blueprint-1.jpg",
+    "palette": [
+      {
+        "hex": "#194dac",
+        "share": 0.681
+      },
+      {
+        "hex": "#315cb2",
+        "share": 0.192
+      },
+      {
+        "hex": "#4a70b6",
+        "share": 0.076
+      }
+    ],
+    "mood": "graphic",
+    "lightness": 0.322,
+    "saturation": 0.782,
+    "warmth": 0,
+    "diffFromPhoto": 0.348
+  },
+  {
+    "id": "water-colors-1",
+    "title": "Water Colors",
+    "collection": "Water Colors",
+    "presetId": "9b4a84c6-e29f-4e03-b8d9-4f082809263d",
+    "file": "water-colors-1.jpg",
+    "palette": [
+      {
+        "hex": "#0b1008",
+        "share": 0.303
+      },
+      {
+        "hex": "#d1d5c4",
+        "share": 0.273
+      },
+      {
+        "hex": "#a7a897",
+        "share": 0.152
+      }
+    ],
+    "mood": "soft",
+    "lightness": 0.434,
+    "saturation": 0.138,
+    "warmth": 0.5,
+    "diffFromPhoto": 0.044
+  }
+]

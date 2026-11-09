@@ -1,0 +1,73 @@
+{
+  "presetId": "afb58c31-08af-4f4f-947e-4e704b9b7ba2",
+  "title": "Impression Trail",
+  "collection": "Impression Trail",
+  "description": "A dithered image with a cream-yellow background (#f2eab3) overlaid with magenta-purple (#d324d4) stippled patterns creating a halftone effect. The composition shows a building or architectural structure in the center-right area, rendered in purple tones against the pale yellow backdrop. The dithering pattern uses blue noise with 3-pixel sizing, creating a grainy, textured appearance throughout. The image has a noisy, paper-like texture applied with subtle grain displacement (0.2 intensity) and roughness (0.21), giving it a vintage or printed quality. The purple elements form concentrated clusters in the upper portion and around the central structure, with scattered dots diminishing toward the edges. The overall effect is reminiscent of old newspaper printing or thermal imaging, with the threshold mapping creating variable density in the dithered areas. A subtle simplex noise layer adds additional texture variation with very low opacity white noise overlay.",
+  "config": {
+    "components": [
+      {
+        "type": "ChromaFlow",
+        "id": "idmostv5d9xi2rmvn45",
+        "props": {
+          "baseColor": "#ffffff",
+          "downColor": "#ffffff",
+          "intensity": 1.4,
+          "leftColor": "#ffffff",
+          "momentum": 10,
+          "radius": 4,
+          "rightColor": "#ffffff",
+          "upColor": "#ffffff",
+          "visible": false
+        }
+      },
+      {
+        "type": "Dither",
+        "id": "idmostw28g48qt8zni3",
+        "props": {
+          "colorA": "#f2eab3",
+          "colorB": "#d324d4",
+          "pattern": "blueNoise",
+          "pixelSize": 3,
+          "threshold": {
+            "type": "map",
+            "source": "idmostv5d9xi2rmvn45",
+            "channel": "alpha",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 0.79,
+            "outputMin": 0.1
+          }
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmostsrlvujw3m2cxq",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/gZx9yjLKI7VJ.jpeg"
+            }
+          },
+          {
+            "type": "SimplexNoise",
+            "id": "idmostyudffvj5c2ytd",
+            "props": {
+              "balance": -0.5,
+              "colorA": "#ffffff17",
+              "colorB": "#00000000"
+            }
+          }
+        ]
+      },
+      {
+        "type": "Paper",
+        "id": "idmosuclugd98j22ng0",
+        "props": {
+          "displacement": 0.2,
+          "grainScale": 0.1,
+          "roughness": 0.21
+        }
+      }
+    ]
+  },
+  "options": {}
+}

@@ -1,0 +1,69 @@
+{
+  "presetId": "26aba152-8a70-4e4f-81eb-66d25debfb40",
+  "title": "Focal Plane",
+  "collection": "Focal Plane",
+  "description": "A serene beach sunset scene captured with sophisticated shader effects. The base image shows a sandy beach in the foreground with gentle waves rolling onto the shore, a calm ocean in the middle ground, and a large golden sun setting on the horizon behind a distant mountain silhouette. The perspective shader creates a subtle 3D depth effect with mouse-controlled tilt interaction (range -5.5 to 5.5 degrees on Y-axis), giving the scene dimensional movement. A tilt-shift effect with 175-degree angle and 0.1 width creates selective focus, keeping the immediate foreground and specific focal plane sharp while blurring surrounding areas with intensity of 28, producing a miniature or diorama-like quality. The tilt-shift center follows mouse position with 0.3 reach and 0.45 momentum, creating dynamic focus tracking. A vignette effect with black color (#000000) and 0.26 intensity darkens the edges, with a radius of 0.7 and falloff of 0.73, drawing attention toward the center while maintaining atmospheric depth. The overall effect combines warm golden-orange sunset tones with cool blue-gray ocean tones, creating a peaceful, contemplative mood with enhanced visual depth and selective focus that emphasizes the romantic quality of the golden hour.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmot2te77w9zxxe1zr",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/m7ZcKzqaSoTV.png"
+        }
+      },
+      {
+        "type": "Perspective",
+        "id": "idmot326d6l2s7h74i4",
+        "props": {
+          "fov": 64,
+          "tilt": {
+            "axis": "y",
+            "type": "mouse",
+            "momentum": 0.4,
+            "outputMax": -5.5,
+            "outputMin": 5.5,
+            "smoothing": 0.55
+          },
+          "zoom": 1.2
+        }
+      },
+      {
+        "type": "TiltShift",
+        "id": "idmot2v833ison1v5us",
+        "props": {
+          "angle": 175,
+          "center": {
+            "type": "mouse-position",
+            "reach": 0.3,
+            "originX": 0.5,
+            "originY": 0.5,
+            "momentum": 0.45,
+            "smoothing": 0.25
+          },
+          "intensity": 28,
+          "width": 0.1
+        }
+      },
+      {
+        "type": "Vignette",
+        "id": "idmot2wcynbau6cfict",
+        "props": {
+          "center": {
+            "type": "mouse-position",
+            "reach": 1.05,
+            "originX": 0.5,
+            "originY": 0.5,
+            "momentum": 0.15,
+            "smoothing": 0.9
+          },
+          "falloff": 0.73,
+          "intensity": 0.26,
+          "radius": 0.7
+        }
+      }
+    ]
+  },
+  "options": {}
+}

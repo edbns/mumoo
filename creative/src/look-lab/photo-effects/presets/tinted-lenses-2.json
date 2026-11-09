@@ -1,0 +1,42 @@
+{
+  "presetId": "e3844f81-5fc8-4a8d-a760-1f2ba2a8579b",
+  "title": "Tinted Lenses 6",
+  "collection": "Tinted Lenses",
+  "description": "A luminous gradient background transitioning from bright lime green (#45d51e) at the bottom to yellow-green (#b2df0f) in the upper-middle section, creating a vibrant, energetic atmosphere. The image features vertical fluted glass bars with a refraction effect at approximately 190 degrees, creating linear distortion patterns that run diagonally across the composition. These glass bars produce a prismatic, refractive quality with subtle wave distortions (amplitude 0.06, frequency 1.5) that bend and fragment the underlying gradient. The effect creates the illusion of looking through corrugated or ribbed glass panels, with mirror-edge behavior causing reflections at the boundaries. The overall mood is modern and dynamic, with a glassy, translucent quality that suggests depth and movement. The refraction index of 2.76 creates pronounced bending of light, while the low opacity and normal blend mode allow the gradient to show through the glass effect, maintaining visibility of the underlying color palette. The bars are evenly spaced with a frequency of 5, creating a rhythmic, striped visual pattern.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmp9vwu29h2rghfjbf",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/e7Jy8b5il0_q.png"
+        }
+      },
+      {
+        "type": "Duotone",
+        "id": "idmp9w2zfpxq5gjw31t",
+        "props": {
+          "colorA": "#45d51e",
+          "colorB": "#b2df0f"
+        }
+      },
+      {
+        "type": "FlutedGlass",
+        "id": "idmp9vwxt2vbum507fe",
+        "props": {
+          "aberration": 0,
+          "angle": 190,
+          "frequency": 5,
+          "highlight": 0,
+          "highlightSoftness": 0,
+          "lightAngle": -90,
+          "refraction": 2.76,
+          "softness": 0,
+          "speed": 0.05
+        }
+      }
+    ]
+  },
+  "options": {}
+}

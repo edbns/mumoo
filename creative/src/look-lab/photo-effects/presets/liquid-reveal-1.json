@@ -1,0 +1,51 @@
+{
+  "presetId": "50f5a15f-fd6b-404b-a81e-01fc746fb8b0",
+  "title": "Liquid Reveal",
+  "collection": "Liquid Reveal",
+  "description": "An aerial/overhead view of ocean waves meeting a sandy beach. The image features a dynamic interplay of water and sand with strong chromatic aberration effects creating iridescent rainbow fringes throughout the foam and wave patterns. The foaming white water displays prismatic color shifts with visible blue, cyan, and magenta fringing along the wave edges, characteristic of the ChromaFlow shader with its directional color mapping (blue base, green up, red down, yellow right). The sand appears in warm tan/beige tones with subtle texture variation. The CursorRipples component creates concentric circular distortion patterns visible in the water, with high intensity (10) and chromatic split (1) producing rainbow-colored ripple rings. The DiffuseBlur effect is mapped inversely to the ChromaFlow alpha channel, creating variable blur intensity that softens the wave details while maintaining sharp sand definition. The overall composition has a dreamy, surreal quality with the chromatic aberration dominating the visual aesthetic, transforming a natural beach scene into an abstract, color-shifted composition. The blend mode is normal throughout, allowing the effects to layer naturally without heavy color grading.",
+  "config": {
+    "components": [
+      {
+        "type": "ChromaFlow",
+        "id": "idmqpywhcyd0unmrxlk",
+        "props": {
+          "intensity": 1.5,
+          "momentum": 10,
+          "radius": 4.3,
+          "visible": false
+        }
+      },
+      {
+        "type": "ImageTexture",
+        "id": "idmqpyw16ffif2tg927",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/VGBH0M6oommG.png"
+        }
+      },
+      {
+        "type": "CursorRipples",
+        "id": "idmqpyw44frlapq0cte",
+        "props": {
+          "radius": 0.8
+        }
+      },
+      {
+        "type": "DiffuseBlur",
+        "id": "idmqpyxbnd8yb9jwnpu",
+        "props": {
+          "intensity": {
+            "type": "map",
+            "source": "idmqpywhcyd0unmrxlk",
+            "channel": "alphaInverted",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 17,
+            "outputMin": 0
+          }
+        }
+      }
+    ]
+  },
+  "options": {}
+}

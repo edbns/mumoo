@@ -1,0 +1,42 @@
+{
+  "presetId": "a61a3409-0486-4706-b38c-5f4bbfb2c336",
+  "title": "Magnify",
+  "collection": "Magnify",
+  "description": "A striking compositional image featuring a small figure wearing a vibrant red and black quilted puffer jacket standing on a barren, tan-colored hillside. The figure is positioned centrally and viewed from behind, with their hands on their hips in a confident stance. Behind the figure is a large, perfectly circular portal or orb with a soft light-blue gradient that creates a glowing halo effect. The circular shape has a luminous quality with subtle white highlights along its edges, suggesting a glass or crystalline material with refraction properties. The background sky transitions from pale blue at the top to deeper blue tones, with subtle cloud formations creating atmospheric depth. The ground texture is dry, sparse vegetation in muted tan and brown tones. The overall mood is surreal and contemplative, with the bright red jacket creating a strong focal point against the cool blue palette. The glass shader effect creates a subtle lens distortion and chromatic aberration around the circular portal, with a fresnel effect that makes the edges appear to have a subtle white glow. The lighting suggests either dawn or dusk, with soft, diffused illumination creating a dreamlike quality.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmouqgv4y76lnc4wsv",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/LZa9mfBjaqRg.jpg"
+        }
+      },
+      {
+        "type": "Glass",
+        "id": "idmouqgyr1hiwf4tj3u",
+        "props": {
+          "center": {
+            "type": "mouse-position",
+            "reach": 1,
+            "originX": 0.5,
+            "originY": 0.5,
+            "momentum": 0.25,
+            "smoothing": 0.15
+          },
+          "fresnel": 0.05,
+          "fresnelSoftness": 0.06,
+          "innerZoom": 1.7,
+          "refraction": 0.46,
+          "shape": {
+            "type": "circleSDF",
+            "radius": 0.35
+          },
+          "thickness": 0.04
+        }
+      }
+    ]
+  },
+  "options": {}
+}

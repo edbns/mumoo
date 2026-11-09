@@ -1,0 +1,59 @@
+{
+  "presetId": "b21dd29d-92a4-4bc4-937f-edb846d7871d",
+  "title": "Glitch Trail",
+  "collection": "Glitch Trail",
+  "description": "An aerial landscape photograph of mountainous terrain with dramatic chromatic aberration effects applied. The image shows rocky peaks and ridges with brown and tan coloring in the foreground, transitioning to darker green forested valleys in the middle distance. The sky above is moody with dark gray and blue storm clouds, with a bright white break in the clouds creating atmospheric depth. The chromatic aberration effect creates distinctive rainbow-colored fringes (red, green, blue separation) particularly visible on the rocky outcrops and mountain edges, with the red channel offset to the left and blue to the right, creating a glitchy, digital aesthetic. The grid distortion effect adds subtle warping and undulation across the entire composition, creating a sense of movement and instability. The overall mood is cinematic and surreal, with high contrast between the warm earth tones and cool sky tones. The effect creates a VHS or analog video glitch appearance overlaid on a naturalistic landscape photograph.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmi61hbev583d6yg1e",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://rgqpsgmnzmniyzelfbfx.supabase.co/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/NweYsjkAwAjy.jpeg"
+        }
+      },
+      {
+        "type": "CursorTrail",
+        "id": "idmi61gnmkxf1citdd1",
+        "props": {
+          "colorA": "#ffffff",
+          "colorB": "#ffffff",
+          "opacity": 0,
+          "radius": 1.15,
+          "shrink": 0.5,
+          "visible": false
+        }
+      },
+      {
+        "type": "ChromaticAberration",
+        "id": "idmi61g80fakjtnwaxk",
+        "props": {
+          "maskSource": "idmi61gnmkxf1citdd1",
+          "strength": 0.08
+        },
+        "children": [
+          {
+            "type": "ImageTexture",
+            "id": "idmi61eiw04b618wmga",
+            "props": {
+              "objectFit": "cover",
+              "url": "https://rgqpsgmnzmniyzelfbfx.supabase.co/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/NweYsjkAwAjy.jpeg"
+            }
+          }
+        ]
+      },
+      {
+        "type": "GridDistortion",
+        "id": "idmi61et8s94euz0cm7",
+        "props": {
+          "gridSize": 30,
+          "intensity": 3,
+          "radius": 2,
+          "swirl": 0
+        }
+      }
+    ]
+  },
+  "options": {}
+}

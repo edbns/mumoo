@@ -1,0 +1,46 @@
+{
+  "presetId": "25255ad0-01c8-4b60-9c7e-243e17d83dcb",
+  "title": "Noise Passes",
+  "collection": "Noise Passes",
+  "description": "A mesmerizing deep-sea bioluminescence effect featuring numerous glowing jellyfish-like organisms suspended in a pitch-black void. The primary visual elements are soft, spherical glowing bodies with trailing tentacles rendered in bright electric blue (#0080ff range) against pure black background. The effect creates a sense of depth with foreground jellyfish appearing sharper and more defined, while background elements fade into soft bokeh blur. The glow has a diffuse, atmospheric quality with halos extending around each organism, achieved through the DiffuseBlur component with intensity mapped to simplex noise patterns. The overall mood is ethereal and otherworldly, evoking the mysterious depths of the ocean. The blur intensity varies dynamically across the composition, creating pockets of sharper detail amid softer, more diffused regions. The lighting appears self-emissive, with no external light sources, giving the scene a luminous, bioluminescent quality. Tentacle-like appendages trail downward from the main bodies with varying opacity and blur amounts, creating a sense of gentle movement and weightlessness.",
+  "config": {
+    "components": [
+      {
+        "type": "SimplexNoise",
+        "id": "idmq1nymufxmfnno6g1",
+        "props": {
+          "balance": -0.6,
+          "colorB": "#00000000",
+          "contrast": 0.6,
+          "scale": 0.4,
+          "speed": 0.8,
+          "visible": false
+        }
+      },
+      {
+        "type": "ImageTexture",
+        "id": "idmq1nymufyh8mnn20j",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/YwyCc_RBy2Tg.png"
+        }
+      },
+      {
+        "type": "DiffuseBlur",
+        "id": "idmq1nymufnwbf9am7b",
+        "props": {
+          "intensity": {
+            "type": "map",
+            "source": "idmq1nymufxmfnno6g1",
+            "channel": "alpha",
+            "inputMax": 1,
+            "inputMin": 0,
+            "outputMax": 60,
+            "outputMin": 0
+          }
+        }
+      }
+    ]
+  },
+  "options": {}
+}

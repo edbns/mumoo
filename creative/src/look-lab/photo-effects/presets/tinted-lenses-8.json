@@ -1,0 +1,41 @@
+{
+  "presetId": "9e95cb7c-3ad1-4bf0-b7e7-b6dc51c5c367",
+  "title": "Tinted Lenses",
+  "collection": "Tinted Lenses",
+  "description": "A portrait photograph of a person is displayed with a sophisticated multi-layered shader effect. The image features a vibrant duotone color grading that blends purple (#8747fe) and pink (#fb7098) tones, creating a moody, contemporary aesthetic. The subject appears centered and slightly faded, with the duotone effect mapping darker tones to purple and lighter tones to pink, resulting in a cohesive color palette across the entire composition. Overlaid on top is a fluted glass effect that creates vertical bar-like refractive distortions across the image, simulating light passing through ribbed glass. These bars have a subtle wave animation with a frequency of 1.5 and amplitude of 0.06, creating a gentle undulating motion. The glass effect has a refraction strength of 2.25, causing noticeable bending and displacement of the underlying image. The softness parameter of 0.36 ensures the glass effect is not too harsh, blending smoothly with the duotone layer. The overall atmosphere is ethereal and dreamlike, with the combination of color grading and optical distortion creating a contemporary, artistic aesthetic. The background gradient transitions smoothly from purple on the left to pink on the right, complementing the duotone effect applied to the portrait.",
+  "config": {
+    "components": [
+      {
+        "type": "ImageTexture",
+        "id": "idmp9vwu29h2rghfjbf",
+        "props": {
+          "objectFit": "cover",
+          "url": "https://data.shaders.com/storage/v1/object/public/user-uploaded-images/user_33nh0FG48zZa0rIUZuK7vgwPfZe/e7Jy8b5il0_q.png"
+        }
+      },
+      {
+        "type": "Duotone",
+        "id": "idmp9w2zfpxq5gjw31t",
+        "props": {
+          "colorA": "#8747fe",
+          "colorB": "#fb7098"
+        }
+      },
+      {
+        "type": "FlutedGlass",
+        "id": "idmp9vwxt2vbum507fe",
+        "props": {
+          "aberration": 0,
+          "frequency": 14,
+          "highlight": 0,
+          "highlightSoftness": 0,
+          "lightAngle": -90,
+          "refraction": 2.25,
+          "softness": 0.36,
+          "speed": 0.05
+        }
+      }
+    ]
+  },
+  "options": {}
+}
