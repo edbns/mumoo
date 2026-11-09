@@ -13,6 +13,7 @@ import { createServer } from 'vite';
  * own request for the same link then failed: every card stayed black. This runs the real renderer in headless
  * Chromium against a stand-in for storage that answers like Cloudflare R2 (CORS headers only when the request
  * has an Origin, `Vary: Origin`, ETag and Last-Modified, no Cache-Control, a bare 304 on revalidation). Skipped where no Chromium is installed.
+ * It also draws a card of Our photography from one of its baked effects, which the page loads from the site.
  */
 const PHOTO = readFileSync('public/punch-plates/burnnet-woman-1547507-1920.jpg');
 
@@ -58,10 +59,27 @@ async function browser() {
   return chromium.launch({ executablePath, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 }
 
+/** Draws frame 30 of a card in the page and returns how bright it is (0 black … 255 white). */
+function frameBrightness(page, cardOpts) {
+  return page.evaluate(async (card) => {
+    const pack = window.mumooPack;
+    await pack.prepare(card);
+    const jpeg = await pack.frame(30);
+    const bitmap = await createImageBitmap(await (await fetch(`data:image/jpeg;base64,${jpeg}`)).blob());
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const context = canvas.getContext('2d');
+    context.drawImage(bitmap, 0, 0);
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 4) sum += data[i] + data[i + 1] + data[i + 2];
+    return sum / (data.length / 4) / 3;
+  }, cardOpts);
+}
+
 const opts = (photoUrl) => ({
   style: 'filter', font: 'Anton', fontSecondary: 'Oswald', layout: { rotate: 0, scaleBias: 1, cut: 0, seed: 7 },
-  cues: [], music: null, fallbackText: '', lyrics: false, colors: { ground: '#101010', dust: '#ff4d2e' },
-  filter: 'duotone', typeStyle: 'stack', photoUrl,
+  cues: [], music: null, fallbackText: '', lyrics: false,
+  typeStyle: 'stack', photoUrl,
 });
 
 test('a picture shown in an <img> first can still be drawn, and one that cannot be loaded fails loudly', { timeout: 180000 }, async (t) => {
@@ -74,19 +92,7 @@ test('a picture shown in an <img> first can still be drawn, and one that cannot 
     const page = await chrome.newPage();
     await page.goto(`${site.resolvedUrls.local[0]}render.html`);
     await page.waitForFunction(() => 'mumooPack' in window, null, { timeout: 60000 });
-    const brightness = (link) => page.evaluate(async (picture) => {
-      const pack = window.mumooPack;
-      await pack.prepare(picture.opts);
-      const jpeg = await pack.frame(30);
-      const bitmap = await createImageBitmap(await (await fetch(`data:image/jpeg;base64,${jpeg}`)).blob());
-      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-      const context = canvas.getContext('2d');
-      context.drawImage(bitmap, 0, 0);
-      const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
-      let sum = 0;
-      for (let i = 0; i < data.length; i += 4) sum += data[i] + data[i + 1] + data[i + 2];
-      return sum / (data.length / 4) / 3;
-    }, { opts: opts(link) });
+    const brightness = (link) => frameBrightness(page, opts(link));
 
     const link = `${files.url}/own.jpg?signature=1`;
     await page.evaluate(src => new Promise(resolve => { const img = new Image(); img.onload = img.onerror = resolve; img.src = src; document.body.append(img); }), link);
@@ -128,6 +134,35 @@ test('a photo is shrunk to a small JPEG, and transparent parts turn white rather
     assert.ok(result.bytes < 200_000, `small enough to send quickly, got ${result.bytes}`);
     assert.ok(result.empty.slice(0, 3).every(channel => channel > 240), `transparent turns white, got ${result.empty}`);
     assert.ok(result.red[0] > 200 && result.red[1] < 60, `the picture itself is kept, got ${result.red}`);
+  } finally {
+    await chrome.close();
+    await site.close();
+  }
+});
+
+test('an Our photography card draws its baked effect from the site, and never the effect together with a picture of the person\'s own', { timeout: 180000 }, async (t) => {
+  const chrome = await browser();
+  if (!chrome) return t.skip('no Chromium installed');
+  const site = await createServer({ server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+  await site.listen();
+  try {
+    const page = await chrome.newPage();
+    // The site serves the effects from public/ once they are published; here they are read from where they are committed.
+    await page.route('**/punch-plates/effects/*.jpg', route => route.fulfill({ path: `punch-plates/effects/${new URL(route.request().url()).pathname.split('/').pop()}` }));
+    await page.goto(`${site.resolvedUrls.local[0]}render.html`);
+    await page.waitForFunction(() => 'mumooPack' in window, null, { timeout: 60000 });
+    const card = (effectId) => ({ ...opts(undefined), effectId });
+    const dark = await frameBrightness(page, card('tropical-ascii-cam-1'));
+    const light = await frameBrightness(page, card('impression-trail-9'));
+    assert.ok(dark > 5, `the dark effect is drawn, not black (${dark})`);
+    assert.ok(light > dark + 40, `two effects look different: ${dark} against ${light}`);
+
+    const files = await storage();
+    try {
+      await assert.rejects(frameBrightness(page, { ...card('impression-trail-9'), photoUrl: `${files.url}/own.jpg` }), /not both/);
+    } finally {
+      files.server.close();
+    }
   } finally {
     await chrome.close();
     await site.close();

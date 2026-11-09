@@ -36,7 +36,7 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   };
 }
 
-/** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust a photo and its cut-out, a Filter a photo or a clip. */
+/** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust a photo and its cut-out, Our photography a photo or a clip. */
 type Picture = Pick<PackRendererOpts, 'photoUrl' | 'cutoutUrl' | 'motionUrl' | 'motionShots'>;
 
 function drawingFrom(upload: Upload | null): Picture | undefined {
@@ -59,7 +59,6 @@ function packOpts(
     fontSecondary: slot.fontSecondary,
     layout: slot.layout,
     ...(slot.colors ? { colors: slot.colors } : {}),
-    ...(slot.filter ? { filter: slot.filter } : {}),
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
     ...(slot.cutSeed != null ? { cutSeed: slot.cutSeed } : {}),
@@ -69,8 +68,8 @@ function packOpts(
     music,
     fallbackText: lyrics ? fallbackText : '',
     lyrics,
-    // Our approved photo, unless the person chose their own.
-    ...(picture ? picture : slot.plateId ? { plateId: slot.plateId } : {}),
+    // Our approved photo (Dust) or its baked effect (Our photography), unless the person chose their own picture, which replaces it.
+    ...(picture ?? (slot.plateId ? { plateId: slot.plateId } : slot.effectId ? { effectId: slot.effectId } : {})),
   };
 }
 
@@ -143,12 +142,12 @@ export function CreativesPackStudio({
   const pictureIds = `${pictures.dust?.id ?? 'ours'}|${pictures.filter?.id ?? 'ours'}`;
 
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
-    if (def.upload && !pictures[def.upload]) {
+    // Dust is made from approved photos that have a cut-out; Our photography needs no photo of ours, its looks are baked.
+    if (def.id === 'dust' && !pictures.dust) {
       if (plates === null) {
         return [def.id, { slots: [], note: '' }];
-      } else if (!plates.some(plate => def.upload === 'filter' || plate.cutout)) {
-        const ask = def.upload === 'dust' ? 'Upload one photo to see Dust made from it.' : 'Upload a photo, video or GIF to see it here.';
-        return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? 'We have no approved photos for this yet. Sign in (top right) to use your own.' : `We have no approved photos for this yet. ${ask}` }];
+      } else if (!plates.some(plate => plate.cutout)) {
+        return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? 'We have no approved photos for this yet. Sign in (top right) to use your own.' : 'We have no approved photos for this yet. Upload one photo to see Dust made from it.' }];
       }
     }
     if (lyricsOn(def.id) && !hasLyrics) {

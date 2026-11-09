@@ -8,7 +8,7 @@ const parse = (hex: string): [number, number, number] =>
   [1, 3, 5].map(at => parseInt(hex.slice(at, at + 2), 16)) as [number, number, number];
 
 /** 0 (no relation) … 1 (same colours): how well a background carries the colours of a cover. */
-function paletteFit(cover: CoverRead, look: LookRead): number {
+function paletteFit(cover: CoverRead, look: Pick<LookRead, 'palette'>): number {
   const lookColors = look.palette.map(color => parse(color.hex));
   let total = 0;
   for (const color of cover.palette) {
@@ -23,7 +23,7 @@ function paletteFit(cover: CoverRead, look: LookRead): number {
  * How well a background matches a song's cover, 0…1. Colours count most; then how bright, how saturated
  * and how warm it feels, so a dark moody cover is not given a pastel background and vice versa.
  */
-export function coverFit(cover: CoverRead, look: LookRead): number {
+export function coverFit(cover: CoverRead, look: Pick<LookRead, 'palette' | 'lightness' | 'saturation' | 'warmth'>): number {
   return 0.5 * paletteFit(cover, look)
     + 0.2 * (1 - Math.abs(cover.lightness - look.lightness))
     + 0.15 * (1 - Math.abs(cover.saturation - look.saturation))

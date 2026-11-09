@@ -19,7 +19,7 @@ export type PackScene = {
 /** Build the pack scene graph once; update() shows the world for the style and hides the others. */
 export function createPackScene(): PackScene {
   const root = new Container();
-  // Look Bank and Filter share a world: a picture behind the lyric type, with or without a filter on it.
+  // Look Bank and Our photography share a world: a picture behind the lyric type.
   const picture = createBankWorld();
   const pulise = createPuliseWorld();
   // The dust world is built from the photo's grains, so it exists once a photo has been read.

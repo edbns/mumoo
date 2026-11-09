@@ -3,7 +3,6 @@ import { entrance, impactFrame, impactSignals } from './lyric-motion';
 import type { Texture } from 'pixi.js';
 import type { AdPunchStyle } from './ad-punch';
 import type { AdFont, AdLayout } from './ad-fonts';
-import type { PhotoFilterId } from './pack-filter';
 import type { TimedWord, TypeStyleId } from './pack-type';
 import type { DustColors } from './dust-colors';
 import type { DustPoints, DustWord } from './pack-dust';
@@ -25,10 +24,9 @@ export type PackSceneInput = {
   /** Current time within the clip (ms) and the cue's word timings (original case). */
   ms: number;
   words: readonly TimedWord[];
-  /** The picture behind the lyrics: a baked Look Bank background, or the person's own photo for Filter. */
+  /** The picture behind the lyrics: a baked Look Bank background or photography effect, or the person's own picture. */
   background?: Texture | null;
-  /** Filter: how the person's photo is treated, and the two colours the treatment draws from. */
-  filter?: PhotoFilterId;
+  /** Dust: the two colours of the template. */
   colors?: DustColors;
   typeStyle?: TypeStyleId;
   /** False when the person switched lyrics off: no words anywhere, only the picture. */

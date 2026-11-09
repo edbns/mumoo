@@ -73,7 +73,6 @@
     "aws4fetch": "^1.0.20",
     "fflate": "0.8.3",
     "jose": "^6.2.15",
-    "pixi-filters": "^6.1.5",
     "pixi.js": "8.22.0",
     "react": "19.1.0",
     "react-dom": "19.1.0"

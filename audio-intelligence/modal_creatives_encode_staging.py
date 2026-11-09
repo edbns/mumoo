@@ -12,7 +12,7 @@ then concatenates the ranges and muxes the audio.
 
 The browser sends only data (style, colours, cues, music). The worker loads the page and the
 baked look backgrounds from the staging site; no URLs come from clients. A person's own picture
-(Dust, Filter) arrives as fields (Dust: a photo and its cut-out mask; a Filter: a photo or a prepared clip), sent by our
+(Dust, Our photography) arrives as fields (Dust: a photo and its cut-out mask; Our photography: a photo or a prepared clip), sent by our
 server after it read them from that person's storage, and is handed to the page when it asks.
 """
 from __future__ import annotations
@@ -45,12 +45,11 @@ MOTION_LIMIT = 40_000_000
 META_LIMIT = 400_000
 MEDIA_PATHS = {"photo": "/own-photo.jpg", "cutout": "/own-cutout.png", "motion": "/own-motion.mp4"}
 MEDIA_TYPES = {"photo": "image/jpeg", "cutout": "image/png", "motion": "video/mp4"}
-FILTERS = {"duotone", "split", "halftone", "glow"}
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
-    "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "filter",
+    "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
     "motionShots", "cutSeed",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
@@ -243,8 +242,9 @@ def parse_meta(raw: str) -> dict:
         raise ValueError("layout")
     if "bankId" in opts and (not isinstance(opts["bankId"], str) or not ID_RE.match(opts["bankId"])):
         raise ValueError("bankId")
-    if "plateId" in opts and (not isinstance(opts["plateId"], str) or not ID_RE.match(opts["plateId"])):
-        raise ValueError("plateId")
+    for key in ("plateId", "effectId"):
+        if key in opts and (not isinstance(opts[key], str) or not ID_RE.match(opts[key])):
+            raise ValueError(key)
     if "cutSeed" in opts and (type(opts["cutSeed"]) is not int or not 0 <= opts["cutSeed"] < 1_000_000):
         raise ValueError("cutSeed")
     if "motionShots" in opts:
@@ -273,8 +273,6 @@ def parse_meta(raw: str) -> dict:
         or not all(isinstance(v, str) and HEX_RE.match(v) for v in colors.values())
     ):
         raise ValueError("colors")
-    if "filter" in opts and opts["filter"] not in FILTERS:
-        raise ValueError("filter")
     cues = opts.get("cues")
     if not isinstance(cues, list) or len(cues) > 160:
         raise ValueError("cues")
@@ -310,13 +308,15 @@ async def submit(request: Request):
                     raise ValueError(name)
         if "photo" in media and media["photo"][:3] != b"\xff\xd8\xff":
             raise ValueError("photo")
-        # Dust and Filter are drawn from an approved photo (`plateId`, which the page loads from the site itself) or
-        # from the person's own picture: Dust a photo with its cut-out mask, a Filter a photo or a clip. Nothing else takes a picture.
-        own = opts["style"] in ("dust", "filter")
+        # Dust is drawn from an approved photo (`plateId`) and Our photography (style "filter") from one baked effect on it
+        # (`effectId`); the page loads either from the site itself. Both can instead be drawn from the person's own picture:
+        # Dust a photo with its cut-out mask, Our photography a photo or a clip. Nothing else takes a picture.
+        approved = {"dust": "plateId", "filter": "effectId"}.get(opts["style"])
+        named = {key for key in ("plateId", "effectId") if key in opts}
         wanted: set[str] = set()
-        if own and "plateId" not in opts:
+        if approved and approved not in named:
             wanted = {"photo", "cutout"} if opts["style"] == "dust" else ({"photo"} if "photo" in media else {"motion"})
-        if set(media) != wanted or ("plateId" in opts and not own):
+        if set(media) != wanted or named - {approved}:
             raise ValueError("media")
     except (TypeError, ValueError, binascii.Error, json.JSONDecodeError, AttributeError):
         raise HTTPException(400, "Expected a 15s mono 32kHz WAV and valid render metadata.") from None

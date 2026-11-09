@@ -5,7 +5,7 @@
  *
  * Looks (Shaders.com recipes) are baked OFFLINE by the Look Lab into static JPEGs;
  * this file only loads them as textures. No WebGPU / Shaders in the browser.
- * A person's own photo (Dust, Filter) is loaded from `photoUrl`: a link in the browser, a page the worker serves in the cloud.
+ * A person's own picture (Dust, Our photography) is loaded from `photoUrl`: a link in the browser, a page the worker serves in the cloud.
  */
 import { Application, Assets, ColorMatrixFilter, Rectangle, Texture, type WebGLRenderer } from 'pixi.js';
 import { DURATION_MS, HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
@@ -13,8 +13,7 @@ import { ensureFonts, type AdFont, type AdLayout } from './ad-fonts';
 import type { AdPunchStyle } from './ad-punch';
 import { activePackCopy, packReaction, packWordEnter } from './pack-copy';
 import { createPackScene } from './pack-scenes';
-import { bankBackgroundUrl } from './pack-looks';
-import type { PhotoFilterId } from './pack-filter';
+import { bankBackgroundUrl, photoEffectUrl } from './pack-looks';
 import { typeFamilies, type TypeStyleId } from './pack-type';
 import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
@@ -35,9 +34,11 @@ export type PackRendererOpts = {
   cues: readonly LyricCue[];
   music: ImpactMusic | null;
   fallbackText: string;
-  /** An approved photo (and its cut-out, for Dust): found the same way in the browser and in the cloud. */
+  /** Dust: an approved photo (and its cut-out), found the same way in the browser and in the cloud. */
   plateId?: string;
-  /** Or the person's own picture. Dust: a photo with its cut-out mask. A Filter: a photo, or a clip (a video or GIF). */
+  /** Our photography: one baked effect on our approved photo, found the same way. */
+  effectId?: string;
+  /** Or the person's own picture, which replaces ours. Dust: a photo with its cut-out mask. Our photography: a photo, or a clip (a video or GIF) drawn plain. */
   photoUrl?: string;
   cutoutUrl?: string;
   motionUrl?: string;
@@ -51,10 +52,8 @@ export type PackRendererOpts = {
   grade?: MoodGrade;
   /** False when lyrics are switched off: nothing is written on the picture. Default true. */
   lyrics?: boolean;
-  /** Dust and Filter: the two colours of the template. */
+  /** Dust: the two colours of the template. */
   colors?: DustColors;
-  /** Filter: how the photo is treated. */
-  filter?: PhotoFilterId;
 };
 
 /** The font families a card draws with, so each is fetched (from this site) the first time a card needs it, not before. */
@@ -89,8 +88,8 @@ export async function createPackRenderer(
   let current = opts;
   let photoTexture: Texture | null = null;
   let photoUrlLoaded = '';
-  let bankTexture: Texture | null = null;
-  let bankUrlLoaded = '';
+  let stillTexture: Texture | null = null;
+  let stillUrlLoaded = '';
   let cutoutTexture: Texture | null = null;
   let cutoutUrlLoaded = '';
   let motion: Motion | null = null;
@@ -107,8 +106,8 @@ export async function createPackRenderer(
     scene = null;
     photoTexture = null;
     photoUrlLoaded = '';
-    bankTexture = null;
-    bankUrlLoaded = '';
+    stillTexture = null;
+    stillUrlLoaded = '';
     cutoutTexture = null;
     cutoutUrlLoaded = '';
     motion?.destroy();
@@ -198,24 +197,30 @@ export async function createPackRenderer(
         if (contextLost || surface.isContextLost()) throw new Error('The WebGL context was lost.');
         const { style } = current;
         await ensureFonts(familiesFor(current));
-        const ownPicture = style === 'dust' || style === 'filter';
-        const photoUrl = current.plateId ? plateUrl(current.plateId) : current.photoUrl;
+        // Our photography draws one baked effect, or (replacing it) the person's own picture, never both.
+        if (style === 'filter' && current.effectId && (current.photoUrl || current.motionUrl)) throw new Error('Our photography draws an effect or the person’s own picture, not both.');
+        const ownBackdrop = style === 'filter' && !current.effectId;
+        const ownPicture = style === 'dust' || ownBackdrop;
+        const photoUrl = style === 'dust' && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
         const cutoutUrl = style === 'dust' ? (current.plateId ? plateCutoutUrl(current.plateId) : current.cutoutUrl) : undefined;
         if (ownPicture) await ensurePicture(photoUrl, cutoutUrl, current.motionUrl);
         else await ensurePicture(undefined, undefined, undefined);
 
-        let bankTex: Texture | null = null;
-        if (style === 'bank' && current.bankId) {
-          const url = bankBackgroundUrl(current.bankId);
-          if (url !== bankUrlLoaded || !bankTexture) {
-            bankUrlLoaded = url;
+        // A baked still: a Look Bank background or a photography effect. One that cannot be loaded shows the downtime message.
+        const stillUrl = style === 'bank' && current.bankId ? bankBackgroundUrl(current.bankId)
+          : style === 'filter' && current.effectId ? photoEffectUrl(current.effectId)
+          : null;
+        let still: Texture | null = null;
+        if (stillUrl) {
+          if (stillUrl !== stillUrlLoaded || !stillTexture) {
+            stillUrlLoaded = stillUrl;
             try {
-              bankTexture = await Assets.load(url) as Texture;
+              stillTexture = await Assets.load(stillUrl) as Texture;
             } catch {
-              bankTexture = null;
+              stillTexture = null;
             }
           }
-          bankTex = bankTexture;
+          still = stillTexture;
         }
 
         const reaction = packReaction(current.music, frame);
@@ -242,7 +247,7 @@ export async function createPackRenderer(
             dustKey = key;
           }
         }
-        if (style === 'filter' && !photoTexture && !motion) throw new Error('Filter needs a picture.');
+        if (ownBackdrop && !photoTexture && !motion) throw new Error('Our photography needs an effect or a picture.');
 
         const beat = calmBeat(reaction.beat, current.grade);
         if (current.grade) {
@@ -266,8 +271,7 @@ export async function createPackRenderer(
           wordEnter,
           ms,
           words: copy.words,
-          background: style === 'filter' ? (motion?.texture ?? photoTexture) : bankTex,
-          filter: current.filter,
+          background: ownBackdrop ? (motion?.texture ?? photoTexture) : still,
           colors: current.colors,
           typeStyle: current.typeStyle,
           lyrics: current.lyrics !== false,

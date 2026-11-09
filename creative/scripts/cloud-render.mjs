@@ -3,18 +3,18 @@
  * long the cloud took and saves the MP4 to scripts/fixtures/exports/.
  *
  *   node scripts/cloud-render.mjs dust reggaeton        Dust from a photo, lyrics on
- *   node scripts/cloud-render.mjs filter techno         Filter (FILTER=duotone|split|halftone|glow)
+ *   EFFECT=glass-facets-1 node scripts/cloud-render.mjs filter techno   Our photography: one baked effect (an id from punch-plates/effects/effects.json)
  *   LYRICS=0 node scripts/cloud-render.mjs dust techno  lyrics off
  *   SEED=4 node scripts/cloud-render.mjs dust slaphouse pick the colour pair
  *   node scripts/cloud-render.mjs pulise reggaeton      a library style, through the deployed staging site
  *   BANK=lit-rays-5 node scripts/cloud-render.mjs bank techno
- *   TYPE=bounce FONT="Bowlby One" node scripts/cloud-render.mjs bank techno   try a lyric motion (bank and filter) and a face
+ *   TYPE=bounce FONT="Bowlby One" node scripts/cloud-render.mjs bank techno   try a lyric motion (bank and photography) and a face
  *
- * Dust and Filter are drawn from an approved photo (PLATE, default: our cleared library photo) through the deployed
- * site like every other style. To try a person's own media instead, set PHOTO (Dust also needs CUTOUT, default: the
- * library photo's) or MOTION (Filter only); cut-outs and clips are made by scripts/prepare-sample.mjs. That goes to the
- * worker directly with your Modal login, because the public endpoint only hands the worker a picture for a signed-in
- * person. The deployed site must carry the code you want drawn.
+ * Dust is drawn from an approved photo (PLATE, default: our cleared library photo) and Our photography ("filter") from
+ * a baked effect on it (EFFECT), through the deployed site like every other style. To try a person's own media instead,
+ * set PHOTO (Dust also needs CUTOUT, default: the library photo's) or MOTION (Our photography only); cut-outs and clips
+ * are made by scripts/prepare-sample.mjs. That goes to the worker directly with your Modal login, because the public
+ * endpoint only hands the worker a picture for a signed-in person. The deployed site must carry the code you want drawn.
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -50,6 +50,7 @@ await server.close();
 
 const photoStyle = style === 'dust' || style === 'filter';
 const ownMedia = photoStyle && Boolean(process.env.PHOTO || process.env.MOTION);
+const effectId = process.env.EFFECT || 'glass-facets-1';
 const opts = {
   style,
   font: process.env.FONT || 'Anton',
@@ -59,14 +60,14 @@ const opts = {
   music: { beatsMs: analysis.rhythm.beatsMs, downbeatsMs: analysis.rhythm.downbeatsMs, energy: analysis.features.frames.map(({ timeMs, rms }) => ({ timeMs, rms })) },
   fallbackText: '',
   lyrics,
-  ...(photoStyle ? { colors: dustColors(Number(process.env.SEED || 7)) } : {}),
-  ...(photoStyle && !ownMedia ? { plateId: process.env.PLATE || 'burnnet-woman-1547507-1920' } : {}),
+  ...(style === 'dust' ? { colors: dustColors(Number(process.env.SEED || 7)) } : {}),
+  ...(style === 'dust' && !ownMedia ? { plateId: process.env.PLATE || 'burnnet-woman-1547507-1920' } : {}),
   ...(style === 'bank' ? { bankId: process.env.BANK || 'neon-flow-5', typeStyle: process.env.TYPE || 'karaoke' } : {}),
-  ...(style === 'filter' ? { filter: process.env.FILTER || 'duotone', typeStyle: process.env.TYPE || 'stack', cutSeed: Number(process.env.CUTSEED || 0) } : {}),
+  ...(style === 'filter' ? { ...(ownMedia ? {} : { effectId }), typeStyle: process.env.TYPE || 'stack', cutSeed: Number(process.env.CUTSEED || 0) } : {}),
   ...(process.env.SHOTS ? { motionShots: JSON.parse(process.env.SHOTS) } : {}),
 };
 const wav = canonicalWav();
-const file = `scripts/fixtures/exports/cloud-${style}${style === 'filter' ? `-${opts.filter}` : ''}-${clip}${ownMedia ? (process.env.MOTION ? '-motion' : '-own') : ''}${lyrics ? '' : '-nolyrics'}.mp4`;
+const file = `scripts/fixtures/exports/cloud-${style}${style === 'filter' && !ownMedia ? `-${effectId}` : ''}-${clip}${ownMedia ? (process.env.MOTION ? '-motion' : '-own') : ''}${lyrics ? '' : '-nolyrics'}.mp4`;
 mkdirSync('scripts/fixtures/exports', { recursive: true });
 const started = Date.now();
 

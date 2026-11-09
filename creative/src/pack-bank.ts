@@ -1,6 +1,6 @@
 /**
  * Bank world — a picture behind the lyric type system: a Shaders Pro background baked by the Look Lab
- * (Look Bank), or the person's own photo through a live filter (Filter).
+ * (Look Bank), a baked photography effect (Our photography), or the person's own picture.
  * Colors come from the picture itself (pack-palette), so type always belongs to the image.
  * If the picture is missing, show downtime copy — never a substitute design.
  */
@@ -9,7 +9,6 @@ import { HEIGHT, WIDTH } from './composition';
 import { LOOK_DOWN_MESSAGE } from './pack-looks';
 import { analyzeTexture } from './pack-palette';
 import type { PackSceneInput } from './pack-copy';
-import { createPhotoFilters } from './pack-filter';
 import { createTypeLayer, type TimedWord, type TypeStyleId } from './pack-type';
 
 /** Calm styles keep the picture still; the rest let it drift and breathe with the beat. */
@@ -31,7 +30,6 @@ export function createBankWorld(): BankWorld {
   const scrim = new Graphics();
   const down = new Container();
   const type = createTypeLayer();
-  const filters = createPhotoFilters();
   root.addChild(bg, scrim, type.root, down);
 
   function clearDown() {
@@ -81,8 +79,6 @@ export function createBankWorld(): BankWorld {
       bg.scale.set(cover * (1 + input.beat * 0.012 * amount * input.energy));
       bg.position.set(WIDTH / 2 + (t - 0.5) * 36 * amount, HEIGHT / 2 + Math.sin(t * Math.PI * 2) * 14 * amount);
       bg.visible = true;
-      if (input.filter && input.colors) filters.apply(bg, input.filter, input.beat, input.colors);
-      else bg.filters = [];
 
       scrim.clear();
       // The scrim only exists to keep lyrics readable; with lyrics off the background shows as it is.
@@ -110,7 +106,6 @@ export function createBankWorld(): BankWorld {
     },
     destroy() {
       type.destroy();
-      filters.destroy();
       root.destroy({ children: true });
     },
   };

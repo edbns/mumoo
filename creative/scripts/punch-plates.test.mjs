@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -27,6 +27,14 @@ test('bake-punch-plates writes 1080×1920 proxies and a rights manifest', () => 
     assert.ok(typeof plate.clearedBy === 'string' && plate.clearedBy);
     assert.ok(typeof plate.clearedAt === 'string' && plate.clearedAt);
   }
+});
+
+test('bake-punch-plates publishes the baked photography effects, and only the pictures', () => {
+  const result = spawnSync(process.execPath, ['scripts/bake-punch-plates.mjs'], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const published = readdirSync(join(root, 'public', 'punch-plates', 'effects')).sort();
+  const effects = JSON.parse(readFileSync(join(root, 'punch-plates', 'effects', 'effects.json'), 'utf8'));
+  assert.deepEqual(published, effects.map(effect => `${effect.id}.jpg`).sort(), 'every effect and nothing else, no contact sheets');
 });
 
 test('punch plate helpers accept safe ids', async () => {

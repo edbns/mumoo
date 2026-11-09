@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { createServer } from 'vite';
 
 function profile(genre = 'House', lyrics = 'hello', sha = 'a'.repeat(64), meaning) {
@@ -40,9 +41,10 @@ test('the shelf is four rows of four, each card distinct', async () => {
       assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', 'looks', 'pulise', 'dust'], 'rows come in order');
       for (const row of ['photography', 'looks', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
       const photography = slots.filter(slot => slot.row === 'photography');
-      assert.deepEqual(photography.map(slot => slot.filter), ['duotone', 'split', 'halftone', 'glow']);
+      assert.equal(new Set(photography.map(slot => slot.effectId)).size, 4, `${genre} photography repeats an effect`);
       assert.equal(new Set(photography.map(slot => slot.typeStyle)).size, 4, `${genre} photography repeats a type style`);
-      assert.ok([...photography, ...slots.filter(slot => slot.row === 'dust')].every(slot => slot.plateId === 'burnnet-woman-1547507-1920'), 'drawn from the approved photo');
+      assert.ok(photography.every(slot => slot.plateId === undefined && slot.colors === undefined && slot.filter === undefined), 'photography is drawn from a baked effect, not a photo or a live filter');
+      assert.ok(slots.filter(slot => slot.row === 'dust').every(slot => slot.plateId === 'burnnet-woman-1547507-1920'), 'Dust is drawn from the approved photo');
       const pulise = slots.filter(slot => slot.row === 'pulise');
       assert.equal(new Set(pulise.map(slot => slot.layout.cut)).size, 4, `${genre} Pulise cards open on the same colour`);
       const bank = slots.filter(slot => slot.row === 'looks');
@@ -59,9 +61,90 @@ test('Dust only uses approved photos that have a cut-out, and waits for the pers
     const person = profile('Pop');
     const plates = [{ id: 'no-mask', cutout: false }, { id: 'with-mask', cutout: true }];
     assert.ok(pack.recommendRow('dust', person, 0, plates).every(slot => slot.plateId === 'with-mask'));
-    assert.deepEqual(new Set(pack.recommendRow('photography', person, 0, plates).map(slot => slot.plateId)), new Set(['no-mask', 'with-mask']), 'photography deals every approved photo');
     assert.ok(pack.recommendRow('dust', person, 0, [{ id: 'no-mask', cutout: false }]).every(slot => slot.plateId === undefined));
-    assert.ok(pack.recommendRow('photography', person, 0, []).every(slot => slot.plateId === undefined));
+    assert.equal(pack.recommendRow('photography', person, 0, []).length, 4, 'photography needs no approved photo of ours');
+  } finally { await server.close(); }
+});
+
+/** The baked effects the app can deal, as measured when they were baked. */
+async function effects(server) {
+  const { default: list } = await server.ssrLoadModule('/punch-plates/effects/effects.json');
+  return list;
+}
+
+test('every baked effect has its picture, and Our photography deals four different ones', async () => {
+  const { server, pack } = await load();
+  try {
+    const list = await effects(server);
+    assert.equal(list.length, 37);
+    for (const effect of list) {
+      assert.match(effect.id, /^[a-z0-9][a-z0-9-]{0,60}$/);
+      assert.ok(existsSync(new URL(`../punch-plates/effects/${effect.id}.jpg`, import.meta.url)), `${effect.id}.jpg is missing`);
+      assert.equal(effect.file, `${effect.id}.jpg`);
+    }
+    const ids = new Set(list.map(effect => effect.id));
+    for (const genre of ['Gospel', 'Ambient', 'House', 'Pop']) {
+      for (let generation = 0; generation < 12; generation++) {
+        const row = pack.recommendRow('photography', profile(genre), generation, []);
+        const dealt = row.map(slot => slot.effectId);
+        assert.equal(new Set(dealt).size, 4, `${genre} #${generation} repeats an effect`);
+        assert.ok(dealt.every(id => ids.has(id)), `${genre} #${generation} deals an effect that does not exist`);
+        const collections = row.map(slot => list.find(effect => effect.id === slot.effectId).collection);
+        if (generation < 5) assert.equal(new Set(collections).size, 4, `${genre} #${generation} deals one collection twice`);
+        row.forEach(slot => assert.equal(slot.label, list.find(effect => effect.id === slot.effectId).title, 'the label is the effect\'s title'));
+      }
+    }
+  } finally { await server.close(); }
+});
+
+test('a refresh deals four effects the earlier ones did not, and the deal is seeded', async () => {
+  const { server, pack } = await load();
+  try {
+    const row = (person, generation) => pack.recommendRow('photography', person, generation, []);
+    const person = profile('Pop');
+    const first = [];
+    for (let generation = 0; generation < 5; generation++) first.push(...row(person, generation).map(slot => slot.effectId));
+    assert.equal(new Set(first).size, 20, 'five refreshes in a row never repeat an effect');
+    assert.deepEqual(row(person, 3).map(slot => slot.id), row(person, 3).map(slot => slot.id), 'the same song and refresh deal the same cards, with the same ids');
+    assert.notDeepEqual(row(person, 0).map(slot => slot.effectId), row(profile('Pop', 'hello', 'b'.repeat(64)), 0).map(slot => slot.effectId), 'another song is dealt other effects');
+    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 16);
+  } finally { await server.close(); }
+});
+
+test('calm songs are not first dealt the harsh effects, club songs are', async () => {
+  const { server, pack } = await load();
+  try {
+    const list = await effects(server);
+    const mood = slot => list.find(effect => effect.id === slot.effectId).mood;
+    const harsh = ['glitchy', 'techno', 'retro', 'graphic', 'bold'];
+    // Gospel by genre, and a quiet lane by what the words say (a pop song with lonely lyrics).
+    const lonely = { attitude: 'lonely', sadness: 3, intensity: 2 };
+    for (const [genre, sha, meaning] of [['Gospel', 'a'], ['Gospel', 'b'], ['Pop', 'a', lonely], ['Pop', 'c', lonely]]) {
+      const person = profile(genre, 'hello', sha.repeat(64), meaning);
+      for (let generation = 0; generation < 3; generation++) {
+        for (const slot of pack.recommendRow('photography', person, generation, [])) assert.ok(!harsh.includes(mood(slot)), `${genre} #${generation} was dealt ${slot.effectId}`);
+      }
+    }
+    let loud = 0;
+    for (const sha of 'abcdef') loud += pack.recommendRow('photography', profile('Techno', 'hello', sha.repeat(64)), 0, []).filter(slot => harsh.includes(mood(slot))).length;
+    assert.ok(loud >= 18, `club songs lead with the harsh looks, got ${loud} of 24`);
+  } finally { await server.close(); }
+});
+
+test('the cover colours lead the effects, and sad words never sit on a bright one', async () => {
+  const { server, pack } = await load();
+  try {
+    const list = await effects(server);
+    const read = slot => list.find(effect => effect.id === slot.effectId);
+    const cover = (hex, extra) => ({ palette: [{ hex, share: 1 }], lightness: 0.5, saturation: 0.8, contrast: 0.5, hue: 20, warmth: 1, ...extra });
+    const withCover = value => ({ ...profile('Pop'), creator: { primaryGenre: { value: 'Pop', source: 'creator' }, cover: { value, source: 'embedded_metadata' } } });
+    const warmth = value => pack.recommendRow('photography', withCover(value), 0, []).reduce((n, slot) => n + read(slot).warmth, 0) / 4;
+    assert.ok(warmth(cover('#e1782a')) > warmth(cover('#2a3ea0', { hue: 230, warmth: 0, lightness: 0.25 })) + 0.15, 'a warm cover is dealt warmer effects than a cool one');
+
+    const sad = { attitude: 'lonely', sadness: 3, intensity: 2 };
+    for (let generation = 0; generation < 9; generation++) {
+      for (const slot of pack.recommendRow('photography', profile('Pop', 'tears fall like rain tonight alone', 'a'.repeat(64), sad), generation, [])) assert.ok(read(slot).lightness < 0.6, `${slot.effectId} is too bright for sad words`);
+    }
   } finally { await server.close(); }
 });
 

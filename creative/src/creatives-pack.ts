@@ -13,8 +13,8 @@ import {
 } from './ad-fonts';
 import { STYLE_NAMES, type AdPunchStyle } from './ad-punch';
 import { dustColors, type DustColors } from './dust-colors';
-import { PHOTO_FILTERS, PHOTO_FILTER_NAMES, type PhotoFilterId } from './pack-filter';
 import bankData from './look-lab/bank.json';
+import effectsData from '../punch-plates/effects/effects.json';
 import { laneFromMeaning, leansDeep, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
@@ -23,6 +23,10 @@ import type { CoverRead } from './cover-palette';
 
 type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[]; read: LookRead };
 const BANK_LOOKS = bankData as BankLook[];
+
+/** One of our approved photo with a Shaders Pro image effect baked on it (punch-plates/effects), as measured when it was baked. */
+type PhotoEffect = { id: string; title: string; collection: string; mood: string; lightness: number; saturation: number; warmth: number; palette: { hex: string; share: number }[] };
+const PHOTO_EFFECTS = effectsData as PhotoEffect[];
 
 export type PackFamily = 'ad_punch';
 
@@ -54,14 +58,14 @@ export type CreativesPackSlot = {
   font: AdFont;
   fontSecondary: AdFont;
   layout: AdLayout;
-  /** Dust and Filter: the two colours of this card. */
+  /** Dust: the two colours of this card. */
   colors?: DustColors;
-  /** Dust and Filter: the approved photo this card is drawn from, until the person uses their own. */
+  /** Dust: the approved photo this card is drawn from, until the person uses their own. */
   plateId?: string;
-  /** Filter: which arrangement of the person's video or GIF this card plays (its cut speed follows the card's place). */
+  /** Our photography: which arrangement of the person's video or GIF this card plays (its cut speed follows the card's place). */
   cutSeed?: number;
-  /** Filter: how the person's photo is treated. */
-  filter?: PhotoFilterId;
+  /** Our photography: the baked effect on our approved photo (`punch-plates/effects/{id}.jpg`), until the person uses their own picture. */
+  effectId?: string;
   /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
   bankId?: string;
   typeStyle?: TypeStyleId;
@@ -246,14 +250,14 @@ export type PlateRef = { id: string; cutout: boolean };
 
 /**
  * One row of the shelf for this song. `generation` is that row's own Refresh count. `plates` are the approved
- * photos Our photography and Dust are drawn from (the person's own picture, if any, replaces them in the app).
+ * photos Dust is drawn from (the person's own picture, if any, replaces them in the app).
  */
 export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = []): CreativesPackSlot[] {
   const { intent, meaning, lane } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
   const slots = {
-    photography: () => photographySlots(lane, intent, seed, cover?.hue, plates.map(plate => plate.id)),
+    photography: () => photographySlots(lane, intent, seed, dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation)),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     pulise: () => puliseSlots(lane, intent, seed),
     dust: () => dustSlots(lane, intent, seed, cover?.hue, plates.filter(plate => plate.cutout).map(plate => plate.id)),
@@ -262,12 +266,12 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   return grade ? slots.map(slot => ({ ...slot, grade })) : slots;
 }
 
-/** Colours for card `index` of a Dust or Filter row; when the cover has a colour, the first two cards grow from it. */
+/** Colours for card `index` of a Dust row; when the cover has a colour, the first two cards grow from it. */
 function cardColors(seed: string, index: number, coverHue: number | null | undefined) {
   return dustColors(hashPick(seed, `colors:${index}`, 1_000_000), coverHue != null && index < 2 ? coverHue : undefined);
 }
 
-/** With more approved photos the seed deals a different one to each card; with none the card waits for the person's own. */
+/** With more approved photos the seed deals a different one to each Dust card; with none the card waits for the person's own. */
 function dealt(plateIds: readonly string[], seed: string, index: number): { plateId?: string } {
   if (!plateIds.length) return {};
   return { plateId: seededOrder(plateIds, seed, id => id)[index % plateIds.length] };
@@ -282,19 +286,73 @@ function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, c
   }));
 }
 
-/** Our photography: an approved photo (or the person's own) through four treatments. */
-function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined, plateIds: readonly string[]): CreativesPackSlot[] {
+/**
+ * The moods of baked effect each lane welcomes first. Calm music is not first dealt the harsh looks (glitch, techno,
+ * retro, graphic, bold); club music is. A lane with no entry welcomes every look.
+ */
+const EFFECT_MOODS: Partial<Record<MoodLane, readonly string[]>> = {
+  gospel: ['soft', 'dreamy', 'warm', 'bright', 'editorial', 'fresh', 'playful'],
+  quiet: ['soft', 'dreamy', 'moody', 'cool', 'editorial', 'warm'],
+  dark: ['moody', 'graphic', 'techno', 'cool', 'editorial', 'bold'],
+  techno: ['techno', 'glitchy', 'graphic', 'bold', 'retro', 'cool'],
+  party: ['bold', 'playful', 'fresh', 'retro', 'warm', 'bright', 'glitchy'],
+};
+
+/**
+ * Every baked effect, best first for this song: the ones the lane welcomes, then the ones closest to the cover's colours,
+ * with the song's seed shuffling the rest. Sad or angry words never sit on a bright picture (the same "match" policy as the backgrounds).
+ */
+function rankEffects(lane: MoodLane, meaning: LyricMeaning | null, cover: CoverRead | null, song: string): PhotoEffect[] {
+  const welcome = EFFECT_MOODS[lane];
+  const pool = leansDeep(meaning) ? PHOTO_EFFECTS.filter(effect => effect.lightness < 0.6) : PHOTO_EFFECTS;
+  const score = (effect: PhotoEffect) => (!welcome || welcome.includes(effect.mood) ? 1 : 0)
+    + (cover ? coverFit(cover, effect) : 0)
+    + 0.3 * hashPick(song, effect.id, 1000) / 1000;
+  return [...pool].sort((a, b) => score(b) - score(a));
+}
+
+/**
+ * The ranked effects cut into hands of four, none with two from the same collection, so each Refresh deals four looks
+ * that no earlier hand had. The last hands are topped up from the best, so every hand still has four.
+ */
+function effectHands(ranked: readonly PhotoEffect[]): PhotoEffect[][] {
+  const left = [...ranked];
+  const hands: PhotoEffect[][] = [];
+  while (left.length) {
+    const hand: PhotoEffect[] = [];
+    const draw = (from: readonly PhotoEffect[]) => {
+      for (const effect of from) {
+        if (hand.length === ROW_SIZE) return;
+        if (!hand.some(held => held.collection === effect.collection)) hand.push(effect);
+      }
+    };
+    draw(left);
+    for (const effect of hand) left.splice(left.indexOf(effect), 1);
+    draw(ranked);
+    hands.push(hand);
+  }
+  return hands;
+}
+
+/** The four effects of one generation of Our photography. After the last hand the deal starts again. */
+function dealEffects(lane: MoodLane, meaning: LyricMeaning | null, cover: CoverRead | null, song: string, generation: number): PhotoEffect[] {
+  const hands = effectHands(rankEffects(lane, meaning, cover, song));
+  return hands[generation % hands.length];
+}
+
+/** Our photography: our approved photo (or the person's own) as four different baked effects, each with its own lyric type. */
+function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, effects: readonly PhotoEffect[]): CreativesPackSlot[] {
   const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
-  const faces = dealFaces(lane, intent, seed, 'photography', PHOTO_FILTERS.map((_, index) => typeNeeds(types[index % types.length])));
-  return PHOTO_FILTERS.map((filter, index) => ({
+  const typeOf = (index: number) => types[index % types.length];
+  const faces = dealFaces(lane, intent, seed, 'photography', effects.map((_, index) => typeNeeds(typeOf(index))));
+  return effects.map((effect, index) => ({
     ...adPunchSlot('filter', index, intent, seed, lane, 'photography', faces[index]),
-    id: `ad-filter-${filter}-${hashPick(seed, 'gen', 997).toString(36)}`,
-    label: PHOTO_FILTER_NAMES[filter],
-    filter,
-    colors: cardColors(seed, index, coverHue),
-    typeStyle: types[index % types.length],
+    id: `ad-photography-${effect.id}-${hashPick(seed, 'gen', 997).toString(36)}`,
+    label: effect.title,
+    reason: `${lane} · ${effect.mood} · ${effect.title} · ${typeOf(index)}`,
+    effectId: effect.id,
+    typeStyle: typeOf(index),
     cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
-    ...dealt(plateIds, seed, index),
   }));
 }
 

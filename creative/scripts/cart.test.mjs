@@ -63,7 +63,9 @@ test('nothing saved, damaged or from an old version is no carts', () => {
   assert.deepEqual(readCarts(null), []);
   assert.deepEqual(readCarts('{nope'), []);
   assert.deepEqual(readCarts(JSON.stringify({ version: 1, songKey: 's', items: [item('a')] })), []);
-  assert.deepEqual(readCarts(JSON.stringify({ version: 2, carts: 'x' })), []);
+  // Version 2 carts hold Our photography cards drawn by a live filter, which no longer exists.
+  assert.deepEqual(readCarts(JSON.stringify({ version: 2, carts: [{ songKey: 's:0', items: [item('a')] }] })), []);
+  assert.deepEqual(readCarts(JSON.stringify({ version: 3, carts: 'x' })), []);
 });
 
 test('one damaged cart is dropped without costing the others', () => {
@@ -72,7 +74,7 @@ test('one damaged cart is dropped without costing the others', () => {
   for (const damage of [{ thumb: undefined }, { thumb: 'data:image/png;base64,AAAA' }, { thumb: `data:image/jpeg;base64,${'A'.repeat(70_000)}` }, { row: 'nowhere' }, { id: 7 }]) {
     assert.deepEqual(readCarts(writeCarts([bad(damage), good])), [good]);
   }
-  assert.deepEqual(readCarts(JSON.stringify({ version: 2, carts: [{ songKey: 'e:0', items: [] }, good, good] })), [good]);
+  assert.deepEqual(readCarts(JSON.stringify({ version: 3, carts: [{ songKey: 'e:0', items: [] }, good, good] })), [good]);
 });
 
 test('a cart over the limit is not trusted', () => {

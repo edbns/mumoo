@@ -7,7 +7,8 @@
  * Reads:  punch-plates/masters/*.jpg|png|webp (+ optional *.json sidecar)
  *         punch-plates/cutouts/{id}.png  the subject's cut-out mask (Dust needs one; see scripts/prepare-sample.mjs)
  * Writes: punch-plates/out/{id}.jpg, {id}-thumb.jpg, {id}.cut.png, plates.json
- *         public/punch-plates/  (Vite/Netlify static copy — not committed)
+ *         public/punch-plates/  (Vite/Netlify static copy — not committed), with punch-plates/looks → looks/ and
+ *         punch-plates/effects/{id}.jpg → effects/ (Our photography's baked looks)
  *
  * Masters stay local. Only small proxies are served.
  */
@@ -116,16 +117,21 @@ function publish(outBase) {
   for (const name of readdirSync(outBase)) {
     copyFileSync(join(outBase, name), join(publicDir, name));
   }
-  // Look Lab output (Shaders-baked looks) lives beside masters and is republished every build.
-  const looksSrc = join(root, 'punch-plates', 'looks');
-  if (existsSync(looksSrc)) {
-    const looksOut = join(publicDir, 'looks');
-    mkdirSync(looksOut, { recursive: true });
-    for (const name of readdirSync(looksSrc)) {
-      if (/\.jpe?g$/i.test(name)) copyFileSync(join(looksSrc, name), join(looksOut, name));
-    }
-    console.log('published looks →', looksOut);
-  }
+  // Baked Shaders looks live beside the masters and are republished every build: the Look Lab's backgrounds, and the
+  // Photo Lab's effects on our photo (files starting with `_` are contact sheets for people, not for the site).
+  publishJpegs('looks', name => /\.jpe?g$/i.test(name));
+  publishJpegs('effects', name => /^[^_].*\.jpe?g$/i.test(name));
+}
+
+/** Copies the JPEGs of `punch-plates/{folder}` that `wanted` accepts to `public/punch-plates/{folder}`. */
+function publishJpegs(folder, wanted) {
+  const from = join(root, 'punch-plates', folder);
+  if (!existsSync(from)) return;
+  const to = join(publicDir, folder);
+  mkdirSync(to, { recursive: true });
+  const names = readdirSync(from).filter(wanted);
+  for (const name of names) copyFileSync(join(from, name), join(to, name));
+  console.log(`published ${names.length} ${folder} →`, to);
 }
 
 function main() {

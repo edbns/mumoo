@@ -318,7 +318,7 @@ function App() {
   const checkingPictures = cart.items.some(item => item.uploadId !== null) && (uploads.pending || (uploads.signedIn && uploads.list === null));
   const lines: CartLine[] = cart.items.map(item => ({
     item,
-    title: `${SHELF_ROWS.find(row => row.id === item.row)?.title ?? ''} · ${item.slot.label}`,
+    title: `${SHELF_ROWS.find(row => row.id === item.row)?.title ?? ''} · ${item.uploadId === null ? item.slot.label : 'Your picture'}`,
     available: item.uploadId === null || checkingPictures
       || (uploads.list ?? []).some(candidate => candidate.id === item.uploadId && candidate.status === 'ready' && candidate.url),
   }));
