@@ -62,7 +62,30 @@ PULISE_NEONS = {
     "nitro", "plasma", "flare", "mojito", "grape", "sunset", "bolt", "rave",
     "gamma", "fuchsia", "opal", "hyper", "scarlet", "punch", "lemonade", "frost",
 }
-TYPE_STYLES = {"typewriter", "karaoke", "stack", "minimal", "editorial", "outline"}
+# Lyric type styles, display fonts and Dust looks the page knows (creative/src/pack-type.ts, font-catalog.ts, dust-look.ts; a test keeps these in step).
+TYPE_STYLES = {
+    "typewriter", "karaoke", "stack", "minimal", "editorial", "outline",
+    "bounce", "wave", "glitch", "rotate", "stretch", "split", "wipe", "flicker",
+    "zoom", "scatter", "jitter", "echo", "slide", "tilt",
+}
+FONTS = {
+    "Anton", "Bebas Neue", "Archivo Black", "Dela Gothic One", "Big Shoulders Display", "League Gothic", "Staatliches",
+    "Bowlby One", "Alfa Slab One", "Black Ops One", "Barlow Condensed", "Oswald", "Teko", "Shrikhand", "Chango", "Bangers",
+    "Righteous", "Bungee", "Rubik Spray Paint", "Sedgwick Ave Display", "Permanent Marker", "Caveat Brush", "Pacifico",
+    "Lobster", "Kaushan Script", "Fredoka", "Baloo 2", "Nunito", "Abril Fatface", "DM Serif Display", "Bodoni Moda",
+    "Gloock", "Rozha One", "Fraunces", "UnifrakturCook", "Pirata One", "Metal Mania", "Audiowide", "Rubik Mono One",
+    "Orbitron", "Oxanium", "Chakra Petch", "Zen Dots", "Wallpoet", "Rubik Glitch", "Press Start 2P", "Silkscreen",
+}
+# A Dust card's look: how its grains and its word move, where the word sits, how coarse and how wild the card is.
+DUST_LOOK = {
+    "flow": {"burst", "rise", "fall", "left", "right", "swirl", "implode"},
+    "enter": {"burst", "rise", "fall", "left", "right", "swirl", "implode"},
+    "place": {"low", "high"},
+    "align": {"center", "left", "right"},
+    "scale": {"small", "medium", "large"},
+    "grain": {"fine", "medium", "coarse"},
+    "energy": {"calm", "steady", "wild"},
+}
 # What the lyrics do to colour and beat hits: five numbers, each inside the range the app can produce.
 GRADE_RANGES = {"saturation": (0.55, 1.15), "warmth": (-1, 1), "brightness": (0.8, 1), "contrast": (1, 1.1), "calm": (0, 1)}
 
@@ -229,6 +252,16 @@ def parse_meta(raw: str) -> dict:
     for key in ("style", "font", "fontSecondary"):
         if not isinstance(opts.get(key), str) or len(opts[key]) > 60:
             raise ValueError(key)
+    if opts["font"] not in FONTS or opts["fontSecondary"] not in FONTS:
+        raise ValueError("font")
+    layout = opts.get("layout")
+    if not isinstance(layout, dict) or not {"rotate", "scaleBias", "cut"} <= set(layout) <= {"rotate", "scaleBias", "cut", "seed", "dust"}:
+        raise ValueError("layout")
+    if not all(type(layout[key]) in (int, float) for key in ("rotate", "scaleBias", "cut")) or ("seed" in layout and type(layout["seed"]) is not int):
+        raise ValueError("layout")
+    look = layout.get("dust")
+    if look is not None and not (isinstance(look, dict) and set(look) == set(DUST_LOOK) and all(look[key] in allowed for key, allowed in DUST_LOOK.items())):
+        raise ValueError("layout")
     if "bankId" in opts and (not isinstance(opts["bankId"], str) or not ID_RE.match(opts["bankId"])):
         raise ValueError("bankId")
     if "plateId" in opts and (not isinstance(opts["plateId"], str) or not ID_RE.match(opts["plateId"])):

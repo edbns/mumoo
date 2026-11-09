@@ -2,12 +2,13 @@ import type { CreativeProfileV1 } from './creative-profile';
 import type { PictureUse } from './uploads';
 import { deriveMusicIntent, type MusicIntentV1 } from './music-intent';
 import {
+  dealFonts,
   fontsForLane,
   pickLayoutSeed,
-  pickPackFont,
   pickSecondaryFont,
   type AdFont,
   type AdLayout,
+  type FontNeed,
   type MoodLane,
 } from './ad-fonts';
 import { STYLE_NAMES, type AdPunchStyle } from './ad-punch';
@@ -16,7 +17,8 @@ import { PHOTO_FILTERS, PHOTO_FILTER_NAMES, type PhotoFilterId } from './pack-fi
 import bankData from './look-lab/bank.json';
 import { laneFromMeaning, leansDeep, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
-import { TYPE_STYLES, type TypeStyleId } from './pack-type';
+import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
+import { dustLooks } from './dust-look';
 import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
 import { puliseLooks, type PuliseLook } from './pulise-look';
@@ -103,16 +105,27 @@ export function moodLane(intent: MusicIntentV1 | null, genre: string): MoodLane 
  * Typography is a mood decision. "match" policy: the style always agrees with what the song feels like.
  * Order is a preference, the seed rotates which style leads.
  */
-const TYPE_ALLOW: Record<MoodLane, readonly TypeStyleId[]> = {
-  gospel: ['editorial', 'minimal', 'typewriter', 'karaoke'],
-  quiet: ['minimal', 'editorial', 'typewriter', 'karaoke'],
-  dark: ['typewriter', 'outline', 'minimal', 'editorial'],
-  techno: ['stack', 'outline', 'karaoke', 'typewriter'],
-  party: ['stack', 'karaoke', 'outline', 'typewriter'],
-  general: ['karaoke', 'stack', 'editorial', 'typewriter', 'minimal', 'outline'],
+export const TYPE_ALLOW: Record<MoodLane, readonly TypeStyleId[]> = {
+  gospel: ['editorial', 'minimal', 'typewriter', 'karaoke', 'slide', 'wipe', 'wave'],
+  quiet: ['minimal', 'editorial', 'typewriter', 'karaoke', 'slide', 'wipe', 'wave', 'jitter'],
+  dark: ['typewriter', 'outline', 'minimal', 'editorial', 'glitch', 'flicker', 'wipe', 'split', 'scatter', 'zoom'],
+  techno: ['stack', 'outline', 'karaoke', 'typewriter', 'glitch', 'stretch', 'split', 'zoom', 'flicker', 'scatter', 'echo', 'bounce'],
+  party: ['stack', 'karaoke', 'outline', 'typewriter', 'bounce', 'stretch', 'rotate', 'zoom', 'echo', 'wave', 'tilt', 'scatter', 'jitter', 'slide'],
+  general: TYPE_STYLES,
 };
 
-const SOFT_FONTS: readonly AdFont[] = ['Abril Fatface', 'Oswald', 'Bebas Neue'];
+/** Dust and Pulise draw capitals from thick strokes, so their faces must be heavy and set in caps. */
+const HEAVY_CAPS_ROW: readonly (readonly FontNeed[])[] = Array.from({ length: ROW_SIZE }, () => ['heavy', 'caps']);
+
+type Faces = { font: AdFont; fontSecondary: AdFont };
+
+/** The faces of one row of cards: none shared, each able to do what its card's type asks (`needs[i]` for card i). */
+function dealFaces(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, row: ShelfRow, needs: readonly (readonly FontNeed[])[]): Faces[] {
+  return dealFonts(lane, intent?.vibe ?? null, seed, row, needs).map((font, index) => ({
+    font,
+    fontSecondary: pickSecondaryFont(font, seed, `${row}:${index}`, fontsForLane(lane, needs[index])),
+  }));
+}
 
 /**
  * Which tagged looks a lane may draw from. Club music is not one colour: a techno or house song also
@@ -167,7 +180,8 @@ function bankSlots(
       pairs.push({ look, type });
     });
   }
-  return pairs.map(({ look, type }, index) => bankCard(look.slug, look.title, type, index, lane, meaning, intent, seed));
+  const faces = dealFaces(lane, intent, seed, 'looks', pairs.map(pair => typeNeeds(pair.type)));
+  return pairs.map(({ look, type }, index) => bankCard(look.slug, look.title, type, index, lane, meaning, intent, seed, faces[index]));
 }
 
 /** One card on the Look Bank world: a baked background image plus a lyric type style. */
@@ -180,13 +194,10 @@ function bankCard(
   meaning: LyricMeaning | null,
   intent: MusicIntentV1 | null,
   seed: string,
+  faces: Faces,
 ): CreativesPackSlot {
-  const base = adPunchSlot('bank', index, intent, seed, lane, 'looks');
-  // Calm songs never get techy faces: the display font comes from a soft bank.
-  const soft = lane === 'gospel' || lane === 'quiet' ? seededOrder(SOFT_FONTS, `${seed}:${index}`, font => font) : null;
   return {
-    ...base,
-    ...(soft ? { font: soft[0], fontSecondary: soft[1] } : {}),
+    ...adPunchSlot('bank', index, intent, seed, lane, 'looks', faces),
     id: `ad-bank-${bankId}-${type}-${hashPick(seed, 'gen', 997).toString(36)}`,
     label: `${type[0].toUpperCase()}${type.slice(1)} · ${title}`,
     reason: `${lane} · lyrics ${meaning?.attitude ?? 'unread'} · ${title} · ${type}`,
@@ -202,11 +213,10 @@ function adPunchSlot(
   seed: string,
   lane: MoodLane,
   row: ShelfRow,
+  faces: Faces,
 ): CreativesPackSlot {
   const salt = `${style}:${index}`;
-  const bank = fontsForLane(lane);
-  const font = pickPackFont(lane, intent?.vibe ?? null, seed, salt);
-  const fontSecondary = pickSecondaryFont(font, seed, salt, bank);
+  const { font } = faces;
   return {
     id: `ad-${style}-${index}-${hashPick(seed, 'gen', 997).toString(36)}-${hashPick(seed, salt, 0xffff).toString(16)}`,
     family: 'ad_punch',
@@ -214,8 +224,7 @@ function adPunchSlot(
     label: STYLE_NAMES[style],
     reason: intent ? `${lane} · ${intent.vibe} · ${font} · ${STYLE_NAMES[style]}` : `${lane} · ${font} · ${STYLE_NAMES[style]}`,
     style,
-    font,
-    fontSecondary,
+    ...faces,
     layout: pickLayoutSeed(seed, salt),
   };
 }
@@ -269,18 +278,26 @@ function dealt(plateIds: readonly string[], seed: string, index: number): { plat
 }
 
 function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined, plateIds: readonly string[]): CreativesPackSlot[] {
-  return Array.from({ length: ROW_SIZE }, (_, index) => ({
-    ...adPunchSlot('dust', index, intent, seed, lane, 'dust'),
-    colors: cardColors(seed, index, coverHue),
-    ...dealt(plateIds, seed, index),
-  }));
+  const faces = dealFaces(lane, intent, seed, 'dust', HEAVY_CAPS_ROW);
+  const looks = dustLooks(lane, seed, ROW_SIZE);
+  return looks.map((look, index) => {
+    const slot = adPunchSlot('dust', index, intent, seed, lane, 'dust', faces[index]);
+    return {
+      ...slot,
+      layout: { ...slot.layout, dust: look },
+      reason: `${slot.reason} · ${look.flow} · ${look.enter} · ${look.energy}`,
+      colors: cardColors(seed, index, coverHue),
+      ...dealt(plateIds, seed, index),
+    };
+  });
 }
 
 /** Our photography: an approved photo (or the person's own) through four treatments. */
 function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined, plateIds: readonly string[]): CreativesPackSlot[] {
   const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
+  const faces = dealFaces(lane, intent, seed, 'photography', PHOTO_FILTERS.map((_, index) => typeNeeds(types[index % types.length])));
   return PHOTO_FILTERS.map((filter, index) => ({
-    ...adPunchSlot('filter', index, intent, seed, lane, 'photography'),
+    ...adPunchSlot('filter', index, intent, seed, lane, 'photography', faces[index]),
     id: `ad-filter-${filter}-${hashPick(seed, 'gen', 997).toString(36)}`,
     label: PHOTO_FILTER_NAMES[filter],
     filter,
@@ -293,15 +310,12 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
 
 /** Four Pulise cards: each its own face and neon set, and each opening on a different colour. */
 function puliseSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string): CreativesPackSlot[] {
-  const faces = seededOrder(fontsForLane(lane), seed, font => font);
+  const faces = dealFaces(lane, intent, seed, 'pulise', HEAVY_CAPS_ROW);
   const looks = puliseLooks(seed, ROW_SIZE);
   return looks.map((pulise, index) => {
-    const slot = adPunchSlot('pulise', index, intent, seed, lane, 'pulise');
-    const font = faces[index % faces.length];
+    const slot = adPunchSlot('pulise', index, intent, seed, lane, 'pulise', faces[index]);
     return {
       ...slot,
-      font,
-      fontSecondary: pickSecondaryFont(font, seed, `pulise:${index}`, fontsForLane(lane)),
       layout: { ...slot.layout, cut: index },
       pulise,
       label: `Pulise · ${pulise.neon[0].toUpperCase()}${pulise.neon.slice(1)}`,

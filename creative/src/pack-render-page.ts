@@ -4,7 +4,6 @@
  * matches what the user picked. Deterministic: frame N depends only on the opts.
  */
 import { DURATION_MS, FPS, HEIGHT, WIDTH } from './composition';
-import { loadDisplayFonts } from './ad-fonts';
 import { createPackRenderer, type PackRenderer, type PackRendererOpts } from './pack-renderer';
 
 const FRAMES = Math.round((DURATION_MS / 1000) * FPS);
@@ -17,8 +16,6 @@ type PackFramePage = {
 
 const api: PackFramePage = {
   async prepare(opts) {
-    const sample = opts.cues.map(cue => cue.text).join(' ') || opts.fallbackText;
-    await loadDisplayFonts(sample);
     renderer?.destroy();
     // A fresh canvas per prepare(): a destroyed Pixi app leaves its GL context on the old element.
     document.getElementById('c')?.remove();

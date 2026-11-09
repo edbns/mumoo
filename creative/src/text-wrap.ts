@@ -1,4 +1,4 @@
-import type { AdFont } from './ad-fonts';
+import { cssFont, displayFace, type AdFont } from './ad-fonts';
 
 /** Wrap text to a pixel width, breaking inside a word (by grapheme) only when a single word is too wide. */
 export function wrapScreenText(ctx: Pick<CanvasRenderingContext2D, 'measureText'>, value: string, width: number): string[] {
@@ -19,7 +19,7 @@ export function wrapScreenText(ctx: Pick<CanvasRenderingContext2D, 'measureText'
   return lines;
 }
 
-/** Fit uppercase display copy into a max width using an OFL display face. */
+/** Fit display copy into a max width using one of the bundled display faces. */
 export function wrapFit(
   ctx: Pick<CanvasRenderingContext2D, 'font' | 'measureText'>,
   value: string,
@@ -31,7 +31,7 @@ export function wrapFit(
   let size = startSize;
   let lines: string[] = [];
   do {
-    ctx.font = `400 ${size}px "${font}"`;
+    ctx.font = cssFont(displayFace(font), size);
     lines = wrapScreenText(ctx, value, maxWidth);
     if (lines.length <= maxLines && lines.every(line => ctx.measureText(line).width <= maxWidth)) break;
     if (size <= 28) break;

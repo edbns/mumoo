@@ -94,10 +94,12 @@ test('Dust only uses approved photos that have a cut-out, and waits for the pers
 test('the brain matches type to mood (gospel is never stack/outline, club never minimal)', async () => {
   const { server, pack } = await load();
   try {
+    // Calm music never slams, club music never whispers; the full lists are checked in type-fx.test.mjs.
+    const loud = ['stack', 'outline', 'glitch', 'stretch', 'split', 'bounce', 'rotate', 'scatter', 'zoom', 'echo', 'flicker', 'tilt'];
     const gospel = shelf(pack, profile('Gospel')).filter(slot => slot.typeStyle);
-    for (const slot of gospel) assert.ok(['editorial', 'minimal', 'typewriter', 'karaoke'].includes(slot.typeStyle), slot.typeStyle);
+    for (const slot of gospel) assert.ok(!loud.includes(slot.typeStyle), slot.typeStyle);
     const club = shelf(pack, profile('Slap House')).filter(slot => slot.typeStyle);
-    for (const slot of club) assert.ok(['stack', 'outline', 'karaoke', 'typewriter'].includes(slot.typeStyle), slot.typeStyle);
+    for (const slot of club) assert.ok(!['minimal', 'editorial'].includes(slot.typeStyle), slot.typeStyle);
   } finally { await server.close(); }
 });
 
@@ -129,10 +131,10 @@ test('seeded: stable for same input, different across generations and songs', as
 test('club songs keep club fonts', async () => {
   const { server, pack } = await load();
   try {
-    const club = new Set(['Anton', 'Bebas Neue', 'Audiowide', 'Rubik Mono One', 'Archivo Black', 'Dela Gothic One']);
+    const { DISPLAY_FACES } = await server.ssrLoadModule('/src/font-catalog.ts');
+    const clubMoods = ['brutal', 'techno', 'pixel', 'graffiti'];
     for (const slot of shelf(pack, profile('Slap House'))) {
-      assert.ok(club.has(slot.font), slot.font);
-      assert.ok(club.has(slot.fontSecondary), slot.fontSecondary);
+      for (const font of [slot.font, slot.fontSecondary]) assert.ok(DISPLAY_FACES[font].moods.some(mood => clubMoods.includes(mood)), font);
     }
   } finally { await server.close(); }
 });

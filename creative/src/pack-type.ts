@@ -1,5 +1,5 @@
 /**
- * Lyric type system — six trend styles, driven by word-level timing.
+ * Lyric type system — twenty styles, driven by word-level timing.
  * Deterministic: output depends only on the frame inputs (shelf and cloud agree).
  *
  *  typewriter  characters appear with a blinking caret
@@ -8,52 +8,57 @@
  *  minimal     quiet lowercase subtitle, line by line
  *  editorial   serif italic, lines slide up through a mask
  *  outline     hollow letters that fill as each word lands
+ *  + the motion styles of lyric-fx.ts (bounce, wave, glitch, rotate, stretch, split, wipe, flicker, zoom,
+ *    scatter, jitter, echo, slide, tilt), drawn by pack-fx.ts
  */
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
-import type { AdFont } from './ad-fonts';
-import { textMeasureCtx } from './pack-text';
+import { displayFace, setCase, type AdFont, type FaceStyle, type FontNeed } from './ad-fonts';
+import { FIXED_FACES } from './font-catalog';
+import { FX_STYLES, FX_TRAITS, type FxStyleId } from './lyric-fx';
+import { createFxPainter } from './pack-fx';
+import { activeIndex, clamp01, easeOut, layoutWords, makeText, measure, type TimedWord, type TypeFrame } from './type-kit';
 
-export const TYPE_STYLES = ['typewriter', 'karaoke', 'stack', 'minimal', 'editorial', 'outline'] as const;
+export type { TimedWord, TypeFrame };
+
+const CLASSIC_STYLES = ['typewriter', 'karaoke', 'stack', 'minimal', 'editorial', 'outline'] as const;
+type ClassicStyle = (typeof CLASSIC_STYLES)[number];
+export const TYPE_STYLES = [...CLASSIC_STYLES, ...FX_STYLES] as const;
 export type TypeStyleId = (typeof TYPE_STYLES)[number];
 
-export type TimedWord = { text: string; startMs: number; endMs: number };
+const isMotion = (style: TypeStyleId): style is FxStyleId => style in FX_TRAITS;
 
-export type TypeFrame = {
-  ms: number;
-  words: readonly TimedWord[];
-  beat: number;
-  energy: number;
-  ink: string;
-  accent: string;
-  /** Opposite of ink: used for the soft shadow that keeps type readable on busy images. */
-  shadow: string;
-  /** Display fonts picked by the brain for the kinetic styles. */
-  font: AdFont;
-  fontSecondary: AdFont;
+const fixed = (family: keyof typeof FIXED_FACES): FaceStyle => ({ family, weight: FIXED_FACES[family].weight, italic: FIXED_FACES[family].italic });
+
+type Fonts = Pick<TypeFrame, 'font' | 'fontSecondary'>;
+
+/** The face a classic style draws with: fixed by the style (mood-specific) or chosen by the brain. */
+const FACES: Record<ClassicStyle, (fonts: Fonts) => FaceStyle> = {
+  typewriter: () => fixed('Space Mono'),
+  karaoke: f => displayFace(f.font),
+  stack: f => displayFace(f.fontSecondary),
+  minimal: () => fixed('Outfit'),
+  editorial: () => fixed('Playfair Display'),
+  outline: f => displayFace(f.font),
 };
 
-type Face = { family: string; weight: number; italic?: boolean };
+/** The font families a style draws with, so they can be fetched before the first frame. */
+export function typeFamilies(style: TypeStyleId, fonts: Fonts): string[] {
+  return [isMotion(style) ? fonts.font : FACES[style](fonts).family];
+}
 
-/** Fonts that are fixed by the style (mood-specific, not random). */
-const FACES: Record<TypeStyleId, (frame: TypeFrame) => Face> = {
-  typewriter: () => ({ family: 'Space Mono', weight: 700 }),
-  karaoke: f => ({ family: f.font, weight: 400 }),
-  stack: f => ({ family: f.fontSecondary, weight: 400 }),
-  minimal: () => ({ family: 'Outfit', weight: 400 }),
-  editorial: () => ({ family: 'Playfair Display', weight: 700, italic: true }),
-  outline: f => ({ family: f.font, weight: 400 }),
-};
+/** What a style needs of the faces dealt to its card. Styles with a fixed face need nothing. */
+export function typeNeeds(style: TypeStyleId): readonly FontNeed[] {
+  if (isMotion(style)) return FX_TRAITS[style].needs;
+  return style === 'outline' ? ['heavy'] : [];
+}
 
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-const easeOut = (v: number) => 1 - Math.pow(1 - clamp01(v), 3);
-
-function caseFor(style: TypeStyleId, text: string): string {
+function caseFor(style: ClassicStyle, text: string, font: AdFont): string {
   switch (style) {
     case 'karaoke':
     case 'stack':
     case 'outline':
-      return text.toLocaleUpperCase();
+      return setCase(font, text);
     case 'minimal':
       return text.toLocaleLowerCase();
     case 'editorial':
@@ -61,93 +66,6 @@ function caseFor(style: TypeStyleId, text: string): string {
     default:
       return text;
   }
-}
-
-function fontString(face: Face, size: number): string {
-  return `${face.italic ? 'italic ' : ''}${face.weight} ${size}px "${face.family}"`;
-}
-
-function measure(face: Face, size: number, text: string): number {
-  const ctx = textMeasureCtx();
-  ctx.font = fontString(face, size);
-  return ctx.measureText(text).width;
-}
-
-type Item = { index: number; text: string; x: number; w: number };
-type Line = { items: Item[]; width: number };
-type Layout = { size: number; lines: Line[]; lineHeight: number };
-
-/** Greedy word wrap at the largest size that fits `maxLines` × `maxWidth`. */
-function layoutWords(
-  words: readonly string[],
-  face: Face,
-  start: number,
-  maxWidth: number,
-  maxLines: number,
-  lineGap: number,
-): Layout {
-  let size = start;
-  for (;;) {
-    const space = measure(face, size, ' ');
-    const lines: Line[] = [];
-    let current: Item[] = [];
-    let x = 0;
-    words.forEach((text, index) => {
-      const w = measure(face, size, text);
-      if (current.length && x + space + w > maxWidth) {
-        lines.push({ items: current, width: x });
-        current = [];
-        x = 0;
-      }
-      const at = current.length ? x + space : 0;
-      current.push({ index, text, x: at, w });
-      x = at + w;
-    });
-    if (current.length) lines.push({ items: current, width: x });
-    const widest = Math.max(0, ...lines.map(line => line.width));
-    if ((lines.length <= maxLines && widest <= maxWidth) || size <= 28) {
-      for (const line of lines) for (const item of line.items) item.x -= line.width / 2;
-      return { size, lines, lineHeight: size * lineGap };
-    }
-    size = Math.max(28, size - 6);
-  }
-}
-
-type TextOpts = {
-  size: number;
-  color: string;
-  face: Face;
-  alpha?: number;
-  anchorX?: number;
-  stroke?: { color: string; width: number };
-  hollow?: boolean;
-};
-
-let shadowColor = '#000000';
-
-function makeText(label: string, o: TextOpts): Text {
-  const text = new Text({
-    text: label,
-    style: {
-      fontFamily: o.face.family,
-      fontSize: o.size,
-      fontWeight: String(o.face.weight) as '400',
-      fontStyle: o.face.italic ? 'italic' : 'normal',
-      fill: o.hollow ? { color: o.color, alpha: 0 } : o.color,
-      ...(o.stroke ? { stroke: { color: o.stroke.color, width: o.stroke.width, join: 'round' as const } } : {}),
-      wordWrap: false,
-      ...(o.hollow ? {} : { dropShadow: { color: shadowColor, alpha: 0.42, blur: 10, distance: 3, angle: Math.PI / 2 } }),
-    },
-  });
-  text.anchor.set(o.anchorX ?? 0.5, 0.5);
-  text.alpha = o.alpha ?? 1;
-  return text;
-}
-
-function activeIndex(words: readonly TimedWord[], ms: number): number {
-  let index = -1;
-  words.forEach((word, i) => { if (word.startMs <= ms) index = i; });
-  return index;
 }
 
 export type TypeLayer = {
@@ -158,6 +76,7 @@ export type TypeLayer = {
 
 export function createTypeLayer(): TypeLayer {
   const root = new Container();
+  const motion = createFxPainter();
 
   function clear() {
     while (root.children.length) {
@@ -167,9 +86,9 @@ export function createTypeLayer(): TypeLayer {
     }
   }
 
-  function karaoke(frame: TypeFrame, style: TypeStyleId) {
-    const face = FACES[style](frame);
-    const labels = frame.words.map(w => caseFor(style, w.text));
+  function karaoke(frame: TypeFrame) {
+    const face = FACES.karaoke(frame);
+    const labels = frame.words.map(w => caseFor('karaoke', w.text, frame.font));
     const fit = layoutWords(labels, face, 150, 900, 4, 0.98);
     const active = activeIndex(frame.words, frame.ms);
     const group = new Container();
@@ -184,6 +103,7 @@ export function createTypeLayer(): TypeLayer {
         const t = makeText(item.text, {
           size: fit.size,
           face,
+          shadow: frame.shadow,
           color: isActive ? frame.accent : frame.ink,
           alpha: started ? 1 : 0.3,
         });
@@ -218,7 +138,7 @@ export function createTypeLayer(): TypeLayer {
         text += part;
       });
       if (text) {
-        const t = makeText(text, { size: fit.size, face, color: frame.ink, anchorX: 0 });
+        const t = makeText(text, { size: fit.size, face, shadow: frame.shadow, color: frame.ink, anchorX: 0 });
         t.position.set(x0, y);
         group.addChild(t);
       }
@@ -242,11 +162,11 @@ export function createTypeLayer(): TypeLayer {
     const face = FACES.stack(frame);
     const active = Math.max(0, activeIndex(frame.words, frame.ms));
     const word = frame.words[active];
-    const label = caseFor('stack', word.text);
+    const label = caseFor('stack', word.text, frame.fontSecondary);
     const size = Math.min(380, (920 / Math.max(1, measure(face, 100, label))) * 100);
     const slam = 1 + 0.28 * (1 - easeOut((frame.ms - word.startMs) / 150));
     const group = new Container();
-    const main = makeText(label, { size, face, color: frame.ink });
+    const main = makeText(label, { size, face, shadow: frame.shadow, color: frame.ink });
     main.scale.set(slam);
     group.addChild(main);
 
@@ -260,9 +180,10 @@ export function createTypeLayer(): TypeLayer {
     for (let k = 1; k <= 2; k++) {
       const prev = frame.words[active - k];
       if (!prev) break;
-      const t = makeText(caseFor('stack', prev.text), {
+      const t = makeText(caseFor('stack', prev.text, frame.fontSecondary), {
         size: Math.max(44, size * (k === 1 ? 0.34 : 0.24)),
         face,
+        shadow: frame.shadow,
         color: frame.ink,
         alpha: k === 1 ? 0.42 : 0.2,
       });
@@ -276,7 +197,7 @@ export function createTypeLayer(): TypeLayer {
 
   function minimal(frame: TypeFrame) {
     const face = FACES.minimal(frame);
-    const labels = frame.words.map(w => caseFor('minimal', w.text));
+    const labels = frame.words.map(w => caseFor('minimal', w.text, frame.font));
     const fit = layoutWords(labels, face, 80, 820, 3, 1.4);
     const start = frame.words[0]?.startMs ?? 0;
     const group = new Container();
@@ -286,7 +207,7 @@ export function createTypeLayer(): TypeLayer {
       const lead = Math.min(...line.items.map(item => frame.words[item.index].startMs), start + row * 220);
       const a = easeOut((frame.ms - lead) / 360);
       for (const item of line.items) {
-        const t = makeText(item.text, { size: fit.size, face, color: frame.ink, alpha: a });
+        const t = makeText(item.text, { size: fit.size, face, shadow: frame.shadow, color: frame.ink, alpha: a });
         t.position.set(item.x + item.w / 2, y + (1 - a) * 14);
         group.addChild(t);
       }
@@ -302,7 +223,7 @@ export function createTypeLayer(): TypeLayer {
 
   function editorial(frame: TypeFrame) {
     const face = FACES.editorial(frame);
-    const labels = frame.words.map(w => caseFor('editorial', w.text));
+    const labels = frame.words.map(w => caseFor('editorial', w.text, frame.font));
     const fit = layoutWords(labels, face, 128, 880, 4, 1.06);
     const active = activeIndex(frame.words, frame.ms);
     const start = frame.words[0]?.startMs ?? 0;
@@ -316,6 +237,7 @@ export function createTypeLayer(): TypeLayer {
         const t = makeText(item.text, {
           size: fit.size,
           face,
+          shadow: frame.shadow,
           color: item.index === active ? frame.accent : frame.ink,
         });
         t.position.set(item.x + item.w / 2, y + (1 - slide) * fit.lineHeight * 1.05);
@@ -340,7 +262,7 @@ export function createTypeLayer(): TypeLayer {
 
   function outline(frame: TypeFrame) {
     const face = FACES.outline(frame);
-    const labels = frame.words.map(w => caseFor('outline', w.text));
+    const labels = frame.words.map(w => caseFor('outline', w.text, frame.font));
     const fit = layoutWords(labels, face, 170, 900, 3, 0.96);
     const active = activeIndex(frame.words, frame.ms);
     const total = fit.lines.length * fit.lineHeight;
@@ -354,6 +276,7 @@ export function createTypeLayer(): TypeLayer {
         const t = makeText(item.text, {
           size: fit.size,
           face,
+          shadow: frame.shadow,
           color: flash ? frame.accent : frame.ink,
           hollow: !filled,
           stroke: { color: flash ? frame.accent : frame.ink, width: Math.max(4, fit.size * 0.035) },
@@ -371,11 +294,14 @@ export function createTypeLayer(): TypeLayer {
     root,
     paint(style, frame) {
       clear();
-      shadowColor = frame.shadow;
       if (!frame.words.length) return;
+      if (isMotion(style)) {
+        root.addChild(motion.paint(style, frame));
+        return;
+      }
       switch (style) {
         case 'typewriter': typewriter(frame); break;
-        case 'karaoke': karaoke(frame, 'karaoke'); break;
+        case 'karaoke': karaoke(frame); break;
         case 'stack': stack(frame); break;
         case 'minimal': minimal(frame); break;
         case 'editorial': editorial(frame); break;

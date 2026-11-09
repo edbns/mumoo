@@ -9,13 +9,13 @@
  */
 import { Application, Assets, ColorMatrixFilter, Rectangle, Texture, type WebGLRenderer } from 'pixi.js';
 import { DURATION_MS, HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
-import type { AdFont, AdLayout } from './ad-fonts';
+import { ensureFonts, type AdFont, type AdLayout } from './ad-fonts';
 import type { AdPunchStyle } from './ad-punch';
 import { activePackCopy, packReaction, packWordEnter } from './pack-copy';
 import { createPackScene } from './pack-scenes';
 import { bankBackgroundUrl } from './pack-looks';
 import type { PhotoFilterId } from './pack-filter';
-import type { TypeStyleId } from './pack-type';
+import { typeFamilies, type TypeStyleId } from './pack-type';
 import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
 import type { PuliseLook } from './pulise-look';
@@ -59,6 +59,13 @@ export type PackRendererOpts = {
   /** Filter: how the photo is treated. */
   filter?: PhotoFilterId;
 };
+
+/** The font families a card draws with, so each is fetched (from this site) the first time a card needs it, not before. */
+function familiesFor(opts: PackRendererOpts): string[] {
+  if (opts.style === 'dust') return [opts.font];
+  if (opts.style === 'pulise') return [opts.font, opts.fontSecondary];
+  return opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [];
+}
 
 export type PackRenderer = {
   canvas: HTMLCanvasElement;
@@ -180,6 +187,7 @@ export async function createPackRenderer(
         if (!scene) throw new Error('Pack renderer was destroyed.');
         if (contextLost || surface.isContextLost()) throw new Error('The WebGL context was lost.');
         const { style } = current;
+        await ensureFonts(familiesFor(current));
         const ownPicture = style === 'dust' || style === 'filter';
         const photoUrl = current.plateId ? plateUrl(current.plateId) : current.photoUrl;
         const cutoutUrl = style === 'dust' ? (current.plateId ? plateCutoutUrl(current.plateId) : current.cutoutUrl) : undefined;
