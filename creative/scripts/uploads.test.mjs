@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { QUOTA_BYTES, usedBytes } from '../netlify/lib/allowance.mjs';
 import { db } from '../netlify/lib/person.mjs';
-import { storageReady } from '../netlify/lib/storage.mjs';
+import { putObject, storageReady } from '../netlify/lib/storage.mjs';
 import { listUploads, removeUpload, reserveMotion, saveUpload, uploadMedia } from '../netlify/lib/uploads.mjs';
 
 /** Live check of Cloudflare R2 + Postgres for people's own pictures. Needs .env.local; skipped without it. */
@@ -113,6 +113,8 @@ test('a Window photo is cut out like a Dust one, a Window video is kept as a cli
     const rows = await listUploads(userId);
     assert.deepEqual(rows.map(row => [row.id, row.use, row.status]).sort(), [[photo.id, 'window', 'ready'], [riso.id, 'riso', 'ready']].sort(), 'one picture per row');
     assert.ok(rows.every(row => row.cutoutUrl), 'a Window photo gets a cut-out, so a person can stand in front of the word');
+    // The stand-in worker only answers; the cut-out file it would have written is put where the real one puts it.
+    await putObject(`uploads/${userId}/${photo.id}.cut.png`, new Uint8Array(500).fill(7), 'image/png');
     const media = await uploadMedia(userId, photo.id);
     assert.equal(media.use, 'window');
     assert.equal(media.photo.length, 1000);
