@@ -1,5 +1,5 @@
 /**
- * Dust — a photo breaks into thousands of grains that scatter on every beat and settle back.
+ * Dust — a photo breaks into thousands of grains that fly toward the viewer on every beat and settle back.
  * The picture is sampled once into grains (where each sits, how bright the photo was there). From then on a
  * grain's place is a pure function of the clock and the beat times, so the shelf preview and the cloud render
  * draw the same frame. Two colours rule the look: the ground and the dust; the photo's own light and shadow
@@ -122,41 +122,47 @@ uniform float uDecay;
 uniform float uInvert;
 uniform float uPower;
 uniform float uLoose;
+uniform vec2 uFocus;
 uniform float uGrain;
 uniform vec3 uDust;
 uniform vec3 uShade;
 out vec2 vQuad;
 out vec4 vColor;
+out float vSoft;
 
 float hash(float n) { return fract(sin(n * 127.1) * 43758.5453); }
 
 void main() {
-  vec2 off = vec2(0.0);
-  // The break travels across the picture: left to right, bottom to top.
-  float sweep = (aOrigin.x / ${WIDTH}.0) * 0.26 + (1.0 - aOrigin.y / ${HEIGHT}.0) * 0.1;
+  // How far this grain has flown toward the viewer. Most barely move; a deep few surge past the camera.
+  float travel = 0.0;
+  float sway = 0.0;
+  // The burst spreads out from the middle of the picture like a ring.
+  float ripple = length(aOrigin - uFocus) / 1100.0 * 0.12;
   for (int k = 0; k < ${BEATS}; k++) {
-    float age = uAges[k] - sweep - aRand.z * 0.05;
+    float age = uAges[k] - ripple - aRand.z * 0.04;
     if (age <= 0.0) continue;
-    float push = (1.0 - exp(-age * 16.0)) * exp(-age * uDecay * (1.0 - 0.55 * aRand.z)) * uStrength[k];
-    float id = uIds[k];
-    float angle = -0.55 + (hash(aRand.x * 91.0 + id * 7.3) - 0.5) * 3.4;
-    float swirl = hash(aRand.y * 57.0 + id * 3.1) - 0.5;
-    float reach = push * uPower * (40.0 + 420.0 * aRand.z * aRand.z * aRand.z);
-    vec2 dir = vec2(cos(angle), sin(angle));
-    off += dir * reach + vec2(-dir.y, dir.x) * reach * 0.7 * swirl;
+    float push = (1.0 - exp(-age * 14.0)) * exp(-age * uDecay * (1.0 - 0.5 * aRand.z)) * uStrength[k];
+    float depth = 0.015 + 0.985 * pow(aRand.z, 4.0);
+    travel += push * uPower * depth;
+    sway += push * (hash(aRand.x * 91.0 + uIds[k] * 7.3) - 0.5);
   }
-  off += vec2(sin(uTime * 0.8 + aRand.x * 40.0), cos(uTime * 0.6 + aRand.y * 40.0)) * (1.5 + 5.0 * uLoose);
-  float far = clamp(length(off) / 380.0, 0.0, 1.0);
-  float radius = uGrain * (0.7 + aRand.z * 0.9) * (1.0 - 0.4 * far);
-  vec2 place = aOrigin + off + aPosition * radius;
+  // Coming closer: the grain slides away from the focus point, grows, and softens.
+  vec2 out_ = aOrigin - uFocus;
+  vec2 place = uFocus + out_ * (1.0 + travel * 1.3);
+  place += vec2(-out_.y, out_.x) / max(1.0, length(out_)) * sway * 70.0 * travel;
+  place += vec2(sin(uTime * 0.8 + aRand.x * 40.0), cos(uTime * 0.6 + aRand.y * 40.0)) * (1.5 + 5.0 * uLoose);
+  float radius = uGrain * (0.7 + aRand.z * 0.9) * (1.0 + travel * 2.4);
+  place += aPosition * radius;
   mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
   gl_Position = vec4((mvp * vec3(place, 1.0)).xy, 0.0, 1.0);
   float light = pow(smoothstep(0.0, 1.0, aRand.w), 0.8);
   // On a light ground the dust is the ink: the photo's shadows get it, so the picture still reads as a photo.
   float tone = mix(light, 1.0 - light, uInvert);
-  float alpha = mix(0.3, 1.0, tone) * (1.0 - 0.45 * far);
+  float near = smoothstep(0.15, 1.1, travel);
+  float alpha = mix(0.3, 1.0, tone) * (1.0 - 0.6 * near);
   vColor = vec4(mix(uShade, uDust, tone) * alpha, alpha);
   vQuad = aPosition;
+  vSoft = near;
 }
 `;
 
@@ -164,9 +170,11 @@ const FRAGMENT = `#version 300 es
 precision mediump float;
 in vec2 vQuad;
 in vec4 vColor;
+in float vSoft;
 out vec4 finalColor;
 void main() {
-  float shape = smoothstep(1.0, 0.45, length(vQuad));
+  // Grains close to the camera are out of focus: a soft disc, not a hard dot.
+  float shape = smoothstep(1.0, 0.45 - 0.45 * vSoft, length(vQuad));
   finalColor = vColor * shape;
 }
 `;
@@ -240,6 +248,7 @@ export function createDustWorld(points: DustPoints): DustWorld {
         uInvert: { value: 0, type: 'f32' },
         uPower: { value: 1, type: 'f32' },
         uLoose: { value: 0, type: 'f32' },
+        uFocus: { value: new Float32Array(2), type: 'vec2<f32>' },
         uGrain: { value: 2.4, type: 'f32' },
         uDust: { value: new Float32Array(3), type: 'vec3<f32>' },
         uShade: { value: new Float32Array(3), type: 'vec3<f32>' },
@@ -254,6 +263,16 @@ export function createDustWorld(points: DustPoints): DustWorld {
   root.addChild(ground, halo, grains, lyric);
 
   const uniforms = shader.resources.dust;
+  // The dust flies out from a point a little above the middle of the subject, so a face near the top moves least.
+  let fx = 0;
+  let top = HEIGHT;
+  let bottom = 0;
+  for (let n = 0; n < points.count; n++) {
+    fx += points.data[n * 6];
+    top = Math.min(top, points.data[n * 6 + 1]);
+    bottom = Math.max(bottom, points.data[n * 6 + 1]);
+  }
+  uniforms.uniforms.uFocus = new Float32Array([fx / points.count, top + (bottom - top) * 0.4]);
   let painted = '';
 
   return {
@@ -267,14 +286,14 @@ export function createDustWorld(points: DustPoints): DustWorld {
         ages[k] = index >= 0 ? (ms - beatsMs[index]) / 1000 : 0;
         ids[k] = index;
         // The bar's first beat breaks the picture up hard; the others only ruffle it.
-        strength[k] = index >= 0 && (input.downbeatsMs ?? []).some(d => Math.abs(d - beatsMs[index]) < 45) ? 1 : 0.3;
+        strength[k] = index >= 0 && (input.downbeatsMs ?? []).some(d => Math.abs(d - beatsMs[index]) < 45) ? 1 : 0.22;
       }
       // Whatever the tempo, the nearer grains have come home by the next beat; the far ones linger like dust in air.
       const gap = last > 0 ? (beatsMs[last] - beatsMs[last - 1]) / 1000 : 0.5;
-      uniforms.uniforms.uDecay = Math.LN10 / Math.min(1.2, Math.max(0.28, gap));
+      uniforms.uniforms.uDecay = Math.LN10 * 1.5 / Math.min(1.2, Math.max(0.28, gap));
       const progress = Math.min(1, ms / DURATION_MS);
       uniforms.uniforms.uTime = ms / 1000;
-      uniforms.uniforms.uPower = (input.power ?? 1) * (0.75 + 0.45 * progress);
+      uniforms.uniforms.uPower = (input.power ?? 1) * (0.8 + 0.3 * progress);
       uniforms.uniforms.uLoose = progress;
       const dust = hexToRgb(colors.dust);
       const base = hexToRgb(colors.ground);
