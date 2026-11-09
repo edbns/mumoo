@@ -316,10 +316,10 @@ async function draw(target: HTMLCanvasElement, opts: PackRendererOpts, frame: nu
   }
   const ctx = target.getContext('2d');
   if (!ctx) throw new Error('Canvas 2D blit is unavailable.');
-  // Read back only as many pixels as the target needs (previews: 360×640, not 1080×1920).
-  const resolution = Math.min(1, target.width / WIDTH);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, target.width, target.height);
-  // extract.canvas — reliable WebGL → 2D copy (raw GL canvas often blits blank).
-  ctx.drawImage(renderer.extractCanvas(resolution), 0, 0, target.width, target.height);
+  ctx.imageSmoothingQuality = 'high';
+  // The frame is copied straight from the GPU surface, in the same task that drew it (later it would be blank).
+  // Reading it back at a lower resolution instead put the picture of a filtered card into one corner on some GPUs.
+  ctx.drawImage(renderer.canvas, 0, 0, target.width, target.height);
 }
