@@ -1,6 +1,6 @@
 /**
  * Prepares one picture on the cloud worker the way the app does, without a browser: a photo gets its cut-out
- * mask, a video or GIF becomes a 15 s portrait clip plus a poster. Results go next to OUT.
+ * mask, a video or GIF becomes a portrait copy plus a poster and its shots (OUT.shots.json). Results go next to OUT.
  *
  *   node scripts/prepare-sample.mjs photo public/punch-plates/burnnet-woman-1547507-1920.jpg scripts/fixtures/prepared/woman
  *   node scripts/prepare-sample.mjs motion scripts/fixtures/VIDEO.mp4 scripts/fixtures/prepared/clip
@@ -28,6 +28,7 @@ try {
   const result = JSON.parse(run.stdout.trim().split('\n').pop());
   if (!result.ok) throw new Error(`Refused: ${result.error}`);
   for (const [name, ext] of Object.entries(outputs)) writeFileSync(`${out}.${name}.${ext}`, await getObject(keys[name]));
+  if (result.shots) writeFileSync(`${out}.shots.json`, JSON.stringify(result.shots));
   console.log(`prepared in ${Math.round((Date.now() - started) / 1000)} s`, result.bytes);
 } finally {
   await Promise.all(Object.values(keys).map(key => deleteObject(key).catch(() => {})));

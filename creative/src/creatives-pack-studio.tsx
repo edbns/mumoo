@@ -33,11 +33,11 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
 }
 
 /** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust a photo and its cut-out, a Filter a photo or a clip. */
-type Picture = Pick<PackRendererOpts, 'photoUrl' | 'cutoutUrl' | 'motionUrl'>;
+type Picture = Pick<PackRendererOpts, 'photoUrl' | 'cutoutUrl' | 'motionUrl' | 'motionShots'>;
 
 function drawingFrom(upload: Upload | null): Picture | undefined {
   if (!upload?.url) return undefined;
-  if (upload.motionUrl) return { motionUrl: upload.motionUrl };
+  if (upload.motionUrl) return { motionUrl: upload.motionUrl, ...(upload.shots ? { motionShots: upload.shots } : {}) };
   return { photoUrl: upload.url, ...(upload.cutoutUrl ? { cutoutUrl: upload.cutoutUrl } : {}) };
 }
 
@@ -58,6 +58,7 @@ function packOpts(
     ...(slot.filter ? { filter: slot.filter } : {}),
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
+    ...(slot.cutSeed != null ? { cutSeed: slot.cutSeed } : {}),
     // With lyrics off nothing about the words is used or sent anywhere, not even what they mean.
     ...(slot.grade && lyrics ? { grade: slot.grade } : {}),
     cues: lyrics ? composition.cues : [],
@@ -233,7 +234,8 @@ export function CreativesPackStudio({
   }, [pack.map(slot => slot.id).join()]);
 
   // Tear down shared WebGL when leaving the pack screen.
-  useEffect(() => () => destroySharedPackRenderer(), []);
+  const leaving = useRef(false);
+  useEffect(() => () => { leaving.current = true; destroySharedPackRenderer(); }, []);
 
   // Posters: only rows whose own inputs changed are painted again; a row appears when its last card is done.
   useEffect(() => {
@@ -282,7 +284,9 @@ export function CreativesPackStudio({
     if (!canvas) return;
     let alive = true;
     let raf = 0;
-    const opts = packOpts(playingSlot, composition, music, fallbackText, lyricsOn(playingSlot.row), pictureOf(playingSlot.row));
+    const withLyrics = lyricsOn(playingSlot.row);
+    const picture = pictureOf(playingSlot.row);
+    const opts = packOpts(playingSlot, composition, music, fallbackText, withLyrics, picture);
     let painting = false;
     let lastFrame = -1;
 
@@ -307,17 +311,13 @@ export function CreativesPackStudio({
     return () => {
       alive = false;
       cancelAnimationFrame(raf);
+      // The card goes back to its own poster. Drawing is queued after the last live frame, so a late frame can never land on top of it.
+      if (!leaving.current) {
+        void blitPackFrame(canvas, packOpts(playingSlot, composition, music, fallbackText, withLyrics, picture), posterAt(composition, music, withLyrics))
+          .catch(cause => setError(friendlyError(cause, 'Preview failed (WebGL).')));
+      }
     };
   }, [allReady, fontReady, playing, playingSlot?.id, rowKeys, composition, music, fallbackText]);
-
-  function paintPoster(id: string | null) {
-    const slot = pack.find(item => item.id === id);
-    const canvas = slot && canvasRefs.current.get(slot.id);
-    if (!slot || !canvas || !allReady || !fontReady) return;
-    const withLyrics = lyricsOn(slot.row);
-    void blitPackFrame(canvas, packOpts(slot, composition, music, fallbackText, withLyrics, pictureOf(slot.row)), posterAt(composition, music, withLyrics))
-      .catch(cause => setError(friendlyError(cause, 'Preview failed (WebGL).')));
-  }
 
   /** Any change to a row stops playback first, so the one shared drawing surface is never used twice at once. */
   function stopPlayback() {
@@ -345,13 +345,10 @@ export function CreativesPackStudio({
     if (playing && playingId === id) {
       onStop();
       setPlayingId(null);
-      paintPoster(id);
       return;
     }
-    const previous = playingId;
     setPlayingId(id);
     if (playing) onStop();
-    if (previous && previous !== id) paintPoster(previous);
     const slot = pack.find(item => item.id === id);
     if (slot) reportPackFeedback(token, profile, 'play', slot, { generation: controls[slot.row].generation });
     onPlay();

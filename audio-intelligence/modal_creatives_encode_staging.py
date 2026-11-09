@@ -51,6 +51,7 @@ CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "filter",
+    "motionShots", "cutSeed",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
 TYPE_STYLES = {"typewriter", "karaoke", "stack", "minimal", "editorial", "outline"}
@@ -224,6 +225,16 @@ def parse_meta(raw: str) -> dict:
         raise ValueError("bankId")
     if "plateId" in opts and (not isinstance(opts["plateId"], str) or not ID_RE.match(opts["plateId"])):
         raise ValueError("plateId")
+    if "cutSeed" in opts and (type(opts["cutSeed"]) is not int or not 0 <= opts["cutSeed"] < 1_000_000):
+        raise ValueError("cutSeed")
+    if "motionShots" in opts:
+        shots = opts["motionShots"]
+        if not isinstance(shots, list) or not 0 < len(shots) <= 40:
+            raise ValueError("motionShots")
+        for shot in shots:
+            ok = isinstance(shot, list) and len(shot) == 2 and all(type(edge) is int for edge in shot)
+            if not ok or not 0 <= shot[0] < shot[1] <= 60_000:
+                raise ValueError("motionShots")
     if "typeStyle" in opts and opts["typeStyle"] not in TYPE_STYLES:
         raise ValueError("typeStyle")
     grade = opts.get("grade")

@@ -1,13 +1,15 @@
 import { CanvasSource, Texture } from 'pixi.js';
 
 /**
- * A person's own video or GIF, as a picture that can be asked for any moment. Frame N of a creative is always
- * the clip at N/30 s (looping if it is shorter than the song), found by seeking, so the shelf preview and the
- * cloud render draw the same frame. Each frame is copied onto a canvas, which is the texture.
+ * A person's own video or GIF, as a picture that can be asked for any moment (which moment is the edit's
+ * decision, see `pack-cuts.ts`). Found by seeking, so the shelf preview and the cloud render draw the same
+ * frame. Each frame is copied onto a canvas, which is the texture.
  */
 export type Motion = {
   texture: Texture;
-  /** The clip frame for `ms` of the song is now in `texture`. */
+  /** How long the video is. */
+  durationMs: number;
+  /** The video's picture at `ms` of the video is now in `texture`. */
   seek(ms: number): Promise<void>;
   destroy(): void;
 };
@@ -35,8 +37,9 @@ export async function loadMotion(url: string): Promise<Motion> {
 
   return {
     texture,
+    durationMs: Math.round(video.duration * 1000),
     async seek(ms) {
-      const at = (ms / 1000) % video.duration;
+      const at = Math.min(Math.max(0, ms / 1000), Math.max(0, video.duration - 0.05));
       if (Math.abs(video.currentTime - at) > 0.0005 || video.readyState < 2) {
         await new Promise<void>(resolve => {
           video.onseeked = () => resolve();

@@ -8,7 +8,7 @@
  * A person's own photo (Dust, Filter) is loaded from `photoUrl`: a link in the browser, a page the worker serves in the cloud.
  */
 import { Application, Assets, ColorMatrixFilter, Rectangle, Texture } from 'pixi.js';
-import { HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
+import { DURATION_MS, HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
 import type { AdFont, AdLayout } from './ad-fonts';
 import type { AdPunchStyle } from './ad-punch';
 import { activePackCopy, packReaction, packWordEnter } from './pack-copy';
@@ -20,6 +20,7 @@ import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
 import { dustWordAt, sampleDust, type DustPoints } from './pack-dust';
 import { loadMotion, type Motion } from './pack-motion';
+import { planCuts, sourceMsAt, type Cut, type Shot } from './pack-cuts';
 import { plateCutoutUrl, plateUrl } from './punch-plates';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
@@ -40,6 +41,9 @@ export type PackRendererOpts = {
   photoUrl?: string;
   cutoutUrl?: string;
   motionUrl?: string;
+  /** A clip's shots (start and end, in ms of the clip) and which arrangement of them this card plays. */
+  motionShots?: readonly Shot[];
+  cutSeed?: number;
   /** Look Bank card: baked Shaders Pro background id + lyric type style. */
   bankId?: string;
   typeStyle?: TypeStyleId;
@@ -59,6 +63,8 @@ export type PackRenderer = {
   render(frame: number): Promise<void>;
   /** Snapshot current frame to a 2D-friendly canvas (safe blit source). `resolution` < 1 reads back fewer pixels. */
   extractCanvas(resolution?: number): CanvasImageSource;
+  /** The browser took the GPU surface away (a long idle, a sleeping laptop, a GPU reset). The renderer cannot draw any more. */
+  lost(): boolean;
   destroy(): void;
 };
 
@@ -82,8 +88,11 @@ export async function createPackRenderer(
   let cutoutUrlLoaded = '';
   let motion: Motion | null = null;
   let motionUrlLoaded = '';
+  let cuts: Cut[] = [];
+  let cutsKey = '';
   let dustPoints: DustPoints | null = null;
   let dustKey = '';
+  let contextLost = false;
 
   const dispose = () => {
     scene?.destroy();
@@ -97,9 +106,12 @@ export async function createPackRenderer(
     motion?.destroy();
     motion = null;
     motionUrlLoaded = '';
+    cutsKey = '';
     dustPoints = null;
     dustKey = '';
-    if (initialized) app.destroy(false, { children: true });
+    if (initialized) {
+      try { app.destroy(false, { children: true }); } catch { /* a lost surface cannot be torn down cleanly */ }
+    }
     initialized = false;
   };
 
@@ -144,6 +156,8 @@ export async function createPackRenderer(
 
     const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
     if (!gl) throw new Error('WebGL is unavailable for creatives.');
+    // Cancelling the event is what allows the browser to give the surface back; we make a fresh renderer instead of waiting for it.
+    canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); contextLost = true; });
 
     scene = createPackScene();
     app.stage.addChild(scene.root);
@@ -156,7 +170,7 @@ export async function createPackRenderer(
       },
       async render(frame: number) {
         if (!scene) throw new Error('Pack renderer was destroyed.');
-        if (gl.isContextLost()) throw new Error('The WebGL context was lost. Reload and try again.');
+        if (contextLost || gl.isContextLost()) throw new Error('The WebGL context was lost.');
         const { style } = current;
         const ownPicture = style === 'dust' || style === 'filter';
         const photoUrl = current.plateId ? plateUrl(current.plateId) : current.photoUrl;
@@ -181,7 +195,15 @@ export async function createPackRenderer(
         const reaction = packReaction(current.music, frame);
         const { ms, energy, beatIndex, beatGapMs } = reaction;
         // A video or GIF shows the clip's frame for this moment.
-        if (motion) await motion.seek(ms);
+        if (motion) {
+          // The edit: pieces of the clip, cut on the beat, differently for each card.
+          const key = `${motionUrlLoaded}|${current.cutSeed ?? 0}|${JSON.stringify(current.motionShots ?? null)}|${current.music?.beatsMs.length ?? 0}`;
+          if (key !== cutsKey) {
+            cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, DURATION_MS);
+            cutsKey = key;
+          }
+          await motion.seek(cuts.length ? sourceMsAt(cuts, ms) : ms);
+        }
 
         // Dust: the picture is read into grains once, then every frame is a function of the clock.
         if (style === 'dust') {
@@ -233,6 +255,7 @@ export async function createPackRenderer(
       extractCanvas(resolution = 1) {
         return app.renderer.extract.canvas({ target: app.stage, frame: new Rectangle(0, 0, WIDTH, HEIGHT), resolution }) as unknown as CanvasImageSource;
       },
+      lost: () => contextLost || gl.isContextLost(),
       destroy: dispose,
     };
   } catch (error) {
@@ -241,8 +264,9 @@ export async function createPackRenderer(
   }
 }
 
-/** One shared WebGL surface for the whole pack UI. */
-export async function getSharedPackRenderer(opts: PackRendererOpts): Promise<PackRenderer> {
+/** One shared WebGL surface for the whole pack UI. If the browser took it away, a new one is made. */
+async function sharedRenderer(opts: PackRendererOpts): Promise<PackRenderer> {
+  if (shared?.lost()) destroySharedPackRenderer();
   if (shared) {
     shared.setOpts(opts);
     return shared;
@@ -259,14 +283,29 @@ export function destroySharedPackRenderer() {
   shared = null;
 }
 
+/**
+ * Drawing goes one frame at a time through this queue. The renderer reads its options while it works, so two
+ * cards drawn at once (a poster while another card plays) would each be drawn with the other's look.
+ */
+let queue: Promise<unknown> = Promise.resolve();
+
 /** Render with shared WebGL, blit into a 2D target canvas (cards / export). */
-export async function blitPackFrame(
-  target: HTMLCanvasElement,
-  opts: PackRendererOpts,
-  frame: number,
-) {
-  const renderer = await getSharedPackRenderer(opts);
-  await renderer.render(frame);
+export function blitPackFrame(target: HTMLCanvasElement, opts: PackRendererOpts, frame: number): Promise<void> {
+  const drawn = queue.then(() => draw(target, opts, frame));
+  queue = drawn.catch(() => undefined);
+  return drawn;
+}
+
+async function draw(target: HTMLCanvasElement, opts: PackRendererOpts, frame: number) {
+  let renderer = await sharedRenderer(opts);
+  try {
+    await renderer.render(frame);
+  } catch (cause) {
+    // The surface was lost while drawing: start again on a fresh one, once.
+    if (!renderer.lost()) throw cause;
+    renderer = await sharedRenderer(opts);
+    await renderer.render(frame);
+  }
   const ctx = target.getContext('2d');
   if (!ctx) throw new Error('Canvas 2D blit is unavailable.');
   // Read back only as many pixels as the target needs (previews: 360×640, not 1080×1920).

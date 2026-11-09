@@ -17,6 +17,8 @@ export type Upload = {
   url?: string;
   cutoutUrl?: string;
   motionUrl?: string;
+  /** A video or GIF's shots, as [start, end] in ms of the video. */
+  shots?: [number, number][];
 };
 
 /** Photos are shrunk to a JPEG of at most `LONG_SIDE` pixels. Videos and GIFs go straight to storage and are prepared there. */
@@ -43,7 +45,7 @@ export const PICTURE_RULES: Record<PictureUse, { limit: number; accepts: string;
     accepts: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
     rules: [
       'Until you add your own, this row shows our approved photography. Use a photo (JPEG, PNG or WebP, up to 25 MB), a video (MP4, MOV or WebM, up to 150 MB and 60 seconds) or a GIF (up to 25 MB).',
-      'Videos and GIFs use their first 15 seconds, shown in portrait.',
+      'We find the cuts in your video or GIF and arrange them to the beat, differently on each card.',
       'Up to 6 pictures are kept. Remove one to add another.',
     ],
   },

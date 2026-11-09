@@ -112,7 +112,7 @@ async function settle(userId, row) {
   if (!result.ok) return fail(result.error);
   // A photo keeps its JPEG next to the new mask; a video or GIF keeps only the prepared clip and poster.
   const total = Object.values(result.bytes).reduce((sum, size) => sum + size, row.kind === 'photo' ? row.bytes : 0);
-  await sql`update uploads set status = 'ready', bytes = ${total}, error = null where id = ${row.id}`;
+  await sql`update uploads set status = 'ready', bytes = ${total}, shots = ${row.kind === 'motion' ? JSON.stringify(result.shots) : null}::jsonb, error = null where id = ${row.id}`;
   if (row.kind === 'motion') await deleteObject(KEYS.source(userId, row.id));
 }
 
@@ -124,7 +124,7 @@ export async function listUploads(userId) {
   await Promise.all(abandoned.map(row => removeUpload(userId, row.id)));
   const rows = await sql`select id, kind, status, job_id, error, bytes, created_at from uploads where user_id = ${userId} and status = 'preparing' and job_id is not null`;
   await Promise.all(rows.map(row => settle(userId, row)));
-  const fresh = await sql`select id, kind, use, status, error, bytes, created_at from uploads where user_id = ${userId} order by created_at desc`;
+  const fresh = await sql`select id, kind, use, status, error, bytes, shots, created_at from uploads where user_id = ${userId} order by created_at desc`;
   return Promise.all(fresh.map(async (row) => ({
     id: row.id,
     kind: row.kind,
@@ -136,7 +136,7 @@ export async function listUploads(userId) {
     ...(row.status === 'ready' ? {
       url: await signedDownload(KEYS.still(userId, row.id)),
       ...(row.use === 'dust' ? { cutoutUrl: await signedDownload(KEYS.cutout(userId, row.id)) } : {}),
-      ...(row.kind === 'motion' ? { motionUrl: await signedDownload(KEYS.motion(userId, row.id)) } : {}),
+      ...(row.kind === 'motion' ? { motionUrl: await signedDownload(KEYS.motion(userId, row.id)), shots: row.shots } : {}),
     } : {}),
   })));
 }

@@ -57,6 +57,8 @@ export type CreativesPackSlot = {
   colors?: DustColors;
   /** Dust and Filter: the approved photo this card is drawn from, until the person uses their own. */
   plateId?: string;
+  /** Filter: which arrangement of the person's video or GIF this card plays (its cut speed follows the card's place). */
+  cutSeed?: number;
   /** Filter: how the person's photo is treated. */
   filter?: PhotoFilterId;
   /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
@@ -281,6 +283,7 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
     filter,
     colors: cardColors(seed, index, coverHue),
     typeStyle: types[index % types.length],
+    cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
     ...dealt(plateIds, seed, index),
   }));
 }

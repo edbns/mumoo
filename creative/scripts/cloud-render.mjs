@@ -61,7 +61,8 @@ const opts = {
   ...(photoStyle ? { colors: dustColors(Number(process.env.SEED || 7)) } : {}),
   ...(photoStyle && !ownMedia ? { plateId: process.env.PLATE || 'burnnet-woman-1547507-1920' } : {}),
   ...(style === 'bank' ? { bankId: process.env.BANK || 'neon-flow-5', typeStyle: 'karaoke' } : {}),
-  ...(style === 'filter' ? { filter: process.env.FILTER || 'duotone', typeStyle: 'stack' } : {}),
+  ...(style === 'filter' ? { filter: process.env.FILTER || 'duotone', typeStyle: 'stack', cutSeed: Number(process.env.CUTSEED || 0) } : {}),
+  ...(process.env.SHOTS ? { motionShots: JSON.parse(process.env.SHOTS) } : {}),
 };
 const wav = canonicalWav();
 const file = `scripts/fixtures/exports/cloud-${style}${style === 'filter' ? `-${opts.filter}` : ''}-${clip}${ownMedia ? (process.env.MOTION ? '-motion' : '-own') : ''}${lyrics ? '' : '-nolyrics'}.mp4`;
