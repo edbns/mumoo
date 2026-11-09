@@ -16,7 +16,6 @@ async function load() {
     catalog: await server.ssrLoadModule('/src/font-catalog.ts'),
     fonts: await server.ssrLoadModule('/src/ad-fonts.ts'),
     type: await server.ssrLoadModule('/src/pack-type.ts'),
-    dust: await server.ssrLoadModule('/src/dust-look.ts'),
   };
 }
 
@@ -27,20 +26,11 @@ function workerSet(name) {
   return [...(body[1] ?? body[2]).matchAll(/"([^"]+)"/g)].map(match => match[1]);
 }
 
-test('the cloud worker accepts exactly the fonts, type styles and Dust looks the page knows', async () => {
-  const { server, catalog, type, dust } = await load();
+test('the cloud worker accepts exactly the fonts and type styles the page knows', async () => {
+  const { server, catalog, type } = await load();
   try {
     assert.deepEqual(workerSet('FONTS').sort(), [...catalog.AD_FONTS].sort());
     assert.deepEqual(workerSet('TYPE_STYLES').sort(), [...type.TYPE_STYLES].sort());
-    const looks = WORKER.match(/^DUST_LOOK = \{([\s\S]*?)^\}/m)[1];
-    const read = key => [...looks.match(new RegExp(`"${key}": \\{([^}]*)\\}`))[1].matchAll(/"([^"]+)"/g)].map(match => match[1]);
-    assert.deepEqual(read('flow'), [...dust.DUST_MOVES]);
-    assert.deepEqual(read('enter'), [...dust.DUST_MOVES]);
-    assert.deepEqual(read('place').sort(), [...dust.DUST_PLACES].sort());
-    assert.deepEqual(read('align').sort(), [...dust.DUST_ALIGNS].sort());
-    assert.deepEqual(read('scale').sort(), [...dust.DUST_SCALES].sort());
-    assert.deepEqual(read('grain').sort(), [...dust.DUST_GRAINS].sort());
-    assert.deepEqual(read('energy').sort(), [...dust.DUST_ENERGIES].sort());
   } finally { await server.close(); }
 });
 

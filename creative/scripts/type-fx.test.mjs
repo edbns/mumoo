@@ -11,7 +11,6 @@ async function load() {
     type: await server.ssrLoadModule('/src/pack-type.ts'),
     pack: await server.ssrLoadModule('/src/creatives-pack.ts'),
     catalog: await server.ssrLoadModule('/src/font-catalog.ts'),
-    dust: await server.ssrLoadModule('/src/dust-look.ts'),
   };
 }
 
@@ -153,7 +152,7 @@ function refreshes(pack, song, count = 12) {
 }
 
 test('the four cards of a row differ in face and in motion, on every refresh, in every mood', async () => {
-  const { server, pack, catalog, type, dust } = await load();
+  const { server, pack, catalog, type } = await load();
   try {
     const lanes = new Set();
     for (const song of LANE_SONGS) {
@@ -168,19 +167,11 @@ test('the four cards of a row differ in face and in motion, on every refresh, in
             assert.ok(slot.font in catalog.DISPLAY_FACES && slot.fontSecondary in catalog.DISPLAY_FACES);
           }
           if (slots[0].typeStyle) assert.equal(new Set(slots.map(slot => slot.typeStyle)).size, 4, `${where} repeats a type style: ${slots.map(slot => slot.typeStyle)}`);
-          if (slots[0].row === 'dust') {
-            const looks = slots.map(slot => slot.layout.dust);
-            assert.ok(looks.every(Boolean), `${where} has a card without a look`);
-            for (const key of ['flow', 'enter']) assert.equal(new Set(looks.map(look => look[key])).size, 4, `${where} repeats its ${key}`);
-            assert.equal(new Set(looks.map(look => `${look.place}:${look.align}`)).size, 4, `${where} puts two words in the same corner`);
-            assert.ok(new Set(looks.map(look => look.energy)).size >= 2, `${where} is all one energy`);
-            assert.ok(new Set(looks.map(look => look.scale)).size >= 2, `${where} is all one size`);
-          }
         }
       }
     }
     assert.deepEqual([...lanes].sort(), ['dark', 'general', 'gospel', 'party', 'quiet', 'techno'], 'every mood was exercised');
-    assert.ok(type.TYPE_STYLES.length >= 20 && dust.DUST_MOVES.length >= 7);
+    assert.ok(type.TYPE_STYLES.length >= 20);
   } finally { await server.close(); }
 });
 
@@ -234,33 +225,22 @@ test('refreshing brings different motion: each mood rotates through most of its 
   } finally { await server.close(); }
 });
 
-test('Dust cards differ in how they move, not only in colour, and a refresh deals a different row', async () => {
-  const { server, pack, dust } = await load();
+test('Dust and Pulise keep their own look: the fonts are all that varies between cards, their motion and colours are the template\'s own', async () => {
+  const { server, pack } = await load();
   try {
     for (const song of LANE_SONGS) {
       const person = profile(...song);
-      const looks = generation => pack.recommendRow('dust', person, generation, PLATES).map(slot => slot.layout.dust);
-      assert.deepEqual(looks(3), looks(3), 'same song, same refresh, same row');
-      const rows = Array.from({ length: 12 }, (_, generation) => JSON.stringify(looks(generation)));
-      assert.equal(new Set(rows).size, 12, `${song[0]}: two refreshes of Dust look the same`);
-      const seen = key => new Set(Array.from({ length: 12 }, (_, g) => looks(g)).flat().map(look => look[key]));
-      assert.ok(seen('flow').size >= 4 && seen('enter').size >= 4 && seen('energy').size >= 2 && seen('grain').size >= 2, song[0]);
-      const slots = pack.recommendRow('dust', person, 0, PLATES);
-      assert.equal(new Set(slots.map(slot => `${slot.font}`)).size, 4);
-      assert.equal(new Set(slots.map(slot => JSON.stringify(slot.colors))).size, 4, 'four colour pairs');
+      for (const generation of [0, 3, 7]) {
+        for (const row of ['dust', 'pulise']) {
+          const slots = pack.recommendRow(row, person, generation, PLATES);
+          for (const slot of slots) {
+            assert.deepEqual(Object.keys(slot.layout).sort(), ['cut', 'rotate', 'scaleBias', 'seed'], `${row} carries a look the template does not have`);
+            assert.equal(slot.typeStyle, undefined, `${row} carries a lyric type style`);
+          }
+        }
+        const dust = pack.recommendRow('dust', person, generation, PLATES);
+        assert.equal(new Set(dust.map(slot => JSON.stringify(slot.colors))).size, 4, 'four colour pairs');
+      }
     }
-    // A calm song never gets the wildest dust; a club song never the calmest.
-    for (const generation of Array.from({ length: 20 }, (_, i) => i)) {
-      for (const look of pack.recommendRow('dust', profile('Gospel', 'praise'), generation, PLATES).map(slot => slot.layout.dust)) assert.notEqual(look.energy, 'wild');
-      for (const look of pack.recommendRow('dust', profile('Slap House', 'hello'), generation, PLATES).map(slot => slot.layout.dust)) assert.notEqual(look.energy, 'calm');
-    }
-    // Every look is made of ids the worker knows.
-    const ids = { flow: dust.DUST_MOVES, enter: dust.DUST_MOVES, place: dust.DUST_PLACES, align: dust.DUST_ALIGNS, scale: dust.DUST_SCALES, grain: dust.DUST_GRAINS, energy: dust.DUST_ENERGIES };
-    for (const look of pack.recommendRow('dust', profile('Pop', 'hello'), 5, PLATES).map(slot => slot.layout.dust)) {
-      assert.deepEqual(Object.keys(look).sort(), Object.keys(ids).sort());
-      for (const [key, allowed] of Object.entries(ids)) assert.ok(allowed.includes(look[key]), `${key}: ${look[key]}`);
-    }
-    for (const energy of dust.DUST_ENERGIES) assert.ok(dust.DUST_FEEL[energy].power > 0 && dust.DUST_FEEL[energy].hang > 0);
-    assert.ok(dust.DUST_FEEL.calm.power < dust.DUST_FEEL.steady.power && dust.DUST_FEEL.steady.power < dust.DUST_FEEL.wild.power);
   } finally { await server.close(); }
 });

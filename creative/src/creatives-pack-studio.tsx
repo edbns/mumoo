@@ -59,7 +59,6 @@ function packOpts(
     fontSecondary: slot.fontSecondary,
     layout: slot.layout,
     ...(slot.colors ? { colors: slot.colors } : {}),
-    ...(slot.pulise ? { pulise: slot.pulise } : {}),
     ...(slot.filter ? { filter: slot.filter } : {}),
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),

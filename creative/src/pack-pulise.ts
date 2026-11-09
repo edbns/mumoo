@@ -1,16 +1,27 @@
 /**
- * Pulise — full-screen neon colour cut hard on every beat, one big word at a time. Every cut is a flat field and
- * type in another strong neon of the card's set; a strong beat (a downbeat, or a loud moment) opens its cut with
- * the field and type swapped for a split second. Colour only ever changes on the beat (never on lyric timing or
- * meaning) and never more than three times a second, which keeps it clear of the photosensitivity limit that ad
- * platforms and viewers care about. Every frame is a pure function of the music and the frame number.
+ * Pulise — neon red and neon white cut hard on every beat, one big word at a time.
+ * The field only changes on the beat (never on lyric timing) and never faster than three times a second,
+ * which keeps it clear of the photosensitivity limit that ad platforms and viewers care about.
+ * The signature colours are fixed on purpose: this template is recognisable by them.
  */
 import { Container, Graphics, Text } from 'pixi.js';
-import { HEIGHT, WIDTH, type ImpactMusic } from './composition';
+import { HEIGHT, WIDTH } from './composition';
 import { META_SAFE_BOTTOM } from './ad-punch';
 import { fitPackLines } from './pack-text';
+import { displayFace, type AdFont } from './ad-fonts';
 import type { PackSceneInput } from './pack-copy';
-import { puliseColours } from './pulise-palettes';
+
+const RED = '#ff1a2e';
+const WHITE = '#fbfdff';
+const BLACK = '#050506';
+
+/** Field and type colours in turn: mostly red and white, with a black beat so the cut has room to land. */
+const PHASES = [
+  { field: RED, ink: WHITE, glow: '#ffd0d4' },
+  { field: WHITE, ink: RED, glow: '#ff7a86' },
+  { field: RED, ink: WHITE, glow: '#ffd0d4' },
+  { field: BLACK, ink: RED, glow: '#ff1a2e' },
+] as const;
 
 /** Beats closer than this (over 176 BPM) change the field every second beat: at most three cuts a second. */
 const MIN_CUT_MS = 340;
@@ -20,40 +31,11 @@ export function puliseCuts(beatIndex: number, beatGapMs: number, start = 0) {
   return start + (beatGapMs > 0 && beatGapMs < MIN_CUT_MS ? Math.floor(beatIndex / 2) : beatIndex);
 }
 
-/** When the current cut began, how long ago that was, and how long it lasts (0 before the song has a beat to measure by). */
-export function cutSpan(beatsMs: readonly number[], beatIndex: number, beatGapMs: number, ms: number) {
-  const halved = beatGapMs > 0 && beatGapMs < MIN_CUT_MS;
-  const first = halved ? beatIndex - (beatIndex % 2) : beatIndex;
-  const startMs = first > 0 ? beatsMs[first - 1] : 0;
-  const endMs = beatsMs[first + (halved ? 2 : 1) - 1] ?? startMs + beatGapMs * (halved ? 2 : 1);
-  return { startMs, ageMs: ms - startMs, lengthMs: beatGapMs > 0 ? endMs - startMs : 0 };
-}
-
-/** A cut counts as a surge when the song is this much louder at its beat than over the two seconds before. */
-const SURGE = 1.35;
-const SURGE_WINDOW_MS = 2000;
-/** How far a downbeat may sit from the beat it belongs to. */
-const DOWNBEAT_TOLERANCE_MS = 60;
-
-function surged(music: ImpactMusic, ms: number) {
-  const before = music.energy.filter(point => point.timeMs <= ms && point.timeMs > ms - SURGE_WINDOW_MS);
-  if (!before.length) return false;
-  const mean = before.reduce((sum, point) => sum + point.rms, 0) / before.length;
-  return before[before.length - 1].rms >= mean * SURGE;
-}
-
-/** A strong beat is a downbeat inside the cut or a surge of loudness as it begins: nothing but the music decides. */
-export function strongCut(music: ImpactMusic | null, startMs: number, lengthMs: number) {
-  if (!music) return false;
-  const first = startMs - DOWNBEAT_TOLERANCE_MS;
-  return Boolean(music.downbeatsMs?.some(ms => ms >= first && ms < startMs + lengthMs - DOWNBEAT_TOLERANCE_MS)) || surged(music, startMs);
-}
-
-function neonText(label: string, font: string, size: number, color: string, glow: string, alpha = 1) {
+function neonText(label: string, font: AdFont, size: number, color: string, glow: string, alpha = 1) {
   const make = (stroke: number, strokeAlpha: number, fill: string) => new Text({
     text: label,
     style: {
-      fontFamily: font, fontSize: size, fontWeight: '400', fill, align: 'center', wordWrap: false,
+      fontFamily: font, fontSize: size, fontWeight: String(displayFace(font).weight) as '400', fill, align: 'center', wordWrap: false,
       stroke: stroke ? { color: glow, width: stroke, join: 'round' } : undefined,
     },
     anchor: 0.5,
@@ -85,10 +67,7 @@ export function createPuliseWorld(): PuliseWorld {
   return {
     root,
     update(input) {
-      if (!input.pulise) throw new Error('Pulise needs its look.');
-      const cut = puliseCuts(input.beatIndex, input.beatGapMs, input.layout.cut);
-      const span = cutSpan(input.music?.beatsMs ?? [], input.beatIndex, input.beatGapMs, input.ms);
-      const phase = puliseColours(input.pulise.neon, cut, span.ageMs, span.lengthMs, strongCut(input.music, span.startMs, span.lengthMs));
+      const phase = PHASES[puliseCuts(input.beatIndex, input.beatGapMs, input.layout.cut) % PHASES.length];
       field.clear();
       field.rect(0, 0, WIDTH, HEIGHT);
       field.fill({ color: phase.field });

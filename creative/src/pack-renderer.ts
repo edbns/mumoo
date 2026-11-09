@@ -18,7 +18,6 @@ import type { PhotoFilterId } from './pack-filter';
 import { typeFamilies, type TypeStyleId } from './pack-type';
 import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
-import type { PuliseLook } from './pulise-look';
 import { dustWordAt, sampleDust, type DustPoints } from './pack-dust';
 import { loadMotion, type Motion } from './pack-motion';
 import { planCuts, sourceMsAt, type Cut, type Shot } from './pack-cuts';
@@ -52,8 +51,6 @@ export type PackRendererOpts = {
   grade?: MoodGrade;
   /** False when lyrics are switched off: nothing is written on the picture. Default true. */
   lyrics?: boolean;
-  /** Pulise: the neon set of the card. */
-  pulise?: PuliseLook;
   /** Dust and Filter: the two colours of the template. */
   colors?: DustColors;
   /** Filter: how the photo is treated. */
@@ -262,8 +259,8 @@ export async function createPackRenderer(
           typeStyle: current.typeStyle,
           lyrics: current.lyrics !== false,
           dustPoints: style === 'dust' ? dustPoints : null,
-          music: current.music,
-          pulise: current.pulise,
+          beatsMs: current.music?.beatsMs ?? [],
+          downbeatsMs: current.music?.downbeatsMs ?? [],
           dustWord: current.lyrics !== false ? dustWordAt(current.cues, ms) : null,
         });
         app.render();

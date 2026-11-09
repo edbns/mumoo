@@ -1,6 +1,5 @@
 import '@fontsource-variable/inter';
 import type { IntentVibe } from './music-intent';
-import type { DustLook } from './dust-look';
 import { AD_FONTS, DISPLAY_FACES, FIXED_FACES, type AdFont, type DisplayFace, type FontMood } from './font-catalog';
 
 export { AD_FONTS, type AdFont };
@@ -100,8 +99,8 @@ export function pickLayoutSeed(seed: string, salt: string) {
   };
 }
 
-/** What a card's layout says: its own rolls of the dice, and for a Dust card how its grains move and where its word sits. */
-export type AdLayout = ReturnType<typeof pickLayoutSeed> & { dust?: DustLook };
+/** What a card's layout says: its own rolls of the dice. */
+export type AdLayout = ReturnType<typeof pickLayoutSeed>;
 
 /** How to write a face as a CSS font and as a Pixi text style. */
 export type FaceStyle = { family: string; weight: number; italic?: boolean };

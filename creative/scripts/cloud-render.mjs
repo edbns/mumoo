@@ -7,10 +7,8 @@
  *   LYRICS=0 node scripts/cloud-render.mjs dust techno  lyrics off
  *   SEED=4 node scripts/cloud-render.mjs dust slaphouse pick the colour pair
  *   node scripts/cloud-render.mjs pulise reggaeton      a library style, through the deployed staging site
- *   NEON=acid node scripts/cloud-render.mjs pulise techno   pick Pulise's neon set
  *   BANK=lit-rays-5 node scripts/cloud-render.mjs bank techno
  *   TYPE=bounce FONT="Bowlby One" node scripts/cloud-render.mjs bank techno   try a lyric motion (bank and filter) and a face
- *   SEED=4 CARD=2 node scripts/cloud-render.mjs dust techno   Dust's look for card 2 (0-3) of the row that seed deals
  *
  * Dust and Filter are drawn from an approved photo (PLATE, default: our cleared library photo) through the deployed
  * site like every other style. To try a person's own media instead, set PHOTO (Dust also needs CUTOUT, default: the
@@ -48,7 +46,6 @@ function canonicalWav() {
 // The colour pair comes from the same code the app uses.
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
 const { dustColors } = await server.ssrLoadModule('/src/dust-colors.ts');
-const { dustLooks } = await server.ssrLoadModule('/src/dust-look.ts');
 await server.close();
 
 const photoStyle = style === 'dust' || style === 'filter';
@@ -57,20 +54,19 @@ const opts = {
   style,
   font: process.env.FONT || 'Anton',
   fontSecondary: 'Oswald',
-  layout: { rotate: 0, scaleBias: 1, cut: 0, seed: Number(process.env.SEED || 7), ...(style === 'dust' ? { dust: dustLooks('general', String(process.env.SEED || 7), 4)[Number(process.env.CARD || 0)] } : {}) },
+  layout: { rotate: 0, scaleBias: 1, cut: 0, seed: Number(process.env.SEED || 7) },
   cues: lyrics ? cues : [],
   music: { beatsMs: analysis.rhythm.beatsMs, downbeatsMs: analysis.rhythm.downbeatsMs, energy: analysis.features.frames.map(({ timeMs, rms }) => ({ timeMs, rms })) },
   fallbackText: '',
   lyrics,
   ...(photoStyle ? { colors: dustColors(Number(process.env.SEED || 7)) } : {}),
   ...(photoStyle && !ownMedia ? { plateId: process.env.PLATE || 'burnnet-woman-1547507-1920' } : {}),
-  ...(style === 'pulise' ? { pulise: { neon: process.env.NEON || 'acid' } } : {}),
   ...(style === 'bank' ? { bankId: process.env.BANK || 'neon-flow-5', typeStyle: process.env.TYPE || 'karaoke' } : {}),
   ...(style === 'filter' ? { filter: process.env.FILTER || 'duotone', typeStyle: process.env.TYPE || 'stack', cutSeed: Number(process.env.CUTSEED || 0) } : {}),
   ...(process.env.SHOTS ? { motionShots: JSON.parse(process.env.SHOTS) } : {}),
 };
 const wav = canonicalWav();
-const file = `scripts/fixtures/exports/cloud-${style}${style === 'filter' ? `-${opts.filter}` : ''}${style === 'pulise' ? `-${opts.pulise.neon}` : ''}-${clip}${ownMedia ? (process.env.MOTION ? '-motion' : '-own') : ''}${lyrics ? '' : '-nolyrics'}.mp4`;
+const file = `scripts/fixtures/exports/cloud-${style}${style === 'filter' ? `-${opts.filter}` : ''}-${clip}${ownMedia ? (process.env.MOTION ? '-motion' : '-own') : ''}${lyrics ? '' : '-nolyrics'}.mp4`;
 mkdirSync('scripts/fixtures/exports', { recursive: true });
 const started = Date.now();
 

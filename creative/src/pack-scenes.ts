@@ -29,8 +29,6 @@ export function createPackScene(): PackScene {
 
   function updateDust(input: PackSceneInput) {
     if (!input.dustPoints || !input.colors) throw new Error('Dust needs a photo and its two colours.');
-    const look = input.layout.dust;
-    if (!look) throw new Error('Dust needs its look.');
     if (dust?.points !== input.dustPoints) {
       dust?.world.destroy();
       dust = { points: input.dustPoints, world: createDustWorld(input.dustPoints) };
@@ -38,13 +36,11 @@ export function createPackScene(): PackScene {
     }
     dust.world.update({
       ms: input.ms,
-      beatsMs: input.music?.beatsMs ?? [],
-      downbeatsMs: input.music?.downbeatsMs,
+      beatsMs: input.beatsMs,
+      downbeatsMs: input.downbeatsMs,
       beat: input.beat,
       colors: input.colors,
       font: input.font,
-      look,
-      energy: input.energy,
       word: input.lyrics ? input.dustWord : null,
     });
   }

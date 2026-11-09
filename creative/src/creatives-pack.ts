@@ -18,10 +18,8 @@ import bankData from './look-lab/bank.json';
 import { laneFromMeaning, leansDeep, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
-import { dustLooks } from './dust-look';
 import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
-import { puliseLooks, type PuliseLook } from './pulise-look';
 
 type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[]; read: LookRead };
 const BANK_LOOKS = bankData as BankLook[];
@@ -67,8 +65,6 @@ export type CreativesPackSlot = {
   /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
   bankId?: string;
   typeStyle?: TypeStyleId;
-  /** Pulise: the neon set of this card. */
-  pulise?: PuliseLook;
   /** What the lyrics do to the colours and the beat. Absent when the words change nothing. */
   grade?: MoodGrade;
 };
@@ -279,17 +275,11 @@ function dealt(plateIds: readonly string[], seed: string, index: number): { plat
 
 function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined, plateIds: readonly string[]): CreativesPackSlot[] {
   const faces = dealFaces(lane, intent, seed, 'dust', HEAVY_CAPS_ROW);
-  const looks = dustLooks(lane, seed, ROW_SIZE);
-  return looks.map((look, index) => {
-    const slot = adPunchSlot('dust', index, intent, seed, lane, 'dust', faces[index]);
-    return {
-      ...slot,
-      layout: { ...slot.layout, dust: look },
-      reason: `${slot.reason} · ${look.flow} · ${look.enter} · ${look.energy}`,
-      colors: cardColors(seed, index, coverHue),
-      ...dealt(plateIds, seed, index),
-    };
-  });
+  return faces.map((face, index) => ({
+    ...adPunchSlot('dust', index, intent, seed, lane, 'dust', face),
+    colors: cardColors(seed, index, coverHue),
+    ...dealt(plateIds, seed, index),
+  }));
 }
 
 /** Our photography: an approved photo (or the person's own) through four treatments. */
@@ -308,19 +298,12 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
   }));
 }
 
-/** Four Pulise cards: each its own face and neon set, and each opening on a different colour. */
+/** Four Pulise cards: each its own face, each opening on a different colour. */
 function puliseSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string): CreativesPackSlot[] {
   const faces = dealFaces(lane, intent, seed, 'pulise', HEAVY_CAPS_ROW);
-  const looks = puliseLooks(seed, ROW_SIZE);
-  return looks.map((pulise, index) => {
-    const slot = adPunchSlot('pulise', index, intent, seed, lane, 'pulise', faces[index]);
-    return {
-      ...slot,
-      layout: { ...slot.layout, cut: index },
-      pulise,
-      label: `Pulise · ${pulise.neon[0].toUpperCase()}${pulise.neon.slice(1)}`,
-      reason: `${lane} · ${pulise.neon}`,
-    };
+  return faces.map((face, index) => {
+    const slot = adPunchSlot('pulise', index, intent, seed, lane, 'pulise', face);
+    return { ...slot, layout: { ...slot.layout, cut: index } };
   });
 }
 

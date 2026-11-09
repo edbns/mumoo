@@ -7,7 +7,6 @@ import type { PhotoFilterId } from './pack-filter';
 import type { TimedWord, TypeStyleId } from './pack-type';
 import type { DustColors } from './dust-colors';
 import type { DustPoints, DustWord } from './pack-dust';
-import type { PuliseLook } from './pulise-look';
 
 export type PackSceneInput = {
   style: AdPunchStyle;
@@ -36,10 +35,8 @@ export type PackSceneInput = {
   lyrics: boolean;
   /** Dust: the photo as grains, every beat, and the lyric word now on screen (null when none). */
   dustPoints?: DustPoints | null;
-  /** The song: its beats and energy. Dust breaks up on them; Pulise cuts and flashes on them. */
-  music: ImpactMusic | null;
-  /** Pulise: its neon set. */
-  pulise?: PuliseLook;
+  beatsMs: readonly number[];
+  downbeatsMs: readonly number[];
   dustWord: DustWord | null;
 };
 

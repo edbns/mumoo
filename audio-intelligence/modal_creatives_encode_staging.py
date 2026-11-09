@@ -51,18 +51,10 @@ CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "filter",
-    "motionShots", "cutSeed", "pulise",
+    "motionShots", "cutSeed",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
-# Pulise look: neon set ids the page knows (creative/src/pulise-palettes.ts; a test keeps these in step).
-PULISE_NEONS = {
-    "signal", "acid", "ultraviolet", "solar", "toxic", "laser", "bubblegum", "hazard",
-    "magma", "ice", "vapor", "coral", "cobalt", "radioactive", "orchid", "tangerine",
-    "ember", "lava", "citrus", "jungle", "arctic", "disco", "candy", "cyber",
-    "nitro", "plasma", "flare", "mojito", "grape", "sunset", "bolt", "rave",
-    "gamma", "fuchsia", "opal", "hyper", "scarlet", "punch", "lemonade", "frost",
-}
-# Lyric type styles, display fonts and Dust looks the page knows (creative/src/pack-type.ts, font-catalog.ts, dust-look.ts; a test keeps these in step).
+# Lyric type styles and display fonts the page knows (creative/src/pack-type.ts, font-catalog.ts; a test keeps these in step).
 TYPE_STYLES = {
     "typewriter", "karaoke", "stack", "minimal", "editorial", "outline",
     "bounce", "wave", "glitch", "rotate", "stretch", "split", "wipe", "flicker",
@@ -75,16 +67,6 @@ FONTS = {
     "Lobster", "Kaushan Script", "Fredoka", "Baloo 2", "Nunito", "Abril Fatface", "DM Serif Display", "Bodoni Moda",
     "Gloock", "Rozha One", "Fraunces", "UnifrakturCook", "Pirata One", "Metal Mania", "Audiowide", "Rubik Mono One",
     "Orbitron", "Oxanium", "Chakra Petch", "Zen Dots", "Wallpoet", "Rubik Glitch", "Press Start 2P", "Silkscreen",
-}
-# A Dust card's look: how its grains and its word move, where the word sits, how coarse and how wild the card is.
-DUST_LOOK = {
-    "flow": {"burst", "rise", "fall", "left", "right", "swirl", "implode"},
-    "enter": {"burst", "rise", "fall", "left", "right", "swirl", "implode"},
-    "place": {"low", "high"},
-    "align": {"center", "left", "right"},
-    "scale": {"small", "medium", "large"},
-    "grain": {"fine", "medium", "coarse"},
-    "energy": {"calm", "steady", "wild"},
 }
 # What the lyrics do to colour and beat hits: five numbers, each inside the range the app can produce.
 GRADE_RANGES = {"saturation": (0.55, 1.15), "warmth": (-1, 1), "brightness": (0.8, 1), "contrast": (1, 1.1), "calm": (0, 1)}
@@ -255,12 +237,9 @@ def parse_meta(raw: str) -> dict:
     if opts["font"] not in FONTS or opts["fontSecondary"] not in FONTS:
         raise ValueError("font")
     layout = opts.get("layout")
-    if not isinstance(layout, dict) or not {"rotate", "scaleBias", "cut"} <= set(layout) <= {"rotate", "scaleBias", "cut", "seed", "dust"}:
+    if not isinstance(layout, dict) or not {"rotate", "scaleBias", "cut"} <= set(layout) <= {"rotate", "scaleBias", "cut", "seed"}:
         raise ValueError("layout")
     if not all(type(layout[key]) in (int, float) for key in ("rotate", "scaleBias", "cut")) or ("seed" in layout and type(layout["seed"]) is not int):
-        raise ValueError("layout")
-    look = layout.get("dust")
-    if look is not None and not (isinstance(look, dict) and set(look) == set(DUST_LOOK) and all(look[key] in allowed for key, allowed in DUST_LOOK.items())):
         raise ValueError("layout")
     if "bankId" in opts and (not isinstance(opts["bankId"], str) or not ID_RE.match(opts["bankId"])):
         raise ValueError("bankId")
@@ -296,10 +275,6 @@ def parse_meta(raw: str) -> dict:
         raise ValueError("colors")
     if "filter" in opts and opts["filter"] not in FILTERS:
         raise ValueError("filter")
-    if "pulise" in opts:
-        look = opts["pulise"]
-        if not (isinstance(look, dict) and set(look) == {"neon"} and isinstance(look["neon"], str) and look["neon"] in PULISE_NEONS):
-            raise ValueError("pulise")
     cues = opts.get("cues")
     if not isinstance(cues, list) or len(cues) > 160:
         raise ValueError("cues")
