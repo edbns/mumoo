@@ -1,6 +1,7 @@
 """Prepares a person's uploads for MUMOO Staging, on CPU, in our own cloud (nothing goes to a third party).
 
-  photo   a JPEG  ->  a cut-out mask of the subject (PNG), made by a self-hosted U2-Net model
+  photo   a JPEG  ->  a cut-out mask of the subject (PNG), made by a self-hosted U2-Net model (run straight
+          on onnxruntime: the rembg package alone took over a minute to import on a cold container)
   motion  a video or GIF  ->  a small H.264 copy (the whole video, muted, at most 720x1280), a poster still and
           the list of its shots, so a creative can cut and arrange them on the beat
 
@@ -12,6 +13,7 @@ upload and one per output to write. The worker never holds storage credentials.
 """
 from __future__ import annotations
 
+import functools
 import io
 import json
 import re
@@ -33,7 +35,11 @@ CLIP_MAX_BYTES = 38_000_000
 SCENE_THRESHOLD = 0.32
 MIN_SHOT_MS = 800
 MAX_SHOTS = 40
-MASK_SIDE = 1024
+# Dust reads the mask at 180x320, and U2-Net itself looks at 320x320, so a larger mask only costs time.
+MASK_SIDE = 640
+MODEL_PATH = "/models/u2net.onnx"
+MODEL_URL = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx"
+MODEL_MD5 = "60024c5c889badc19c04ad937298a77b"
 OUTPUTS = {"photo": {"cutout"}, "motion": {"motion", "poster"}}
 
 # One image for the whole app (the module imports fastapi at top level). The model is baked in,
@@ -41,8 +47,13 @@ OUTPUTS = {"photo": {"cutout"}, "motion": {"motion", "poster"}}
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("ffmpeg")
-    .pip_install("fastapi==0.115.12", "rembg==2.0.65", "onnxruntime==1.20.1", "pillow==11.1.0")
-    .run_commands("python -c \"from rembg import new_session; new_session('u2net')\"")
+    .pip_install("fastapi==0.115.12", "onnxruntime==1.20.1", "pillow==11.1.0", "numpy==2.2.6")
+    .run_commands(
+        "mkdir -p /models",
+        # GitHub's release host now and then answers 5xx; the checksum below proves the file is whole.
+        f"for try in 1 2 3 4 5; do python -c \"import urllib.request; urllib.request.urlretrieve('{MODEL_URL}', '{MODEL_PATH}')\" && break; sleep 5; done",
+        f"echo '{MODEL_MD5}  {MODEL_PATH}' | md5sum -c -",
+    )
 )
 app = modal.App(APP)
 secret = modal.Secret.from_name("mumoo-music-bridge")
@@ -84,37 +95,45 @@ class PrepareError(Exception):
     """A problem with the person's file, in words they can read."""
 
 
-def run(cmd: list[str], timeout: int) -> str:
+def run(cmd: list[str], timeout: int, stream: str = "stdout") -> str:
     try:
         done = subprocess.run(cmd, check=True, capture_output=True, timeout=timeout)
     except subprocess.CalledProcessError:
         raise PrepareError("That file could not be read as a photo, video or GIF.") from None
     except subprocess.TimeoutExpired:
         raise PrepareError("That file took too long to prepare.") from None
-    return done.stdout.decode("utf-8", errors="replace")
+    return (done.stderr if stream == "stderr" else done.stdout).decode("utf-8", errors="replace")
+
+
+@functools.lru_cache(maxsize=1)
+def segmenter():
+    import onnxruntime
+
+    return onnxruntime.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
 
 
 def cutout(source: Path) -> bytes:
+    """U2-Net's saliency map of the photo, as the mask PNG (white where the subject is)."""
+    import numpy
     from PIL import Image
-    from rembg import new_session, remove
 
     picture = Image.open(source).convert("RGB")
-    picture.thumbnail((MASK_SIDE, MASK_SIDE))
-    mask = remove(picture, session=new_session("u2net"), only_mask=True)
+    size = picture.size
+    scaled = numpy.asarray(picture.resize((320, 320), Image.Resampling.LANCZOS), dtype=numpy.float32)
+    scaled = scaled / max(float(scaled.max()), 1e-6)
+    scaled = (scaled - (0.485, 0.456, 0.406)) / (0.229, 0.224, 0.225)
+    session = segmenter()
+    saliency = session.run(None, {session.get_inputs()[0].name: scaled.transpose(2, 0, 1)[None].astype(numpy.float32)})[0][0, 0]
+    low, high = float(saliency.min()), float(saliency.max())
+    mask = Image.fromarray(((saliency - low) / max(high - low, 1e-6) * 255).astype(numpy.uint8)).resize(size, Image.Resampling.LANCZOS)
+    mask.thumbnail((MASK_SIDE, MASK_SIDE))
     out = io.BytesIO()
     mask.save(out, format="PNG")
     return out.getvalue()
 
 
-def shots(clip: Path, milliseconds: int) -> list[list[int]]:
-    """The video's shots as [start, end] in ms. Shots under 0.8 s join their neighbour."""
-    try:
-        log = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-i", str(clip), "-an", "-vf", f"scale=-2:160,select='gt(scene,{SCENE_THRESHOLD})',showinfo", "-f", "null", "-"],
-            capture_output=True, timeout=180,
-        ).stderr.decode("utf-8", errors="replace")
-    except subprocess.TimeoutExpired:
-        raise PrepareError("That file took too long to prepare.") from None
+def shots_from(log: str, milliseconds: int) -> list[list[int]]:
+    """The video's shots as [start, end] in ms, from the scene changes ffmpeg reported. Shots under 0.8 s join their neighbour."""
     cuts = sorted({round(float(t) * 1000) for t in re.findall(r"pts_time:([0-9.]+)", log)})
     edges = [0, *[cut for cut in cuts if 0 < cut < milliseconds], milliseconds]
     out: list[list[int]] = []
@@ -129,28 +148,32 @@ def shots(clip: Path, milliseconds: int) -> list[list[int]]:
     return out[:MAX_SHOTS]
 
 
+def seconds_of(path: Path) -> float:
+    return float(run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(path)], 60).strip() or 0)
+
+
 def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]]]:
-    seconds = float(run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(source)], 60,
-    ).strip() or 0)
+    seconds = seconds_of(source)
     # GIFs sometimes report no duration; only a clearly long clip is refused.
     if seconds > MAX_SECONDS:
         raise PrepareError(f"Videos can be up to {MAX_SECONDS} seconds long.")
     clip = directory / "clip.mp4"
-    run([
-        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(source), "-t", str(MAX_SECONDS), "-an",
-        "-maxrate", "4M", "-bufsize", "8M",
-        "-vf", "fps=30,scale=720:1280:force_original_aspect_ratio=decrease:force_divisible_by=2",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-pix_fmt", "yuv420p",
+    # One pass over the source: the picture is decoded once and goes to the small H.264 copy and, scaled down, to the scene detector.
+    log = run([
+        "ffmpeg", "-y", "-hide_banner", "-i", str(source), "-t", str(MAX_SECONDS), "-an",
+        "-filter_complex",
+        "[0:v]fps=30,split=2[full][look];"
+        "[full]scale=720:1280:force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p[small];"
+        f"[look]scale=-2:160,select='gt(scene,{SCENE_THRESHOLD})',showinfo[scenes]",
+        "-map", "[small]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-maxrate", "4M", "-bufsize", "8M",
         "-g", "10", "-bf", "0", "-movflags", "+faststart", str(clip),
-    ], 300)
+        "-map", "[scenes]", "-f", "null", "-",
+    ], 300, stream="stderr")
     if not clip.exists() or clip.stat().st_size < 1000:
         raise PrepareError("That video has nothing to show.")
     if clip.stat().st_size > CLIP_MAX_BYTES:
         raise PrepareError("That video is too detailed to prepare. Try a shorter one.")
-    milliseconds = round(float(run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(clip)], 60,
-    ).strip() or 0) * 1000)
+    milliseconds = round(seconds_of(clip) * 1000)
     if milliseconds < 500:
         raise PrepareError("That video is too short to use.")
     poster = directory / "poster.jpg"
@@ -158,10 +181,10 @@ def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]]
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-ss", str(min(1.0, seconds / 2)), "-i", str(clip),
         "-frames:v", "1", "-q:v", "3", str(poster),
     ], 60)
-    return clip.read_bytes(), poster.read_bytes(), shots(clip, milliseconds)
+    return clip.read_bytes(), poster.read_bytes(), shots_from(log, milliseconds)
 
 
-@app.function(image=image, cpu=4, memory=4096, min_containers=0, max_containers=6, scaledown_window=10, timeout=600)
+@app.function(image=image, cpu=4, memory=4096, min_containers=0, max_containers=6, scaledown_window=60, timeout=600)
 def prepare(kind: str, source: str, puts: dict[str, str]) -> dict:
     """Returns {"ok": True, "bytes": {output: size}, "shots": [[start_ms, end_ms], ...] (video or GIF only)} or {"ok": False, "error": words for the person}."""
     with tempfile.TemporaryDirectory(prefix="mumoo-prepare-") as name:

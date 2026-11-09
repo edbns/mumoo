@@ -6,8 +6,8 @@ import { adPunchFallbackText, recommendRow, SHELF_ROWS, type CreativesPackSlot, 
 import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
 import { friendlyError } from './friendly-error';
-import { PictureDialog } from './picture-dialog';
-import { PICTURE_RULES, type PictureUse, type Upload } from './uploads';
+import { PictureUpload } from './picture-upload';
+import type { PictureUse, Upload } from './uploads';
 import type { Uploads } from './use-uploads';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
@@ -117,9 +117,6 @@ export function CreativesPackStudio({
   const [error, setError] = useState('');
   /** Every row has its own Refresh and (where it makes sense) its own Lyrics switch, so a change repaints one row only. */
   const [controls, setControls] = useState(FRESH_ROWS);
-  const [dialog, setDialog] = useState<PictureUse | null>(null);
-  /** Which picture each own-picture row draws from: the id of one of the person's pictures, or null for our approved photography. */
-  const [chosen, setChosen] = useState<Record<PictureUse, string | null>>({ dust: null, filter: null });
   /** The approved photos; null until they have been read. */
   const [plates, setPlates] = useState<PlateRef[] | null>(null);
   /** A row appears when all four of its posters are finished. */
@@ -134,13 +131,11 @@ export function CreativesPackStudio({
   const hasLyrics = Boolean(profile.approvedLyrics?.cues.length);
   const lyricsOn = (row: ShelfRow) => SHELF_ROWS.find(def => def.id === row)?.lyrics === 'always' || controls[row].lyrics;
 
-  // The picture each own-picture row draws from. Links are renewed from time to time, so rows are keyed by id, not link.
+  // The picture each own-picture row draws from: the person's own, once it is ready (a new one replaces it), else ours.
+  // Links are renewed from time to time, so rows are keyed by id, not link.
   const useOf = (row: ShelfRow) => SHELF_ROWS.find(def => def.id === row)?.upload;
-  const own = (use: PictureUse) => (uploads.list ?? []).filter(item => item.use === use);
-  const pictures: Record<PictureUse, Upload | null> = {
-    dust: own('dust').find(item => item.id === chosen.dust && item.status === 'ready' && item.url) ?? null,
-    filter: own('filter').find(item => item.id === chosen.filter && item.status === 'ready' && item.url) ?? null,
-  };
+  const ownPicture = (use: PictureUse) => (uploads.list ?? []).find(item => item.use === use && item.status === 'ready' && item.url) ?? null;
+  const pictures: Record<PictureUse, Upload | null> = { dust: ownPicture('dust'), filter: ownPicture('filter') };
   const pictureOf = (row: ShelfRow) => {
     const use = useOf(row);
     return use ? drawingFrom(pictures[use]) : undefined;
@@ -148,27 +143,21 @@ export function CreativesPackStudio({
   const pictureIds = `${pictures.dust?.id ?? 'ours'}|${pictures.filter?.id ?? 'ours'}`;
 
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
-    let note = '';
-    if (def.upload) {
-      const mine = own(def.upload);
-      if (pictures[def.upload]) {
-        // Drawn from their own picture.
-      } else if (plates === null) {
+    if (def.upload && !pictures[def.upload]) {
+      if (plates === null) {
         return [def.id, { slots: [], note: '' }];
       } else if (!plates.some(plate => def.upload === 'filter' || plate.cutout)) {
         const ask = def.upload === 'dust' ? 'Upload one photo to see Dust made from it.' : 'Upload a photo, video or GIF to see it here.';
         return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? 'We have no approved photos for this yet. Sign in (top right) to use your own.' : `We have no approved photos for this yet. ${ask}` }];
       }
-      if (mine.some(item => item.status === 'preparing')) note = 'Preparing your picture. It replaces ours as soon as it is ready.';
     }
     if (lyricsOn(def.id) && !hasLyrics) {
       return [def.id, { slots: [], note: def.lyrics === 'always' ? 'Pulise is made of your lyrics. Approve your synced lyrics first.' : 'Approve your synced lyrics, or switch this row’s lyrics off.' }];
     }
-    return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? []), note }];
+    return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? []), note: '' }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover,
     controls, plates, hasLyrics, pictureIds, uploads.signedIn, uploads.pending,
-    uploads.list?.map(item => `${item.id}:${item.status}`).join(),
   ]);
   const pack = SHELF_ROWS.flatMap(def => view[def.id].slots);
   const paintedRows = SHELF_ROWS.filter(def => view[def.id].slots.length > 0);
@@ -210,19 +199,8 @@ export function CreativesPackStudio({
     return () => { alive = false; };
   }, [cueKey, fallbackText]);
 
-  // A picture the person has just added is the one they want to see; ones that were already there stay unused until chosen.
-  const seen = useRef<Set<string> | null>(null);
-  useEffect(() => {
-    if (uploads.list === null) { seen.current = null; return; }
-    const readyNow = uploads.list.filter(item => item.status === 'ready');
-    if (seen.current === null) { seen.current = new Set(readyNow.map(item => item.id)); return; }
-    for (const item of readyNow) {
-      if (seen.current.has(item.id)) continue;
-      seen.current.add(item.id);
-      stopPlayback();
-      setChosen(current => ({ ...current, [item.use]: item.id }));
-    }
-  }, [uploads.list]);
+  // A picture that has just become ready is drawn at once, and the one shared drawing surface must not be in use.
+  useEffect(() => { if (playingId) stopPlayback(); }, [pictureIds]);
 
   // A card that no longer exists cannot stay playing. (Cards in the cart are kept on purpose.)
   useEffect(() => {
@@ -260,7 +238,7 @@ export function CreativesPackStudio({
           try {
             await blitPackFrame(canvas, packOpts(slots[index], base, impact, fallback, withLyrics, latest.current.pictureOf(def.id)), posterAt(base, impact, withLyrics));
           } catch (cause) {
-            if (!cancelled) setError(friendlyError(cause, 'One creative could not be prepared.'));
+            if (!cancelled) setError(`${def.title}: ${friendlyError(cause, 'One creative could not be prepared.')}`);
           }
           await yieldFrame();
         }
@@ -434,9 +412,6 @@ export function CreativesPackStudio({
                 />
                 <span>Lyrics</span>
               </label>}
-              {def.upload && <button type="button" className="secondary" onClick={() => { stopPlayback(); setDialog(def.upload ?? null); }}>
-                {def.upload === 'dust' ? 'Upload photo' : 'Upload photo, video or GIF'}
-              </button>}
               <button
                 type="button"
                 className="secondary"
@@ -446,6 +421,7 @@ export function CreativesPackStudio({
               >Refresh</button>
             </div>
           </div>
+          {def.upload && <PictureUpload use={def.upload} uploads={uploads} active={pictures[def.upload]} onChange={stopPlayback} />}
           {note && <p className="hint creatives-pack-row-note" role="status">{note}</p>}
           {slots.length > 0 && <div className="creatives-pack-grid" role="list">
             {slots.map((item, index) => {
@@ -483,16 +459,5 @@ export function CreativesPackStudio({
         </section>
       );
     })}
-    {(Object.keys(PICTURE_RULES) as PictureUse[]).map(use => (
-      <PictureDialog
-        key={use}
-        use={use}
-        open={dialog === use}
-        onClose={() => setDialog(current => (current === use ? null : current))}
-        uploads={uploads}
-        chosenId={pictures[use]?.id ?? null}
-        onChoose={id => { stopPlayback(); setChosen(current => ({ ...current, [use]: id })); }}
-      />
-    ))}
   </section></main>;
 }

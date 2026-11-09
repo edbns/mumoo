@@ -4,30 +4,42 @@ import { addUpload, listUploads, removeUpload, type PictureUse, type Upload } fr
 
 /** Signed links last 15 minutes, so a long session asks for fresh ones before they run out. */
 const RELINK_MS = 10 * 60_000;
-const POLL_MS = 3000;
+/** While something is being prepared in the cloud, how often to ask whether it is ready. */
+const POLL_MS = 2000;
+
+/** What went wrong, in words for the person: with one row's picture, or (`use` null) with looking at their pictures at all. */
+export type PictureProblem = { use: PictureUse | null; message: string };
 
 /**
- * The signed-in person's own pictures (all rows share one list). While something is being prepared in the
- * cloud it looks again every few seconds; otherwise it only looks when something changes.
+ * The signed-in person's own pictures, at most one per row of the shelf. While something is being prepared in
+ * the cloud it looks again every couple of seconds; otherwise it only looks when something changes.
  */
 export function useUploads() {
   const session = authClient.useSession();
   const signedIn = Boolean(session.data?.user);
   const [list, setList] = useState<Upload[] | null>(null);
-  const [error, setError] = useState('');
-  const [progress, setProgress] = useState<number>();
+  const [problem, setProblem] = useState<PictureProblem | null>(null);
+  /** The row a file is being sent for, and how much of it has gone (a photo is one quick request, so it has no share). */
+  const [sending, setSending] = useState<{ use: PictureUse; share?: number } | null>(null);
   const waiting = list?.some(item => item.status === 'preparing') ?? false;
+
+  /** Takes in a new list. A picture that could not be prepared arrives once, as a failed entry, and becomes the row's problem. */
+  const receive = useCallback((next: Upload[]) => {
+    const failed = next.find(item => item.status === 'failed');
+    setList(next.filter(item => item.status !== 'failed'));
+    if (failed) setProblem({ use: failed.use, message: failed.error ?? 'We could not prepare that file. Try another.' });
+  }, []);
 
   const refresh = useCallback(async (alive: () => boolean = () => true) => {
     try {
       const next = await listUploads();
       if (!alive()) return;
-      setList(next);
-      setError('');
+      receive(next);
+      setProblem(current => (current?.use === null ? null : current));
     } catch (cause) {
-      if (alive()) setError(cause instanceof Error ? cause.message : 'Your pictures are unavailable right now.');
+      if (alive()) setProblem({ use: null, message: cause instanceof Error ? cause.message : 'Your pictures are unavailable right now.' });
     }
-  }, []);
+  }, [receive]);
 
   useEffect(() => {
     if (!signedIn) { setList(null); return; }
@@ -44,29 +56,30 @@ export function useUploads() {
     return () => { live = false; clearInterval(timer); };
   }, [waiting, refresh]);
 
+  /** Adds a picture for a row (it replaces the row's current one once it is ready). */
   async function add(file: File, use: PictureUse) {
-    setProgress(0);
-    setError('');
+    setSending({ use });
+    setProblem(null);
     try {
-      await addUpload(file, use, share => setProgress(share));
-      await refresh();
+      receive(await addUpload(file, use, share => setSending({ use, share })));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That file could not be added.');
+      setProblem({ use, message: cause instanceof Error ? cause.message : 'That file could not be added.' });
     } finally {
-      setProgress(undefined);
+      setSending(null);
     }
   }
 
-  async function remove(id: string) {
+  /** Goes back to our approved photography for a row. */
+  async function remove(item: Upload) {
+    setProblem(null);
     try {
-      await removeUpload(id);
-      await refresh();
+      receive(await removeUpload(item.id));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That could not be removed.');
+      setProblem({ use: item.use, message: cause instanceof Error ? cause.message : 'That could not be removed.' });
     }
   }
 
-  return { pending: session.isPending, signedIn, list, error, progress, add, remove };
+  return { pending: session.isPending, signedIn, list, problem, sending, add, remove };
 }
 
 export type Uploads = ReturnType<typeof useUploads>;

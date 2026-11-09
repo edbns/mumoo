@@ -1,14 +1,21 @@
 import { accountFetch } from './account';
+import { shrinkPhoto } from './photo-shrink';
 
 /** Which row of the shelf a picture is kept for. */
 export type PictureUse = 'dust' | 'filter';
 
-/** A person's own pictures, kept privately in their storage. Every call needs them to be signed in. */
+/**
+ * A person's own picture, kept privately in their storage (each row keeps one; a new one replaces it).
+ * Every call needs them to be signed in.
+ */
 export type Upload = {
   id: string;
   kind: 'photo' | 'motion';
   use: PictureUse;
-  /** A picture is being prepared on our worker (a photo's cut-out, a video's small clip) until it is ready. */
+  /**
+   * A picture is being prepared on our worker (a photo's cut-out, a video's small clip) until it is ready.
+   * `failed` is only ever reported once, with the reason, in the answer that found out; it is not kept.
+   */
   status: 'preparing' | 'ready' | 'failed';
   error?: string;
   bytes: number;
@@ -21,56 +28,28 @@ export type Upload = {
   shots?: [number, number][];
 };
 
-/** Photos are shrunk to a JPEG of at most `LONG_SIDE` pixels. Videos and GIFs go straight to storage and are prepared there. */
-const LONG_SIDE = 2048;
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MOTION_LIMITS: Record<string, number> = { 'video/mp4': 150e6, 'video/quicktime': 150e6, 'video/webm': 150e6, 'image/gif': 25e6 };
 const MAX_PHOTO_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_SECONDS = 60;
-const RIGHTS = { 'X-Mumoo-Rights': 'confirmed' };
 
-/** What each row accepts and keeps. The server enforces the same limits; this is what the person is told first. */
-export const PICTURE_RULES: Record<PictureUse, { limit: number; accepts: string; rules: string[] }> = {
-  dust: {
-    limit: 1,
-    accepts: PHOTO_TYPES.join(','),
-    rules: [
-      'One photo only: JPEG, PNG or WebP, up to 25 MB. Until you add one, Dust is made from our approved photography.',
-      'Best with one clear subject (a person, an object) against any background. It is cut out and turned into dust.',
-      'Adding another needs the current one removed first.',
-    ],
-  },
-  filter: {
-    limit: 6,
-    accepts: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
-    rules: [
-      'Until you add your own, this row shows our approved photography. Use a photo (JPEG, PNG or WebP, up to 25 MB), a video (MP4, MOV or WebM, up to 150 MB and 60 seconds) or a GIF (up to 25 MB).',
-      'We find the cuts in your video or GIF and arrange them to the beat, differently on each card.',
-      'Up to 6 pictures are kept. Remove one to add another.',
-    ],
-  },
+/** What each row's file picker offers. The server enforces the same limits. */
+export const ACCEPT: Record<PictureUse, string> = {
+  dust: PHOTO_TYPES.join(','),
+  filter: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
 };
 
+/** Answers of the uploads API: the person's pictures as they now are. */
+async function pictures(response: Response): Promise<Upload[]> {
+  return ((await response.json()) as { uploads: Upload[] }).uploads;
+}
+
 export async function listUploads(): Promise<Upload[]> {
-  return ((await (await accountFetch('/api/uploads')).json()) as { uploads: Upload[] }).uploads;
+  return pictures(await accountFetch('/api/uploads'));
 }
 
-export async function removeUpload(id: string): Promise<void> {
-  await accountFetch(`/api/uploads?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-}
-
-async function addPhoto(file: File, use: PictureUse): Promise<void> {
-  if (file.size > MAX_PHOTO_FILE_BYTES) throw new Error('That photo is larger than 25 MB.');
-  const bitmap = await createImageBitmap(file).catch(() => { throw new Error('That photo could not be read.'); });
-  const scale = Math.min(1, LONG_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  const jpeg = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.88));
-  if (!jpeg) throw new Error('That photo could not be prepared.');
-  await accountFetch(`/api/uploads?kind=photo&use=${use}`, { method: 'POST', headers: { ...RIGHTS, 'Content-Type': 'image/jpeg' }, body: jpeg });
+export async function removeUpload(id: string): Promise<Upload[]> {
+  return pictures(await accountFetch(`/api/uploads?id=${encodeURIComponent(id)}`, { method: 'DELETE' }));
 }
 
 /** How long a video is, when the browser can tell. GIFs and unusual formats are checked by our worker instead. */
@@ -99,27 +78,35 @@ function send(url: string, file: File, onProgress: (share: number) => void): Pro
   });
 }
 
-async function addMotion(file: File, onProgress: (share: number) => void): Promise<void> {
+async function addMotion(file: File, onProgress: (share: number) => void): Promise<Upload[]> {
   const seconds = await videoSeconds(file);
   if (seconds !== null && seconds > MAX_SECONDS) throw new Error(`Videos can be up to ${MAX_SECONDS} seconds long.`);
   const reserved = await accountFetch('/api/uploads?kind=motion', {
     method: 'POST',
-    headers: { ...RIGHTS, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ type: file.type, bytes: file.size }),
   }).then(response => response.json() as Promise<{ id: string; putUrl: string }>);
   try {
     await send(reserved.putUrl, file, onProgress);
-    await accountFetch(`/api/uploads?id=${reserved.id}`, { method: 'PUT' });
+    return await pictures(await accountFetch(`/api/uploads?id=${reserved.id}`, { method: 'PUT' }));
   } catch (cause) {
     await removeUpload(reserved.id).catch(() => undefined);
     throw cause;
   }
 }
 
-/** Adds a picture for a row. A Dust photo is then cut out in the cloud, a video or GIF is prepared; `listUploads` shows when it is ready. */
-export async function addUpload(file: File, use: PictureUse, onProgress: (share: number) => void = () => undefined): Promise<void> {
-  if (PHOTO_TYPES.includes(file.type)) return addPhoto(file, use);
-  if (use === 'dust') throw new Error('Dust uses one photo (JPEG, PNG or WebP).');
+/**
+ * Adds a picture for a row, replacing the one it has. A photo is shrunk and sent in one request; a Filter photo
+ * is ready as soon as it is stored. A Dust photo is cut out, and a video or GIF prepared, in the cloud: the
+ * answer lists it as `preparing` until `listUploads` says it is ready. Resolves with the person's pictures.
+ */
+export async function addUpload(file: File, use: PictureUse, onProgress: (share: number) => void = () => undefined): Promise<Upload[]> {
+  if (PHOTO_TYPES.includes(file.type)) {
+    if (file.size > MAX_PHOTO_FILE_BYTES) throw new Error('That photo is larger than 25 MB.');
+    const photo = await shrinkPhoto(file);
+    return pictures(await accountFetch(`/api/uploads?kind=photo&use=${use}`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: photo }));
+  }
+  if (use === 'dust') throw new Error('Dust uses a photo (JPEG, PNG or WebP).');
   const limit = MOTION_LIMITS[file.type];
   if (!limit) throw new Error('Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.');
   if (file.size > limit) throw new Error(`That ${file.type === 'image/gif' ? 'GIF' : 'video'} is larger than ${limit / 1e6} MB.`);

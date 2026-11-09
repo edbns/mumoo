@@ -126,25 +126,38 @@ export async function createPackRenderer(
     initialized = false;
   };
 
-  async function loadTexture(url: string) {
-    return await Assets.load({ src: url, parser: 'texture' }) as Texture;
+  /**
+   * Reads a picture into a texture. It is fetched fresh, never from the browser's cache: a signed link that
+   * was once shown in an <img> sits in the cache without CORS headers, and reusing it here would fail.
+   */
+  async function loadTexture(url: string, what: string): Promise<Texture> {
+    const response = await fetch(url, { cache: 'no-store' }).catch(() => null);
+    if (!response?.ok) throw new Error(`${what} could not be loaded${response ? ` (${response.status})` : ''}. Reload the page, or go back to our photography.`);
+    const bitmap = await createImageBitmap(await response.blob()).catch(() => null);
+    if (!bitmap) throw new Error(`${what} could not be read as a picture.`);
+    return Texture.from(bitmap);
   }
 
-  /** Reads the person's picture (still, cut-out, clip) once per link; a missing one is an error, never a stand-in. */
+  /** Reads the person's picture (still, cut-out, clip) once per link; one that cannot be read is an error, never a stand-in. */
   async function ensurePicture(photoUrl: string | undefined, cutoutUrl: string | undefined, motionUrl: string | undefined) {
     if (photoUrl !== photoUrlLoaded || (photoUrl && !photoTexture)) {
+      photoUrlLoaded = '';
+      photoTexture = null;
+      if (photoUrl) photoTexture = await loadTexture(photoUrl, 'The photo');
       photoUrlLoaded = photoUrl ?? '';
-      photoTexture = photoUrl ? await loadTexture(photoUrl).catch(() => null) : null;
     }
     if (cutoutUrl !== (cutoutUrlLoaded || undefined) || (cutoutUrl && !cutoutTexture)) {
+      cutoutUrlLoaded = '';
+      cutoutTexture = null;
+      if (cutoutUrl) cutoutTexture = await loadTexture(cutoutUrl, 'The photo’s cut-out');
       cutoutUrlLoaded = cutoutUrl ?? '';
-      cutoutTexture = cutoutUrl ? await loadTexture(cutoutUrl).catch(() => null) : null;
     }
     if (motionUrl !== (motionUrlLoaded || undefined)) {
       motion?.destroy();
       motion = null;
-      motionUrlLoaded = motionUrl ?? '';
+      motionUrlLoaded = '';
       if (motionUrl) motion = await loadMotion(motionUrl);
+      motionUrlLoaded = motionUrl ?? '';
     }
   }
 

@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { QUOTA_BYTES, usedBytes } from '../netlify/lib/allowance.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import { storageReady } from '../netlify/lib/storage.mjs';
-import { LIMITS, listUploads, removeUpload, reserveMotion, saveUpload, uploadMedia } from '../netlify/lib/uploads.mjs';
+import { listUploads, removeUpload, reserveMotion, saveUpload, uploadMedia } from '../netlify/lib/uploads.mjs';
 
 /** Live check of Cloudflare R2 + Postgres for people's own pictures. Needs .env.local; skipped without it. */
 const READY = storageReady() && Boolean(process.env.DATABASE_URL);
@@ -15,6 +15,24 @@ async function withPerson(run) {
   const userId = `test-${randomUUID()}`;
   await sql`insert into app_users (id, email) values (${userId}, ${`${userId}@example.com`})`;
   try { await run(sql, userId); } finally { await sql`delete from app_users where id = ${userId}`; }
+}
+
+/**
+ * Stands in for our preparing worker, which a test cannot reach: starting a job answers with an id, and asking
+ * how it is getting on answers with `outcome()` (the worker's result, or 'running'). Everything else (R2 above all) goes through for real.
+ */
+async function withWorker(outcome, run) {
+  const real = globalThis.fetch;
+  globalThis.fetch = (input, init) => {
+    const url = String(input instanceof Request ? input.url : input);
+    if (url.startsWith('https://edbns-mumoo-staging--mumoo-prepare-media-staging-submit')) return Promise.resolve(Response.json({ id: 'fc-TESTJOB00001' }));
+    if (url.startsWith('https://edbns-mumoo-staging--mumoo-prepare-media-staging-status')) {
+      const answer = outcome();
+      return Promise.resolve(answer === 'running' ? Response.json({ status: 'running' }, { status: 202 }) : Response.json(answer));
+    }
+    return real(input, init);
+  };
+  try { await run(); } finally { globalThis.fetch = real; }
 }
 
 test('a Filter photo is ready at once, private to its owner, and removed with its files', { skip: !READY, timeout: 60000 }, () => withPerson(async (_sql, userId) => {
@@ -43,15 +61,54 @@ test('a Filter photo is ready at once, private to its owner, and removed with it
   assert.equal(await usedBytes(userId), 0);
 }));
 
-test('each row keeps its own number of pictures: one for Dust, a few for Filters', { skip: !READY, timeout: 90000 }, () => withPerson(async (_sql, userId) => {
-  const first = await saveUpload(userId, 'dust', jpeg(500)).catch(() => null);
-  // Dust photos go to the cut-out worker, which may not be reachable from a test; the slot is taken either way.
-  assert.ok(first === null || first.id, 'first Dust photo');
+test('a new Filter picture replaces the old one at once, rows and files', { skip: !READY, timeout: 60000 }, () => withPerson(async (sql, userId) => {
+  const first = await saveUpload(userId, 'filter', jpeg(1000));
+  const [before] = await listUploads(userId);
+  const second = await saveUpload(userId, 'filter', jpeg(2000));
   const rows = await listUploads(userId);
-  if (rows.some(row => row.use === 'dust')) assert.deepEqual(await saveUpload(userId, 'dust', jpeg(500)), { refused: 'count' }, 'a second Dust photo is refused');
-  for (let n = 0; n < LIMITS.filter; n++) assert.ok((await saveUpload(userId, 'filter', jpeg(500))).id, `Filter picture ${n + 1}`);
-  assert.deepEqual(await saveUpload(userId, 'filter', jpeg(500)), { refused: 'count' }, 'one past the Filter limit');
-  assert.deepEqual(await reserveMotion(userId, 'video/mp4', 1000), { refused: 'count' }, 'videos count towards Filters');
+  assert.deepEqual(rows.map(row => row.id), [second.id], 'one picture is kept');
+  assert.equal((await fetch(before.url)).status, 404, 'the old photo is gone from storage');
+  assert.equal(await uploadMedia(userId, first.id), null);
+  assert.equal(await usedBytes(userId), 2000);
+  const [{ stamped }] = await sql`select (rights_confirmed_at is not null) as stamped from uploads where id = ${second.id}`;
+  assert.equal(stamped, true, 'uploading is the confirmation of the rights, and the time is kept');
+}));
+
+test('a Dust photo keeps the old one drawn until the new one is ready, then replaces it', { skip: !READY, timeout: 90000 }, () => withPerson(async (_sql, userId) => {
+  let outcome = { ok: true, bytes: { cutout: 500 } };
+  await withWorker(() => outcome, async () => {
+    const first = await saveUpload(userId, 'dust', jpeg(1000));
+    const [old] = await listUploads(userId);
+    assert.equal(old.status, 'ready');
+    assert.ok(old.cutoutUrl, 'Dust gets its cut-out');
+
+    outcome = 'running';
+    const second = await saveUpload(userId, 'dust', jpeg(1500));
+    assert.deepEqual(await saveUpload(userId, 'dust', jpeg(300)), { refused: 'busy' }, 'one at a time');
+    const meanwhile = await listUploads(userId);
+    assert.deepEqual(meanwhile.map(row => [row.id, row.status]), [[second.id, 'preparing'], [first.id, 'ready']], 'the old one is still there to draw');
+    assert.equal((await fetch(old.url)).status, 200);
+
+    outcome = { ok: true, bytes: { cutout: 500 } };
+    const settled = await listUploads(userId);
+    assert.deepEqual(settled.map(row => [row.id, row.status]), [[second.id, 'ready']], 'now only the new one');
+    assert.equal((await fetch(old.url)).status, 404, 'the old photo is gone from storage');
+  });
+}));
+
+test('a photo the worker cannot prepare is removed and reported once; the old one stays', { skip: !READY, timeout: 90000 }, () => withPerson(async (_sql, userId) => {
+  let outcome = { ok: true, bytes: { cutout: 500 } };
+  await withWorker(() => outcome, async () => {
+    const first = await saveUpload(userId, 'dust', jpeg(1000));
+    await listUploads(userId);
+    outcome = { ok: false, error: 'That photo has nothing to cut out.' };
+    const second = await saveUpload(userId, 'dust', jpeg(1500));
+    const answer = await listUploads(userId);
+    assert.deepEqual(answer.map(row => [row.id, row.status, row.error]), [[second.id, 'failed', 'That photo has nothing to cut out.'], [first.id, 'ready', undefined]]);
+    const later = await listUploads(userId);
+    assert.deepEqual(later.map(row => row.id), [first.id], 'told once, then gone');
+    assert.equal(await uploadMedia(userId, second.id), null);
+  });
 }));
 
 test('only JPEGs of a sensible size are accepted, and only for a known row', { skip: !READY, timeout: 60000 }, () => withPerson(async (_sql, userId) => {
@@ -62,12 +119,16 @@ test('only JPEGs of a sensible size are accepted, and only for a known row', { s
   assert.deepEqual(await reserveMotion(userId, 'image/gif', 25_000_001), { refused: 'size' });
 }));
 
-test('an abandoned video reservation gives its room back, and removal clears every file', { skip: !READY, timeout: 60000 }, () => withPerson(async (sql, userId) => {
+test('a video reservation that never arrived gives its room back, by time or when the next picture is added', { skip: !READY, timeout: 60000 }, () => withPerson(async (sql, userId) => {
   const { id, putUrl } = await reserveMotion(userId, 'video/mp4', 1000);
   assert.ok(id && putUrl);
   assert.equal((await listUploads(userId)).filter(item => item.status === 'preparing').length, 1);
   await sql`update uploads set created_at = now() - interval '2 hours' where id = ${id}`;
   assert.deepEqual(await listUploads(userId), [], 'the reservation was never used, so it is gone');
+
+  const abandoned = await reserveMotion(userId, 'video/mp4', 1000);
+  const next = await saveUpload(userId, 'filter', jpeg(500));
+  assert.deepEqual((await listUploads(userId)).map(item => item.id), [next.id], `a new picture clears reservation ${abandoned.id}`);
 }));
 
 test('photos and finished creatives share one storage allowance', { skip: !READY, timeout: 60000 }, () => withPerson(async (sql, userId) => {

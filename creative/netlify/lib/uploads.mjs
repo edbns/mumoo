@@ -3,20 +3,23 @@ import { db } from './person.mjs';
 import { deleteObject, getObject, objectSize, putObject, signedDownload, signedUpload } from './storage.mjs';
 
 /**
- * A person's own pictures, kept privately in R2. Each is kept for one row of the shelf (its `use`):
+ * A person's own pictures, kept privately in R2. Each row of the shelf (a picture's `use`) keeps at most ONE:
  *
- *   dust    one photo (the browser shrinks it to a JPEG) and a cut-out mask of its subject
- *   filter  up to `FILTER_LIMIT` pictures: a photo as it is, or a video or GIF prepared into a small clip with a poster
+ *   dust    a photo (the browser shrinks it to a JPEG) and a cut-out mask of its subject
+ *   filter  a photo as it is, or a video or GIF prepared into a small clip with a poster
+ *
+ * A new picture replaces the one before it: the old one (rows and files) is removed the moment the new one is
+ * ready, so until then the row keeps drawing the old one. Uploading is the person's confirmation that they own
+ * the rights, so `rights_confirmed_at` is stamped when the picture arrives.
  *
  * Preparing happens on our own worker (see audio-intelligence/modal_prepare_media_staging.py). A picture is
- * `preparing` until the worker has written its files, then `ready`, or `failed` with the reason in words.
+ * `preparing` until the worker has written its files, then `ready`. One the worker could not prepare is removed
+ * at once and reported (with the reason in words) in the answer to the request that found out.
  */
 export const MAX_PHOTO_BYTES = 3_000_000;
 export const MAX_GIF_BYTES = 25_000_000;
 export const MAX_VIDEO_BYTES = 150_000_000;
 export const USES = ['dust', 'filter'];
-/** How many pictures each row may keep. */
-export const LIMITS = { dust: 1, filter: 6 };
 export const MOTION_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'image/gif'];
 
 const PREPARE = 'https://edbns-mumoo-staging--mumoo-prepare-media-staging';
@@ -29,12 +32,24 @@ const KEYS = {
 const isJpeg = (bytes) => bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
 const bridge = () => ({ Authorization: `Bearer ${process.env.MUMOO_MUSIC_BRIDGE_SECRET}` });
 
-/** Why a picture was turned away: 'size', 'count' or 'full'. Null when there is room and it is fine. */
+/** Why a picture was turned away: 'size', 'busy' (the row's last picture is still being prepared) or 'full'. Null when there is room and it is fine. */
 async function refusal(userId, use, bytes, limit) {
   if (bytes > limit) return 'size';
-  const [{ n }] = await db()`select count(*)::int as n from uploads where user_id = ${userId} and use = ${use}`;
-  if (n >= LIMITS[use]) return 'count';
+  const [{ working }] = await db()`select exists (select 1 from uploads where user_id = ${userId} and use = ${use} and status = 'preparing' and job_id is not null) as working`;
+  if (working) return 'busy';
   return (await hasRoom(userId, bytes)) ? null : 'full';
+}
+
+/** Makes way for a new picture: a video that never arrived is of no use any more, nor is a failure an earlier version of this code kept. */
+async function clearStale(userId, use) {
+  const stale = await db()`select id from uploads where user_id = ${userId} and use = ${use} and (status = 'failed' or (status = 'preparing' and job_id is null))`;
+  await Promise.all(stale.map(row => removeUpload(userId, row.id)));
+}
+
+/** A picture is ready: the one it replaces (and every file made from it) goes. */
+async function replaceOthers(userId, use, keepId) {
+  const old = await db()`select id from uploads where user_id = ${userId} and use = ${use} and id <> ${keepId}`;
+  await Promise.all(old.map(row => removeUpload(userId, row.id)));
 }
 
 async function startPreparing(userId, id, kind) {
@@ -53,18 +68,19 @@ async function startPreparing(userId, id, kind) {
   await db()`update uploads set job_id = ${result.id} where id = ${id}`;
 }
 
-/** Stores one photo. For Dust its subject is then cut out; for Filters it is ready at once. Returns `{ id }` or `{ refused }`. */
+/** Stores one photo for a row. For Dust its subject is then cut out; for Filters it is ready at once and replaces the old one. Returns `{ id }` or `{ refused }`. */
 export async function saveUpload(userId, use, bytes) {
   if (!USES.includes(use) || !isJpeg(bytes)) return { refused: 'format' };
   const refused = await refusal(userId, use, bytes.length, MAX_PHOTO_BYTES);
   if (refused) return { refused };
+  await clearStale(userId, use);
   const id = crypto.randomUUID();
-  const sql = db();
   const status = use === 'dust' ? 'preparing' : 'ready';
-  await sql`insert into uploads (id, user_id, bytes, rights_confirmed_at, kind, use, status) values (${id}, ${userId}, ${bytes.length}, now(), 'photo', ${use}, ${status})`;
+  await db()`insert into uploads (id, user_id, bytes, rights_confirmed_at, kind, use, status) values (${id}, ${userId}, ${bytes.length}, now(), 'photo', ${use}, ${status})`;
   try {
     await putObject(KEYS.still(userId, id), bytes, 'image/jpeg');
     if (use === 'dust') await startPreparing(userId, id, 'photo');
+    else await replaceOthers(userId, use, id);
   } catch (cause) {
     await removeUpload(userId, id);
     throw cause;
@@ -77,6 +93,7 @@ export async function reserveMotion(userId, type, bytes) {
   if (!MOTION_TYPES.includes(type)) return { refused: 'format' };
   const refused = await refusal(userId, 'filter', bytes, type === 'image/gif' ? MAX_GIF_BYTES : MAX_VIDEO_BYTES);
   if (refused) return { refused };
+  await clearStale(userId, 'filter');
   const id = crypto.randomUUID();
   await db()`insert into uploads (id, user_id, bytes, rights_confirmed_at, kind, use, status) values (${id}, ${userId}, ${bytes}, now(), 'motion', 'filter', 'preparing')`;
   return { id, putUrl: await signedUpload(KEYS.source(userId, id)) };
@@ -97,40 +114,41 @@ export async function motionArrived(userId, id) {
   return true;
 }
 
-/** Asks the worker how a preparing picture is getting on, and records the answer. */
+/**
+ * Asks the worker how a preparing picture is getting on. Ready: it replaces the old one. Not preparable: it is
+ * removed, and the entry that says why is returned (once: the person is told with this answer).
+ */
 async function settle(userId, row) {
   const sql = db();
-  const fail = (error) => sql`update uploads set status = 'failed', error = ${error} where id = ${row.id}`;
+  const failed = async (error) => {
+    await removeUpload(userId, row.id);
+    return { id: row.id, kind: row.kind, use: row.use, status: 'failed', error, bytes: 0, createdAt: row.created_at };
+  };
   const response = await fetch(`${PREPARE}-status.us-east.modal.run?id=${encodeURIComponent(row.job_id)}`, {
     headers: bridge(),
     redirect: 'error',
     signal: AbortSignal.timeout(20_000),
   }).catch(() => null);
-  if (!response || response.status === 202 || (response.status >= 500 && response.status !== 502)) return;
+  if (!response || response.status === 202 || (response.status >= 500 && response.status !== 502)) return null;
   const result = response.ok ? await response.json().catch(() => null) : null;
-  if (!result) return fail(response.status === 410 ? 'That took too long to prepare. Remove it and try again.' : 'We could not prepare that file. Try another.');
-  if (!result.ok) return fail(result.error);
+  if (!result) return failed(response.status === 410 ? 'That took too long to prepare. Try again.' : 'We could not prepare that file. Try another.');
+  if (!result.ok) return failed(result.error);
   // A photo keeps its JPEG next to the new mask; a video or GIF keeps only the prepared clip and poster.
   const total = Object.values(result.bytes).reduce((sum, size) => sum + size, row.kind === 'photo' ? row.bytes : 0);
   await sql`update uploads set status = 'ready', bytes = ${total}, shots = ${row.kind === 'motion' ? JSON.stringify(result.shots) : null}::jsonb, error = null where id = ${row.id}`;
   if (row.kind === 'motion') await deleteObject(KEYS.source(userId, row.id));
+  await replaceOthers(userId, row.use, row.id);
+  return null;
 }
 
 /** Newest first. Each ready picture comes with links that work for 15 minutes. */
-export async function listUploads(userId) {
-  const sql = db();
-  // A video or GIF that never arrived (the page was closed) gives its room back after an hour.
-  const abandoned = await sql`select id from uploads where user_id = ${userId} and kind = 'motion' and status = 'preparing' and job_id is null and created_at < now() - interval '1 hour'`;
-  await Promise.all(abandoned.map(row => removeUpload(userId, row.id)));
-  const rows = await sql`select id, kind, status, job_id, error, bytes, created_at from uploads where user_id = ${userId} and status = 'preparing' and job_id is not null`;
-  await Promise.all(rows.map(row => settle(userId, row)));
-  const fresh = await sql`select id, kind, use, status, error, bytes, shots, created_at from uploads where user_id = ${userId} order by created_at desc`;
-  return Promise.all(fresh.map(async (row) => ({
+export async function entries(userId) {
+  const rows = await db()`select id, kind, use, status, bytes, shots, created_at from uploads where user_id = ${userId} and status <> 'failed' order by created_at desc`;
+  return Promise.all(rows.map(async (row) => ({
     id: row.id,
     kind: row.kind,
     use: row.use,
     status: row.status,
-    ...(row.error ? { error: row.error } : {}),
     bytes: row.bytes,
     createdAt: row.created_at,
     ...(row.status === 'ready' ? {
@@ -139,6 +157,17 @@ export async function listUploads(userId) {
       ...(row.kind === 'motion' ? { motionUrl: await signedDownload(KEYS.motion(userId, row.id)), shots: row.shots } : {}),
     } : {}),
   })));
+}
+
+/** `entries`, once every picture still being prepared has been asked about. */
+export async function listUploads(userId) {
+  const sql = db();
+  // A video or GIF that never arrived (the page was closed) gives its room back after an hour.
+  const abandoned = await sql`select id from uploads where user_id = ${userId} and kind = 'motion' and status = 'preparing' and job_id is null and created_at < now() - interval '1 hour'`;
+  await Promise.all(abandoned.map(row => removeUpload(userId, row.id)));
+  const rows = await sql`select id, kind, use, bytes, job_id, created_at from uploads where user_id = ${userId} and status = 'preparing' and job_id is not null`;
+  const failures = (await Promise.all(rows.map(row => settle(userId, row)))).filter(Boolean);
+  return [...failures, ...(await entries(userId))];
 }
 
 /**
