@@ -45,12 +45,17 @@ export function impactSignals(music: ImpactMusic | null, ms: number) {
     beatIndex += 1;
   }
   const beat = Math.exp(-Math.max(0, ms - recent) / 110);
+  return { beat, energy: energyAt(music, ms), beatIndex, beatGapMs: Number.isFinite(previous) ? recent - previous : 0 };
+}
+
+/** How loud the song is at this moment, 0 to 1. */
+export function energyAt(music: ImpactMusic, ms: number) {
   let rms = 0;
   for (const point of music.energy) {
     if (point.timeMs > ms) break;
     rms = point.rms;
   }
-  return { beat, energy: Math.max(0, Math.min(1, rms * 3)), beatIndex, beatGapMs: Number.isFinite(previous) ? recent - previous : 0 };
+  return Math.max(0, Math.min(1, rms * 3));
 }
 
 function clamp01(value: number) {

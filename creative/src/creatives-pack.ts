@@ -19,6 +19,7 @@ import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, type TypeStyleId } from './pack-type';
 import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
+import { puliseLooks, type PuliseLook } from './pulise-look';
 
 type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[]; read: LookRead };
 const BANK_LOOKS = bankData as BankLook[];
@@ -64,6 +65,8 @@ export type CreativesPackSlot = {
   /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
   bankId?: string;
   typeStyle?: TypeStyleId;
+  /** Pulise: the neon palette, ground and stickers of this card. */
+  pulise?: PuliseLook;
   /** What the lyrics do to the colours and the beat. Absent when the words change nothing. */
   grade?: MoodGrade;
 };
@@ -288,13 +291,22 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
   }));
 }
 
-/** Four Pulise cards: each its own face, each opening on a different colour. */
+/** Four Pulise cards: each its own face, neon palette, ground and stickers, and each opening on a different colour. */
 function puliseSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string): CreativesPackSlot[] {
   const faces = seededOrder(fontsForLane(lane), seed, font => font);
-  return Array.from({ length: ROW_SIZE }, (_, index) => {
+  const looks = puliseLooks(lane, seed, ROW_SIZE);
+  return looks.map((pulise, index) => {
     const slot = adPunchSlot('pulise', index, intent, seed, lane, 'pulise');
     const font = faces[index % faces.length];
-    return { ...slot, font, fontSecondary: pickSecondaryFont(font, seed, `pulise:${index}`, fontsForLane(lane)), layout: { ...slot.layout, cut: index } };
+    return {
+      ...slot,
+      font,
+      fontSecondary: pickSecondaryFont(font, seed, `pulise:${index}`, fontsForLane(lane)),
+      layout: { ...slot.layout, cut: index },
+      pulise,
+      label: `Pulise · ${pulise.neon[0].toUpperCase()}${pulise.neon.slice(1)}`,
+      reason: `${lane} · ${pulise.neon} · ${pulise.ground} · ${pulise.stickers.join(', ')}`,
+    };
   });
 }
 

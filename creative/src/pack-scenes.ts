@@ -36,8 +36,8 @@ export function createPackScene(): PackScene {
     }
     dust.world.update({
       ms: input.ms,
-      beatsMs: input.beatsMs,
-      downbeatsMs: input.downbeatsMs,
+      beatsMs: input.music?.beatsMs ?? [],
+      downbeatsMs: input.music?.downbeatsMs,
       beat: input.beat,
       colors: input.colors,
       font: input.font,

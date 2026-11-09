@@ -7,7 +7,7 @@
  * this file only loads them as textures. No WebGPU / Shaders in the browser.
  * A person's own photo (Dust, Filter) is loaded from `photoUrl`: a link in the browser, a page the worker serves in the cloud.
  */
-import { Application, Assets, ColorMatrixFilter, Rectangle, Texture } from 'pixi.js';
+import { Application, Assets, ColorMatrixFilter, Rectangle, Texture, type WebGLRenderer } from 'pixi.js';
 import { DURATION_MS, HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
 import type { AdFont, AdLayout } from './ad-fonts';
 import type { AdPunchStyle } from './ad-punch';
@@ -18,6 +18,7 @@ import type { PhotoFilterId } from './pack-filter';
 import type { TypeStyleId } from './pack-type';
 import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
+import type { PuliseLook } from './pulise-look';
 import { dustWordAt, sampleDust, type DustPoints } from './pack-dust';
 import { loadMotion, type Motion } from './pack-motion';
 import { planCuts, sourceMsAt, type Cut, type Shot } from './pack-cuts';
@@ -51,6 +52,8 @@ export type PackRendererOpts = {
   grade?: MoodGrade;
   /** False when lyrics are switched off: nothing is written on the picture. Default true. */
   lyrics?: boolean;
+  /** Pulise: palette, ground and stickers of the card. */
+  pulise?: PuliseLook;
   /** Dust and Filter: the two colours of the template. */
   colors?: DustColors;
   /** Filter: how the photo is treated. */
@@ -93,6 +96,7 @@ export async function createPackRenderer(
   let dustPoints: DustPoints | null = null;
   let dustKey = '';
   let contextLost = false;
+  let gl: WebGL2RenderingContext | WebGLRenderingContext | null = null;
 
   const dispose = () => {
     scene?.destroy();
@@ -112,6 +116,9 @@ export async function createPackRenderer(
     if (initialized) {
       try { app.destroy(false, { children: true }); } catch { /* a lost surface cannot be torn down cleanly */ }
     }
+    // Give the GPU surface back now: a replacement for a lost surface must not pile up next to it.
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    gl = null;
     initialized = false;
   };
 
@@ -154,8 +161,9 @@ export async function createPackRenderer(
     initialized = true;
     app.ticker.stop();
 
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-    if (!gl) throw new Error('WebGL is unavailable for creatives.');
+    // The surface Pixi itself drew on. Asking the canvas for one again can come back empty.
+    const surface = (app.renderer as WebGLRenderer).gl;
+    gl = surface;
     // Cancelling the event is what allows the browser to give the surface back; we make a fresh renderer instead of waiting for it.
     canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); contextLost = true; });
 
@@ -170,7 +178,7 @@ export async function createPackRenderer(
       },
       async render(frame: number) {
         if (!scene) throw new Error('Pack renderer was destroyed.');
-        if (contextLost || gl.isContextLost()) throw new Error('The WebGL context was lost.');
+        if (contextLost || surface.isContextLost()) throw new Error('The WebGL context was lost.');
         const { style } = current;
         const ownPicture = style === 'dust' || style === 'filter';
         const photoUrl = current.plateId ? plateUrl(current.plateId) : current.photoUrl;
@@ -246,8 +254,8 @@ export async function createPackRenderer(
           typeStyle: current.typeStyle,
           lyrics: current.lyrics !== false,
           dustPoints: style === 'dust' ? dustPoints : null,
-          beatsMs: current.music?.beatsMs ?? [],
-          downbeatsMs: current.music?.downbeatsMs ?? [],
+          music: current.music,
+          pulise: current.pulise,
           dustWord: current.lyrics !== false ? dustWordAt(current.cues, ms) : null,
         });
         app.render();
@@ -255,7 +263,7 @@ export async function createPackRenderer(
       extractCanvas(resolution = 1) {
         return app.renderer.extract.canvas({ target: app.stage, frame: new Rectangle(0, 0, WIDTH, HEIGHT), resolution }) as unknown as CanvasImageSource;
       },
-      lost: () => contextLost || gl.isContextLost(),
+      lost: () => contextLost || surface.isContextLost(),
       destroy: dispose,
     };
   } catch (error) {

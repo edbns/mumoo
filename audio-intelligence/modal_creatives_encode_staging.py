@@ -51,9 +51,13 @@ CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "filter",
-    "motionShots", "cutSeed",
+    "motionShots", "cutSeed", "pulise",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
+# Pulise look: ids the page knows (creative/src/pulise-palettes.ts, pulise-ground.ts, pulise-stickers.ts; a test keeps these in step).
+PULISE_NEONS = {"signal", "acid", "ultraviolet", "solar", "toxic", "laser", "bubblegum", "hazard", "magma", "ice", "vapor", "coral", "cobalt", "radioactive", "orchid", "tangerine", "ember"}
+PULISE_GROUNDS = {"flat", "checker", "burst", "dots", "stripes"}
+PULISE_STICKERS = {"lips", "monster", "eye", "star", "bolt", "flame", "skull", "smiley", "heart"}
 TYPE_STYLES = {"typewriter", "karaoke", "stack", "minimal", "editorial", "outline"}
 # What the lyrics do to colour and beat hits: five numbers, each inside the range the app can produce.
 GRADE_RANGES = {"saturation": (0.55, 1.15), "warmth": (-1, 1), "brightness": (0.8, 1), "contrast": (1, 1.1), "calm": (0, 1)}
@@ -106,7 +110,7 @@ def handing(body: bytes, content_type: str):
     cpu=4,
     memory=4096,
     min_containers=0,
-    max_containers=12,
+    max_containers=60,
     scaledown_window=10,
     timeout=270,
 )
@@ -181,9 +185,9 @@ def render_chunk(opts: dict, media: dict[str, bytes], start: int, end: int) -> b
     cpu=2,
     memory=2048,
     min_containers=0,
-    max_containers=8,
+    max_containers=30,
     scaledown_window=10,
-    timeout=290,
+    timeout=900,
 )
 def render_job(audio: bytes, opts: dict, media: dict[str, bytes]) -> bytes:
     """Fan the frame ranges out in parallel, then concat + mux audio."""
@@ -255,6 +259,20 @@ def parse_meta(raw: str) -> dict:
         raise ValueError("colors")
     if "filter" in opts and opts["filter"] not in FILTERS:
         raise ValueError("filter")
+    if "pulise" in opts:
+        look = opts["pulise"]
+        stickers = look.get("stickers") if isinstance(look, dict) else None
+        ok = (
+            isinstance(look, dict) and set(look) == {"neon", "ground", "stickers", "seed", "density"}
+            and isinstance(look["neon"], str) and look["neon"] in PULISE_NEONS
+            and isinstance(look["ground"], str) and look["ground"] in PULISE_GROUNDS
+            and isinstance(stickers, list) and 0 < len(stickers) <= len(PULISE_STICKERS)
+            and all(isinstance(item, str) and item in PULISE_STICKERS for item in stickers) and len(set(stickers)) == len(stickers)
+            and type(look["seed"]) is int and 0 <= look["seed"] < 1_000_000
+            and type(look["density"]) in (int, float) and 0 <= look["density"] <= 1
+        )
+        if not ok:
+            raise ValueError("pulise")
     cues = opts.get("cues")
     if not isinstance(cues, list) or len(cues) > 160:
         raise ValueError("cues")
