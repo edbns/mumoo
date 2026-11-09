@@ -14,7 +14,7 @@ const SAMPLE_RATE = 32_000;
 const WAV_SAMPLES = SAMPLE_RATE * (DURATION_MS / 1000);
 const WAV_BYTES = 44 + WAV_SAMPLES * 2;
 const POLL_MS = 1500;
-const JOB_TIMEOUT_MS = 300_000;
+const JOB_TIMEOUT_MS = 900_000;
 
 function yieldToUi(): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, 0));
