@@ -17,6 +17,8 @@ import './style.css';
 // Sign-in pulls in the auth client; it loads beside the page instead of in front of it.
 const AccountBar = lazy(() => import('./account').then(module => ({ default: module.AccountBar })));
 
+/** How long the window must rest before the music inside it plays. */
+const AUDITION_PAUSE_MS = 200;
 const INITIAL: Composition = { sourceSha256: '', clipStartMs: 0, cues: [] };
 
 
@@ -54,6 +56,8 @@ function App() {
   const animation = useRef(0);
   const upload = useRef(0);
   const playback = useRef(0);
+  // Moving the window plays what is inside it once the hand pauses, so the choice is made by ear.
+  const audition = useRef(0);
   // Keep a live playhead for canvas preview loops so heavy React paints cannot lag lyrics behind audio.
   const positionRef = useRef(0);
   const positionUiAt = useRef(0);
@@ -96,6 +100,7 @@ function App() {
   })();
 
   function stop() {
+    clearTimeout(audition.current);
     playback.current++;
     cancelAnimationFrame(animation.current);
     source.current?.stop();
@@ -189,7 +194,14 @@ function App() {
       setMusicAnalysis(NO_ANALYSIS);
     }
     setComposition(current => ({ ...current, clipStartMs, cues: current.clipStartMs === clipStartMs ? current.cues : [] }));
+    // The audio output is unlocked here, inside the person's own gesture; the music itself starts after the pause.
+    void (context.current ??= new AudioContext()).resume();
+    audition.current = window.setTimeout(() => void playLatest.current(true), AUDITION_PAUSE_MS);
   }
+
+  // The pause calls the newest `play`, which knows the clip that was just chosen.
+  const playLatest = useRef(play);
+  playLatest.current = play;
 
   function openCreatives(open: boolean) {
     stop();
