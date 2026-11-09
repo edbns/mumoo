@@ -5,12 +5,13 @@
 import { Application, ImageSource, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH, type LyricCue } from './composition';
 import { ensureFonts, type AdFont } from './ad-fonts';
-import { createWindowWorld, type WindowPicture, type WindowWorld } from './pack-window';
-import type { WindowScreen } from './window-look';
+import { createWindowWorld, pictureColours, type WindowPicture, type WindowWorld } from './pack-window';
 
 export type WindowStill = {
   seed: number;
-  screens: WindowScreen[];
+  /** The palette the card starts on, and the palettes it may flip to. */
+  palette: string;
+  allowed: string[];
   font: AdFont;
   ms: number;
   cues: LyricCue[];
@@ -36,6 +37,13 @@ async function textureOf(url: string) {
   return texture;
 }
 
+const pictureOf = async (photoUrl: string, cutoutUrl?: string): Promise<WindowPicture> => ({ texture: await textureOf(photoUrl), cutout: cutoutUrl ? await textureOf(cutoutUrl) : undefined });
+
+/** The colours of a picture as it shows in the letters, for judging which screens read against it. */
+async function colours(photoUrl: string, cutoutUrl?: string): Promise<string[]> {
+  return pictureColours(await pictureOf(photoUrl, cutoutUrl));
+}
+
 async function still(request: WindowStill): Promise<string> {
   if (!app) {
     const canvas = document.createElement('canvas');
@@ -51,9 +59,9 @@ async function still(request: WindowStill): Promise<string> {
     app.stage.removeChildren();
     app.stage.addChild(world.world.root);
   }
-  const picture: WindowPicture = { texture: await textureOf(request.photoUrl), cutout: request.cutoutUrl ? await textureOf(request.cutoutUrl) : undefined };
+  const picture = await pictureOf(request.photoUrl, request.cutoutUrl);
   world.world.update({
-    ms: request.ms, beatsMs: request.beatsMs, downbeatsMs: request.downbeatsMs, cues: request.cues, screens: request.screens, font: request.font, picture,
+    ms: request.ms, beatsMs: request.beatsMs, downbeatsMs: request.downbeatsMs, cues: request.cues, palette: request.palette, allowed: request.allowed, font: request.font, picture,
   });
   app.render();
   // Encoded in the task that drew it: later the surface would be blank.
@@ -81,4 +89,4 @@ async function contactSheet(urls: string[], columns: number, width: number, gap:
   return canvas.toDataURL('image/png');
 }
 
-Object.assign(window, { windowLab: { still, contactSheet } });
+Object.assign(window, { windowLab: { still, colours, contactSheet } });

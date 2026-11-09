@@ -6,34 +6,82 @@
  */
 import { HEIGHT, WIDTH, type LyricCue } from './composition';
 import { META_SAFE_BOTTOM } from './ad-punch';
+import type { AdFont } from './ad-fonts';
+import { luminance } from './dust-colors';
 import { PLACE_TOP, SAFE_X, hash } from './spray-look';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Screens
 
-/** A screen is one bold, flat colour: no texture, no fade. */
-export type WindowScreen = { name: string; hex: string };
+/**
+ * A screen is one bold, flat colour: no texture, no fade. With it comes the rim cut round the window, and the
+ * screens it flips to on a downbeat: ids of other palettes, each one a strong contrast to this one.
+ */
+export type WindowPalette = { id: string; screen: string; rim: string; flips: readonly [string, string, string] };
 
-export const WINDOW_SCREENS: readonly WindowScreen[] = [
-  { name: 'black', hex: '#0a0a0b' },
-  { name: 'off-white', hex: '#f1ede4' },
-  { name: 'hot red', hex: '#ff2418' },
-  { name: 'cobalt', hex: '#1f3cff' },
-  { name: 'acid yellow', hex: '#d8ff00' },
-  { name: 'deep green', hex: '#0a5c3a' },
+export const WINDOW_PALETTES: readonly WindowPalette[] = [
+  { id: 'black', screen: '#0a0a0b', rim: '#3d3d45', flips: ['off-white', 'orange', 'acid-yellow'] },
+  { id: 'off-white', screen: '#f1ede4', rim: '#9c9484', flips: ['black', 'cobalt', 'hot-red'] },
+  { id: 'sand', screen: '#cdbd9e', rim: '#85775c', flips: ['black', 'deep-green', 'cobalt'] },
+  { id: 'hot-red', screen: '#ff2418', rim: '#8a0f08', flips: ['off-white', 'black', 'cyan'] },
+  { id: 'orange', screen: '#ff6a00', rim: '#8a3300', flips: ['cobalt', 'deep-green', 'black'] },
+  { id: 'sun-yellow', screen: '#ffd500', rim: '#8a7200', flips: ['violet', 'black', 'cobalt'] },
+  { id: 'acid-yellow', screen: '#d8ff00', rim: '#6f8500', flips: ['black', 'violet', 'magenta'] },
+  { id: 'lime', screen: '#7de800', rim: '#3d7a00', flips: ['black', 'magenta', 'violet'] },
+  { id: 'green', screen: '#00c853', rim: '#00662a', flips: ['violet', 'magenta', 'black'] },
+  { id: 'deep-green', screen: '#0a5c3a', rim: '#052e1d', flips: ['acid-yellow', 'hot-pink', 'teal'] },
+  { id: 'teal', screen: '#00a79d', rim: '#00524d', flips: ['off-white', 'sun-yellow', 'black'] },
+  { id: 'cyan', screen: '#00d8ff', rim: '#006b80', flips: ['violet', 'magenta', 'black'] },
+  { id: 'cobalt', screen: '#1f3cff', rim: '#0f1e80', flips: ['acid-yellow', 'orange', 'hot-pink'] },
+  { id: 'violet', screen: '#7a2cff', rim: '#3d1680', flips: ['sun-yellow', 'lime', 'green'] },
+  { id: 'magenta', screen: '#e0007a', rim: '#70003d', flips: ['acid-yellow', 'cyan', 'sand'] },
+  { id: 'hot-pink', screen: '#ff7ac8', rim: '#8a2f68', flips: ['cobalt', 'deep-green', 'black'] },
 ];
 
-/**
- * The screen at `ms`: it starts on a colour its seed picks from `screens` and flips to another one on every downbeat.
- * One colour never flips.
- */
-export function screenAt(seed: number, screens: readonly WindowScreen[], ms: number, downbeatsMs: readonly number[]): WindowScreen {
-  if (!screens.length) throw new Error('A window needs a screen colour.');
-  let at = hash(seed, 0x57, 1) % screens.length;
-  if (screens.length < 2) return screens[at];
-  for (let bar = 0; bar < downbeatsMs.length && downbeatsMs[bar] <= ms; bar++) at = (at + 1 + (hash(seed, bar, 0x58) % (screens.length - 1))) % screens.length;
-  return screens[at];
+/** Every palette id, for whoever stores or checks a card's screen colour. */
+export const WINDOW_PALETTE_IDS: readonly string[] = WINDOW_PALETTES.map(palette => palette.id);
+
+export function paletteOf(id: string): WindowPalette {
+  const palette = WINDOW_PALETTES.find(candidate => candidate.id === id);
+  if (!palette) throw new Error(`There is no window palette "${id}".`);
+  return palette;
 }
+
+/** A screen has to differ from the picture in the letters by at least this contrast (WCAG ratio, picture taken at its average) to read. */
+export const MIN_PICTURE_CONTRAST = 1.6;
+
+/**
+ * The palettes whose screen reads against this picture, given colours sampled from what shows in the letters: not a
+ * yellow screen round a pale yellow picture. A screen too close to the picture's average light is left out.
+ */
+export function legiblePalettes(pictureColours: readonly string[]): string[] {
+  if (!pictureColours.length) throw new Error('A picture needs colours to be judged.');
+  const average = pictureColours.reduce((sum, colour) => sum + luminance(colour), 0) / pictureColours.length;
+  const reads = (screen: string) => (Math.max(luminance(screen), average) + 0.05) / (Math.min(luminance(screen), average) + 0.05) >= MIN_PICTURE_CONTRAST;
+  return WINDOW_PALETTES.filter(palette => reads(palette.screen)).map(palette => palette.id);
+}
+
+/**
+ * The palette on show at `ms`: the card starts on `startId` and, on every downbeat, flips to one of that palette's
+ * flip colours its seed picks, out of those in `allowed` (the palettes that read against the picture). A palette none
+ * of whose flip colours is allowed holds its colour.
+ */
+export function screenAt(seed: number, startId: string, ms: number, downbeatsMs: readonly number[], allowed: readonly string[] = WINDOW_PALETTE_IDS): WindowPalette {
+  if (!allowed.includes(startId)) throw new Error(`The window palette "${startId}" is not allowed on this card.`);
+  let palette = paletteOf(startId);
+  for (let bar = 0; bar < downbeatsMs.length && downbeatsMs[bar] <= ms; bar++) {
+    const options = palette.flips.filter(flip => allowed.includes(flip));
+    if (options.length) palette = paletteOf(options[hash(seed, bar, 0x58) % options.length]);
+  }
+  return palette;
+}
+
+/**
+ * The faces the window is set in. A line is made as wide as the screen, so how tall its letters come out depends on
+ * the face: these heavy, condensed ones give letters twice as tall as the wide heavy faces (a seven-letter word is
+ * about 250 px tall in them, and about 130 px in Archivo Black or Dela Gothic One), which is what a giant word is.
+ */
+export const WINDOW_FACES: readonly AdFont[] = ['Anton', 'Big Shoulders Display', 'Staatliches', 'Bangers', 'Barlow Condensed'];
 
 // ---------------------------------------------------------------------------------------------------------------
 // Which words are in the window
@@ -120,10 +168,14 @@ function breaks(words: readonly string[], count: number): string[][] {
   return found;
 }
 
-/** One way of stacking the lines: each one is set as wide as the box, and the stack is shrunk to fit if it is too tall. */
+/** A short line (a lone "I") is set as wide as the box but no bigger than this many times the longest line's size: the stack is not shrunk to nothing by a tower. */
+const MAX_SIZE_RATIO = 2.2;
+
+/** One way of stacking the lines: each one is set as wide as the box (a short one within `MAX_SIZE_RATIO`), and the stack is shrunk to fit if it is too tall. */
 function stack(lines: readonly string[], measure: Measure, box: { width: number; height: number }): WindowLayout {
   const inks = lines.map(measure);
-  const sizes = inks.map(({ width }) => (box.width * 100) / width);
+  const fits = inks.map(({ width }) => (box.width * 100) / width);
+  const sizes = fits.map(fit => Math.min(fit, Math.min(...fits) * MAX_SIZE_RATIO));
   const heights = inks.map(({ height }, i) => (height * sizes[i]) / 100);
   const gap = LINE_GAP * Math.min(...heights);
   const tall = heights.reduce((sum, h) => sum + h, 0) + gap * (lines.length - 1);
@@ -143,7 +195,7 @@ function stack(lines: readonly string[], measure: Measure, box: { width: number;
 
 /**
  * How `text` is set: broken into one to three stacked lines in whichever way gives the biggest type, each line as
- * wide as the box allows. A word is never split.
+ * wide as the box allows (a short one a little less). A word is never split.
  */
 export function layoutWords(text: string, measure: Measure, box: { width: number; height: number } = REST_BOX): WindowLayout {
   const words = text.split(/\s+/u).filter(Boolean);
@@ -166,21 +218,34 @@ export function layoutWords(text: string, measure: Measure, box: { width: number
 /** Where the middle of the words sits in the frame when nobody stands in front: the middle of the safe box. */
 export const WORD_CENTRE: readonly [number, number] = [WIDTH / 2, SAFE_BOX.y + SAFE_BOX.height / 2];
 
-/** With a person standing in front, her head is brought down to this far from the top of the frame, to leave room for the words above it. */
-const PERSON_HEAD_AT = Math.round(HEIGHT * 0.3);
-/** How far the head reaches up in front of the words' lower edge, in px. */
-const HEAD_OVERLAP = 200;
+/** With a person standing in front, her head is brought down to this far from the top of the frame, to leave room for the words above it: lower, and her body is cropped too much. */
+const PERSON_HEAD_AT = Math.round(HEIGHT * 0.32);
+/** How far the words' lower edge reaches down behind her head, as a share of their last line's height: enough to be tucked in, not enough to hide the letters. */
+const TUCK_SHARE = 0.3;
+const TUCK_PASSES = 4;
+
+/** Where the person stands: she is moved down until her head is `PERSON_HEAD_AT` from the top (or left where she is, if she is lower already). */
+export function personStage(headTop: number): { drop: number; headAt: number } {
+  const drop = Math.max(0, PERSON_HEAD_AT - headTop);
+  return { drop, headAt: headTop + drop };
+}
 
 /**
- * The stage when a person stands in front of the words, like the title of a magazine cover: the person is moved down
- * until her head is `PERSON_HEAD_AT` from the top (or left where she is, if she is lower already), and the words
- * take the room above her, their lower edge tucked behind her head.
+ * The words when a person stands in front of them, like the title of a magazine cover: they take the room above her
+ * head, their lower edge tucked behind it. Two words stack to fill the room; one word, which can only be as high as it is
+ * wide, sits on her head.
  */
-export function personStage(headTop: number): { drop: number; box: { width: number; height: number }; centre: readonly [number, number] } {
-  const drop = Math.max(0, PERSON_HEAD_AT - headTop);
-  const bottom = Math.min(SAFE_BOX.y + SAFE_BOX.height, headTop + drop + HEAD_OVERLAP);
-  const height = bottom - SAFE_BOX.y;
-  return { drop, box: { width: REST_BOX.width, height: height / (1 + PUNCH_SWELL) }, centre: [WIDTH / 2, SAFE_BOX.y + height / 2] };
+export function personWords(text: string, measure: Measure, headAt: number): { layout: WindowLayout; centre: readonly [number, number] } {
+  const floor = SAFE_BOX.y + SAFE_BOX.height;
+  const fit = (tuck: number) => layoutWords(text, measure, { width: REST_BOX.width, height: (Math.min(headAt + tuck, floor) - SAFE_BOX.y) / (1 + PUNCH_SWELL) });
+  let tuck = 0;
+  let layout = fit(tuck);
+  for (let pass = 0; pass < TUCK_PASSES; pass++) {
+    tuck = TUCK_SHARE * layout.lines[layout.lines.length - 1].height * (1 + PUNCH_SWELL);
+    layout = fit(tuck);
+  }
+  const bottom = Math.min(headAt + tuck, floor);
+  return { layout, centre: [WIDTH / 2, bottom - (layout.height * (1 + PUNCH_SWELL)) / 2] };
 }
 
 // ---------------------------------------------------------------------------------------------------------------

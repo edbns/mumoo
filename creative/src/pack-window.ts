@@ -2,9 +2,10 @@
  * Window — a blank, flat, single-colour screen with a giant heavy lyric word cut out of it: the word is a window,
  * and the picture behind shows through the letters. The edges are crisp, with a thin darker rim and a hard shadow
  * inside the top left of every letter, so the word reads as a hole cut in thick card. On every beat the window
- * punches and the picture behind pushes in; on a downbeat the screen flips to another colour. New words pop in.
+ * punches and the picture behind pushes in; on a downbeat the screen flips to another of its palette's colours. New
+ * words pop in.
  * When the picture has a person cut out of it, the person stands in front of the screen and of the word.
- * The picture is any Pixi texture: a photo, or the texture of a video (`Motion` in `pack-motion.ts`), which the
+ * The picture is any Pixi texture: a photo, one of the baked Shaders stills, or the texture of a video (`Motion` in `pack-motion.ts`), which the
  * caller has already moved to the right moment. Every frame is a pure function of the clock, the beat times and the
  * lyric cues, so the shelf preview and the cloud render draw the same picture.
  */
@@ -14,8 +15,8 @@ import { cssFont, displayFace, setCase, type AdFont } from './ad-fonts';
 import { hexToRgb } from './dust-colors';
 import { textMeasureCtx } from './pack-text';
 import {
-  WORD_CENTRE, coverSize, groupAt, layoutWords, personStage, pictureScale, punchAt, screenAt, windowScale, wordGroups,
-  type Measure, type WindowLayout, type WindowScreen, type WordGroup,
+  SAFE_BOX, WORD_CENTRE, coverSize, groupAt, layoutWords, personStage, personWords, pictureScale, punchAt, screenAt, windowScale, wordGroups,
+  type Measure, type WindowLayout, type WordGroup,
 } from './window-look';
 
 /** The picture behind the window, and when it has one, the mask of the person who stands in front of it (the red channel is 1 on the person). */
@@ -28,8 +29,7 @@ const MASK_PAD = 6;
 /** How thick the rim round the window is, and how deep its inner shadow reaches, in frame px. */
 const RIM = 4;
 const DEPTH = 14;
-/** The rim is the screen colour this much darker; the shadow is the screen colour this much darker, laid over the picture this strongly. */
-const RIM_DARKEN = 0.55;
+/** The shadow is the screen colour this much darker, laid over the picture this strongly. */
 const SHADE_DARKEN = 0.35;
 const SHADE_STRENGTH = 0.65;
 
@@ -55,6 +55,7 @@ const fragment = (withPerson: boolean) => `#version 300 es
 precision highp float;
 in vec2 vFrame;
 uniform vec3 uScreen;
+uniform vec3 uRim;
 uniform float uOpen;
 uniform vec2 uCentre;
 uniform vec2 uHalf;
@@ -96,7 +97,7 @@ void main() {
   // The inner shadow: a spot of the letter whose way to the light, up and left, runs out of the letter is in shadow.
   float shade = inside * (1.0 - cut(vFrame - vec2(${DEPTH.toFixed(1)}) * 0.7071));
 
-  vec3 colour = mix(uScreen, uScreen * ${RIM_DARKEN.toFixed(2)}, rim);
+  vec3 colour = mix(uScreen, uRim, rim);
   vec3 seen = mix(texture(uPhoto, photoAt(vFrame, uPush)).rgb, uScreen * ${SHADE_DARKEN.toFixed(2)}, ${SHADE_STRENGTH.toFixed(2)} * shade);
   colour = mix(colour, seen, inside);
 ${
@@ -121,6 +122,7 @@ function screen(picture: WindowPicture, word: Texture) {
   const vec2 = () => ({ value: new Float32Array(2), type: 'vec2<f32>' });
   const uniforms = {
     uScreen: { value: new Float32Array(3), type: 'vec3<f32>' },
+    uRim: { value: new Float32Array(3), type: 'vec3<f32>' },
     uOpen: { value: 0, type: 'f32' },
     uCentre: vec2(),
     uHalf: vec2(),
@@ -164,23 +166,43 @@ function measureFor(font: AdFont): Measure {
   };
 }
 
-/** How coarsely the person's mask is read to find the top of her head, in px of the frame. */
-const MASK_CELL = 6;
+/** How coarsely a picture is read, in px of the frame to a pixel: finely for the top of the person's head, coarsely for the picture's colours. */
+const HEAD_CELL = 6;
+const COLOUR_CELL = 24;
 
-/** How far down the frame the top of the person's head is, in px: the first row where the cut-out's mask is mostly the person. */
-function headTop(picture: WindowPicture & { cutout: Texture }): number {
-  const [width, height] = coverSize(picture.texture.width, picture.texture.height);
+/** The pixels of `source` as the frame shows it, `scale` times bigger than it covers the frame, from `top` down for `rows` rows of the frame, one pixel to every `cell` px of the frame. */
+function readFrame(source: Texture, scale: number, top: number, rows: number, cell: number): ImageData {
+  const [coverWidth, coverHeight] = coverSize(source.width, source.height);
+  const [width, height] = [coverWidth * scale, coverHeight * scale];
   const canvas = document.createElement('canvas');
-  canvas.width = Math.ceil(WIDTH / MASK_CELL);
-  canvas.height = Math.ceil(HEIGHT / MASK_CELL);
+  canvas.width = Math.ceil(WIDTH / cell);
+  canvas.height = Math.ceil(rows / cell);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Canvas 2D is unavailable.');
-  ctx.drawImage(picture.cutout.source.resource as CanvasImageSource, (WIDTH - width) / 2 / MASK_CELL, (HEIGHT - height) / 2 / MASK_CELL, width / MASK_CELL, height / MASK_CELL);
-  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-  for (let row = 0; row < canvas.height; row++) {
-    for (let column = 0; column < canvas.width; column++) if (pixels[(row * canvas.width + column) * 4] > 127) return row * MASK_CELL;
+  ctx.drawImage(source.source.resource as CanvasImageSource, (WIDTH - width) / 2 / cell, (HEIGHT / 2 - height / 2 - top) / cell, width / cell, height / cell);
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+/** How far down the frame the top of the person's head is, in px: the first row where the cut-out's mask is mostly the person. */
+function headTop(cutout: Texture): number {
+  const { data, width, height } = readFrame(cutout, 1, 0, HEIGHT, HEAD_CELL);
+  for (let row = 0; row < height; row++) {
+    for (let column = 0; column < width; column++) if (data[(row * width + column) * 4] > 127) return row * HEAD_CELL;
   }
   throw new Error('The cut-out has nobody in it.');
+}
+
+/**
+ * Colours sampled from the part of the picture that shows through the letters, as `legiblePalettes` wants them:
+ * the safe area as the picture is first seen (shown bigger with a person in front), less the part her head will hide.
+ */
+export function pictureColours(picture: WindowPicture): string[] {
+  const stage = picture.cutout ? personStage(headTop(picture.cutout)) : null;
+  const top = SAFE_BOX.y;
+  const rows = stage ? stage.headAt - top : SAFE_BOX.height;
+  const { data } = readFrame(picture.texture, pictureScale(0, 0, Boolean(stage)), top, rows, COLOUR_CELL);
+  const hex = (at: number) => `#${[0, 1, 2].map(channel => data[at + channel].toString(16).padStart(2, '0')).join('')}`;
+  return Array.from({ length: data.length / 4 }, (_, pixel) => hex(pixel * 4));
 }
 
 /** The laid-out words as one picture: their letters, white on clear. */
@@ -210,8 +232,10 @@ export type WindowInput = {
   downbeatsMs?: readonly number[];
   /** The lyric words with their times. Empty means lyrics are off: the screen stays closed. */
   cues: readonly LyricCue[];
-  /** The colours the screen flips between. One colour never flips. */
-  screens: readonly WindowScreen[];
+  /** The id of the palette the card starts on (see `WINDOW_PALETTES`); it flips on from there on every downbeat. */
+  palette: string;
+  /** The palette ids that read against the picture (see `legiblePalettes`): the screen never flips onto any other. Every palette when left out. */
+  allowed?: readonly string[];
   font: AdFont;
   picture: WindowPicture;
 };
@@ -222,15 +246,15 @@ export type WindowWorld = {
   destroy(): void;
 };
 
-type Words = { index: number; texture: Texture };
+type Words = { index: number; texture: Texture; centre: readonly [number, number] };
 
-/** The screen for one card. `seed` decides the colour it starts on and the colours it flips to. */
+/** The screen for one card. `seed` decides which of its flip colours the screen flips to, bar by bar. */
 export function createWindowWorld(seed: number): WindowWorld {
   const root = new Container();
   let built: Pick<WindowInput, 'cues' | 'font'> | null = null;
   let groups: WordGroup[] = [];
   let words: Words | null = null;
-  let stage: { cutout: Texture; drop: number; box: { width: number; height: number }; centre: readonly [number, number] } | null = null;
+  let stage: { cutout: Texture; drop: number; headAt: number } | null = null;
   let view: { picture: WindowPicture; word: Texture; screen: ReturnType<typeof screen> } | null = null;
 
   function dropWords() {
@@ -260,13 +284,14 @@ export function createWindowWorld(seed: number): WindowWorld {
       const index = groupAt(groups, ms);
       // Where the person stands, read once per cut-out; the words are laid out to suit.
       if (!picture.cutout) stage = null;
-      else if (stage?.cutout !== picture.cutout) stage = { cutout: picture.cutout, ...personStage(headTop({ ...picture, cutout: picture.cutout })) };
-      const [centreX, centreY] = stage?.centre ?? WORD_CENTRE;
+      else if (stage?.cutout !== picture.cutout) stage = { cutout: picture.cutout, ...personStage(headTop(picture.cutout)) };
       if (index < 0) {
         dropWords();
       } else if (words?.index !== index) {
         dropWords();
-        words = { index, texture: drawWords(layoutWords(setCase(font, groups[index].text), measureFor(font), stage?.box), font) };
+        const text = setCase(font, groups[index].text);
+        const { layout, centre } = stage ? personWords(text, measureFor(font), stage.headAt) : { layout: layoutWords(text, measureFor(font)), centre: WORD_CENTRE };
+        words = { index, texture: drawWords(layout, font), centre };
       }
       // The picture, or the words' texture, is new: the screen is made again to point at it.
       if (view && (view.picture.texture !== picture.texture || view.picture.cutout !== picture.cutout || view.word !== (words?.texture ?? Texture.EMPTY))) dropView();
@@ -277,11 +302,12 @@ export function createWindowWorld(seed: number): WindowWorld {
       }
 
       const punch = punchAt(ms, input.beatsMs, downbeats);
-      const colour = hexToRgb(screenAt(seed, input.screens, ms, downbeats).hex);
+      const palette = screenAt(seed, input.palette, ms, downbeats, input.allowed);
       view.screen.set({
-        uScreen: colour,
+        uScreen: hexToRgb(palette.screen),
+        uRim: hexToRgb(palette.rim),
         uOpen: words ? 1 : 0,
-        uCentre: [centreX, centreY],
+        uCentre: words?.centre ?? WORD_CENTRE,
         uDrop: stage?.drop ?? 0,
         uHalf: words ? [(words.texture.width / SUPERSAMPLE) / 2, (words.texture.height / SUPERSAMPLE) / 2] : [1, 1],
         uScale: windowScale(punch, index < 0 ? Infinity : ms - groups[index].startMs),
