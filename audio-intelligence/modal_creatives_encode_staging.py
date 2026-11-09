@@ -54,10 +54,14 @@ OPT_KEYS = {
     "motionShots", "cutSeed", "pulise",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
-# Pulise look: ids the page knows (creative/src/pulise-palettes.ts, pulise-ground.ts, pulise-stickers.ts; a test keeps these in step).
-PULISE_NEONS = {"signal", "acid", "ultraviolet", "solar", "toxic", "laser", "bubblegum", "hazard", "magma", "ice", "vapor", "coral", "cobalt", "radioactive", "orchid", "tangerine", "ember"}
-PULISE_GROUNDS = {"flat", "checker", "burst", "dots", "stripes"}
-PULISE_STICKERS = {"lips", "monster", "eye", "star", "bolt", "flame", "skull", "smiley", "heart"}
+# Pulise look: neon set ids the page knows (creative/src/pulise-palettes.ts; a test keeps these in step).
+PULISE_NEONS = {
+    "signal", "acid", "ultraviolet", "solar", "toxic", "laser", "bubblegum", "hazard",
+    "magma", "ice", "vapor", "coral", "cobalt", "radioactive", "orchid", "tangerine",
+    "ember", "lava", "citrus", "jungle", "arctic", "disco", "candy", "cyber",
+    "nitro", "plasma", "flare", "mojito", "grape", "sunset", "bolt", "rave",
+    "gamma", "fuchsia", "opal", "hyper", "scarlet", "punch", "lemonade", "frost",
+}
 TYPE_STYLES = {"typewriter", "karaoke", "stack", "minimal", "editorial", "outline"}
 # What the lyrics do to colour and beat hits: five numbers, each inside the range the app can produce.
 GRADE_RANGES = {"saturation": (0.55, 1.15), "warmth": (-1, 1), "brightness": (0.8, 1), "contrast": (1, 1.1), "calm": (0, 1)}
@@ -261,17 +265,7 @@ def parse_meta(raw: str) -> dict:
         raise ValueError("filter")
     if "pulise" in opts:
         look = opts["pulise"]
-        stickers = look.get("stickers") if isinstance(look, dict) else None
-        ok = (
-            isinstance(look, dict) and set(look) == {"neon", "ground", "stickers", "seed", "density"}
-            and isinstance(look["neon"], str) and look["neon"] in PULISE_NEONS
-            and isinstance(look["ground"], str) and look["ground"] in PULISE_GROUNDS
-            and isinstance(stickers, list) and 0 < len(stickers) <= len(PULISE_STICKERS)
-            and all(isinstance(item, str) and item in PULISE_STICKERS for item in stickers) and len(set(stickers)) == len(stickers)
-            and type(look["seed"]) is int and 0 <= look["seed"] < 1_000_000
-            and type(look["density"]) in (int, float) and 0 <= look["density"] <= 1
-        )
-        if not ok:
+        if not (isinstance(look, dict) and set(look) == {"neon"} and isinstance(look["neon"], str) and look["neon"] in PULISE_NEONS):
             raise ValueError("pulise")
     cues = opts.get("cues")
     if not isinstance(cues, list) or len(cues) > 160:

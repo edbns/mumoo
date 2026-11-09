@@ -1,39 +1,52 @@
 /**
- * Pulise — neon colour cut hard on every beat, one big word at a time, with sticker shapes (lips, monster heads,
- * eyes, stars...) popping in and out between the cuts. The field only changes on the beat (never on lyric timing)
- * and never faster than three times a second, which keeps it clear of the photosensitivity limit that ad
- * platforms and viewers care about. Palette, ground and stickers come from the card's `PuliseLook`; every frame is
- * a pure function of the music and the frame number.
+ * Pulise — full-screen neon colour cut hard on every beat, one big word at a time. Every cut is a flat field and
+ * type in another strong neon of the card's set; a strong beat (a downbeat, or a loud moment) opens its cut with
+ * the field and type swapped for a split second. Colour only ever changes on the beat (never on lyric timing or
+ * meaning) and never more than three times a second, which keeps it clear of the photosensitivity limit that ad
+ * platforms and viewers care about. Every frame is a pure function of the music and the frame number.
  */
 import { Container, Graphics, Text } from 'pixi.js';
-import { HEIGHT, WIDTH } from './composition';
+import { HEIGHT, WIDTH, type ImpactMusic } from './composition';
 import { META_SAFE_BOTTOM } from './ad-punch';
-import { energyAt } from './lyric-motion';
 import { fitPackLines } from './pack-text';
 import type { PackSceneInput } from './pack-copy';
-import { drawGround } from './pulise-ground';
-import { popScale, popsAt, type Pop } from './pulise-pops';
-import { puliseCut } from './pulise-palettes';
-import { drawSticker } from './pulise-stickers';
+import { puliseColours } from './pulise-palettes';
 
 /** Beats closer than this (over 176 BPM) change the field every second beat: at most three cuts a second. */
 const MIN_CUT_MS = 340;
-/** Most stickers on screen at once (see `popsAt`). */
-const MAX_POPS = 3;
-const SPARK_MS = 220;
-const SPARKS = 9;
 
 /** Which cut the field is on. Past 176 BPM every second beat cuts, so it never flashes more than three times a second. */
 export function puliseCuts(beatIndex: number, beatGapMs: number, start = 0) {
   return start + (beatGapMs > 0 && beatGapMs < MIN_CUT_MS ? Math.floor(beatIndex / 2) : beatIndex);
 }
 
-/** When the current cut began, how long ago that was, and how long the cut lasts (0 before the song has two beats). */
+/** When the current cut began, how long ago that was, and how long it lasts (0 before the song has a beat to measure by). */
 export function cutSpan(beatsMs: readonly number[], beatIndex: number, beatGapMs: number, ms: number) {
   const halved = beatGapMs > 0 && beatGapMs < MIN_CUT_MS;
   const first = halved ? beatIndex - (beatIndex % 2) : beatIndex;
   const startMs = first > 0 ? beatsMs[first - 1] : 0;
-  return { startMs, ageMs: ms - startMs, lengthMs: halved ? beatGapMs * 2 : beatGapMs };
+  const endMs = beatsMs[first + (halved ? 2 : 1) - 1] ?? startMs + beatGapMs * (halved ? 2 : 1);
+  return { startMs, ageMs: ms - startMs, lengthMs: beatGapMs > 0 ? endMs - startMs : 0 };
+}
+
+/** A cut counts as a surge when the song is this much louder at its beat than over the two seconds before. */
+const SURGE = 1.35;
+const SURGE_WINDOW_MS = 2000;
+/** How far a downbeat may sit from the beat it belongs to. */
+const DOWNBEAT_TOLERANCE_MS = 60;
+
+function surged(music: ImpactMusic, ms: number) {
+  const before = music.energy.filter(point => point.timeMs <= ms && point.timeMs > ms - SURGE_WINDOW_MS);
+  if (!before.length) return false;
+  const mean = before.reduce((sum, point) => sum + point.rms, 0) / before.length;
+  return before[before.length - 1].rms >= mean * SURGE;
+}
+
+/** A strong beat is a downbeat inside the cut or a surge of loudness as it begins: nothing but the music decides. */
+export function strongCut(music: ImpactMusic | null, startMs: number, lengthMs: number) {
+  if (!music) return false;
+  const first = startMs - DOWNBEAT_TOLERANCE_MS;
+  return Boolean(music.downbeatsMs?.some(ms => ms >= first && ms < startMs + lengthMs - DOWNBEAT_TOLERANCE_MS)) || surged(music, startMs);
 }
 
 function neonText(label: string, font: string, size: number, color: string, glow: string, alpha = 1) {
@@ -58,27 +71,8 @@ export type PuliseWorld = {
 export function createPuliseWorld(): PuliseWorld {
   const root = new Container();
   const field = new Graphics();
-  const sparks = new Graphics();
-  const stickers = Array.from({ length: MAX_POPS }, () => new Graphics());
   const lyrics = new Container();
-  root.addChild(field, sparks, ...stickers, lyrics);
-
-  /** Short lines thrown off a sticker as it lands, like a comic impact. */
-  function throwSparks(pops: readonly Pop[]) {
-    sparks.clear();
-    for (const pop of pops) {
-      const t = pop.ageMs / SPARK_MS;
-      if (t >= 1) continue;
-      for (let i = 0; i < SPARKS; i++) {
-        const angle = (i / SPARKS) * Math.PI * 2 + pop.tilt;
-        const near = pop.radius * (1.25 + 0.35 * t);
-        const far = near + pop.radius * 0.3 * (1 - t);
-        sparks.moveTo(pop.x + Math.cos(angle) * near, pop.y + Math.sin(angle) * near);
-        sparks.lineTo(pop.x + Math.cos(angle) * far, pop.y + Math.sin(angle) * far);
-      }
-      sparks.stroke({ color: pop.ink.body, width: 16, cap: 'round' });
-    }
-  }
+  root.addChild(field, lyrics);
 
   function clearLyrics() {
     while (lyrics.children.length) {
@@ -92,27 +86,12 @@ export function createPuliseWorld(): PuliseWorld {
     root,
     update(input) {
       if (!input.pulise) throw new Error('Pulise needs its look.');
-      const { pulise } = input;
       const cut = puliseCuts(input.beatIndex, input.beatGapMs, input.layout.cut);
-      const phase = puliseCut(pulise.neon, cut);
       const span = cutSpan(input.music?.beatsMs ?? [], input.beatIndex, input.beatGapMs, input.ms);
+      const phase = puliseColours(input.pulise.neon, cut, span.ageMs, span.lengthMs, strongCut(input.music, span.startMs, span.lengthMs));
       field.clear();
-      drawGround(field, pulise.ground, phase, cut, span.ageMs, input.beat);
-
-      // Stickers pop on the cut and are gone before the next one; how many depends on the song's energy when the cut began.
-      const startEnergy = input.music ? energyAt(input.music, span.startMs) : 0;
-      const pops = popsAt(pulise, cut, startEnergy, span.ageMs, span.lengthMs);
-      throwSparks(pops);
-      stickers.forEach((art, index) => {
-        const pop = pops[index];
-        art.visible = Boolean(pop);
-        if (!pop) return;
-        art.clear();
-        const radius = pop.radius * popScale(pop) * (1 + input.beat * 0.08);
-        drawSticker(art, pop.id, pop.ink, { hit: input.beat, ageMs: pop.ageMs, variant: pop.variant, gaze: pop.gaze + Math.sin(pop.ageMs * 0.006) * 0.4 }, radius);
-        art.position.set(pop.x, pop.y);
-        art.rotation = pop.tilt + Math.sin(pop.ageMs * 0.012) * 0.04;
-      });
+      field.rect(0, 0, WIDTH, HEIGHT);
+      field.fill({ color: phase.field });
 
       clearLyrics();
       // Between two sung words the last one stays up, so a pause never shrinks the whole line onto the screen.

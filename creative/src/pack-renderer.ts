@@ -52,7 +52,7 @@ export type PackRendererOpts = {
   grade?: MoodGrade;
   /** False when lyrics are switched off: nothing is written on the picture. Default true. */
   lyrics?: boolean;
-  /** Pulise: palette, ground and stickers of the card. */
+  /** Pulise: the neon set of the card. */
   pulise?: PuliseLook;
   /** Dust and Filter: the two colours of the template. */
   colors?: DustColors;

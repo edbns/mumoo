@@ -36,9 +36,9 @@ export type PackSceneInput = {
   lyrics: boolean;
   /** Dust: the photo as grains, every beat, and the lyric word now on screen (null when none). */
   dustPoints?: DustPoints | null;
-  /** The song: its beats and energy. Dust breaks up on them; Pulise cuts and pops stickers on them. */
+  /** The song: its beats and energy. Dust breaks up on them; Pulise cuts and flashes on them. */
   music: ImpactMusic | null;
-  /** Pulise: its palette, ground and stickers. */
+  /** Pulise: its neon set. */
   pulise?: PuliseLook;
   dustWord: DustWord | null;
 };

@@ -5,43 +5,88 @@ import { createServer } from 'vite';
 
 async function load() {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
-  const mods = {
+  return {
+    server,
     pulise: await server.ssrLoadModule('/src/pack-pulise.ts'),
     motion: await server.ssrLoadModule('/src/lyric-motion.ts'),
     palettes: await server.ssrLoadModule('/src/pulise-palettes.ts'),
-    pops: await server.ssrLoadModule('/src/pulise-pops.ts'),
     look: await server.ssrLoadModule('/src/pulise-look.ts'),
-    ground: await server.ssrLoadModule('/src/pulise-ground.ts'),
-    stickers: await server.ssrLoadModule('/src/pulise-stickers.ts'),
   };
-  return { server, ...mods };
 }
 
-const LANES = ['party', 'techno', 'dark', 'quiet', 'gospel', 'general'];
-
-/** Distinct cuts the field shows over one second of a song at this tempo. */
-function cutsPerSecond({ pulise, motion }, bpm) {
+/** A steady song at this tempo: a beat every `gap`, a downbeat every fourth, always loud enough to count as a surge. */
+function steadySong(bpm) {
   const gap = 60000 / bpm;
-  const music = { beatsMs: Array.from({ length: 80 }, (_, i) => Math.round(i * gap)), energy: [] };
-  const seen = new Set();
-  for (let ms = 10000; ms < 11000; ms += 10) {
-    const { beatIndex, beatGapMs } = motion.impactSignals(music, ms);
-    seen.add(pulise.puliseCuts(beatIndex, beatGapMs));
+  const beatsMs = Array.from({ length: 120 }, (_, i) => Math.round(i * gap));
+  return { beatsMs, downbeatsMs: beatsMs.filter((_, i) => i % 4 === 0), energy: [] };
+}
+
+/** What is on screen at `ms`: the colours (field and type) and which cut it is, using the same functions the scene does. */
+function screenAt({ pulise, motion, palettes }, music, ms, neon = 'acid') {
+  const { beatIndex, beatGapMs } = motion.impactSignals(music, ms);
+  const cut = pulise.puliseCuts(beatIndex, beatGapMs);
+  const span = pulise.cutSpan(music.beatsMs, beatIndex, beatGapMs, ms);
+  const strong = pulise.strongCut(music, span.startMs, span.lengthMs);
+  const shown = palettes.puliseColours(neon, cut, span.ageMs, span.lengthMs, strong);
+  return { cut, ...shown, flashing: shown.field !== palettes.puliseCut(neon, cut).field };
+}
+
+/** Field colour changes (cuts and flashes alike) in the busiest second, and distinct cuts in the busiest second. */
+function busiestSecond(mods, music) {
+  const changes = [];
+  const cuts = [];
+  let flashes = 0;
+  let previous = screenAt(mods, music, 8000);
+  for (let ms = 8005; ms < 24000; ms += 5) {
+    const now = screenAt(mods, music, ms);
+    if (now.field !== previous.field) changes.push(ms);
+    if (now.cut !== previous.cut) cuts.push(ms);
+    if (now.flashing) flashes += 1;
+    previous = now;
   }
-  return seen.size;
+  const worst = times => Math.max(...times.map(start => times.filter(at => at >= start && at < start + 1000).length));
+  return { changes: worst(changes), cuts: worst(cuts), flashes };
 }
 
 test('Pulise cuts on every beat and never more than three times a second', async () => {
   const { server, ...mods } = await load();
   try {
     assert.equal(mods.pulise.puliseCuts(7, 0), 7);
-    for (const bpm of [90, 125, 150, 170]) assert.ok(cutsPerSecond(mods, bpm) <= 4, `${bpm} BPM`);
-    for (const bpm of [200, 220]) assert.ok(cutsPerSecond(mods, bpm) <= 4, `${bpm} BPM halved`);
-    assert.ok(cutsPerSecond(mods, 220) < Math.ceil((220 / 60) + 1), 'fast songs are halved');
+    for (const bpm of [60, 90, 125, 150, 170, 176, 177, 200, 220, 240]) {
+      const { cuts } = busiestSecond(mods, steadySong(bpm));
+      assert.ok(cuts <= 3, `${bpm} BPM cuts ${cuts} times in a second`);
+    }
   } finally { await server.close(); }
 });
 
-test('a cut knows when it began, even when fast songs halve the cuts', async () => {
+test('flashes and cuts together stay within three flashes a second at every tempo', async () => {
+  const { server, ...mods } = await load();
+  try {
+    for (const bpm of [60, 90, 110, 125, 140, 150, 160, 170, 176, 177, 200, 220, 240]) {
+      // Every colour change on screen counts: a flash is two of them (in and out), so six changes are three flashes.
+      const { changes, flashes } = busiestSecond(mods, steadySong(bpm));
+      assert.ok(changes <= 6, `${bpm} BPM changes colour ${changes} times in a second`);
+      if (bpm <= 140) assert.ok(flashes > 0, `${bpm} BPM: strong beats flash`);
+      if (bpm >= 160 && bpm <= 176) assert.equal(flashes, 0, `${bpm} BPM: cuts too short to flash`);
+    }
+  } finally { await server.close(); }
+});
+
+test('a flash swaps field and type for a moment at the start of a strong cut, and nowhere else', async () => {
+  const { server, palettes } = await load();
+  try {
+    const plain = palettes.puliseCut('signal', 3);
+    const flash = palettes.puliseColours('signal', 3, 20, 500, true);
+    assert.equal(flash.field, plain.ink);
+    assert.equal(flash.ink, plain.field);
+    assert.deepEqual(palettes.puliseColours('signal', 3, 20, 500, false), plain, 'calm beats do not flash');
+    assert.deepEqual(palettes.puliseColours('signal', 3, palettes.FLASH_MS, 500, true), plain, 'it settles at once');
+    assert.deepEqual(palettes.puliseColours('signal', 3, 20, palettes.MIN_FLASH_CUT_MS - 1, true), plain, 'short cuts never flash');
+    assert.deepEqual(palettes.puliseColours('signal', 3, -5, 500, true), plain, 'nothing flashes before its cut begins');
+  } finally { await server.close(); }
+});
+
+test('a cut knows when it began and how long it lasts, even when fast songs halve the cuts', async () => {
   const { server, pulise } = await load();
   try {
     const beats = [100, 500, 900, 1300];
@@ -52,122 +97,92 @@ test('a cut knows when it began, even when fast songs halve the cuts', async () 
   } finally { await server.close(); }
 });
 
-test('every neon palette keeps the word readable on every cut, and every cut differs from the last', async () => {
+test('a strong beat comes from the music alone: a downbeat in the cut or a surge of loudness', async () => {
+  const { server, pulise } = await load();
+  try {
+    const flat = Array.from({ length: 300 }, (_, i) => ({ timeMs: i * 10, rms: 0.2 }));
+    const music = { beatsMs: [500, 1000, 1500, 2000], downbeatsMs: [1000], energy: flat };
+    assert.equal(pulise.strongCut(null, 1000, 500), false);
+    assert.equal(pulise.strongCut(music, 1000, 500), true, 'downbeat');
+    assert.equal(pulise.strongCut(music, 1500, 500), false, 'steady and off the downbeat');
+    assert.equal(pulise.strongCut({ ...music, downbeatsMs: [] }, 1000, 500), false);
+    const surge = flat.map(point => point.timeMs >= 1500 ? { ...point, rms: 0.5 } : point);
+    assert.equal(pulise.strongCut({ ...music, energy: surge }, 1500, 500), true, 'a loud hit');
+    assert.equal(pulise.strongCut({ ...music, downbeatsMs: undefined, energy: [] }, 1500, 500), false, 'no data, no flash');
+  } finally { await server.close(); }
+});
+
+test('every colour on screen is a strong neon (or the black it glows on), and the type always stands out', async () => {
   const { server, palettes } = await load();
   try {
-    assert.ok(palettes.NEON_IDS.length >= 16, 'plenty of neon');
+    // The rule itself: pastel, pale, white and washed-out colours fail it.
+    for (const weak of ['#ffffff', '#fbfdff', '#ff71ce', '#b967ff', '#ffd0d4', '#ffb3b3', '#c8f7c5', '#fff6fb', '#ff8c8c', '#7affd9', '#cc3344', '#cc99ff']) {
+      assert.equal(palettes.isNeon(weak), false, `${weak} is not neon`);
+    }
+    for (const color of Object.values(palettes.NEON_COLORS)) {
+      const { saturation, brightness } = palettes.strength(color);
+      assert.ok(saturation >= 0.85 && brightness >= 0.95, `${color} saturation ${saturation.toFixed(2)} brightness ${brightness.toFixed(2)}`);
+    }
+    assert.ok(palettes.NEON_IDS.length >= 40, 'plenty of sets to deal from');
+    const hueSets = new Set();
     for (const id of palettes.NEON_IDS) {
-      const sequence = palettes.puliseSequence(id);
-      sequence.forEach((phase, index) => {
-        assert.ok(palettes.contrast(phase.ink, phase.field) >= 3, `${id} #${index} word on field`);
-        assert.ok(palettes.contrast(phase.ink, phase.alt) >= 2.5, `${id} #${index} word on pattern`);
-        assert.notEqual(phase.alt, phase.field, `${id} #${index} pattern is visible`);
-        assert.notEqual(phase.field, sequence[(index + 1) % sequence.length].field, `${id} #${index} cuts to a new colour`);
-        const { bodies, hues } = palettes.stickerColors(id, phase);
-        assert.ok(bodies.length >= 1, `${id} #${index} has colours for a sticker`);
-        assert.ok(hues.length >= 2, `${id} #${index} has accent colours`);
-        assert.ok(bodies.every(color => color !== phase.field && color !== phase.ink), `${id} #${index} sticker colour`);
-      });
-      assert.ok(new Set(sequence.map(phase => phase.field)).size >= 4, `${id} cuts through several colours`);
-    }
-    assert.equal(palettes.puliseCut('acid', 6).field, palettes.puliseCut('acid', 0).field, 'the sequence repeats');
-  } finally { await server.close(); }
-});
-
-test('every lane has enough neon and sticker choice that four cards and a refresh all differ', async () => {
-  const { server, look, ground } = await load();
-  try {
-    for (const lane of LANES) {
-      assert.ok(look.neonsForLane(lane).length >= 7, `${lane} palettes`);
-      const seen = new Set();
-      for (let generation = 0; generation < 12; generation++) {
-        const row = look.puliseLooks(lane, `song:${generation}:${lane}:pulise`, 4);
-        assert.equal(new Set(row.map(card => card.neon)).size, 4, `${lane} #${generation} repeats a palette`);
-        assert.equal(new Set(row.map(card => card.ground)).size, 4, `${lane} #${generation} repeats a ground`);
-        assert.equal(new Set(row.map(card => card.seed)).size, 4, `${lane} #${generation} repeats a pop seed`);
-        for (const card of row) {
-          assert.ok(card.stickers.length >= 3 && new Set(card.stickers).size === card.stickers.length, `${lane} stickers`);
-          assert.ok(card.density > 0 && card.density <= 1);
-          seen.add(card.neon);
+      const neons = palettes.neonColors(id);
+      assert.ok(neons.every(palettes.isNeon), `${id} holds only strong neon`);
+      assert.equal(new Set(neons).size, 4, `${id} four different neons`);
+      hueSets.add([...neons].sort().join());
+      for (let cut = 0; cut < palettes.CUTS_PER_ROUND * 3; cut++) {
+        const phase = palettes.puliseCut(id, cut);
+        const flash = palettes.puliseColours(id, cut, 10, 600, true);
+        for (const shown of [phase, flash]) {
+          for (const color of [shown.field, shown.ink]) assert.ok(palettes.isNeon(color) || color === palettes.VOID, `${id} #${cut} shows ${color}`);
+          assert.ok(palettes.contrast(shown.ink, shown.field) >= palettes.READABLE, `${id} #${cut} type ${shown.ink} on ${shown.field}`);
         }
+        assert.notEqual(phase.field, palettes.puliseCut(id, cut + 1).field, `${id} #${cut} cuts to a new colour`);
       }
-      assert.ok(seen.size >= Math.min(7, look.neonsForLane(lane).length), `${lane} shows only ${seen.size} palettes over 12 refreshes`);
+      assert.ok(new Set(Array.from({ length: palettes.CUTS_PER_ROUND }, (_, cut) => palettes.puliseCut(id, cut).field)).size >= 4, `${id} cuts through several colours`);
     }
-    const checkers = new Set();
-    for (let generation = 0; generation < 12; generation++) for (const card of look.puliseLooks('party', `g${generation}`, 4)) checkers.add(card.ground);
-    assert.deepEqual([...checkers].sort(), [...ground.GROUND_IDS].sort(), 'every ground (checkerboard included) is dealt');
+    assert.equal(hueSets.size, palettes.NEON_IDS.length, 'no two sets are the same four neons');
+    assert.equal(palettes.puliseCut('acid', 6).field, palettes.puliseCut('acid', 0).field, 'the round repeats');
   } finally { await server.close(); }
 });
 
-test('looks are deterministic: the same seed gives the same row, another seed another row', async () => {
-  const { server, look } = await load();
+test('four cards in a row differ, every refresh brings other sets, and the same seed always gives the same row', async () => {
+  const { server, look, palettes } = await load();
   try {
+    const seen = new Set();
+    const rows = new Set();
+    for (let generation = 0; generation < 40; generation++) {
+      const row = look.puliseLooks(`song:${generation}:pulise`, 4);
+      assert.equal(new Set(row.map(card => card.neon)).size, 4, `#${generation} repeats a set`);
+      for (const card of row) seen.add(card.neon);
+      rows.add(row.map(card => card.neon).join());
+    }
+    assert.equal(rows.size, 40, 'every refresh deals a different row');
+    assert.ok(seen.size >= palettes.NEON_IDS.length * 0.8, `40 refreshes showed only ${seen.size} sets`);
     const key = row => JSON.stringify(row);
-    assert.equal(key(look.puliseLooks('techno', 'a', 4)), key(look.puliseLooks('techno', 'a', 4)));
-    assert.notEqual(key(look.puliseLooks('techno', 'a', 4)), key(look.puliseLooks('techno', 'b', 4)));
-  } finally { await server.close(); }
-});
-
-test('stickers pop from the song alone: deterministic, in the card\'s own set, on the cut and gone before the next', async () => {
-  const { server, pops, look } = await load();
-  try {
-    const card = { neon: 'acid', ground: 'checker', stickers: ['lips', 'monster', 'eye', 'star'], seed: 4242, density: 1 };
-    const at = (cut, energy, age, length = 430) => pops.popsAt(card, cut, energy, age, length);
-    assert.equal(JSON.stringify(at(5, 0.9, 120)), JSON.stringify(at(5, 0.9, 120)), 'a frame is a pure function of its inputs');
-    assert.deepEqual(at(5, 0.9, 120, 0), [], 'nothing pops before the song has a beat to cut on');
-
-    let shown = 0;
-    for (let cut = 0; cut < 60; cut++) {
-      const first = at(cut, 0.9, 60);
-      assert.ok(first.length <= 3, 'at most three at once');
-      assert.equal(new Set(first.map(pop => pop.id)).size, first.length, 'no sticker twice in one cut');
-      for (const pop of first) {
-        shown++;
-        assert.ok(card.stickers.includes(pop.id), pop.id);
-        assert.ok(pop.radius > 0 && pop.y + pop.radius <= 1340 + 1, 'clear of the context line');
-      }
-      assert.deepEqual(at(cut, 0.9, 430), [], `cut ${cut} still has stickers when it ends`);
-      assert.deepEqual(at(cut, 0.9, -1), [], 'stickers only appear once their cut has begun');
-    }
-    assert.ok(shown > 40, `a busy card shows stickers on most cuts (${shown} in 60)`);
-
-    // The scale is zero as it appears, overshoots on the way in, and is zero again when it goes.
-    const pop = at(1, 1, 0).concat(at(2, 1, 0), at(3, 1, 0), at(4, 1, 0))[0];
-    assert.ok(pop, 'a sticker at the start of a cut');
-    assert.ok(pops.popScale({ ...pop, ageMs: 0 }) < 1e-9, 'starts at nothing');
-    assert.ok(pops.popScale({ ...pop, ageMs: 105 }) > 1, 'overshoots');
-    assert.ok(Math.abs(pops.popScale({ ...pop, ageMs: 150 }) - 1) < 0.01, 'settles');
-    assert.equal(pops.popScale({ ...pop, ageMs: pop.lifeMs }), 0);
-
-    // Mood is from how the song sounds: calm lanes are sparse, party is busy, and louder moments add stickers.
-    const count = (lane, energy) => {
-      const [first] = look.puliseLooks(lane, 'mood', 1);
-      let total = 0;
-      for (let cut = 0; cut < 400; cut++) total += pops.popsAt(first, cut, energy, 60, 430).length;
-      return total;
-    };
-    assert.ok(count('quiet', 0.9) < count('party', 0.9) * 0.6, 'quiet is sparser than party');
-    assert.ok(count('party', 0.95) > count('party', 0.4), 'loud moments bring more stickers');
+    assert.equal(key(look.puliseLooks('a', 4)), key(look.puliseLooks('a', 4)));
+    assert.notEqual(key(look.puliseLooks('a', 4)), key(look.puliseLooks('b', 4)));
   } finally { await server.close(); }
 });
 
 test('no lyric text or meaning reaches a pulise card, so none can reach the cloud with it', async () => {
-  const { server, look } = await load();
+  const { server, look, palettes } = await load();
   try {
-    const song = look.puliseLooks('party', 'seed', 4);
+    const song = look.puliseLooks('seed', 4);
     const wire = JSON.stringify(song);
     for (const secret of ['hello', 'love', 'meaning', 'attitude']) assert.ok(!wire.includes(secret), secret);
-    for (const card of song) assert.deepEqual(Object.keys(card).sort(), ['density', 'ground', 'neon', 'seed', 'stickers']);
+    for (const card of song) {
+      assert.deepEqual(Object.keys(card), ['neon']);
+      assert.ok(palettes.NEON_IDS.includes(card.neon));
+    }
   } finally { await server.close(); }
 });
 
-test('the cloud worker accepts exactly the palettes, grounds and stickers the page knows', async () => {
-  const { server, palettes, ground, stickers } = await load();
+test('the cloud worker accepts exactly the neon sets the page knows', async () => {
+  const { server, palettes } = await load();
   try {
     const worker = readFileSync(new URL('../../audio-intelligence/modal_creatives_encode_staging.py', import.meta.url), 'utf8');
-    const listed = name => [...worker.match(new RegExp(`${name} = \\{([^}]*)\\}`))[1].matchAll(/"(\w+)"/g)].map(match => match[1]).sort();
-    assert.deepEqual(listed('PULISE_NEONS'), [...palettes.NEON_IDS].sort());
-    assert.deepEqual(listed('PULISE_GROUNDS'), [...ground.GROUND_IDS].sort());
-    assert.deepEqual(listed('PULISE_STICKERS'), [...stickers.STICKER_IDS].sort());
+    const listed = [...worker.match(/PULISE_NEONS = \{([^}]*)\}/)[1].matchAll(/"(\w+)"/g)].map(match => match[1]).sort();
+    assert.deepEqual(listed, [...palettes.NEON_IDS].sort());
   } finally { await server.close(); }
 });

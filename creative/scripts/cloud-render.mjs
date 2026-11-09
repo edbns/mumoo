@@ -7,7 +7,7 @@
  *   LYRICS=0 node scripts/cloud-render.mjs dust techno  lyrics off
  *   SEED=4 node scripts/cloud-render.mjs dust slaphouse pick the colour pair
  *   node scripts/cloud-render.mjs pulise reggaeton      a library style, through the deployed staging site
- *   NEON=acid GROUND=checker STICKERS=lips,monster,eye SEED=9 node scripts/cloud-render.mjs pulise techno   pick Pulise's look
+ *   NEON=acid node scripts/cloud-render.mjs pulise techno   pick Pulise's neon set
  *   BANK=lit-rays-5 node scripts/cloud-render.mjs bank techno
  *
  * Dust and Filter are drawn from an approved photo (PLATE, default: our cleared library photo) through the deployed
@@ -61,13 +61,13 @@ const opts = {
   lyrics,
   ...(photoStyle ? { colors: dustColors(Number(process.env.SEED || 7)) } : {}),
   ...(photoStyle && !ownMedia ? { plateId: process.env.PLATE || 'burnnet-woman-1547507-1920' } : {}),
-  ...(style === 'pulise' ? { pulise: { neon: process.env.NEON || 'acid', ground: process.env.GROUND || 'checker', stickers: (process.env.STICKERS || 'lips,monster,eye,star').split(','), seed: Number(process.env.SEED || 7), density: Number(process.env.DENSITY || 0.85) } } : {}),
+  ...(style === 'pulise' ? { pulise: { neon: process.env.NEON || 'acid' } } : {}),
   ...(style === 'bank' ? { bankId: process.env.BANK || 'neon-flow-5', typeStyle: 'karaoke' } : {}),
   ...(style === 'filter' ? { filter: process.env.FILTER || 'duotone', typeStyle: 'stack', cutSeed: Number(process.env.CUTSEED || 0) } : {}),
   ...(process.env.SHOTS ? { motionShots: JSON.parse(process.env.SHOTS) } : {}),
 };
 const wav = canonicalWav();
-const file = `scripts/fixtures/exports/cloud-${style}${style === 'filter' ? `-${opts.filter}` : ''}${style === 'pulise' ? `-${opts.pulise.neon}-${opts.pulise.ground}` : ''}-${clip}${ownMedia ? (process.env.MOTION ? '-motion' : '-own') : ''}${lyrics ? '' : '-nolyrics'}.mp4`;
+const file = `scripts/fixtures/exports/cloud-${style}${style === 'filter' ? `-${opts.filter}` : ''}${style === 'pulise' ? `-${opts.pulise.neon}` : ''}-${clip}${ownMedia ? (process.env.MOTION ? '-motion' : '-own') : ''}${lyrics ? '' : '-nolyrics'}.mp4`;
 mkdirSync('scripts/fixtures/exports', { recursive: true });
 const started = Date.now();
 

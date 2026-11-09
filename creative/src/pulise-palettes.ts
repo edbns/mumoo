@@ -1,126 +1,147 @@
 /**
- * Pulise colour: seventeen neon palettes, and the field/type colours each one cuts through on the beat.
- * A palette is three neon hues plus a paper (near-white) and a void (near-black), so every colour on screen is
- * either neon or the hard white/black that makes neon read as neon. Every phase is checked for legibility in the tests.
+ * Pulise colour: forty neon sets, and the flat field and type colour each one cuts through on the beat.
+ * Every colour on screen is a full-strength neon (saturation and brightness both near the top: no pastel, no white,
+ * no washed-out tints) or the near-black that lets neon glow. A set is four neons; its cut sequence is
+ * neon, neon, black, neon, neon, black. The type takes the neon of the set that stands out most from the field
+ * (black where no neon stands out enough), and on a strong beat the cut opens with the pair inverted for a moment.
  */
-import type { MoodLane } from './ad-fonts';
 
-type Neon = { hues: readonly [string, string, string]; paper: string; void: string; lanes: readonly MoodLane[] };
+export const NEON_COLORS = {
+  red: '#ff1a2e', orange: '#ff6a00', amber: '#ffb300', yellow: '#ffee00', lime: '#b6ff00', green: '#00ff55', mint: '#00ffa8',
+  cyan: '#00e5ff', sky: '#00a2ff', blue: '#2040ff', violet: '#8a1bff', purple: '#c21bff', magenta: '#ff00c8', pink: '#ff1f8e',
+} as const;
+type Hue = keyof typeof NEON_COLORS;
 
-export const NEONS = {
-  signal: { hues: ['#ff1a2e', '#ff2e7e', '#ff6a00'], paper: '#fbfdff', void: '#050506', lanes: ['dark', 'techno', 'party', 'general'] },
-  acid: { hues: ['#c6ff00', '#ff2bd6', '#00e5ff'], paper: '#fbfff0', void: '#07040e', lanes: ['techno', 'party', 'general'] },
-  ultraviolet: { hues: ['#8a2bff', '#ff2bd6', '#00f0ff'], paper: '#f8f4ff', void: '#06031a', lanes: ['dark', 'techno', 'party', 'general'] },
-  solar: { hues: ['#ffe600', '#ff6a00', '#ff1a6e'], paper: '#fffdf0', void: '#0c0500', lanes: ['gospel', 'party', 'general'] },
-  toxic: { hues: ['#39ff14', '#00ffa3', '#f4ff00'], paper: '#f6fff4', void: '#020a04', lanes: ['dark', 'techno', 'general'] },
-  laser: { hues: ['#00e5ff', '#2a6bff', '#ff2bd6'], paper: '#f4fbff', void: '#02061a', lanes: ['dark', 'quiet', 'techno', 'party', 'general'] },
-  bubblegum: { hues: ['#ff5cc8', '#7affd9', '#fff04d'], paper: '#fff6fb', void: '#1a0414', lanes: ['quiet', 'gospel', 'party', 'general'] },
-  hazard: { hues: ['#ffd400', '#ff2200', '#ff8a00'], paper: '#fffbe0', void: '#050505', lanes: ['dark', 'techno', 'party', 'general'] },
-  magma: { hues: ['#ff3d00', '#ffae00', '#ff0066'], paper: '#fff6ee', void: '#0d0200', lanes: ['dark', 'techno', 'party', 'general'] },
-  ice: { hues: ['#2dffc4', '#00b7ff', '#d6ff4a'], paper: '#f2fffb', void: '#02100c', lanes: ['quiet', 'gospel', 'techno', 'general'] },
-  vapor: { hues: ['#ff71ce', '#01cdfe', '#b967ff'], paper: '#fbf4ff', void: '#0a0620', lanes: ['quiet', 'gospel', 'party', 'general'] },
-  coral: { hues: ['#ff4d6d', '#00f5d4', '#ffe45e'], paper: '#fff8f6', void: '#0b0710', lanes: ['quiet', 'gospel', 'party', 'general'] },
-  cobalt: { hues: ['#1f51ff', '#00e5ff', '#ff2e63'], paper: '#f2f7ff', void: '#02041a', lanes: ['dark', 'quiet', 'techno', 'general'] },
-  radioactive: { hues: ['#ccff00', '#00ff6a', '#ff00aa'], paper: '#f8fff0', void: '#030a02', lanes: ['dark', 'techno', 'party'] },
-  orchid: { hues: ['#e040ff', '#ff6ad5', '#6affea'], paper: '#fdf4ff', void: '#0c0414', lanes: ['quiet', 'gospel', 'party', 'general'] },
-  tangerine: { hues: ['#ff8a00', '#ff2d95', '#00e0ff'], paper: '#fff8ef', void: '#0a0400', lanes: ['gospel', 'party', 'general'] },
-  ember: { hues: ['#ff2a00', '#ff7a00', '#ffd000'], paper: '#fff7ee', void: '#0a0200', lanes: ['dark', 'gospel', 'general'] },
-} as const satisfies Record<string, Neon>;
+/** The black the neon is cut against. */
+export const VOID = '#050505';
 
-export type NeonId = keyof typeof NEONS;
-export const NEON_IDS = Object.keys(NEONS) as NeonId[];
+const SETS = {
+  signal: ['red', 'yellow', 'blue', 'magenta'],
+  acid: ['lime', 'magenta', 'violet', 'cyan'],
+  ultraviolet: ['violet', 'pink', 'cyan', 'yellow'],
+  solar: ['yellow', 'orange', 'red', 'violet'],
+  toxic: ['green', 'violet', 'yellow', 'pink'],
+  laser: ['cyan', 'blue', 'magenta', 'yellow'],
+  bubblegum: ['pink', 'mint', 'yellow', 'violet'],
+  hazard: ['yellow', 'red', 'blue', 'lime'],
+  magma: ['orange', 'red', 'magenta', 'amber'],
+  ice: ['mint', 'blue', 'cyan', 'lime'],
+  vapor: ['magenta', 'cyan', 'purple', 'yellow'],
+  coral: ['red', 'mint', 'yellow', 'blue'],
+  cobalt: ['blue', 'cyan', 'magenta', 'lime'],
+  radioactive: ['lime', 'green', 'magenta', 'violet'],
+  orchid: ['purple', 'pink', 'mint', 'yellow'],
+  tangerine: ['orange', 'magenta', 'cyan', 'blue'],
+  ember: ['red', 'orange', 'lime', 'blue'],
+  lava: ['orange', 'green', 'violet', 'pink'],
+  citrus: ['lime', 'amber', 'magenta', 'blue'],
+  jungle: ['green', 'yellow', 'purple', 'magenta'],
+  arctic: ['cyan', 'blue', 'yellow', 'pink'],
+  disco: ['magenta', 'yellow', 'cyan', 'violet'],
+  candy: ['pink', 'lime', 'cyan', 'violet'],
+  cyber: ['yellow', 'violet', 'cyan', 'red'],
+  nitro: ['lime', 'blue', 'red', 'amber'],
+  plasma: ['purple', 'cyan', 'yellow', 'green'],
+  flare: ['orange', 'pink', 'yellow', 'blue'],
+  mojito: ['green', 'magenta', 'amber', 'blue'],
+  grape: ['violet', 'lime', 'magenta', 'sky'],
+  sunset: ['magenta', 'amber', 'violet', 'orange'],
+  bolt: ['yellow', 'blue', 'sky', 'pink'],
+  rave: ['pink', 'lime', 'blue', 'mint'],
+  gamma: ['green', 'blue', 'amber', 'red'],
+  fuchsia: ['magenta', 'green', 'violet', 'sky'],
+  opal: ['mint', 'violet', 'amber', 'pink'],
+  hyper: ['cyan', 'magenta', 'lime', 'purple'],
+  scarlet: ['red', 'lime', 'violet', 'sky'],
+  punch: ['pink', 'amber', 'blue', 'cyan'],
+  lemonade: ['yellow', 'pink', 'green', 'blue'],
+  frost: ['sky', 'purple', 'lime', 'red'],
+} as const satisfies Record<string, readonly [Hue, Hue, Hue, Hue]>;
 
-/** What one cut of the field is made of. */
-export type PulisePhase = {
-  field: string;
-  /** The second colour of a pattern on this field (checker squares, rays, dots, stripes). Always keeps the type readable. */
-  alt: string;
-  ink: string;
-  glow: string;
-};
+export type NeonId = keyof typeof SETS;
+export const NEON_IDS = Object.keys(SETS) as NeonId[];
 
-const PHASE_COUNT = 6;
-
-function rgb(hex: string): [number, number, number] {
-  const value = parseInt(hex.slice(1), 16);
-  return [value >> 16 & 255, value >> 8 & 255, value & 255];
+/** The four neons of a set, as colours. */
+export function neonColors(id: NeonId): string[] {
+  return SETS[id].map(hue => NEON_COLORS[hue]);
 }
 
-function hex(channels: readonly number[]) {
-  return `#${channels.map(value => Math.round(value).toString(16).padStart(2, '0')).join('')}`;
-}
-
-export function mix(from: string, to: string, amount: number) {
-  const a = rgb(from);
-  const b = rgb(to);
-  return hex(a.map((value, i) => value + (b[i] - value) * amount));
-}
-
-export function luminance(color: string) {
-  const [r, g, b] = rgb(color).map(value => {
-    const c = value / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
+/** What the field and the type look like for one cut (or for the flash that opens it). */
+export type PulisePhase = { field: string; ink: string; glow: string };
 
 /** WCAG contrast ratio, 1 (identical) to 21. */
 export function contrast(a: string, b: string) {
-  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  const light = (color: string) => {
+    const value = parseInt(color.slice(1), 16);
+    const [r, g, b2] = [value >> 16 & 255, value >> 8 & 255, value & 255].map(channel => {
+      const c = channel / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b2;
+  };
+  const [high, low] = [light(a), light(b)].sort((x, y) => y - x);
   return (high + 0.05) / (low + 0.05);
 }
 
-/** How far apart two colours look, 0 to 441 (straight RGB distance). */
-export function distance(a: string, b: string) {
-  const [p, q] = [rgb(a), rgb(b)];
-  return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+/** Saturation and brightness (HSV, 0 to 1) of a `#rrggbb` colour. */
+export function strength(color: string) {
+  const value = parseInt(color.slice(1), 16);
+  const channels = [value >> 16 & 255, value >> 8 & 255, value & 255];
+  const high = Math.max(...channels);
+  return { saturation: high === 0 ? 0 : 1 - Math.min(...channels) / high, brightness: high / 255 };
 }
 
-const READABLE = 3.2;
-
-function altFor(neon: Neon, field: string, ink: string) {
-  if (luminance(field) < 0.05) return mix(field, ink, 0.16);
-  if (luminance(ink) > luminance(field)) return mix(field, neon.void, 0.45);
-  // On paper the second colour is a pastel of a neon (never grey), and never the colour of the word.
-  if (field === neon.paper) return mix(field, neon.hues.find(hue => hue !== ink) ?? neon.hues[0], 0.24);
-  return mix(field, neon.paper, 0.4);
+/** The numeric rule for "strong neon": nothing pale, pastel or washed out ever reaches the screen. */
+export const NEON_MIN_SATURATION = 0.85;
+export const NEON_MIN_BRIGHTNESS = 0.95;
+export function isNeon(color: string) {
+  const { saturation, brightness } = strength(color);
+  return saturation >= NEON_MIN_SATURATION && brightness >= NEON_MIN_BRIGHTNESS;
 }
 
-function phase(neon: Neon, field: string, inks: readonly string[]): PulisePhase {
-  const ink = inks.find(candidate => contrast(candidate, field) >= READABLE) ?? (contrast(neon.paper, field) >= contrast(neon.void, field) ? neon.paper : neon.void);
-  return { field, alt: altFor(neon, field, ink), ink, glow: mix(ink, field, 0.35) };
+/** Type must stand this far apart from its field; black type takes over where no neon does. */
+export const READABLE = 3.4;
+/** What a neon needs to stand out against black. */
+const ON_BLACK = 4.5;
+
+function phase(field: string, ink: string): PulisePhase {
+  const blend = (from: string, to: string) => {
+    const [a, b] = [from, to].map(color => parseInt(color.slice(1), 16));
+    const channel = (shift: number) => Math.round((a >> shift & 255) * 0.65 + (b >> shift & 255) * 0.35);
+    return `#${[16, 8, 0].map(shift => channel(shift).toString(16).padStart(2, '0')).join('')}`;
+  };
+  return { field, ink, glow: blend(ink, field) };
 }
 
-const sequences = new Map<NeonId, readonly PulisePhase[]>();
-
-/** The colours the field cuts through, one per beat, round and round: neon, white, neon, black, neon, black. */
-export function puliseSequence(id: NeonId): readonly PulisePhase[] {
-  const known = sequences.get(id);
-  if (known) return known;
-  const neon: Neon = NEONS[id];
-  const [a, b, c] = neon.hues;
-  const made = [
-    phase(neon, a, [neon.paper, neon.void]),
-    phase(neon, neon.paper, [a, b, c, neon.void]),
-    phase(neon, b, [neon.paper, neon.void]),
-    phase(neon, neon.void, [c, a, b]),
-    phase(neon, c, [neon.void, neon.paper]),
-    phase(neon, neon.void, [b, c, a]),
-  ];
-  sequences.set(id, made);
-  return made;
+/** The type colour on a neon field: the neon of the set that contrasts most, or black when none reaches `READABLE`. */
+function inkOn(field: string, neons: readonly string[]) {
+  const best = neons.filter(color => color !== field).sort((a, b) => contrast(b, field) - contrast(a, field))[0];
+  return contrast(best, field) >= READABLE ? best : VOID;
 }
 
+/** One round of cuts: which neon of the set (0 to 3), or black (-1). */
+const ORDER = [0, 1, -1, 2, 3, -1] as const;
+export const CUTS_PER_ROUND = ORDER.length;
+
+/** The colours of cut number `cut`: round and round through the set, black every third cut so the neon has room to land. */
 export function puliseCut(id: NeonId, cut: number): PulisePhase {
-  return puliseSequence(id)[((cut % PHASE_COUNT) + PHASE_COUNT) % PHASE_COUNT];
+  const neons = neonColors(id);
+  const step = ((cut % ORDER.length) + ORDER.length) % ORDER.length;
+  const pick = ORDER[step];
+  if (pick >= 0) return phase(neons[pick], inkOn(neons[pick], neons));
+  // On black the type is a neon that stands out against it; the round's two black cuts take different ones.
+  const bright = neons.filter(color => contrast(color, VOID) >= ON_BLACK);
+  const round = Math.floor(cut / ORDER.length);
+  return phase(VOID, bright[(round + (step === 2 ? 0 : 1)) % bright.length]);
 }
 
-/** The colours a sticker on this phase may be made of: neon or hard white/black, never the field or the type colour, the three that stand out most from the word first. */
-export function stickerColors(id: NeonId, current: PulisePhase) {
-  const neon: Neon = NEONS[id];
-  const bodies = [...neon.hues, neon.paper, neon.void]
-    .filter(color => color !== current.field && color !== current.ink && distance(color, current.field) >= 150)
-    .sort((a, b) => contrast(b, current.ink) - contrast(a, current.ink))
-    .slice(0, 3);
-  return { bodies, hues: neon.hues.filter(color => color !== current.field), paper: neon.paper, void: neon.void };
+/** How long the inverted pair stays up at the start of a strong cut. */
+export const FLASH_MS = 110;
+/** Only cuts at least this long flash, so a round of flashes can never pass three a second (see the tests). */
+export const MIN_FLASH_CUT_MS = 400;
+
+/** The colours on screen `ageMs` into a cut that is `lengthMs` long; a strong cut opens with the field and type swapped. */
+export function puliseColours(id: NeonId, cut: number, ageMs: number, lengthMs: number, strong: boolean): PulisePhase {
+  const now = puliseCut(id, cut);
+  return strong && lengthMs >= MIN_FLASH_CUT_MS && ageMs >= 0 && ageMs < FLASH_MS ? phase(now.ink, now.field) : now;
 }

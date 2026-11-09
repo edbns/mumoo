@@ -65,7 +65,7 @@ export type CreativesPackSlot = {
   /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
   bankId?: string;
   typeStyle?: TypeStyleId;
-  /** Pulise: the neon palette, ground and stickers of this card. */
+  /** Pulise: the neon set of this card. */
   pulise?: PuliseLook;
   /** What the lyrics do to the colours and the beat. Absent when the words change nothing. */
   grade?: MoodGrade;
@@ -291,10 +291,10 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
   }));
 }
 
-/** Four Pulise cards: each its own face, neon palette, ground and stickers, and each opening on a different colour. */
+/** Four Pulise cards: each its own face and neon set, and each opening on a different colour. */
 function puliseSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string): CreativesPackSlot[] {
   const faces = seededOrder(fontsForLane(lane), seed, font => font);
-  const looks = puliseLooks(lane, seed, ROW_SIZE);
+  const looks = puliseLooks(seed, ROW_SIZE);
   return looks.map((pulise, index) => {
     const slot = adPunchSlot('pulise', index, intent, seed, lane, 'pulise');
     const font = faces[index % faces.length];
@@ -305,7 +305,7 @@ function puliseSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string)
       layout: { ...slot.layout, cut: index },
       pulise,
       label: `Pulise · ${pulise.neon[0].toUpperCase()}${pulise.neon.slice(1)}`,
-      reason: `${lane} · ${pulise.neon} · ${pulise.ground} · ${pulise.stickers.join(', ')}`,
+      reason: `${lane} · ${pulise.neon}`,
     };
   });
 }

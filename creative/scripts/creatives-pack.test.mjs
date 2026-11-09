@@ -45,8 +45,7 @@ test('the shelf is four rows of four, each card distinct', async () => {
       assert.ok([...photography, ...slots.filter(slot => slot.row === 'dust')].every(slot => slot.plateId === 'burnnet-woman-1547507-1920'), 'drawn from the approved photo');
       const pulise = slots.filter(slot => slot.row === 'pulise');
       assert.equal(new Set(pulise.map(slot => slot.layout.cut)).size, 4, `${genre} Pulise cards open on the same colour`);
-      assert.equal(new Set(pulise.map(slot => slot.pulise.neon)).size, 4, `${genre} Pulise cards share a neon palette`);
-      assert.equal(new Set(pulise.map(slot => slot.pulise.ground)).size, 4, `${genre} Pulise cards share a ground`);
+      assert.equal(new Set(pulise.map(slot => slot.pulise.neon)).size, 4, `${genre} Pulise cards share a neon set`);
       const bank = slots.filter(slot => slot.row === 'looks');
       const pairs = new Set(bank.map(slot => `${slot.bankId}:${slot.typeStyle}`));
       assert.equal(pairs.size, bank.length, `${genre} repeats a background+type pair`);
@@ -55,7 +54,7 @@ test('the shelf is four rows of four, each card distinct', async () => {
   } finally { await server.close(); }
 });
 
-test('refreshing Pulise brings new neon palettes, grounds and stickers, the same way every time', async () => {
+test('refreshing Pulise brings new neon sets, the same way every time', async () => {
   const { server, pack } = await load();
   try {
     const row = (person, generation) => pack.recommendRow('pulise', person, generation);
@@ -70,11 +69,11 @@ test('refreshing Pulise brings new neon palettes, grounds and stickers, the same
       rows.add(slots.map(look).join('|'));
       for (const slot of slots) {
         palettes.add(slot.pulise.neon);
-        assert.ok(slot.reason.includes(slot.pulise.neon) && slot.label.includes('Pulise'), 'the card says which palette it is');
+        assert.ok(slot.reason.includes(slot.pulise.neon) && slot.label.includes('Pulise'), 'the card says which set it is');
       }
     }
     assert.equal(rows.size, 10, 'every refresh deals a new row');
-    assert.ok(palettes.size >= 8, `ten refreshes of a club song showed only ${palettes.size} palettes`);
+    assert.ok(palettes.size >= 20, `ten refreshes of a club song showed only ${palettes.size} neon sets`);
     // Another song, another deal; the lyrics' meaning moves the lane, never the pulse itself.
     assert.notEqual(row(person, 0).map(look).join(), row(profile('Slap House', 'hello', 'b'.repeat(64)), 0).map(look).join());
   } finally { await server.close(); }
