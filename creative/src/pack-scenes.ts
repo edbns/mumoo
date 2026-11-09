@@ -7,6 +7,9 @@ import type { PackSceneInput } from './pack-copy';
 import { createBankWorld } from './pack-bank';
 import { createPuliseWorld } from './pack-pulise';
 import { createDustWorld, type DustPoints, type DustWorld } from './pack-dust';
+import { createRisoWorld, type RisoWorld } from './pack-riso';
+import { createSprayWorld, type SprayWorld } from './pack-spray';
+import type { RisoPhoto } from './riso-photo';
 
 export type { PackSceneInput } from './pack-copy';
 
@@ -25,7 +28,12 @@ export function createPackScene(): PackScene {
   // The dust world is built from the photo's grains, so it exists once a photo has been read.
   let dust: { points: DustPoints; world: DustWorld } | null = null;
   const dustLayer = new Container();
-  root.addChild(picture.root, pulise.root, dustLayer);
+  // Riso and Spray are built for one card (its seed, and Riso its photo) and given back as soon as another style or card is drawn:
+  // a Spray wall alone is tens of MB of vertex data, and the shelf draws one poster after another on this one scene.
+  let riso: { photo: RisoPhoto; seed: number; world: RisoWorld } | null = null;
+  let spray: { seed: number; world: SprayWorld } | null = null;
+  const printLayer = new Container();
+  root.addChild(picture.root, pulise.root, dustLayer, printLayer);
 
   function updateDust(input: PackSceneInput) {
     if (!input.dustPoints || !input.colors) throw new Error('Dust needs a photo and its two colours.');
@@ -45,13 +53,37 @@ export function createPackScene(): PackScene {
     });
   }
 
+  function updateRiso(input: PackSceneInput) {
+    if (!input.risoPhoto || !input.inks) throw new Error('Riso needs a photo with its cut-out, and its inks.');
+    if (riso?.photo !== input.risoPhoto || riso.seed !== input.seed) {
+      riso?.world.destroy();
+      riso = { photo: input.risoPhoto, seed: input.seed, world: createRisoWorld(input.risoPhoto, input.seed) };
+      printLayer.addChild(riso.world.root);
+    }
+    riso.world.update({ ms: input.ms, beatsMs: input.beatsMs, downbeatsMs: input.downbeatsMs, cues: input.cues, inks: input.inks, font: input.font });
+  }
+
+  function updateSpray(input: PackSceneInput) {
+    if (!input.palette) throw new Error('Spray needs its wall and paints.');
+    if (spray?.seed !== input.seed) {
+      spray?.world.destroy();
+      spray = { seed: input.seed, world: createSprayWorld(input.seed) };
+      printLayer.addChild(spray.world.root);
+    }
+    spray.world.update({ ms: input.ms, beatsMs: input.beatsMs, downbeatsMs: input.downbeatsMs, cues: input.cues, palette: input.palette, font: input.font });
+  }
+
   return {
     root,
     update(input) {
+      if (input.style !== 'riso') { riso?.world.destroy(); riso = null; }
+      if (input.style !== 'spray') { spray?.world.destroy(); spray = null; }
       picture.root.visible = input.style === 'bank' || input.style === 'filter';
       pulise.root.visible = input.style === 'pulise';
       dustLayer.visible = input.style === 'dust';
       if (input.style === 'dust') updateDust(input);
+      else if (input.style === 'riso') updateRiso(input);
+      else if (input.style === 'spray') updateSpray(input);
       else if (input.style === 'pulise') pulise.update(input);
       else picture.update(input);
     },
@@ -59,6 +91,8 @@ export function createPackScene(): PackScene {
       picture.destroy();
       pulise.destroy();
       dust?.world.destroy();
+      riso?.world.destroy();
+      spray?.world.destroy();
       root.destroy({ children: true });
     },
   };

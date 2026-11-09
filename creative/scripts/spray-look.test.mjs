@@ -37,7 +37,9 @@ test('every wall is a clean ground with two or three paints that stand out from 
       kinds[light < 0.06 ? 'dark' : 'light']++;
     }
     assert.ok(kinds.dark >= 2 && kinds.light >= 2, 'both dark and light walls');
-    assert.deepEqual(look.sprayPalette(9), look.sprayPalette(9), 'same seed, same wall');
+    assert.equal(new Set(look.SPRAY_PALETTES.map(palette => palette.id)).size, 6, 'every wall has its own id');
+    for (const palette of look.SPRAY_PALETTES) assert.equal(look.sprayPaletteById(palette.id), palette);
+    assert.throws(() => look.sprayPaletteById('not-a-wall'), /not-a-wall/, 'an unknown wall is an error, not a stand-in');
   } finally { await server.close(); }
 });
 

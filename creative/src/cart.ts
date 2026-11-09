@@ -11,8 +11,8 @@ export const CART_LIMIT = 24;
 /** Carts kept in the browser, one per song and clip; the one touched longest ago is dropped first. */
 export const CART_SONGS = 8;
 const KEY = 'mumoo-cart';
-/** Bumped whenever a card gains or loses a field, so an old cart is dropped instead of drawn wrongly. */
-const VERSION = 3;
+/** Bumped whenever a card gains or loses a field, or a row leaves the shelf, so an old cart is dropped instead of drawn wrongly. */
+const VERSION = 4;
 
 /** A small picture of the card, so the cart can show it on any page without drawing anything. */
 export const THUMB_WIDTH = 180;

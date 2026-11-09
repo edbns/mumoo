@@ -45,7 +45,7 @@ try {
   const looks = [
     { name: 'pink-blue', inks: RISO_INK_SETS[0].inks, clip: 'reggaeton', font: 'Anton', seed: 11 },
     { name: 'orange-teal', inks: RISO_INK_SETS[1].inks, clip: 'slaphouse', font: 'Archivo Black', seed: 23 },
-    { name: 'yellow-violet', inks: RISO_INK_SETS[2].inks, clip: 'reggaeton', font: 'Bowlby One', seed: 5 },
+    { name: 'violet-coral', inks: RISO_INK_SETS[2].inks, clip: 'reggaeton', font: 'Bowlby One', seed: 5 },
   ];
 
   const stills = [];

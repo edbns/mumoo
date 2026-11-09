@@ -143,7 +143,7 @@ function profile(genre, lyrics, meaning, sha = 'a'.repeat(64)) {
 }
 
 const PLATES = [{ id: 'burnnet-woman-1547507-1920', cutout: true }];
-const ROWS = ['photography', 'looks', 'pulise', 'dust'];
+const ROWS = ['photography', 'looks', 'riso', 'spray', 'pulise', 'dust'];
 
 /** Every row of every refresh of a song, with the lane it was dealt in. */
 function refreshes(pack, song, count = 12) {
@@ -188,7 +188,8 @@ test('every type style gets a face that can do it: letter motion never gets a sc
               if (needs.includes('letters')) assert.ok(faces.every(face => !face.joined), `${slot.typeStyle} got joined letters`);
               if (needs.includes('heavy')) assert.ok(faces.every(face => face.heavy), `${slot.typeStyle} got a thin face`);
             }
-            if (slot.row === 'dust' || slot.row === 'pulise') assert.ok(faces.every(face => face.heavy && face.letters === 'upper'), `${slot.row} got ${slot.font}`);
+            if (['dust', 'pulise', 'riso'].includes(slot.row)) assert.ok(faces.every(face => face.heavy && face.letters === 'upper'), `${slot.row} got ${slot.font}`);
+            if (slot.row === 'spray') assert.ok(faces.every(face => face.heavy), `spray got ${slot.font}`);
           }
         }
       }
@@ -225,13 +226,13 @@ test('refreshing brings different motion: each mood rotates through most of its 
   } finally { await server.close(); }
 });
 
-test('Dust and Pulise keep their own look: the fonts are all that varies between cards, their motion and colours are the template\'s own', async () => {
+test('Dust, Pulise, Riso and Spray keep their own look: the fonts are all that varies between cards, their motion and colours are the template\'s own', async () => {
   const { server, pack } = await load();
   try {
     for (const song of LANE_SONGS) {
       const person = profile(...song);
       for (const generation of [0, 3, 7]) {
-        for (const row of ['dust', 'pulise']) {
+        for (const row of ['dust', 'pulise', 'riso', 'spray']) {
           const slots = pack.recommendRow(row, person, generation, PLATES);
           for (const slot of slots) {
             assert.deepEqual(Object.keys(slot.layout).sort(), ['cut', 'rotate', 'scaleBias', 'seed'], `${row} carries a look the template does not have`);

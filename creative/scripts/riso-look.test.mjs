@@ -7,6 +7,19 @@ async function load() {
   return { server, look: await server.ssrLoadModule('/src/riso-look.ts') };
 }
 
+test('every ink set has its own id, two inks, and an unknown id is an error', async () => {
+  const { server, look } = await load();
+  try {
+    assert.equal(look.RISO_INK_SETS.length, 4);
+    assert.equal(new Set(look.RISO_INK_SETS.map(set => set.id)).size, 4, 'every set has its own id');
+    for (const set of look.RISO_INK_SETS) {
+      assert.ok(set.inks.length >= 2 && set.inks.every(ink => /^#[0-9a-f]{6}$/.test(ink)));
+      assert.equal(look.risoInkSetById(set.id), set);
+    }
+    assert.throws(() => look.risoInkSetById('not-a-set'), /not-a-set/, 'an unknown set is an error, not a stand-in');
+  } finally { await server.close(); }
+});
+
 test('a word is stamped in the same place every time, inside the limits', async () => {
   const { server, look } = await load();
   try {

@@ -6,6 +6,9 @@ import type { AdFont, AdLayout } from './ad-fonts';
 import type { TimedWord, TypeStyleId } from './pack-type';
 import type { DustColors } from './dust-colors';
 import type { DustPoints, DustWord } from './pack-dust';
+import type { RisoInkSet } from './riso-look';
+import type { RisoPhoto } from './riso-photo';
+import type { SprayPalette } from './spray-look';
 
 export type PackSceneInput = {
   style: AdPunchStyle;
@@ -36,6 +39,13 @@ export type PackSceneInput = {
   beatsMs: readonly number[];
   downbeatsMs: readonly number[];
   dustWord: DustWord | null;
+  /** Riso and Spray: the lyric words with their times (none when lyrics are off), and the card's own seed (where each word falls, how the paper is stained). */
+  cues: readonly LyricCue[];
+  seed: number;
+  /** Riso: the card's inks, and the person's photo read for the halftone. Spray: the card's wall and paints. */
+  inks?: RisoInkSet['inks'];
+  risoPhoto?: RisoPhoto | null;
+  palette?: SprayPalette;
 };
 
 export function activePackCopy(cues: readonly LyricCue[], frame: number, fallback: string) {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createServer } from 'vite';
 
 function profile(genre = 'House', lyrics = 'hello', sha = 'a'.repeat(64), meaning) {
@@ -22,9 +22,15 @@ function profile(genre = 'House', lyrics = 'hello', sha = 'a'.repeat(64), meanin
   };
 }
 
+const WORKER = readFileSync(new URL('../../audio-intelligence/modal_creatives_encode_staging.py', import.meta.url), 'utf8');
+/** The quoted words inside the worker's `NAME = { ... }`. */
+const workerSet = name => [...WORKER.match(new RegExp(`^${name} = \\{([^}]*)\\}`, 'm'))[1].matchAll(/"([^"]+)"/g)].map(match => match[1]);
+
 const PLATES = [{ id: 'burnnet-woman-1547507-1920', cutout: true }];
 /** Every row of the shelf, in order. */
 const shelf = (pack, person, generation = 0, plates = PLATES) => pack.SHELF_ROWS.flatMap(row => pack.recommendRow(row.id, person, generation, plates));
+/** Moving backgrounds: not on the shelf, but still dealt. */
+const looks = (pack, person, generation = 0) => pack.recommendRow('looks', person, generation, PLATES);
 
 async function load() {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
@@ -32,14 +38,15 @@ async function load() {
   return { server, pack };
 }
 
-test('the shelf is four rows of four, each card distinct', async () => {
+test('the shelf is five rows of four, in order, each card distinct', async () => {
   const { server, pack } = await load();
   try {
     for (const genre of ['Gospel', 'Slap House', 'Pop', 'Ambient']) {
       const slots = shelf(pack, profile(genre));
-      assert.equal(slots.length, 16, genre);
-      assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', 'looks', 'pulise', 'dust'], 'rows come in order');
-      for (const row of ['photography', 'looks', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
+      assert.equal(slots.length, 20, genre);
+      assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', 'riso', 'spray', 'pulise', 'dust'], 'rows come in order');
+      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Our photography', 'Riso', 'Spray', 'Pulise', 'Dust']);
+      for (const row of ['photography', 'riso', 'spray', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
       const photography = slots.filter(slot => slot.row === 'photography');
       assert.equal(new Set(photography.map(slot => slot.effectId)).size, 4, `${genre} photography repeats an effect`);
       assert.equal(new Set(photography.map(slot => slot.typeStyle)).size, 4, `${genre} photography repeats a type style`);
@@ -47,9 +54,8 @@ test('the shelf is four rows of four, each card distinct', async () => {
       assert.ok(slots.filter(slot => slot.row === 'dust').every(slot => slot.plateId === 'burnnet-woman-1547507-1920'), 'Dust is drawn from the approved photo');
       const pulise = slots.filter(slot => slot.row === 'pulise');
       assert.equal(new Set(pulise.map(slot => slot.layout.cut)).size, 4, `${genre} Pulise cards open on the same colour`);
-      const bank = slots.filter(slot => slot.row === 'looks');
-      const pairs = new Set(bank.map(slot => `${slot.bankId}:${slot.typeStyle}`));
-      assert.equal(pairs.size, bank.length, `${genre} repeats a background+type pair`);
+      const pairs = new Set(looks(pack, profile(genre)).map(slot => `${slot.bankId}:${slot.typeStyle}`));
+      assert.equal(pairs.size, 4, `${genre} Moving backgrounds repeats a background+type pair`);
       assert.equal(new Set(slots.map(slot => slot.id)).size, slots.length, `${genre} repeats an id`);
     }
   } finally { await server.close(); }
@@ -107,7 +113,7 @@ test('a refresh deals four effects the earlier ones did not, and the deal is see
     assert.equal(new Set(first).size, 20, 'five refreshes in a row never repeat an effect');
     assert.deepEqual(row(person, 3).map(slot => slot.id), row(person, 3).map(slot => slot.id), 'the same song and refresh deal the same cards, with the same ids');
     assert.notDeepEqual(row(person, 0).map(slot => slot.effectId), row(profile('Pop', 'hello', 'b'.repeat(64)), 0).map(slot => slot.effectId), 'another song is dealt other effects');
-    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 16);
+    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 20);
   } finally { await server.close(); }
 });
 
@@ -202,8 +208,8 @@ test('sad lyrics never land on a bright background', async () => {
     const bank = (await import('../src/look-lab/bank.json', { with: { type: 'json' } })).default;
     const tone = new Map(bank.map(item => [item.slug, item.tone]));
     for (const gen of [0, 1, 2]) {
-      for (const slot of shelf(pack, profile('Ambient', 'tears fall like rain tonight alone', 'a'.repeat(64), { attitude: 'lonely', sadness: 3, intensity: 2 }), gen)) {
-        if (slot.row === 'looks') assert.equal(tone.get(slot.bankId), 'deep', slot.bankId);
+      for (const slot of looks(pack, profile('Ambient', 'tears fall like rain tonight alone', 'a'.repeat(64), { attitude: 'lonely', sadness: 3, intensity: 2 }), gen)) {
+        assert.equal(tone.get(slot.bankId), 'deep', slot.bankId);
       }
     }
   } finally { await server.close(); }
@@ -216,7 +222,7 @@ test('the cover decides which backgrounds lead: warm cover → warm looks, cool 
     const read = slug => bank.find(look => look.slug === slug).read;
     const cover = (hex, extra) => ({ palette: [{ hex, share: 1 }], lightness: 0.5, saturation: 0.8, contrast: 0.5, hue: 20, warmth: 1, ...extra });
     const withCover = value => ({ ...profile('Pop'), creator: { primaryGenre: { value: 'Pop', source: 'creator' }, cover: { value, source: 'embedded_metadata' } } });
-    const lead = value => shelf(pack, withCover(value)).filter(slot => slot.row === 'looks').slice(0, 3).map(slot => read(slot.bankId));
+    const lead = value => looks(pack, withCover(value)).slice(0, 3).map(slot => read(slot.bankId));
 
     const warm = lead(cover('#e1782a'));
     const cool = lead(cover('#2a3ea0', { hue: 230, warmth: 0, lightness: 0.25 }));
@@ -224,7 +230,7 @@ test('the cover decides which backgrounds lead: warm cover → warm looks, cool 
     assert.ok(cool.every(look => look.warmth < 0.4), 'cool cover leads with cool backgrounds');
 
     // No cover: nothing changes, still a full pack.
-    assert.equal(shelf(pack, profile('Pop')).length, 16, 'still a full shelf');
+    assert.equal(shelf(pack, profile('Pop')).length, 20, 'still a full shelf');
   } finally { await server.close(); }
 });
 
@@ -236,7 +242,7 @@ test('club songs get cards that look different: one per effect, at most two per 
     const look = slug => bank.find(item => item.slug === slug);
     for (const genre of ['House', 'Techno', 'Slap House', 'EDM']) {
       for (let generation = 0; generation < 12; generation++) {
-        const cards = shelf(pack, profile(genre, 'hello', 'b'.repeat(64)), generation).filter(slot => slot.row === 'looks');
+        const cards = looks(pack, profile(genre, 'hello', 'b'.repeat(64)), generation);
         const backgrounds = cards.map(slot => look(slot.bankId));
         const effects = backgrounds.map(item => effectFamily(item.slug));
         assert.equal(new Set(effects).size, effects.length, `${genre} #${generation} repeats an effect: ${effects}`);
@@ -260,12 +266,15 @@ test('the lyrics grade the colours and calm the beat without changing the look',
     assert.deepEqual(neutral.map(slot => slot.id), plain.map(slot => slot.id));
     assert.ok(neutral.every(slot => !slot.grade));
 
-    // Sad words on a club song: same lane and looks, sadder colours, calmer hits.
+    // Sad words on a club song: same lane and looks, sadder colours, calmer hits. Riso inks and Spray paints are the design, so they are not graded.
     const sad = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'heartbroken', sadness: 3, intensity: 2 }));
     assert.ok(sad.every(slot => slot.reason.startsWith('techno')));
-    const grade = sad[0].grade;
+    const graded = sad.filter(slot => slot.row !== 'riso' && slot.row !== 'spray');
+    assert.equal(graded.length, 12);
+    const grade = graded[0].grade;
     assert.ok(grade.saturation < 1 && grade.warmth < 0 && grade.brightness < 1 && grade.calm > 0.5, JSON.stringify(grade));
-    assert.ok(sad.every(slot => JSON.stringify(slot.grade) === JSON.stringify(grade)));
+    assert.ok(graded.every(slot => JSON.stringify(slot.grade) === JSON.stringify(grade)));
+    assert.ok(sad.filter(slot => slot.row === 'riso' || slot.row === 'spray').every(slot => slot.grade === undefined), 'Riso and Spray keep their own colours');
 
     // Defiant and forceful: warmer, punchier, no calming.
     const defiant = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'defiant', sadness: 0, intensity: 4 }))[0].grade;
@@ -279,9 +288,9 @@ test('the attitude of the words picks backgrounds that look like it', async () =
     const { default: bank } = await server.ssrLoadModule('/src/look-lab/bank.json');
     const fit = await server.ssrLoadModule('/src/look-fit.ts');
     const read = slug => bank.find(look => look.slug === slug).read;
-    const mean = (slots, key) => { const ids = slots.filter(slot => slot.row === 'looks'); return ids.reduce((n, slot) => n + read(slot.bankId)[key], 0) / ids.length; };
+    const mean = (slots, key) => slots.reduce((n, slot) => n + read(slot.bankId)[key], 0) / slots.length;
     const sha = 'c'.repeat(64);
-    const song = meaning => shelf(pack, profile('Pop', 'hello', sha, meaning));
+    const song = meaning => looks(pack, profile('Pop', 'hello', sha, meaning));
 
     // Words with no particular feel leave the recommendation exactly as the sound made it.
     assert.deepEqual(song({ attitude: 'neutral', sadness: 0, intensity: 3 }).map(slot => slot.id), song(undefined).map(slot => slot.id));
@@ -318,15 +327,73 @@ test('every row is recommended on its own, so refreshing one never changes anoth
   } finally { await server.close(); }
 });
 
-test('rows say what they own: lyrics switch, upload kind, and Pulise only refreshes', async () => {
+test('rows say what they own: lyrics switch, upload kind, and Pulise and Spray only refresh', async () => {
   const { server, pack } = await load();
   try {
     const rows = Object.fromEntries(pack.SHELF_ROWS.map(def => [def.id, def]));
-    assert.equal(rows.pulise.lyrics, 'always');
-    assert.equal(rows.pulise.upload, undefined);
+    assert.equal(rows.looks, undefined, 'Moving backgrounds is off the shelf');
+    for (const row of ['pulise', 'spray']) {
+      assert.equal(rows[row].lyrics, 'always', row);
+      assert.equal(rows[row].upload, undefined, `${row} takes no upload`);
+    }
     assert.equal(rows.dust.upload, 'dust');
+    assert.equal(rows.riso.upload, 'riso');
     assert.equal(rows.photography.upload, 'filter');
-    for (const row of ['photography', 'looks', 'dust']) assert.equal(rows[row].lyrics, 'switch', row);
-    for (const row of ['looks', 'pulise']) assert.equal(rows[row].upload, undefined, `${row} takes no upload`);
+    for (const row of ['photography', 'riso', 'dust']) assert.equal(rows[row].lyrics, 'switch', row);
+  } finally { await server.close(); }
+});
+
+test('Riso deals four ink sets and four heavy faces, the same photo as Dust, and every refresh deals them again', async () => {
+  const { server, pack } = await load();
+  try {
+    const { RISO_INK_SETS } = await server.ssrLoadModule('/src/riso-look.ts');
+    const ids = RISO_INK_SETS.map(set => set.id);
+    for (const genre of ['Gospel', 'Slap House', 'Pop', 'Ambient']) {
+      const orders = new Set();
+      for (let generation = 0; generation < 8; generation++) {
+        const row = pack.recommendRow('riso', profile(genre), generation, PLATES);
+        assert.equal(new Set(row.map(slot => slot.inkSet)).size, 4, `${genre} #${generation} repeats an ink set`);
+        assert.ok(row.every(slot => ids.includes(slot.inkSet) && slot.style === 'riso' && slot.row === 'riso'));
+        assert.equal(new Set(row.map(slot => slot.layout.seed)).size, 4, `${genre} #${generation} repeats a layout seed`);
+        assert.ok(row.every(slot => slot.plateId === 'burnnet-woman-1547507-1920' && slot.typeStyle === undefined && slot.colors === undefined));
+        row.forEach(slot => assert.equal(slot.label.toLowerCase(), RISO_INK_SETS.find(set => set.id === slot.inkSet).name, 'the label names the inks'));
+        orders.add(row.map(slot => slot.inkSet).join());
+      }
+      assert.ok(orders.size >= 4, `${genre}: refreshing deals the ink sets in new orders`);
+    }
+    const none = pack.recommendRow('riso', profile('Pop'), 0, [{ id: 'no-mask', cutout: false }]);
+    assert.ok(none.every(slot => slot.plateId === undefined), 'with no approved cut-out the card waits for the person\'s own photo');
+  } finally { await server.close(); }
+});
+
+test('Spray deals four of its six walls and four heavy faces, and every refresh deals them again', async () => {
+  const { server, pack } = await load();
+  try {
+    const { SPRAY_PALETTES } = await server.ssrLoadModule('/src/spray-look.ts');
+    const ids = SPRAY_PALETTES.map(palette => palette.id);
+    for (const genre of ['Gospel', 'Slap House', 'Pop', 'Ambient']) {
+      const seen = new Set();
+      for (let generation = 0; generation < 12; generation++) {
+        const row = pack.recommendRow('spray', profile(genre), generation, PLATES);
+        assert.equal(new Set(row.map(slot => slot.sprayPalette)).size, 4, `${genre} #${generation} repeats a wall`);
+        assert.ok(row.every(slot => ids.includes(slot.sprayPalette) && slot.style === 'spray' && slot.row === 'spray'));
+        assert.equal(new Set(row.map(slot => slot.layout.seed)).size, 4, `${genre} #${generation} repeats a layout seed`);
+        assert.ok(row.every(slot => slot.plateId === undefined && slot.effectId === undefined && slot.typeStyle === undefined));
+        row.forEach(slot => seen.add(slot.sprayPalette));
+      }
+      assert.equal(seen.size, 6, `${genre}: over twelve refreshes every wall is dealt`);
+    }
+  } finally { await server.close(); }
+});
+
+test('the cloud worker knows exactly the kinds of creative, ink sets and walls the page deals', async () => {
+  const { server } = await load();
+  try {
+    const { AD_PUNCH_STYLES } = await server.ssrLoadModule('/src/ad-punch.ts');
+    const { RISO_INK_SETS } = await server.ssrLoadModule('/src/riso-look.ts');
+    const { SPRAY_PALETTES } = await server.ssrLoadModule('/src/spray-look.ts');
+    assert.deepEqual(workerSet('STYLES').sort(), [...AD_PUNCH_STYLES].sort());
+    assert.deepEqual(workerSet('RISO_INK_SETS').sort(), RISO_INK_SETS.map(set => set.id).sort());
+    assert.deepEqual(workerSet('SPRAY_PALETTES').sort(), SPRAY_PALETTES.map(palette => palette.id).sort());
   } finally { await server.close(); }
 });

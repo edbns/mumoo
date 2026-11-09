@@ -13,6 +13,8 @@ import {
 } from './ad-fonts';
 import { STYLE_NAMES, type AdPunchStyle } from './ad-punch';
 import { dustColors, type DustColors } from './dust-colors';
+import { RISO_INK_SETS } from './riso-look';
+import { SPRAY_PALETTES } from './spray-look';
 import bankData from './look-lab/bank.json';
 import effectsData from '../punch-plates/effects/effects.json';
 import { laneFromMeaning, leansDeep, type LyricMeaning } from './lyric-meaning';
@@ -30,7 +32,8 @@ const PHOTO_EFFECTS = effectsData as PhotoEffect[];
 
 export type PackFamily = 'ad_punch';
 
-export type ShelfRow = 'photography' | 'looks' | 'pulise' | 'dust';
+/** Every row that can be dealt. 'looks' (Moving backgrounds) is dealt but not on the shelf: see SHELF_ROWS. */
+export type ShelfRow = 'photography' | 'looks' | 'riso' | 'spray' | 'pulise' | 'dust';
 
 /**
  * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
@@ -42,7 +45,10 @@ export type ShelfRow = 'photography' | 'looks' | 'pulise' | 'dust';
 export type ShelfRowDef = { id: ShelfRow; title: string; lyrics: 'switch' | 'always'; upload?: PictureUse };
 export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'photography', title: 'Our photography', lyrics: 'switch', upload: 'filter' },
-  { id: 'looks', title: 'Moving backgrounds', lyrics: 'switch' },
+  { id: 'riso', title: 'Riso', lyrics: 'switch', upload: 'riso' },
+  { id: 'spray', title: 'Spray', lyrics: 'always' },
+  // "Moving backgrounds" (id 'looks', the Shaders backgrounds under lyric type) is off the shelf until its backgrounds are good enough.
+  // To bring it back, add { id: 'looks', title: 'Moving backgrounds', lyrics: 'switch' } here.
   { id: 'pulise', title: 'Pulise', lyrics: 'always' },
   { id: 'dust', title: 'Dust', lyrics: 'switch', upload: 'dust' },
 ];
@@ -60,8 +66,12 @@ export type CreativesPackSlot = {
   layout: AdLayout;
   /** Dust: the two colours of this card. */
   colors?: DustColors;
-  /** Dust: the approved photo this card is drawn from, until the person uses their own. */
+  /** Dust and Riso: the approved photo this card is drawn from, until the person uses their own. */
   plateId?: string;
+  /** Riso: the ink set of this card (`RISO_INK_SETS` id). */
+  inkSet?: string;
+  /** Spray: the wall and paints of this card (`SPRAY_PALETTES` id). */
+  sprayPalette?: string;
   /** Our photography: which arrangement of the person's video or GIF this card plays (its cut speed follows the card's place). */
   cutSeed?: number;
   /** Our photography: the baked effect on our approved photo (`punch-plates/effects/{id}.jpg`), until the person uses their own picture. */
@@ -114,8 +124,10 @@ export const TYPE_ALLOW: Record<MoodLane, readonly TypeStyleId[]> = {
   general: TYPE_STYLES,
 };
 
-/** Dust and Pulise draw capitals from thick strokes, so their faces must be heavy and set in caps. */
+/** Dust, Pulise and Riso draw capitals from thick strokes, so their faces must be heavy and set in caps. */
 const HEAVY_CAPS_ROW: readonly (readonly FontNeed[])[] = Array.from({ length: ROW_SIZE }, () => ['heavy', 'caps']);
+/** Spray fills the letters with paint, so a face must be heavy; it reads in either case, which lets the graffiti marker faces in. */
+const HEAVY_ROW: readonly (readonly FontNeed[])[] = Array.from({ length: ROW_SIZE }, () => ['heavy']);
 
 type Faces = { font: AdFont; fontSecondary: AdFont };
 
@@ -248,22 +260,28 @@ export function readSong(profile: CreativeProfileV1) {
 /** An approved photo; `cutout` says it also has the mask Dust needs. */
 export type PlateRef = { id: string; cutout: boolean };
 
+/** Riso and Spray are drawn in the inks and paints they were dealt: a mood grade over them would recolour the design. */
+const UNGRADED: readonly ShelfRow[] = ['riso', 'spray'];
+
 /**
  * One row of the shelf for this song. `generation` is that row's own Refresh count. `plates` are the approved
- * photos Dust is drawn from (the person's own picture, if any, replaces them in the app).
+ * photos Dust and Riso are drawn from (the person's own picture, if any, replaces them in the app).
  */
 export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = []): CreativesPackSlot[] {
   const { intent, meaning, lane } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
+  const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
   const slots = {
     photography: () => photographySlots(lane, intent, seed, dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation)),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
+    riso: () => risoSlots(lane, intent, seed, cutOutPlates),
+    spray: () => spraySlots(lane, intent, seed),
     pulise: () => puliseSlots(lane, intent, seed),
-    dust: () => dustSlots(lane, intent, seed, cover?.hue, plates.filter(plate => plate.cutout).map(plate => plate.id)),
+    dust: () => dustSlots(lane, intent, seed, cover?.hue, cutOutPlates),
   }[row]();
   const grade = moodGrade(meaning);
-  return grade ? slots.map(slot => ({ ...slot, grade })) : slots;
+  return grade && !UNGRADED.includes(row) ? slots.map(slot => ({ ...slot, grade })) : slots;
 }
 
 /** Colours for card `index` of a Dust row; when the cover has a colour, the first two cards grow from it. */
@@ -283,6 +301,34 @@ function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, c
     ...adPunchSlot('dust', index, intent, seed, lane, 'dust', face),
     colors: cardColors(seed, index, coverHue),
     ...dealt(plateIds, seed, index),
+  }));
+}
+
+const sentence = (text: string) => `${text[0].toUpperCase()}${text.slice(1)}`;
+
+/**
+ * Four Riso cards: each its own ink set (a seeded draw, so every Refresh deals them in a new order), its own heavy
+ * capital face and its own scatter of the words. The photo is ours (dealt like Dust's) until the person uses their own.
+ */
+function risoSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, plateIds: readonly string[]): CreativesPackSlot[] {
+  const faces = dealFaces(lane, intent, seed, 'riso', HEAVY_CAPS_ROW);
+  const sets = seededOrder(RISO_INK_SETS, seed, set => set.id);
+  return faces.map((face, index) => ({
+    ...adPunchSlot('riso', index, intent, seed, lane, 'riso', face),
+    label: sentence(sets[index].name),
+    inkSet: sets[index].id,
+    ...dealt(plateIds, seed, index),
+  }));
+}
+
+/** Four Spray walls: each its own palette (four of the six, a seeded draw), its own heavy face and its own layout of the words. */
+function spraySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string): CreativesPackSlot[] {
+  const faces = dealFaces(lane, intent, seed, 'spray', HEAVY_ROW);
+  const walls = seededOrder(SPRAY_PALETTES, seed, palette => palette.id);
+  return faces.map((face, index) => ({
+    ...adPunchSlot('spray', index, intent, seed, lane, 'spray', face),
+    label: sentence(walls[index].name),
+    sprayPalette: walls[index].id,
   }));
 }
 

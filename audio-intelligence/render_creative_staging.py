@@ -1,6 +1,6 @@
 """Render one creative on the deployed staging worker, calling it directly with your Modal login.
 
-Used by creative/scripts/cloud-render.mjs for Dust and Our photography, which need a person's photo (the public
+Used by creative/scripts/cloud-render.mjs for Dust, Riso and Our photography, which need a person's photo (the public
 endpoint only hands over a photo for a signed-in person). Nothing here touches the laptop's GPU or CPU.
 
   python3 render_creative_staging.py --wav clip.wav --opts opts.json [--photo photo.jpg] [--cutout cutout.png | --motion clip.mp4] --out out.mp4

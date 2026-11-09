@@ -233,7 +233,8 @@ function piece(geometry: Geometry, vertex: string, fragment: string, uniforms: U
       group.update();
     },
     destroy() {
-      geometry.destroy();
+      // The grain buffers go too: left behind they stay on the GPU and in memory (tens of MB for every word).
+      geometry.destroy(true);
       mesh.destroy();
     },
   };

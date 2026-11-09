@@ -4,9 +4,12 @@
  * matches what the user picked. Deterministic: frame N depends only on the opts.
  */
 import { DURATION_MS, FPS, HEIGHT, WIDTH } from './composition';
+import type { AdPunchStyle } from './ad-punch';
 import { createPackRenderer, type PackRenderer, type PackRendererOpts } from './pack-renderer';
 
 const FRAMES = Math.round((DURATION_MS / 1000) * FPS);
+/** Dust grains, Riso dot screens and Spray grains are soft or drawn by shader already: edge smoothing only costs time here (6× under software GL). */
+const SMOOTH_ALREADY: readonly AdPunchStyle[] = ['dust', 'riso', 'spray'];
 let renderer: PackRenderer | null = null;
 
 type PackFramePage = {
@@ -22,7 +25,7 @@ const api: PackFramePage = {
     const canvas = document.createElement('canvas');
     canvas.id = 'c';
     document.body.appendChild(canvas);
-    renderer = await createPackRenderer(canvas, opts, opts.style !== 'dust');
+    renderer = await createPackRenderer(canvas, opts, !SMOOTH_ALREADY.includes(opts.style));
     // Warm every texture/look before the first captured frame.
     await renderer.render(0);
     return { frames: FRAMES, fps: FPS, width: WIDTH, height: HEIGHT };

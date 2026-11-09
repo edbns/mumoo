@@ -96,6 +96,16 @@ test('a Dust photo keeps the old one drawn until the new one is ready, then repl
   });
 }));
 
+test('a Riso photo is cut out like a Dust one, and each row keeps its own', { skip: !READY, timeout: 90000 }, () => withPerson(async (_sql, userId) => {
+  await withWorker(() => ({ ok: true, bytes: { cutout: 500 } }), async () => {
+    const riso = await saveUpload(userId, 'riso', jpeg(1000));
+    const dust = await saveUpload(userId, 'dust', jpeg(1200));
+    const rows = await listUploads(userId);
+    assert.deepEqual(rows.map(row => [row.id, row.use, row.status]).sort(), [[dust.id, 'dust', 'ready'], [riso.id, 'riso', 'ready']].sort(), 'one photo per row');
+    assert.ok(rows.every(row => row.cutoutUrl), 'both get a cut-out');
+  });
+}));
+
 test('a photo the worker cannot prepare is removed and reported once; the old one stays', { skip: !READY, timeout: 90000 }, () => withPerson(async (_sql, userId) => {
   let outcome = { ok: true, bytes: { cutout: 500 } };
   await withWorker(() => outcome, async () => {

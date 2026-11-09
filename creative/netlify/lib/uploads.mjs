@@ -6,6 +6,7 @@ import { deleteObject, getObject, objectSize, putObject, signedDownload, signedU
  * A person's own pictures, kept privately in R2. Each row of the shelf (a picture's `use`) keeps at most ONE:
  *
  *   dust    a photo (the browser shrinks it to a JPEG) and a cut-out mask of its subject
+ *   riso    the same as dust: a Riso print is a halftone of the person, so it needs her cut-out
  *   filter  a photo as it is, or a video or GIF prepared into a small clip with a poster
  *
  * A new picture replaces the one before it: the old one (rows and files) is removed the moment the new one is
@@ -19,7 +20,9 @@ import { deleteObject, getObject, objectSize, putObject, signedDownload, signedU
 export const MAX_PHOTO_BYTES = 3_000_000;
 export const MAX_GIF_BYTES = 25_000_000;
 export const MAX_VIDEO_BYTES = 150_000_000;
-export const USES = ['dust', 'filter'];
+export const USES = ['dust', 'filter', 'riso'];
+/** The rows whose picture is a person that is cut out. */
+const CUTOUT_USES = ['dust', 'riso'];
 export const MOTION_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'image/gif'];
 
 const PREPARE = 'https://edbns-mumoo-staging--mumoo-prepare-media-staging';
@@ -68,18 +71,18 @@ async function startPreparing(userId, id, kind) {
   await db()`update uploads set job_id = ${result.id} where id = ${id}`;
 }
 
-/** Stores one photo for a row. For Dust its subject is then cut out; for Filters it is ready at once and replaces the old one. Returns `{ id }` or `{ refused }`. */
+/** Stores one photo for a row. For Dust and Riso its subject is then cut out; for Filters it is ready at once and replaces the old one. Returns `{ id }` or `{ refused }`. */
 export async function saveUpload(userId, use, bytes) {
   if (!USES.includes(use) || !isJpeg(bytes)) return { refused: 'format' };
   const refused = await refusal(userId, use, bytes.length, MAX_PHOTO_BYTES);
   if (refused) return { refused };
   await clearStale(userId, use);
   const id = crypto.randomUUID();
-  const status = use === 'dust' ? 'preparing' : 'ready';
+  const status = CUTOUT_USES.includes(use) ? 'preparing' : 'ready';
   await db()`insert into uploads (id, user_id, bytes, rights_confirmed_at, kind, use, status) values (${id}, ${userId}, ${bytes.length}, now(), 'photo', ${use}, ${status})`;
   try {
     await putObject(KEYS.still(userId, id), bytes, 'image/jpeg');
-    if (use === 'dust') await startPreparing(userId, id, 'photo');
+    if (CUTOUT_USES.includes(use)) await startPreparing(userId, id, 'photo');
     else await replaceOthers(userId, use, id);
   } catch (cause) {
     await removeUpload(userId, id);
@@ -153,7 +156,7 @@ export async function entries(userId) {
     createdAt: row.created_at,
     ...(row.status === 'ready' ? {
       url: await signedDownload(KEYS.still(userId, row.id)),
-      ...(row.use === 'dust' ? { cutoutUrl: await signedDownload(KEYS.cutout(userId, row.id)) } : {}),
+      ...(CUTOUT_USES.includes(row.use) ? { cutoutUrl: await signedDownload(KEYS.cutout(userId, row.id)) } : {}),
       ...(row.kind === 'motion' ? { motionUrl: await signedDownload(KEYS.motion(userId, row.id)), shots: row.shots } : {}),
     } : {}),
   })));
@@ -171,14 +174,14 @@ export async function listUploads(userId) {
 }
 
 /**
- * What a render needs of a ready picture, with the row it is kept for: Dust takes the photo and its cut-out,
+ * What a render needs of a ready picture, with the row it is kept for: Dust and Riso take the photo and its cut-out,
  * a Filter takes the photo or the clip. Null when it is not ready or not theirs.
  */
 export async function uploadMedia(userId, id) {
   const [row] = await db()`select kind, use from uploads where id = ${id} and user_id = ${userId} and status = 'ready'`;
   if (!row) return null;
   if (row.kind === 'motion') return { use: row.use, motion: await getObject(KEYS.motion(userId, id)) };
-  if (row.use === 'dust') {
+  if (CUTOUT_USES.includes(row.use)) {
     const [photo, cutout] = await Promise.all([getObject(KEYS.still(userId, id)), getObject(KEYS.cutout(userId, id))]);
     return { use: row.use, photo, cutout };
   }

@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { ACCEPT, type PictureUse, type Upload } from './uploads';
 import type { Uploads } from './use-uploads';
 
-const LABEL: Record<PictureUse, string> = { dust: 'Upload photo', filter: 'Upload photo, video or GIF' };
+const LABEL: Record<PictureUse, string> = { dust: 'Upload photo', riso: 'Upload photo', filter: 'Upload photo, video or GIF' };
 
 /**
  * One row's own picture, as simply as it can be: a button that opens the file picker, one plain sentence about

@@ -34,19 +34,23 @@ export function generator(seed: number) {
 // Walls and paints
 
 /** A wall is a clean, smooth ground (a very soft fade from `ground[0]` at the top to `ground[1]` at the bottom) and the paints sprayed on it. */
-export type SprayPalette = { name: string; ground: readonly [string, string]; sprays: readonly string[] };
+export type SprayPalette = { id: string; name: string; ground: readonly [string, string]; sprays: readonly string[] };
 
 export const SPRAY_PALETTES: readonly SprayPalette[] = [
-  { name: 'neon on night', ground: ['#0c0b14', '#08080e'], sprays: ['#ff2e93', '#b8ff00', '#00e5ff'] },
-  { name: 'neon on plum', ground: ['#2a1238', '#1a0b26'], sprays: ['#ff7a1a', '#ff3db8', '#d4ff3a'] },
-  { name: 'neon on navy', ground: ['#0e1d45', '#081230'], sprays: ['#19e3ff', '#ff8a1f', '#ff2d7a'] },
-  { name: 'bold on off-white', ground: ['#f4f0e8', '#eae4d8'], sprays: ['#e4151f', '#101010', '#1f43ff'] },
-  { name: 'bold on warm grey', ground: ['#d4cec4', '#c2bbaf'], sprays: ['#121212', '#b81d00', '#1237ff'] },
-  { name: 'bold on pastel', ground: ['#f3d4de', '#ebc3d3'], sprays: ['#1a35ff', '#d3131c', '#121212'] },
+  { id: 'neon-night', name: 'neon on night', ground: ['#0c0b14', '#08080e'], sprays: ['#ff2e93', '#b8ff00', '#00e5ff'] },
+  { id: 'neon-plum', name: 'neon on plum', ground: ['#2a1238', '#1a0b26'], sprays: ['#ff7a1a', '#ff3db8', '#d4ff3a'] },
+  { id: 'neon-navy', name: 'neon on navy', ground: ['#0e1d45', '#081230'], sprays: ['#19e3ff', '#ff8a1f', '#ff2d7a'] },
+  { id: 'bold-offwhite', name: 'bold on off-white', ground: ['#f4f0e8', '#eae4d8'], sprays: ['#e4151f', '#101010', '#1f43ff'] },
+  { id: 'bold-grey', name: 'bold on warm grey', ground: ['#d4cec4', '#c2bbaf'], sprays: ['#121212', '#b81d00', '#1237ff'] },
+  { id: 'bold-pastel', name: 'bold on pastel', ground: ['#f3d4de', '#ebc3d3'], sprays: ['#1a35ff', '#d3131c', '#121212'] },
 ];
 
-/** The wall a card gets for its seed. Same seed, same wall. */
-export const sprayPalette = (seed: number): SprayPalette => SPRAY_PALETTES[hash(seed, 7, 1) % SPRAY_PALETTES.length];
+/** The wall a card was dealt, by its id. An id that is not one of ours is an error, not a stand-in. */
+export function sprayPaletteById(id: string): SprayPalette {
+  const found = SPRAY_PALETTES.find(palette => palette.id === id);
+  if (!found) throw new Error(`Spray has no wall called "${id}".`);
+  return found;
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 // Where words are sprayed

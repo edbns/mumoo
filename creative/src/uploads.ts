@@ -2,7 +2,10 @@ import { accountFetch } from './account';
 import { shrinkPhoto } from './photo-shrink';
 
 /** Which row of the shelf a picture is kept for. */
-export type PictureUse = 'dust' | 'filter';
+export type PictureUse = 'dust' | 'filter' | 'riso';
+
+/** Dust and Riso are drawn from a person cut out of the photo, so their photos are prepared in the cloud before they are ready. */
+export const needsCutout = (use: PictureUse) => use === 'dust' || use === 'riso';
 
 /**
  * A person's own picture, kept privately in their storage (each row keeps one; a new one replaces it).
@@ -36,6 +39,7 @@ const MAX_SECONDS = 60;
 /** What each row's file picker offers. The server enforces the same limits. */
 export const ACCEPT: Record<PictureUse, string> = {
   dust: PHOTO_TYPES.join(','),
+  riso: PHOTO_TYPES.join(','),
   filter: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
 };
 
@@ -97,7 +101,7 @@ async function addMotion(file: File, onProgress: (share: number) => void): Promi
 
 /**
  * Adds a picture for a row, replacing the one it has. A photo is shrunk and sent in one request; a Filter photo
- * is ready as soon as it is stored. A Dust photo is cut out, and a video or GIF prepared, in the cloud: the
+ * is ready as soon as it is stored. A Dust or Riso photo is cut out, and a video or GIF prepared, in the cloud: the
  * answer lists it as `preparing` until `listUploads` says it is ready. Resolves with the person's pictures.
  */
 export async function addUpload(file: File, use: PictureUse, onProgress: (share: number) => void = () => undefined): Promise<Upload[]> {
@@ -106,7 +110,7 @@ export async function addUpload(file: File, use: PictureUse, onProgress: (share:
     const photo = await shrinkPhoto(file);
     return pictures(await accountFetch(`/api/uploads?kind=photo&use=${use}`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: photo }));
   }
-  if (use === 'dust') throw new Error('Dust uses a photo (JPEG, PNG or WebP).');
+  if (needsCutout(use)) throw new Error(`${use === 'dust' ? 'Dust' : 'Riso'} uses a photo (JPEG, PNG or WebP).`);
   const limit = MOTION_LIMITS[file.type];
   if (!limit) throw new Error('Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.');
   if (file.size > limit) throw new Error(`That ${file.type === 'image/gif' ? 'GIF' : 'video'} is larger than ${limit / 1e6} MB.`);

@@ -9,17 +9,21 @@ import { HEIGHT, WIDTH } from './composition';
 export const RISO_PAPER = '#efe6d2';
 
 /** Two fluorescent inks (a third is optional). The person uses the first two; the lyric words use all of them. */
-export type RisoInkSet = { name: string; inks: readonly [string, string] | readonly [string, string, string] };
+export type RisoInkSet = { id: string; name: string; inks: readonly [string, string] | readonly [string, string, string] };
 
 export const RISO_INK_SETS: readonly RisoInkSet[] = [
-  { name: 'pink + blue', inks: ['#ff48b0', '#0078bf'] },
-  { name: 'orange + teal', inks: ['#ff6c2f', '#00a99d'] },
-  { name: 'yellow + violet', inks: ['#ffe800', '#6a4bd8'] },
-  { name: 'red + green', inks: ['#ff3b30', '#00a95c'] },
+  { id: 'pink-blue', name: 'pink + blue', inks: ['#ff48b0', '#0078bf'] },
+  { id: 'orange-teal', name: 'orange + teal', inks: ['#ff6c2f', '#00a99d'] },
+  { id: 'violet-coral', name: 'violet + coral', inks: ['#7a4fe0', '#ff5a47'] },
+  { id: 'red-green', name: 'red + green', inks: ['#ff3b30', '#00a95c'] },
 ];
 
-/** The ink set a card gets for its seed. Same seed, same set. */
-export const risoInkSet = (seed: number): RisoInkSet => RISO_INK_SETS[hash(seed, 7, 1) % RISO_INK_SETS.length];
+/** The ink set a card was dealt, by its id. An id that is not one of ours is an error, not a stand-in. */
+export function risoInkSetById(id: string): RisoInkSet {
+  const found = RISO_INK_SETS.find(set => set.id === id);
+  if (!found) throw new Error(`Riso has no ink set called "${id}".`);
+  return found;
+}
 
 /** An integer hash of three numbers: the single source of every random choice in this look. */
 export function hash(a: number, b: number, c: number): number {

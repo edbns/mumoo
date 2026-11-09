@@ -12,7 +12,7 @@ then concatenates the ranges and muxes the audio.
 
 The browser sends only data (style, colours, cues, music). The worker loads the page and the
 baked look backgrounds from the staging site; no URLs come from clients. A person's own picture
-(Dust, Our photography) arrives as fields (Dust: a photo and its cut-out mask; Our photography: a photo or a prepared clip), sent by our
+(Dust, Riso, Our photography) arrives as fields (Dust and Riso: a photo and its cut-out mask; Our photography: a photo or a prepared clip), sent by our
 server after it read them from that person's storage, and is handed to the page when it asks.
 """
 from __future__ import annotations
@@ -50,9 +50,15 @@ CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
-    "motionShots", "cutSeed",
+    "motionShots", "cutSeed", "inkSet", "sprayPalette",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
+# The kinds of creative the page draws, the Riso ink sets and the Spray walls it knows (creative/src/ad-punch.ts, riso-look.ts, spray-look.ts; a test keeps these in step).
+STYLES = {"bank", "pulise", "dust", "filter", "riso", "spray"}
+RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
+SPRAY_PALETTES = {"neon-night", "neon-plum", "neon-navy", "bold-offwhite", "bold-grey", "bold-pastel"}
+# Styles drawn from a person cut out of a photo: an approved plate (`plateId`) or the person's own photo and cut-out mask.
+CUT_OUT_STYLES = {"dust", "riso"}
 # Lyric type styles and display fonts the page knows (creative/src/pack-type.ts, font-catalog.ts; a test keeps these in step).
 TYPE_STYLES = {
     "typewriter", "karaoke", "stack", "minimal", "editorial", "outline",
@@ -233,6 +239,8 @@ def parse_meta(raw: str) -> dict:
     for key in ("style", "font", "fontSecondary"):
         if not isinstance(opts.get(key), str) or len(opts[key]) > 60:
             raise ValueError(key)
+    if opts["style"] not in STYLES:
+        raise ValueError("style")
     if opts["font"] not in FONTS or opts["fontSecondary"] not in FONTS:
         raise ValueError("font")
     layout = opts.get("layout")
@@ -240,6 +248,12 @@ def parse_meta(raw: str) -> dict:
         raise ValueError("layout")
     if not all(type(layout[key]) in (int, float) for key in ("rotate", "scaleBias", "cut")) or ("seed" in layout and type(layout["seed"]) is not int):
         raise ValueError("layout")
+    # Riso and Spray are drawn from a seed (where the words fall, how the paper is stained), their inks or wall by id, and nothing else.
+    for style, key, known in (("riso", "inkSet", RISO_INK_SETS), ("spray", "sprayPalette", SPRAY_PALETTES)):
+        if (opts["style"] == style) != (key in opts) or (key in opts and opts[key] not in known):
+            raise ValueError(key)
+        if opts["style"] == style and "seed" not in layout:
+            raise ValueError("layout")
     if "bankId" in opts and (not isinstance(opts["bankId"], str) or not ID_RE.match(opts["bankId"])):
         raise ValueError("bankId")
     for key in ("plateId", "effectId"):
@@ -308,14 +322,14 @@ async def submit(request: Request):
                     raise ValueError(name)
         if "photo" in media and media["photo"][:3] != b"\xff\xd8\xff":
             raise ValueError("photo")
-        # Dust is drawn from an approved photo (`plateId`) and Our photography (style "filter") from one baked effect on it
-        # (`effectId`); the page loads either from the site itself. Both can instead be drawn from the person's own picture:
-        # Dust a photo with its cut-out mask, Our photography a photo or a clip. Nothing else takes a picture.
-        approved = {"dust": "plateId", "filter": "effectId"}.get(opts["style"])
+        # Dust and Riso are drawn from an approved photo (`plateId`) and Our photography (style "filter") from one baked effect on it
+        # (`effectId`); the page loads either from the site itself. All three can instead be drawn from the person's own picture:
+        # Dust and Riso a photo with its cut-out mask, Our photography a photo or a clip. Nothing else takes a picture (Spray takes none).
+        approved = {"dust": "plateId", "riso": "plateId", "filter": "effectId"}.get(opts["style"])
         named = {key for key in ("plateId", "effectId") if key in opts}
         wanted: set[str] = set()
         if approved and approved not in named:
-            wanted = {"photo", "cutout"} if opts["style"] == "dust" else ({"photo"} if "photo" in media else {"motion"})
+            wanted = {"photo", "cutout"} if opts["style"] in CUT_OUT_STYLES else ({"photo"} if "photo" in media else {"motion"})
         if set(media) != wanted or named - {approved}:
             raise ValueError("media")
     except (TypeError, ValueError, binascii.Error, json.JSONDecodeError, AttributeError):

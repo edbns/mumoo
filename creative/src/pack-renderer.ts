@@ -21,6 +21,9 @@ import { dustWordAt, sampleDust, type DustPoints } from './pack-dust';
 import { loadMotion, type Motion } from './pack-motion';
 import { planCuts, sourceMsAt, type Cut, type Shot } from './pack-cuts';
 import { plateCutoutUrl, plateUrl } from './punch-plates';
+import { risoInkSetById } from './riso-look';
+import { prepareRisoPhoto, type RisoPhoto } from './riso-photo';
+import { sprayPaletteById } from './spray-look';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
 export const PREVIEW_WIDTH = 360;
@@ -34,11 +37,11 @@ export type PackRendererOpts = {
   cues: readonly LyricCue[];
   music: ImpactMusic | null;
   fallbackText: string;
-  /** Dust: an approved photo (and its cut-out), found the same way in the browser and in the cloud. */
+  /** Dust and Riso: an approved photo (and its cut-out), found the same way in the browser and in the cloud. */
   plateId?: string;
   /** Our photography: one baked effect on our approved photo, found the same way. */
   effectId?: string;
-  /** Or the person's own picture, which replaces ours. Dust: a photo with its cut-out mask. Our photography: a photo, or a clip (a video or GIF) drawn plain. */
+  /** Or the person's own picture, which replaces ours. Dust and Riso: a photo with its cut-out mask. Our photography: a photo, or a clip (a video or GIF) drawn plain. */
   photoUrl?: string;
   cutoutUrl?: string;
   motionUrl?: string;
@@ -54,11 +57,14 @@ export type PackRendererOpts = {
   lyrics?: boolean;
   /** Dust: the two colours of the template. */
   colors?: DustColors;
+  /** Riso: the id of the card's ink set (riso-look.ts). Spray: the id of its wall and paints (spray-look.ts). */
+  inkSet?: string;
+  sprayPalette?: string;
 };
 
 /** The font families a card draws with, so each is fetched (from this site) the first time a card needs it, not before. */
 function familiesFor(opts: PackRendererOpts): string[] {
-  if (opts.style === 'dust') return [opts.font];
+  if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'spray') return [opts.font];
   if (opts.style === 'pulise') return [opts.font, opts.fontSecondary];
   return opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [];
 }
@@ -75,6 +81,9 @@ export type PackRenderer = {
 };
 
 let shared: PackRenderer | null = null;
+
+/** What a card without music or lyrics holds. One array, so a world that compares by identity does not take it for new input every frame. */
+const NOTHING: readonly never[] = [];
 
 export async function createPackRenderer(
   canvas: HTMLCanvasElement,
@@ -98,6 +107,8 @@ export async function createPackRenderer(
   let cutsKey = '';
   let dustPoints: DustPoints | null = null;
   let dustKey = '';
+  let risoPhoto: RisoPhoto | null = null;
+  let risoKey = '';
   let contextLost = false;
   let gl: WebGL2RenderingContext | WebGLRenderingContext | null = null;
 
@@ -116,6 +127,8 @@ export async function createPackRenderer(
     cutsKey = '';
     dustPoints = null;
     dustKey = '';
+    risoPhoto = null;
+    risoKey = '';
     if (initialized) {
       try { app.destroy(false, { children: true }); } catch { /* a lost surface cannot be torn down cleanly */ }
     }
@@ -200,9 +213,12 @@ export async function createPackRenderer(
         // Our photography draws one baked effect, or (replacing it) the person's own picture, never both.
         if (style === 'filter' && current.effectId && (current.photoUrl || current.motionUrl)) throw new Error('Our photography draws an effect or the person’s own picture, not both.');
         const ownBackdrop = style === 'filter' && !current.effectId;
-        const ownPicture = style === 'dust' || ownBackdrop;
-        const photoUrl = style === 'dust' && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
-        const cutoutUrl = style === 'dust' ? (current.plateId ? plateCutoutUrl(current.plateId) : current.cutoutUrl) : undefined;
+        if (style === 'riso' && !current.inkSet) throw new Error('Riso needs an ink set.');
+        if (style === 'spray' && !current.sprayPalette) throw new Error('Spray needs a wall and paints.');
+        const cutOut = style === 'dust' || style === 'riso';
+        const ownPicture = cutOut || ownBackdrop;
+        const photoUrl = cutOut && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
+        const cutoutUrl = cutOut ? (current.plateId ? plateCutoutUrl(current.plateId) : current.cutoutUrl) : undefined;
         if (ownPicture) await ensurePicture(photoUrl, cutoutUrl, current.motionUrl);
         else await ensurePicture(undefined, undefined, undefined);
 
@@ -247,6 +263,17 @@ export async function createPackRenderer(
             dustKey = key;
           }
         }
+        // Riso: the photo is read into one light-and-silhouette map once, then every frame is a function of the clock.
+        if (style === 'riso') {
+          const picture = photoTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
+          const mask = cutoutTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
+          if (!picture || !mask) throw new Error('Riso needs a photo and its cut-out.');
+          const key = `${photoUrl}|${cutoutUrl}`;
+          if (risoKey !== key || !risoPhoto) {
+            risoPhoto = prepareRisoPhoto(picture, mask);
+            risoKey = key;
+          }
+        }
         if (ownBackdrop && !photoTexture && !motion) throw new Error('Our photography needs an effect or a picture.');
 
         const beat = calmBeat(reaction.beat, current.grade);
@@ -276,9 +303,14 @@ export async function createPackRenderer(
           typeStyle: current.typeStyle,
           lyrics: current.lyrics !== false,
           dustPoints: style === 'dust' ? dustPoints : null,
-          beatsMs: current.music?.beatsMs ?? [],
-          downbeatsMs: current.music?.downbeatsMs ?? [],
+          beatsMs: current.music?.beatsMs ?? NOTHING,
+          downbeatsMs: current.music?.downbeatsMs ?? NOTHING,
           dustWord: current.lyrics !== false ? dustWordAt(current.cues, ms) : null,
+          cues: current.lyrics !== false ? current.cues : NOTHING,
+          seed: current.layout.seed,
+          inks: style === 'riso' && current.inkSet ? risoInkSetById(current.inkSet).inks : undefined,
+          risoPhoto: style === 'riso' ? risoPhoto : null,
+          palette: style === 'spray' && current.sprayPalette ? sprayPaletteById(current.sprayPalette) : undefined,
         });
         app.render();
       },

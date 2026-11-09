@@ -405,7 +405,7 @@ export function createRisoWorld(photo: RisoPhoto | null, seed: number): RisoWorl
       for (const word of live.values()) { words.removeChild(word.view.mesh); word.destroy(); }
       live.clear();
       for (const piece of [hidden, person]) if (piece) { root.removeChild(piece.mesh); piece.destroy(); }
-      geometry.destroy();
+      geometry.destroy(true);
       paper.destroy(true);
       tone?.destroy(true);
       root.destroy({ children: true });

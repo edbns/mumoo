@@ -4,15 +4,17 @@
  *
  *   node scripts/cloud-render.mjs dust reggaeton        Dust from a photo, lyrics on
  *   EFFECT=glass-facets-1 node scripts/cloud-render.mjs filter techno   Our photography: one baked effect (an id from punch-plates/effects/effects.json)
+ *   INKSET=orange-teal node scripts/cloud-render.mjs riso reggaeton   Riso from the approved photo (INKSET: pink-blue, orange-teal, violet-coral, red-green)
+ *   PALETTE=bold-offwhite node scripts/cloud-render.mjs spray reggaeton   Spray, always with lyrics (PALETTE: neon-night, neon-plum, neon-navy, bold-offwhite, bold-grey, bold-pastel)
  *   LYRICS=0 node scripts/cloud-render.mjs dust techno  lyrics off
  *   SEED=4 node scripts/cloud-render.mjs dust slaphouse pick the colour pair
  *   node scripts/cloud-render.mjs pulise reggaeton      a library style, through the deployed staging site
  *   BANK=lit-rays-5 node scripts/cloud-render.mjs bank techno
  *   TYPE=bounce FONT="Bowlby One" node scripts/cloud-render.mjs bank techno   try a lyric motion (bank and photography) and a face
  *
- * Dust is drawn from an approved photo (PLATE, default: our cleared library photo) and Our photography ("filter") from
- * a baked effect on it (EFFECT), through the deployed site like every other style. To try a person's own media instead,
- * set PHOTO (Dust also needs CUTOUT, default: the library photo's) or MOTION (Our photography only); cut-outs and clips
+ * Dust and Riso are drawn from an approved photo (PLATE, default: our cleared library photo) and Our photography ("filter") from
+ * a baked effect on it (EFFECT), through the deployed site like every other style. Spray has no picture. To try a person's own media instead,
+ * set PHOTO (Dust and Riso also need CUTOUT, default: the library photo's) or MOTION (Our photography only); cut-outs and clips
  * are made by scripts/prepare-sample.mjs. That goes to the worker directly with your Modal login, because the public
  * endpoint only hands the worker a picture for a signed-in person. The deployed site must carry the code you want drawn.
  */
@@ -27,6 +29,7 @@ const SITE = 'https://mumoo-staging.netlify.app';
 const [style = 'dust', clip = 'reggaeton'] = process.argv.slice(2);
 const analysis = JSON.parse(readFileSync(`scripts/fixtures/analysis/${clip}.json`, 'utf8'));
 const lyrics = process.env.LYRICS !== '0';
+if (style === 'spray' && !lyrics) throw new Error('Spray is made of the lyrics: it has no lyrics-off version.');
 const cues = JSON.parse(readFileSync(`scripts/fixtures/analysis/${clip}-lyrics.json`, 'utf8')).heard.words
   .map(({ text, startMs, endMs }) => ({ text, startMs, endMs }));
 
@@ -48,7 +51,8 @@ const server = await createServer({ server: { middlewareMode: true, hmr: false }
 const { dustColors } = await server.ssrLoadModule('/src/dust-colors.ts');
 await server.close();
 
-const photoStyle = style === 'dust' || style === 'filter';
+const cutOut = style === 'dust' || style === 'riso';
+const photoStyle = cutOut || style === 'filter';
 const ownMedia = photoStyle && Boolean(process.env.PHOTO || process.env.MOTION);
 const effectId = process.env.EFFECT || 'glass-facets-1';
 const opts = {
@@ -61,7 +65,9 @@ const opts = {
   fallbackText: '',
   lyrics,
   ...(style === 'dust' ? { colors: dustColors(Number(process.env.SEED || 7)) } : {}),
-  ...(style === 'dust' && !ownMedia ? { plateId: process.env.PLATE || 'burnnet-woman-1547507-1920' } : {}),
+  ...(cutOut && !ownMedia ? { plateId: process.env.PLATE || 'burnnet-woman-1547507-1920' } : {}),
+  ...(style === 'riso' ? { inkSet: process.env.INKSET || 'pink-blue' } : {}),
+  ...(style === 'spray' ? { sprayPalette: process.env.PALETTE || 'neon-night' } : {}),
   ...(style === 'bank' ? { bankId: process.env.BANK || 'neon-flow-5', typeStyle: process.env.TYPE || 'karaoke' } : {}),
   ...(style === 'filter' ? { ...(ownMedia ? {} : { effectId }), typeStyle: process.env.TYPE || 'stack', cutSeed: Number(process.env.CUTSEED || 0) } : {}),
   ...(process.env.SHOTS ? { motionShots: JSON.parse(process.env.SHOTS) } : {}),
@@ -77,7 +83,7 @@ if (ownMedia) {
   writeFileSync(wavFile, wav);
   writeFileSync(optsFile, JSON.stringify(opts));
   const run = spawnSync('python3', ['../audio-intelligence/render_creative_staging.py', '--wav', wavFile, '--opts', optsFile,
-    ...(style === 'dust'
+    ...(cutOut
       ? ['--photo', process.env.PHOTO, '--cutout', process.env.CUTOUT || 'punch-plates/cutouts/burnnet-woman-1547507-1920.png']
       : process.env.MOTION ? ['--motion', process.env.MOTION] : ['--photo', process.env.PHOTO]),
     '--out', file], { stdio: 'inherit' });

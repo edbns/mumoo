@@ -13,9 +13,10 @@ import { createServer } from 'vite';
  * own request for the same link then failed: every card stayed black. This runs the real renderer in headless
  * Chromium against a stand-in for storage that answers like Cloudflare R2 (CORS headers only when the request
  * has an Origin, `Vary: Origin`, ETag and Last-Modified, no Cache-Control, a bare 304 on revalidation). Skipped where no Chromium is installed.
- * It also draws a card of Our photography from one of its baked effects, which the page loads from the site.
+ * It also draws a Riso card from a person's own photo and its cut-out, and a card of Our photography from one of its baked effects, which the page loads from the site.
  */
 const PHOTO = readFileSync('public/punch-plates/burnnet-woman-1547507-1920.jpg');
+const CUTOUT = readFileSync('public/punch-plates/burnnet-woman-1547507-1920.cut.png');
 
 function storage() {
   const server = createFileServer((request, response) => {
@@ -27,14 +28,15 @@ function storage() {
       response.end();
       return;
     }
+    const body = request.url?.startsWith('/cutout') ? CUTOUT : PHOTO;
     response.writeHead(request.url?.startsWith('/missing') ? 403 : 200, {
       ...common,
-      'Content-Type': 'image/jpeg',
-      'Content-Length': PHOTO.length,
+      'Content-Type': body === CUTOUT ? 'image/png' : 'image/jpeg',
+      'Content-Length': body.length,
       'Accept-Ranges': 'bytes',
       ...(origin ? { 'Access-Control-Allow-Origin': origin } : {}),
     });
-    response.end(PHOTO);
+    response.end(body);
   });
   return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve({ server, url: `http://127.0.0.1:${server.address().port}` })));
 }
@@ -166,5 +168,28 @@ test('an Our photography card draws its baked effect from the site, and never th
   } finally {
     await chrome.close();
     await site.close();
+  }
+});
+
+test('a Riso card draws a person\'s own photo and its cut-out from storage, and refuses a photo without its cut-out', { timeout: 180000 }, async (t) => {
+  const chrome = await browser();
+  if (!chrome) return t.skip('no Chromium installed');
+  const files = await storage();
+  const site = await createServer({ server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+  await site.listen();
+  try {
+    const page = await chrome.newPage();
+    await page.goto(`${site.resolvedUrls.local[0]}render.html`);
+    await page.waitForFunction(() => 'mumooPack' in window, null, { timeout: 60000 });
+    const riso = (extra) => ({ ...opts(undefined), style: 'riso', typeStyle: undefined, inkSet: 'pink-blue', ...extra });
+    const own = { photoUrl: `${files.url}/own.jpg?signature=1`, cutoutUrl: `${files.url}/cutout.png?signature=1` };
+    // Paper is light and the person is inked on it: a drawn card is bright, not black.
+    assert.ok(await frameBrightness(page, riso(own)) > 100, 'the card shows the photo on paper, not black');
+    await assert.rejects(frameBrightness(page, riso({ photoUrl: own.photoUrl })), /cut-out/);
+    await assert.rejects(frameBrightness(page, riso({ ...own, inkSet: undefined })), /ink set/);
+  } finally {
+    await chrome.close();
+    await site.close();
+    files.server.close();
   }
 });
