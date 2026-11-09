@@ -1,9 +1,13 @@
 import { validAccess } from '../lib/access.mjs';
+import { personFrom } from '../lib/person.mjs';
+import { uploadBytes } from '../lib/uploads.mjs';
 
 /**
  * Submit a cloud render job. Tiny request (≈960 KB WAV + JSON); returns a job id at once.
- * The Modal worker fetches the finished plate itself — the browser never uploads images.
+ * A library plate is fetched by the Modal worker itself. A person's own photo (`upload` in the meta) is read
+ * here from that signed-in person's storage and handed on, so the browser never sends an image or a link.
  */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
 const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const MODAL_SUBMIT =
@@ -42,9 +46,18 @@ export default async function encodeCreative(request) {
     }
     if (audio.size < 1000) return error(400, 'Audio file is too small.');
 
+    const { upload, ...scene } = JSON.parse(meta);
     const outbound = new FormData();
     outbound.append('audio', audio, 'clip.wav');
-    outbound.append('meta', meta);
+    if (upload !== undefined) {
+      if (!UUID.test(upload)) return error(400, 'Invalid photo.');
+      const person = await personFrom(request);
+      if (!person) return error(401, 'Sign in to use your own photo.');
+      const photo = await uploadBytes(person.id, upload);
+      if (!photo) return error(404, 'That photo was not found.');
+      outbound.append('image', new Blob([photo], { type: 'image/jpeg' }), 'photo.jpg');
+    }
+    outbound.append('meta', JSON.stringify(scene));
 
     const response = await fetch(MODAL_SUBMIT, {
       method: 'POST',

@@ -2,21 +2,16 @@ import type { CreativeProfileV1 } from './creative-profile';
 import { deriveMusicIntent, type MusicIntentV1 } from './music-intent';
 import {
   fontsForLane,
-  pickAdPalette,
   pickLayoutSeed,
-  pickNoirPalette,
   pickPackFont,
-  pickPackMotion,
-  pickRisoPalette,
   pickSecondaryFont,
-  pickSlamPalette,
   type AdFont,
   type AdLayout,
-  type AdPalette,
   type MoodLane,
-  type PackMotion,
 } from './ad-fonts';
-import { AD_PUNCH_META, type AdPunchStyle } from './ad-punch';
+import { STYLE_NAMES, type AdPunchStyle } from './ad-punch';
+import { dustColors, type DustColors } from './dust-colors';
+import { PHOTO_FILTERS, PHOTO_FILTER_NAMES, type PhotoFilterId } from './pack-filter';
 import bankData from './look-lab/bank.json';
 import photoLooks from './look-lab/photo-looks.json';
 import { laneFromMeaning, leansDeep, type LyricMeaning } from './lyric-meaning';
@@ -30,11 +25,13 @@ const BANK_LOOKS = bankData as BankLook[];
 
 export type PackFamily = 'ad_punch';
 
-/** The shelf is four rows of four. A row is a kind of creative; it is revealed when all its cards are ready. */
+/** The shelf is rows of four. A row is a kind of creative; it is revealed when all its cards are ready. */
 export const SHELF_ROWS = [
   { id: 'library', title: 'Our photography' },
   { id: 'looks', title: 'Moving backgrounds' },
   { id: 'pulise', title: 'Pulise' },
+  { id: 'dust', title: 'Dust' },
+  { id: 'filter', title: 'Filters' },
 ] as const;
 export type ShelfRow = (typeof SHELF_ROWS)[number]['id'];
 const ROW_SIZE = 4;
@@ -48,9 +45,11 @@ export type CreativesPackSlot = {
   style: AdPunchStyle;
   font: AdFont;
   fontSecondary: AdFont;
-  palette: AdPalette;
   layout: AdLayout;
-  motion: PackMotion;
+  /** Dust and Filter: the two colours of this card. */
+  colors?: DustColors;
+  /** Filter: how the person's photo is treated. */
+  filter?: PhotoFilterId;
   /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
   bankId?: string;
   typeStyle?: TypeStyleId;
@@ -211,34 +210,20 @@ function adPunchSlot(
   lane: MoodLane,
   row: ShelfRow,
 ): CreativesPackSlot {
-  const meta = AD_PUNCH_META.find(item => item.id === style) ?? AD_PUNCH_META[0];
   const salt = `${style}:${index}`;
   const bank = fontsForLane(lane);
   const font = pickPackFont(lane, intent?.vibe ?? null, seed, salt);
   const fontSecondary = pickSecondaryFont(font, seed, salt, bank);
-  const palette = meta.base === 'slam'
-    ? pickSlamPalette(lane, seed, salt)
-    : meta.base === 'noir'
-      ? pickNoirPalette(seed, salt)
-      : meta.base === 'riso'
-        ? pickRisoPalette(seed, salt)
-        : pickAdPalette(intent?.vibe ?? null, seed, salt);
-  const layout = pickLayoutSeed(seed, salt);
-  const motion = pickPackMotion(lane, intent, style, seed, salt);
   return {
     id: `ad-${style}-${index}-${hashPick(seed, 'gen', 997).toString(36)}-${hashPick(seed, salt, 0xffff).toString(16)}`,
     family: 'ad_punch',
     row,
-    label: meta.name,
-    reason: intent
-      ? `${lane} · ${intent.vibe} · ${font} · ${motion} · ${meta.name}`
-      : `${lane} · ${font} · ${motion} · ${meta.name}`,
+    label: STYLE_NAMES[style],
+    reason: intent ? `${lane} · ${intent.vibe} · ${font} · ${STYLE_NAMES[style]}` : `${lane} · ${font} · ${STYLE_NAMES[style]}`,
     style,
     font,
     fontSecondary,
-    palette,
-    layout,
-    motion,
+    layout: pickLayoutSeed(seed, salt),
   };
 }
 
@@ -272,6 +257,34 @@ export function recommendCreativesPack(profile: CreativeProfileV1, generation = 
   const pulise = puliseSlots(lane, intent, seed);
   const grade = moodGrade(meaning);
   const slots = [...library, ...looks, ...(lyrics ? pulise : [])];
+  return grade ? slots.map(slot => ({ ...slot, grade })) : slots;
+}
+
+/**
+ * The shelf for a person's own photo: Dust and Filters only (the other styles are made of lyrics and photography
+ * we hold). Both rows carry colour pairs; when the cover has a colour, the first cards of each row grow from it.
+ */
+export function recommendOwnPhotoPack(profile: CreativeProfileV1, generation = 0): CreativesPackSlot[] {
+  const { intent, meaning, lane } = readSong(profile);
+  const cover = profile.creator.cover?.value ?? null;
+  const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:own`;
+  const colorsFor = (row: ShelfRow, index: number) =>
+    dustColors(hashPick(seed, `colors:${row}:${index}`, 1_000_000), cover?.hue != null && index < 2 ? cover.hue : undefined);
+  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
+  const dust = Array.from({ length: ROW_SIZE }, (_, index): CreativesPackSlot => ({
+    ...adPunchSlot('dust', index, intent, seed, lane, 'dust'),
+    colors: colorsFor('dust', index),
+  }));
+  const filters = PHOTO_FILTERS.map((filter, index): CreativesPackSlot => ({
+    ...adPunchSlot('filter', index, intent, seed, lane, 'filter'),
+    id: `ad-filter-${filter}-${hashPick(seed, 'gen', 997).toString(36)}`,
+    label: PHOTO_FILTER_NAMES[filter],
+    filter,
+    colors: colorsFor('filter', index),
+    typeStyle: types[index % types.length],
+  }));
+  const grade = moodGrade(meaning);
+  const slots = [...dust, ...filters];
   return grade ? slots.map(slot => ({ ...slot, grade })) : slots;
 }
 

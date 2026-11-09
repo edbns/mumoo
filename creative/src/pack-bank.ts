@@ -1,13 +1,15 @@
 /**
- * Bank world — a Shaders Pro background (baked by the Look Lab) + the lyric type system.
- * Colors come from the background itself (pack-palette), so type always belongs to the image.
- * If the baked background is missing, show downtime copy — never a substitute design.
+ * Bank world — a picture behind the lyric type system: a Shaders Pro background baked by the Look Lab
+ * (Look Bank), or the person's own photo through a live filter (Filter).
+ * Colors come from the picture itself (pack-palette), so type always belongs to the image.
+ * If the picture is missing, show downtime copy — never a substitute design.
  */
 import { Container, Graphics, Sprite, Text } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
 import { LOOK_DOWN_MESSAGE } from './pack-looks';
 import { analyzeTexture } from './pack-palette';
 import type { PackSceneInput } from './pack-copy';
+import { createPhotoFilters } from './pack-filter';
 import { createTypeLayer, type TimedWord, type TypeStyleId } from './pack-type';
 
 /** Calm styles stay still; kinetic styles get a gentle beat pulse inside the type layer. */
@@ -29,6 +31,7 @@ export function createBankWorld(): BankWorld {
   const scrim = new Graphics();
   const down = new Container();
   const type = createTypeLayer();
+  const filters = createPhotoFilters();
   root.addChild(bg, scrim, type.root, down);
 
   function clearDown() {
@@ -61,7 +64,7 @@ export function createBankWorld(): BankWorld {
   return {
     root,
     update(input) {
-      const texture = input.bankTexture;
+      const texture = input.background;
       const style = input.typeStyle;
       if (!texture || !style) {
         paintDown();
@@ -78,6 +81,8 @@ export function createBankWorld(): BankWorld {
       bg.scale.set(cover * (1 + input.beat * 0.012 * amount * input.energy));
       bg.position.set(WIDTH / 2 + (t - 0.5) * 36 * amount, HEIGHT / 2 + Math.sin(t * Math.PI * 2) * 14 * amount);
       bg.visible = true;
+      if (input.filter && input.colors) filters.apply(bg, input.filter, input.beat, input.colors);
+      else bg.filters = [];
 
       scrim.clear();
       // The scrim only exists to keep lyrics readable; with lyrics off the background shows as it is.
@@ -103,6 +108,7 @@ export function createBankWorld(): BankWorld {
     },
     destroy() {
       type.destroy();
+      filters.destroy();
       root.destroy({ children: true });
     },
   };

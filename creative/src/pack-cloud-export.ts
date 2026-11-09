@@ -8,7 +8,6 @@
  * The cloud renders the same Pixi scene in headless Chromium (parallel frame ranges).
  */
 import { DURATION_MS } from './composition';
-import { plateIdFromUrl } from './pack-looks';
 import type { PackRendererOpts } from './pack-renderer';
 
 const SAMPLE_RATE = 32_000;
@@ -92,23 +91,25 @@ export type CloudJobInput = {
   wav: Uint8Array;
   /** Exactly what the shelf preview renders — the cloud draws the same scene, frame for frame. */
   opts: PackRendererOpts;
-  plateUrl: string;
+  /** Dust and Filter draw the signed-in person's own photo: its id in their storage. The server fetches it. */
+  photoId?: string;
 };
 
 /** Submit one render job. Returns immediately with a job id. */
 export async function submitCloudJob(input: CloudJobInput): Promise<string> {
   const form = new FormData();
   form.append('audio', new Blob([input.wav as BlobPart], { type: 'audio/wav' }), 'clip.wav');
-  // Data only. The worker supplies the plate itself from an allow-listed id.
-  const { plateUrl: _plateUrl, ...scene } = input.opts;
-  void _plateUrl;
+  // Data only. The photo itself never leaves the person's storage through the browser again.
+  const { photoUrl: _photoUrl, ...scene } = input.opts;
+  void _photoUrl;
   form.append('meta', JSON.stringify({
-    plate: plateIdFromUrl(input.plateUrl),
+    ...(input.photoId ? { upload: input.photoId } : {}),
     opts: { ...scene, fallbackText: (scene.fallbackText || 'NOW').slice(0, 80) },
   }));
+  const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
   const response = await fetch('/.netlify/functions/encode-creative', {
     method: 'POST',
-    headers: { 'x-mumoo-brain-access': input.token },
+    headers: { 'x-mumoo-brain-access': input.token, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
     body: form,
   });
   if (!response.ok) throw new Error(await errorMessage(response));

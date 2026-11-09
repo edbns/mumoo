@@ -2,7 +2,7 @@
 
 Exact-match architecture (the browser never renders or encodes):
 
-  submit  POST  multipart {audio: 15s mono 32k WAV, meta: JSON}  ->  {"id": "fc-..."}   (instant)
+  submit  POST  multipart {audio: 15s mono 32k WAV, meta: JSON, image?: JPEG}  ->  {"id": "fc-..."}   (instant)
   status  GET   ?id=fc-...                                       ->  202 running | 200 MP4 | 4xx/5xx
 
 The job renders the SAME Pixi scene the user previewed (same worlds, fonts, baked
@@ -10,8 +10,10 @@ Shaders looks) inside headless Chromium (software WebGL, no GPU). The 450 frames
 are split into ranges rendered in parallel containers; ffmpeg encodes each range,
 then concatenates the ranges and muxes the audio.
 
-The browser sends only data (style, palette, cues, music). The worker loads the page
-and plate from the staging site by allow-listed id; no URLs or images come from clients.
+The browser sends only data (style, colours, cues, music). The worker loads the page and the
+baked look backgrounds from the staging site; no URLs come from clients. A person's own photo
+(Dust, Filter) arrives as a JPEG field, sent by our server after it read the photo from that
+person's storage, and is handed to the page when it asks for it.
 """
 from __future__ import annotations
 
@@ -37,12 +39,15 @@ SAMPLE_RATE = 32000
 WAV_DATA = SAMPLE_RATE * DURATION_S * 2
 WAV_BYTES = 44 + WAV_DATA
 BODY_LIMIT = 2_000_000
+PHOTO_LIMIT = 3_000_000
 META_LIMIT = 400_000
+PHOTO_PATH = "/own-photo.jpg"
+FILTERS = {"duotone", "split", "halftone", "glow"}
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
-    "style", "font", "fontSecondary", "palette", "layout", "motion",
-    "cues", "music", "fallbackText", "bankId", "typeStyle", "grade", "lyrics", "dust",
+    "style", "font", "fontSecondary", "layout",
+    "cues", "music", "fallbackText", "bankId", "typeStyle", "grade", "lyrics", "colors", "filter",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
 TYPE_STYLES = {"typewriter", "karaoke", "stack", "minimal", "editorial", "outline"}
@@ -96,11 +101,12 @@ def run(cmd: list[str], cwd: Path, timeout: int) -> None:
     scaledown_window=10,
     timeout=270,
 )
-def render_chunk(opts: dict, plate: str, start: int, end: int) -> bytes:
+def render_chunk(opts: dict, photo: bytes | None, start: int, end: int) -> bytes:
     """Render frames [start, end) of the real Pixi scene to a silent H.264 segment."""
     from playwright.sync_api import sync_playwright
 
-    opts = {**opts, "plateUrl": f"/punch-plates/{plate}.jpg"}
+    if photo is not None:
+        opts = {**opts, "photoUrl": PHOTO_PATH}
     with tempfile.TemporaryDirectory(prefix="mumoo-chunk-") as directory:
         out = Path(directory) / "seg.mp4"
         encoder = subprocess.Popen(
@@ -129,6 +135,11 @@ def render_chunk(opts: dict, plate: str, start: int, end: int) -> bytes:
                     ],
                 )
                 page = browser.new_page(viewport={"width": 1080, "height": 1920}, device_scale_factor=1)
+                if photo is not None:
+                    page.route(
+                        f"**{PHOTO_PATH}",
+                        lambda route: route.fulfill(body=photo, content_type="image/jpeg"),
+                    )
                 page.goto(f"{SITE}/render.html", wait_until="load", timeout=60_000)
                 page.wait_for_function("window.mumooPack", timeout=60_000)
                 page.evaluate("o => window.mumooPack.prepare(o)", opts)
@@ -160,11 +171,11 @@ def render_chunk(opts: dict, plate: str, start: int, end: int) -> bytes:
     scaledown_window=10,
     timeout=290,
 )
-def render_job(audio: bytes, opts: dict, plate: str) -> bytes:
+def render_job(audio: bytes, opts: dict, photo: bytes | None) -> bytes:
     """Fan the frame ranges out in parallel, then concat + mux audio."""
     ranges = [(i, min(i + CHUNK_FRAMES, FRAMES)) for i in range(0, FRAMES, CHUNK_FRAMES)]
     segments = list(render_chunk.map(
-        [opts] * len(ranges), [plate] * len(ranges),
+        [opts] * len(ranges), [photo] * len(ranges),
         [r[0] for r in ranges], [r[1] for r in ranges],
     ))
     with tempfile.TemporaryDirectory(prefix="mumoo-mux-") as directory:
@@ -189,15 +200,11 @@ def render_job(audio: bytes, opts: dict, plate: str) -> bytes:
     return data
 
 
-def parse_meta(raw: str) -> tuple[str, dict]:
-    meta = json.loads(raw)
-    plate = meta.get("plate")
-    opts = meta.get("opts")
-    if not isinstance(plate, str) or not ID_RE.match(plate):
-        raise ValueError("plate")
+def parse_meta(raw: str) -> dict:
+    opts = json.loads(raw).get("opts")
     if not isinstance(opts, dict) or not set(opts) <= OPT_KEYS:
         raise ValueError("opts")
-    for key in ("style", "font", "fontSecondary", "motion"):
+    for key in ("style", "font", "fontSecondary"):
         if not isinstance(opts.get(key), str) or len(opts[key]) > 60:
             raise ValueError(key)
     if "bankId" in opts and (not isinstance(opts["bankId"], str) or not ID_RE.match(opts["bankId"])):
@@ -214,12 +221,14 @@ def parse_meta(raw: str) -> tuple[str, dict]:
                 raise ValueError("grade")
     if "lyrics" in opts and not isinstance(opts["lyrics"], bool):
         raise ValueError("lyrics")
-    dust = opts.get("dust")
-    if dust is not None and (
-        not isinstance(dust, dict) or set(dust) != {"ground", "dust"}
-        or not all(isinstance(v, str) and HEX_RE.match(v) for v in dust.values())
+    colors = opts.get("colors")
+    if colors is not None and (
+        not isinstance(colors, dict) or set(colors) != {"ground", "dust"}
+        or not all(isinstance(v, str) and HEX_RE.match(v) for v in colors.values())
     ):
-        raise ValueError("dust")
+        raise ValueError("colors")
+    if "filter" in opts and opts["filter"] not in FILTERS:
+        raise ValueError("filter")
     cues = opts.get("cues")
     if not isinstance(cues, list) or len(cues) > 160:
         raise ValueError("cues")
@@ -229,7 +238,7 @@ def parse_meta(raw: str) -> tuple[str, dict]:
     if not isinstance(opts.get("fallbackText"), str) or len(opts["fallbackText"]) > 80:
         raise ValueError("fallbackText")
     # Re-serialise so nothing but plain JSON reaches the page.
-    return plate, json.loads(json.dumps(opts))
+    return json.loads(json.dumps(opts))
 
 
 @app.function(image=image, secrets=[secret], timeout=30, scaledown_window=10)
@@ -245,11 +254,18 @@ async def submit(request: Request):
         audio = await audio_file.read()
         if len(audio) > BODY_LIMIT or not wav_header_ok(audio):
             raise ValueError("audio")
-        plate, opts = parse_meta(str(meta_raw))
+        opts = parse_meta(str(meta_raw))
+        photo_file = form.get("image")
+        photo = await photo_file.read() if photo_file is not None else None
+        if photo is not None and (len(photo) > PHOTO_LIMIT or photo[:3] != b"\xff\xd8\xff"):
+            raise ValueError("photo")
+        # Dust and Filter are made of a person's photo; no other style takes one.
+        if (opts["style"] in ("dust", "filter")) != (photo is not None):
+            raise ValueError("photo")
     except (TypeError, ValueError, binascii.Error, json.JSONDecodeError, AttributeError):
         raise HTTPException(400, "Expected a 15s mono 32kHz WAV and valid render metadata.") from None
 
-    call = await render_job.spawn.aio(audio, opts, plate)
+    call = await render_job.spawn.aio(audio, opts, photo)
     return {"id": call.object_id}
 
 

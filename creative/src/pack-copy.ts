@@ -1,47 +1,40 @@
 import { FPS, type ImpactMusic, type LyricCue } from './composition';
 import { entrance, impactFrame, impactSignals } from './lyric-motion';
-import { AD_PUNCH_META, type AdBaseId, type AdBeatProp, type AdPunchStyle } from './ad-punch';
-import type { AdFont, AdLayout, AdPalette, PackMotion } from './ad-fonts';
+import type { Texture } from 'pixi.js';
+import type { AdPunchStyle } from './ad-punch';
+import type { AdFont, AdLayout } from './ad-fonts';
+import type { PhotoFilterId } from './pack-filter';
 import type { TimedWord, TypeStyleId } from './pack-type';
 import type { DustColors } from './dust-colors';
 import type { DustPoints, DustWord } from './pack-dust';
 
 export type PackSceneInput = {
-  base: AdBaseId;
-  prop: AdBeatProp;
-  style?: AdPunchStyle;
-  motion?: PackMotion;
+  style: AdPunchStyle;
   beat: number;
   energy: number;
   /** How many beats have passed, and the gap before the latest one (ms; 0 when unknown). */
   beatIndex: number;
   beatGapMs: number;
   frame: number;
-  palette: AdPalette;
   layout: AdLayout;
   font: AdFont;
   fontSecondary: AdFont;
   phrase: string;
   word: string;
   wordEnter: number;
-  /** Cleared still composited under graphic treatments (Pixi texture). */
-  plateTexture?: import('pixi.js').Texture | null;
-  /** Same-origin cleared plate path (also keys the baked look plate). */
-  plateUrl?: string;
-  /** Look Lab baked plate (static JPEG from Shaders.com recipe), loaded as a texture. */
-  lookPlateTexture?: import('pixi.js').Texture | null;
   /** Current time within the clip (ms) and the cue's word timings (original case). */
   ms: number;
-  phraseStartMs: number;
   words: readonly TimedWord[];
-  /** Look Bank: baked Shaders Pro background and the lyric type style for this card. */
-  bankTexture?: import('pixi.js').Texture | null;
+  /** The picture behind the lyrics: a baked Look Bank background, or the person's own photo for Filter. */
+  background?: Texture | null;
+  /** Filter: how the person's photo is treated, and the two colours the treatment draws from. */
+  filter?: PhotoFilterId;
+  colors?: DustColors;
   typeStyle?: TypeStyleId;
   /** False when the person switched lyrics off: no words anywhere, only the picture. */
   lyrics: boolean;
-  /** Dust: the photo as grains, the two colours, every beat, and the lyric word now on screen (null when none). */
+  /** Dust: the photo as grains, every beat, and the lyric word now on screen (null when none). */
   dustPoints?: DustPoints | null;
-  dust?: DustColors;
   beatsMs: readonly number[];
   downbeatsMs: readonly number[];
   dustWord: DustWord | null;
@@ -55,7 +48,6 @@ export function activePackCopy(cues: readonly LyricCue[], frame: number, fallbac
       phrase: phrase.toLocaleUpperCase(),
       word: (state.word || phrase).toLocaleUpperCase(),
       wordStartMs: state.wordStartMs,
-      phraseStartMs: state.startMs,
       words: state.words as readonly TimedWord[],
     };
   }
@@ -64,13 +56,8 @@ export function activePackCopy(cues: readonly LyricCue[], frame: number, fallbac
     phrase: fb,
     word: fb,
     wordStartMs: 0,
-    phraseStartMs: 0,
     words: [{ text: fallback || 'NOW', startMs: 0, endMs: 600 }] as readonly TimedWord[],
   };
-}
-
-export function packMeta(style: AdPunchStyle) {
-  return AD_PUNCH_META.find(item => item.id === style) ?? AD_PUNCH_META[0];
 }
 
 export function packReaction(music: ImpactMusic | null, frame: number) {
@@ -80,10 +67,4 @@ export function packReaction(music: ImpactMusic | null, frame: number) {
 
 export function packWordEnter(ms: number, wordStartMs: number, hasWord: boolean) {
   return hasWord ? entrance(ms, wordStartMs, 180) : 1;
-}
-
-export function holdGate(beat: number): number {
-  if (beat < 0.12) return 0.5;
-  if (beat < 0.28) return 0.75;
-  return 1;
 }

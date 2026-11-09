@@ -1,15 +1,14 @@
+import { hasRoom } from './allowance.mjs';
 import { db } from './person.mjs';
 import { deleteObject, putObject, signedDownload } from './storage.mjs';
 
 /** Each person's history of finished creatives: the MP4 sits in R2, a row in Postgres says whose it is. */
-export const QUOTA_BYTES = 1_000_000_000;
 const keyOf = (userId, id) => `renders/${userId}/${id}.mp4`;
 
 /** Keeps a finished render in the person's history. Returns false when they are over their storage allowance. */
 export async function saveRender(userId, jobId, mp4) {
   const sql = db();
-  const [{ used }] = await sql`select coalesce(sum(bytes), 0)::float8 as used from renders where user_id = ${userId}`;
-  if (used + mp4.byteLength > QUOTA_BYTES) return false;
+  if (!(await hasRoom(userId, mp4.byteLength))) return false;
   const id = crypto.randomUUID();
   const [added] = await sql`
     insert into renders (id, user_id, job_id, bytes) values (${id}, ${userId}, ${jobId}, ${mp4.byteLength})

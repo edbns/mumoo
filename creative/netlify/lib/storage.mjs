@@ -17,6 +17,12 @@ export async function putObject(key, body, contentType) {
   if (!response.ok) throw new Error(`Storage refused the upload (${response.status}).`);
 }
 
+export async function getObject(key) {
+  const response = await aws().fetch(objectUrl(key));
+  if (!response.ok) throw new Error(`Storage could not read the file (${response.status}).`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
 export async function deleteObject(key) {
   const response = await aws().fetch(objectUrl(key), { method: 'DELETE' });
   if (!response.ok) throw new Error(`Storage refused the delete (${response.status}).`);
@@ -26,6 +32,7 @@ export async function deleteObject(key) {
 export async function signedDownload(key, filename, seconds = 900) {
   const url = new URL(objectUrl(key));
   url.searchParams.set('X-Amz-Expires', String(seconds));
-  url.searchParams.set('response-content-disposition', `attachment; filename="${filename}"`);
+  // No filename means the file is shown in place (a photo preview) rather than saved.
+  if (filename) url.searchParams.set('response-content-disposition', `attachment; filename="${filename}"`);
   return (await aws().sign(url, { method: 'GET', aws: { signQuery: true } })).url;
 }

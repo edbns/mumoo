@@ -45,7 +45,6 @@
     "eslint": "10.14.0",
     "playwright": "1.64.1",
     "shaders": "^4.0.7",
-    "svg-mesh-3d": "^1.1.0",
     "typescript": "5.8.3",
     "typescript-eslint": "8.72.1",
     "vite": "6.4.5"

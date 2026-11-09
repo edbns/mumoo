@@ -441,8 +441,8 @@ export function createDustWorld(points: DustPoints): DustWorld {
         if (!grains) { grains = sampleWord(word.text, input.font); words.set(id, grains); }
         lyric.load(grains);
       }
-      // The word is made of dust, drawn in the dust colour and pulsed a little by the beat so it stays readable.
-      beats(lyric, input, 0.3);
+      // The word is made of dust, drawn in the dust colour and barely moved by the beat so it stays on the picture and readable.
+      beats(lyric, input, 0.15);
       const age = Math.max(0, (input.ms - word.startMs) / 1000);
       const leaves = word.nextStartMs - word.endMs >= LEAVE_GAP_MS;
       Object.assign(lyric.uniforms, {

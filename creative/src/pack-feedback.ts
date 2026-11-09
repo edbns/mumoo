@@ -31,7 +31,6 @@ export function reportPackFeedback(
       style: slot.style,
       font: slot.font,
       fontSecondary: slot.fontSecondary,
-      palette: slot.palette,
     },
     ...(extras?.selectedIds && { selectedIds: extras.selectedIds.slice(0, 32) }),
     ...(extras?.generation !== undefined && { generation: extras.generation }),

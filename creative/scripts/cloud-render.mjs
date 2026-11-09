@@ -1,15 +1,21 @@
 /**
- * Renders one creative on the cloud worker (Modal) through the deployed staging site, so the heavy work never
- * runs on this machine. Prints how long the cloud took and saves the MP4.
+ * Renders one creative on the cloud worker (Modal), so the heavy work never runs on this machine. Prints how
+ * long the cloud took and saves the MP4 to scripts/fixtures/exports/.
  *
- *   node scripts/cloud-render.mjs dust reggaeton            Dust on the cleared library photo, lyrics on
- *   LYRICS=0 node scripts/cloud-render.mjs dust techno       the same with lyrics off
- *   SEED=4 node scripts/cloud-render.mjs dust slaphouse      pick the colour pair
+ *   node scripts/cloud-render.mjs dust reggaeton        Dust from a photo, lyrics on
+ *   node scripts/cloud-render.mjs filter techno         Filter (FILTER=duotone|split|halftone|glow)
+ *   LYRICS=0 node scripts/cloud-render.mjs dust techno  lyrics off
+ *   SEED=4 node scripts/cloud-render.mjs dust slaphouse pick the colour pair
+ *   node scripts/cloud-render.mjs pulise reggaeton      a library style, through the deployed staging site
  *
- * Saves to scripts/fixtures/exports/cloud-<style>-<clip>.mp4. Staging must be deployed with the code you want drawn.
+ * Dust and Filter use PHOTO (default: our cleared library photo) and call the worker directly with your Modal
+ * login, because the public endpoint only hands the worker a photo for a signed-in person. The library styles go
+ * through the deployed site, which must carry the code you want drawn.
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createServer } from 'vite';
 import ffmpeg from '@ffmpeg-installer/ffmpeg';
 
@@ -38,40 +44,49 @@ const server = await createServer({ server: { middlewareMode: true, hmr: false }
 const { dustColors } = await server.ssrLoadModule('/src/dust-colors.ts');
 await server.close();
 
+const photoStyle = style === 'dust' || style === 'filter';
 const opts = {
   style,
   font: 'Anton',
   fontSecondary: 'Oswald',
-  palette: { bg: '#101014', ink: '#f5f5f5', accent: '#ff5b26' },
-  layout: { driftX: 0, driftY: 0, rotate: 0, grain: 0.1, scaleBias: 1, cut: 0 },
-  motion: 'scale',
+  layout: { rotate: 0, scaleBias: 1, cut: 0 },
   cues: lyrics ? cues : [],
   music: { beatsMs: analysis.rhythm.beatsMs, downbeatsMs: analysis.rhythm.downbeatsMs, energy: [] },
   fallbackText: '',
   lyrics,
-  ...(style === 'dust' ? { dust: dustColors(Number(process.env.SEED || 7)) } : {}),
+  ...(photoStyle ? { colors: dustColors(Number(process.env.SEED || 7)) } : {}),
+  ...(style === 'filter' ? { filter: process.env.FILTER || 'duotone', typeStyle: 'stack' } : {}),
 };
-
-const headers = { Origin: SITE, 'Content-Type': 'application/json' };
-const { token } = await (await fetch(`${SITE}/api/brain-tester-access`, { method: 'POST', headers, body: '{}' })).json();
-const form = new FormData();
-form.append('audio', new Blob([canonicalWav()], { type: 'audio/wav' }), 'clip.wav');
-form.append('meta', JSON.stringify({ plate: 'burnnet-woman-1547507-1920', opts }));
-const submitted = await fetch(`${SITE}/.netlify/functions/encode-creative`, { method: 'POST', headers: { Origin: SITE, 'x-mumoo-brain-access': token }, body: form });
-if (!submitted.ok) throw new Error(`submit ${submitted.status}: ${await submitted.text()}`);
-const { id } = await submitted.json();
+const wav = canonicalWav();
+const file = `scripts/fixtures/exports/cloud-${style}${style === 'filter' ? `-${opts.filter}` : ''}-${clip}${lyrics ? '' : '-nolyrics'}.mp4`;
+mkdirSync('scripts/fixtures/exports', { recursive: true });
 const started = Date.now();
-console.log('submitted', id, JSON.stringify(opts.dust ?? {}));
 
-for (;;) {
-  await new Promise(resolve => setTimeout(resolve, 3000));
-  const response = await fetch(`${SITE}/.netlify/functions/encode-creative-status?id=${id}`, { headers: { Origin: SITE, 'x-mumoo-brain-access': token } });
-  if (response.status === 202) { process.stdout.write('.'); continue; }
-  if (!response.ok) throw new Error(`status ${response.status}: ${await response.text()}`);
-  const mp4 = Buffer.from(await response.arrayBuffer());
-  mkdirSync('scripts/fixtures/exports', { recursive: true });
-  const file = `scripts/fixtures/exports/cloud-${style}-${clip}${lyrics ? '' : '-nolyrics'}.mp4`;
-  writeFileSync(file, mp4);
-  console.log(`\ndone in ${Math.round((Date.now() - started) / 1000)} s on Modal, ${(mp4.length / 1e6).toFixed(1)} MB -> ${file}`);
-  break;
+if (photoStyle) {
+  const wavFile = join(tmpdir(), 'mumoo-cloud-clip.wav');
+  const optsFile = join(tmpdir(), 'mumoo-cloud-opts.json');
+  writeFileSync(wavFile, wav);
+  writeFileSync(optsFile, JSON.stringify(opts));
+  const run = spawnSync('python3', ['../audio-intelligence/render_creative_staging.py', '--wav', wavFile, '--opts', optsFile,
+    '--photo', process.env.PHOTO || 'public/punch-plates/burnnet-woman-1547507-1920.jpg', '--out', file], { stdio: 'inherit' });
+  if (run.status !== 0) throw new Error('The cloud render failed.');
+} else {
+  const headers = { Origin: SITE, 'Content-Type': 'application/json' };
+  const { token } = await (await fetch(`${SITE}/api/brain-tester-access`, { method: 'POST', headers, body: '{}' })).json();
+  const form = new FormData();
+  form.append('audio', new Blob([wav], { type: 'audio/wav' }), 'clip.wav');
+  form.append('meta', JSON.stringify({ opts }));
+  const submitted = await fetch(`${SITE}/.netlify/functions/encode-creative`, { method: 'POST', headers: { Origin: SITE, 'x-mumoo-brain-access': token }, body: form });
+  if (!submitted.ok) throw new Error(`submit ${submitted.status}: ${await submitted.text()}`);
+  const { id } = await submitted.json();
+  console.log('submitted', id);
+  for (;;) {
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    const response = await fetch(`${SITE}/.netlify/functions/encode-creative-status?id=${id}`, { headers: { Origin: SITE, 'x-mumoo-brain-access': token } });
+    if (response.status === 202) { process.stdout.write('.'); continue; }
+    if (!response.ok) throw new Error(`status ${response.status}: ${await response.text()}`);
+    writeFileSync(file, Buffer.from(await response.arrayBuffer()));
+    break;
+  }
 }
+console.log(`\ndone in ${Math.round((Date.now() - started) / 1000)} s on Modal, ${(readFileSync(file).length / 1e6).toFixed(1)} MB -> ${file}`);

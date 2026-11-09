@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEve
 import { FPS, playheadFrame, type Composition, type ImpactMusic } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
-import { adPunchFallbackText, recommendCreativesPack, SHELF_ROWS, type CreativesPackSlot, type ShelfRow } from './creatives-pack';
+import { adPunchFallbackText, recommendCreativesPack, recommendOwnPhotoPack, SHELF_ROWS, type CreativesPackSlot, type ShelfRow } from './creatives-pack';
+import { OwnPhotos } from './own-photos';
+import type { Upload } from './uploads';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
 import { reportPackFeedback } from './pack-feedback';
@@ -14,7 +16,7 @@ import {
   type PackRendererOpts,
 } from './pack-renderer';
 import { awaitCloudJob, clipToMonoWav, submitCloudJob } from './pack-cloud-export';
-import { loadPunchPlatesManifest, punchPlatesBase } from './punch-plates';
+import { loadPunchPlatesManifest } from './punch-plates';
 
 function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   if (profile.musicAnalysis.status !== 'ready') return null;
@@ -35,15 +37,15 @@ function packOpts(
   music: ImpactMusic | null,
   fallbackText: string,
   lyrics: boolean,
-  plateUrl?: string,
+  photoUrl?: string,
 ): PackRendererOpts {
   return {
     style: slot.style,
     font: slot.font,
     fontSecondary: slot.fontSecondary,
-    palette: slot.palette,
     layout: slot.layout,
-    motion: slot.motion,
+    ...(slot.colors ? { colors: slot.colors } : {}),
+    ...(slot.filter ? { filter: slot.filter } : {}),
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
     ...(slot.grade ? { grade: slot.grade } : {}),
@@ -52,7 +54,7 @@ function packOpts(
     music,
     fallbackText: lyrics ? fallbackText : '',
     lyrics,
-    ...(plateUrl ? { plateUrl } : {}),
+    ...(photoUrl ? { photoUrl } : {}),
   };
 }
 
@@ -99,7 +101,10 @@ export function CreativesPackStudio({
   const [error, setError] = useState('');
   const [progress, setProgress] = useState<number>();
   const [progressLabel, setProgressLabel] = useState('');
-  const [plateUrl, setPlateUrl] = useState<string>();
+  /** Whose pictures the shelf is made from: the photography we hold, or one of the person's own photos. */
+  const [source, setSource] = useState<'ours' | 'own'>('ours');
+  const [photo, setPhoto] = useState<Upload | null>(null);
+  const photoUrl = source === 'own' ? photo?.url : undefined;
   /** Ids of the cleared library photos; null until the library has been read. */
   const [plates, setPlates] = useState<string[] | null>(null);
   /** A row appears when all four of its posters are finished; the shelf is ready when every row is. */
@@ -110,9 +115,12 @@ export function CreativesPackStudio({
   const [lyrics, setLyrics] = useState(true);
   const music = useMemo(() => impactMusic(profile), [profile.musicAnalysis]);
   const pack = useMemo(
-    () => (plates ? recommendCreativesPack(profile, generation, plates, lyrics) : []),
-    [profile.clip.sourceSha256, profile.musicAnalysis, profile.approvedLyrics, profile.lyricMeaning, generation, plates, lyrics],
+    () => (source === 'own'
+      ? (photo ? recommendOwnPhotoPack(profile, generation) : [])
+      : (plates ? recommendCreativesPack(profile, generation, plates, lyrics) : [])),
+    [profile.clip.sourceSha256, profile.musicAnalysis, profile.approvedLyrics, profile.lyricMeaning, profile.creator.cover, generation, plates, lyrics, source, photo?.id],
   );
+  const picturesReady = source === 'own' || Boolean(plates);
   // The colours the lyrics ask for are part of what each card looks like, so a new grade repaints the shelf.
   const packKey = pack.map(item => `${item.id}:${item.grade ? Object.values(item.grade).join(',') : ''}`).join('|');
   const cueKey = JSON.stringify(composition.cues);
@@ -129,15 +137,13 @@ export function CreativesPackStudio({
   getPositionRef.current = getPosition ?? (() => position);
   const playingIdRef = useRef(playingId);
   playingIdRef.current = playingId;
-  const paintArgsRef = useRef({ pack, composition, music, fallbackText, plateUrl, lyrics });
-  paintArgsRef.current = { pack, composition, music, fallbackText, plateUrl, lyrics };
+  const paintArgsRef = useRef({ pack, composition, music, fallbackText, photoUrl, lyrics });
+  paintArgsRef.current = { pack, composition, music, fallbackText, photoUrl, lyrics };
 
   useEffect(() => {
     let alive = true;
     void loadPunchPlatesManifest().then(manifest => {
       if (!alive) return;
-      const first = manifest?.plates[0];
-      setPlateUrl(first ? `${punchPlatesBase()}/${first.file}` : undefined);
       setPlates(manifest?.plates.map(plate => plate.id) ?? []);
     });
     return () => { alive = false; };
@@ -159,14 +165,14 @@ export function CreativesPackStudio({
     setReadyRows([]);
     setShelfReady(false);
     setShelfStatus('Preparing creatives…');
-  }, [generation, profile.clip.sourceSha256]);
+  }, [generation, profile.clip.sourceSha256, source, photo?.id]);
 
   // Tear down shared WebGL when leaving the pack screen.
   useEffect(() => () => destroySharedPackRenderer(), []);
 
   // Posters: paint card by card; each row is revealed as soon as its last card is done.
   useEffect(() => {
-    if (!fontReady || !approved || !plates) return;
+    if (!fontReady || !approved || !picturesReady) return;
     let cancelled = false;
     setReadyRows([]);
     setShelfReady(false);
@@ -187,7 +193,7 @@ export function CreativesPackStudio({
         try {
           await blitPackFrame(
             canvas,
-            packOpts(slot, base, impact, fallback, withLyrics, paintArgsRef.current.plateUrl),
+            packOpts(slot, base, impact, fallback, withLyrics, paintArgsRef.current.photoUrl),
             posterAt(base, impact, withLyrics),
           );
         } catch (cause) {
@@ -205,7 +211,7 @@ export function CreativesPackStudio({
       }
     })();
     return () => { cancelled = true; };
-  }, [fontReady, approved, plates, packKey, cueKey, music, fallbackText, plateUrl, lyrics]);
+  }, [fontReady, approved, picturesReady, packKey, cueKey, music, fallbackText, photoUrl, lyrics]);
 
   // Live preview — only when shelf is ready + playhead frame changes.
   useEffect(() => {
@@ -218,7 +224,7 @@ export function CreativesPackStudio({
     let alive = true;
     let raf = 0;
     const edit = composition;
-    const opts = packOpts(slot, edit, music, fallbackText, lyrics, plateUrl);
+    const opts = packOpts(slot, edit, music, fallbackText, lyrics, photoUrl);
     let painting = false;
     let lastFrame = -1;
 
@@ -244,7 +250,7 @@ export function CreativesPackStudio({
       alive = false;
       cancelAnimationFrame(raf);
     };
-  }, [shelfReady, fontReady, approved, pack, composition, music, playing, playingId, fallbackText, plateUrl, lyrics]);
+  }, [shelfReady, fontReady, approved, pack, composition, music, playing, playingId, fallbackText, photoUrl, lyrics]);
 
   function paintPoster(id: string | null) {
     if (!id || !shelfReady || !fontReady || !approved) return;
@@ -253,7 +259,7 @@ export function CreativesPackStudio({
     const slot = pack[index];
     const canvas = canvasRefs.current[index];
     if (!canvas) return;
-    void blitPackFrame(canvas, packOpts(slot, composition, music, fallbackText, lyrics, plateUrl), posterAt(composition, music, lyrics))
+    void blitPackFrame(canvas, packOpts(slot, composition, music, fallbackText, lyrics, photoUrl), posterAt(composition, music, lyrics))
       .catch(cause => setError(friendlyError(cause, 'Preview failed (WebGL).')));
   }
 
@@ -286,7 +292,7 @@ export function CreativesPackStudio({
 
   async function downloadSelected() {
     const selectedSlots = pack.filter(item => picked.includes(item.id));
-    if (!approved || progress !== undefined || !selectedSlots.length || !plateUrl) return;
+    if (!approved || progress !== undefined || !selectedSlots.length || (source === 'own' && !photo)) return;
     onStop(); setPlayingId(null); setError('');
     setProgress(0);
     setProgressLabel('Preparing audio…');
@@ -303,8 +309,8 @@ export function CreativesPackStudio({
         const id = await submitCloudJob({
           token,
           wav,
-          opts: packOpts(slot, composition, music, fallbackText, lyrics, plateUrl),
-          plateUrl,
+          opts: packOpts(slot, composition, music, fallbackText, lyrics, photoUrl),
+          photoId: source === 'own' ? photo?.id : undefined,
         });
         jobs.push({ slot, id });
       }
@@ -353,6 +359,11 @@ export function CreativesPackStudio({
     <p className="intro">Ranked for this song, one row at a time. Pick the ones you like and download them. Downloads render in the cloud, so your computer stays free.</p>
     <div className="trim-actions">
       <button className="secondary" disabled={progress !== undefined} onClick={onBack}>Back</button>
+      <div className="source-switch" role="group" aria-label="Pictures">
+        {([['ours', 'Our photography'], ['own', 'Your photo']] as const).map(([id, name]) => (
+          <button key={id} type="button" aria-pressed={source === id} disabled={progress !== undefined} onClick={() => { onStop(); setPlayingId(null); setSource(id); }}>{name}</button>
+        ))}
+      </div>
       <label className="lyrics-switch">
         <input
           type="checkbox"
@@ -378,6 +389,7 @@ export function CreativesPackStudio({
         </button>
       )}
     </div>
+    {source === 'own' && <OwnPhotos chosen={photo} onChoose={setPhoto} disabled={progress !== undefined} />}
     {!token && <p role="alert">Staging access is unavailable.</p>}
     {!approved && <p role="alert">Approve synced lyrics before downloading lyric creatives, or switch the lyrics off.</p>}
     {profile.musicAnalysis.status === 'pending' && <p role="status">Finishing music analysis for better ranking…</p>}

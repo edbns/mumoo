@@ -5,14 +5,16 @@
  *
  * Looks (Shaders.com recipes) are baked OFFLINE by the Look Lab into static JPEGs;
  * this file only loads them as textures. No WebGPU / Shaders in the browser.
+ * A person's own photo (Dust, Filter) is loaded from `photoUrl`: a link in the browser, a page the worker serves in the cloud.
  */
 import { Application, Assets, ColorMatrixFilter, Rectangle, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
-import type { AdFont, AdLayout, AdPalette, PackMotion } from './ad-fonts';
+import type { AdFont, AdLayout } from './ad-fonts';
 import type { AdPunchStyle } from './ad-punch';
-import { activePackCopy, packMeta, packReaction, packWordEnter } from './pack-copy';
+import { activePackCopy, packReaction, packWordEnter } from './pack-copy';
 import { createPackScene } from './pack-scenes';
-import { bankBackgroundUrl, lookPlateUrl } from './pack-looks';
+import { bankBackgroundUrl } from './pack-looks';
+import type { PhotoFilterId } from './pack-filter';
 import type { TypeStyleId } from './pack-type';
 import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
@@ -22,21 +24,16 @@ import { dustWordAt, sampleDust, type DustPoints } from './pack-dust';
 export const PREVIEW_WIDTH = 360;
 export const PREVIEW_HEIGHT = 640;
 
-/** Bases that composite the cleared still under their graphic world. */
-const PHOTO_BASES = new Set(['paper-cutout', 'riso', 'noir', 'oil', 'hold', 'dust']);
-
 export type PackRendererOpts = {
   style: AdPunchStyle;
   font: AdFont;
   fontSecondary: AdFont;
-  palette: AdPalette;
   layout: AdLayout;
-  motion?: PackMotion;
   cues: readonly LyricCue[];
   music: ImpactMusic | null;
   fallbackText: string;
-  /** Cleared still URL (`/punch-plates/…`) — shared across photo treatments. */
-  plateUrl?: string;
+  /** The person's own photo, for Dust and Filter. */
+  photoUrl?: string;
   /** Look Bank card: baked Shaders Pro background id + lyric type style. */
   bankId?: string;
   typeStyle?: TypeStyleId;
@@ -44,8 +41,10 @@ export type PackRendererOpts = {
   grade?: MoodGrade;
   /** False when lyrics are switched off: nothing is written on the picture. Default true. */
   lyrics?: boolean;
-  /** Dust card: the ground and dust colours (the photo is `plateUrl`). */
-  dust?: DustColors;
+  /** Dust and Filter: the two colours of the template. */
+  colors?: DustColors;
+  /** Filter: how the photo is treated. */
+  filter?: PhotoFilterId;
 };
 
 export type PackRenderer = {
@@ -69,10 +68,8 @@ export async function createPackRenderer(
   let initialized = false;
   let scene: ReturnType<typeof createPackScene> | null = null;
   let current = opts;
-  let plateTexture: Texture | null = null;
-  let plateUrlLoaded = '';
-  let lookTexture: Texture | null = null;
-  let lookUrlLoaded = '';
+  let photoTexture: Texture | null = null;
+  let photoUrlLoaded = '';
   let bankTexture: Texture | null = null;
   let bankUrlLoaded = '';
   let dustPoints: DustPoints | null = null;
@@ -81,10 +78,8 @@ export async function createPackRenderer(
   const dispose = () => {
     scene?.destroy();
     scene = null;
-    plateTexture = null;
-    plateUrlLoaded = '';
-    lookTexture = null;
-    lookUrlLoaded = '';
+    photoTexture = null;
+    photoUrlLoaded = '';
     bankTexture = null;
     bankUrlLoaded = '';
     dustPoints = null;
@@ -93,18 +88,18 @@ export async function createPackRenderer(
     initialized = false;
   };
 
-  async function ensurePlateTexture(url: string | undefined) {
+  async function ensurePhotoTexture(url: string | undefined) {
     if (!url) {
-      plateTexture = null;
-      plateUrlLoaded = '';
+      photoTexture = null;
+      photoUrlLoaded = '';
       return;
     }
-    if (url === plateUrlLoaded && plateTexture) return;
-    plateUrlLoaded = url;
+    if (url === photoUrlLoaded && photoTexture) return;
+    photoUrlLoaded = url;
     try {
-      plateTexture = await Assets.load(url) as Texture;
+      photoTexture = await Assets.load({ src: url, parser: 'texture' }) as Texture;
     } catch {
-      plateTexture = null;
+      photoTexture = null;
     }
   }
 
@@ -140,27 +135,12 @@ export async function createPackRenderer(
       async render(frame: number) {
         if (!scene) throw new Error('Pack renderer was destroyed.');
         if (gl.isContextLost()) throw new Error('The WebGL context was lost. Reload and try again.');
-        const meta = packMeta(current.style);
-        if (PHOTO_BASES.has(meta.base)) await ensurePlateTexture(current.plateUrl);
-        else await ensurePlateTexture(undefined);
-
-        let lookTex: Texture | null = null;
-        if (meta.base === 'noir' && current.plateUrl) {
-          // Static JPEG baked by the Look Lab. Missing → Noir shows its "temporarily unavailable" card.
-          const url = lookPlateUrl('noir-mono', current.plateUrl);
-          if (url !== lookUrlLoaded || !lookTexture) {
-            lookUrlLoaded = url;
-            try {
-              lookTexture = await Assets.load(url) as Texture;
-            } catch {
-              lookTexture = null;
-            }
-          }
-          lookTex = lookTexture;
-        }
+        const { style } = current;
+        const ownPhoto = style === 'dust' || style === 'filter';
+        await ensurePhotoTexture(ownPhoto ? current.photoUrl : undefined);
 
         let bankTex: Texture | null = null;
-        if (meta.base === 'bank' && current.bankId) {
+        if (style === 'bank' && current.bankId) {
           const url = bankBackgroundUrl(current.bankId);
           if (url !== bankUrlLoaded || !bankTexture) {
             bankUrlLoaded = url;
@@ -174,14 +154,15 @@ export async function createPackRenderer(
         }
 
         // Dust: the photo is read into grains once per photo, then every frame is a function of the clock.
-        if (meta.base === 'dust') {
-          const resource = plateTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
-          if (!resource || !current.plateUrl) throw new Error('Dust needs a photo.');
-          if (dustUrl !== current.plateUrl || !dustPoints) {
+        if (style === 'dust') {
+          const resource = photoTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
+          if (!resource || !current.photoUrl) throw new Error('Dust needs a photo.');
+          if (dustUrl !== current.photoUrl || !dustPoints) {
             dustPoints = sampleDust(resource);
-            dustUrl = current.plateUrl;
+            dustUrl = current.photoUrl;
           }
         }
+        if (style === 'filter' && !photoTexture) throw new Error('Filter needs a photo.');
 
         const reaction = packReaction(current.music, frame);
         const { ms, energy, beatIndex, beatGapMs } = reaction;
@@ -193,33 +174,26 @@ export async function createPackRenderer(
         const copy = activePackCopy(current.cues, frame, current.fallbackText || 'NOW');
         const wordEnter = packWordEnter(ms, copy.wordStartMs, Boolean(copy.word));
         scene.update({
-          base: meta.base,
-          prop: meta.prop,
-          style: current.style,
-          motion: current.motion,
+          style,
           beat,
           energy,
           beatIndex,
           beatGapMs,
           frame,
-          palette: current.palette,
           layout: current.layout,
           font: current.font,
           fontSecondary: current.fontSecondary,
           phrase: copy.phrase,
           word: copy.word,
           wordEnter,
-          plateTexture: PHOTO_BASES.has(meta.base) ? plateTexture : null,
-          plateUrl: current.plateUrl,
-          lookPlateTexture: lookTex,
           ms,
-          phraseStartMs: copy.phraseStartMs,
           words: copy.words,
-          bankTexture: bankTex,
+          background: style === 'filter' ? photoTexture : bankTex,
+          filter: current.filter,
+          colors: current.colors,
           typeStyle: current.typeStyle,
           lyrics: current.lyrics !== false,
-          dustPoints: meta.base === 'dust' ? dustPoints : null,
-          dust: current.dust,
+          dustPoints: style === 'dust' ? dustPoints : null,
           beatsMs: current.music?.beatsMs ?? [],
           downbeatsMs: current.music?.downbeatsMs ?? [],
           dustWord: current.lyrics !== false ? dustWordAt(current.cues, ms) : null,
