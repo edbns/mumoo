@@ -93,6 +93,8 @@ export type CloudJobInput = {
   opts: PackRendererOpts;
   /** Dust and Filter draw the signed-in person's own picture: its id in their storage. The server fetches it. */
   uploadId?: string;
+  /** Our photography draws an approved library picture: its id. The server reads it from the library. */
+  libraryId?: string;
 };
 
 /** Submit one render job. Returns immediately with a job id. */
@@ -104,6 +106,7 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
   void [_photo, _cutout, _motion];
   form.append('meta', JSON.stringify({
     ...(input.uploadId ? { upload: input.uploadId } : {}),
+    ...(input.libraryId ? { library: input.libraryId } : {}),
     opts: { ...scene, fallbackText: (scene.fallbackText || 'NOW').slice(0, 80) },
   }));
   const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);

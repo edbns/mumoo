@@ -77,7 +77,7 @@ function Uploader({ onAdded }: { onAdded: (item: LibraryItem) => void }) {
         className={`flex flex-col items-center justify-center gap-2 rounded-[var(--radius-panel)] border-2 border-dashed p-6 text-center transition-colors ${over ? 'border-foreground bg-muted' : 'border-border'} ${rights ? '' : 'opacity-50'}`}>
         <UploadIcon className="size-5 text-muted-foreground" aria-hidden="true" />
         <p className="m-0 text-sm">Drop photos, videos or GIFs here</p>
-        <p className="m-0 text-xs text-muted-foreground">JPEG, PNG, WebP (15 MB), GIF (25 MB), MP4, MOV, WebM (150 MB)</p>
+        <p className="m-0 text-xs text-muted-foreground">Photos (made into small JPEGs), GIF (25 MB), MP4, MOV, WebM (150 MB). Videos and GIFs take a minute to prepare.</p>
         <Button variant="secondary" size="sm" disabled={!rights || busy} onClick={() => input.current?.click()}>Choose files</Button>
         <input ref={input} type="file" accept={ACCEPT} multiple hidden aria-label="Files to add"
           onChange={event => { void send([...(event.target.files ?? [])]); event.target.value = ''; }} />
@@ -102,6 +102,7 @@ function Card({ item, selected, onSelect }: { item: LibraryItem; selected: boole
     <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
       <Media item={item} />
       <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[item.status]}`}>{STATUS_LABEL[item.status]}</span>
+      {!item.ready && <span className={`absolute bottom-2 left-2 rounded-full px-2 py-0.5 text-xs font-medium ${item.problem ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{item.problem ? 'Cannot be used' : 'Preparing…'}</span>}
       <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
         {item.kind === 'video' ? <FilmIcon className="size-3" aria-hidden="true" /> : <ImageIcon className="size-3" aria-hidden="true" />}{item.kind === 'gif' ? 'GIF' : cap(item.kind)}
       </span>
@@ -212,6 +213,8 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
       <textarea value={note} onChange={event => setNote(event.target.value)} maxLength={500} rows={2}
         className="resize-none rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm font-normal normal-case tracking-normal text-foreground outline-ring focus-visible:outline-2" />
     </label>
+    {!item.ready && <p role="status" className={`m-0 text-sm ${item.problem ? 'text-destructive' : 'text-muted-foreground'}`}>
+      {item.problem ?? 'Our worker is preparing this. It reaches the templates when it is ready and approved.'}</p>}
     <p className="m-0 text-xs text-muted-foreground">Cleared by {item.clearedBy} on {when(item.clearedAt)} · {item.contentType} · {megabytes(item.bytes)}</p>
 
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
@@ -254,6 +257,13 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => { loadLibrary().then(setLibrary, (cause: Error) => setError(cause.message)); }, []);
+  // A video or GIF is being prepared by our worker: look again until it is ready (or has said why it cannot be).
+  const waiting = Boolean(library?.items.some(item => !item.ready && !item.problem));
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setInterval(() => { loadLibrary().then(setLibrary, () => undefined); }, 6000);
+    return () => clearInterval(timer);
+  }, [waiting]);
 
   const replace = (next: Library) => { setLibrary(next); onChanged(); };
   const items = library?.items ?? [];

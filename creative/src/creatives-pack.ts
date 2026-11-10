@@ -23,6 +23,7 @@ import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
 import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
+import { pickLibrary, type LibraryPicture } from './library-pick';
 
 type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[]; read: LookRead };
 const BANK_LOOKS = bankData as BankLook[];
@@ -80,6 +81,8 @@ export type CreativesPackSlot = {
   windowAllowed?: string[];
   /** Our photography and Window: which arrangement of the person's video or GIF this card plays (its cut speed follows the card's place). */
   cutSeed?: number;
+  /** Our photography: the approved library picture (a photo, video or GIF) this card is drawn from, until the person uses their own. */
+  libraryId?: string;
   /** Our photography: the baked effect on our approved photo (`punch-plates/effects/{id}.jpg`), until the person uses their own picture. */
   effectId?: string;
   /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
@@ -276,13 +279,17 @@ const UNGRADED: readonly ShelfRow[] = ['riso', 'spray', 'window'];
  * photos Dust, Riso and Window are drawn from (the person's own picture, if any, replaces them in the app); `own` is
  * what is known of the person's own picture for Window, which is dealt from it instead of ours.
  */
-export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], own: WindowOwn | null = null): CreativesPackSlot[] {
-  const { intent, meaning, lane } = readSong(profile);
+export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], own: WindowOwn | null = null, library: readonly LibraryPicture[] = []): CreativesPackSlot[] {
+  const { intent, meaning, lane, genre } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
   const slots = {
-    photography: () => photographySlots(lane, intent, seed, dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation)),
+    photography: () => photographySlots(
+      lane, intent, seed,
+      dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation),
+      pickLibrary(library, { attitude: meaning?.attitude ?? null, genre, subGenre: profile.creator.subGenre?.value ?? '' }, profile.clip.sourceSha256, generation, ROW_SIZE),
+    ),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, cutOutPlates),
     spray: () => spraySlots(lane, intent, seed),
@@ -414,17 +421,34 @@ function dealEffects(lane: MoodLane, meaning: LyricMeaning | null, cover: CoverR
   return hands[generation % hands.length];
 }
 
-/** Our photography: our approved photo (or the person's own) as four different baked effects, each with its own lyric type. */
-function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, effects: readonly PhotoEffect[]): CreativesPackSlot[] {
+/**
+ * Our photography: four cards, each with its own lyric type. A card is an approved library picture that fits the song
+ * (as many as there are, up to four), or our approved photo with one of four baked effects (or the person's own picture).
+ */
+function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, effects: readonly PhotoEffect[], picks: readonly LibraryPicture[]): CreativesPackSlot[] {
   const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
   const typeOf = (index: number) => types[index % types.length];
-  const faces = dealFaces(lane, intent, seed, 'photography', effects.map((_, index) => typeNeeds(typeOf(index))));
-  return effects.map((effect, index) => ({
+  const cards = [
+    ...picks.slice(0, ROW_SIZE).map(pick => ({ pick })),
+    ...effects.slice(0, Math.max(0, ROW_SIZE - picks.length)).map(effect => ({ effect })),
+  ];
+  const faces = dealFaces(lane, intent, seed, 'photography', cards.map((_, index) => typeNeeds(typeOf(index))));
+  const hand = hashPick(seed, 'gen', 997).toString(36);
+  return cards.map((card, index) => ({
     ...adPunchSlot('filter', index, intent, seed, lane, 'photography', faces[index]),
-    id: `ad-photography-${effect.id}-${hashPick(seed, 'gen', 997).toString(36)}`,
-    label: effect.title,
-    reason: `${lane} · ${effect.mood} · ${effect.title} · ${typeOf(index)}`,
-    effectId: effect.id,
+    ...('pick' in card
+      ? {
+        id: `ad-photography-library-${card.pick.id}-${hand}`,
+        label: card.pick.tags[0] ?? card.pick.attitudes[0] ?? 'Our library',
+        reason: `${lane} · library · ${card.pick.attitudes.join('+')} · ${typeOf(index)}`,
+        libraryId: card.pick.id,
+      }
+      : {
+        id: `ad-photography-${card.effect.id}-${hand}`,
+        label: card.effect.title,
+        reason: `${lane} · ${card.effect.mood} · ${card.effect.title} · ${typeOf(index)}`,
+        effectId: card.effect.id,
+      }),
     typeStyle: typeOf(index),
     cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
   }));

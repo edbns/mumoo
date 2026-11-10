@@ -1,5 +1,6 @@
 import { validAccess } from '../lib/access.mjs';
 import { personFrom } from '../lib/person.mjs';
+import { libraryMedia } from '../lib/library.mjs';
 import { uploadMedia } from '../lib/uploads.mjs';
 
 /**
@@ -46,9 +47,19 @@ export default async function encodeCreative(request) {
     }
     if (audio.size < 1000) return error(400, 'Audio file is too small.');
 
-    const { upload, ...scene } = JSON.parse(meta);
+    const { upload, library, ...scene } = JSON.parse(meta);
     const outbound = new FormData();
     outbound.append('audio', audio, 'clip.wav');
+    if (library !== undefined) {
+      // An approved library picture is for everyone, so no sign-in is needed; it is Our photography's picture, like a person's own.
+      if (upload !== undefined) return error(400, 'Choose one picture.');
+      if (!UUID.test(library)) return error(400, 'Invalid picture.');
+      if (scene.opts?.style !== 'filter') return error(400, 'That picture is kept for a different style.');
+      const media = await libraryMedia(library);
+      if (!media) return error(404, 'That picture is no longer in the library.');
+      if (media.photo) outbound.append('photo', new Blob([media.photo], { type: 'image/jpeg' }), 'photo.jpg');
+      if (media.motion) outbound.append('motion', new Blob([media.motion], { type: 'video/mp4' }), 'motion.mp4');
+    }
     if (upload !== undefined) {
       if (!UUID.test(upload)) return error(400, 'Invalid picture.');
       const person = await personFrom(request);

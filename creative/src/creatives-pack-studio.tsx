@@ -26,6 +26,7 @@ import {
 import { clipToMonoWav, submitCloudJob } from './pack-cloud-export';
 import { LoadingMask } from './loading-mask';
 import { loadPunchPlatesManifest } from './punch-plates';
+import { useLibrary } from './use-library';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 
 function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
@@ -44,7 +45,7 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
 /** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust and Riso a photo and its cut-out, Our photography a photo or a clip, Window either (the cut-out is used by the cards that have her in front). */
 type Picture = Pick<PackRendererOpts, 'photoUrl' | 'cutoutUrl' | 'motionUrl' | 'motionShots'>;
 
-function drawingFrom(upload: Upload | null): Picture | undefined {
+function drawingFrom(upload: Pick<Upload, 'url' | 'cutoutUrl' | 'motionUrl' | 'shots'> | null): Picture | undefined {
   if (!upload?.url) return undefined;
   if (upload.motionUrl) return { motionUrl: upload.motionUrl, ...(upload.shots ? { motionShots: upload.shots } : {}) };
   return { photoUrl: upload.url, ...(upload.cutoutUrl ? { cutoutUrl: upload.cutoutUrl } : {}) };
@@ -149,9 +150,13 @@ export function CreativesPackStudio({
   const ownPicture = (use: PictureUse) => (uploads.list ?? []).find(item => item.use === use && item.status === 'ready' && item.url) ?? null;
   const pictures: Record<PictureUse, Upload | null> = { dust: ownPicture('dust'), riso: ownPicture('riso'), filter: ownPicture('filter'), window: ownPicture('window') };
   const windowOwn = useWindowOwn(pictures.window);
-  const pictureOf = (row: ShelfRow) => {
+  // Our approved library fills Our photography until the person uses their own picture there.
+  const library = useLibrary();
+  const libraryFor = (row: ShelfRow) => (row === 'photography' && !pictures.filter ? library ?? [] : []);
+  const libraryItem = (id: string | undefined) => (id ? (library ?? []).find(item => item.id === id) ?? null : null);
+  const pictureOf = (row: ShelfRow, slot?: CreativesPackSlot) => {
     const use = useOf(row);
-    return use ? drawingFrom(pictures[use]) : undefined;
+    return (use ? drawingFrom(pictures[use]) : undefined) ?? (slot?.libraryId ? drawingFrom(libraryItem(slot.libraryId)) : undefined);
   };
   const pictureIds = `${pictures.dust?.id ?? 'ours'}|${pictures.riso?.id ?? 'ours'}|${pictures.filter?.id ?? 'ours'}|${pictures.window?.id ?? 'ours'}`;
 
@@ -164,15 +169,19 @@ export function CreativesPackStudio({
         return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? 'We have no approved photos for this yet. Sign in (top right) to use your own.' : `We have no approved photos for this yet. Upload one photo to see ${def.title} made from it.` }];
       }
     }
+    // Our photography is dealt once it knows what our library holds.
+    if (def.id === 'photography' && library === null) return [def.id, { slots: [], note: '' }];
     // Window is dealt once it knows its pictures: the person's own, once it has been read (what shows in the letters decides the colours), or our approved photos.
     if (def.id === 'window' && (pictures.window ? !windowOwn.own : plates === null)) return [def.id, { slots: [], note: windowOwn.problem }];
     if (lyricsOn(def.id) && !hasLyrics) {
       return [def.id, { slots: [], note: def.lyrics === 'always' ? `${def.title} is made of your lyrics. Approve your synced lyrics first.` : 'Approve your synced lyrics, or switch this row’s lyrics off.' }];
     }
-    return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? [], def.id === 'window' ? windowOwn.own : null), note: '' }];
+    return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? [], def.id === 'window' ? windowOwn.own : null, libraryFor(def.id)), note: '' }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover,
     controls, plates, hasLyrics, pictureIds, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem,
+    // What the library holds, not the links to it (they are renewed all the time).
+    library?.map(item => item.id).join(','),
   ]);
   const pack = SHELF_ROWS.flatMap(def => view[def.id].slots);
   const paintedRows = SHELF_ROWS.filter(def => view[def.id].slots.length > 0);
@@ -228,7 +237,7 @@ export function CreativesPackStudio({
 
   // Posters: only rows whose own inputs changed are painted again; a row appears when its last card is done.
   useEffect(() => {
-    if (!fontReady || plates === null) return;
+    if (!fontReady || plates === null || library === null) return;
     const keys = new Map(SHELF_ROWS.map(def => [def.id, latest.current.rowKey(def.id)] as const));
     const stale = SHELF_ROWS.filter(def => painted.current.get(def.id) !== keys.get(def.id));
     for (const def of stale) painted.current.delete(def.id);
@@ -257,7 +266,7 @@ export function CreativesPackStudio({
           const { composition: base, music: impact, fallbackText: fallback } = latest.current;
           const withLyrics = latest.current.lyricsOn(def.id);
           try {
-            await blitPackFrame(canvas, packOpts(slots[index], base, impact, fallback, withLyrics, latest.current.pictureOf(def.id)), posterAt(base, impact, withLyrics));
+            await blitPackFrame(canvas, packOpts(slots[index], base, impact, fallback, withLyrics, latest.current.pictureOf(def.id, slots[index])), posterAt(base, impact, withLyrics));
           } catch (cause) {
             if (!cancelled) setError(`${def.title}: ${friendlyError(cause, 'One creative could not be prepared.')}`);
           }
@@ -272,7 +281,7 @@ export function CreativesPackStudio({
       setShelfStatus('');
     })();
     return () => { cancelled = true; };
-  }, [fontReady, plates, rowKeys]);
+  }, [fontReady, plates, library === null, rowKeys]);
 
   // Live preview: only when everything is painted and the playhead frame changes.
   useEffect(() => {
@@ -282,7 +291,7 @@ export function CreativesPackStudio({
     let alive = true;
     let raf = 0;
     const withLyrics = lyricsOn(playingSlot.row);
-    const picture = pictureOf(playingSlot.row);
+    const picture = pictureOf(playingSlot.row, playingSlot);
     const opts = packOpts(playingSlot, composition, music, fallbackText, withLyrics, picture);
     let painting = false;
     let lastFrame = -1;
@@ -351,6 +360,10 @@ export function CreativesPackStudio({
 
   /** What a cart item is drawn from now: the person's own picture (if it is still there) or our photography. */
   function pictureFor(item: CartItem): { available: boolean; picture?: Picture } {
+    if (item.slot.libraryId) {
+      const picture = drawingFrom(libraryItem(item.slot.libraryId));
+      return picture ? { available: true, picture } : { available: false };
+    }
     if (item.uploadId === null) return { available: true };
     const upload = (uploads.list ?? []).find(candidate => candidate.id === item.uploadId && candidate.status === 'ready' && candidate.url);
     return upload ? { available: true, picture: drawingFrom(upload) } : { available: false };
@@ -394,6 +407,7 @@ export function CreativesPackStudio({
           wav,
           opts: packOpts(item.slot, composition, music, fallbackText, item.lyrics, pictureFor(item).picture),
           ...(item.uploadId ? { uploadId: item.uploadId } : {}),
+          ...(item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
         }));
         reportPackFeedback(token, profile, 'download', item.slot, { selectedIds: cart.items.map(held => held.id), generation: item.generation });
       }

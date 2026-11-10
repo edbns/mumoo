@@ -1,4 +1,5 @@
 import { sessionToken } from '../account';
+import { shrinkPhoto } from '../photo-shrink';
 
 /** A refusal from the server, with its own words and its status (401 signed out, 403 not an admin). */
 export class AdminError extends Error {
@@ -11,6 +12,8 @@ export type LibraryItem = {
   id: string; kind: LibraryKind; contentType: string; bytes: number; status: LibraryStatus;
   attitudes: string[]; tags: string[]; genre: string | null; subGenre: string | null; note: string;
   clearedBy: string; clearedAt: string; createdAt: string; url: string;
+  /** Ready to be drawn by the templates. A video or GIF is first made a small clip by our worker; `problem` says why one cannot be used. */
+  ready: boolean; problem: string | null;
 };
 export type TagCount = { name: string; items: number };
 export type Library = { items: LibraryItem[]; tags: TagCount[] };
@@ -48,7 +51,10 @@ export const addTag = (name: string) => adminFetch<Library>(`library?tag=${encod
 export const deleteTag = (name: string) => adminFetch<Library>(`library?tag=${encodeURIComponent(name)}`, { method: 'DELETE' });
 
 /** Sends one file: room is reserved, the file goes straight to storage, then it is confirmed. */
-export async function uploadFile(file: File, note: string): Promise<LibraryItem> {
+export async function uploadFile(original: File, note: string): Promise<LibraryItem> {
+  // A photo is sent as a small JPEG (what the templates draw); a GIF or video goes as it is and our worker prepares it.
+  const photo = original.type.startsWith('image/') && original.type !== 'image/gif';
+  const file = photo ? new File([await shrinkPhoto(original)], original.name.replace(/\.[^.]*$/, '') + '.jpg', { type: 'image/jpeg' }) : original;
   const reserved = await adminFetch<{ id: string; putUrl: string }>('library', json('POST', { type: file.type, bytes: file.size, rights: true, note }));
   const sent = await fetch(reserved.putUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
   if (!sent.ok) throw new Error('The file could not be sent. Try again.');

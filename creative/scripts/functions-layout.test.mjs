@@ -32,7 +32,7 @@ test('every function has a path of its own', async () => {
     assert.ok(!seen.has(path), `${file} and ${seen.get(path)} both claim ${path}`);
     seen.set(path, file);
   }
-  for (const wanted of ['/api/admin/overview', '/api/admin/library', '/api/admin/problems', '/api/report-problem']) {
+  for (const wanted of ['/api/admin/overview', '/api/admin/library', '/api/admin/problems', '/api/report-problem', '/api/library']) {
     assert.ok(seen.has(wanted), `no function answers ${wanted}`);
   }
 });
