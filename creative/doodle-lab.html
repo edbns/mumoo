@@ -3,209 +3,57 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Doodle lab: the singer by genre and voice</title>
+<title>Doodle lab</title>
 <style>
-  body { margin: 0; background: #000; color: #fff; font: 14px system-ui, sans-serif; padding: 1.5rem; }
-  h1 { font-size: 1.1rem; margin: 0 0 0.25rem; }
-  p.note { margin: 0 0 1.25rem; color: #bbcbb2; max-width: 60rem; }
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; max-width: 1180px; }
-  figure { margin: 0; background: #fff; border-radius: 6px; padding: 8px 8px 6px; color: #111; transform: rotate(var(--tilt, 0deg)); }
-  figure:nth-child(odd) { --tilt: -1deg; } figure:nth-child(even) { --tilt: 1deg; }
-  figcaption { text-align: center; font-size: 12px; padding: 2px 0 4px; color: #555; }
-  svg { display: block; width: 100%; height: auto; }
-  .bob { animation: bob 1.1s ease-in-out infinite; transform-origin: 150px 340px; }
-  figure:nth-child(3n) .bob { animation-duration: 0.9s; } figure:nth-child(3n+1) .bob { animation-duration: 1.3s; }
-  @keyframes bob { 0%, 100% { transform: rotate(-1.5deg) translateY(0); } 50% { transform: rotate(1.5deg) translateY(-4px); } }
+  body { margin: 0; background: #000; color: #fff; font: 14px system-ui, sans-serif; padding: 1.25rem; }
+  h1 { font-size: 1.05rem; margin: 0 0 .25rem; }
+  form { display: flex; gap: .75rem; flex-wrap: wrap; margin: .5rem 0 1rem; align-items: center; }
+  select, input, button { font: inherit; padding: .3rem .5rem; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; max-width: 1180px; }
+  figure { margin: 0; }
+  canvas { width: 100%; height: auto; display: block; border-radius: 6px; background: #fff; }
+  figcaption { text-align: center; font-size: 12px; padding: 4px 0; color: #bbcbb2; }
 </style>
 </head>
 <body>
-<h1>The singer: grown-up caricatures, by genre and voice</h1>
-<p class="note">One drawing hand. The genre picks the props, the voice picks the build and clothes, the lyric mood picks the face. Character comes from what they wear and how they pose (bandana, beret, fedora, headphones, cap), never from skin or race. Some singers are animals. All code, no pictures.</p>
+<h1>Doodle lab: the real drawing code, one row for a song</h1>
+<form id="form">
+  <label>Genre <select id="genre"></select></label>
+  <label>Voice <select id="voice"><option value="">not given</option><option>female</option><option>male</option><option>both</option></select></label>
+  <label>Mood <select id="mood"><option>joyful</option><option>flirty</option><option>boastful</option><option>angry</option><option>sad</option></select></label>
+  <label>Seed <input id="seed" value="a" size="4"></label>
+  <label>Line <input id="line" value="I just wanna dance all night" size="28"></label>
+  <label>Time (ms) <input id="ms" value="1300" size="6"></label>
+  <label><input type="checkbox" id="all"> every genre (first card only)</label>
+</form>
 <div class="grid" id="grid"></div>
-<svg width="0" height="0" style="position:absolute"><defs>
-  <filter id="wobble" x="-5%" y="-5%" width="110%" height="110%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="2" result="noise">
-      <animate attributeName="seed" values="2;5;9;4" dur="0.8s" repeatCount="indefinite" calcMode="discrete"/>
-    </feTurbulence>
-    <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G"/>
-  </filter>
-</defs></svg>
-<script>
-  const INK = '#111';
+<script type="module">
+  import { GENRES } from '/src/genres.ts';
+  import { dealDoodle, DOODLE_FACES } from '/src/doodle-cast.ts';
+  import { drawDoodle } from '/src/doodle-draw.ts';
+  import { ensureFonts } from '/src/ad-fonts.ts';
 
-  // ---- faces: eyes, brows and mouth sit where the head says they sit ----
-  function moodFace(mood, L) {
-    const { x1, x2, ey, mx, my, w, mouth = true } = L;
-    const eye = (x, lid) => `<circle cx="${x}" cy="${ey}" r="3.6" fill="${INK}" stroke="none"/>`;
-    const brow = (x, dir, thick = 4) => `<path d="M${x - 10} ${ey - 10 - dir * 4}L${x + 10} ${ey - 10 + dir * 4}" fill="none" stroke-width="${thick}"/>`;
-    const grin = `<path d="M${mx - w} ${my}Q${mx} ${my + w * 1.3} ${mx + w} ${my}Z" fill="${INK}"/><path d="M${mx - w * 0.5} ${my + w * 0.55}Q${mx} ${my + w * 0.95} ${mx + w * 0.5} ${my + w * 0.55}" fill="#fff" stroke="none"/>`;
-    const out = {
-      joyful: eye(x1) + eye(x2) + brow(x1, 0.4, 3) + brow(x2, -0.4, 3) + (mouth ? grin : ''),
-      flirty: eye(x1) + `<path d="M${x2 - 6} ${ey + 1}Q${x2} ${ey - 6} ${x2 + 6} ${ey + 1}" fill="none" stroke-width="4"/>` + brow(x1, 0.5, 3) +
-        (mouth ? `<path d="M${mx - w} ${my + 2}Q${mx + 2} ${my + w * 0.8} ${mx + w} ${my - 4}" fill="none"/>` : ''),
-      angry: eye(x1) + eye(x2) + brow(x1, 1.3, 6) + brow(x2, -1.3, 6) +
-        (mouth ? `<path d="M${mx - w} ${my + 6}Q${mx} ${my - 8} ${mx + w} ${my + 6}Z" fill="${INK}"/>` : ''),
-      sad: eye(x1) + eye(x2) + brow(x1, -1, 4) + brow(x2, 1, 4) +
-        (mouth ? `<path d="M${mx - w * 0.8} ${my + 5}Q${mx} ${my - 6} ${mx + w * 0.8} ${my + 5}" fill="none"/>` : '') +
-        `<path d="M${x1 - 2} ${ey + 8}c-5 9 5 11 0 20" fill="#fff" stroke-width="3"/>`,
-      boastful: `<path d="M${x1 - 14} ${ey - 5}h${x2 - x1 + 28}" fill="none" stroke-width="3"/><path d="M${x1 - 14} ${ey - 5}h18v13h-18zM${x2 - 4} ${ey - 5}h18v13h-18z" fill="${INK}"/>` +
-        (mouth ? `<path d="M${mx - w} ${my + 3}Q${mx + 2} ${my + w * 0.9} ${mx + w} ${my - 5}" fill="none"/>` : ''),
-    };
-    return out[mood];
+  const $ = id => document.getElementById(id);
+  $('genre').innerHTML = GENRES.map(group => `<option>${group.name}</option>`).join('');
+  const W = 1080, H = 1920;
+  async function paint() {
+    await ensureFonts(DOODLE_FACES, $('line').value);
+    const every = $('all').checked;
+    const cards = every
+      ? GENRES.map(group => ({ ...dealDoodle(group.name, $('voice').value || null, $('mood').value, $('seed').value)[0], label: group.name }))
+      : dealDoodle($('genre').value, $('voice').value || null, $('mood').value, $('seed').value);
+    $('grid').innerHTML = cards.map((card, i) => `<figure><canvas width="${W}" height="${H}" data-i="${i}"></canvas><figcaption>${card.label} · ${card.id} · ${card.mood} · ${card.paper} · ${card.font}</figcaption></figure>`).join('');
+    cards.forEach((card, i) => {
+      const canvas = document.querySelector(`canvas[data-i="${i}"]`);
+      const ms = Number($('ms').value);
+      drawDoodle(canvas.getContext('2d'), {
+        width: W, height: H, id: card.id, paper: card.paper, mood: card.mood, font: card.font, seed: 1234 + i,
+        ms, beat: Math.exp(-((ms % 500) / 110)), beatIndex: Math.floor(ms / 500), phrase: $('line').value, phraseStartMs: 1000, singing: true,
+      });
+    });
   }
-
-  // ---- heads: people get a big jaw and nose, animals get their own faces ----
-  const HEADS = {
-    man: {
-      draw: `<path d="M118 66C116 34 184 34 182 66C186 90 182 108 176 124C168 140 132 140 124 124C118 108 114 90 118 66Z" fill="#fff"/><circle cx="116" cy="84" r="7" fill="#fff"/><circle cx="184" cy="84" r="7" fill="#fff"/><path d="M151 74C142 92 140 102 150 104C155 104 158 101 159 98" fill="none" stroke-width="4"/>`,
-      face: { x1: 137, x2: 163, ey: 72, mx: 150, my: 118, w: 12 },
-    },
-    woman: {
-      draw: `<path d="M120 66C118 36 182 36 180 66C182 90 178 104 172 118C166 132 134 132 128 118C122 104 118 90 120 66Z" fill="#fff"/><circle cx="118" cy="84" r="6" fill="#fff"/><circle cx="182" cy="84" r="6" fill="#fff"/><path d="M151 80C146 90 145 96 151 98" fill="none" stroke-width="4"/><path d="M137 62C140 58 146 58 148 62M152 62C154 58 160 58 163 62" fill="none" stroke-width="2"/>`,
-      face: { x1: 138, x2: 162, ey: 74, mx: 150, my: 112, w: 11 },
-    },
-    donkey: {
-      draw: `<path d="M126 40L112 -6C124 -8 138 20 142 42ZM174 40L188 -6C176 -8 162 20 158 42Z" fill="#fff"/><path d="M118 8l8 24M182 8l-8 24" fill="none" stroke-width="3"/>
-        <path d="M122 56C122 30 178 30 178 56C180 84 176 100 166 110L134 110C124 100 120 84 122 56Z" fill="#fff"/>
-        <path d="M118 108C116 90 184 90 182 108C186 132 170 140 150 140C130 140 114 132 118 108Z" fill="#fff"/>
-        <circle cx="140" cy="114" r="3.5" fill="${INK}" stroke="none"/><circle cx="160" cy="114" r="3.5" fill="${INK}" stroke="none"/>
-        <path d="M134 38C142 24 158 24 166 38C158 32 142 32 134 38Z" fill="${INK}"/>`,
-      face: { x1: 138, x2: 162, ey: 66, mx: 150, my: 128, w: 12 },
-    },
-    cow: {
-      draw: `<path d="M126 52C112 48 106 36 112 24C118 36 124 40 130 42ZM174 52C188 48 194 36 188 24C182 36 176 40 170 42Z" fill="#fff"/>
-        <path d="M110 76C96 74 94 88 108 92L120 84ZM190 76C204 74 206 88 192 92L180 84Z" fill="#fff"/>
-        <path d="M122 50C122 32 178 32 178 50C182 84 176 96 170 106L130 106C124 96 118 84 122 50Z" fill="#fff"/>
-        <path d="M126 52C130 44 142 46 144 56C142 70 128 70 126 52Z" fill="${INK}"/>
-        <ellipse cx="150" cy="116" rx="30" ry="22" fill="#fff"/><circle cx="140" cy="116" r="4" fill="${INK}" stroke="none"/><circle cx="160" cy="116" r="4" fill="${INK}" stroke="none"/>`,
-      face: { x1: 138, x2: 162, ey: 70, mx: 150, my: 130, w: 12 },
-    },
-    rooster: {
-      draw: `<path d="M134 44C128 22 142 14 146 28C148 8 160 8 158 28C164 14 176 22 168 44Z" fill="${INK}"/>
-        <path d="M120 70C118 40 182 40 180 70C184 98 170 118 150 118C130 118 116 98 120 70Z" fill="#fff"/>
-        <path d="M138 84L150 112L162 84Z" fill="${INK}"/><path d="M144 112C140 128 160 128 156 112" fill="${INK}"/>`,
-      face: { x1: 136, x2: 164, ey: 70, mx: 150, my: 112, w: 8, mouth: false },
-    },
-    cat: {
-      draw: `<path d="M118 62L112 22L142 44ZM182 62L188 22L158 44Z" fill="#fff"/>
-        <path d="M118 74C116 40 184 40 182 74C186 102 170 122 150 122C130 122 114 102 118 74Z" fill="#fff"/>
-        <path d="M144 88h12l-6 8z" fill="${INK}"/><path d="M92 90l30 4M92 102l30-2M208 90l-30 4M208 102l-30-2" fill="none" stroke-width="2.5"/>`,
-      face: { x1: 136, x2: 164, ey: 76, mx: 150, my: 106, w: 9 },
-    },
-  };
-
-  // ---- hair, hats and faces' extras ----
-  // back = drawn behind the head, front = on top of it
-  const HAIR = {
-    long: { back: `<path d="M114 70C108 30 192 30 186 70C192 120 200 150 186 176C176 150 178 120 174 92L126 92C122 120 124 150 114 176C100 150 110 120 114 70Z" fill="${INK}"/>`, front: `<path d="M118 62C118 36 182 36 182 62C168 50 138 52 118 62Z" fill="${INK}"/>` },
-    bob: { back: `<path d="M112 80C106 30 194 30 188 80C192 108 188 116 180 118L178 90L122 90L120 118C112 116 108 108 112 80Z" fill="${INK}"/>`, front: `<path d="M118 62C118 36 182 36 182 62C168 54 138 54 118 62Z" fill="${INK}"/>` },
-    afro: { back: `<path d="M150 -6c-26-6-44 6-40 22c-22 0-32 22-18 36c-12 16-2 36 14 40L186 92c16-4 26-24 14-40c14-14 4-36-18-36c4-16-14-28-32-22Z" fill="${INK}"/>`, front: '' },
-    pomp: { back: '', front: `<path d="M116 66C108 28 140 14 170 22C192 28 190 52 184 66C176 52 134 46 116 66Z" fill="${INK}"/>` },
-    mohawk: { back: '', front: `<path d="M136 44L134 -6L146 30L152 -14L160 30L172 -4L166 44Z" fill="${INK}"/>` },
-    bun: { back: `<circle cx="150" cy="14" r="17" fill="${INK}"/>`, front: `<path d="M118 62C118 34 182 34 182 62C168 50 138 52 118 62Z" fill="${INK}"/>` },
-    buns: { back: `<circle cx="114" cy="30" r="17" fill="${INK}"/><circle cx="186" cy="30" r="17" fill="${INK}"/>`, front: `<path d="M118 62C118 34 182 34 182 62C168 50 138 52 118 62Z" fill="${INK}"/>` },
-    short: { back: '', front: `<path d="M118 66C116 36 184 36 182 66C172 52 160 50 150 54C140 50 128 52 118 66Z" fill="${INK}"/>` },
-    bald: { back: '', front: '' },
-  };
-  const BEARD = {
-    full: `<path d="M120 100C124 138 176 138 180 100C172 116 164 112 150 112C136 112 128 116 120 100Z" fill="${INK}"/>`,
-    goatee: `<path d="M138 120C140 146 160 146 162 120Z" fill="${INK}"/>`,
-    stache: `<path d="M150 106C138 98 118 104 122 114C132 108 142 112 150 112C158 112 168 108 178 114C182 104 162 98 150 106Z" fill="${INK}"/>`,
-  };
-  const HAT = {
-    bandana: `<path d="M116 56C120 30 180 30 184 56C170 48 130 48 116 56Z" fill="${INK}"/><path d="M116 52C140 62 160 62 184 52L184 62C160 72 140 72 116 62Z" fill="#fff"/><path d="M118 54l-16 10 14 8ZM118 64l-14 16 16-4Z" fill="${INK}"/><circle cx="140" cy="60" r="2" fill="${INK}" stroke="none"/><circle cx="156" cy="62" r="2" fill="${INK}" stroke="none"/><circle cx="168" cy="58" r="2" fill="${INK}" stroke="none"/>`,
-    beret: `<path d="M110 52C100 26 168 2 196 28C204 44 180 56 150 54C134 54 118 56 110 52Z" fill="${INK}"/><path d="M168 12l8-12" fill="none" stroke-width="5"/>`,
-    fedora: `<path d="M92 56C112 64 188 64 208 56C196 54 190 50 188 44C186 10 114 10 112 44C110 50 104 54 92 56Z" fill="${INK}"/><path d="M114 44C132 52 168 52 186 44" fill="none" stroke="#fff" stroke-width="5"/>`,
-    cap: `<path d="M118 62C116 30 184 30 182 62C164 54 136 54 118 62Z" fill="${INK}"/><path d="M182 58L222 66L182 70Z" fill="${INK}"/>`,
-    backcap: `<path d="M118 62C116 30 184 30 182 62C164 54 136 54 118 62Z" fill="${INK}"/><path d="M118 58L82 64L118 70Z" fill="${INK}"/>`,
-    beanie: `<path d="M118 62C114 14 186 14 182 62Z" fill="${INK}"/><path d="M114 60h72" stroke-width="10" fill="none"/><circle cx="150" cy="14" r="9" fill="${INK}"/>`,
-    cowboy: `<path d="M84 40C112 54 188 54 216 40C200 36 192 38 188 30C184 -6 116 -6 112 30C108 38 100 36 84 40Z" fill="${INK}"/><path d="M114 30C134 40 166 40 186 30" fill="none" stroke="#fff" stroke-width="3"/>`,
-    headphones: `<path d="M112 82C104 8 196 8 188 82" fill="none" stroke-width="8"/><rect x="100" y="70" width="22" height="40" rx="9" fill="${INK}"/><rect x="178" y="70" width="22" height="40" rx="9" fill="${INK}"/>`,
-    bow: `<path d="M150 38L122 20L126 54ZM150 38L178 20L174 54Z" fill="#fff"/><circle cx="150" cy="38" r="7" fill="${INK}"/>`,
-    shadesUp: `<path d="M124 46h24v10h-24zM152 46h24v10h-24z" fill="${INK}" transform="rotate(-4 150 50)"/>`,
-    hoops: `<circle cx="108" cy="104" r="11" fill="none" stroke-width="4"/><circle cx="192" cy="104" r="11" fill="none" stroke-width="4"/>`,
-    crest: '',
-  };
-
-  // ---- the grown-up body: long legs, real shoulders ----
-  const BODY = {
-    man: `<path d="M114 252L188 252L186 338L158 338L150 282L142 338L114 338Z" fill="#fff"/><path d="M150 282V252" fill="none" stroke-width="3"/>
-      <ellipse cx="128" cy="344" rx="22" ry="8" fill="${INK}"/><ellipse cx="172" cy="344" rx="22" ry="8" fill="${INK}"/>
-      <path d="M132 134L168 134L184 150L192 256L108 256L116 150Z" fill="#fff"/>
-      <path d="M132 134L150 176L168 134" fill="none" stroke-width="4"/><path d="M150 176V256" fill="none" stroke-width="3"/><path d="M108 252h84" fill="none" stroke-width="7"/>`,
-    woman: `<path d="M120 264L180 264L176 338L156 338L150 296L144 338L124 338Z" fill="#fff"/>
-      <path d="M118 338l-6 8h28l2-8ZM162 338l-2 8h28l-6-8Z" fill="${INK}"/>
-      <path d="M134 134L166 134L178 152L168 198L194 272L106 272L132 198L122 152Z" fill="#fff"/>
-      <path d="M140 134C146 148 154 148 160 134" fill="none" stroke-width="3"/><path d="M132 198C146 206 154 206 168 198" fill="none" stroke-width="3"/>`,
-  };
-  const NECK = '<path d="M140 126V140M160 126V140" fill="none" stroke-width="4"/>';
-  const MIC = '<path d="M210 156L200 136" fill="none" stroke-width="6"/><circle cx="196" cy="126" r="11" fill="#fff"/><path d="M188 122l16 8M190 131l12-10" fill="none" stroke-width="2"/>';
-  const ARMS = (voice) => {
-    const sh = voice === 'woman' ? [124, 152, 172] : [118, 152, 182];
-    return {
-      back: `<path d="M${sh[0]} ${sh[1]}C94 ${sh[1] + 10} 76 ${sh[1] - 20} 70 ${sh[1] - 52}" fill="none" stroke-width="6"/><path d="M62 96l-4-14M68 94l0-16M74 94l6-14M80 100l10-10" fill="none" stroke-width="3"/><circle cx="72" cy="104" r="9" fill="#fff"/>`,
-      front: `<path d="M${sh[2]} ${sh[1]}C216 ${sh[1] + 6} 222 ${sh[1] + 2} 210 158" fill="none" stroke-width="6"/><circle cx="210" cy="156" r="8" fill="#fff"/>` + MIC,
-    };
-  };
-  const PROPS = {
-    chain: '<path d="M128 150C136 188 164 188 172 150" fill="none" stroke-width="4"/><circle cx="150" cy="190" r="10" fill="#fff" stroke-width="4"/>',
-    guitar: `<path d="M206 262L270 190" stroke-width="8" fill="none"/><path d="M176 276C154 264 160 244 180 242C174 226 196 222 206 236C218 236 228 256 214 270C208 286 190 286 176 276Z" fill="#fff"/><circle cx="192" cy="256" r="5" fill="${INK}"/>`,
-    star: '<path d="M44 80l8 18 20 2-15 13 5 20-18-10-18 10 5-20-15-13 20-2z" fill="#fff"/>',
-    rays: '<path d="M40 160l22 8M30 200l26-2M44 242l22-12M260 160l-22 8M270 200l-26-2M256 242l-22-12" fill="none" stroke-width="5"/>',
-    hearts: '<path d="M240 70c-10-14-26 2-12 14l12 10 12-10c14-12-2-28-12-14z" fill="#111"/><path d="M46 150c-8-10-20 2-10 11l10 8 10-8c10-9-2-21-10-11z" fill="#fff"/>',
-    steam: '<path d="M100 40c-8-14 6-18 0-30M200 40c8-14-6-18 0-30" fill="none" stroke-width="4"/>',
-    bowtie: `<path d="M150 150L132 140L132 160ZM150 150L168 140L168 160Z" fill="${INK}"/>`,
-    note: '<path d="M236 160V130l22-6v30" fill="none" stroke-width="4"/><circle cx="230" cy="162" r="7" fill="#111"/><circle cx="252" cy="156" r="7" fill="#111"/>',
-  };
-
-  const bubble = text => `<g transform="translate(0 -34)"><path d="M14 18C14 -8 160 -10 172 16C180 42 100 48 70 44L52 64L54 42C30 38 14 30 14 18Z" fill="#fff" transform="translate(0,6)"/><text x="94" y="38" text-anchor="middle" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS',cursive" font-size="22" font-weight="700" fill="${INK}" stroke="none">${text}</text></g>`;
-
-  function singer({ head, voice = 'man', hair = 'bald', beard, hat = [], props = [], mood, line }) {
-    const H = HEADS[head];
-    const arms = ARMS(voice);
-    const hr = HAIR[hair];
-    const animal = !['man', 'woman'].includes(head);
-    const hatLayer = hat.map(name => HAT[name]).join('');
-    return `<svg viewBox="-10 -70 320 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${line}">
-      <g filter="url(#wobble)" stroke="${INK}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="#fff">
-        <path d="M6 350C90 344 170 354 240 348C268 346 288 350 304 348" fill="none"/>
-        <g class="bob">
-          ${arms.back}
-          ${BODY[voice]}
-          ${NECK}
-          ${props.includes('chain') ? PROPS.chain : ''}${props.includes('bowtie') ? PROPS.bowtie : ''}
-          ${props.includes('guitar') ? PROPS.guitar : ''}
-          <g transform="translate(150 130) scale(1.25) translate(-150 -130)">
-          ${hr.back}
-          ${H.draw}
-          ${beard ? BEARD[beard] : ''}
-          ${hr.front}
-          ${moodFace(mood, H.face)}
-          ${hatLayer}
-          </g>
-          ${arms.front}
-        </g>
-        ${['star', 'rays', 'hearts', 'steam', 'note'].filter(p => props.includes(p)).map(p => PROPS[p]).join('')}
-        ${bubble(line)}
-      </g></svg>`;
-  }
-
-  const CAST = [
-    ['Reggaeton · female voice · flirty', { head: 'woman', voice: 'woman', hair: 'long', hat: ['hoops', 'shadesUp'], mood: 'flirty', line: 'mami…' }],
-    ['Reggaeton · male voice · boastful', { head: 'man', hair: 'short', beard: 'stache', hat: ['backcap'], props: ['chain'], mood: 'boastful', line: 'dale!' }],
-    ['Techno · female voice · joyful', { head: 'woman', voice: 'woman', hair: 'bob', hat: ['headphones'], props: ['rays'], mood: 'joyful', line: 'again!' }],
-    ['Hip-hop · male voice · bandana', { head: 'man', hair: 'bald', beard: 'full', hat: ['bandana'], props: ['chain'], mood: 'boastful', line: 'I run it' }],
-    ['Pop · female voice · joyful', { head: 'woman', voice: 'woman', hair: 'buns', hat: ['bow'], props: ['star'], mood: 'joyful', line: 'la la la' }],
-    ['Rock · male voice · angry', { head: 'man', hair: 'mohawk', props: ['guitar', 'steam'], mood: 'angry', line: 'NO!' }],
-    ['Country · a donkey · sad', { head: 'donkey', hat: ['cowboy'], props: ['guitar'], mood: 'sad', line: 'she left' }],
-    ['Jazz · female voice · afro, joyful', { head: 'woman', voice: 'woman', hair: 'afro', hat: ['hoops'], props: ['note'], mood: 'joyful', line: 'doo-be' }],
-    ['Salsa · male voice · fedora and stache', { head: 'man', hair: 'short', beard: 'stache', hat: ['fedora'], props: ['bowtie', 'note'], mood: 'flirty', line: '¡azúcar!' }],
-    ['Reggae · a cow · beanie', { head: 'cow', hat: ['beanie'], props: ['note'], mood: 'joyful', line: 'mooo-vement' }],
-    ['Punk · a rooster · mohawk', { head: 'rooster', voice: 'man', hair: 'mohawk', props: ['steam'], mood: 'angry', line: 'COCK-A!' }],
-    ['Jazz · a cat · beret', { head: 'cat', voice: 'woman', hat: ['beret'], props: ['note', 'hearts'], mood: 'flirty', line: 'purr…' }],
-  ];
-  document.getElementById('grid').innerHTML = CAST.map(([title, spec]) => `<figure>${singer(spec)}<figcaption>${title}</figcaption></figure>`).join('');
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) document.querySelectorAll('animate').forEach(node => node.remove());
+  $('form').addEventListener('input', () => void paint());
+  void paint();
 </script>
 </body>
 </html>

@@ -69,6 +69,7 @@ function packOpts(
     ...(slot.colors ? { colors: slot.colors } : {}),
     ...(slot.inkSet ? { inkSet: slot.inkSet } : {}),
     ...(slot.sprayPalette ? { sprayPalette: slot.sprayPalette } : {}),
+    ...(slot.doodleId ? { doodleId: slot.doodleId, doodlePaper: slot.doodlePaper, doodleMood: slot.doodleMood } : {}),
     ...(slot.windowMode ? { windowMode: slot.windowMode, windowPalette: slot.windowPalette, windowAllowed: slot.windowAllowed } : {}),
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
@@ -194,7 +195,7 @@ export function CreativesPackStudio({
     }
     return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? [], def.id === 'window' ? windowOwn.own : null, libraryFor(def.id), windowReads.readings), note: '' }];
   })) as Record<ShelfRow, RowView>, [
-    profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover,
+    profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover, profile.creator.primaryGenre.value, profile.creator.voice?.value,
     controls, plates, hasLyrics, noLyrics, pictureIds, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem, windowReads.pending, Object.keys(windowReads.readings).join(','),
     // What the library holds, not the links to it (they are renewed all the time).
     library?.map(item => item.id + (item.cutoutUrl ? '+cut' : '')).join(','),

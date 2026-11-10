@@ -51,12 +51,13 @@ OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
     "motionShots", "cutSeed", "look", "inkSet", "sprayPalette", "windowMode", "windowPalette", "windowAllowed",
+    "doodleId", "doodlePaper", "doodleMood",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
 # The kinds of creative the page draws, the Riso ink sets, the Spray walls and the Window screens and faces it knows (creative/src/ad-punch.ts, riso-look.ts, spray-look.ts, window-look.ts, window-deal.ts; a test keeps these in step).
 # The live looks drawn on a picture of Our photography (creative/src/live-look-deal.ts; a test keeps these in step).
 LIVE_LOOKS = {"thermal", "arctic", "night"}
-STYLES = {"bank", "pulise", "dust", "filter", "riso", "spray", "window"}
+STYLES = {"bank", "pulise", "dust", "filter", "riso", "spray", "window", "doodle"}
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
 SPRAY_PALETTES = {"neon-night", "neon-plum", "neon-navy", "bold-offwhite", "bold-grey", "bold-pastel"}
 WINDOW_PALETTES = {
@@ -66,6 +67,12 @@ WINDOW_PALETTES = {
 WINDOW_FACES = {"Anton", "Big Shoulders Display", "Staatliches", "Bangers", "Barlow Condensed"}
 # What a Window card shows through its word: our approved photo (a person stands in front of the word, or not), one baked effect, one baked background, or the person's own photo or clip.
 WINDOW_MODES = {"person", "plain", "effect", "bank"}
+# Doodle draws a singer (named by an id of one or two singers: creative/src/doodle-cast.ts), on a paper, feeling a mood, writing in one of two hands (a test keeps these in step).
+DOODLE_ID_RE = re.compile(r"^[a-z0-9]+(\.[a-z0-9]+){2,3}(\+[a-z0-9]+(\.[a-z0-9]+){2,3})?$")
+DOODLE_PAPERS = {"white", "ruled", "graph", "kraft"}
+DOODLE_MOODS = {"joyful", "flirty", "angry", "sad", "boastful"}
+DOODLE_FACES = {"Caveat Brush", "Permanent Marker"}
+DOODLE_KEYS = ("doodleId", "doodlePaper", "doodleMood")
 WINDOW_KEYS = ("windowMode", "windowPalette", "windowAllowed")
 # Styles drawn from a person cut out of a photo: an approved plate (`plateId`) or the person's own photo and cut-out mask.
 CUT_OUT_STYLES = {"dust", "riso"}
@@ -277,6 +284,18 @@ def parse_meta(raw: str) -> dict:
             raise ValueError("font")
     elif any(key in opts for key in WINDOW_KEYS):
         raise ValueError("window")
+    # Doodle is drawn from a seed (where the strokes wander), a singer, a paper and a mood, in its own hands, and nothing else.
+    if opts["style"] == "doodle":
+        if not all(key in opts for key in DOODLE_KEYS) or "seed" not in layout:
+            raise ValueError("doodle")
+        if not isinstance(opts["doodleId"], str) or len(opts["doodleId"]) > 120 or not DOODLE_ID_RE.match(opts["doodleId"]):
+            raise ValueError("doodleId")
+        if opts["doodlePaper"] not in DOODLE_PAPERS or opts["doodleMood"] not in DOODLE_MOODS:
+            raise ValueError("doodle")
+        if opts["font"] not in DOODLE_FACES:
+            raise ValueError("font")
+    elif any(key in opts for key in DOODLE_KEYS):
+        raise ValueError("doodle")
     if "bankId" in opts and (not isinstance(opts["bankId"], str) or not ID_RE.match(opts["bankId"])):
         raise ValueError("bankId")
     for key in ("plateId", "effectId"):

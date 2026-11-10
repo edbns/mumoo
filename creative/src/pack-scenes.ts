@@ -10,6 +10,7 @@ import { createDustWorld, type DustPoints, type DustWorld } from './pack-dust';
 import { createRisoWorld, type RisoWorld } from './pack-riso';
 import { createSprayWorld, type SprayWorld } from './pack-spray';
 import { createWindowWorld, type WindowWorld } from './pack-window';
+import { createDoodleWorld, type DoodleWorld } from './pack-doodle';
 import type { RisoPhoto } from './riso-photo';
 
 export type { PackSceneInput } from './pack-copy';
@@ -34,6 +35,7 @@ export function createPackScene(): PackScene {
   let riso: { photo: RisoPhoto; seed: number; world: RisoWorld } | null = null;
   let spray: { seed: number; world: SprayWorld } | null = null;
   let knockout: { seed: number; world: WindowWorld } | null = null;
+  let doodle: { seed: number; world: DoodleWorld } | null = null;
   const printLayer = new Container();
   root.addChild(picture.root, pulise.root, dustLayer, printLayer);
 
@@ -88,12 +90,32 @@ export function createPackScene(): PackScene {
     });
   }
 
+  function updateDoodle(input: PackSceneInput) {
+    if (!input.doodle) throw new Error('Doodle needs a singer, a paper and a mood.');
+    if (doodle?.seed !== input.seed) {
+      doodle?.world.destroy();
+      doodle = { seed: input.seed, world: createDoodleWorld(input.seed) };
+      printLayer.addChild(doodle.world.root);
+    }
+    doodle.world.update({
+      ...input.doodle,
+      font: input.font,
+      ms: input.ms,
+      beat: input.beat,
+      beatIndex: input.beatIndex,
+      phrase: input.lyrics ? input.phrase : '',
+      phraseStartMs: input.words[0]?.startMs ?? 0,
+      singing: input.lyrics && Boolean(input.word),
+    });
+  }
+
   return {
     root,
     update(input) {
       if (input.style !== 'riso') { riso?.world.destroy(); riso = null; }
       if (input.style !== 'spray') { spray?.world.destroy(); spray = null; }
       if (input.style !== 'window') { knockout?.world.destroy(); knockout = null; }
+      if (input.style !== 'doodle') { doodle?.world.destroy(); doodle = null; }
       picture.root.visible = input.style === 'bank' || input.style === 'filter';
       pulise.root.visible = input.style === 'pulise';
       dustLayer.visible = input.style === 'dust';
@@ -101,6 +123,7 @@ export function createPackScene(): PackScene {
       else if (input.style === 'riso') updateRiso(input);
       else if (input.style === 'spray') updateSpray(input);
       else if (input.style === 'window') updateWindow(input);
+      else if (input.style === 'doodle') updateDoodle(input);
       else if (input.style === 'pulise') pulise.update(input);
       else picture.update(input);
     },
@@ -111,6 +134,7 @@ export function createPackScene(): PackScene {
       riso?.world.destroy();
       spray?.world.destroy();
       knockout?.world.destroy();
+      doodle?.world.destroy();
       root.destroy({ children: true });
     },
   };

@@ -1,6 +1,7 @@
 import type { CoverRead } from './cover-palette';
 import { DURATION_MS, type LyricCue } from './composition';
 import type { LyricMeaningState } from './lyric-meaning';
+import type { DoodleVoice } from './doodle-cast';
 
 export interface ClipIdentity {
   sourceSha256: string;
@@ -86,6 +87,8 @@ export interface CreativeProfileV1 {
     primaryGenre: { value: string; source: 'creator' };
     /** The sub-genre inside the genre, as the creator chose it. */
     subGenre?: { value: string; source: 'creator' };
+    /** Who sings, as the creator said it (Doodle draws a woman, a man or a duet from it). Absent when they did not say: the row then has both. */
+    voice?: { value: DoodleVoice; source: 'creator' };
     title?: { value: string; source: 'embedded_metadata' | 'creator' };
     artist?: { value: string; source: 'embedded_metadata' | 'creator' };
     /** What the cover art inside the uploaded file looks like (numbers only; the picture is never kept). */

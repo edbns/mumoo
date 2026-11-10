@@ -26,6 +26,8 @@ import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look
 import type { CoverRead } from './cover-palette';
 import { dealLooks, liveLookTitle, type LiveLookId } from './live-look-deal';
 import { pickLibrary, type LibraryPicture } from './library-pick';
+import { dealDoodle, doodleMood, type DoodlePaper } from './doodle-cast';
+import type { DoodleMood } from './doodle-parts';
 
 type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[]; read: LookRead };
 const BANK_LOOKS = bankData as BankLook[];
@@ -37,7 +39,7 @@ const PHOTO_EFFECTS = effectsData as PhotoEffect[];
 export type PackFamily = 'ad_punch';
 
 /** Every row that can be dealt. 'looks' (Moving backgrounds) is dealt but not on the shelf: see SHELF_ROWS. */
-export type ShelfRow = 'photography' | 'looks' | 'riso' | 'spray' | 'window' | 'pulise' | 'dust';
+export type ShelfRow = 'photography' | 'looks' | 'riso' | 'spray' | 'window' | 'doodle' | 'pulise' | 'dust';
 
 /**
  * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
@@ -52,6 +54,7 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'riso', title: 'Riso', lyrics: 'switch', upload: 'riso' },
   { id: 'spray', title: 'Spray', lyrics: 'always' },
   { id: 'window', title: 'Window', lyrics: 'always', upload: 'window' },
+  { id: 'doodle', title: 'Doodle', lyrics: 'always' },
   // "Moving backgrounds" (id 'looks', the Shaders backgrounds under lyric type) is off the shelf until its backgrounds are good enough.
   // To bring it back, add { id: 'looks', title: 'Moving backgrounds', lyrics: 'switch' } here.
   { id: 'pulise', title: 'Pulise', lyrics: 'always' },
@@ -83,6 +86,10 @@ export type CreativesPackSlot = {
   windowMode?: WindowMode;
   windowPalette?: string;
   windowAllowed?: string[];
+  /** Doodle: who sings (`doodle-cast.ts`: one singer or a duet), the paper they are drawn on, and the mood of the song's words. */
+  doodleId?: string;
+  doodlePaper?: DoodlePaper;
+  doodleMood?: DoodleMood;
   /** Our photography and Window: which arrangement of the person's video or GIF this card plays (its cut speed follows the card's place). */
   cutSeed?: number;
   /** Our photography: the approved library picture (a photo, video or GIF) this card is drawn from, until the person uses their own. */
@@ -278,7 +285,7 @@ export function readSong(profile: CreativeProfileV1) {
 export type PlateRef = { id: string; cutout: boolean };
 
 /** Riso, Spray and Window are drawn in the inks, paints and screen colours they were dealt: a mood grade over them would recolour the design. */
-const UNGRADED: readonly ShelfRow[] = ['riso', 'spray', 'window'];
+const UNGRADED: readonly ShelfRow[] = ['riso', 'spray', 'window', 'doodle'];
 
 /**
  * One row of the shelf for this song. `generation` is that row's own Refresh count. `plates` are the approved
@@ -320,6 +327,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
       const read: WindowLibraryItem[] = own ? [] : windowHand(profile, generation, library).flatMap(item => (readings[item.id] ? [{ id: item.id, reading: readings[item.id], clip: item.kind !== 'photo' }] : []));
       return windowSlots(lane, intent, seed, plates, own, read);
     },
+    doodle: () => doodleSlots(lane, intent, seed, genre, profile.creator.voice?.value ?? null, doodleMood(meaning?.attitude)),
     pulise: () => puliseSlots(lane, intent, seed),
     dust: () => dustSlots(lane, intent, seed, cover?.hue, photos),
   }[row]();
@@ -376,6 +384,19 @@ function spraySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string):
     ...adPunchSlot('spray', index, intent, seed, lane, 'spray', face),
     label: sentence(walls[index].name),
     sprayPalette: walls[index].id,
+  }));
+}
+
+/** Four Doodle cards: the singer the genre and the voice ask for, the same kit on an animal and on a second person, each on its own paper, every face feeling what the words feel. */
+function doodleSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, genre: string, voice: 'female' | 'male' | 'both' | null, mood: DoodleMood): CreativesPackSlot[] {
+  return dealDoodle(genre, voice, mood, seed).map((card, index) => ({
+    // Doodle writes in one hand: the second face is the same, so nothing else is asked of the worker.
+    ...adPunchSlot('doodle', index, intent, seed, lane, 'doodle', { font: card.font, fontSecondary: card.font }),
+    label: card.label,
+    reason: `${lane} · ${card.id} · ${card.mood} · ${card.paper}`,
+    doodleId: card.id,
+    doodlePaper: card.paper,
+    doodleMood: card.mood,
   }));
 }
 

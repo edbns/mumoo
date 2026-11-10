@@ -38,15 +38,15 @@ async function load() {
   return { server, pack };
 }
 
-test('the shelf is six rows of four, in order, each card distinct', async () => {
+test('the shelf is seven rows of four, in order, each card distinct', async () => {
   const { server, pack } = await load();
   try {
     for (const genre of ['Gospel', 'Slap House', 'Pop', 'Ambient']) {
       const slots = shelf(pack, profile(genre));
-      assert.equal(slots.length, 24, genre);
-      assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', 'riso', 'spray', 'window', 'pulise', 'dust'], 'rows come in order');
-      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Our photography', 'Riso', 'Spray', 'Window', 'Pulise', 'Dust']);
-      for (const row of ['photography', 'riso', 'spray', 'window', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
+      assert.equal(slots.length, 28, genre);
+      assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust'], 'rows come in order');
+      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Our photography', 'Riso', 'Spray', 'Window', 'Doodle', 'Pulise', 'Dust']);
+      for (const row of ['photography', 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
       const photography = slots.filter(slot => slot.row === 'photography');
       // A card is a baked effect, or (with a live look, while the library is short) our one approved photo, once.
       assert.equal(new Set(photography.map(slot => slot.effectId ?? slot.plateId)).size, 4, `${genre} photography repeats a picture`);
@@ -116,7 +116,7 @@ test('a refresh deals four effects the earlier ones did not, and the deal is see
     assert.equal(new Set(first).size, 20, 'five refreshes in a row never repeat an effect');
     assert.deepEqual(row(person, 3).map(slot => slot.id), row(person, 3).map(slot => slot.id), 'the same song and refresh deal the same cards, with the same ids');
     assert.notDeepEqual(row(person, 0).map(slot => slot.effectId), row(profile('Pop', 'hello', 'b'.repeat(64)), 0).map(slot => slot.effectId), 'another song is dealt other effects');
-    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 24);
+    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 28);
   } finally { await server.close(); }
 });
 
@@ -199,7 +199,8 @@ test('club songs keep club fonts', async () => {
   try {
     const { DISPLAY_FACES } = await server.ssrLoadModule('/src/font-catalog.ts');
     const clubMoods = ['brutal', 'techno', 'pixel', 'graffiti'];
-    for (const slot of shelf(pack, profile('Slap House'))) {
+    // Doodle writes in its own hand (a marker), whatever the song is.
+    for (const slot of shelf(pack, profile('Slap House')).filter(item => item.row !== 'doodle')) {
       for (const font of [slot.font, slot.fontSecondary]) assert.ok(DISPLAY_FACES[font].moods.some(mood => clubMoods.includes(mood)), font);
     }
   } finally { await server.close(); }
@@ -233,7 +234,7 @@ test('the cover decides which backgrounds lead: warm cover → warm looks, cool 
     assert.ok(cool.every(look => look.warmth < 0.4), 'cool cover leads with cool backgrounds');
 
     // No cover: nothing changes, still a full pack.
-    assert.equal(shelf(pack, profile('Pop')).length, 24, 'still a full shelf');
+    assert.equal(shelf(pack, profile('Pop')).length, 28, 'still a full shelf');
   } finally { await server.close(); }
 });
 
@@ -269,15 +270,15 @@ test('the lyrics grade the colours and calm the beat without changing the look',
     assert.deepEqual(neutral.map(slot => slot.id), plain.map(slot => slot.id));
     assert.ok(neutral.every(slot => !slot.grade));
 
-    // Sad words on a club song: same lane and looks, sadder colours, calmer hits. Riso inks, Spray paints and Window screens are the design, so they are not graded.
+    // Sad words on a club song: same lane and looks, sadder colours, calmer hits. Riso inks, Spray paints, Window screens and the Doodle paper are the design, so they are not graded.
     const sad = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'heartbroken', sadness: 3, intensity: 2 }));
     assert.ok(sad.every(slot => slot.reason.startsWith('techno')));
-    const graded = sad.filter(slot => !['riso', 'spray', 'window'].includes(slot.row));
+    const graded = sad.filter(slot => !['riso', 'spray', 'window', 'doodle'].includes(slot.row));
     assert.equal(graded.length, 12);
     const grade = graded[0].grade;
     assert.ok(grade.saturation < 1 && grade.warmth < 0 && grade.brightness < 1 && grade.calm > 0.5, JSON.stringify(grade));
     assert.ok(graded.every(slot => JSON.stringify(slot.grade) === JSON.stringify(grade)));
-    assert.ok(sad.filter(slot => ['riso', 'spray', 'window'].includes(slot.row)).every(slot => slot.grade === undefined), 'Riso, Spray and Window keep their own colours');
+    assert.ok(sad.filter(slot => ['riso', 'spray', 'window', 'doodle'].includes(slot.row)).every(slot => slot.grade === undefined), 'Riso, Spray, Window and Doodle keep their own colours');
 
     // Defiant and forceful: warmer, punchier, no calming.
     const defiant = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'defiant', sadness: 0, intensity: 4 }))[0].grade;

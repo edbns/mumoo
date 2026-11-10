@@ -9,7 +9,7 @@ import { createPackRenderer, type PackRenderer, type PackRendererOpts } from './
 
 const FRAMES = Math.round((DURATION_MS / 1000) * FPS);
 /** Dust grains, Riso dot screens, Spray grains and the Window's one full-frame shader are soft or drawn by shader already: edge smoothing only costs time here (6× under software GL). */
-const SMOOTH_ALREADY: readonly AdPunchStyle[] = ['dust', 'riso', 'spray', 'window'];
+const SMOOTH_ALREADY: readonly AdPunchStyle[] = ['dust', 'riso', 'spray', 'window', 'doodle'];
 let renderer: PackRenderer | null = null;
 
 type PackFramePage = {

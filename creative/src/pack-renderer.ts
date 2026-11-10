@@ -28,6 +28,8 @@ import { sprayPaletteById } from './spray-look';
 import { WINDOW_PALETTE_IDS } from './window-look';
 import type { WindowMode } from './window-deal';
 import type { WindowPicture } from './pack-window';
+import type { DoodlePaper } from './doodle-cast';
+import type { DoodleMood } from './doodle-parts';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
 export const PREVIEW_WIDTH = 360;
@@ -70,11 +72,15 @@ export type PackRendererOpts = {
   windowMode?: WindowMode;
   windowPalette?: string;
   windowAllowed?: readonly string[];
+  /** Doodle: who sings (`doodle-cast.ts`), the paper it is drawn on, and the mood of the song's words. */
+  doodleId?: string;
+  doodlePaper?: DoodlePaper;
+  doodleMood?: DoodleMood;
 };
 
 /** The font families a card draws with, so each is fetched (from this site) the first time a card needs it, not before. */
 function familiesFor(opts: PackRendererOpts): string[] {
-  if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'spray' || opts.style === 'window') return [opts.font];
+  if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'spray' || opts.style === 'window' || opts.style === 'doodle') return [opts.font];
   if (opts.style === 'pulise') return [opts.font, opts.fontSecondary];
   return opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [];
 }
@@ -254,6 +260,7 @@ export async function createPackRenderer(
         const windowOwn = windowMode === 'person' || windowMode === 'plain';
         if (style === 'riso' && !current.inkSet) throw new Error('Riso needs an ink set.');
         if (style === 'spray' && !current.sprayPalette) throw new Error('Spray needs a wall and paints.');
+        if (style === 'doodle' && !(current.doodleId && current.doodlePaper && current.doodleMood)) throw new Error('Doodle needs a singer, a paper and a mood.');
         // Window brings her cut-out only for a card with her in front; a plain card of the same photo does not read it.
         const cutOut = style === 'dust' || style === 'riso' || windowMode === 'person';
         const ownPicture = cutOut || ownBackdrop || windowOwn;
@@ -373,6 +380,7 @@ export async function createPackRenderer(
           windowPicture,
           windowPalette: current.windowPalette,
           windowAllowed: current.windowAllowed,
+          doodle: style === 'doodle' ? { id: current.doodleId!, paper: current.doodlePaper!, mood: current.doodleMood! } : undefined,
         });
         app.render();
       },

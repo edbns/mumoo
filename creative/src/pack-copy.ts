@@ -11,6 +11,8 @@ import type { RisoInkSet } from './riso-look';
 import type { RisoPhoto } from './riso-photo';
 import type { SprayPalette } from './spray-look';
 import type { WindowPicture } from './pack-window';
+import type { DoodlePaper } from './doodle-cast';
+import type { DoodleMood } from './doodle-parts';
 
 export type PackSceneInput = {
   style: AdPunchStyle;
@@ -54,6 +56,8 @@ export type PackSceneInput = {
   windowPicture?: WindowPicture;
   windowPalette?: string;
   windowAllowed?: readonly string[];
+  /** Doodle: who sings (a card's singers), the paper, and the mood of the song. */
+  doodle?: { id: string; paper: DoodlePaper; mood: DoodleMood };
 };
 
 export function activePackCopy(cues: readonly LyricCue[], frame: number, fallback: string) {
