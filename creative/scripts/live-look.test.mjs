@@ -99,12 +99,13 @@ const picture = (id, attitude = 'defiant') => ({ id, kind: 'video', attitudes: [
 test('a look rides on Our photography cards only, a few different ones, and gospel gets none', () => {
   const library = [picture('a'), picture('b'), picture('c')];
   const club = pack.recommendRow('photography', profile('Techno'), 0, [], null, library);
-  assert.equal(club.length, 4);
+  assert.equal(club.length, 3, 'three library pictures, three cards, no baked filler');
   const wearing = club.filter(slot => slot.libraryId);
   assert.equal(wearing.length, 3);
   assert.ok(wearing.every(slot => slot.look && deal.isLiveLook(slot.look)), 'every library picture carries a look, none is dealt to a baked effect and lost');
   assert.equal(new Set(wearing.map(slot => slot.look)).size, 3, 'three different looks');
-  assert.ok(club.filter(slot => !slot.libraryId).every(slot => !slot.look && slot.effectId), 'a baked effect never carries a look');
+  assert.ok(club.every(slot => !slot.effectId), 'no baked effect beside the library pictures');
+  assert.ok(pack.recommendRow('photography', profile('Techno'), 0).every(slot => slot.effectId && !slot.look), 'a baked effect never carries a look');
   assert.notDeepEqual(pack.recommendRow('photography', profile('Techno'), 1, [], null, library).map(slot => slot.look), club.map(slot => slot.look), 'Refresh deals other looks');
   assert.ok(pack.recommendRow('photography', profile('Techno'), 0).every(slot => !slot.look), 'with no picture to draw on there is no look');
   for (const row of ['looks', 'riso', 'spray', 'pulise', 'dust']) {

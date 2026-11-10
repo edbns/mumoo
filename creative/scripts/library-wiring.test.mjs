@@ -78,7 +78,7 @@ test('the same song gets the same order; Refresh moves on to the next hand and w
   } finally { await server.close(); }
 });
 
-test('Our photography is dealt from the library, topped up with our baked effects; no library changes nothing', async () => {
+test('Our photography is dealt from the library only; baked effects stand in just when nothing in the library fits', async () => {
   const { server, pack } = await load();
   try {
     const person = profile('Pop', 'Indie Pop');
@@ -88,11 +88,11 @@ test('Our photography is dealt from the library, topped up with our baked effect
 
     const library = [item('lib-1', { tags: ['sunset'] }), item('lib-2', { genre: 'Pop' }), item('lib-3', { genre: 'Rock' }), item('lib-4', { attitudes: ['angry'] })];
     const some = pack.recommendRow('photography', person, 0, [], null, library);
-    assert.equal(some.length, 4);
+    assert.equal(some.length, 2, 'only the pictures that fit, no baked filler beside them');
     assert.deepEqual(some.filter(slot => slot.libraryId).map(slot => slot.libraryId).sort(), ['lib-1', 'lib-2'], 'only items that fit this song: not the other genre, not the other feeling');
-    assert.equal(some.filter(slot => slot.effectId).length, 2, 'the rest are our baked effects');
-    assert.equal(new Set(some.map(slot => slot.id)).size, 4);
-    assert.equal(new Set(some.map(slot => slot.typeStyle)).size, 4, 'each card keeps its own lyric type');
+    assert.ok(some.every(slot => !slot.effectId));
+    assert.equal(new Set(some.map(slot => slot.id)).size, 2);
+    assert.equal(new Set(some.map(slot => slot.typeStyle)).size, 2, 'each card keeps its own lyric type');
     assert.ok(some.filter(slot => slot.libraryId).every(slot => slot.style === 'filter' && !slot.effectId && !slot.plateId));
     assert.deepEqual(some, pack.recommendRow('photography', person, 0, [], null, library), 'the same deal every time');
 

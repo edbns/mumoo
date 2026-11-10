@@ -505,14 +505,14 @@ test('Window never deals an illegal combination: her in front only of her own cu
   } finally { await server.close(); }
 });
 
-test('Window refuses a picture nobody has read, a person nobody stands in, and a picture no screen reads against', async () => {
+test('Window leaves out a picture nobody has read, and refuses a person nobody stands in, and a picture no screen reads against', async () => {
   const { server, deal } = await loadWindow();
   try {
-    const refused = [];
     for (let seed = 0; seed < 30; seed++) {
-      try { deal.dealWindow(`s${seed}`, [{ id: 'not-read-yet', cutout: true }], null); } catch (error) { refused.push(error.message); }
+      const cards = deal.dealWindow(`s${seed}`, [{ id: 'not-read-yet', cutout: true }], null);
+      assert.equal(cards.length, 4);
+      assert.ok(cards.every(card => card.plateId !== 'not-read-yet'), 'a photo nobody has read is left out of the deal, never a guess and never a crash');
     }
-    assert.ok(refused.length >= 20 && refused.every(message => /not read plate:not-read-yet/.test(message)), 'a card of a picture nobody has read is an error, never a guess');
     assert.throws(() => deal.dealWindow('s', [], { reading: { plain: [], person: null }, clip: false }), /no screens/);
     assert.throws(() => deal.dealWindow('s', [], { reading: { plain: ['black'], person: [] }, clip: false }), /no screens/);
   } finally { await server.close(); }

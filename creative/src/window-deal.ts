@@ -92,7 +92,9 @@ function ourPicture(mode: WindowMode, nth: number, seed: string, plates: readonl
   return { plateId: id, reading: seen };
 }
 
-export function dealWindow(seed: string, plates: readonly { id: string; cutout: boolean }[], own: WindowOwn | null): WindowCard[] {
+export function dealWindow(seed: string, allPlates: readonly { id: string; cutout: boolean }[], own: WindowOwn | null): WindowCard[] {
+  // A photo Window has not read yet (a placeholder, or one added before the readings were baked) is left out, never a crash.
+  const plates = allPlates.filter(plate => READINGS[`plate:${plate.id}`]);
   const modes = own ? ownModes(seed, own) : ourModes(seed, plates);
   const faces = order(WINDOW_FACES, `${seed}:faces`, face => face);
   const opened = new Set<string>();

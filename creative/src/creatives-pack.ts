@@ -434,10 +434,10 @@ function dealEffects(lane: MoodLane, meaning: LyricMeaning | null, cover: CoverR
 function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, effects: readonly PhotoEffect[], picks: readonly LibraryPicture[]): CreativesPackSlot[] {
   const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
   const typeOf = (index: number) => types[index % types.length];
-  const cards = [
-    ...picks.slice(0, ROW_SIZE).map(pick => ({ pick })),
-    ...effects.slice(0, Math.max(0, ROW_SIZE - picks.length)).map(effect => ({ effect })),
-  ];
+  // The library is the source. Baked effects (the older, fixed looks) are only for a song nothing in the library fits, so the row is never empty.
+  const cards = picks.length
+    ? picks.slice(0, ROW_SIZE).map(pick => ({ pick }))
+    : effects.slice(0, ROW_SIZE).map(effect => ({ effect }));
   const faces = dealFaces(lane, intent, seed, 'photography', cards.map((_, index) => typeNeeds(typeOf(index))));
   const hand = hashPick(seed, 'gen', 997).toString(36);
   // A look is drawn on a library picture (or the person's own, in the studio), never on a baked effect, so it is dealt only among the library cards.
