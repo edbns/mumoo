@@ -4,7 +4,7 @@
  */
 import type { Texture } from 'pixi.js';
 import type { LiveLookId } from './live-look-deal';
-import { lookPixel } from './live-look-ramp';
+import { heatSource, lookPixel } from './live-look-ramp';
 
 export type TexturePalette = {
   /** Highest-contrast ink against the text zone. */
@@ -15,7 +15,7 @@ export type TexturePalette = {
   scrim: { color: string; alpha: number };
   /** Mean luminance of the text zone (0 dark … 1 light). */
   luma: number;
-  /** The brightness (0-1) of the picture's darkest and lightest parts (2nd and 98th percentile), of the picture itself, which a live look stretches. */
+  /** How cold and how hot (0-1, 2nd and 98th percentile) the picture's parts read to a heat look (`heatSource`), which the look stretches over its ramp. */
   range: [number, number];
 };
 
@@ -81,9 +81,9 @@ export function analyzeTexture(texture: Texture, look?: LiveLookId): TexturePale
   ctx.drawImage(texture.source.resource as CanvasImageSource, 0, 0, W, H);
   const data = ctx.getImageData(0, 0, W, H).data;
 
-  // How dark and how light the picture itself goes, then (with a look) the picture as the look shows it.
+  // How cold and how hot the picture itself reads, then (with a look) the picture as the look shows it.
   const lights: number[] = [];
-  for (let i = 0; i < data.length; i += 4) lights.push((0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255);
+  for (let i = 0; i < data.length; i += 4) lights.push(heatSource(data[i], data[i + 1], data[i + 2]));
   lights.sort((a, b) => a - b);
   const range: [number, number] = [lights[Math.floor(lights.length * 0.02)], lights[Math.min(lights.length - 1, Math.floor(lights.length * 0.98))]];
   if (look) {

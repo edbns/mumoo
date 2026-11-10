@@ -15,23 +15,25 @@ const workerPath = fileURLToPath(new URL('../../audio-intelligence/modal_creativ
 const WORKER = readFileSync(workerPath, 'utf8');
 const LANES = ['party', 'quiet', 'gospel', 'techno', 'dark', 'general'];
 
-test('every other card carries a look the lane welcomes; the rest show the picture as it is', () => {
+test('a row carries up to three different looks the lane welcomes; the rest show the picture as it is', () => {
   for (const lane of ['dark', 'techno', 'party', 'general']) {
     for (const seed of ['a', 'b', 'c', 'd', 'e', 'f']) {
       const looks = deal.dealLooks(lane, seed, 4);
       assert.equal(looks.length, 4);
-      assert.equal(looks.filter(Boolean).length, 2, `${lane}/${seed}: two of four`);
-      assert.ok(looks.every((look, index) => index === 0 || !look || !looks[index - 1]), 'never two in a row');
-      assert.ok(looks.every(look => look === null || deal.isLiveLook(look)));
+      const carried = looks.filter(Boolean);
+      assert.ok(carried.length >= 2 && carried.length <= 3, `${lane}/${seed}: ${carried.length} looks`);
+      assert.equal(new Set(carried).size, carried.length, 'never one look twice in a row of cards');
+      assert.ok(carried.every(look => deal.isLiveLook(look) && deal.LIVE_LOOKS.find(entry => entry.id === look).lanes.includes(lane)));
     }
   }
-  const which = new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(seed => deal.dealLooks('dark', seed, 4).map(Boolean).join()));
-  assert.equal(which.size, 2, 'the seed decides whether the first card or the second carries one');
+  const rows = new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(seed => deal.dealLooks('dark', seed, 4).join()));
+  assert.ok(rows.size >= 4, 'a new seed (Refresh) deals different looks on different cards');
   assert.deepEqual(deal.dealLooks('dark', 's', 4), deal.dealLooks('dark', 's', 4), 'the same song always gets the same deal');
 });
 
-test('calm, gospel and sad songs are never dealt a look', () => {
-  for (const lane of ['quiet', 'gospel']) assert.deepEqual(deal.dealLooks(lane, 'seed', 4), [null, null, null, null]);
+test('gospel songs are never dealt a look, and a calm song only the cold one', () => {
+  assert.deepEqual(deal.dealLooks('gospel', 'seed', 4), [null, null, null, null]);
+  for (const seed of ['a', 'b', 'c']) assert.deepEqual(deal.dealLooks('quiet', seed, 4).filter(Boolean), ['arctic']);
 });
 
 test('every look has a title and welcomes only real lanes', () => {
@@ -44,13 +46,15 @@ test('every look has a title and welcomes only real lanes', () => {
   assert.equal(new Set(deal.LIVE_LOOK_IDS).size, deal.LIVE_LOOK_IDS.length);
 });
 
-test('thermal reads dark as cold and light as hot, over the picture\'s own range', () => {
-  const dark = ramp.lookPixel('thermal', 10, 10, 10, [0.02, 0.9]);
-  const light = ramp.lookPixel('thermal', 250, 250, 250, [0.02, 0.9]);
+test('thermal reads cold shade as cold and warm skin as hot, over the picture\'s own range', () => {
+  const dark = ramp.lookPixel('thermal', 10, 10, 40, [0.25, 0.8]);
+  const light = ramp.lookPixel('thermal', 250, 220, 200, [0.25, 0.8]);
   assert.ok(dark[2] > dark[0] && dark[0] < 60, `cold is blue-ish: ${dark}`);
   assert.ok(light[0] > 240 && light[1] > 240, `hot is yellow-white: ${light}`);
   // A pale picture still shows the whole ramp: its own darkest part is as cold as a dark picture's.
   const palest = ramp.lookPixel('thermal', 200, 200, 200, [0.78, 0.98]);
+  assert.ok(ramp.heatSource(240, 190, 160) > ramp.heatSource(240, 240, 240), 'skin reads hotter than a white wall');
+  assert.ok(ramp.heatSource(40, 60, 120) < ramp.heatSource(120, 120, 120), 'blue shade reads colder than grey');
   assert.ok(palest[0] < 80, `the darkest part of a pale picture is cold: ${palest}`);
   // A flat picture is not blown up into noise.
   const a = ramp.lookPixel('thermal', 120, 120, 120, [0.47, 0.47]);
@@ -90,16 +94,18 @@ function profile(genre, sadness = 1, attitude = 'defiant') {
   };
 }
 
-test('a look rides on Our photography cards only, half of them, and never on calm or sad songs', () => {
+test('a look rides on Our photography cards only, a few different ones, and gospel gets none', () => {
   const club = pack.recommendRow('photography', profile('Techno'), 0);
   assert.equal(club.length, 4);
-  assert.equal(club.filter(slot => slot.look).length, 2);
+  const worn = club.filter(slot => slot.look).map(slot => slot.look);
+  assert.ok(worn.length >= 2 && worn.length <= 3 && new Set(worn).size === worn.length, 'different looks on different cards');
+  assert.notDeepEqual(pack.recommendRow('photography', profile('Techno'), 1).map(slot => slot.look), club.map(slot => slot.look), 'Refresh deals other looks');
   assert.ok(club.every(slot => !slot.look || deal.isLiveLook(slot.look)));
   for (const row of ['looks', 'riso', 'spray', 'pulise', 'dust']) {
     assert.ok(pack.recommendRow(row, profile('Techno'), 0).every(slot => !slot.look), `${row} has no look`);
   }
   const sad = pack.recommendRow('photography', profile('Pop', 3, 'sad'), 0);
-  assert.ok(sad.every(slot => !slot.look), 'a sad song gets the picture as it is');
+  assert.ok(sad.filter(slot => slot.look).every(slot => slot.look === 'arctic'), 'a sad song gets only the cold look');
   const ours = pack.recommendRow('photography', profile('Techno'), 0, [{ id: 'plate-1', cutout: true }]);
   assert.equal(ours.length, 4);
   const onPhoto = ours.filter(slot => slot.plateId);
