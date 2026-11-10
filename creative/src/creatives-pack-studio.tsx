@@ -15,7 +15,7 @@ import type { Uploads } from './use-uploads';
 import { useWindowOwn } from './use-window-own';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
-import { reportPackFeedback } from './pack-feedback';
+import { reportPackFeedback, reportRefresh } from './pack-feedback';
 import {
   PREVIEW_HEIGHT,
   PREVIEW_WIDTH,
@@ -333,6 +333,7 @@ export function CreativesPackStudio({
 
   function change(row: ShelfRow, next: Partial<RowControls>) {
     stopPlayback();
+    if (next.generation !== undefined) reportRefresh(token, profile, row, next.generation);
     setControls(current => ({ ...current, [row]: { ...current[row], ...next } }));
   }
 
@@ -355,7 +356,7 @@ export function CreativesPackStudio({
       thumb: cardThumbnail(card),
     };
     cart.add(item);
-    reportPackFeedback(token, profile, 'select', slot, { selectedIds: [...cart.items.map(held => held.id), slot.id], generation: item.generation });
+    reportPackFeedback(token, profile, 'select', slot, { selectedIds: [...cart.items.map(held => held.id), slot.id], generation: item.generation, ownPicture: item.uploadId !== null });
   }
 
   /** What a cart item is drawn from now: the person's own picture (if it is still there) or our photography. */
@@ -379,7 +380,7 @@ export function CreativesPackStudio({
     setPlayingId(id);
     if (playing) onStop();
     const slot = pack.find(item => item.id === id);
-    if (slot) reportPackFeedback(token, profile, 'play', slot, { generation: controls[slot.row].generation });
+    if (slot) reportPackFeedback(token, profile, 'play', slot, { generation: controls[slot.row].generation, ownPicture: Boolean(useOf(slot.row) && pictures[useOf(slot.row)!]) });
     onPlay();
   }
 
@@ -409,7 +410,7 @@ export function CreativesPackStudio({
           ...(item.uploadId ? { uploadId: item.uploadId } : {}),
           ...(item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
         }));
-        reportPackFeedback(token, profile, 'download', item.slot, { selectedIds: cart.items.map(held => held.id), generation: item.generation });
+        reportPackFeedback(token, profile, 'download', item.slot, { selectedIds: cart.items.map(held => held.id), generation: item.generation, ownPicture: item.uploadId !== null });
       }
       return ids;
     });

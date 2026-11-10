@@ -35,3 +35,7 @@ Still to do:
 - Send the sub-genre to the feedback log and the server.
 - Check on Neon that "change email" is switched on.
 - Update the old product-flow tests to the new nav, genre / sub-genre and account menu.
+
+## Brain feedback
+- Done: every play, select, download press and refresh is kept in `brain_feedback` (codes only), against the person when signed in; `nth_download` 1 is their first download (the free one).
+- To do: an admin page to read it (which attitudes and genres lead to which cards, what gets refreshed away); mark the free download properly once credits exist; log when a download actually finishes, not only when Download is pressed; use it to nudge the brain once there are enough real users.

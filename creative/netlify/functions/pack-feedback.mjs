@@ -1,29 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { validAccess } from '../lib/access.mjs';
+import { storeFeedback, validFeedback } from '../lib/feedback.mjs';
+import { personFrom, recordPerson } from '../lib/person.mjs';
 
 const SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const ORIGIN = 'https://mumoo-staging.netlify.app';
 const LIMIT = 4096;
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
-
-function validBody(v) {
-  if (!v || typeof v !== 'object' || v.version !== 1) return false;
-  if (!['play', 'select', 'download'].includes(v.event)) return false;
-  if (typeof v.clipSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(v.clipSha256)) return false;
-  if (v.language !== null && !(typeof v.language === 'string' && /^[a-z]{2,3}$/.test(v.language))) return false;
-  if (v.lyricAttitude !== null && !(typeof v.lyricAttitude === 'string' && /^[a-z]{3,16}$/.test(v.lyricAttitude))) return false;
-  if (v.lyricSadness !== null && !(Number.isInteger(v.lyricSadness) && v.lyricSadness >= 0 && v.lyricSadness <= 3)) return false;
-  if (v.lyricIntensity !== null && !(Number.isInteger(v.lyricIntensity) && v.lyricIntensity >= 1 && v.lyricIntensity <= 5)) return false;
-  if (v.lyricsOrigin !== null && !['transcribed', 'typed'].includes(v.lyricsOrigin)) return false;
-  if (typeof v.primaryGenre !== 'string' || !v.primaryGenre.trim() || v.primaryGenre.length > 80) return false;
-  if (v.vibe !== null && typeof v.vibe !== 'string') return false;
-  if (typeof v.lane !== 'string' || v.lane.length > 24) return false;
-  const s = v.slot;
-  if (!s || typeof s !== 'object' || typeof s.id !== 'string' || s.id.length > 120) return false;
-  if (typeof s.style !== 'string' || s.style.length > 40) return false;
-  if (typeof s.font !== 'string' || typeof s.fontSecondary !== 'string') return false;
-  return true;
-}
 
 async function processRequest(request) {
   if (process.env.SITE_ID !== SITE || new URL(request.url).origin !== ORIGIN) return reply(404, { error: 'Not available.' });
@@ -38,9 +21,14 @@ async function processRequest(request) {
   if (bytes.byteLength > LIMIT) return reply(413, { error: 'Request too large.' });
   let data;
   try { data = JSON.parse(new TextDecoder().decode(bytes)); } catch { return reply(400, { error: 'Invalid request.' }); }
-  if (!validBody(data)) return reply(400, { error: 'Invalid request.' });
+  if (!validFeedback(data)) return reply(400, { error: 'Invalid request.' });
 
-  // Learning signal for the brain: structured log now; optional upstream later.
+  // Kept for the brain to learn from (a row in brain_feedback), against the person when they are signed in.
+  const person = await personFrom(request);
+  if (person) await recordPerson(person).catch(() => undefined);
+  await storeFeedback(data, person?.id ?? null);
+
+  // The same signal as a structured log, and optionally sent upstream.
   console.info(JSON.stringify({
     event: 'pack_feedback',
     time: new Date().toISOString(),
@@ -54,10 +42,11 @@ async function processRequest(request) {
     primaryGenre: data.primaryGenre,
     vibe: data.vibe,
     lane: data.lane,
-    style: data.slot.style,
-    font: data.slot.font,
-    fontSecondary: data.slot.fontSecondary,
-    slotId: data.slot.id,
+    row: data.row,
+    style: data.slot?.style,
+    font: data.slot?.font,
+    fontSecondary: data.slot?.fontSecondary,
+    slotId: data.slot?.id,
     selectedIds: Array.isArray(data.selectedIds) ? data.selectedIds.slice(0, 32) : undefined,
     generation: data.generation,
   }));
