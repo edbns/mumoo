@@ -3,6 +3,11 @@
   command = "npm run build"
   publish = "dist"
 
+# ADMIN_EMAILS is a list of addresses, not a secret (moo@mumoo.app is also the sender of our emails, in netlify/lib/mail.mjs).
+# Without this, Netlify's secret scan finds the address in our own code and fails the build.
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "ADMIN_EMAILS"
+
 # The admin is its own page. It is never indexed, and the server (not the page) decides who may use it.
 [[redirects]]
   from = "/admin"
