@@ -53,6 +53,11 @@ export async function listUploads(): Promise<Upload[]> {
   return pictures(await accountFetch('/api/uploads'));
 }
 
+/** A new run starts clean: every picture goes except those in `keep` (the ones a cart still draws from). Resolves with what is left. */
+export async function clearUploads(keep: readonly string[]): Promise<Upload[]> {
+  return pictures(await accountFetch(`/api/uploads?except=${keep.map(encodeURIComponent).join(',')}`, { method: 'DELETE' }));
+}
+
 export async function removeUpload(id: string): Promise<Upload[]> {
   return pictures(await accountFetch(`/api/uploads?id=${encodeURIComponent(id)}`, { method: 'DELETE' }));
 }

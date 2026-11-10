@@ -64,3 +64,4 @@ npm test
 - The preview and the cloud render run the same Pixi renderer (`pack-renderer.ts`), so what you see is what is encoded.
 - The model reads the words in any language it knows (Qwen3 covers 119). Clips with too little text (chants, one phrase) read as neutral. Whisper sometimes mislabels the language of African-language chants; the meaning step is not misled by that, but the label is shown to the creator.
 - Inter Variable (UI and type) is bundled with its SIL OFL licence; display faces are bundled `@fontsource` fonts.
+- Every visit starts clean. Nothing of a run (song, genre, clip, lyrics, own pictures) survives a refresh; only the cart does, plus the own pictures it still draws from (kept so the cart can be downloaded; the rows never draw them in a new run). `forget-session.ts` removes what an older version left in the browser, and `DELETE /api/uploads?except=` clears the rest on load and on Start over.

@@ -1,6 +1,6 @@
 import { personFrom, recordPerson } from '../../lib/person.mjs';
 import { storageReady } from '../../lib/storage.mjs';
-import { entries, listUploads, MAX_PHOTO_BYTES, motionArrived, removeUpload, reserveMotion, saveUpload, USES } from '../../lib/uploads.mjs';
+import { entries, listUploads, MAX_PHOTO_BYTES, motionArrived, removeAllExcept, removeUpload, reserveMotion, saveUpload, USES } from '../../lib/uploads.mjs';
 
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -23,6 +23,7 @@ const pictures = async (status, userId) => reply(status, { uploads: await entrie
  *   POST   ?kind=motion JSON {use, type, bytes}: reserves room (Filters and Window only), returns {id, putUrl} to send the video or GIF to
  *   PUT    ?id=…        the video or GIF has been sent: start preparing it
  *   DELETE ?id=…        removes it and everything made from it
+ *   DELETE ?except=a,b  removes every picture but those (a new run starts clean; the ones a cart still uses stay). `except=` alone removes all.
  * Adding a picture is the person's confirmation that they own the rights to it; the time is kept with it.
  */
 export default async function handler(request) {
@@ -46,6 +47,12 @@ export default async function handler(request) {
     const result = await guarded(saveUpload(person.id, use, new Uint8Array(await request.arrayBuffer())), { failed: true });
     if (result.failed) return reply(502, { error: 'We could not start preparing that photo. Try again.' });
     return result.refused ? refuse(result.refused) : pictures(201, person.id);
+  }
+  if (request.method === 'DELETE' && params.has('except')) {
+    const keep = (params.get('except') ?? '').split(',').filter(Boolean);
+    if (keep.length > 100 || !keep.every(value => UUID.test(value))) return reply(400, { error: 'Invalid id.' });
+    await guarded(removeAllExcept(person.id, keep), 0);
+    return pictures(200, person.id);
   }
   const id = params.get('id') ?? '';
   if (!UUID.test(id)) return reply(400, { error: 'Invalid id.' });

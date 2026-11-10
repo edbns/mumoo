@@ -19,7 +19,7 @@ export function PictureUpload({ use, uploads, onChange }: {
   const [open, setOpen] = useState(false);
   const photo = photoOnly(use);
   const sending = uploads.sending?.use === use ? uploads.sending : null;
-  const preparing = (uploads.list ?? []).some(item => item.use === use && item.status === 'preparing');
+  const preparing = uploads.current.some(item => item.use === use && item.status === 'preparing');
   const problem = uploads.problem && (uploads.problem.use === use || uploads.problem.use === null) ? uploads.problem.message : '';
   const status = sending
     ? (sending.share === undefined ? 'Sending…' : sending.share < 1 ? `Sending ${Math.round(sending.share * 100)}%` : 'Starting…')

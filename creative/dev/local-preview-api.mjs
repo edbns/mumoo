@@ -144,7 +144,9 @@ export function localPreviewApi() {
       route('/api/invoices', 'GET', signedIn(async (_email, _request, response) => send(response, 200, { invoices: sampleInvoices() })));
       route('/api/uploads', 'GET', signedIn(async (_email, _request, response) => send(response, 200, { uploads })));
       route('/api/uploads', 'DELETE', signedIn(async (_email, request, response) => {
-        uploads = uploads.filter(item => item.id !== idOf(request));
+        const except = new URL(request.url, 'http://local').searchParams.get('except');
+        if (except !== null) uploads = uploads.filter(item => except.split(',').includes(item.id));
+        else uploads = uploads.filter(item => item.id !== idOf(request));
         send(response, 200, { uploads });
       }));
 

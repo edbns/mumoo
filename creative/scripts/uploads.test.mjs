@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { QUOTA_BYTES, usedBytes } from '../netlify/lib/allowance.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import { putObject, storageReady } from '../netlify/lib/storage.mjs';
-import { listUploads, removeUpload, reserveMotion, saveUpload, uploadMedia } from '../netlify/lib/uploads.mjs';
+import { listUploads, removeAllExcept, removeUpload, reserveMotion, saveUpload, uploadMedia } from '../netlify/lib/uploads.mjs';
 
 /** Live check of Cloudflare R2 + Postgres for people's own pictures. Needs .env.local; skipped without it. */
 const READY = storageReady() && Boolean(process.env.DATABASE_URL);
@@ -59,6 +59,29 @@ test('a Filter photo is ready at once, private to its owner, and removed with it
   assert.equal(await removeUpload(userId, id), true);
   assert.equal((await fetch(item.url)).status, 404, 'object is gone from storage');
   assert.equal(await usedBytes(userId), 0);
+}));
+
+test('a new run clears every picture but the ones a cart still uses, and never touches anyone else', { skip: !READY, timeout: 90000 }, () => withPerson(async (_sql, userId) => {
+  await withWorker(() => ({ ok: true, bytes: { cutout: 500 } }), async () => {
+    const stranger = `test-${randomUUID()}`;
+    await _sql`insert into app_users (id, email) values (${stranger}, ${`${stranger}@example.com`})`;
+    try {
+      const filter = await saveUpload(userId, 'filter', jpeg(2048));
+      const riso = await saveUpload(userId, 'riso', jpeg(1000));
+      const dust = await saveUpload(userId, 'dust', jpeg(1200));
+      const theirs = await saveUpload(stranger, 'filter', jpeg(512));
+      const [shown] = (await listUploads(userId)).filter(row => row.id === riso.id);
+      assert.equal(await removeAllExcept(userId, [filter.id, dust.id]), 1);
+      assert.deepEqual((await listUploads(userId)).map(row => row.id).sort(), [dust.id, filter.id].sort());
+      assert.equal((await fetch(shown.url)).status, 404, 'the removed picture is gone from storage');
+      assert.equal((await listUploads(stranger)).length, 1, 'another person keeps theirs');
+      assert.equal(await removeAllExcept(userId, []), 2, 'nothing kept removes the rest');
+      assert.deepEqual(await listUploads(userId), []);
+      assert.equal(await removeUpload(stranger, theirs.id), true);
+    } finally {
+      await _sql`delete from app_users where id = ${stranger}`;
+    }
+  });
 }));
 
 test('a new Filter picture replaces the old one at once, rows and files', { skip: !READY, timeout: 60000 }, () => withPerson(async (sql, userId) => {

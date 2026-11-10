@@ -191,6 +191,13 @@ export async function uploadMedia(userId, id) {
   return { use: row.use, photo: await getObject(KEYS.still(userId, id)) };
 }
 
+/** Removes all of a person's pictures except those in `keep` (the ones their cart still draws from), and every file made from them. Returns how many went. */
+export async function removeAllExcept(userId, keep) {
+  const rows = await db()`select id from uploads where user_id = ${userId} and id::text <> all (${keep})`;
+  const gone = await Promise.all(rows.map(row => removeUpload(userId, row.id)));
+  return gone.filter(Boolean).length;
+}
+
 /** Removes the picture and every file made from it. */
 export async function removeUpload(userId, id) {
   const [row] = await db()`delete from uploads where id = ${id} and user_id = ${userId} returning id`;

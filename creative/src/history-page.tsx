@@ -141,7 +141,7 @@ export default function HistoryPage({ tab }: { tab: ProfileTab }) {
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
 
     {items?.length === 0 && <p className="m-0 py-24 text-center text-sm text-muted-foreground">
-      {tab === 'creatives' ? 'Creatives you download while signed in are kept here.' : 'The photos, videos and GIFs you add for your creatives are kept here, private to you.'}
+      {tab === 'creatives' ? 'Creatives you download while signed in are kept here.' : 'Each visit starts clean. Only the photos, videos and GIFs your cart still uses are kept here, private to you.'}
     </p>}
 
     {items && items.length > 0 && <div className="sticky top-4 z-10 flex min-h-12 items-center justify-between gap-3 rounded-full bg-background/80 px-5 py-1.5 backdrop-blur-md">

@@ -15,7 +15,7 @@ import { useCart, songKeyOf } from './cart';
 import { CartButton, CartPanel, DownloadNotice, type CartAction, type CartLine } from './cart-panel';
 import { useCartDownload } from './use-cart-download';
 import { useUploads } from './use-uploads';
-import { SESSION_KEY, clearSong, loadSong, readSession, saveSong, writeSession, type Session } from './session';
+import { forgetSession } from './forget-session';
 import type { LyricWord } from './lyrics-cloud';
 import { StagingAccess } from './staging-access';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
@@ -55,14 +55,10 @@ function App() {
   const [stage, setStage] = useState<'analyzing' | 'prepared' | 'revealed'>('analyzing');
   const [paint, setPaint] = useState<PaintProgress | null>(null);
   const [step, setStep] = useState<1 | 2>(1);
-  // A saved session is put back before anything is shown, so a refresh never flashes the first page.
-  const [restoring, setRestoring] = useState(() => readSession(localStorage.getItem(SESSION_KEY)) !== null);
-  const [restoreNote, setRestoreNote] = useState('');
+  // Nothing is kept between visits except the cart: a refresh starts over, so what an earlier version left in this browser goes.
+  useEffect(() => { forgetSession(); }, []);
   // The account pages are fetched in the background, so opening one never waits on a blank moment.
   useEffect(() => { void loadProfilePage(); }, []);
-  /** True once the song file is safe in this browser, which is what makes a refresh resumable. */
-  const [kept, setKept] = useState(false);
-  const [keepFailed, setKeepFailed] = useState(false);
   const [songName, setSongName] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const downloadRef = useRef<(() => void) | null>(null);
@@ -147,17 +143,8 @@ function App() {
     setPlaying(false);
   }
 
-  /** Starts over from the state left behind by a failed or abandoned restore: the saved session is gone and the person is told why. */
-  function startFresh(reason: string) {
-    localStorage.removeItem(SESSION_KEY);
-    void clearSong().catch(() => undefined);
-    setKept(false);
-    setRestoreNote(`We could not restore your last session (${reason}). Choose your song again to start fresh.`);
-    setRestoring(false);
-  }
-
-  /** Opens a song: the one the person just picked, or (with `resume`) the saved one, through the same steps. */
-  async function choose(file?: File, resume?: Session) {
+  /** Opens the song the person just picked, or (with none) clears the page. */
+  async function choose(file?: File) {
     const request = ++upload.current;
     const previousClip = currentClip.current;
     currentClip.current = null;
@@ -172,16 +159,10 @@ function App() {
     setLyricsState({ busy: false, dirty: false });
     setLyricsInfo({ origin: 'transcribed' });
     setLoading(Boolean(file));
-    setKept(false);
-    setKeepFailed(false);
-    setRestoreNote('');
     seekTo(0);
     setError('');
-    // A restore keeps what was saved until it has worked; a new song or an empty choice ends the old session.
-    if (!resume) localStorage.removeItem(SESSION_KEY);
     if (!file) {
       setMusicAnalysis(NO_ANALYSIS);
-      void clearSong().catch(() => undefined);
       return;
     }
     try {
@@ -194,70 +175,25 @@ function App() {
       const cover = await describeCover(readSongCover(bytes, format));
       const audio = await decodeAudio(bytes, probedMs);
       validate({ ...INITIAL, sourceSha256 }, audio.duration * 1000);
-      if (resume) {
-        if (resume.sourceSha256 !== sourceSha256) throw new Error('the saved song is not the one you were working on');
-        validate({ sourceSha256, clipStartMs: resume.clipStartMs, cues: cuesOf(resume.words) }, audio.duration * 1000);
-      }
       if (request !== upload.current) return;
-      const nextClip: ClipIdentity = { sourceSha256, offsetMs: resume?.clipStartMs ?? 0, durationMs: DURATION_MS };
-      const unchanged = !resume && sameClip(previousClip, nextClip);
+      const nextClip: ClipIdentity = { sourceSha256, offsetMs: 0, durationMs: DURATION_MS };
+      const unchanged = sameClip(previousClip, nextClip);
       if (!unchanged) setMusicAnalysis(NO_ANALYSIS);
-      setComposition(current => resume
-        ? { sourceSha256, clipStartMs: resume.clipStartMs, cues: cuesOf(resume.words) }
-        : { ...current, sourceSha256, clipStartMs: 0, cues: unchanged ? current.cues : [] });
-      setLyricWords(current => resume ? resume.words : unchanged ? current : []);
+      setComposition(current => ({ ...current, sourceSha256, clipStartMs: 0, cues: unchanged ? current.cues : [] }));
+      setLyricWords(current => unchanged ? current : []);
       currentClip.current = nextClip;
       setBuffer(audio);
       setSongTags(tags);
       setSongCover(cover);
-      if (resume) {
-        const resumedGenre = findGenre(resume.genre);
-        const genreOk = Boolean(findSubGenre(resumedGenre, resume.subGenre));
-        setGenre(resume.genre);
-        setSubGenre(resume.subGenre);
-        setLyricsInfo({ origin: resume.lyricsOrigin, ...(resume.lyricsLanguage && { language: resume.lyricsLanguage }) });
-        setStep(genreOk ? resume.step : 1);
-        setInCreatives(genreOk && resume.inCreatives);
-        setKept(true);
-      } else {
-        saveSong(file).then(
-          () => { if (request === upload.current) setKept(true); },
-          () => { if (request === upload.current) setKeepFailed(true); },
-        );
-      }
     } catch (cause) {
       if (request === upload.current) {
         setMusicAnalysis(NO_ANALYSIS);
-        if (resume) startFresh((cause as Error).message);
-        else setError((cause as Error).message);
+        setError((cause as Error).message);
       }
     } finally {
-      if (request === upload.current) { setLoading(false); setRestoring(false); }
+      if (request === upload.current) setLoading(false);
     }
   }
-
-  // After a refresh the saved session is opened again, through `choose`, before anything is shown.
-  useEffect(() => {
-    const session = readSession(localStorage.getItem(SESSION_KEY));
-    if (!session) return;
-    loadSong().then(song => {
-      if (song) return choose(song, session);
-      startFresh('this browser no longer has your song');
-    }, (cause: Error) => startFresh(cause.message));
-  }, []);
-
-  // What the person has done so far is kept as it changes; only what a restore needs, and only once the song itself is kept.
-  useEffect(() => {
-    if (!kept) return;
-    try {
-      localStorage.setItem(SESSION_KEY, writeSession({
-        sourceSha256: composition.sourceSha256, genre, subGenre, step, clipStartMs: composition.clipStartMs,
-        words: lyricWords, lyricsOrigin: lyricsInfo.origin, ...(lyricsInfo.language && { lyricsLanguage: lyricsInfo.language }), inCreatives,
-      }));
-    } catch {
-      setKeepFailed(true);
-    }
-  }, [kept, genre, subGenre, step, composition, lyricWords, lyricsInfo, inCreatives]);
 
   /** A sub-genre belongs to one genre, so changing the genre clears it. */
   function chooseGenre(value: string) {
@@ -266,8 +202,9 @@ function App() {
   }
 
   function startOver() {
-    if (!window.confirm('Start over with another song? Your song and lyrics are cleared from this browser. Your cart is kept.')) return;
+    if (!window.confirm('Start over with another song? Your song, lyrics and pictures are cleared. Your cart is kept.')) return;
     void choose(undefined);
+    void uploads.clear();
     setGenre('');
     setSubGenre('');
     setComposition(INITIAL);
@@ -390,21 +327,15 @@ function App() {
     {page !== 'create' && <Suspense fallback={null}><ProfilePage page={page} tab={profileTab} /></Suspense>}
     {/* The work stays exactly as it was while a page of the account is open: hidden, but still laid out, so its drawings are not cleared and redrawn. */}
     <div className={page === 'create' ? 'contents' : 'invisible fixed inset-0 overflow-hidden'} inert={page !== 'create'}>
-    {restoring ? <main className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
-      <span className="spinner" aria-hidden="true" />
-      <p role="status" className="m-0 text-sm text-muted-foreground">Restoring your session…</p>
-    </main>
-    : !inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center' : 'desktop trim'}>
+    {!inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center' : 'desktop trim'}>
       <section>
         <p className="eyebrow mb-6">0{step} / {step === 1 ? 'MUSIC' : 'YOUR CLIP'}</p>
         {step === 2 && <h1>Choose your 15 seconds</h1>}
         {step === 1 && <>
-        {restoreNote && <p role="alert">{restoreNote}</p>}
         <div className="grid gap-5 md:grid-cols-2">
           <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-background p-5">
             <FileDropzone accept={ACCEPTED_AUDIO} icon={Music2Icon} title="Drop your song here" hint={ACCEPTED_LABEL} buttonLabel="Select song" inputLabel="Song file" removeLabel="Remove song" fileName={songName || undefined}
               onSelect={file => void choose(file)} onRemove={() => void choose(undefined)} />
-            {keepFailed && <p className="hint">This browser cannot keep your work between visits, so refreshing the page would start over.</p>}
             {!loading && !buffer && <p className="hint">Choose a song at least 15 seconds long ({ACCEPTED_LABEL}) to continue.</p>}
           </div>
           <div className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-background p-5">

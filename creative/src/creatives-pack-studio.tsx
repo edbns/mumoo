@@ -147,7 +147,7 @@ export function CreativesPackStudio({
   // The picture each own-picture row draws from: the person's own, once it is ready (a new one replaces it), else ours.
   // Links are renewed from time to time, so rows are keyed by id, not link.
   const useOf = (row: ShelfRow) => SHELF_ROWS.find(def => def.id === row)?.upload;
-  const ownPicture = (use: PictureUse) => (uploads.list ?? []).find(item => item.use === use && item.status === 'ready' && item.url) ?? null;
+  const ownPicture = (use: PictureUse) => uploads.current.find(item => item.use === use && item.status === 'ready' && item.url) ?? null;
   const pictures: Record<PictureUse, Upload | null> = { dust: ownPicture('dust'), riso: ownPicture('riso'), filter: ownPicture('filter'), window: ownPicture('window') };
   const windowOwn = useWindowOwn(pictures.window);
   // Our approved library fills Our photography until the person uses their own picture there.
