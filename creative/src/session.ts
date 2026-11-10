@@ -7,7 +7,7 @@ import type { LyricWord } from './lyrics-cloud';
  * Nothing here is sent anywhere.
  */
 export const SESSION_KEY = 'mumoo-session';
-const VERSION = 1;
+const VERSION = 2;
 const DB_NAME = 'mumoo';
 const STORE = 'song';
 const SONG = 'current';
@@ -15,7 +15,7 @@ const SONG = 'current';
 export type Session = {
   sourceSha256: string;
   genre: string;
-  influence: string;
+  subGenre: string;
   step: 1 | 2;
   clipStartMs: number;
   /** The timed lyrics of the clip, with their line breaks, exactly as the lyrics editor shows them. */
@@ -46,7 +46,7 @@ export function readSession(raw: string | null): Session | null {
   } catch {
     return null;
   }
-  if (stored?.version !== VERSION || typeof stored.genre !== 'string' || typeof stored.influence !== 'string' || stored.influence.length > 100
+  if (stored?.version !== VERSION || typeof stored.genre !== 'string' || typeof stored.subGenre !== 'string' || stored.subGenre.length > 100
       || (stored.step !== 1 && stored.step !== 2) || typeof stored.inCreatives !== 'boolean'
       || (stored.lyricsOrigin !== 'transcribed' && stored.lyricsOrigin !== 'typed')
       || (stored.lyricsLanguage !== undefined && typeof stored.lyricsLanguage !== 'string')

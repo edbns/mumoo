@@ -18,7 +18,10 @@ const out = `${fixtures}gallery/`;
 if (!canRunBrowserTests) throw new Error('Run with MUMOO_HEADED=1 on macOS (needs the local Brave browser).');
 
 /** The genre a creator would pick from the dropdown for each kind of song. */
-const genreFor = key => (/house/.test(key) ? 'House' : /techno/.test(key) ? 'Techno' : /reggaeton|latin/.test(key) ? 'Latin' : 'Other / Not sure');
+const genreFor = key => (/house/.test(key) ? { genre: 'Electronic & Dance (EDM)', subGenre: 'House' }
+  : /techno/.test(key) ? { genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' }
+  : /reggaeton|latin/.test(key) ? { genre: 'Latin & Urbano', subGenre: 'Reggaeton' }
+  : { genre: 'Pop', subGenre: 'General Pop' });
 
 const keys = process.argv.length > 2
   ? process.argv.slice(2)
@@ -34,14 +37,14 @@ for (const key of keys) {
   });
   const { page } = product;
   try {
-    await uploadSong(page, { genre: genreFor(key), file: { name: `${key}.wav`, mimeType: 'audio/wav', buffer: readFileSync(`${analysis}${key}-upload.wav`) } });
+    await uploadSong(page, { ...genreFor(key), file: { name: `${key}.wav`, mimeType: 'audio/wav', buffer: readFileSync(`${analysis}${key}-upload.wav`) } });
     await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
     await page.locator('.lyrics-editor').waitFor({ timeout: 30000 });
-    await page.locator('.step-actions .primary-accent').click();
+    await page.locator('.step-actions').getByRole('button', { name: 'Continue' }).click();
     await page.getByText('Reading what your lyrics say').waitFor({ state: 'detached', timeout: 30000 });
     await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length === 12 && !document.querySelector('.creatives-pack-card.pending'), null, { timeout: 30000 });
     await page.waitForTimeout(2500); // previews are painted asynchronously
     await page.locator('.gallery-shell').screenshot({ path: `${out}${key}.png` });
-    console.log(`${key}: ${genreFor(key)}, lyrics ${reading.attitude}/${reading.sadness}/${reading.intensity} → ${out}${key}.png${product.errors.length ? ` (page errors: ${product.errors})` : ''}`);
+    console.log(`${key}: ${genreFor(key).subGenre}, lyrics ${reading.attitude}/${reading.sadness}/${reading.intensity} → ${out}${key}.png${product.errors.length ? ` (page errors: ${product.errors})` : ''}`);
   } finally { await product.close(); }
 }

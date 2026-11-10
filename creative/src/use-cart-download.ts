@@ -11,7 +11,7 @@ export type DownloadMessage = { kind: 'ready' | 'error'; text: string };
 const ASKED_KEY = 'mumoo-notify-asked';
 
 /** True while we still want to ask for permission to notify: asked once, never again, and never when the browser already decided. */
-export function shouldAskToNotify(): boolean {
+function shouldAskToNotify(): boolean {
   return 'Notification' in window && Notification.permission === 'default' && !localStorage.getItem(ASKED_KEY);
 }
 

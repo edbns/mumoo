@@ -28,7 +28,7 @@ test('song → clip + lyrics → edit and sync again → creatives', { timeout: 
     await page.getByLabel('Choose your 15 seconds').press('ArrowLeft');
 
     // Continue is locked until lyrics exist and are synced.
-    const next = page.locator('.step-actions .primary-accent');
+    const next = page.locator('.step-actions').getByRole('button', { name: 'Continue' });
     assert.equal(await next.isDisabled(), true);
 
     // Find the lyrics: the worker is asked to transcribe (no lines), language auto.
@@ -90,7 +90,7 @@ test('the cover inside the uploaded file steers which backgrounds lead', { timeo
       await uploadSong(page, { file: songMp3WithCover(color) });
       await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
       await page.locator('.lyrics-editor').waitFor({ timeout: 30000 });
-      await page.locator('.step-actions .primary-accent').click();
+      await page.locator('.step-actions').getByRole('button', { name: 'Continue' }).click();
       await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length === 12 && !document.querySelector('.creatives-pack-card.pending'), null, { timeout: 30000 });
       assert.deepEqual(product.errors, []);
       await page.waitForTimeout(2500); // previews are painted asynchronously
@@ -119,7 +119,7 @@ test('what the lyrics mean greys and cools the previews of the same song', { tim
       await uploadSong(page, { file: songMp3WithCover('0xe1782a') });
       await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
       await page.locator('.lyrics-editor').waitFor({ timeout: 30000 });
-      await page.locator('.step-actions .primary-accent').click();
+      await page.locator('.step-actions').getByRole('button', { name: 'Continue' }).click();
       await page.getByRole('heading', { name: /recommended creatives/ }).waitFor({ timeout: 30000 });
       await page.getByText('Reading what your lyrics say').waitFor({ state: 'detached', timeout: 30000 });
       await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length === 12 && !document.querySelector('.creatives-pack-card.pending'), null, { timeout: 30000 });

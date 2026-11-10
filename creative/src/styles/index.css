@@ -1,0 +1,13 @@
+/* Layer order: Tailwind's own layers, then the pages not yet redesigned (`legacy`), then components and utilities.
+   A utility class therefore always beats an old rule, so a page can be redesigned one at a time. */
+@layer theme, base, legacy, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+@import "./theme.css";
+@import "./app.css";
+@import "./shell.css";
+@import "./image-generation.css";
+@import "./legacy.css" layer(legacy);

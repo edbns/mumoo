@@ -100,10 +100,12 @@ export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = []
 }
 
 /** Step 1: song + genre, then Continue. */
-export async function uploadSong(page, { genre = 'Pop', seconds = 20, name = 'song.wav', file } = {}) {
+export async function uploadSong(page, { genre = 'Pop', subGenre = 'General Pop', seconds = 20, name = 'song.wav', file } = {}) {
   await page.locator('input[type=file]').setInputFiles(file ?? { name, mimeType: 'audio/wav', buffer: songWav(seconds) });
-  await page.getByLabel('Primary genre').fill(genre);
-  await page.getByText('Staging access enabled.').waitFor({ timeout: 15000 });
+  await page.getByLabel('Genre', { exact: true }).click();
+  await page.getByRole('option', { name: genre, exact: true }).click();
+  await page.getByLabel('Sub-genre').click();
+  await page.getByRole('option', { name: subGenre, exact: true }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByRole('heading', { name: 'Choose your 15 seconds' }).waitFor();
 }

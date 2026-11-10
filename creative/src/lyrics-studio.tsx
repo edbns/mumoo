@@ -4,8 +4,12 @@ import {
   runLyricsJob, wordsToText, type LyricWord, type LyricsResult,
 } from './lyrics-cloud';
 import { tokenizeLyrics } from './lyric-text';
+import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
 
 type Phase = 'start' | 'working' | 'edit';
+
+const LANGUAGE_OPTIONS = LYRIC_LANGUAGES.map(([code, name]) => ({ value: code, label: name }));
 
 const clock = (ms: number) => `0:${String(Math.floor(Math.max(0, ms) / 1000)).padStart(2, '0')}`;
 
@@ -133,33 +137,32 @@ export function LyricsStudio({
 
   const lines = useMemo(() => groupLines(words), [words]);
   const active = words.reduce((found, word, i) => (position >= word.startMs && position < word.endMs + 300 ? i : found), -1);
-  const languageSelect = <label className="lang-pick">Language
-    <select value={language} onChange={event => setLanguage(event.target.value)}>
-      <option value="auto">Detect automatically</option>
-      {LYRIC_LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
-    </select>
-  </label>;
+  /** Nothing chosen means the language is detected from the audio. */
+  const languageSelect = (hideLabel: boolean) => <Combobox hideLabel={hideLabel} label="Language" className="w-56" placeholder="Auto detect language"
+    options={LANGUAGE_OPTIONS} value={language === 'auto' ? '' : language} onValueChange={code => setLanguage(code || 'auto')} />;
 
   return <section className="lyrics-panel" aria-labelledby="lyrics-title">
-    <div className="lyrics-head">
+    <div className="lyrics-head mb-6 gap-4">
       <h2 id="lyrics-title">Lyrics</h2>
+      {phase === 'start' && languageSelect(true)}
       {detected?.language && phase === 'edit' && <span className="lang-chip">{languageName(detected.language)}</span>}
     </div>
 
-    {phase === 'start' && <div className="lyrics-start">
-      <p>We listen to your 15 seconds and write out the words, in any language.</p>
-      <div className="lyrics-actions">
-        <button className="primary-accent" onClick={() => void start('transcribe')}>Find the lyrics for me</button>
-        <button className="link-button" onClick={() => setPasting(open => !open)} aria-expanded={pasting}>I'll type them myself</button>
+    {phase === 'start' && <div className="lyrics-start flex flex-col items-center gap-5 text-center">
+      <p className="m-0 max-w-sm">We listen to your 15 seconds and write out the words, in any language.</p>
+      <div className="flex flex-wrap justify-center gap-3">
+        <Button onClick={() => void start('transcribe')}>Find the lyrics for me</Button>
+        <Button variant="secondary" onClick={() => setPasting(open => !open)} aria-expanded={pasting}>I'll type them myself</Button>
       </div>
-      {languageSelect}
-      {pasting && <>
+      {pasting && <div className="flex w-full flex-col gap-3 text-left">
         <label>The words sung in these 15 seconds
           <textarea className="lyrics-editor" rows={5} value={text} placeholder={'One line per sung line'}
             onChange={event => { setText(event.target.value); setError(''); }} />
         </label>
-        <button disabled={!text.trim()} onClick={() => void start('sync')}>Sync my lyrics</button>
-      </>}
+        <div className="flex justify-end">
+          <Button disabled={!text.trim()} onClick={() => void start('sync')}>Sync my lyrics</Button>
+        </div>
+      </div>}
     </div>}
 
     {phase === 'working' && <div className="lyrics-working" role="status">
@@ -182,7 +185,7 @@ export function LyricsStudio({
       <details className="lyrics-more">
         <summary>Wrong language?</summary>
         <div className="lyrics-more-body">
-          {languageSelect}
+          {languageSelect(false)}
           <button className="secondary" onClick={() => void start('transcribe')}>Listen again (replaces your edits)</button>
         </div>
       </details>

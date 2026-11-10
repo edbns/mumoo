@@ -84,7 +84,8 @@ export interface CreativeProfileV1 {
   clip: ClipIdentity;
   creator: {
     primaryGenre: { value: string; source: 'creator' };
-    influence?: { value: string; source: 'creator' };
+    /** The sub-genre inside the genre, as the creator chose it. */
+    subGenre?: { value: string; source: 'creator' };
     title?: { value: string; source: 'embedded_metadata' | 'creator' };
     artist?: { value: string; source: 'embedded_metadata' | 'creator' };
     /** What the cover art inside the uploaded file looks like (numbers only; the picture is never kept). */

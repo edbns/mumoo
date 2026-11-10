@@ -1,9 +1,11 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { Music2Icon } from 'lucide-react';
 import { decodeAudio, hashAudio, probeDurationMs } from './audio';
 import { ACCEPTED_AUDIO, ACCEPTED_LABEL, readSongCover, readSongTags, sniffAudioFormat, type SongTags } from './audio-format';
 import { describeCover, type CoverRead } from './cover-palette';
 import { DURATION_MS, validate, type Composition } from './composition';
+import { findGenre, findSubGenre, GENRES, toOptions } from './genres';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { MusicAnalysisRunner } from './music-analysis-runner';
 import { useLyricMeaning } from './lyric-meaning-cloud';
@@ -18,50 +20,61 @@ import type { LyricWord } from './lyrics-cloud';
 import { StagingAccess } from './staging-access';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 import { LyricsStudio } from './lyrics-studio';
-import { Waveform } from './waveform';
-import './style.css';
+import { Combobox } from '@/components/ui/combobox';
+import { Button } from '@/components/ui/button';
+import { FileDropzone } from '@/components/ui/file-dropzone';
+import { AnalyzingScreen, type PaintProgress } from './analyzing-screen';
+import { StepNav, type StepNumber } from './step-nav';
+import { ArrowLeftIcon } from 'lucide-react';
+import type { AccountPage } from './account-pages';
+import { ProfileNav, type ProfileTab } from './profile-nav';
+import { ClipPicker } from './clip-picker';
+import './styles/index.css';
 
 // Sign-in pulls in the auth client; it loads beside the page instead of in front of it.
 const AccountBar = lazy(() => import('./account').then(module => ({ default: module.AccountBar })));
+const loadProfilePage = () => import('./profile-page');
+const ProfilePage = lazy(loadProfilePage);
 
 /** How long the window must rest before the music inside it plays. */
 const AUDITION_PAUSE_MS = 200;
 const INITIAL: Composition = { sourceSha256: '', clipStartMs: 0, cues: [] };
 
 
-const GENRES = [
-  'Acoustic / Singer-songwriter', 'Alternative Rock', 'Ambient', 'Blues', 'Chill-out', 'Christian', 'Classical', 'Country',
-  'Dance', 'Drum and Bass', 'EDM', 'Electronic', 'Emo', 'Funk', 'Hardcore Punk', 'House', 'Indie Folk', 'Indie Pop',
-  'Indie Rock', 'Jazz', 'Latin', 'Lo-fi', 'Metal', 'Metalcore', 'Pop', 'Pop Punk', 'Punk Rock', 'R&B',
-  'Rap / Hip-hop', 'Reggae', 'Rock', 'Techno', 'Trap', 'World', 'Other / Not sure',
-];
+const GENRE_OPTIONS = toOptions(GENRES.map(group => group.name));
 
 const cuesOf = (words: readonly LyricWord[]) => words.map(({ text, startMs, endMs }) => ({ text, startMs, endMs }));
-
-const clock = (ms: number) => `${Math.floor(ms / 60_000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 
 function App() {
   const [accessToken, setAccessToken] = useState('');
   const [inCreatives, setInCreatives] = useState(false);
+  /** The page being shown: making creatives, or a page of the person's account (the work underneath is kept as it was). */
+  const [page, setPage] = useState<AccountPage>('create');
+  const [profileTab, setProfileTab] = useState<ProfileTab>('creatives');
+  /** The creatives are shown only after the song is analysed and every poster is painted. */
+  const [stage, setStage] = useState<'analyzing' | 'prepared' | 'revealed'>('analyzing');
+  const [paint, setPaint] = useState<PaintProgress | null>(null);
   const [step, setStep] = useState<1 | 2>(1);
   // A saved session is put back before anything is shown, so a refresh never flashes the first page.
   const [restoring, setRestoring] = useState(() => readSession(localStorage.getItem(SESSION_KEY)) !== null);
   const [restoreNote, setRestoreNote] = useState('');
+  // The account pages are fetched in the background, so opening one never waits on a blank moment.
+  useEffect(() => { void loadProfilePage(); }, []);
   /** True once the song file is safe in this browser, which is what makes a refresh resumable. */
   const [kept, setKept] = useState(false);
   const [keepFailed, setKeepFailed] = useState(false);
   const [songName, setSongName] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
   const downloadRef = useRef<(() => void) | null>(null);
   const [genre, setGenre] = useState('');
-  const [influence, setInfluence] = useState('');
+  const [subGenre, setSubGenre] = useState('');
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
   const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
   const currentClip = useRef<ClipIdentity | null>(null);
-  const selectedGenre = GENRES.find(item => item.toLowerCase() === genre.trim().toLowerCase());
-  const genreValid = Boolean(selectedGenre);
+  const selectedGenre = findGenre(genre);
+  const selectedSubGenre = findSubGenre(selectedGenre, subGenre);
+  const genreValid = Boolean(selectedSubGenre);
   const [songTags, setSongTags] = useState<SongTags>();
   const [songCover, setSongCover] = useState<CoverRead | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer>();
@@ -104,8 +117,8 @@ function App() {
     version: 1,
     clip,
     creator: {
-      primaryGenre: { value: selectedGenre!, source: 'creator' },
-      ...(influence.trim() && { influence: { value: influence.trim(), source: 'creator' as const } }),
+      primaryGenre: { value: selectedGenre!.name, source: 'creator' },
+      subGenre: { value: selectedSubGenre!, source: 'creator' },
       ...(songTags?.title && { title: { value: songTags.title, source: 'embedded_metadata' as const } }),
       ...(songTags?.artist && { artist: { value: songTags.artist, source: 'embedded_metadata' as const } }),
       ...(songCover && { cover: { value: songCover, source: 'embedded_metadata' as const } }),
@@ -114,6 +127,7 @@ function App() {
     ...(lyricMeaning && { lyricMeaning }),
     ...(inCreatives && { approvedLyrics: { cues: composition.cues, source: 'creator_reviewed' as const, ...lyricsInfo } }),
   } : null;
+  const analysisSettled = profile !== null && profile.musicAnalysis.status !== 'pending' && profile.lyricMeaning?.status !== 'pending';
   const valid = (() => {
     if (!buffer) return false;
     try {
@@ -197,9 +211,10 @@ function App() {
       setSongTags(tags);
       setSongCover(cover);
       if (resume) {
-        const genreOk = GENRES.some(item => item.toLowerCase() === resume.genre.trim().toLowerCase());
+        const resumedGenre = findGenre(resume.genre);
+        const genreOk = Boolean(findSubGenre(resumedGenre, resume.subGenre));
         setGenre(resume.genre);
-        setInfluence(resume.influence);
+        setSubGenre(resume.subGenre);
         setLyricsInfo({ origin: resume.lyricsOrigin, ...(resume.lyricsLanguage && { language: resume.lyricsLanguage }) });
         setStep(genreOk ? resume.step : 1);
         setInCreatives(genreOk && resume.inCreatives);
@@ -236,23 +251,28 @@ function App() {
     if (!kept) return;
     try {
       localStorage.setItem(SESSION_KEY, writeSession({
-        sourceSha256: composition.sourceSha256, genre, influence, step, clipStartMs: composition.clipStartMs,
+        sourceSha256: composition.sourceSha256, genre, subGenre, step, clipStartMs: composition.clipStartMs,
         words: lyricWords, lyricsOrigin: lyricsInfo.origin, ...(lyricsInfo.language && { lyricsLanguage: lyricsInfo.language }), inCreatives,
       }));
     } catch {
       setKeepFailed(true);
     }
-  }, [kept, genre, influence, step, composition, lyricWords, lyricsInfo, inCreatives]);
+  }, [kept, genre, subGenre, step, composition, lyricWords, lyricsInfo, inCreatives]);
+
+  /** A sub-genre belongs to one genre, so changing the genre clears it. */
+  function chooseGenre(value: string) {
+    if (findGenre(value)?.name !== selectedGenre?.name) setSubGenre('');
+    setGenre(value);
+  }
 
   function startOver() {
     if (!window.confirm('Start over with another song? Your song and lyrics are cleared from this browser. Your cart is kept.')) return;
     void choose(undefined);
     setGenre('');
-    setInfluence('');
+    setSubGenre('');
     setComposition(INITIAL);
     setLyricWords([]);
     setCartOpen(false);
-    if (fileInput.current) fileInput.current.value = '';
   }
 
   async function play(fromStart = false) {
@@ -311,7 +331,17 @@ function App() {
   function openCreatives(open: boolean) {
     stop();
     seekTo(0);
+    setStage('analyzing');
+    setPaint(null);
     setInCreatives(open);
+  }
+
+  const currentStep: StepNumber = inCreatives ? (stage === 'revealed' ? 4 : 3) : step;
+  /** The notch only goes back: each step before this one is already done. */
+  function goToStep(target: StepNumber) {
+    if (target >= currentStep) return;
+    if (inCreatives) openCreatives(false); else stop();
+    if (target === 1) setStep(1);
   }
 
   const canContinue = valid && clipValid && genreValid && composition.cues.length > 0 && !lyricsState.busy && !lyricsState.dirty;
@@ -328,7 +358,7 @@ function App() {
       if (canContinue) return { kind: 'go', run: () => { setCartOpen(false); openCreatives(true); } };
       return {
         kind: 'blocked',
-        reason: !genreValid ? 'Choose your genre to reach your creatives.'
+        reason: !genreValid ? 'Choose your genre and sub-genre to reach your creatives.'
           : composition.cues.length === 0 ? 'Add and sync your lyrics to reach your creatives.'
           : 'Finish syncing your lyrics to reach your creatives.',
       };
@@ -341,42 +371,55 @@ function App() {
   })();
 
   return <>
-    <header className="masthead"><img src="/brand/mumoo-logo.png" alt="mumoo" width="144" height="36" /><span>Creative Studio</span>
-      {buffer && <button type="button" className="link-button" onClick={startOver}>Start over</button>}
-      <div id="masthead-cart"><CartButton count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)} /></div>
-      <Suspense fallback={null}><AccountBar /></Suspense></header>
+    <header className="masthead">
+      {page === 'create'
+        ? <img className="masthead-logo" src="/brand/mumoo-logo.png" alt="MUMOO" />
+        : <button type="button" className="masthead-logo" aria-label="Back to Create" onClick={() => setPage('create')}><img src="/brand/mumoo-logo.png" alt="" /></button>}
+      {page === 'create' && <StepNav current={currentStep} onSelect={goToStep} />}
+      {page === 'history' && <ProfileNav current={profileTab} onSelect={setProfileTab} />}
+      <div className="masthead-actions">
+        {page === 'create' && buffer && <button type="button" className="link-button" onClick={startOver}>Start over</button>}
+        {page !== 'create' && <Button variant="secondary" onClick={() => setPage('create')}><ArrowLeftIcon aria-hidden="true" className="size-4" />Create</Button>}
+        <CartButton count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)} />
+        <Suspense fallback={null}><AccountBar page={page} onNavigate={setPage} /></Suspense>
+      </div>
+    </header>
     {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
     {download.message && <DownloadNotice message={download.message} onDismiss={download.dismiss} />}
-    {IS_ALIGNMENT_STAGING && !accessToken && <div className="staging-gate"><StagingAccess onAccess={setAccessToken} /></div>}
-    {restoring ? <main className="desktop trim"><section><p role="status">Restoring your session…</p></section></main>
-    : !inCreatives ? <main className="desktop trim">
+    {IS_ALIGNMENT_STAGING && !accessToken && <StagingAccess onAccess={setAccessToken} />}
+    {page !== 'create' && <Suspense fallback={null}><ProfilePage page={page} tab={profileTab} /></Suspense>}
+    {/* The work stays exactly as it was while a page of the account is open: hidden, but still laid out, so its drawings are not cleared and redrawn. */}
+    <div className={page === 'create' ? 'contents' : 'invisible fixed inset-0 overflow-hidden'} inert={page !== 'create'}>
+    {restoring ? <main className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+      <span className="spinner" aria-hidden="true" />
+      <p role="status" className="m-0 text-sm text-muted-foreground">Restoring your session…</p>
+    </main>
+    : !inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center' : 'desktop trim'}>
       <section>
-        <p className="eyebrow">0{step} / {step === 1 ? 'MUSIC' : 'YOUR CLIP'}</p>
-        <h1>{step === 1 ? 'Upload your song' : 'Choose your 15 seconds'}</h1>
-        {step === 1 && <><p className="intro">Upload your song and tell us its genre.</p>
+        <p className="eyebrow mb-6">0{step} / {step === 1 ? 'MUSIC' : 'YOUR CLIP'}</p>
+        {step === 2 && <h1>Choose your 15 seconds</h1>}
+        {step === 1 && <>
         {restoreNote && <p role="alert">{restoreNote}</p>}
-        <label>Song file ({ACCEPTED_LABEL})<input ref={fileInput} type="file" accept={ACCEPTED_AUDIO} onChange={event => void choose(event.target.files?.[0])} /></label>
-        {loading && <p role="status">Opening your music…</p>}
-        {buffer && songName && <p className="hint">Your song: {songName}</p>}
-        {keepFailed && <p className="hint">This browser cannot keep your work between visits, so refreshing the page would start over.</p>}
-        <label>Primary genre
-          <input list="genre-options" value={genre} onChange={event => setGenre(event.target.value)} placeholder="Search genres" />
-        </label>
-        <datalist id="genre-options">{GENRES.map(item => <option key={item} value={item} />)}</datalist>
-        <label>Secondary genre or influence <span className="hint">(optional)</span>
-          <input maxLength={100} value={influence} onChange={event => setInfluence(event.target.value)} placeholder="Add an influence" />
-        </label>
-        {IS_ALIGNMENT_STAGING && accessToken && <p className="hint">Staging access enabled.</p>}
-        {!loading && !buffer && <p className="hint">Choose a song at least 15 seconds long ({ACCEPTED_LABEL}) to continue.</p>}
-        {genre.trim() && !selectedGenre && <p role="status">Choose a genre from the suggestions, or select “Other / Not sure”.</p>}
+        <div className="grid gap-5 md:grid-cols-2">
+          <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-background p-5">
+            <FileDropzone accept={ACCEPTED_AUDIO} icon={Music2Icon} title="Drop your song here" hint={ACCEPTED_LABEL} buttonLabel="Select song" inputLabel="Song file" removeLabel="Remove song" fileName={songName || undefined}
+              onSelect={file => void choose(file)} onRemove={() => void choose(undefined)} />
+            {keepFailed && <p className="hint">This browser cannot keep your work between visits, so refreshing the page would start over.</p>}
+            {!loading && !buffer && <p className="hint">Choose a song at least 15 seconds long ({ACCEPTED_LABEL}) to continue.</p>}
+          </div>
+          <div className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-background p-5">
+            <Combobox label="Genre" placeholder="Search genres" options={GENRE_OPTIONS} value={genre} onValueChange={chooseGenre} />
+            <Combobox label="Sub-genre" placeholder={selectedGenre ? 'Search sub-genres' : 'Choose a genre first'} disabled={!selectedGenre}
+              options={toOptions(selectedGenre?.subGenres ?? [])} value={subGenre} onValueChange={setSubGenre} />
+          </div>
+        </div>
         {error && <p role="alert">{error}</p>}
-        <button className="primary-accent" disabled={!buffer || !genreValid || loading || (IS_ALIGNMENT_STAGING && !accessToken)} onClick={() => setStep(2)}>Continue</button></>}
+        <div className="mt-6 flex justify-end">
+          <Button disabled={!buffer || !genreValid || loading} onClick={() => setStep(2)}>Continue</Button>
+        </div></>}
         {buffer && step === 2 && <>
-          <Waveform audio={buffer} start={composition.clipStartMs} position={position} onSelect={selectClip} />
-          {clipValid && <p className="clip-range">
-            <strong>{clock(composition.clipStartMs)} – {clock(composition.clipStartMs + DURATION_MS)}</strong>
-            <span>15 seconds of your {clock(buffer.duration * 1000)} song</span>
-          </p>}
+          <ClipPicker audio={buffer} start={composition.clipStartMs} valid={clipValid} position={position}
+            playing={playing} onPlay={() => playing ? stop() : void play(true)} onSelect={selectClip} />
           {clipValid && <LyricsStudio key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs}
             token={accessToken} position={position} playing={playing}
             initial={lyricWords.length ? { words: lyricWords, ...lyricsInfo } : undefined}
@@ -384,33 +427,46 @@ function App() {
             onSeek={ms => { stop(); seekTo(ms); }}
             onLyrics={({ words, ...info }) => { setLyricsInfo(info); setLyricWords(words); setComposition(current => ({ ...current, cues: cuesOf(words) })); }}
             onState={setLyricsState} />}
-          <div className="trim-actions step-actions">
-            <button className="secondary" onClick={() => { stop(); setStep(1); }}>Back</button>
-            <button className="primary-accent" disabled={!canContinue} onClick={() => openCreatives(true)}>Continue</button>
+          <div className="step-actions mt-6 flex items-center gap-3">
+            <Button variant="secondary" onClick={() => { stop(); setStep(1); }}>Back</Button>
             {lyricsState.dirty && <span className="hint">Sync your edits first.</span>}
+            <Button className="ml-auto" disabled={!canContinue} onClick={() => openCreatives(true)}>Continue</Button>
           </div>
         </>}
         {step === 2 && (error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
       </section>
     </main> : profile && buffer && (
-      <CreativesPackStudio
-        profile={profile}
-        composition={composition}
-        audio={buffer}
-        token={accessToken}
-        position={position}
-        getPosition={() => positionRef.current}
-        playing={playing}
-        playbackError={error}
-        cart={cart}
-        download={download}
-        uploads={uploads}
-        downloadRef={downloadRef}
-        onPlay={() => void play()}
-        onStop={stop}
-        onBack={() => openCreatives(false)}
-      />
+      <div className="relative flex flex-1 flex-col">
+        {stage !== 'revealed' && <AnalyzingScreen profile={profile} progress={paint} ready={stage === 'prepared'} onDone={() => setStage('revealed')} />}
+        {/* The posters are painted from the final analysis, so the studio starts only once the song has been read. It stays out of sight until they are done. */}
+        {analysisSettled && (
+          <div className={stage === 'revealed' ? 'contents' : 'invisible absolute inset-0 overflow-hidden'} inert={stage !== 'revealed'}>
+            <CreativesPackStudio
+              profile={profile}
+              composition={composition}
+              audio={buffer}
+              token={accessToken}
+              position={position}
+              getPosition={() => positionRef.current}
+              playing={playing}
+              playbackError={error}
+              cart={cart}
+              download={download}
+              uploads={uploads}
+              downloadRef={downloadRef}
+              onPlay={() => void play()}
+              onStop={stop}
+              onBack={() => openCreatives(false)}
+              onProgress={(done, total) => {
+                setPaint({ done, total });
+                if (done === total) setStage(current => (current === 'analyzing' ? 'prepared' : current));
+              }}
+            />
+          </div>
+        )}
+      </div>
     )}
+    </div>
     {buffer && clipValid && IS_ALIGNMENT_STAGING && (composition.cues.length > 0 || inCreatives) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs}
       audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} accessToken={accessToken} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}
 

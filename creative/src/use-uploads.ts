@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { authClient } from './account';
-import { addUpload, listUploads, removeUpload, type PictureUse, type Upload } from './uploads';
+import { addUpload, listUploads, type PictureUse, type Upload } from './uploads';
 
 /** Signed links last 15 minutes, so a long session asks for fresh ones before they run out. */
 const RELINK_MS = 10 * 60_000;
@@ -69,17 +69,7 @@ export function useUploads() {
     }
   }
 
-  /** Goes back to our approved photography for a row. */
-  async function remove(item: Upload) {
-    setProblem(null);
-    try {
-      receive(await removeUpload(item.id));
-    } catch (cause) {
-      setProblem({ use: item.use, message: cause instanceof Error ? cause.message : 'That could not be removed.' });
-    }
-  }
-
-  return { pending: session.isPending, signedIn, list, problem, sending, add, remove };
+  return { pending: session.isPending, signedIn, list, problem, sending, add };
 }
 
 export type Uploads = ReturnType<typeof useUploads>;

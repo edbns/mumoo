@@ -9,7 +9,7 @@ await server.close();
 
 const word = (text, startMs, endMs, line = 0) => ({ text, startMs, endMs, line, estimated: false });
 const session = (change = {}) => ({
-  sourceSha256: 'a'.repeat(64), genre: 'Pop', influence: '', step: 2, clipStartMs: 42_000,
+  sourceSha256: 'a'.repeat(64), genre: 'Pop', subGenre: 'General Pop', step: 2, clipStartMs: 42_000,
   words: [word('hello', 100, 400), word('world', 500, 900, 1)], lyricsOrigin: 'transcribed', lyricsLanguage: 'en', inCreatives: false, ...change,
 });
 
@@ -33,7 +33,7 @@ test('a session that does not hold together is refused', () => {
     { sourceSha256: 'nope' },
     { step: 3 },
     { genre: 5 },
-    { influence: 'x'.repeat(101) },
+    { subGenre: 'x'.repeat(101) },
     { clipStartMs: -1 },
     { clipStartMs: 1.5 },
     { lyricsOrigin: 'guessed' },
@@ -48,7 +48,7 @@ test('a session that does not hold together is refused', () => {
     { words: 'text' },
   ];
   for (const change of refused) {
-    assert.equal(readSession(JSON.stringify({ version: 1, ...session(change) })), null, JSON.stringify(change));
+    assert.equal(readSession(JSON.stringify({ version: 2, ...session(change) })), null, JSON.stringify(change));
   }
 });
 

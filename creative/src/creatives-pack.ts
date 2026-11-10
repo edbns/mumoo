@@ -99,7 +99,7 @@ function hashPick(seed: string, salt: string, modulo: number) {
 export type { MoodLane };
 
 const GOSPEL_GENRE = /gospel|worship|christian|hymn|spiritual|choir/;
-const CLUB_GENRE = /techno|house|slap|edm|trance|electro|rave|drum|bass|dnb|dubstep|dance|club|garage|hardstyle/;
+const CLUB_GENRE = /techno|house|edm|dubstep|riddim|electronic/;
 
 export function moodLane(intent: MusicIntentV1 | null, genre: string): MoodLane {
   const g = genre.toLowerCase();
@@ -258,8 +258,10 @@ export function readSong(profile: CreativeProfileV1) {
   const genre = profile.creator.primaryGenre.value || '';
   const language = profile.approvedLyrics?.language;
   const meaning = profile.lyricMeaning?.status === 'ready' ? profile.lyricMeaning.meaning : null;
-  const genreLocked = GOSPEL_GENRE.test(genre.toLowerCase()) || CLUB_GENRE.test(genre.toLowerCase());
-  const lane = laneFromMeaning(moodLane(intent, genre), genreLocked, meaning);
+  // The sub-genre is the specific one ("Ambient / Downtempo" is not club music although its genre is Electronic & Dance).
+  const specific = profile.creator.subGenre?.value ?? genre;
+  const genreLocked = GOSPEL_GENRE.test(specific.toLowerCase()) || CLUB_GENRE.test(specific.toLowerCase());
+  const lane = laneFromMeaning(moodLane(intent, specific), genreLocked, meaning);
   return { intent, genre, language, meaning, lane };
 }
 

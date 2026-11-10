@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type MutableRefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { FPS, playheadFrame, type Composition, type ImpactMusic } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
@@ -6,6 +6,9 @@ import { adPunchFallbackText, recommendRow, SHELF_ROWS, type CreativesPackSlot, 
 import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
 import { friendlyError } from './friendly-error';
+import { PauseIcon, PlayIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { RollingButton } from '@/components/ui/rolling-button';
 import { PictureUpload } from './picture-upload';
 import { photoOnly, type PictureUse, type Upload } from './uploads';
 import type { Uploads } from './use-uploads';
@@ -21,6 +24,7 @@ import {
   type PackRendererOpts,
 } from './pack-renderer';
 import { clipToMonoWav, submitCloudJob } from './pack-cloud-export';
+import { LoadingMask } from './loading-mask';
 import { loadPunchPlatesManifest } from './punch-plates';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 
@@ -82,6 +86,9 @@ function posterAt(composition: Composition, music: ImpactMusic | null, lyrics: b
   return lyrics ? posterFrame(composition.cues) : Math.round(((music?.beatsMs[1] ?? 500) + 120) * FPS / 1000);
 }
 
+/** How often the Refresh word rolls by itself, so nobody misses that more can be had. */
+const REFRESH_NUDGE_MS = 8000;
+
 function yieldFrame() {
   return new Promise<void>(resolve => setTimeout(resolve, 0));
 }
@@ -93,7 +100,7 @@ const FRESH_ROWS = Object.fromEntries(SHELF_ROWS.map(row => [row.id, { generatio
 
 export function CreativesPackStudio({
   profile, composition, audio, token, position, getPosition, playing, playbackError,
-  cart, download, uploads, downloadRef, onPlay, onStop, onBack,
+  cart, download, uploads, downloadRef, onPlay, onStop, onBack, onProgress,
 }: {
   profile: CreativeProfileV1;
   composition: Composition;
@@ -113,6 +120,8 @@ export function CreativesPackStudio({
   onStop: () => void;
   onSeek?: (ms: number) => void;
   onBack: () => void;
+  /** How many posters are painted out of how many need painting; equal means the page is ready to be shown. */
+  onProgress: (done: number, total: number) => void;
 }) {
   const canvasRefs = useRef(new Map<string, HTMLCanvasElement>());
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -181,8 +190,8 @@ export function CreativesPackStudio({
 
   const getPositionRef = useRef(getPosition ?? (() => position));
   getPositionRef.current = getPosition ?? (() => position);
-  const latest = useRef({ view, composition, music, fallbackText, lyricsOn, pictureOf, rowKey });
-  latest.current = { view, composition, music, fallbackText, lyricsOn, pictureOf, rowKey };
+  const latest = useRef({ view, composition, music, fallbackText, lyricsOn, pictureOf, rowKey, onProgress });
+  latest.current = { view, composition, music, fallbackText, lyricsOn, pictureOf, rowKey, onProgress };
   const painted = useRef(new Map<ShelfRow, string>());
   const playingSlot = pack.find(item => item.id === playingId) ?? null;
 
@@ -219,12 +228,15 @@ export function CreativesPackStudio({
 
   // Posters: only rows whose own inputs changed are painted again; a row appears when its last card is done.
   useEffect(() => {
-    if (!fontReady) return;
+    if (!fontReady || plates === null) return;
     const keys = new Map(SHELF_ROWS.map(def => [def.id, latest.current.rowKey(def.id)] as const));
     const stale = SHELF_ROWS.filter(def => painted.current.get(def.id) !== keys.get(def.id));
     for (const def of stale) painted.current.delete(def.id);
     setReadyRows(rows => rows.filter(id => !stale.some(def => def.id === id)));
     let cancelled = false;
+    const total = stale.reduce((sum, def) => sum + (keys.get(def.id) ? latest.current.view[def.id].slots.length : 0), 0);
+    let done = 0;
+    latest.current.onProgress(done, total);
     void (async () => {
       // Wait a frame so the cards' canvases are mounted.
       await yieldFrame();
@@ -238,7 +250,10 @@ export function CreativesPackStudio({
           setShelfStatus(`Preparing ${def.title}, creative ${index + 1} of ${slots.length}…`);
           await yieldFrame();
           const canvas = canvasRefs.current.get(slots[index].id);
-          if (!canvas) continue;
+          if (!canvas) {
+            latest.current.onProgress(++done, total);
+            continue;
+          }
           const { composition: base, music: impact, fallbackText: fallback } = latest.current;
           const withLyrics = latest.current.lyricsOn(def.id);
           try {
@@ -247,15 +262,17 @@ export function CreativesPackStudio({
             if (!cancelled) setError(`${def.title}: ${friendlyError(cause, 'One creative could not be prepared.')}`);
           }
           await yieldFrame();
+          latest.current.onProgress(++done, total);
         }
         if (cancelled) return;
         painted.current.set(def.id, key);
         setReadyRows(rows => [...rows, def.id]);
       }
-      if (!cancelled) setShelfStatus('');
+      if (cancelled) return;
+      setShelfStatus('');
     })();
     return () => { cancelled = true; };
-  }, [fontReady, rowKeys]);
+  }, [fontReady, plates, rowKeys]);
 
   // Live preview: only when everything is painted and the playhead frame changes.
   useEffect(() => {
@@ -339,8 +356,7 @@ export function CreativesPackStudio({
     return upload ? { available: true, picture: drawingFrom(upload) } : { available: false };
   }
 
-  function togglePlay(id: string, event: MouseEvent | KeyboardEvent) {
-    event.stopPropagation();
+  function togglePlay(id: string) {
     if (!allReady || !fontReady) return;
     if (playing && playingId === id) {
       onStop();
@@ -387,77 +403,70 @@ export function CreativesPackStudio({
   downloadRef.current = downloadCart;
   useEffect(() => () => { downloadRef.current = null; }, []);
 
-  return <main className="desktop gallery-page studio-shell"><section className="gallery-shell panel">
-    <p className="eyebrow">Creatives pack</p>
-    <h1>{pack.length ? `${pack.length} recommended creatives` : 'Recommended creatives'}</h1>
-    <p className="intro">Ranked for this song, one row at a time. Each row has its own controls, so changing one row only redraws that row. Add the creatives you like to your cart, refresh for more, and download them together from the cart. Videos render in the cloud, so your computer stays free.</p>
-    <div className="trim-actions">
-      <button className="secondary" onClick={onBack}>Back</button>
-    </div>
+  return <main className="desktop trim flex-1 content-start">
     {!token && !IS_ALIGNMENT_STAGING && <p role="alert">Staging access is unavailable.</p>}
-    {profile.musicAnalysis.status === 'pending' && <p role="status">Finishing music analysis for better ranking…</p>}
-    {profile.lyricMeaning?.status === 'pending' && <p role="status">Reading what your lyrics say…</p>}
     {profile.lyricMeaning?.status === 'error' && <p className="hint">We could not read what your lyrics say, so these are matched to the sound alone.</p>}
     {error && <p role="alert">{error}</p>}
     {playbackError && <p role="alert">{playbackError}</p>}
-    {shelfStatus && <p role="status">{shelfStatus}</p>}
+    {shelfStatus && <p role="status" className="hint">{shelfStatus}</p>}
+    {cart.full && <p role="status" className="hint">Your cart is full ({CART_LIMIT}). Take one out to add another.</p>}
+    <p className="hint text-center">This is only a preview. All creatives will be rendered in HD.</p>
     {SHELF_ROWS.filter(def => def.upload || view[def.id].slots.length || view[def.id].note).map(def => {
       const { slots, note } = view[def.id];
       const rowReady = readyRows.includes(def.id);
       return (
-        <section key={def.id} className="creatives-pack-row" aria-label={def.title} aria-busy={slots.length > 0 && !rowReady}>
-          <div className="creatives-pack-row-head">
-            <h2>{def.title}</h2>
-            <div className="row-controls">
-              {def.lyrics === 'switch' && <label className="lyrics-switch">
-                <input
-                  type="checkbox"
-                  role="switch"
-                  checked={controls[def.id].lyrics}
-                  onChange={event => change(def.id, { lyrics: event.target.checked })}
-                />
-                <span>Lyrics</span>
-              </label>}
-              <button
-                type="button"
-                className="secondary"
-                disabled={!rowReady}
-                onClick={() => change(def.id, { generation: controls[def.id].generation + 1 })}
-                aria-label={`Refresh ${def.title}`}
-              >Refresh</button>
-            </div>
+        <section key={def.id} className="rounded-[var(--radius-panel)] bg-background p-5" aria-label={def.title} aria-busy={slots.length > 0 && !rowReady}>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {def.lyrics === 'switch' && <label className="lyrics-switch">
+              <input
+                type="checkbox"
+                role="switch"
+                checked={controls[def.id].lyrics}
+                onChange={event => change(def.id, { lyrics: event.target.checked })}
+              />
+              <span>Lyrics</span>
+            </label>}
+            {def.upload && <PictureUpload use={def.upload} uploads={uploads} onChange={stopPlayback} />}
+            <RollingButton
+              variant="secondary"
+              label="Refresh"
+              every={REFRESH_NUDGE_MS}
+              disabled={!rowReady}
+              onClick={() => change(def.id, { generation: controls[def.id].generation + 1 })}
+              aria-label={`Refresh ${def.title}`}
+            />
           </div>
-          {def.upload && <PictureUpload use={def.upload} uploads={uploads} active={pictures[def.upload]} onChange={stopPlayback} />}
-          {note && <p className="hint creatives-pack-row-note" role="status">{note}</p>}
+          {note && <p className="hint mt-4" role="status">{note}</p>}
           {slots.length > 0 && <div className="creatives-pack-grid" role="list">
             {slots.map((item, index) => {
               const inCart = cart.has(item.id);
               const isPlaying = playing && playingId === item.id;
               return (
                 <div key={item.id} className="creatives-pack-item" role="listitem">
-                  <div className={`creatives-pack-card${rowReady ? '' : ' pending'}`}>
+                  <div className={`creatives-pack-card${rowReady ? '' : ' pending'}${inCart ? ' selected' : ''}`}>
                     <canvas
                       ref={node => { if (node) canvasRefs.current.set(item.id, node); else canvasRefs.current.delete(item.id); }}
                       width={PREVIEW_WIDTH}
                       height={PREVIEW_HEIGHT}
                       aria-hidden="true"
                     />
+                    <LoadingMask loading={!rowReady} />
+                    <button
+                      type="button"
+                      className="creatives-pack-select"
+                      disabled={!rowReady || (!inCart && cart.full)}
+                      aria-pressed={inCart}
+                      aria-label={`${def.title} creative ${index + 1}, ${inCart ? 'in your cart' : 'add to your cart'}`}
+                      onClick={() => toggleCart(item)}
+                    />
                     <button
                       type="button"
                       className="creatives-pack-play"
                       disabled={!rowReady}
                       aria-label={`${isPlaying ? 'Pause' : 'Play'} ${def.title} creative ${index + 1}`}
-                      onClick={event => togglePlay(item.id, event)}
-                    >{isPlaying ? '❚❚' : '▶'}</button>
+                      onClick={() => togglePlay(item.id)}
+                    >{isPlaying ? <PauseIcon aria-hidden="true" className="size-5" /> : <PlayIcon aria-hidden="true" className="size-5" />}</button>
                   </div>
-                  <button
-                    type="button"
-                    className={inCart ? 'creatives-pack-add in-cart' : 'creatives-pack-add secondary'}
-                    disabled={!rowReady || (!inCart && cart.full)}
-                    aria-pressed={inCart}
-                    title={!inCart && cart.full ? `Your cart is full (${CART_LIMIT})` : undefined}
-                    onClick={() => toggleCart(item)}
-                  >{inCart ? 'In cart ✓' : 'Add to cart'}</button>
                 </div>
               );
             })}
@@ -465,5 +474,8 @@ export function CreativesPackStudio({
         </section>
       );
     })}
-  </section></main>;
+    <div className="step-actions flex items-center">
+      <Button variant="secondary" onClick={onBack}>Back</Button>
+    </div>
+  </main>;
 }

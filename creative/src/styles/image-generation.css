@@ -1,0 +1,88 @@
+/* Image Generation (21st.dev): dots seen through two soft masks that drift, with a green glow that breathes. */
+@keyframes ig-morph {
+  0% {
+    -webkit-mask-size: 52% 46%, 40% 40%;
+    mask-size: 52% 46%, 40% 40%;
+    -webkit-mask-position: 16% 20%, 30% 32%;
+    mask-position: 16% 20%, 30% 32%;
+  }
+  25% {
+    -webkit-mask-size: 46% 58%, 44% 38%;
+    mask-size: 46% 58%, 44% 38%;
+    -webkit-mask-position: 84% 16%, 66% 30%;
+    mask-position: 84% 16%, 66% 30%;
+  }
+  50% {
+    -webkit-mask-size: 60% 44%, 38% 46%;
+    mask-size: 60% 44%, 38% 46%;
+    -webkit-mask-position: 82% 84%, 62% 68%;
+    mask-position: 82% 84%, 62% 68%;
+  }
+  75% {
+    -webkit-mask-size: 48% 54%, 46% 40%;
+    mask-size: 48% 54%, 46% 40%;
+    -webkit-mask-position: 14% 82%, 34% 66%;
+    mask-position: 14% 82%, 34% 66%;
+  }
+  100% {
+    -webkit-mask-size: 52% 46%, 40% 40%;
+    mask-size: 52% 46%, 40% 40%;
+    -webkit-mask-position: 16% 20%, 30% 32%;
+    mask-position: 16% 20%, 30% 32%;
+  }
+}
+
+@keyframes ig-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@keyframes ig-shine {
+  0%, 18% { background-position: 100% 0; }
+  82%, 100% { background-position: 0% 0; }
+}
+
+.igWrap { display: flex; width: 100%; flex-direction: column; align-items: center; gap: 1rem; }
+.igCanvas {
+  position: relative; isolation: isolate; display: grid; place-items: center; overflow: hidden;
+  width: 100%; max-width: 18rem; aspect-ratio: 1; border-radius: var(--radius-panel); background: var(--muted);
+}
+.igDots, .igGlow {
+  position: absolute; inset: 0;
+  -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent), radial-gradient(closest-side, #000 55%, transparent);
+  mask-image: radial-gradient(closest-side, #000 55%, transparent), radial-gradient(closest-side, #000 55%, transparent);
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-size: 52% 46%, 40% 40%; mask-size: 52% 46%, 40% 40%;
+  -webkit-mask-position: 16% 20%, 30% 32%; mask-position: 16% 20%, 30% 32%;
+  animation: ig-morph 9s ease-in-out infinite;
+}
+.igDots {
+  background-image: radial-gradient(circle, var(--primary) 1.1px, transparent 1.6px);
+  background-size: 11px 11px;
+}
+.igGlow {
+  background: radial-gradient(60% 60% at 50% 50%, color-mix(in oklab, var(--primary) 38%, transparent), transparent 75%);
+  filter: blur(14px);
+  animation: ig-morph 9s ease-in-out infinite, ig-breathe 3.2s ease-in-out infinite;
+}
+.igRes {
+  position: absolute; right: .75rem; bottom: .6rem; font-size: .6875rem; letter-spacing: .04em;
+  color: var(--muted-foreground); font-variant-numeric: tabular-nums;
+}
+.igMeta { display: flex; flex-direction: column; align-items: center; gap: .25rem; text-align: center; }
+.igLabel {
+  font-size: .875rem; font-weight: 500;
+  background: linear-gradient(90deg, var(--muted-foreground) 40%, var(--foreground) 50%, var(--muted-foreground) 60%) 100% 0 / 250% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: ig-shine 2.6s linear infinite;
+}
+.igPrompt { font-size: .8125rem; color: var(--muted-foreground); }
+
+/* Compact: only the field, filling the card it sits in. */
+.igCompact { height: 100%; gap: 0; }
+.igCompact .igCanvas { max-width: none; height: 100%; aspect-ratio: auto; border-radius: inherit; }
+
+@media (prefers-reduced-motion: reduce) {
+  .igDots, .igGlow, .igLabel { animation: none; }
+  .igGlow { opacity: .8; }
+}

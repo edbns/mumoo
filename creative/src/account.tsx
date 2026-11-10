@@ -1,7 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createAuthClient } from '@neon/auth';
 import { BetterAuthReactAdapter } from '@neon/auth/react/adapters';
-import { MyLibrary } from './my-library';
+import { SignInDialog } from './sign-in-dialog';
+import { Button } from '@/components/ui/button';
+import { UserDropdownMenu } from '@/components/ui/user-dropdown-menu';
+import { ACCOUNT_MENU, type AccountPage } from './account-pages';
+import { PurchaseCredits } from './purchase-credits';
 
 /** Neon Auth (managed Better Auth). The browser only ever talks to Neon's auth server and our own /api/account. */
 export const authClient = createAuthClient(import.meta.env.VITE_NEON_AUTH_URL, { adapter: BetterAuthReactAdapter() });
@@ -12,8 +16,13 @@ const emailCode = authClient as unknown as {
   emailOtp: { sendVerificationOtp(input: { email: string; type: 'sign-in' }): Outcome };
   signIn: { emailOtp(input: { email: string; otp: string }): Outcome };
 };
-
-type Person = { email: string; lastSeenAt: string; storage: { used: number; quota: number } };
+/** Changing the email with a code sent to the new address: the account, and so everything kept in it, stays the same. */
+const emailChange = authClient as unknown as {
+  emailOtp: {
+    requestEmailChange(input: { newEmail: string }): Outcome;
+    changeEmail(input: { newEmail: string; otp: string }): Outcome;
+  };
+};
 
 /** The signed JWT Neon Auth keeps on the session (this SDK version has no separate token call), or null when signed out. */
 export async function sessionToken(): Promise<string | null> {
@@ -34,85 +43,83 @@ export async function accountFetch(path: string, init: RequestInit = {}): Promis
   return response;
 }
 
-/** Asks our server who is signed in; the server verifies the token and records the visit. */
-async function loadPerson(): Promise<Person> {
-  const token = await sessionToken();
-  if (!token) throw new Error('Your session could not be verified.');
-  const response = await fetch('/api/account', { headers: { Authorization: `Bearer ${token}` } });
-  if (!response.ok) throw new Error('Your account is unavailable right now.');
-  return response.json() as Promise<Person>;
+/** The person's credit in tokens, as our server reports it. Asking also records the visit: the server verifies the token and notes that they were here. */
+async function loadCredit() {
+  const response = await accountFetch('/api/account');
+  const { credit } = await response.json() as { credit: { tokens: number } };
+  return `${credit.tokens.toLocaleString()} ${credit.tokens === 1 ? 'token' : 'tokens'}`;
 }
 
-export function AccountBar() {
-  const session = authClient.useSession();
-  const user = session.data?.user;
-  const [person, setPerson] = useState<Person | null>(null);
-  const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [library, setLibrary] = useState(false);
+/** Runs one request to Neon Auth. The client throws on a rejected request: a 4xx is the person's mistake, anything else is ours. Fails with the words to show. */
+async function attempt(run: () => Outcome, mistake: string) {
+  let result;
+  try {
+    result = await run();
+  } catch (cause) {
+    const status = (cause as { status?: number }).status;
+    throw new Error(status && status < 500 ? mistake : 'Sign in is unavailable right now. Try again in a moment.');
+  }
+  if (result.error) throw new Error(mistake);
+}
 
+export async function requestEmailChange(newEmail: string) {
+  await attempt(() => emailChange.emailOtp.requestEmailChange({ newEmail }), 'Check the email address and try again.');
+}
+
+/** Confirms the new address. */
+export async function confirmEmailChange(newEmail: string, otp: string) {
+  await attempt(() => emailChange.emailOtp.changeEmail({ newEmail, otp }), 'That code is wrong or has expired.');
+}
+
+/**
+ * The person's place in the corner. Signed out it is the Sign in button (top right, beside the cart); signed in it is
+ * their profile icon at the bottom left, which opens the account menu.
+ */
+export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate: (page: AccountPage) => void }) {
+  const session = authClient.useSession();
+  const signedIn = session.data?.user;
+  /** The person shown. A check in the background (the client repeats it when the window is focused) can report nobody for a moment: until it settles, the icon stays. */
+  const [last, setLast] = useState(signedIn);
+  useEffect(() => { if (signedIn) setLast(signedIn); }, [signedIn]);
+  const user = signedIn ?? (session.isPending ? last : undefined);
+  const [open, setOpen] = useState(false);
+  const [buying, setBuying] = useState(false);
+  const [credit, setCredit] = useState<string>();
+  /** The address the code was sent to, which the code is checked against. */
+  const address = useRef('');
+  /** Whether it is known yet if anyone is signed in. Later checks (the client repeats them when the window is focused) must not hide the button again. */
+  const [known, setKnown] = useState(false);
+  useEffect(() => { if (!session.isPending) setKnown(true); }, [session.isPending]);
+
+  // Best effort: without it the menu simply has no amount beside Credit.
   useEffect(() => {
-    if (!user) { setPerson(null); return; }
-    let alive = true;
-    loadPerson().then(next => { if (alive) { setPerson(next); setError(''); } }).catch(cause => { if (alive) setError(cause.message); });
-    return () => { alive = false; };
+    if (user) loadCredit().then(setCredit, () => undefined);
+    else setCredit(undefined);
   }, [user?.id]);
 
-  /** Runs one request to Neon Auth. The client throws on a rejected request: a 4xx is the person's mistake, anything else is ours. */
-  async function attempt(run: () => Outcome, mistake: string) {
-    setBusy(true); setError('');
-    try {
-      const result = await run();
-      if (result.error) { setError(mistake); return false; }
-      return true;
-    } catch (cause) {
-      const status = (cause as { status?: number }).status;
-      setError(status && status < 500 ? mistake : 'Sign in is unavailable right now. Try again in a moment.');
-      return false;
-    } finally { setBusy(false); }
+  const closeSignIn = useCallback(() => setOpen(false), []);
+
+  async function sendCode(email: string) {
+    await attempt(() => emailCode.emailOtp.sendVerificationOtp({ email, type: 'sign-in' }), 'Check the email address and try again.');
+    address.current = email;
   }
 
-  async function sendCode(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const address = String(new FormData(event.currentTarget).get('email') || '').trim();
-    if (await attempt(() => emailCode.emailOtp.sendVerificationOtp({ email: address, type: 'sign-in' }), 'Check the email address and try again.')) {
-      setEmail(address); setSent(true);
-    }
+  async function checkCode(otp: string) {
+    await attempt(() => emailCode.signIn.emailOtp({ email: address.current, otp }), 'That code is wrong or has expired.');
+    return true;
   }
 
-  async function checkCode(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const otp = String(new FormData(event.currentTarget).get('code') || '').trim();
-    if (await attempt(() => emailCode.signIn.emailOtp({ email, otp }), 'That code is wrong or has expired.')) { setOpen(false); setSent(false); }
-  }
+  const groups = ACCOUNT_MENU.map(entries => entries.map(({ line, label, icon }) => line === 'credit'
+    ? { label, icon, aside: credit, onSelect: () => setBuying(true) }
+    : { label, icon, current: line === page, onSelect: () => onNavigate(line) }));
 
-  if (session.isPending) return <div className="account-bar" aria-busy="true" />;
-  if (user) {
-    return <div className="account-bar">
-      <span className="account-email" title={person ? `Last seen ${new Date(person.lastSeenAt).toLocaleString()}` : undefined}>{user.email}</span>
-      <button type="button" className="link-button" onClick={() => setLibrary(true)}>My library</button>
-      <button type="button" className="link-button" onClick={() => void authClient.signOut()}>Sign out</button>
-      {library && <MyLibrary onClose={() => setLibrary(false)} />}
-      {error && <span role="alert" className="hint">{error}</span>}
-    </div>;
-  }
-  if (!open) return <div className="account-bar"><button type="button" className="link-button" onClick={() => setOpen(true)}>Sign in</button></div>;
-  return <div className="account-bar">
-    {sent
-      ? <form className="account-form" onSubmit={event => void checkCode(event)}>
-        <span className="hint">We emailed a code to {email}</span>
-        <input name="code" inputMode="numeric" autoComplete="one-time-code" placeholder="Code" required aria-label="Code from your email" autoFocus />
-        <button type="submit" className="primary-accent" disabled={busy}>Sign in</button>
-        <button type="button" className="link-button" onClick={() => { setSent(false); setError(''); }}>Use another email</button>
-        {error && <span role="alert" className="hint">{error}</span>}
-      </form>
-      : <form className="account-form" onSubmit={event => void sendCode(event)}>
-        <input name="email" type="email" autoComplete="email" placeholder="Email" defaultValue={email} required aria-label="Email" autoFocus />
-        <button type="submit" className="primary-accent" disabled={busy}>Email me a code</button>
-        {error && <span role="alert" className="hint">{error}</span>}
-      </form>}
-  </div>;
+  return <>
+    {known && !user && <Button variant="secondary" onClick={() => setOpen(true)}>Sign in</Button>}
+    {user && <div className="fixed bottom-6 left-6 z-[5]">
+      <UserDropdownMenu email={user.email} groups={groups} onSignOut={() => { void authClient.signOut(); onNavigate('create'); }} />
+    </div>}
+    <PurchaseCredits open={buying} onClose={() => setBuying(false)} />
+    {/* One popup for both states, so the welcome after signing in is not cut short when the button changes. */}
+    <SignInDialog open={open} onClose={closeSignIn} onSendCode={sendCode} onCheckCode={checkCode} />
+  </>;
 }
