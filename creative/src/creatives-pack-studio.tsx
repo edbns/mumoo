@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'rea
 import { FPS, playheadFrame, type Composition, type ImpactMusic } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
-import { adPunchFallbackText, recommendRow, rowsFor, SHELF_ROWS, type CreativesPackSlot, type PlateRef, type ShelfRow } from './creatives-pack';
+import { adPunchFallbackText, recommendRow, rowsFor, SHELF_ROWS, windowHand, type CreativesPackSlot, type PlateRef, type ShelfRow } from './creatives-pack';
 import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
 import { friendlyError } from './friendly-error';
@@ -27,6 +27,7 @@ import { clipToMonoWav, submitCloudJob } from './pack-cloud-export';
 import { LoadingMask } from './loading-mask';
 import { loadPunchPlatesManifest } from './punch-plates';
 import { useLibrary } from './use-library';
+import { useWindowReadings } from './use-window-library';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 
 function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
@@ -160,8 +161,11 @@ export function CreativesPackStudio({
   // Riso and Dust draw library photos that have a cut-out (the row deals only those); Window does not use the library yet.
   const libraryFor = (row: ShelfRow) => {
     const use = useOf(row);
-    return (row === 'photography' || row === 'riso' || row === 'dust') && use && !pictures[use] ? library ?? [] : [];
+    return (row === 'photography' || row === 'riso' || row === 'dust' || row === 'window') && use && !pictures[use] ? library ?? [] : [];
   };
+  // Window deals from library pictures too, once it has read how each looks (the four it is about to deal).
+  const windowPictures = useMemo(() => (pictures.window ? [] : windowHand(profile, controls.window.generation, library ?? [])), [pictures.window?.id, profile.clip.sourceSha256, profile.lyricMeaning, profile.creator, controls.window.generation, library?.map(item => item.id + (item.cutoutUrl ? '+cut' : '')).join(',')]);
+  const windowReads = useWindowReadings(windowPictures);
   const libraryCutouts = (library ?? []).some(item => item.kind === 'photo' && item.cutoutUrl);
   const libraryItem = (id: string | undefined) => (id ? (library ?? []).find(item => item.id === id) ?? null : null);
   const pictureOf = (row: ShelfRow, slot?: CreativesPackSlot) => {
@@ -184,14 +188,14 @@ export function CreativesPackStudio({
     // Our photography is dealt once it knows what our library holds and which approved photo it may draw a look on.
     if (def.id === 'photography' && (library === null || plates === null)) return [def.id, { slots: [], note: '' }];
     // Window is dealt once it knows its pictures: the person's own, once it has been read (what shows in the letters decides the colours), or our approved photos.
-    if (def.id === 'window' && (pictures.window ? !windowOwn.own : plates === null)) return [def.id, { slots: [], note: windowOwn.problem }];
+    if (def.id === 'window' && (pictures.window ? !windowOwn.own : plates === null || library === null || windowReads.pending)) return [def.id, { slots: [], note: windowOwn.problem }];
     if (lyricsOn(def.id) && !hasLyrics) {
       return [def.id, { slots: [], note: def.lyrics === 'always' ? `${def.title} is made of your lyrics. Approve your synced lyrics first.` : 'Approve your synced lyrics, or switch this row’s lyrics off.' }];
     }
-    return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? [], def.id === 'window' ? windowOwn.own : null, libraryFor(def.id)), note: '' }];
+    return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? [], def.id === 'window' ? windowOwn.own : null, libraryFor(def.id), windowReads.readings), note: '' }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover,
-    controls, plates, hasLyrics, noLyrics, pictureIds, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem,
+    controls, plates, hasLyrics, noLyrics, pictureIds, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem, windowReads.pending, Object.keys(windowReads.readings).join(','),
     // What the library holds, not the links to it (they are renewed all the time).
     library?.map(item => item.id + (item.cutoutUrl ? '+cut' : '')).join(','),
   ]);

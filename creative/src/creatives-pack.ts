@@ -15,7 +15,8 @@ import { STYLE_NAMES, type AdPunchStyle } from './ad-punch';
 import { dustColors, type DustColors } from './dust-colors';
 import { RISO_INK_SETS } from './riso-look';
 import { SPRAY_PALETTES } from './spray-look';
-import { dealWindow, type WindowMode, type WindowOwn } from './window-deal';
+import { dealWindow, dealWindowLibrary, type WindowLibraryItem, type WindowMode, type WindowOwn } from './window-deal';
+import type { WindowReading } from './pack-window';
 import bankData from './look-lab/bank.json';
 import effectsData from '../punch-plates/effects/effects.json';
 import { laneFromMeaning, leansDeep, type LyricMeaning } from './lyric-meaning';
@@ -284,7 +285,20 @@ const UNGRADED: readonly ShelfRow[] = ['riso', 'spray', 'window'];
  * photos Dust, Riso and Window are drawn from (the person's own picture, if any, replaces them in the app); `own` is
  * what is known of the person's own picture for Window, which is dealt from it instead of ours.
  */
-export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], own: WindowOwn | null = null, library: readonly LibraryPicture[] = []): CreativesPackSlot[] {
+/** A library picture Window can draw: a photo that has its cut-out, or a video or GIF. */
+const windowCapable = (item: LibraryPicture) => (item.kind === 'photo' ? Boolean(item.cutoutUrl) : Boolean(item.motionUrl));
+
+/**
+ * The four library pictures Window deals from for this song and Refresh. The page reads how each looks (which screen colours read against it) before the
+ * row is dealt, so it asks for exactly these.
+ */
+export function windowHand(profile: CreativeProfileV1, generation: number, library: readonly LibraryPicture[]): LibraryPicture[] {
+  const { meaning, genre } = readSong(profile);
+  const wanted = { attitude: meaning?.attitude ?? null, genre, subGenre: profile.creator.subGenre?.value ?? '' };
+  return pickLibrary(library.filter(windowCapable), wanted, profile.clip.sourceSha256, generation, ROW_SIZE);
+}
+
+export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], own: WindowOwn | null = null, library: readonly LibraryPicture[] = [], readings: Readonly<Record<string, WindowReading>> = {}): CreativesPackSlot[] {
   const { intent, meaning, lane, genre } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
@@ -302,7 +316,10 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, photos),
     spray: () => spraySlots(lane, intent, seed),
-    window: () => windowSlots(lane, intent, seed, plates, own),
+    window: () => {
+      const read: WindowLibraryItem[] = own ? [] : windowHand(profile, generation, library).flatMap(item => (readings[item.id] ? [{ id: item.id, reading: readings[item.id], clip: item.kind !== 'photo' }] : []));
+      return windowSlots(lane, intent, seed, plates, own, read);
+    },
     pulise: () => puliseSlots(lane, intent, seed),
     dust: () => dustSlots(lane, intent, seed, cover?.hue, photos),
   }[row]();
@@ -363,8 +380,9 @@ function spraySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string):
 }
 
 /** Four Window cards, mixing kinds of picture, screen colours and condensed faces by the seed (see window-deal.ts). Every card is made of the lyrics. */
-function windowSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, plates: readonly PlateRef[], own: WindowOwn | null): CreativesPackSlot[] {
-  return dealWindow(seed, plates, own).map((card, index) => ({
+function windowSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, plates: readonly PlateRef[], own: WindowOwn | null, fromLibrary: readonly WindowLibraryItem[]): CreativesPackSlot[] {
+  const cards = !own && fromLibrary.length ? dealWindowLibrary(seed, fromLibrary) : dealWindow(seed, plates, own);
+  return cards.map((card, index) => ({
     // Window sets one face of type: the second is the same, so nothing else is asked of the worker.
     ...adPunchSlot('window', index, intent, seed, lane, 'window', { font: card.font, fontSecondary: card.font }),
     label: sentence(card.palette.replace('-', ' ')),
@@ -372,11 +390,12 @@ function windowSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string,
     windowMode: card.mode,
     windowPalette: card.palette,
     windowAllowed: card.allowed,
+    ...(card.libraryId ? { libraryId: card.libraryId } : {}),
     ...(card.plateId ? { plateId: card.plateId } : {}),
     ...(card.effectId ? { effectId: card.effectId } : {}),
     ...(card.bankId ? { bankId: card.bankId } : {}),
-    // A video or GIF of the person's own is cut differently for each card.
-    ...(own?.clip ? { cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index } : {}),
+    // A video or GIF (the person's own, or the library's) is cut differently for each card.
+    ...(own?.clip || card.clip ? { cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index } : {}),
   }));
 }
 

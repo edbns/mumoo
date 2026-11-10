@@ -23,8 +23,11 @@ export type WindowMode = 'person' | 'plain' | 'effect' | 'bank';
 /** What the deal knows of the person's own picture: how its screens read, and whether it is a video or GIF (which can only be seen plain). */
 export type WindowOwn = { reading: WindowReading; clip: boolean };
 
-/** One card: its picture (`plateId`, `effectId` or `bankId`; none for the person's own), the screen it opens on, the screens it may flip to, and its face. */
-export type WindowCard = { mode: WindowMode; plateId?: string; effectId?: string; bankId?: string; palette: string; allowed: string[]; font: AdFont };
+/** A library picture that Window can draw, with how its screens read: a photo has its cut-out (so a person may stand in front), a video or GIF is judged by its poster and only seen plain. */
+export type WindowLibraryItem = { id: string; reading: WindowReading; clip: boolean };
+
+/** One card: its picture (`libraryId` for a library picture, else `plateId`, `effectId` or `bankId`; none for the person's own), the screen it opens on, the screens it may flip to, and its face. */
+export type WindowCard = { mode: WindowMode; libraryId?: string; clip?: boolean; plateId?: string; effectId?: string; bankId?: string; palette: string; allowed: string[]; font: AdFont };
 
 const CARDS = 4;
 const READINGS = readings as Record<string, WindowReading>;
@@ -109,5 +112,28 @@ export function dealWindow(seed: string, allPlates: readonly { id: string; cutou
     const palette = choices.find(id => !opened.has(id)) ?? choices[0];
     opened.add(palette);
     return { mode, ...picture, palette, allowed: [...reading], font: faces[index] };
+  });
+}
+
+/**
+ * Four cards from library pictures: the seed's order of them, one picture for each card (the same one again when the library has fewer than four, never
+ * on neighbouring cards when it has two). A photo where a person stands alternates her in front of the word and plain; a photo with nobody in it and a clip
+ * are seen plain. Each card opens on a screen of its own where the picture allows it.
+ */
+export function dealWindowLibrary(seed: string, items: readonly WindowLibraryItem[]): WindowCard[] {
+  if (!items.length) throw new Error('Window has no library pictures to deal.');
+  const picked = order(items, `${seed}:library`, item => item.id);
+  const faces = order(WINDOW_FACES, `${seed}:faces`, face => face);
+  const first = hashPick(seed, 'person-first', 2);
+  const opened = new Set<string>();
+  return Array.from({ length: CARDS }, (_, index) => {
+    const item = picked[index % picked.length];
+    const person = !item.clip && Boolean(item.reading.person?.length) && (index + first) % 2 === 0;
+    const reading = person ? item.reading.person : item.reading.plain;
+    if (!reading?.length) throw new Error('Window has no screens that read against this picture.');
+    const choices = order(reading, `${seed}:screen:${index}`, id => id);
+    const palette = choices.find(id => !opened.has(id)) ?? choices[0];
+    opened.add(palette);
+    return { mode: person ? 'person' : 'plain', libraryId: item.id, clip: item.clip, palette, allowed: [...reading], font: faces[index] };
   });
 }

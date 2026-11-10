@@ -13,7 +13,7 @@ const READY = storageReady() && Boolean(process.env.DATABASE_URL);
 
 async function load() {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
-  return { server, pick: await server.ssrLoadModule('/src/library-pick.ts'), pack: await server.ssrLoadModule('/src/creatives-pack.ts') };
+  return { server, pick: await server.ssrLoadModule('/src/library-pick.ts'), pack: await server.ssrLoadModule('/src/creatives-pack.ts'), look: await server.ssrLoadModule('/src/window-look.ts') };
 }
 
 const item = (id, over = {}) => ({ id, kind: 'photo', attitudes: ['tender'], tags: [], genre: null, subGenre: null, url: `https://x/${id}`, ...over });
@@ -96,6 +96,33 @@ test('Riso and Dust are dealt from library photos that have a cut-out, and from 
       assert.ok(none.every(slot => slot.plateId === 'burnnet-woman-1547507-1920' && !slot.libraryId), `${row}: with no cut-out in the library it uses our approved photo`);
       assert.ok(pack.recommendRow(row, person, 0, [], null, []).every(slot => !slot.plateId && !slot.libraryId), `${row}: with no photo at all the card waits for the person's own`);
     }
+  } finally { await server.close(); }
+});
+
+test('Window is dealt from library pictures: a photo with a cut-out, or a clip; never a baked effect or background beside them', async () => {
+  const { server, pack, look } = await load();
+  try {
+    const person = profile('Pop', 'Indie Pop');
+    const ids = look.WINDOW_PALETTE_IDS;
+    const reading = { plain: ids.slice(0, 4), person: ids.slice(1, 5) };
+    const photo = id => item(id, { cutoutUrl: `https://x/${id}.cut.png` });
+    const clip = id => ({ ...item(id), kind: 'video', motionUrl: `https://x/${id}.mp4`, shots: [[0, 1000]] });
+    const library = [photo('p1'), photo('p2'), clip('c1'), clip('c2'), item('uncut')];
+    const hand = pack.windowHand(person, 0, library);
+    assert.ok(hand.length === 4 && hand.every(entry => entry.id !== 'uncut'), 'a photo with no cut-out is not a Window picture');
+    const readings = Object.fromEntries(hand.map(entry => [entry.id, entry.kind === 'photo' ? reading : { plain: reading.plain, person: null }]));
+    const cards = pack.recommendRow('window', person, 0, [], null, library, readings);
+    assert.equal(cards.length, 4);
+    assert.ok(cards.every(card => card.libraryId && hand.some(entry => entry.id === card.libraryId) && !card.effectId && !card.bankId && !card.plateId), 'every card is a library picture');
+    assert.ok(cards.every(card => (card.windowMode === 'person' ? readings[card.libraryId].person : true) && card.windowAllowed.includes(card.windowPalette)));
+    const clipCards = cards.filter(card => hand.find(entry => entry.id === card.libraryId).kind !== 'photo');
+    assert.ok(clipCards.every(card => card.windowMode === 'plain' && card.cutSeed !== undefined), 'a clip is seen plain, and cut differently for each card');
+    assert.deepEqual(cards, pack.recommendRow('window', person, 0, [], null, library, readings), 'the same deal every time');
+    // Nothing read yet, or no library: the baked pictures stand in (the page waits for the readings before it asks).
+    assert.ok(pack.recommendRow('window', person, 0, [], null, library, {}).every(card => !card.libraryId));
+    assert.ok(pack.recommendRow('window', person, 0, [], null, [], {}).every(card => !card.libraryId));
+    // The person's own picture replaces the library.
+    assert.ok(pack.recommendRow('window', person, 0, [], { reading, clip: false }, library, readings).every(card => !card.libraryId));
   } finally { await server.close(); }
 });
 
