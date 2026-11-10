@@ -1,5 +1,5 @@
-import { adminFrom, reply, refuse } from '../../lib/admin.mjs';
-import { db } from '../../lib/person.mjs';
+import { adminFrom, reply, refuse } from '../lib/admin.mjs';
+import { db } from '../lib/person.mjs';
 
 /**
  * GET /api/admin/overview: who is signed in and the few numbers for the first page. This is also how the page learns whether

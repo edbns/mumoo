@@ -47,7 +47,7 @@ npm test
 | Look and motion | `pack-*.ts` (renderer, scenes, type, copy, looks), `ad-fonts.ts`, `ad-punch.ts` (style catalog), `lyric-motion.ts`, `punch-plates.ts` |
 | Cloud render | `render.html`, `pack-render-page.ts`, `pack-cloud-export.ts` |
 | Contract | `composition.ts` (clip + cues, validation, frame clock) |
-| Admin (`/admin`, light, own page) | `admin.html`, `src/admin/*`, `netlify/functions/admin/*`, `netlify/lib/admin.mjs` (who may enter: `ADMIN_EMAILS` + a confirmed email), `netlify/lib/library.mjs` (approved photos, videos, GIFs: attitudes, tags, optional genre), `netlify/lib/problems.mjs` + `report-problem.mjs` (failed renders, downloads, sign-ins), migration `009_admin.sql` |
+| Admin (`/admin`, light, own page) | `admin.html`, `src/admin/*`, `netlify/functions/admin-*.mjs`, `netlify/lib/admin.mjs` (who may enter: `ADMIN_EMAILS` + a confirmed email), `netlify/lib/library.mjs` (approved photos, videos, GIFs: attitudes, tags, optional genre), `netlify/lib/problems.mjs` + `report-problem.mjs` (failed renders, downloads, sign-ins), migration `009_admin.sql` |
 
 ## Baking assets
 

@@ -1,6 +1,6 @@
-import { adminFrom, reply, refuse } from '../../lib/admin.mjs';
-import { addTag, changeItem, itemArrived, listLibrary, listTagPool, removeItem, removeTag, reserveItem } from '../../lib/library.mjs';
-import { storageReady } from '../../lib/storage.mjs';
+import { adminFrom, reply, refuse } from '../lib/admin.mjs';
+import { addTag, changeItem, itemArrived, listLibrary, listTagPool, removeItem, removeTag, reserveItem } from '../lib/library.mjs';
+import { storageReady } from '../lib/storage.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 

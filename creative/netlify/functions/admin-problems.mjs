@@ -1,5 +1,5 @@
-import { adminFrom, reply, refuse } from '../../lib/admin.mjs';
-import { listProblems, markSeen } from '../../lib/problems.mjs';
+import { adminFrom, reply, refuse } from '../lib/admin.mjs';
+import { listProblems, markSeen } from '../lib/problems.mjs';
 
 /**
  * What went wrong, for the admin only.

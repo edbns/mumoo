@@ -12,13 +12,18 @@ export async function adminFrom(request) {
   if (!process.env.DATABASE_URL || !process.env.NEON_AUTH_JWKS_URL || !process.env.NEON_AUTH_BASE_URL || adminEmails().length === 0) {
     return { refusal: refuse(503, 'The admin is unavailable.') };
   }
-  const person = await personFrom(request);
-  if (!person) return { refusal: refuse(401, 'Sign in to continue.') };
-  const email = person.email.trim().toLowerCase();
-  if (!adminEmails().includes(email)) return { refusal: refuse(403, 'This account does not have access.') };
-  const [row] = await db()`select "emailVerified" as verified from neon_auth."user" where id::text = ${person.id}`;
-  if (!row?.verified) return { refusal: refuse(403, 'This account does not have access.') };
-  return { admin: { id: person.id, email } };
+  try {
+    const person = await personFrom(request);
+    if (!person) return { refusal: refuse(401, 'Sign in to continue.') };
+    const email = person.email.trim().toLowerCase();
+    if (!adminEmails().includes(email)) return { refusal: refuse(403, 'This account does not have access.') };
+    const [row] = await db()`select "emailVerified" as verified from neon_auth."user" where id::text = ${person.id}`;
+    if (!row?.verified) return { refusal: refuse(403, 'This account does not have access.') };
+    return { admin: { id: person.id, email } };
+  } catch (cause) {
+    console.error('admin check:', cause);
+    return { refusal: refuse(500, 'The admin check failed. Try again in a moment.') };
+  }
 }
 
 export const refuse = (status, error) => Response.json({ error }, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });

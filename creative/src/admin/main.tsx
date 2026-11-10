@@ -25,7 +25,18 @@ function Centered({ children }: { children: React.ReactNode }) {
 
 function Admin() {
   const session = authClient.useSession();
-  const user = session.data?.user;
+  const signedIn = session.data?.user;
+  /**
+   * The client re-checks the session whenever the window is focused (for instance on coming back from the email with the code),
+   * and for a moment that check can report nobody. The page must not react to that: swapping the sign-in popup for a spinner
+   * would throw away the email being typed. So the last person stays until the check says otherwise, and the spinner is for the first load only.
+   */
+  const [last, setLast] = useState(signedIn);
+  // Remembered only from a settled check: once a check ends with nobody (signed out), nobody is remembered.
+  useEffect(() => { if (!session.isPending) setLast(signedIn); }, [session.isPending, signedIn]);
+  const user = signedIn ?? (session.isPending ? last : undefined);
+  const [known, setKnown] = useState(false);
+  useEffect(() => { if (!session.isPending) setKnown(true); }, [session.isPending]);
   const [signingIn, setSigningIn] = useState(false);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [denied, setDenied] = useState<string | null>(null);
@@ -46,12 +57,13 @@ function Admin() {
     setOverview(null);
     setDenied(null);
     if (!user) return;
-    loadOverview().then(setOverview, (cause: Error) => setDenied(cause instanceof AdminError && cause.status === 403 ? 'This account does not have access.' : cause.message));
+    loadOverview().then(setOverview, (cause: Error) => setDenied(cause instanceof AdminError && cause.status === 403 ? 'This account does not have access.'
+      : `${cause.message}${cause instanceof AdminError ? ` (error ${cause.status})` : ''}`));
   }, [user?.id]);
 
   const signOut = <Button variant="secondary" onClick={() => void authClient.signOut()}><LogOutIcon className="size-4" aria-hidden="true" />Sign out</Button>;
 
-  if (session.isPending && !user) return <Centered><span className="size-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" aria-label="Loading" /></Centered>;
+  if (!known && !user) return <Centered><span className="size-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" aria-label="Loading" /></Centered>;
   if (!user) return <>
     <Centered>
       <img src="/brand/mumoo-logo.png" alt="MUMOO" className="h-5 w-auto" />
