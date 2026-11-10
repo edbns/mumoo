@@ -49,8 +49,12 @@ test('the model\'s answer is validated, never guessed at', async () => {
   try {
     const good = { version: 1, clarity: 'clear', attitude: 'defiant', sadness: 0, intensity: 4, gist: 'ignored' };
     assert.deepEqual(meaning.parseLyricMeaning(good), { attitude: 'defiant', sadness: 0, intensity: 4 });
-    // Anger, boasting and playfulness carry no sadness, whatever the model says; sorrowful attitudes keep theirs.
+    // Anger, boasting and playfulness carry no sadness, defiance and irritation at most a little, whatever the model says; sorrowful attitudes keep theirs.
     for (const attitude of ['angry', 'boastful', 'playful']) assert.equal(meaning.parseLyricMeaning({ ...good, attitude, sadness: 2 }).sadness, 0, attitude);
+    for (const attitude of ['defiant', 'annoyed']) {
+      assert.equal(meaning.parseLyricMeaning({ ...good, attitude, sadness: 3 }).sadness, 1, `${attitude} keeps at most a little hurt`);
+      assert.equal(meaning.parseLyricMeaning({ ...good, attitude, sadness: 0 }).sadness, 0);
+    }
     assert.equal(meaning.parseLyricMeaning({ ...good, attitude: 'heartbroken', sadness: 3 }).sadness, 3);
     assert.equal(meaning.parseLyricMeaning({ ...good, attitude: 'bitter', sadness: 2 }).sadness, 2);
     // A clip with too little to read says so, and means nothing.
