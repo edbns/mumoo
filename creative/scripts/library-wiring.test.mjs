@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 import { storageReady, putObject, objectSize } from '../netlify/lib/storage.mjs';
 import { changeItem, itemArrived, libraryMedia, listApproved, listLibrary, removeItem, reserveItem } from '../netlify/lib/library.mjs';
-import { TAG } from '../netlify/lib/library.mjs';
+import { TAG, jpegSize, resolutionWarning } from '../netlify/lib/library.mjs';
 import libraryHandler from '../netlify/functions/library-approved.mjs';
 
 const READY = storageReady() && Boolean(process.env.DATABASE_URL);
@@ -324,4 +324,22 @@ test('the video worker mends a video whose colour space is written as reserved, 
   assert.match(worker, /h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1/);
   assert.match(worker, /hevc_metadata=/);
   assert.match(worker, /except PrepareError:\s+fixed = with_colours\(source, directory\)/);
+});
+
+test('the admin is warned when a picture is too small for sharp 1080x1920 creatives', () => {
+  assert.equal(resolutionWarning(1080, 1920), null);
+  assert.equal(resolutionWarning(1277, 1920), null);
+  assert.equal(resolutionWarning(2160, 3840), null);
+  assert.equal(resolutionWarning(1080, 1850), null, 'a tiny enlargement is not worth a warning');
+  assert.match(resolutionWarning(720, 1280), /720×1280.*1\.5×/);
+  assert.match(resolutionWarning(768, 576), /3\.3×.*portrait/);
+  assert.doesNotMatch(resolutionWarning(576, 1024), /portrait/, 'a portrait picture is not told to turn portrait');
+  assert.equal(resolutionWarning(null, null), null, 'an unknown size says nothing');
+});
+
+test('a JPEG\'s size is read from its header', () => {
+  // SOI, an APP0 segment, then a start-of-frame segment for 300 wide, 200 high.
+  const bytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x4a, 0x46, 0xff, 0xc0, 0x00, 0x0b, 0x08, 0x00, 0xc8, 0x01, 0x2c, 0x01, 0x01, 0x11, 0x00]);
+  assert.deepEqual(jpegSize(bytes), [300, 200]);
+  assert.equal(jpegSize(Uint8Array.from([0xff, 0xd8, 0xff, 0xd9])), null);
 });

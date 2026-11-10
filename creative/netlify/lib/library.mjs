@@ -36,6 +36,41 @@ const keyOf = (id) => `library/${id}`;
 const motionKey = (id) => `library/${id}.mp4`;
 const posterKey = (id) => `library/${id}.poster.jpg`;
 const cutoutKey = (id) => `library/${id}.cut.png`;
+/** The creatives are this size; a picture smaller than it is enlarged, and looks soft. */
+export const CREATIVE_WIDTH = 1080;
+export const CREATIVE_HEIGHT = 1920;
+
+/** [width, height] of a JPEG, read from its header; null when it cannot be read. */
+export function jpegSize(bytes) {
+  let at = 2;
+  while (at + 9 < bytes.length) {
+    if (bytes[at] !== 0xff) { at += 1; continue; }
+    const marker = bytes[at + 1];
+    if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01 || marker === 0xff) { at += marker === 0xff ? 1 : 2; continue; }
+    const length = (bytes[at + 2] << 8) | bytes[at + 3];
+    // A start-of-frame marker (not the table markers that share the range) holds the size.
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+      const height = (bytes[at + 5] << 8) | bytes[at + 6];
+      const width = (bytes[at + 7] << 8) | bytes[at + 8];
+      return width && height ? [width, height] : null;
+    }
+    at += 2 + length;
+  }
+  return null;
+}
+
+/**
+ * Words for the admin when a picture is too small for sharp creatives (it fills the 1080x1920 frame, so it is enlarged by the larger of the two
+ * ratios), or null when it is big enough or its size is not known. A small enlargement is not worth a warning.
+ */
+export function resolutionWarning(width, height) {
+  if (!width || !height) return null;
+  const enlarged = Math.max(CREATIVE_WIDTH / width, CREATIVE_HEIGHT / height);
+  if (enlarged <= 1.05) return null;
+  const portrait = height > width;
+  return `Low resolution: ${width}×${height}. Creatives are ${CREATIVE_WIDTH}×${CREATIVE_HEIGHT}, so this is enlarged ${enlarged.toFixed(1)}× and will look soft. For sharp creatives use at least ${CREATIVE_WIDTH}×${CREATIVE_HEIGHT}${portrait ? '' : ', and portrait (vertical) rather than landscape'}.`;
+}
+
 const isJpeg = (bytes) => bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
 /** A worker job that started and has not yet written its id down is given this long before another request may start it again. */
 const STARTING_MS = 2 * 60 * 1000;
@@ -60,6 +95,10 @@ const asItem = async (row) => ({
   /** Ready: the templates can draw it. A video or GIF is first prepared by our worker; `problem` says why one cannot be used. */
   ready: row.ready,
   problem: row.problem,
+  width: row.width,
+  height: row.height,
+  /** Words when the picture is too small for sharp creatives; the item can still be approved. */
+  warning: resolutionWarning(row.width, row.height),
   url: await signedDownload(keyOf(row.id), null),
 });
 
@@ -74,7 +113,10 @@ async function prepareItem(row) {
     if (row.kind === 'photo') {
       if (!row.ready) {
         const bytes = await getObject(keyOf(row.id));
-        if (isJpeg(bytes)) await sql`update library_items set ready = true, problem = null where id = ${row.id}`;
+        if (isJpeg(bytes)) {
+          const [width, height] = jpegSize(bytes) ?? [null, null];
+          await sql`update library_items set ready = true, problem = null, width = ${width}, height = ${height} where id = ${row.id}`;
+        }
         else await sql`update library_items set problem = 'This photo is not a JPEG. Delete it and send it again.' where id = ${row.id}`;
         return;
       }
@@ -86,7 +128,9 @@ async function prepareItem(row) {
       if (answer.failed) await sql`update library_items set problem = ${answer.failed}, prepare_job = null where id = ${row.id}`;
       else if (answer.done) {
         const shots = Array.isArray(answer.done.shots) ? JSON.stringify(answer.done.shots) : null;
-        await sql`update library_items set ready = true, problem = null, prepare_job = null, shots = ${shots}::jsonb where id = ${row.id}`;
+        const width = Number.isInteger(answer.done.width) ? answer.done.width : null;
+        const height = Number.isInteger(answer.done.height) ? answer.done.height : null;
+        await sql`update library_items set ready = true, problem = null, prepare_job = null, shots = ${shots}::jsonb, width = ${width}, height = ${height} where id = ${row.id}`;
       }
       return;
     }

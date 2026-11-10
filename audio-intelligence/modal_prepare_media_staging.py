@@ -188,7 +188,14 @@ def with_colours(source: Path, directory: Path) -> Path | None:
     return fixed
 
 
-def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]]]:
+def size_of(path: Path) -> list[int]:
+    """[width, height] of the first video stream, as ffmpeg decodes it (a phone video turned sideways is already turned)."""
+    answer = run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x", str(path)], 60).strip()
+    width, _, height = answer.partition("x")
+    return [int(width), int(height)]
+
+
+def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]], list[int]]:
     seconds = seconds_of(source)
     # GIFs sometimes report no duration; only a clearly long clip is refused.
     if seconds > MAX_SECONDS:
@@ -213,12 +220,13 @@ def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]]
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-ss", str(min(1.0, seconds / 2)), "-i", str(clip),
         "-frames:v", "1", "-q:v", "3", str(poster),
     ], 60)
-    return clip.read_bytes(), poster.read_bytes(), shots_from(log, milliseconds)
+    # The clip is never enlarged, so its size is the source's (up to full HD): what the person's pictures are really made of.
+    return clip.read_bytes(), poster.read_bytes(), shots_from(log, milliseconds), size_of(clip)
 
 
 @app.function(image=image, cpu=4, memory=4096, min_containers=0, max_containers=6, scaledown_window=60, timeout=600)
 def prepare(kind: str, source: str, puts: dict[str, str]) -> dict:
-    """Returns {"ok": True, "bytes": {output: size}, "shots": [[start_ms, end_ms], ...] (video or GIF only)} or {"ok": False, "error": words for the person}."""
+    """Returns {"ok": True, "bytes": {output: size}, "shots": [[start_ms, end_ms], ...], "width", "height" (video or GIF only)} or {"ok": False, "error": words for the person}."""
     with tempfile.TemporaryDirectory(prefix="mumoo-prepare-") as name:
         directory = Path(name)
         file = directory / "source"
@@ -227,11 +235,11 @@ def prepare(kind: str, source: str, puts: dict[str, str]) -> dict:
             if kind == "photo":
                 made = {"cutout": (cutout(file), "image/png")}
             else:
-                clip, poster, found = motion(file, directory)
+                clip, poster, found, size = motion(file, directory)
                 made = {"motion": (clip, "video/mp4"), "poster": (poster, "image/jpeg")}
             for output, (data, content_type) in made.items():
                 upload(puts[output], data, content_type)
-            return {"ok": True, "bytes": {output: len(data) for output, (data, _) in made.items()}, **({"shots": found} if kind == "motion" else {})}
+            return {"ok": True, "bytes": {output: len(data) for output, (data, _) in made.items()}, **({"shots": found, "width": size[0], "height": size[1]} if kind == "motion" else {})}
         except PrepareError as problem:
             return {"ok": False, "error": str(problem)}
         except Exception:  # noqa: BLE001 - anything else is ours, not the person's

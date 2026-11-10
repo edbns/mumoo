@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Moo? Page not found · MUMOO</title>
+<link rel="icon" type="image/png" href="/brand/favicon.png">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.25rem;
+    padding: 4.5rem 1.25rem 2rem; background: #000; color: #fff; text-align: center;
+    font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .logo { position: fixed; top: 1.5rem; left: 1.75rem; height: 1.25rem; }
+  .paper {
+    width: min(92vw, 520px); background: #fff; border-radius: 6px; padding: 0.75rem 0.75rem 0.25rem; position: relative;
+    transform: rotate(-1.5deg); box-shadow: 0 18px 50px rgba(47, 233, 43, 0.12), 0 2px 0 rgba(255, 255, 255, 0.4);
+  }
+  .paper::before, .paper::after {
+    content: ""; position: absolute; top: -12px; width: 78px; height: 24px; background: rgba(190, 190, 190, 0.75); transform: rotate(-6deg);
+  }
+  .paper::before { left: 18px; }
+  .paper::after { right: 18px; transform: rotate(5deg); }
+  svg { display: block; width: 100%; height: auto; }
+  .tail { transform-origin: 388px 125px; animation: swish 1.8s ease-in-out infinite alternate; }
+  .cow { animation: bob 2.4s ease-in-out infinite; }
+  .bubble { transform-origin: 330px 60px; animation: wiggle 2.4s ease-in-out infinite; }
+  @keyframes swish { from { transform: rotate(-7deg); } to { transform: rotate(9deg); } }
+  @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+  @keyframes wiggle { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg) scale(1.03); } }
+  @media (prefers-reduced-motion: reduce) { .tail, .cow, .bubble { animation: none; } }
+  h1 { margin: 0; font-size: clamp(3.5rem, 14vw, 6rem); line-height: 1; font-weight: 900; letter-spacing: -0.02em; }
+  h1 span { color: #2fe92b; }
+  p { margin: 0; max-width: 28rem; color: #bbcbb2; font-size: 1.05rem; line-height: 1.5; }
+  a.button {
+    margin-top: 0.5rem; display: inline-block; padding: 0.85rem 1.6rem; border-radius: 999px; background: #2fe92b; color: #0f0f0f;
+    font-weight: 700; text-decoration: none;
+  }
+  a.button:hover { background: #5cf259; }
+  a.button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  small { color: #6f7a69; }
+</style>
+</head>
+<body>
+<img class="logo" src="/brand/mumoo-logo.png" alt="MUMOO">
+
+<div class="paper" role="img" aria-label="A wobbly black and white cow, drawn by a kid, saying mooo?">
+<svg viewBox="0 0 460 330" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <!-- Shakes the lines a little each moment, like a hand-drawn flip book. -->
+    <filter id="wobble" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="2" result="noise">
+        <animate id="boil" attributeName="seed" values="2;5;9;4" dur="0.8s" repeatCount="indefinite" calcMode="discrete"/>
+      </feTurbulence>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+  <g filter="url(#wobble)" stroke="#111" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="#fff">
+    <!-- sun -->
+    <g stroke-width="4">
+      <circle cx="50" cy="48" r="17"/>
+      <path d="M50 18v-8M50 78v8M20 48h-8M80 48h8M29 27l-6-6M71 69l6 6M71 27l6-6M29 69l-6 6" fill="none"/>
+    </g>
+    <!-- ground and grass -->
+    <path d="M14 308C90 302 160 312 240 306C320 300 385 310 448 305" fill="none"/>
+    <path d="M40 306l-6-16M40 306l2-18M40 306l9-14M410 306l-6-14M410 306l3-18M410 306l10-12" fill="none" stroke-width="4"/>
+
+    <g class="cow">
+      <!-- far legs -->
+      <path d="M192 236L196 292L220 292L222 236Z"/>
+      <path d="M194 292L222 292L224 304L190 304Z" fill="#111"/>
+      <path d="M344 236L348 292L372 292L374 236Z"/>
+      <path d="M346 292L374 292L376 304L342 304Z" fill="#111"/>
+
+      <!-- tail -->
+      <g class="tail">
+        <path d="M388 125C412 108 424 140 420 175C418 200 426 214 420 232" fill="none"/>
+        <path d="M412 228C402 246 414 270 426 264C440 257 434 240 426 228Z" fill="#111"/>
+      </g>
+
+      <!-- body and spots -->
+      <path d="M120 110C140 80 260 78 330 92C375 100 392 130 388 170C386 205 372 230 350 236L130 238C105 226 98 190 104 150C106 130 112 118 120 110Z"/>
+      <path d="M190 100C215 92 250 100 248 125C246 150 210 160 195 142C180 125 178 108 190 100Z" fill="#111"/>
+      <path d="M300 160C325 150 360 160 362 190C362 215 335 225 315 215C295 205 288 172 300 160Z" fill="#111"/>
+      <path d="M262 196C272 190 286 196 284 208C282 218 266 218 262 210Z" fill="#111" stroke-width="3"/>
+
+      <!-- near legs -->
+      <path d="M138 236L142 292L166 292L168 236Z"/>
+      <path d="M140 292L168 292L170 304L136 304Z" fill="#111"/>
+      <path d="M296 236L300 292L324 292L326 236Z"/>
+      <path d="M298 292L326 292L328 304L294 304Z" fill="#111"/>
+
+      <!-- head -->
+      <path d="M118 100C140 76 162 88 152 108C146 120 132 120 124 112" />
+      <path d="M52 125C20 108 6 128 20 142C32 152 50 146 56 138"/>
+      <path d="M72 106C64 82 78 72 90 80" fill="none"/>
+      <path d="M108 102C112 78 126 74 134 84" fill="none"/>
+      <path d="M52 130C48 100 105 92 130 112C148 135 142 190 118 208C92 224 52 214 44 180C40 160 46 145 52 130Z"/>
+      <path d="M100 108C122 104 134 124 124 136C112 138 100 126 100 108Z" fill="#111"/>
+      <ellipse cx="80" cy="192" rx="36" ry="24"/>
+      <ellipse cx="68" cy="190" rx="4" ry="6" fill="#111" stroke-width="2"/>
+      <ellipse cx="92" cy="190" rx="4" ry="6" fill="#111" stroke-width="2"/>
+      <path d="M64 204C74 212 88 212 96 204" fill="none" stroke-width="4"/>
+      <circle cx="66" cy="150" r="12"/>
+      <circle cx="63" cy="153" r="5" fill="#111" stroke-width="2"/>
+      <circle cx="104" cy="149" r="9"/>
+      <circle cx="101" cy="152" r="4" fill="#111" stroke-width="2"/>
+      <!-- collar and bell -->
+      <path d="M104 208C118 222 136 218 146 202" fill="none" stroke-width="4"/>
+      <circle cx="126" cy="226" r="9" fill="#111"/>
+      <circle cx="123" cy="223" r="2.5" fill="#fff" stroke="none"/>
+    </g>
+
+    <!-- speech bubble -->
+    <g class="bubble">
+      <path d="M254 34C254 8 402 6 410 34C416 60 336 66 306 62L288 82L290 60C266 56 254 48 254 34Z"/>
+      <text x="332" y="48" text-anchor="middle" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Bradley Hand',cursive" font-size="30" font-weight="700" fill="#111" stroke="none">mooo?</text>
+    </g>
+  </g>
+</svg>
+</div>
+
+<h1>4<span>0</span>4</h1>
+<p>Moo? There is nothing here. This page wandered off like a cow at midnight.</p>
+<a class="button" href="/">Back to MUMOO</a>
+<small>MUMOO · music in motion</small>
+
+<script>
+  // The shaking lines are motion too: keep them still for people who asked for less of it.
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) document.getElementById('boil')?.remove();
+</script>
+</body>
+</html>

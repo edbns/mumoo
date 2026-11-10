@@ -14,6 +14,8 @@ export type LibraryItem = {
   clearedBy: string; clearedAt: string; createdAt: string; url: string;
   /** Ready to be drawn by the templates. A video or GIF is first made a small clip by our worker; `problem` says why one cannot be used. */
   ready: boolean; problem: string | null;
+  /** The picture's size and, when it is too small for sharp creatives, words saying so. */
+  width: number | null; height: number | null; warning: string | null;
 };
 export type TagCount = { name: string; items: number };
 export type Library = { items: LibraryItem[]; tags: TagCount[] };

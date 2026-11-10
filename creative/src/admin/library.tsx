@@ -104,6 +104,7 @@ function Card({ item, selected, onSelect }: { item: LibraryItem; selected: boole
       <Media item={item} />
       <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[item.status]}`}>{STATUS_LABEL[item.status]}</span>
       {!item.ready && <span className={`absolute bottom-2 left-2 rounded-full px-2 py-0.5 text-xs font-medium ${item.problem ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{item.problem ? 'Cannot be used' : 'Preparing…'}</span>}
+      {item.ready && item.warning && <span className="absolute bottom-2 left-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Low resolution</span>}
       <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
         {item.kind === 'video' ? <FilmIcon className="size-3" aria-hidden="true" /> : <ImageIcon className="size-3" aria-hidden="true" />}{item.kind === 'gif' ? 'GIF' : cap(item.kind)}
       </span>
@@ -231,7 +232,8 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
       {item.problem
         ? `${item.problem} ${item.status === 'approved' ? 'It is approved, but the templates will not use it until this is fixed.' : 'It cannot be approved for the templates until this is fixed.'} Reload the page to see if it has been prepared since.`
         : 'Our worker is preparing this. It reaches the templates when it is ready and approved.'}</p>}
-    <p className="m-0 text-xs text-muted-foreground">Cleared by {item.clearedBy} on {when(item.clearedAt)} · {item.contentType} · {megabytes(item.bytes)}</p>
+    {item.warning && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-amber-100 px-3 py-2 text-sm text-amber-900">{item.warning}</p>}
+    <p className="m-0 text-xs text-muted-foreground">Cleared by {item.clearedBy} on {when(item.clearedAt)} · {item.contentType} · {megabytes(item.bytes)}{item.width && item.height ? ` · ${item.width}×${item.height}` : ''}</p>
 
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
     <div className="mt-auto flex flex-wrap items-center gap-2">
