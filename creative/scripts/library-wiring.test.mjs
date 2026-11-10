@@ -40,7 +40,8 @@ test('the attitude is the main match; neutral fits any song; a song with no feel
   try {
     const items = [item('a', { attitudes: ['tender'] }), item('b', { attitudes: ['angry'] }), item('c', { attitudes: ['neutral'] })];
     const tender = { attitude: 'tender', genre: 'Pop', subGenre: '' };
-    assert.deepEqual(ids(pick.pickLibrary(items, tender, 's', 0, 4)), ['a', 'c'], 'exact match first, neutral next, the wrong feeling never');
+    assert.deepEqual(ids(pick.pickLibrary(items, tender, 's', 0, 4)), ['a', 'c', 'b'], 'exact match first, neutral next, then the wrong feeling only to fill the hand');
+    assert.ok(!ids(pick.pickLibrary([...items, item('d', { attitudes: ['tender'] }), item('e', { attitudes: ['tender'] })], tender, 's', 0, 3)).includes('b'), 'with enough that fit, the wrong feeling is never used');
     assert.deepEqual(ids(pick.pickLibrary(items, { ...tender, attitude: 'neutral' }, 's', 0, 4)).sort(), ['a', 'b', 'c'], 'a neutral song takes anything');
     assert.deepEqual(ids(pick.pickLibrary(items, { ...tender, attitude: null }, 's', 0, 4)).sort(), ['a', 'b', 'c'], 'unread lyrics take anything');
   } finally { await server.close(); }
@@ -108,11 +109,11 @@ test('Our photography is dealt from the library only; baked effects stand in jus
 
     const library = [item('lib-1', { tags: ['sunset'] }), item('lib-2', { genre: 'Pop' }), item('lib-3', { genre: 'Rock' }), item('lib-4', { attitudes: ['angry'] })];
     const some = pack.recommendRow('photography', person, 0, [], null, library);
-    assert.equal(some.length, 2, 'only the pictures that fit, no baked filler beside them');
-    assert.deepEqual(some.filter(slot => slot.libraryId).map(slot => slot.libraryId).sort(), ['lib-1', 'lib-2'], 'only items that fit this song: not the other genre, not the other feeling');
+    assert.equal(some.length, 3, 'the pictures that fit, then the nearest other to fill the hand, and no baked filler');
+    assert.deepEqual([...some.map(slot => slot.libraryId)].sort(), ['lib-1', 'lib-2', 'lib-4'], 'not the other genre; the other feeling only because the hand is short');
     assert.ok(some.every(slot => !slot.effectId));
-    assert.equal(new Set(some.map(slot => slot.id)).size, 2);
-    assert.equal(new Set(some.map(slot => slot.typeStyle)).size, 2, 'each card keeps its own lyric type');
+    assert.equal(new Set(some.map(slot => slot.id)).size, 3);
+    assert.equal(new Set(some.map(slot => slot.typeStyle)).size, 3, 'each card keeps its own lyric type');
     assert.ok(some.filter(slot => slot.libraryId).every(slot => slot.style === 'filter' && !slot.effectId && !slot.plateId));
     assert.deepEqual(some, pack.recommendRow('photography', person, 0, [], null, library), 'the same deal every time');
 
