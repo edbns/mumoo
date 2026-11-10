@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doodle lab: the singer by genre and voice</title>
+<style>
+  body { margin: 0; background: #000; color: #fff; font: 14px system-ui, sans-serif; padding: 1.5rem; }
+  h1 { font-size: 1.1rem; margin: 0 0 0.25rem; }
+  p.note { margin: 0 0 1.25rem; color: #bbcbb2; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; max-width: 1180px; }
+  figure { margin: 0; background: #fff; border-radius: 6px; padding: 8px 8px 6px; color: #111; transform: rotate(var(--tilt, 0deg)); }
+  figure:nth-child(odd) { --tilt: -1deg; } figure:nth-child(even) { --tilt: 1deg; }
+  figcaption { text-align: center; font-size: 12px; padding: 2px 0 4px; color: #555; }
+  svg { display: block; width: 100%; height: auto; }
+  .bob { animation: bob 1.1s ease-in-out infinite; transform-origin: 150px 330px; }
+  figure:nth-child(3n) .bob { animation-duration: 0.9s; } figure:nth-child(3n+1) .bob { animation-duration: 1.3s; }
+  @keyframes bob { 0%, 100% { transform: rotate(-1.5deg) translateY(0); } 50% { transform: rotate(1.5deg) translateY(-4px); } }
+</style>
+</head>
+<body>
+<h1>The singer: a kid's drawing, by genre and voice</h1>
+<p class="note">Same drawing hand for every character; the genre picks the props, the voice picks the hair and clothes, the mood of the lyrics picks the face. All code, no pictures.</p>
+<div class="grid" id="grid"></div>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <filter id="wobble" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="2" result="noise">
+      <animate attributeName="seed" values="2;5;9;4" dur="0.8s" repeatCount="indefinite" calcMode="discrete"/>
+    </feTurbulence>
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</defs></svg>
+<script>
+  // ---- the hand: one head, one body, one way of drawing, whoever is singing ----
+  const INK = '#111';
+  const face = mood => ({
+    joyful: `<circle cx="132" cy="108" r="4" fill="${INK}"/><circle cx="168" cy="108" r="4" fill="${INK}"/><path d="M130 128C142 146 158 146 170 128" fill="none"/><circle cx="118" cy="124" r="6" fill="none" stroke-width="2"/><circle cx="182" cy="124" r="6" fill="none" stroke-width="2"/>`,
+    flirty: `<circle cx="132" cy="108" r="4" fill="${INK}"/><path d="M160 108C165 102 172 102 176 108" fill="none" stroke-width="4"/><path d="M134 130C146 140 160 138 168 128" fill="none"/><path d="M186 92l8-6M188 100l10-2" fill="none" stroke-width="3"/>`,
+    angry: `<path d="M120 96L144 104M180 96L156 104" fill="none" stroke-width="6"/><circle cx="134" cy="112" r="4" fill="${INK}"/><circle cx="166" cy="112" r="4" fill="${INK}"/><path d="M132 140C144 126 158 126 168 140" fill="none"/><path d="M96 70c-8-14 6-18 0-30M204 70c8-14-6-18 0-30" fill="none" stroke-width="4"/>`,
+    sad: `<circle cx="132" cy="110" r="4" fill="${INK}"/><circle cx="168" cy="110" r="4" fill="${INK}"/><path d="M126 100L142 94M174 100L158 94" fill="none" stroke-width="4"/><path d="M134 138C146 126 158 126 168 138" fill="none"/><path d="M132 122c-5 10 5 12 0 22" fill="#fff" stroke-width="3"/>`,
+    boastful: `<path d="M118 108h64" fill="none" stroke-width="3"/><path d="M118 100h28v16h-28zM154 100h28v16h-28z" fill="${INK}"/><path d="M134 134C148 144 166 140 172 126" fill="none"/>`,
+  }[mood]);
+
+  const hair = (voice, style) => ({
+    long: `<path d="M98 100C90 50 210 50 202 100C206 150 214 190 196 214C190 180 190 150 186 120C170 96 130 96 114 120C110 150 110 180 104 214C86 190 94 150 98 100Z" fill="${INK}"/>`,
+    bob: `<path d="M96 108C86 56 214 56 204 108C206 134 200 144 192 144L190 120C170 94 130 94 110 120L108 144C100 144 94 134 96 108Z" fill="${INK}"/>`,
+    short: `<path d="M98 100C96 52 204 52 202 100C190 80 160 72 150 76C140 72 110 80 98 100Z" fill="${INK}"/>`,
+    buns: `<circle cx="106" cy="58" r="20" fill="${INK}"/><circle cx="194" cy="58" r="20" fill="${INK}"/><path d="M98 100C96 56 204 56 202 100C190 80 160 74 150 78C140 74 110 80 98 100Z" fill="${INK}"/>`,
+    mohawk: `<path d="M120 62L126 22L138 56L150 12L162 56L174 22L180 62C166 54 134 54 120 62Z" fill="${INK}"/>`,
+    bald: '',
+  }[style]);
+
+  const body = (voice) => voice === 'female' ? `
+    <path d="M150 168C128 168 114 180 110 204L72 272L228 272L190 204C186 180 172 168 150 168Z" fill="#fff"/>
+    <path d="M96 244C120 252 180 252 204 244" fill="none" stroke-width="3"/>
+    <path d="M128 272L124 326M172 272L176 326" fill="none"/>
+    <ellipse cx="116" cy="330" rx="18" ry="8" fill="${INK}"/><ellipse cx="184" cy="330" rx="18" ry="8" fill="${INK}"/>` : `
+    <path d="M150 168C124 168 108 180 106 206L104 262L196 262L194 206C192 180 176 168 150 168Z" fill="#fff"/>
+    <path d="M128 172L150 196L172 172" fill="none" stroke-width="4"/><path d="M150 196V262" fill="none" stroke-width="3"/>
+    <path d="M104 262h92v26h-92z" fill="${INK}"/>
+    <path d="M124 288L122 326M176 288L178 326" fill="none"/>
+    <ellipse cx="114" cy="330" rx="18" ry="8" fill="${INK}"/><ellipse cx="186" cy="330" rx="18" ry="8" fill="${INK}"/>`;
+
+  const mic = '<path d="M218 150L226 122" fill="none" stroke-width="6"/><circle cx="228" cy="112" r="12" fill="#fff"/><path d="M220 108l16 8M221 117l14-10" fill="none" stroke-width="2"/>';
+  const arms = () => '<path d="M110 190C88 184 72 156 68 122" fill="none"/><circle cx="66" cy="112" r="9" fill="#fff"/><path d="M190 190C214 196 222 176 218 152" fill="none"/><circle cx="218" cy="150" r="8" fill="#fff"/>' + mic;
+
+  const head = '<path d="M150 50C106 48 92 84 96 116C100 152 126 164 150 164C178 164 202 150 204 116C206 84 190 50 150 50Z" fill="#fff"/>';
+
+  // ---- props: what the genre carries ----
+  const PROPS = {
+    hoops: '<circle cx="96" cy="136" r="11" fill="none" stroke-width="4"/><circle cx="204" cy="136" r="11" fill="none" stroke-width="4"/>',
+    cap: `<path d="M98 94C96 52 204 52 202 94C184 84 116 84 98 94Z" fill="${INK}"/><path d="M200 90L240 98L202 100Z" fill="${INK}"/>`,
+    chain: '<path d="M122 170C132 202 168 202 178 170" fill="none" stroke-width="4"/><circle cx="150" cy="206" r="9" fill="#fff" stroke-width="4"/>',
+    headphones: `<path d="M96 110C90 40 210 40 204 110" fill="none" stroke-width="7"/><rect x="82" y="100" width="22" height="40" rx="8" fill="${INK}"/><rect x="196" y="100" width="22" height="40" rx="8" fill="${INK}"/>`,
+    beanie: `<path d="M98 94C96 40 204 40 202 94Z" fill="${INK}"/><path d="M96 92h108" stroke-width="9" fill="none"/><circle cx="150" cy="40" r="9" fill="${INK}"/>`,
+    bow: `<path d="M150 56L120 36L124 76ZM150 56L180 36L176 76Z" fill="#fff"/><circle cx="150" cy="56" r="7" fill="${INK}"/>`,
+    star: '<path d="M60 70l8 18 20 2-15 13 5 20-18-10-18 10 5-20-15-13 20-2z" fill="#fff"/>',
+    cowboy: `<path d="M70 82C100 94 200 94 230 82C214 76 204 78 200 70C196 30 104 30 100 70C96 78 86 76 70 82Z" fill="${INK}"/><path d="M104 70C130 78 170 78 196 70" fill="none" stroke="#fff" stroke-width="3"/>`,
+    guitar: `<path d="M208 252L262 190" stroke-width="8" fill="none"/><path d="M180 262C160 252 164 234 182 232C176 218 196 214 204 226C214 226 222 244 210 256C204 270 188 270 180 262Z" fill="#fff"/><circle cx="192" cy="244" r="5" fill="${INK}"/>`,
+    rays: '<path d="M40 150l22 8M30 190l26-2M44 232l22-12M260 150l-22 8M270 190l-26-2M256 232l-22-12" fill="none" stroke-width="5"/>',
+    hearts: '<path d="M236 60c-10-14-26 2-12 14l12 10 12-10c14-12-2-28-12-14z" fill="#111"/><path d="M52 120c-8-10-20 2-10 11l10 8 10-8c10-9-2-21-10-11z" fill="#fff"/>',
+    steam: '',
+    sunglassesUp: `<path d="M110 76h34v12h-34zM156 76h34v12h-34z" fill="${INK}" transform="rotate(-4 150 80)"/>`,
+    tear: '',
+  };
+
+  const bubble = text => `<g class="bub"><path d="M20 20C20 -6 160 -8 170 18C178 44 100 50 70 46L52 66L54 44C32 40 20 32 20 20Z" fill="#fff" transform="translate(0,4)"/><text x="94" y="36" text-anchor="middle" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS',cursive" font-size="22" font-weight="700" fill="${INK}" stroke="none">${text}</text></g>`;
+
+  const mini = '<g transform="translate(206 284)" stroke-width="4"><path d="M10 60l-8-8" fill="none"/><ellipse cx="46" cy="40" rx="34" ry="20" fill="#fff"/><path d="M34 30c10-6 16 4 8 10c-8 4-14-2-8-10zM58 40c8-4 12 6 4 8c-6 0-8-4-4-8z" fill="#111" stroke="none"/><path d="M20 56v16M36 60v14M58 60v14M72 54v18" fill="none"/><circle cx="84" cy="30" r="13" fill="#fff"/><path d="M78 20l-6-8M90 20l6-8" fill="none"/><circle cx="88" cy="28" r="2.5" fill="#111" stroke="none"/><path d="M80 36h10" fill="none" stroke-width="3"/><path d="M12 30C2 28 0 20 6 14" fill="none"/></g>';
+
+  function singer({ voice, hairStyle, props = [], mood, line, cow = false, raised = true }) {
+    return `<svg viewBox="-10 -10 320 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${line}">
+      <g filter="url(#wobble)" stroke="${INK}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="#fff">
+        <path d="M10 346C90 340 170 350 240 344C268 342 288 346 300 344" fill="none"/>
+        <g class="bob">
+          ${arms()}
+          ${body(voice)}
+          ${props.includes('chain') ? PROPS.chain : ''}
+          ${props.includes('guitar') ? PROPS.guitar : ''}
+          ${head}
+          ${hair(voice, hairStyle)}
+          ${props.includes('hoops') ? PROPS.hoops : ''}
+          ${face(mood)}
+          ${props.filter(p => ['cap', 'headphones', 'beanie', 'bow', 'cowboy', 'sunglassesUp'].includes(p)).map(p => PROPS[p]).join('')}
+        </g>
+        ${props.includes('star') ? PROPS.star : ''}${props.includes('rays') ? PROPS.rays : ''}${props.includes('hearts') ? PROPS.hearts : ''}
+        ${cow ? mini : ''}
+        ${bubble(line)}
+      </g></svg>`;
+  }
+
+  const CAST = [
+    ['Latin & Urbano · Reggaeton · female voice · flirty', { voice: 'female', hairStyle: 'long', props: ['hoops', 'sunglassesUp'], mood: 'flirty', line: 'mami…' }],
+    ['Latin & Urbano · Reggaeton · male voice · boastful', { voice: 'male', hairStyle: 'bald', props: ['cap', 'chain'], mood: 'boastful', line: 'dale!' }],
+    ['Electronic · Techno · female voice · joyful', { voice: 'female', hairStyle: 'bob', props: ['headphones', 'rays'], mood: 'joyful', line: 'again!' }],
+    ['Hip-Hop · male voice · boastful', { voice: 'male', hairStyle: 'bald', props: ['beanie', 'chain'], mood: 'boastful', line: 'I run it' }],
+    ['Pop · female voice · joyful', { voice: 'female', hairStyle: 'buns', props: ['bow', 'star'], mood: 'joyful', line: 'la la la' }],
+    ['Rock · male voice · angry', { voice: 'male', hairStyle: 'mohawk', props: ['guitar'], mood: 'angry', line: 'NO!' }],
+    ['Country · male voice · sad (with the cow)', { voice: 'male', hairStyle: 'short', props: ['cowboy'], mood: 'sad', line: 'she left', cow: true }],
+    ['Pop · female voice · heartbroken', { voice: 'female', hairStyle: 'long', props: ['hearts'], mood: 'sad', line: 'why?' }],
+  ];
+  document.getElementById('grid').innerHTML = CAST.map(([title, spec]) => `<figure>${singer(spec)}<figcaption>${title}</figcaption></figure>`).join('');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) document.querySelectorAll('animate').forEach(node => node.remove());
+</script>
+</body>
+</html>
