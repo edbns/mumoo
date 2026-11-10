@@ -5,12 +5,12 @@
 const PREPARE = 'https://edbns-mumoo-staging--mumoo-prepare-media-staging';
 const bridge = () => ({ Authorization: `Bearer ${process.env.MUMOO_MUSIC_BRIDGE_SECRET}` });
 
-/** Starts preparing a video or GIF. Returns the worker's job id. */
-export async function startPrepare(source, puts) {
+/** Starts preparing a video or GIF (`kind` 'motion': a small clip and a poster) or cutting the subject out of a photo (`kind` 'photo': a cut-out). Returns the worker's job id. */
+export async function startPrepare(source, puts, kind = 'motion') {
   const response = await fetch(`${PREPARE}-submit.us-east.modal.run`, {
     method: 'POST',
     headers: { ...bridge(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ kind: 'motion', source, puts }),
+    body: JSON.stringify({ kind, source, puts }),
     redirect: 'error',
     signal: AbortSignal.timeout(25_000),
   });

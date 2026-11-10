@@ -159,10 +159,11 @@ def encode(source: Path, clip: Path) -> str:
         "ffmpeg", "-y", "-hide_banner", "-i", str(source), "-t", str(MAX_SECONDS), "-an",
         "-filter_complex",
         "[0:v]fps=30,split=2[full][look];"
-        "[full]scale=720:1280:force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p[small];"
+        # Full HD at most (never enlarged): the cloud render is 1080x1920, and a clip kept at 720 wide came out soft.
+        "[full]scale='min(1080,iw)':'min(1920,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p[small];"
         # The first frame is always kept (it is at 0, which is no cut): a video of one shot has no scene change, and an output that receives no frame makes ffmpeg fail.
         f"[look]scale=-2:160,select='gt(scene,{SCENE_THRESHOLD})+eq(n,0)',showinfo[scenes]",
-        "-map", "[small]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-maxrate", "4M", "-bufsize", "8M",
+        "-map", "[small]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-maxrate", "8M", "-bufsize", "16M",
         "-g", "10", "-bf", "0", "-movflags", "+faststart", str(clip),
         "-map", "[scenes]", "-f", "null", "-",
     ], 300, stream="stderr")

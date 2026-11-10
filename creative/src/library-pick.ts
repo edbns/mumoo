@@ -19,6 +19,8 @@ export type LibraryPicture = {
   subGenre: string | null;
   /** A photo, or the poster of a video or GIF. */
   url: string;
+  /** A photo's subject cut out of it, once our worker has made it: Riso and Dust draw only photos that have one. */
+  cutoutUrl?: string;
   /** A video or GIF's small prepared clip and its shots, as [start, end] in ms of the clip. */
   motionUrl?: string;
   shots?: [number, number][];

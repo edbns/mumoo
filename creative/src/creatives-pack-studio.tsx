@@ -157,7 +157,12 @@ export function CreativesPackStudio({
   const windowOwn = useWindowOwn(pictures.window);
   // Our approved library fills Our photography until the person uses their own picture there.
   const library = useLibrary();
-  const libraryFor = (row: ShelfRow) => (row === 'photography' && !pictures.filter ? library ?? [] : []);
+  // Riso and Dust draw library photos that have a cut-out (the row deals only those); Window does not use the library yet.
+  const libraryFor = (row: ShelfRow) => {
+    const use = useOf(row);
+    return (row === 'photography' || row === 'riso' || row === 'dust') && use && !pictures[use] ? library ?? [] : [];
+  };
+  const libraryCutouts = (library ?? []).some(item => item.kind === 'photo' && item.cutoutUrl);
   const libraryItem = (id: string | undefined) => (id ? (library ?? []).find(item => item.id === id) ?? null : null);
   const pictureOf = (row: ShelfRow, slot?: CreativesPackSlot) => {
     const use = useOf(row);
@@ -170,9 +175,9 @@ export function CreativesPackStudio({
     if (noLyrics && def.lyrics === 'always') return [def.id, { slots: [], note: '' }];
     // Dust and Riso are made from approved photos that have a cut-out; Our photography needs no photo of ours, its looks are baked.
     if (def.upload && photoOnly(def.upload) && !pictures[def.upload]) {
-      if (plates === null) {
+      if (plates === null || library === null) {
         return [def.id, { slots: [], note: '' }];
-      } else if (!plates.some(plate => plate.cutout)) {
+      } else if (!plates.some(plate => plate.cutout) && !libraryCutouts) {
         return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? 'We have no approved photos for this yet. Sign in (top right) to use your own.' : `We have no approved photos for this yet. Upload one photo to see ${def.title} made from it.` }];
       }
     }
@@ -188,7 +193,7 @@ export function CreativesPackStudio({
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover,
     controls, plates, hasLyrics, noLyrics, pictureIds, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem,
     // What the library holds, not the links to it (they are renewed all the time).
-    library?.map(item => item.id).join(','),
+    library?.map(item => item.id + (item.cutoutUrl ? '+cut' : '')).join(','),
   ]);
   const pack = SHELF_ROWS.flatMap(def => view[def.id].slots);
   const paintedRows = SHELF_ROWS.filter(def => view[def.id].slots.length > 0);

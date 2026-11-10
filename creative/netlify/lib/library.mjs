@@ -35,9 +35,11 @@ export const ACCEPTED_TYPES = Object.keys(TYPES);
 const keyOf = (id) => `library/${id}`;
 const motionKey = (id) => `library/${id}.mp4`;
 const posterKey = (id) => `library/${id}.poster.jpg`;
+const cutoutKey = (id) => `library/${id}.cut.png`;
 const isJpeg = (bytes) => bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
 /** A worker job that started and has not yet written its id down is given this long before another request may start it again. */
 const STARTING_MS = 2 * 60 * 1000;
+const CUTOUT_TRIES = 3;
 /** A file whose upload never finished is of no use after this long. */
 const STALE_MS = 60 * 60 * 1000;
 
@@ -70,9 +72,13 @@ async function prepareItem(row) {
   const sql = db();
   try {
     if (row.kind === 'photo') {
-      const bytes = await getObject(keyOf(row.id));
-      if (isJpeg(bytes)) await sql`update library_items set ready = true, problem = null where id = ${row.id}`;
-      else await sql`update library_items set problem = 'This photo is not a JPEG. Delete it and send it again.' where id = ${row.id}`;
+      if (!row.ready) {
+        const bytes = await getObject(keyOf(row.id));
+        if (isJpeg(bytes)) await sql`update library_items set ready = true, problem = null where id = ${row.id}`;
+        else await sql`update library_items set problem = 'This photo is not a JPEG. Delete it and send it again.' where id = ${row.id}`;
+        return;
+      }
+      await cutOut(row);
       return;
     }
     if (row.prepare_job && row.prepare_job !== 'starting') {
@@ -104,9 +110,40 @@ async function prepareItem(row) {
   }
 }
 
+/**
+ * A ready photo also gets its subject cut out (Riso and Dust draw from it). The photo is usable before that, in Our photography; a photo
+ * the worker cannot cut is tried three times and then left alone. Never throws.
+ */
+async function cutOut(row) {
+  const sql = db();
+  try {
+    if (row.prepare_job && row.prepare_job !== 'starting') {
+      const answer = await askPrepare(row.prepare_job);
+      if (answer.failed) await sql`update library_items set prepare_job = null where id = ${row.id}`;
+      else if (answer.done) await sql`update library_items set cutout = true, prepare_job = null where id = ${row.id}`;
+      return;
+    }
+    const [claimed] = await sql`
+      update library_items set prepare_job = 'starting', prepare_at = now(), cutout_tries = cutout_tries + 1
+      where id = ${row.id} and not cutout and cutout_tries < ${CUTOUT_TRIES}
+        and (prepare_job is null or (prepare_job = 'starting' and prepare_at < now() - ${`${STARTING_MS} milliseconds`}::interval))
+      returning id`;
+    if (!claimed) return;
+    try {
+      const job = await startPrepare(await signedDownload(keyOf(row.id), null, 1800), { cutout: await signedUpload(cutoutKey(row.id)) }, 'photo');
+      await sql`update library_items set prepare_job = ${job} where id = ${row.id}`;
+    } catch (cause) {
+      await sql`update library_items set prepare_job = null where id = ${row.id}`;
+      throw cause;
+    }
+  } catch (cause) {
+    console.error('library cut-out:', cause);
+  }
+}
+
 /** Looks at every arrived item that is not ready and has no stated problem, so the library moves on whenever anyone looks at it. */
 async function prepareWaiting() {
-  const rows = await db()`select * from library_items where arrived and not ready and problem is null limit 20`;
+  const rows = await db()`select * from library_items where arrived and problem is null and (not ready or (kind = 'photo' and not cutout and cutout_tries < ${CUTOUT_TRIES})) limit 20`;
   await Promise.all(rows.map(prepareItem));
 }
 
@@ -211,7 +248,7 @@ export async function changeItem(id, change) {
 export async function removeItem(id) {
   const [row] = await db()`delete from library_items where id = ${id} returning id`;
   if (!row) return false;
-  await Promise.all([keyOf(id), motionKey(id), posterKey(id)].map(key => deleteObject(key).catch(() => undefined)));
+  await Promise.all([keyOf(id), motionKey(id), posterKey(id), cutoutKey(id)].map(key => deleteObject(key).catch(() => undefined)));
   return true;
 }
 
@@ -231,15 +268,16 @@ export async function listApproved() {
     genre: row.genre,
     subGenre: row.sub_genre,
     url: await signedDownload(row.kind === 'photo' ? keyOf(row.id) : posterKey(row.id), null),
-    ...(row.kind === 'photo' ? {} : { motionUrl: await signedDownload(motionKey(row.id), null), ...(row.shots ? { shots: row.shots } : {}) }),
+    ...(row.kind === 'photo' ? (row.cutout ? { cutoutUrl: await signedDownload(cutoutKey(row.id), null) } : {}) : { motionUrl: await signedDownload(motionKey(row.id), null), ...(row.shots ? { shots: row.shots } : {}) }),
   })));
 }
 
-/** What a render needs of an approved item, read from storage: `{ photo }` or `{ motion }`. Null when it is not approved and ready. */
+/** What a render needs of an approved item, read from storage: `{ photo }` (with `cutout` once it has one) or `{ motion }`. Null when it is not approved and ready. */
 export async function libraryMedia(id) {
-  const [row] = await db()`select kind from library_items where id = ${id} and arrived and ready and status = 'approved'`;
+  const [row] = await db()`select kind, cutout from library_items where id = ${id} and arrived and ready and status = 'approved'`;
   if (!row) return null;
-  return row.kind === 'photo' ? { photo: await getObject(keyOf(id)) } : { motion: await getObject(motionKey(id)) };
+  if (row.kind !== 'photo') return { motion: await getObject(motionKey(id)) };
+  return { photo: await getObject(keyOf(id)), ...(row.cutout ? { cutout: await getObject(cutoutKey(id)) } : {}) };
 }
 
 /** Removes a tag from the list and from every item that has it. */

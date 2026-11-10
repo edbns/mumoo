@@ -54,10 +54,15 @@ export default async function encodeCreative(request) {
       // An approved library picture is for everyone, so no sign-in is needed; it is Our photography's picture, like a person's own.
       if (upload !== undefined) return error(400, 'Choose one picture.');
       if (!UUID.test(library)) return error(400, 'Invalid picture.');
-      if (scene.opts?.style !== 'filter') return error(400, 'That picture is kept for a different style.');
+      const style = scene.opts?.style;
+      // Our photography draws a library picture or video; Riso and Dust draw a library photo with its cut-out.
+      const cutOut = style === 'riso' || style === 'dust';
+      if (style !== 'filter' && !cutOut) return error(400, 'That picture is kept for a different style.');
       const media = await libraryMedia(library);
       if (!media) return error(404, 'That picture is no longer in the library.');
+      if (cutOut && (!media.photo || !media.cutout)) return error(404, 'That picture has no cut-out yet.');
       if (media.photo) outbound.append('photo', new Blob([media.photo], { type: 'image/jpeg' }), 'photo.jpg');
+      if (cutOut) outbound.append('cutout', new Blob([media.cutout], { type: 'image/png' }), 'cutout.png');
       if (media.motion) outbound.append('motion', new Blob([media.motion], { type: 'video/mp4' }), 'motion.mp4');
     }
     if (upload !== undefined) {

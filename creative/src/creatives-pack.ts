@@ -289,18 +289,22 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
+  // Riso and Dust draw a library photo that has its cut-out (the ones that fit this song); with none, our approved photos.
+  const wanted = { attitude: meaning?.attitude ?? null, genre, subGenre: profile.creator.subGenre?.value ?? '' };
+  const cutOutLibrary = pickLibrary(library.filter(item => item.kind === 'photo' && item.cutoutUrl), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
+  const photos: PhotoSources = { plateIds: cutOutPlates, libraryIds: cutOutLibrary };
   const slots = {
     photography: () => photographySlots(
       lane, intent, seed,
       dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation),
-      pickLibrary(library, { attitude: meaning?.attitude ?? null, genre, subGenre: profile.creator.subGenre?.value ?? '' }, profile.clip.sourceSha256, generation, ROW_SIZE),
+      pickLibrary(library, wanted, profile.clip.sourceSha256, generation, ROW_SIZE),
     ),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
-    riso: () => risoSlots(lane, intent, seed, cutOutPlates),
+    riso: () => risoSlots(lane, intent, seed, photos),
     spray: () => spraySlots(lane, intent, seed),
     window: () => windowSlots(lane, intent, seed, plates, own),
     pulise: () => puliseSlots(lane, intent, seed),
-    dust: () => dustSlots(lane, intent, seed, cover?.hue, cutOutPlates),
+    dust: () => dustSlots(lane, intent, seed, cover?.hue, photos),
   }[row]();
   const grade = moodGrade(meaning);
   return grade && !UNGRADED.includes(row) ? slots.map(slot => ({ ...slot, grade })) : slots;
@@ -311,18 +315,22 @@ function cardColors(seed: string, index: number, coverHue: number | null | undef
   return dustColors(hashPick(seed, `colors:${index}`, 1_000_000), coverHue != null && index < 2 ? coverHue : undefined);
 }
 
-/** With more approved photos the seed deals a different one to each Dust card; with none the card waits for the person's own. */
-function dealt(plateIds: readonly string[], seed: string, index: number): { plateId?: string } {
+/** Where Riso and Dust get their photo: library photos that have a cut-out, else our approved photos. */
+type PhotoSources = { plateIds: readonly string[]; libraryIds: readonly string[] };
+
+/** With more photos the seed deals a different one to each card; with none the card waits for the person's own. Library photos come first. */
+function dealt({ plateIds, libraryIds }: PhotoSources, seed: string, index: number): { plateId?: string; libraryId?: string } {
+  if (libraryIds.length) return { libraryId: seededOrder(libraryIds, seed, id => id)[index % libraryIds.length] };
   if (!plateIds.length) return {};
   return { plateId: seededOrder(plateIds, seed, id => id)[index % plateIds.length] };
 }
 
-function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined, plateIds: readonly string[]): CreativesPackSlot[] {
+function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined, photos: PhotoSources): CreativesPackSlot[] {
   const faces = dealFaces(lane, intent, seed, 'dust', HEAVY_CAPS_ROW);
   return faces.map((face, index) => ({
     ...adPunchSlot('dust', index, intent, seed, lane, 'dust', face),
     colors: cardColors(seed, index, coverHue),
-    ...dealt(plateIds, seed, index),
+    ...dealt(photos, seed, index),
   }));
 }
 
@@ -332,14 +340,14 @@ const sentence = (text: string) => `${text[0].toUpperCase()}${text.slice(1)}`;
  * Four Riso cards: each its own ink set (a seeded draw, so every Refresh deals them in a new order), its own heavy
  * capital face and its own scatter of the words. The photo is ours (dealt like Dust's) until the person uses their own.
  */
-function risoSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, plateIds: readonly string[]): CreativesPackSlot[] {
+function risoSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, photos: PhotoSources): CreativesPackSlot[] {
   const faces = dealFaces(lane, intent, seed, 'riso', HEAVY_CAPS_ROW);
   const sets = seededOrder(RISO_INK_SETS, seed, set => set.id);
   return faces.map((face, index) => ({
     ...adPunchSlot('riso', index, intent, seed, lane, 'riso', face),
     label: sentence(sets[index].name),
     inkSet: sets[index].id,
-    ...dealt(plateIds, seed, index),
+    ...dealt(photos, seed, index),
   }));
 }
 

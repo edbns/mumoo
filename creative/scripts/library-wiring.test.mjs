@@ -78,6 +78,26 @@ test('the same song gets the same order; Refresh moves on to the next hand and w
   } finally { await server.close(); }
 });
 
+test('Riso and Dust are dealt from library photos that have a cut-out, and from our approved photos when none has', async () => {
+  const { server, pack } = await load();
+  try {
+    const person = profile('Pop', 'Indie Pop');
+    const plates = [{ id: 'burnnet-woman-1547507-1920', cutout: true }];
+    const cut = id => item(id, { cutoutUrl: `https://x/${id}.cut.png` });
+    const library = [cut('p1'), cut('p2'), item('uncut'), { ...item('clip'), kind: 'video', motionUrl: 'https://x/clip.mp4', cutoutUrl: 'https://x/nope.png' }];
+    for (const row of ['riso', 'dust']) {
+      const some = pack.recommendRow(row, person, 0, plates, null, library);
+      assert.equal(some.length, 4);
+      assert.ok(some.every(slot => ['p1', 'p2'].includes(slot.libraryId) && !slot.plateId), `${row}: only photos with a cut-out, never a video or an uncut photo, and not our own photo beside them`);
+      assert.equal(new Set(some.map(slot => slot.libraryId)).size, 2, `${row}: both photos are used`);
+      assert.notDeepEqual(some.map(slot => slot.libraryId), pack.recommendRow(row, person, 1, plates, null, library).map(slot => slot.libraryId), `${row}: Refresh deals them again`);
+      const none = pack.recommendRow(row, person, 0, plates, null, [item('uncut')]);
+      assert.ok(none.every(slot => slot.plateId === 'burnnet-woman-1547507-1920' && !slot.libraryId), `${row}: with no cut-out in the library it uses our approved photo`);
+      assert.ok(pack.recommendRow(row, person, 0, [], null, []).every(slot => !slot.plateId && !slot.libraryId), `${row}: with no photo at all the card waits for the person's own`);
+    }
+  } finally { await server.close(); }
+});
+
 test('Our photography is dealt from the library only; baked effects stand in just when nothing in the library fits', async () => {
   const { server, pack } = await load();
   try {
