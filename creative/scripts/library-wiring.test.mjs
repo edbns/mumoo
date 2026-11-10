@@ -109,7 +109,7 @@ test('Our photography is dealt from the library, topped up with our baked effect
 
 /* ---------- the genre guidance ---------- */
 
-test('every genre of the app is guided, except those the guidance says nothing about; every theme is a short, valid tag', async () => {
+test('every genre of the app is guided; every theme is a short, valid tag', async () => {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
   try {
     const guide = await server.ssrLoadModule('/src/genre-guide.ts');
@@ -126,10 +126,7 @@ test('every genre of the app is guided, except those the guidance says nothing a
         }
       }
     }
-    assert.deepEqual(unguided.sort(), [
-      'General Electronic', 'General Hip-Hop', 'General Latin', 'General Metal', 'General Pop', 'General Punk', 'General Rock',
-      'Indie Pop', 'Psychedelic Rock', 'Traditional Latin (Salsa, Bachata)',
-    ], 'only the "General" entries of groups the guidance splits, and the three it says nothing about, are left without themes');
+    assert.deepEqual(unguided, [], 'every sub-genre of the app has themes');
     assert.ok(guide.THEME_TAGS.length <= 40, 'the whole vocabulary fits in the tag list (40)');
     assert.equal(new Set(guide.THEME_TAGS).size, guide.THEME_TAGS.length);
     assert.deepEqual(guide.themesFor(' techno-nope', ''), []);

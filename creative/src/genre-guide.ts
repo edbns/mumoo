@@ -17,8 +17,12 @@ import { findGenre, findSubGenre } from './genres';
  *   Motion  describes what a video editor does (data-moshing, drone sweeps, 3D asset rotations). A library item is a
  *           picture or a short clip; the renderer's own motion belongs to the templates, not to the library.
  *
- * The guidance has no entry for General (any group), Traditional Latin, Psychedelic Rock or Indie Pop, and none is made
- * up: those songs are matched by attitude alone. Synthwave and vaporwave are two genres (sincere neon, sports cars, sunsets
+ * Rejected from the second round: "graphic design typography" (Hip-Hop) and "kinetic typography" (Pop). Words in the
+ * picture would fight the lyrics the template draws over it. The tempo ranges there (General Rock 110–130, General Pop
+ * 110–125) are narrower than the 100–140 and 100–130 the sources give; salsa is 90–110 in some and 150–250 in others
+ * (counted in half or full time), and bachata 120–140. None is used, for the reason above. Every genre of the app now has themes.
+ *
+ * Synthwave and vaporwave are two genres (sincere neon, sports cars, sunsets
  * against slowed pastel, statues, glitch), but the app's sub-genre is one, so its themes are the first's, which also
  * suit the second.
  */
@@ -26,6 +30,7 @@ export const THEME_TAGS = [
   'club', 'nightlife', 'abstract', 'geometric', 'architecture', 'city', 'neon', 'retro', 'cars', 'beach', 'tropical',
   'sunset', 'space', 'underwater', 'rain', 'smoke', 'fire', 'nature', 'mountains', 'road', 'street', 'crowd', 'fashion',
   'luxury', 'robots', 'dark', 'glitch', 'surreal', 'futuristic', 'fantasy', 'cozy', 'collage', 'instruments',
+  'studio', 'stage', 'industrial',
 ] as const;
 
 const metal = ['architecture', 'fire', 'dark', 'smoke'];
@@ -44,6 +49,17 @@ const BY_SUB_GENRE: Record<string, readonly string[]> = {
   'Reggaeton': ['beach', 'tropical', 'crowd', 'club', 'neon'],
   'Latin Trap': ['city', 'nightlife', 'fashion', 'street', 'neon'],
   'Alternative / Indie Rock': ['road', 'crowd', 'collage', 'nature', 'retro'],
+  // The "General" entries are the fallbacks for a song that fits no niche of its genre; three niches the first guidance left out.
+  'General Electronic': ['abstract', 'geometric', 'neon', 'futuristic'],
+  'General Hip-Hop': ['city', 'street', 'studio'],
+  'General Latin': ['instruments', 'street', 'crowd'],
+  'Traditional Latin (Salsa, Bachata)': ['instruments', 'club', 'nightlife', 'retro'],
+  'General Rock': ['stage', 'instruments', 'crowd', 'smoke'],
+  'Psychedelic Rock': ['space', 'surreal', 'abstract', 'nature'],
+  'General Metal': ['industrial', 'dark', 'abstract'],
+  'General Punk': punk,
+  'General Pop': ['studio', 'geometric', 'abstract'],
+  'Indie Pop': ['retro', 'collage', 'nature', 'cozy'],
   'Heavy Metal / Hard Rock': metal,
   'Extreme Metal (Thrasher, Death)': metal,
   'Pop-Punk': punk,
