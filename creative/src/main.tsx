@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { CrashGuard, reportUncaughtErrors } from './crash-guard';
 import { Music2Icon } from 'lucide-react';
 import { decodeAudio, hashAudio, probeDurationMs } from './audio';
 import { ACCEPTED_AUDIO, ACCEPTED_LABEL, readSongCover, readSongTags, sniffAudioFormat, type SongTags } from './audio-format';
@@ -426,4 +427,5 @@ function App() {
   </>;
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+reportUncaughtErrors();
+createRoot(document.getElementById('root')!).render(<CrashGuard><App /></CrashGuard>);
