@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 import { storageReady, putObject, objectSize } from '../netlify/lib/storage.mjs';
@@ -289,4 +290,10 @@ test('the public library answers GET only, and only with what is approved and re
   } finally {
     await removeItem(id).catch(() => undefined);
   }
+});
+
+test('the video worker keeps the first frame for its scene detector, so a video of one shot is not refused', () => {
+  const worker = readFileSync(new URL('../../audio-intelligence/modal_prepare_media_staging.py', import.meta.url), 'utf8');
+  // A single-shot video has no scene change; with no frame reaching the detector's output, ffmpeg exits with an error and the video is marked unreadable.
+  assert.match(worker, /select='gt\(scene,\{SCENE_THRESHOLD\}\)\+eq\(n,0\)'/);
 });
