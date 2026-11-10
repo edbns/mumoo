@@ -3,6 +3,8 @@
  * Deterministic (pure function of the pixels) so the shelf and the cloud render agree.
  */
 import type { Texture } from 'pixi.js';
+import type { LiveLookId } from './live-look-deal';
+import { lookPixel } from './live-look-ramp';
 
 export type TexturePalette = {
   /** Highest-contrast ink against the text zone. */
@@ -13,6 +15,8 @@ export type TexturePalette = {
   scrim: { color: string; alpha: number };
   /** Mean luminance of the text zone (0 dark … 1 light). */
   luma: number;
+  /** The brightness (0-1) of the picture's darkest and lightest parts (2nd and 98th percentile), of the picture itself, which a live look stretches. */
+  range: [number, number];
 };
 
 const W = 40;
@@ -20,7 +24,7 @@ const H = 72;
 const WHITE = '#f7f4ee';
 const BLACK = '#0d0d12';
 
-const cache = new Map<number, TexturePalette>();
+const cache = new Map<string, TexturePalette>();
 
 function relLum(r: number, g: number, b: number): number {
   const lin = (v: number) => {
@@ -63,8 +67,10 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   return [f(0) * 255, f(8) * 255, f(4) * 255];
 }
 
-export function analyzeTexture(texture: Texture): TexturePalette {
-  const cached = cache.get(texture.uid);
+/** `look`: the live look drawn on the picture, so the ink, the scrim and the accent suit what is seen. */
+export function analyzeTexture(texture: Texture, look?: LiveLookId): TexturePalette {
+  const key = `${texture.uid}:${look ?? ''}`;
+  const cached = cache.get(key);
   if (cached) return cached;
 
   const canvas = document.createElement('canvas');
@@ -74,6 +80,18 @@ export function analyzeTexture(texture: Texture): TexturePalette {
   if (!ctx) throw new Error('Palette analysis is unavailable.');
   ctx.drawImage(texture.source.resource as CanvasImageSource, 0, 0, W, H);
   const data = ctx.getImageData(0, 0, W, H).data;
+
+  // How dark and how light the picture itself goes, then (with a look) the picture as the look shows it.
+  const lights: number[] = [];
+  for (let i = 0; i < data.length; i += 4) lights.push((0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255);
+  lights.sort((a, b) => a - b);
+  const range: [number, number] = [lights[Math.floor(lights.length * 0.02)], lights[Math.min(lights.length - 1, Math.floor(lights.length * 0.98))]];
+  if (look) {
+    for (let i = 0; i < data.length; i += 4) {
+      const [r, g, b] = lookPixel(look, data[i], data[i + 1], data[i + 2], range);
+      data[i] = r; data[i + 1] = g; data[i + 2] = b;
+    }
+  }
 
   // Hue histogram weighted by saturation × value; text zone = centre band.
   const bins = Array.from({ length: 18 }, () => ({ w: 0, r: 0, g: 0, b: 0 }));
@@ -127,7 +145,7 @@ export function analyzeTexture(texture: Texture): TexturePalette {
     accent = ink; // a truly monochrome image: accent is the ink itself
   }
 
-  const palette: TexturePalette = { ink, accent, scrim, luma: meanLum };
-  cache.set(texture.uid, palette);
+  const palette: TexturePalette = { ink, accent, scrim, luma: meanLum, range };
+  cache.set(key, palette);
   return palette;
 }

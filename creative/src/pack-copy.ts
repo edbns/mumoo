@@ -1,3 +1,4 @@
+import type { LiveLookId } from './live-look-deal';
 import { FPS, type ImpactMusic, type LyricCue } from './composition';
 import { entrance, impactFrame, impactSignals } from './lyric-motion';
 import type { Texture } from 'pixi.js';
@@ -33,6 +34,8 @@ export type PackSceneInput = {
   /** Dust: the two colours of the template. */
   colors?: DustColors;
   typeStyle?: TypeStyleId;
+  /** Our photography: the live look drawn on the picture (never on the type). */
+  look?: LiveLookId;
   /** False when the person switched lyrics off: no words anywhere, only the picture. */
   lyrics: boolean;
   /** Dust: the photo as grains, every beat, and the lyric word now on screen (null when none). */

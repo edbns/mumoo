@@ -13,6 +13,7 @@ import { ensureFonts, type AdFont, type AdLayout } from './ad-fonts';
 import type { AdPunchStyle } from './ad-punch';
 import { activePackCopy, packReaction, packWordEnter } from './pack-copy';
 import { createPackScene } from './pack-scenes';
+import { isLiveLook, type LiveLookId } from './live-look-deal';
 import { bankBackgroundUrl, photoEffectUrl } from './pack-looks';
 import { typeFamilies, type TypeStyleId } from './pack-type';
 import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
@@ -54,6 +55,8 @@ export type PackRendererOpts = {
   /** Look Bank card: baked Shaders Pro background id + lyric type style. */
   bankId?: string;
   typeStyle?: TypeStyleId;
+  /** Our photography: a live look drawn on the person's own or our library picture (not on a baked effect, which is already a look). */
+  look?: LiveLookId;
   /** What the lyrics do to colour and beat hits; absent = untouched. */
   grade?: MoodGrade;
   /** False when lyrics are switched off: nothing is written on the picture. Default true. */
@@ -245,6 +248,7 @@ export async function createPackRenderer(
         // Our photography draws one baked effect, or (replacing it) the person's own picture, never both.
         if (style === 'filter' && current.effectId && (current.photoUrl || current.motionUrl)) throw new Error('Our photography draws an effect or the person’s own picture, not both.');
         const ownBackdrop = style === 'filter' && !current.effectId;
+        if (current.look && (!isLiveLook(current.look) || style !== 'filter' || current.effectId)) throw new Error('A live look is drawn only on a picture of Our photography, not on a baked effect.');
         const windowMode = style === 'window' ? checkWindow(current) : null;
         const windowOwn = windowMode === 'person' || windowMode === 'plain';
         if (style === 'riso' && !current.inkSet) throw new Error('Riso needs an ink set.');
@@ -346,6 +350,7 @@ export async function createPackRenderer(
           background: ownBackdrop ? (motion?.texture ?? photoTexture) : still,
           colors: current.colors,
           typeStyle: current.typeStyle,
+          look: current.look,
           lyrics: current.lyrics !== false,
           dustPoints: style === 'dust' ? dustPoints : null,
           beatsMs: current.music?.beatsMs ?? NOTHING,

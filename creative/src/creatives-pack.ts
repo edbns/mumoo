@@ -23,6 +23,7 @@ import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
 import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
+import { dealLooks, liveLookTitle, type LiveLookId } from './live-look-deal';
 import { pickLibrary, type LibraryPicture } from './library-pick';
 
 type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[]; read: LookRead };
@@ -85,6 +86,8 @@ export type CreativesPackSlot = {
   libraryId?: string;
   /** Our photography: the baked effect on our approved photo (`punch-plates/effects/{id}.jpg`), until the person uses their own picture. */
   effectId?: string;
+  /** Our photography: a live look drawn on the picture (ours from the library, or the person's own), never on a baked effect. */
+  look?: LiveLookId;
   /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
   bankId?: string;
   typeStyle?: TypeStyleId;
@@ -434,13 +437,14 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
   ];
   const faces = dealFaces(lane, intent, seed, 'photography', cards.map((_, index) => typeNeeds(typeOf(index))));
   const hand = hashPick(seed, 'gen', 997).toString(36);
+  const looks = dealLooks(lane, seed, cards.length);
   return cards.map((card, index) => ({
     ...adPunchSlot('filter', index, intent, seed, lane, 'photography', faces[index]),
     ...('pick' in card
       ? {
         id: `ad-photography-library-${card.pick.id}-${hand}`,
-        label: card.pick.tags[0] ?? card.pick.attitudes[0] ?? 'Our library',
-        reason: `${lane} · library · ${card.pick.attitudes.join('+')} · ${typeOf(index)}`,
+        label: [card.pick.tags[0] ?? card.pick.attitudes[0] ?? 'Our library', looks[index] && liveLookTitle(looks[index]!)].filter(Boolean).join(' · '),
+        reason: `${lane} · library · ${card.pick.attitudes.join('+')} · ${typeOf(index)}${looks[index] ? ` · ${looks[index]}` : ''}`,
         libraryId: card.pick.id,
       }
       : {
@@ -450,6 +454,8 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
         effectId: card.effect.id,
       }),
     typeStyle: typeOf(index),
+    // On a library picture or the person's own, never on a baked effect (the studio leaves it off when the card shows one).
+    ...(looks[index] ? { look: looks[index]! } : {}),
     cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
   }));
 }

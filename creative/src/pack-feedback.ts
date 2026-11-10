@@ -58,6 +58,8 @@ export function reportPackFeedback(
       ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
       ...(slot.effectId ? { effectId: slot.effectId } : {}),
       ...(slot.libraryId ? { libraryId: slot.libraryId } : {}),
+      // Only when the look was really drawn: on a library picture or the person's own, never on a baked effect.
+      ...(slot.look && (slot.libraryId || extras?.ownPicture) ? { look: slot.look } : {}),
     },
     ...(extras?.ownPicture !== undefined && { ownPicture: extras.ownPicture }),
     ...(extras?.selectedIds && { selectedIds: extras.selectedIds.slice(0, 32) }),

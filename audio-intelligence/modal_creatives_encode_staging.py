@@ -50,10 +50,12 @@ CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
-    "motionShots", "cutSeed", "inkSet", "sprayPalette", "windowMode", "windowPalette", "windowAllowed",
+    "motionShots", "cutSeed", "look", "inkSet", "sprayPalette", "windowMode", "windowPalette", "windowAllowed",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
 # The kinds of creative the page draws, the Riso ink sets, the Spray walls and the Window screens and faces it knows (creative/src/ad-punch.ts, riso-look.ts, spray-look.ts, window-look.ts, window-deal.ts; a test keeps these in step).
+# The live looks drawn on a picture of Our photography (creative/src/live-look-deal.ts; a test keeps these in step).
+LIVE_LOOKS = {"thermal"}
 STYLES = {"bank", "pulise", "dust", "filter", "riso", "spray", "window"}
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
 SPRAY_PALETTES = {"neon-night", "neon-plum", "neon-navy", "bold-offwhite", "bold-grey", "bold-pastel"}
@@ -280,6 +282,9 @@ def parse_meta(raw: str) -> dict:
     for key in ("plateId", "effectId"):
         if key in opts and (not isinstance(opts[key], str) or not ID_RE.match(opts[key])):
             raise ValueError(key)
+    # A live look is drawn on a picture of Our photography (a library picture or the person's own), never on a baked effect, which is already a look.
+    if "look" in opts and (opts["look"] not in LIVE_LOOKS or opts["style"] != "filter" or "effectId" in opts):
+        raise ValueError("look")
     if "cutSeed" in opts and (type(opts["cutSeed"]) is not int or not 0 <= opts["cutSeed"] < 1_000_000):
         raise ValueError("cutSeed")
     if "motionShots" in opts:

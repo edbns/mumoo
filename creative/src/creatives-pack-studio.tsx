@@ -59,6 +59,7 @@ function packOpts(
   lyrics: boolean,
   picture?: Picture,
 ): PackRendererOpts {
+  const drawn = picture ?? (slot.plateId ? { plateId: slot.plateId } : slot.effectId ? { effectId: slot.effectId } : {});
   return {
     style: slot.style,
     font: slot.font,
@@ -70,6 +71,8 @@ function packOpts(
     ...(slot.windowMode ? { windowMode: slot.windowMode, windowPalette: slot.windowPalette, windowAllowed: slot.windowAllowed } : {}),
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
+    // A live look goes on a picture (the library's or the person's own), never on a baked effect.
+    ...(slot.look && !('effectId' in drawn) ? { look: slot.look } : {}),
     ...(slot.cutSeed != null ? { cutSeed: slot.cutSeed } : {}),
     // With lyrics off nothing about the words is used or sent anywhere, not even what they mean.
     ...(slot.grade && lyrics ? { grade: slot.grade } : {}),
@@ -78,7 +81,7 @@ function packOpts(
     fallbackText: lyrics ? fallbackText : '',
     lyrics,
     // Our approved photo (Dust, Riso, Window) or its baked effect (Our photography, Window; a Window may also draw a baked background), unless the person chose their own picture, which replaces it.
-    ...(picture ?? (slot.plateId ? { plateId: slot.plateId } : slot.effectId ? { effectId: slot.effectId } : {})),
+    ...drawn,
   };
 }
 

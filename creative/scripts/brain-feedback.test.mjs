@@ -11,7 +11,7 @@ const READY = Boolean(process.env.DATABASE_URL);
 const card = (over = {}) => ({
   version: 1, event: 'download', clipSha256: randomBytes(32).toString('hex'), primaryGenre: 'Latin & Urbano', subGenre: 'Reggaeton',
   vibe: 'Dark/Cinematic', lane: 'dark', language: 'es', lyricsOrigin: 'typed', lyricAttitude: 'defiant', lyricSadness: 1, lyricIntensity: 4,
-  row: 'photography', slot: { id: 'ad-photography-x', style: 'filter', font: 'Anton', fontSecondary: 'Inter', typeStyle: 'punch', libraryId: randomUUID() },
+  row: 'photography', slot: { id: 'ad-photography-x', style: 'filter', font: 'Anton', fontSecondary: 'Inter', typeStyle: 'punch', libraryId: randomUUID(), look: 'thermal' },
   ownPicture: false, generation: 2, ...over,
 });
 
@@ -22,7 +22,7 @@ test('a body is accepted only when the brain understands it', () => {
   assert.equal(validFeedback({ ...card({ event: 'refresh' }), slot: undefined, row: undefined }), false, 'a refresh must say which row');
   assert.equal(validFeedback({ ...card(), slot: undefined }), false, 'a download must say which card');
   for (const bad of [null, {}, card({ version: 2 }), card({ event: 'sell' }), card({ clipSha256: 'nope' }), card({ lyricSadness: 4 }), card({ lyricAttitude: 'Not A Code!' }),
-    card({ ownPicture: 'yes' }), card({ generation: -1 }), card({ primaryGenre: ' ' }), card({ slot: { ...card().slot, libraryId: 'x'.repeat(40) } }), card({ row: 'x'.repeat(30) })]) {
+    card({ ownPicture: 'yes' }), card({ generation: -1 }), card({ primaryGenre: ' ' }), card({ slot: { ...card().slot, libraryId: 'x'.repeat(40) } }), card({ row: 'x'.repeat(30) }), card({ slot: { ...card().slot, look: 'x'.repeat(41) } })]) {
     assert.equal(validFeedback(bad), false, JSON.stringify(bad)?.slice(0, 80));
   }
   // The words themselves have no place in it: only these fields are ever read.
@@ -59,6 +59,7 @@ test('actions are kept; a signed-in person\'s downloads are numbered, and deleti
   assert.equal(kept.sadness, 1);
   assert.equal(kept.row_id, 'photography');
   assert.equal(kept.library_id, first.slot.libraryId);
+  assert.equal(kept.look, 'thermal');
   assert.equal(kept.own_picture, false);
   assert.equal(rows[3].slot_id, null, 'a refresh has no card');
   assert.equal(rows[3].generation, 2);

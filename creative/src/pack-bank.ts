@@ -9,6 +9,8 @@ import { HEIGHT, WIDTH } from './composition';
 import { LOOK_DOWN_MESSAGE } from './pack-looks';
 import { analyzeTexture } from './pack-palette';
 import type { PackSceneInput } from './pack-copy';
+import { createLiveLook, type LiveLook } from './live-look';
+import type { LiveLookId } from './live-look-deal';
 import { createTypeLayer, type TimedWord, type TypeStyleId } from './pack-type';
 
 /** Calm styles keep the picture still; the rest let it drift and breathe with the beat. */
@@ -29,6 +31,8 @@ export function createBankWorld(): BankWorld {
   bg.position.set(WIDTH / 2, HEIGHT / 2);
   const scrim = new Graphics();
   const down = new Container();
+  // Each live look is built the first time a card asks for it, then kept: the shelf draws card after card on this one world.
+  const looks = new Map<LiveLookId, LiveLook>();
   const type = createTypeLayer();
   root.addChild(bg, scrim, type.root, down);
 
@@ -42,6 +46,7 @@ export function createBankWorld(): BankWorld {
 
   function paintDown() {
     bg.visible = false;
+    bg.filters = [];
     type.paint('minimal', { ms: 0, words: [], beat: 0, beatIndex: 0, energy: 0, seed: 0, ink: '#fff', accent: '#fff', shadow: '#000', font: 'Anton', fontSecondary: 'Anton' });
     scrim.clear();
     scrim.rect(0, 0, WIDTH, HEIGHT);
@@ -69,7 +74,7 @@ export function createBankWorld(): BankWorld {
         return;
       }
       clearDown();
-      const palette = analyzeTexture(texture);
+      const palette = analyzeTexture(texture, input.look);
 
       // Slow cinematic drift so a still background still feels alive.
       const t = input.ms / 15000;
@@ -79,6 +84,12 @@ export function createBankWorld(): BankWorld {
       bg.scale.set(cover * (1 + input.beat * 0.012 * amount * input.energy));
       bg.position.set(WIDTH / 2 + (t - 0.5) * 36 * amount, HEIGHT / 2 + Math.sin(t * Math.PI * 2) * 14 * amount);
       bg.visible = true;
+      if (input.look) {
+        let look = looks.get(input.look);
+        if (!look) looks.set(input.look, look = createLiveLook(input.look));
+        look.update({ beat: input.beat, energy: input.energy, ms: input.ms, range: palette.range });
+        bg.filters = [look.filter];
+      } else bg.filters = [];
 
       scrim.clear();
       // The scrim only exists to keep lyrics readable; with lyrics off the background shows as it is.
@@ -105,6 +116,8 @@ export function createBankWorld(): BankWorld {
       });
     },
     destroy() {
+      bg.filters = [];
+      for (const look of looks.values()) look.filter.destroy();
       type.destroy();
       root.destroy({ children: true });
     },

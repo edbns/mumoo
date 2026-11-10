@@ -30,7 +30,7 @@ export function validFeedback(v) {
   if (!s || typeof s !== 'object' || typeof s.id !== 'string' || s.id.length > 120) return false;
   if (typeof s.style !== 'string' || s.style.length > 40) return false;
   if (typeof s.font !== 'string' || typeof s.fontSecondary !== 'string') return false;
-  if (!optional(s.typeStyle, 40) || !optional(s.effectId, 80)) return false;
+  if (!optional(s.typeStyle, 40) || !optional(s.effectId, 80) || !optional(s.look, 40)) return false;
   if (s.libraryId !== undefined && s.libraryId !== null && !(typeof s.libraryId === 'string' && UUID.test(s.libraryId))) return false;
   if (v.ownPicture !== undefined && typeof v.ownPicture !== 'boolean') return false;
   return true;
@@ -49,11 +49,11 @@ export async function storeFeedback(v, userId) {
       : [{ nth: null }];
     await sql`
       insert into brain_feedback (event, user_id, nth_download, clip_sha256, genre, sub_genre, vibe, lane, language, lyrics_origin,
-        attitude, sadness, intensity, row_id, slot_id, style, font, font_secondary, type_style, effect_id, library_id, own_picture, generation)
+        attitude, sadness, intensity, row_id, slot_id, style, font, font_secondary, type_style, effect_id, library_id, look, own_picture, generation)
       values (${v.event}, ${userId}, ${nth},
         ${v.clipSha256}, ${v.primaryGenre.trim()}, ${v.subGenre ?? null}, ${v.vibe}, ${v.lane}, ${v.language}, ${v.lyricsOrigin},
         ${v.lyricAttitude}, ${v.lyricSadness}, ${v.lyricIntensity}, ${v.row ?? null}, ${s.id ?? null}, ${s.style ?? null},
-        ${s.font ?? null}, ${s.fontSecondary ?? null}, ${s.typeStyle ?? null}, ${s.effectId ?? null}, ${s.libraryId ?? null},
+        ${s.font ?? null}, ${s.fontSecondary ?? null}, ${s.typeStyle ?? null}, ${s.effectId ?? null}, ${s.libraryId ?? null}, ${s.look ?? null},
         ${typeof v.ownPicture === 'boolean' ? v.ownPicture : null}, ${v.generation ?? null})`;
     return true;
   } catch (cause) {
