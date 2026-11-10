@@ -15,25 +15,22 @@ const workerPath = fileURLToPath(new URL('../../audio-intelligence/modal_creativ
 const WORKER = readFileSync(workerPath, 'utf8');
 const LANES = ['party', 'quiet', 'gospel', 'techno', 'dark', 'general'];
 
-test('a row carries up to three different looks the lane welcomes; the rest show the picture as it is', () => {
-  for (const lane of ['dark', 'techno', 'party', 'general']) {
+test('every card of a row carries a look the lane welcomes, never the same on neighbours', () => {
+  for (const lane of ['quiet', 'dark', 'techno', 'party', 'general']) {
     for (const seed of ['a', 'b', 'c', 'd', 'e', 'f']) {
       const looks = deal.dealLooks(lane, seed, 4);
       assert.equal(looks.length, 4);
-      const carried = looks.filter(Boolean);
-      assert.ok(carried.length >= 2 && carried.length <= 3, `${lane}/${seed}: ${carried.length} looks`);
-      assert.equal(new Set(carried).size, carried.length, 'never one look twice in a row of cards');
-      assert.ok(carried.every(look => deal.isLiveLook(look) && deal.LIVE_LOOKS.find(entry => entry.id === look).lanes.includes(lane)));
+      assert.ok(looks.every(look => look && deal.isLiveLook(look) && deal.LIVE_LOOKS.find(entry => entry.id === look).lanes.includes(lane)), `${lane}/${seed}: ${looks}`);
+      assert.ok(looks.every((look, index) => index === 0 || look !== looks[index - 1]), 'never the same look side by side');
+      assert.ok(new Set(looks).size >= 2, 'never one look four times');
     }
   }
-  const rows = new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(seed => deal.dealLooks('dark', seed, 4).join()));
-  assert.ok(rows.size >= 4, 'a new seed (Refresh) deals different looks on different cards');
+  assert.ok(new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(seed => deal.dealLooks('dark', seed, 4).join())).size >= 4, 'a new seed (Refresh) deals different looks on different cards');
   assert.deepEqual(deal.dealLooks('dark', 's', 4), deal.dealLooks('dark', 's', 4), 'the same song always gets the same deal');
 });
 
-test('gospel songs are never dealt a look, and a calm song only the cold one', () => {
+test('gospel songs are never dealt a look', () => {
   assert.deepEqual(deal.dealLooks('gospel', 'seed', 4), [null, null, null, null]);
-  for (const seed of ['a', 'b', 'c']) assert.deepEqual(deal.dealLooks('quiet', seed, 4).filter(Boolean), ['arctic']);
 });
 
 test('every look has a title and welcomes only real lanes', () => {
@@ -106,13 +103,14 @@ test('a look rides on Our photography cards only, a few different ones, and gosp
   assert.equal(new Set(wearing.map(slot => slot.look)).size, 3, 'three different looks');
   assert.ok(club.every(slot => !slot.effectId), 'no baked effect beside the library pictures');
   assert.ok(pack.recommendRow('photography', profile('Techno'), 0).every(slot => slot.effectId && !slot.look), 'a baked effect never carries a look');
-  assert.notDeepEqual(pack.recommendRow('photography', profile('Techno'), 1, [], null, library).map(slot => slot.look), club.map(slot => slot.look), 'Refresh deals other looks');
+  const refreshed = new Set([0, 1, 2, 3, 4, 5, 6, 7].map(generation => pack.recommendRow('photography', profile('Techno'), generation, [], null, library).map(slot => slot.look).join()));
+  assert.ok(refreshed.size >= 3, 'Refresh deals the looks in other orders');
   assert.ok(pack.recommendRow('photography', profile('Techno'), 0).every(slot => !slot.look), 'with no picture to draw on there is no look');
   for (const row of ['looks', 'riso', 'spray', 'pulise', 'dust']) {
     assert.ok(pack.recommendRow(row, profile('Techno'), 0).every(slot => !slot.look), `${row} has no look`);
   }
   const sad = pack.recommendRow('photography', profile('Pop', 3, 'sad'), 0, [], null, ['a', 'b', 'c'].map(id => picture(id, 'sad')));
-  assert.ok(sad.filter(slot => slot.look).length >= 1 && sad.filter(slot => slot.look).every(slot => slot.look === 'arctic'), 'a sad song gets only the cold look');
+  assert.ok(sad.length === 3 && sad.every(slot => slot.look), 'a calm song carries looks too');
   const withPhoto = pack.recommendRow('photography', profile('Techno'), 0, [{ id: 'plate-1', cutout: true }]);
   assert.ok(withPhoto.every(slot => !slot.plateId && !slot.look && slot.effectId), 'our approved photo is not borrowed to show a look; with no library the cards are the baked effects');
   assert.deepEqual(pack.recommendRow('photography', profile('Techno'), 0, [], null, library).map(slot => slot.look), club.map(slot => slot.look), 'the same song and refresh deal the same looks');

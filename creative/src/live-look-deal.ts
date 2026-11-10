@@ -7,7 +7,7 @@ import type { MoodLane } from './ad-fonts';
 
 export const LIVE_LOOKS = [
   /** The picture as a heat camera sees it: bodies hot, shade cold, soft and banded, in the iron palette. It flares on the beat. */
-  { id: 'thermal', title: 'Thermal', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'thermal', title: 'Thermal', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   /** The same heat reading in cold light: navy, blue, cyan, ice white. */
   { id: 'arctic', title: 'Arctic', lanes: ['quiet', 'dark', 'techno', 'general'] },
   /** A night-vision tube: phosphor green, heavy grain, dark edges. */
@@ -32,17 +32,19 @@ const shuffled = <T>(items: readonly T[], seed: string, salt: string, key: (item
   items.map(item => ({ item, order: hash(seed, `${salt}:${key(item)}`, 1_000_000) })).sort((a, b) => a.order - b.order).map(entry => entry.item);
 
 /**
- * The look of each of `count` cards: up to three cards carry a look the lane welcomes, each a different one, and the rest show the picture as it is,
- * so a row is never one look four times. The seed (the song and the row's Refresh count) decides which cards and which looks, so Refresh deals new ones.
- * A lane no look welcomes (gospel) deals none.
+ * The look of each of `count` cards: every card carries one a lane welcomes (a card that shows its picture as it is looks like a look that did not work),
+ * and neighbouring cards never carry the same, so a row is never one look four times. With three looks and four cards one look comes twice, never side by side.
+ * The seed (the song and the row's Refresh count) decides the order, so Refresh deals new ones. A lane no look welcomes (gospel) deals none;
+ * a lane that welcomes only one look gets it on one card and the others show the picture as it is, rather than that look four times.
  */
 export function dealLooks(lane: MoodLane, seed: string, count: number): (LiveLookId | null)[] {
   const welcome = LIVE_LOOKS.filter(look => (look.lanes as readonly MoodLane[]).includes(lane));
-  const carried = Math.min(welcome.length, 3, count);
-  const looks = shuffled(welcome.map(look => look.id), seed, 'look', id => id).slice(0, carried);
-  const places = shuffled(Array.from({ length: count }, (_, index) => index), seed, 'place', index => String(index)).slice(0, carried);
-  return Array.from({ length: count }, (_, index) => {
-    const at = places.indexOf(index);
-    return at === -1 ? null : looks[at];
-  });
+  const order = shuffled(welcome.map(look => look.id), seed, 'look', id => id);
+  if (!order.length) return Array.from({ length: count }, () => null);
+  if (order.length === 1) {
+    const place = hash(seed, 'place', count);
+    return Array.from({ length: count }, (_, index) => (index === place ? order[0] : null));
+  }
+  const start = hash(seed, 'start', order.length);
+  return Array.from({ length: count }, (_, index) => order[(start + index) % order.length]);
 }
