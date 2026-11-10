@@ -10,8 +10,8 @@ Done (staging DB migrated, tests in `scripts/admin.test.mjs`):
 
 Still to do:
 - Set `ADMIN_EMAILS=moo@mumoo.app` in the Netlify environment (staging and production).
-- Library to templates, wired for **Our photography** (photos, videos, GIFs; only `approved` and ready items; the song's attitude is the main match, a set genre/sub-genre is preferred and kept to its own genre, an unset one is free for any; tags are stored but not used yet). Still to do:
-  - Genre guidance for the brain (the user is gathering it), then use tags in the choice.
+- Library to templates, wired for **Our photography** (photos, videos, GIFs; only `approved` and ready items; the song's attitude is the main match, a set genre/sub-genre is preferred and kept to its own genre, an unset one is free for any; a tag that is one of the genre's themes from `src/genre-guide.ts` is a small plus). Still to do:
+  - Genre colours: measure each library photo's palette, then match it to the guidance's colours (not read yet).
   - Riso, Dust and Window: they need a cut-out of the subject, so library photos must be run through the prepare worker (`kind: photo`) when they arrive, then dealt like plates. Window also needs a reading per picture.
   - Decide what a card shows when an item is removed from the library while it sits in someone's cart (it is dropped from the download quietly now).
 - Financials: sales, refunds, tokens sold and used, per day and per month (needs payments).

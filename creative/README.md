@@ -48,7 +48,7 @@ npm test
 | Cloud render | `render.html`, `pack-render-page.ts`, `pack-cloud-export.ts` |
 | Contract | `composition.ts` (clip + cues, validation, frame clock) |
 | Admin (`/admin`, light, own page) | `admin.html`, `src/admin/*`, `netlify/functions/admin-*.mjs`, `netlify/lib/admin.mjs` (who may enter: `ADMIN_EMAILS` + a confirmed email), `netlify/lib/library.mjs` (approved photos, videos, GIFs: attitudes, tags, optional genre), `netlify/lib/problems.mjs` + `report-problem.mjs` (failed renders, downloads, sign-ins), migration `009_admin.sql` |
-| Library in the templates | `library-pick.ts` (the brain's choice: attitude, then optional genre), `use-library.ts` (the app asks `/api/library`), `netlify/functions/library-approved.mjs` (approved and ready items only), `netlify/lib/prepare.mjs` (our worker makes videos and GIFs a small clip), `encode-creative.mjs` (`library` in the render request), migration `010_library_ready.sql`; wired into Our photography only |
+| Library in the templates | `library-pick.ts` (the brain's choice: attitude, then optional genre, then the genre's themes from `genre-guide.ts`), `use-library.ts` (the app asks `/api/library`), `netlify/functions/library-approved.mjs` (approved and ready items only), `netlify/lib/prepare.mjs` (our worker makes videos and GIFs a small clip), `encode-creative.mjs` (`library` in the render request), migration `010_library_ready.sql`; wired into Our photography only |
 
 ## Baking assets
 

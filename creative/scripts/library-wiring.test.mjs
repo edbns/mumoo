@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 import { storageReady, putObject, objectSize } from '../netlify/lib/storage.mjs';
 import { changeItem, itemArrived, libraryMedia, listApproved, listLibrary, removeItem, reserveItem } from '../netlify/lib/library.mjs';
+import { TAG } from '../netlify/lib/library.mjs';
 import libraryHandler from '../netlify/functions/library-approved.mjs';
 
 const READY = storageReady() && Boolean(process.env.DATABASE_URL);
@@ -103,6 +104,52 @@ test('Our photography is dealt from the library, topped up with our baked effect
     for (const row of ['riso', 'spray', 'window', 'pulise', 'dust']) {
       assert.deepEqual(pack.recommendRow(row, person, 0, [{ id: 'burnnet-woman-1547507-1920', cutout: true }], null, library), pack.recommendRow(row, person, 0, [{ id: 'burnnet-woman-1547507-1920', cutout: true }]), `${row} does not use the library yet`);
     }
+  } finally { await server.close(); }
+});
+
+/* ---------- the genre guidance ---------- */
+
+test('every genre of the app is guided, except those the guidance says nothing about; every theme is a short, valid tag', async () => {
+  const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
+  try {
+    const guide = await server.ssrLoadModule('/src/genre-guide.ts');
+    const { GENRES } = await server.ssrLoadModule('/src/genres.ts');
+    const unguided = [];
+    for (const group of GENRES) {
+      for (const sub of group.subGenres) {
+        const themes = guide.themesFor(group.name, sub);
+        if (themes.length === 0) unguided.push(sub);
+        assert.ok(themes.length <= 5, `${sub}: few themes, so the choice stays fast`);
+        for (const theme of themes) {
+          assert.ok(guide.THEME_TAGS.includes(theme), `${sub}: "${theme}" is not in the shared vocabulary`);
+          assert.match(theme, TAG, `${theme} is not a tag the server would accept`);
+        }
+      }
+    }
+    assert.deepEqual(unguided.sort(), [
+      'General Electronic', 'General Hip-Hop', 'General Latin', 'General Metal', 'General Pop', 'General Punk', 'General Rock',
+      'Indie Pop', 'Psychedelic Rock', 'Traditional Latin (Salsa, Bachata)',
+    ], 'only the "General" entries of groups the guidance splits, and the three it says nothing about, are left without themes');
+    assert.ok(guide.THEME_TAGS.length <= 40, 'the whole vocabulary fits in the tag list (40)');
+    assert.equal(new Set(guide.THEME_TAGS).size, guide.THEME_TAGS.length);
+    assert.deepEqual(guide.themesFor(' techno-nope', ''), []);
+    assert.deepEqual(guide.themesFor('electronic & dance (edm)', ' techno '), guide.themesFor('Electronic & Dance (EDM)', 'Techno'), 'case and spaces do not matter');
+    assert.deepEqual(guide.themesFor('Country & Folk', 'Modern Country'), guide.themesFor('Country & Folk', 'Americana / Folk'), 'a group described as a whole gives all its sub-genres the same themes');
+  } finally { await server.close(); }
+});
+
+test('a genre theme in an item\'s tags is a small plus: it breaks a tie, but never beats a better attitude or genre, and never refuses', async () => {
+  const { server, pick } = await load();
+  try {
+    const wanted = { attitude: 'tender', genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' };
+    const items = [item('plain'), item('club', { tags: ['club'] }), item('both', { tags: ['club', 'dark', 'neon'] }), item('neutral-club', { attitudes: ['neutral'], tags: ['club', 'dark'] }), item('beach', { tags: ['beach'] })];
+    const order = ids(pick.pickLibrary(items, wanted, 's', 0, 5));
+    assert.equal(order[0], 'both', 'Techno: three themes count as two (the most a theme can add)');
+    assert.ok(order.indexOf('club') < order.indexOf('plain'), 'one theme beats none');
+    assert.ok(order.indexOf('neutral-club') > order.indexOf('beach'), 'the exact attitude still beats a neutral item with themes');
+    assert.ok(order.includes('beach'), 'an off-theme tag is not a reason to refuse');
+    const house = ids(pick.pickLibrary(items, { ...wanted, subGenre: 'House' }, 's', 0, 5));
+    assert.deepEqual(new Set(house.slice(0, 2)), new Set(['club', 'both']), 'House likes club, and does not count dark or neon');
   } finally { await server.close(); }
 });
 

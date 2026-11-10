@@ -1,3 +1,5 @@
+import { themesFor } from './genre-guide';
+
 /**
  * Choosing from the approved library. The library is what the admin cleared (see the admin page); this is how the brain
  * picks from it for one song. Only approved, ready items ever get here (the server sends nothing else).
@@ -6,7 +8,7 @@
  *              song (a little less); a song with no feeling (neutral, or lyrics not read) takes anything.
  *   genre      optional on an item. Set, it is preferred for that genre (and sub-genre) and kept away from every other;
  *              unset, it is free for any song.
- *   tags       stored, not used for choosing yet.
+ *   tags       a tag that is one of the song's genre themes (`genre-guide.ts`) is a small plus (less than a step of attitude or genre), never a reason to refuse.
  */
 export type LibraryPicture = {
   id: string;
@@ -50,7 +52,8 @@ export function libraryFit(item: LibraryPicture, wanted: LibraryWanted): number 
       fit += 2;
     }
   }
-  return fit;
+  const themes = themesFor(wanted.genre, wanted.subGenre);
+  return fit + Math.min(2, item.tags.filter(tag => themes.includes(tag)).length) * 0.25;
 }
 
 /**

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { CheckIcon, EyeOffIcon, FilmIcon, ImageIcon, Trash2Icon, UploadIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GENRES } from '../genres';
+import { themesFor } from '../genre-guide';
 import { ATTITUDES } from '../lyric-meaning';
 import {
   changeItem, deleteItem, deleteTag, loadLibrary, uploadFile,
@@ -141,6 +142,15 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
   const poolNames = pool.map(entry => entry.name);
   const shownTags = [...poolNames, ...tags.filter(tag => !poolNames.includes(tag))];
 
+  // The guidance's themes for the chosen genre: one click gives the item a tag the brain looks for.
+  const suggested = genre ? themesFor(genre, subGenre) : [];
+  function suggest(tag: string) {
+    if (tags.includes(tag)) return setTags(list => list.filter(entry => entry !== tag));
+    if (tags.length >= MAX_TAGS) return setError(`At most ${MAX_TAGS} tags for one item. Fewer is better.`);
+    if (!poolNames.includes(tag) && poolNames.length >= MAX_TAGS_IN_POOL) return setError(`The tag list is full (${MAX_TAGS_IN_POOL}). Remove one you do not use, or reuse one.`);
+    setError(''); setTags(list => [...list, tag]);
+  }
+
   function addNewTag() {
     const tag = newTag.trim().toLowerCase().replace(/\s+/g, ' ');
     if (!tag) return;
@@ -186,6 +196,10 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
           onClick={() => setTags(list => toggle(list, tag, MAX_TAGS))}>{tag}{!poolNames.includes(tag) && ' (new)'}</Chip>)}
         {shownTags.length === 0 && <span className="text-xs text-muted-foreground">No tags yet. Add the first one below.</span>}
       </div>
+      {suggested.length > 0 && <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-muted-foreground">Suggested for {subGenre || genre}:</span>
+        {suggested.map(tag => <Chip key={tag} on={tags.includes(tag)} onClick={() => suggest(tag)}>{tag}</Chip>)}
+      </div>}
       <form className="flex gap-2" onSubmit={event => { event.preventDefault(); addNewTag(); }}>
         <input value={newTag} onChange={event => setNewTag(event.target.value)} maxLength={24} placeholder="New tag, like beach" aria-label="New tag"
           className="min-w-0 flex-1 rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm outline-ring focus-visible:outline-2" />
