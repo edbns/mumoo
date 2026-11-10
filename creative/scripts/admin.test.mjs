@@ -131,17 +131,20 @@ test('a library item goes from upload to approved, is checked at every step, and
 });
 
 test('the tag list is kept small', { skip: !READY, timeout: 60000 }, async () => {
-  const sql = db();
-  const added = [];
+  // This runs against the shared staging list, which a person may be using: it never adds a tag to it. The limit is lowered for this process
+  // to the size the list already has, so the next new tag meets it at once.
+  const { tags } = await listLibrary();
+  const limit = process.env.MUMOO_MAX_TAGS_IN_POOL;
+  process.env.MUMOO_MAX_TAGS_IN_POOL = String(Math.max(1, tags.length));
   try {
     assert.match((await addTag('no way!')).refused, /symbols/);
-    const before = (await listLibrary()).tags.length;
-    const room = 40 - before;
-    for (let n = 0; n < room; n += 1) { const tag = aTag(); added.push(tag); assert.equal((await addTag(tag)).tag, tag); }
-    assert.match((await addTag(aTag())).refused, /full/);
-    const reuse = added[0];
-    assert.equal((await addTag(reuse)).tag, reuse, 'a tag that exists is not a new one');
-  } finally { for (const tag of added) await sql`delete from library_tags where name = ${tag}`; }
+    if (tags.length) {
+      assert.match((await addTag(aTag())).refused, /full/);
+      assert.equal((await addTag(tags[0].name)).tag, tags[0].name, 'a tag that exists is not a new one');
+    }
+  } finally {
+    if (limit === undefined) delete process.env.MUMOO_MAX_TAGS_IN_POOL; else process.env.MUMOO_MAX_TAGS_IN_POOL = limit;
+  }
 });
 
 test('problems are written down, shown unseen first and marked as seen; strangers can only add small ones', { skip: !READY, timeout: 60000 }, async () => {

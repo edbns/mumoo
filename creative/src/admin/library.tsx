@@ -228,7 +228,9 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
         className="resize-none rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm font-normal normal-case tracking-normal text-foreground outline-ring focus-visible:outline-2" />
     </label>
     {!item.ready && <p role="status" className={`m-0 text-sm ${item.problem ? 'text-destructive' : 'text-muted-foreground'}`}>
-      {item.problem ?? 'Our worker is preparing this. It reaches the templates when it is ready and approved.'}</p>}
+      {item.problem
+        ? `${item.problem} ${item.status === 'approved' ? 'It is approved, but the templates will not use it until this is fixed.' : 'It cannot be approved for the templates until this is fixed.'} Reload the page to see if it has been prepared since.`
+        : 'Our worker is preparing this. It reaches the templates when it is ready and approved.'}</p>}
     <p className="m-0 text-xs text-muted-foreground">Cleared by {item.clearedBy} on {when(item.clearedAt)} · {item.contentType} · {megabytes(item.bytes)}</p>
 
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}

@@ -17,6 +17,8 @@ export const ATTITUDES = [
 export const MAX_ATTITUDES = 4;
 export const MAX_TAGS_PER_ITEM = 5;
 export const MAX_TAGS_IN_POOL = 40;
+/** The size of the tag list. A test can lower it for its own process (`MUMOO_MAX_TAGS_IN_POOL`) to meet the limit without filling the real list. */
+const tagLimit = () => Number(process.env.MUMOO_MAX_TAGS_IN_POOL) || MAX_TAGS_IN_POOL;
 export const TAG = /^[a-z0-9][a-z0-9 -]{0,22}[a-z0-9]$|^[a-z0-9]$/;
 export const STATUSES = ['pending', 'approved', 'hidden'];
 
@@ -197,7 +199,7 @@ export async function changeItem(id, change) {
 
   const [{ pool, known }] = await sql`select count(*)::int as pool, (count(*) filter (where name = any (${next.tags})))::int as known from library_tags`;
   const fresh = next.tags.length - known;
-  if (fresh > 0 && pool + fresh > MAX_TAGS_IN_POOL) return { refused: `The tag list is full (${MAX_TAGS_IN_POOL}). Remove a tag you do not use, or reuse one.` };
+  if (fresh > 0 && pool + fresh > tagLimit()) return { refused: `The tag list is full (${tagLimit()}). Remove a tag you do not use, or reuse one.` };
   for (const tag of next.tags) await sql`insert into library_tags (name) values (${tag}) on conflict do nothing`;
   const [item] = await sql`
     update library_items set status = ${next.status}, attitudes = ${next.attitudes}, tags = ${next.tags},
@@ -255,7 +257,7 @@ export async function addTag(value) {
   const sql = db();
   const [{ count }] = await sql`select count(*)::int as count from library_tags`;
   const [known] = await sql`select 1 as known from library_tags where name = ${read.tags[0]}`;
-  if (!known && count >= MAX_TAGS_IN_POOL) return { refused: `The tag list is full (${MAX_TAGS_IN_POOL}). Remove a tag you do not use first.` };
+  if (!known && count >= tagLimit()) return { refused: `The tag list is full (${tagLimit()}). Remove a tag you do not use first.` };
   await sql`insert into library_tags (name) values (${read.tags[0]}) on conflict do nothing`;
   return { tag: read.tags[0] };
 }

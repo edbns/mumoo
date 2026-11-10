@@ -297,3 +297,11 @@ test('the video worker keeps the first frame for its scene detector, so a video 
   // A single-shot video has no scene change; with no frame reaching the detector's output, ffmpeg exits with an error and the video is marked unreadable.
   assert.match(worker, /select='gt\(scene,\{SCENE_THRESHOLD\}\)\+eq\(n,0\)'/);
 });
+
+test('the video worker mends a video whose colour space is written as reserved, by copying it with the usual colours, before it gives up', () => {
+  const worker = readFileSync(new URL('../../audio-intelligence/modal_prepare_media_staging.py', import.meta.url), 'utf8');
+  // Some cameras write the colour space as "reserved", which ffmpeg refuses ("Invalid color space"); the copy needs no re-encode.
+  assert.match(worker, /h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1/);
+  assert.match(worker, /hevc_metadata=/);
+  assert.match(worker, /except PrepareError:\s+fixed = with_colours\(source, directory\)/);
+});

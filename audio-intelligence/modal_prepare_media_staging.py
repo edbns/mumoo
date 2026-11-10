@@ -152,14 +152,10 @@ def seconds_of(path: Path) -> float:
     return float(run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(path)], 60).strip() or 0)
 
 
-def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]]]:
-    seconds = seconds_of(source)
-    # GIFs sometimes report no duration; only a clearly long clip is refused.
-    if seconds > MAX_SECONDS:
-        raise PrepareError(f"Videos can be up to {MAX_SECONDS} seconds long.")
-    clip = directory / "clip.mp4"
+def encode(source: Path, clip: Path) -> str:
+    """The small H.264 copy and the scene detector's log, from one pass over `source`."""
     # One pass over the source: the picture is decoded once and goes to the small H.264 copy and, scaled down, to the scene detector.
-    log = run([
+    return run([
         "ffmpeg", "-y", "-hide_banner", "-i", str(source), "-t", str(MAX_SECONDS), "-an",
         "-filter_complex",
         "[0:v]fps=30,split=2[full][look];"
@@ -170,6 +166,40 @@ def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]]
         "-g", "10", "-bf", "0", "-movflags", "+faststart", str(clip),
         "-map", "[scenes]", "-f", "null", "-",
     ], 300, stream="stderr")
+
+
+# Some cameras and editors write a video's colour space as "reserved", which ffmpeg then refuses ("Invalid color space"). The picture itself is fine:
+# the same video is copied (no re-encode) with the usual colours written in.
+COLOUR_TAGS = {
+    "h264": "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1",
+    "hevc": "hevc_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1",
+}
+
+
+def with_colours(source: Path, directory: Path) -> Path | None:
+    """`source` copied with its colour space written in, or None when that is not the problem we know how to mend (another codec)."""
+    codec = run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name", "-of", "default=nw=1:nk=1", str(source)], 60).strip()
+    tag = COLOUR_TAGS.get(codec)
+    if not tag:
+        return None
+    fixed = directory / "tagged.mp4"
+    run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(source), "-map", "0:v:0", "-c", "copy", "-bsf:v", tag, str(fixed)], 120)
+    return fixed
+
+
+def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]]]:
+    seconds = seconds_of(source)
+    # GIFs sometimes report no duration; only a clearly long clip is refused.
+    if seconds > MAX_SECONDS:
+        raise PrepareError(f"Videos can be up to {MAX_SECONDS} seconds long.")
+    clip = directory / "clip.mp4"
+    try:
+        log = encode(source, clip)
+    except PrepareError:
+        fixed = with_colours(source, directory)
+        if fixed is None:
+            raise
+        log = encode(fixed, clip)
     if not clip.exists() or clip.stat().st_size < 1000:
         raise PrepareError("That video has nothing to show.")
     if clip.stat().st_size > CLIP_MAX_BYTES:
