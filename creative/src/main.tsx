@@ -78,6 +78,8 @@ function App() {
   const [lyricsInfo, setLyricsInfo] = useState<{ language?: string; origin: 'transcribed' | 'typed' }>({ origin: 'transcribed' });
   /** The same words as `composition.cues`, with the line breaks and timing marks the lyrics editor needs to open on them again. */
   const [lyricWords, setLyricWords] = useState<LyricWord[]>([]);
+  /** The creator said the song has no words (instrumental, or only sounds): nothing is transcribed or read, and the creatives are pictures only. */
+  const [noLyrics, setNoLyrics] = useState(false);
   const [position, setPosition] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState('');
@@ -121,7 +123,8 @@ function App() {
     },
     musicAnalysis: analysisForClip(musicAnalysis, clip),
     ...(lyricMeaning && { lyricMeaning }),
-    ...(inCreatives && { approvedLyrics: { cues: composition.cues, source: 'creator_reviewed' as const, ...lyricsInfo } }),
+    ...(noLyrics && { noLyrics: true as const }),
+    ...(inCreatives && !noLyrics && { approvedLyrics: { cues: composition.cues, source: 'creator_reviewed' as const, ...lyricsInfo } }),
   } : null;
   const analysisSettled = profile !== null && profile.musicAnalysis.status !== 'pending' && profile.lyricMeaning?.status !== 'pending';
   const valid = (() => {
@@ -158,6 +161,7 @@ function App() {
     setStep(1);
     setLyricsState({ busy: false, dirty: false });
     setLyricsInfo({ origin: 'transcribed' });
+    setNoLyrics(false);
     setLoading(Boolean(file));
     seekTo(0);
     setError('');
@@ -199,6 +203,18 @@ function App() {
   function chooseGenre(value: string) {
     if (findGenre(value)?.name !== selectedGenre?.name) setSubGenre('');
     setGenre(value);
+  }
+
+  /** The song has no words: any lyrics work (even a transcription in progress) is dropped, and the creatives are pictures only. Turned off, the lyrics step starts again. */
+  function chooseNoLyrics(on: boolean) {
+    if (on) {
+      stop();
+      setLyricWords([]);
+      setLyricsInfo({ origin: 'transcribed' });
+      setComposition(current => ({ ...current, cues: [] }));
+      setLyricsState({ busy: false, dirty: false });
+    }
+    setNoLyrics(on);
   }
 
   function startOver() {
@@ -281,7 +297,7 @@ function App() {
     if (target === 1) setStep(1);
   }
 
-  const canContinue = valid && clipValid && genreValid && composition.cues.length > 0 && !lyricsState.busy && !lyricsState.dirty;
+  const canContinue = valid && clipValid && genreValid && (noLyrics || composition.cues.length > 0) && !lyricsState.busy && !lyricsState.dirty;
   const checkingPictures = cart.items.some(item => item.uploadId !== null) && (uploads.pending || (uploads.signedIn && uploads.list === null));
   const lines: CartLine[] = cart.items.map(item => ({
     item,
@@ -296,7 +312,7 @@ function App() {
       return {
         kind: 'blocked',
         reason: !genreValid ? 'Choose your genre and sub-genre to reach your creatives.'
-          : composition.cues.length === 0 ? 'Add and sync your lyrics to reach your creatives.'
+          : !noLyrics && composition.cues.length === 0 ? 'Add and sync your lyrics, or say the song has no lyrics, to reach your creatives.'
           : 'Finish syncing your lyrics to reach your creatives.',
       };
     }
@@ -351,7 +367,11 @@ function App() {
         {buffer && step === 2 && <>
           <ClipPicker audio={buffer} start={composition.clipStartMs} valid={clipValid} position={position}
             playing={playing} onPlay={() => playing ? stop() : void play(true)} onSelect={selectClip} />
-          {clipValid && <LyricsStudio key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs}
+          {clipValid && noLyrics && <div className="flex flex-wrap items-center gap-3 rounded-[var(--radius-panel)] bg-background p-5">
+            <p className="m-0 flex-1">No lyrics. We will not listen for words, and your creatives will be pictures only.</p>
+            <Button variant="secondary" onClick={() => chooseNoLyrics(false)}>Add lyrics instead</Button>
+          </div>}
+          {clipValid && !noLyrics && <LyricsStudio key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs}
             token={accessToken} position={position} playing={playing}
             initial={lyricWords.length ? { words: lyricWords, ...lyricsInfo } : undefined}
             onPlay={() => playing ? stop() : void play(true)}
@@ -361,7 +381,8 @@ function App() {
           <div className="step-actions mt-6 flex items-center gap-3">
             <Button variant="secondary" onClick={() => { stop(); setStep(1); }}>Back</Button>
             {lyricsState.dirty && <span className="hint">Sync your edits first.</span>}
-            <Button className="ml-auto" disabled={!canContinue} onClick={() => openCreatives(true)}>Continue</Button>
+            {!noLyrics && <Button variant="secondary" className="ml-auto" onClick={() => chooseNoLyrics(true)}>My song has no lyrics</Button>}
+            <Button className={noLyrics ? 'ml-auto' : undefined} disabled={!canContinue} onClick={() => openCreatives(true)}>Continue</Button>
           </div>
         </>}
         {step === 2 && (error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
@@ -398,7 +419,7 @@ function App() {
       </div>
     )}
     </div>
-    {buffer && clipValid && IS_ALIGNMENT_STAGING && (composition.cues.length > 0 || inCreatives) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs}
+    {buffer && clipValid && IS_ALIGNMENT_STAGING && (composition.cues.length > 0 || noLyrics || inCreatives) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs}
       audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} accessToken={accessToken} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}
 
     <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>

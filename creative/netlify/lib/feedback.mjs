@@ -18,7 +18,7 @@ export function validFeedback(v) {
   if (v.lyricAttitude !== null && !(typeof v.lyricAttitude === 'string' && /^[a-z]{3,16}$/.test(v.lyricAttitude))) return false;
   if (v.lyricSadness !== null && !(Number.isInteger(v.lyricSadness) && v.lyricSadness >= 0 && v.lyricSadness <= 3)) return false;
   if (v.lyricIntensity !== null && !(Number.isInteger(v.lyricIntensity) && v.lyricIntensity >= 1 && v.lyricIntensity <= 5)) return false;
-  if (v.lyricsOrigin !== null && !['transcribed', 'typed'].includes(v.lyricsOrigin)) return false;
+  if (v.lyricsOrigin !== null && !['transcribed', 'typed', 'none'].includes(v.lyricsOrigin)) return false;
   if (typeof v.primaryGenre !== 'string' || !v.primaryGenre.trim() || v.primaryGenre.length > 80) return false;
   if (!optional(v.subGenre, 80)) return false;
   if (v.vibe !== null && typeof v.vibe !== 'string') return false;

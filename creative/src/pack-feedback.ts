@@ -18,7 +18,7 @@ function songFacts(profile: CreativeProfileV1) {
     lyricAttitude: meaning?.attitude ?? null,
     lyricSadness: meaning?.sadness ?? null,
     lyricIntensity: meaning?.intensity ?? null,
-    lyricsOrigin: profile.approvedLyrics?.origin ?? null,
+    lyricsOrigin: profile.noLyrics ? 'none' : profile.approvedLyrics?.origin ?? null,
   };
 }
 

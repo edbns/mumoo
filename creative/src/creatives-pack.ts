@@ -56,6 +56,8 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'pulise', title: 'Pulise', lyrics: 'always' },
   { id: 'dust', title: 'Dust', lyrics: 'switch', upload: 'dust' },
 ];
+/** The rows of the shelf for a song: with no words, only the rows that work without them (Spray, Window and Pulise are made of the lyrics). */
+export const rowsFor = (noLyrics: boolean): readonly ShelfRowDef[] => (noLyrics ? SHELF_ROWS.filter(def => def.lyrics === 'switch') : SHELF_ROWS);
 const ROW_SIZE = 4;
 
 export type CreativesPackSlot = {

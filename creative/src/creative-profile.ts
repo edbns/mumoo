@@ -96,5 +96,7 @@ export interface CreativeProfileV1 {
   /** Timed words the creator reviewed. `language` is an ISO 639 code; `origin` says whether we heard them or the creator typed them. */
   /** What the approved words mean, once our own model has read them. Absent until asked for. */
   lyricMeaning?: LyricMeaningState;
+  /** The creator said the song has no words (instrumental, or only sounds): nothing is listened to or read, and only creatives that work without words are made. */
+  noLyrics?: true;
   approvedLyrics?: { cues: LyricCue[]; source: 'creator_reviewed'; language?: string; origin: 'transcribed' | 'typed' };
 }

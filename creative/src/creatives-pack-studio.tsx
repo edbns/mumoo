@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'rea
 import { FPS, playheadFrame, type Composition, type ImpactMusic } from './composition';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
-import { adPunchFallbackText, recommendRow, SHELF_ROWS, type CreativesPackSlot, type PlateRef, type ShelfRow } from './creatives-pack';
+import { adPunchFallbackText, recommendRow, rowsFor, SHELF_ROWS, type CreativesPackSlot, type PlateRef, type ShelfRow } from './creatives-pack';
 import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
 import { friendlyError } from './friendly-error';
@@ -145,7 +145,9 @@ export function CreativesPackStudio({
   );
   const fallbackText = useMemo(() => adPunchFallbackText(profile, intent), [profile, intent]);
   const hasLyrics = Boolean(profile.approvedLyrics?.cues.length);
-  const lyricsOn = (row: ShelfRow) => SHELF_ROWS.find(def => def.id === row)?.lyrics === 'always' || controls[row].lyrics;
+  // A song with no words shows only the rows that work without them, with no words on any.
+  const noLyrics = Boolean(profile.noLyrics);
+  const lyricsOn = (row: ShelfRow) => !noLyrics && (SHELF_ROWS.find(def => def.id === row)?.lyrics === 'always' || controls[row].lyrics);
 
   // The picture each own-picture row draws from: the person's own, once it is ready (a new one replaces it), else ours.
   // Links are renewed from time to time, so rows are keyed by id, not link.
@@ -164,6 +166,8 @@ export function CreativesPackStudio({
   const pictureIds = `${pictures.dust?.id ?? 'ours'}|${pictures.riso?.id ?? 'ours'}|${pictures.filter?.id ?? 'ours'}|${pictures.window?.id ?? 'ours'}`;
 
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
+    // Made of the lyrics, and there are none: nothing is dealt, drawn or paid for.
+    if (noLyrics && def.lyrics === 'always') return [def.id, { slots: [], note: '' }];
     // Dust and Riso are made from approved photos that have a cut-out; Our photography needs no photo of ours, its looks are baked.
     if (def.upload && photoOnly(def.upload) && !pictures[def.upload]) {
       if (plates === null) {
@@ -182,7 +186,7 @@ export function CreativesPackStudio({
     return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? [], def.id === 'window' ? windowOwn.own : null, libraryFor(def.id)), note: '' }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover,
-    controls, plates, hasLyrics, pictureIds, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem,
+    controls, plates, hasLyrics, noLyrics, pictureIds, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem,
     // What the library holds, not the links to it (they are renewed all the time).
     library?.map(item => item.id).join(','),
   ]);
@@ -429,13 +433,14 @@ export function CreativesPackStudio({
     {shelfStatus && <p role="status" className="hint">{shelfStatus}</p>}
     {cart.full && <p role="status" className="hint">Your cart is full ({CART_LIMIT}). Take one out to add another.</p>}
     <p className="hint text-center">This is only a preview. All creatives will be rendered in HD.</p>
-    {SHELF_ROWS.filter(def => def.upload || view[def.id].slots.length || view[def.id].note).map(def => {
+    {noLyrics && <p className="hint text-center">Your song has no lyrics, so these are pictures only.</p>}
+    {rowsFor(noLyrics).filter(def => def.upload || view[def.id].slots.length || view[def.id].note).map(def => {
       const { slots, note } = view[def.id];
       const rowReady = readyRows.includes(def.id);
       return (
         <section key={def.id} className="rounded-[var(--radius-panel)] bg-background p-5" aria-label={def.title} aria-busy={slots.length > 0 && !rowReady}>
           <div className="flex flex-wrap items-center justify-end gap-3">
-            {def.lyrics === 'switch' && <label className="lyrics-switch">
+            {def.lyrics === 'switch' && !noLyrics && <label className="lyrics-switch">
               <input
                 type="checkbox"
                 role="switch"

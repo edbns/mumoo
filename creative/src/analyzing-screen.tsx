@@ -23,6 +23,7 @@ function factsOf(profile: CreativeProfileV1): Fact[] {
   const facts: Fact[] = [{ label: 'Genre', value: profile.creator.primaryGenre.value }];
   if (profile.creator.subGenre) facts.push({ label: 'Sub-genre', value: profile.creator.subGenre.value });
   const { approvedLyrics, musicAnalysis, lyricMeaning } = profile;
+  if (profile.noLyrics) facts.push({ label: 'Lyrics', value: 'None' });
   if (approvedLyrics) {
     const words = approvedLyrics.cues.reduce((sum, cue) => sum + cue.text.trim().split(/\s+/).filter(Boolean).length, 0);
     facts.push({ label: 'Words', value: String(words) });
