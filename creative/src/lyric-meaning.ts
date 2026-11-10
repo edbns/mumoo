@@ -35,8 +35,12 @@ export function parseLyricMeaning(raw: unknown): LyricMeaning | null {
   if (typeof attitude !== 'string' || !(ATTITUDES as readonly string[]).includes(attitude)) return null;
   if (!Number.isInteger(sadness) || (sadness as number) < 0 || (sadness as number) > 3) return null;
   if (!Number.isInteger(intensity) || (intensity as number) < 1 || (intensity as number) > 5) return null;
-  return { attitude: attitude as LyricAttitude, sadness: sadness as number, intensity: intensity as number };
+  // The model is told that boasting, anger and playfulness carry no sadness; it sometimes forgets, and a stray 2 would dull the colours of an angry or cocky song. The rule is kept here, in code.
+  const sorrow = NO_SORROW.has(attitude as LyricAttitude) ? 0 : (sadness as number);
+  return { attitude: attitude as LyricAttitude, sadness: sorrow, intensity: intensity as number };
 }
+
+const NO_SORROW = new Set<LyricAttitude>(['boastful', 'angry', 'playful']);
 
 const HEAVY = new Set<LyricAttitude>(['heartbroken', 'lonely']);
 const HARSH = new Set<LyricAttitude>(['angry', 'menacing', 'bitter']);
