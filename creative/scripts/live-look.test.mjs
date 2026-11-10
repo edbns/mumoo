@@ -100,6 +100,17 @@ test('a look rides on Our photography cards only, half of them, and never on cal
   }
   const sad = pack.recommendRow('photography', profile('Pop', 3, 'sad'), 0);
   assert.ok(sad.every(slot => !slot.look), 'a sad song gets the picture as it is');
+  const ours = pack.recommendRow('photography', profile('Techno'), 0, [{ id: 'plate-1', cutout: true }]);
+  assert.equal(ours.length, 4);
+  const onPhoto = ours.filter(slot => slot.plateId);
+  assert.equal(onPhoto.length, 1, 'one approved photo is drawn on one card, never twice');
+  assert.ok(onPhoto.every(slot => slot.plateId === 'plate-1' && slot.look && !slot.effectId && !slot.libraryId), 'it carries a look and is a single picture');
+  assert.ok(ours.filter(slot => !slot.plateId).every(slot => slot.effectId), 'the other cards keep their baked effects');
+  assert.equal(new Set(ours.map(slot => slot.id)).size, 4, 'every card has its own id');
+  const two = pack.recommendRow('photography', profile('Techno'), 0, [{ id: 'plate-1', cutout: true }, { id: 'plate-2', cutout: false }]);
+  assert.equal(two.filter(slot => slot.plateId).length, 2);
+  assert.equal(new Set(two.filter(slot => slot.plateId).map(slot => slot.plateId)).size, 2, 'each photo on one card');
+  assert.ok(club.every(slot => !slot.plateId), 'with no approved photo there is nothing to draw a look on');
   const again = pack.recommendRow('photography', profile('Techno'), 0);
   assert.deepEqual(again.map(slot => slot.look), club.map(slot => slot.look), 'the same song and refresh deal the same looks');
 });
@@ -113,9 +124,10 @@ spec = importlib.util.spec_from_file_location("worker", ${JSON.stringify(workerP
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 answers = []
-for opts in json.load(sys.stdin):
+for case in json.load(sys.stdin):
     try:
-        module.parse_meta(json.dumps({"opts": opts}))
+        module.parse_meta(json.dumps({"opts": case["opts"]}))
+        module.check_media(case["opts"], {name: b"x" for name in case["media"]})
         answers.append(True)
     except ValueError:
         answers.append(False)
@@ -123,14 +135,21 @@ print(json.dumps(answers))
 `;
   const filter = { style: 'filter', font: 'Anton', fontSecondary: 'Anton', layout: { rotate: 0, scaleBias: 1, cut: 0, seed: 3 }, cues: [], fallbackText: '', typeStyle: 'minimal' };
   const cases = [
-    [{ ...filter, look: 'thermal' }, true],
-    [{ ...filter }, true],
+    [{ ...filter, look: 'thermal' }, true, ['photo']],
+    [{ ...filter }, true, ['photo']],
     [{ ...filter, look: 'sepia' }, false],
     [{ ...filter, look: 'thermal', effectId: 'tropical-ascii-cam-1' }, false],
     [{ ...filter, look: 'thermal', style: 'bank', bankId: 'x' }, false],
     [{ ...filter, look: 7 }, false],
+    [{ ...filter, look: 'thermal', plateId: 'burnnet-woman-1547507-1920' }, true],
+    [{ ...filter, plateId: 'burnnet-woman-1547507-1920', effectId: 'tropical-ascii-cam-1' }, false],
+    [{ ...filter, look: 'thermal', plateId: 'burnnet-woman-1547507-1920' }, false, ['photo']],
+    [{ ...filter, look: 'thermal' }, true, ['photo']],
+    [{ ...filter, look: 'thermal' }, true, ['motion']],
+    [{ ...filter, effectId: 'tropical-ascii-cam-1' }, true],
+    [{ ...filter }, false, ['photo', 'motion']],
   ];
-  const run = spawnSync('python3', ['-c', program], { input: JSON.stringify(cases.map(([opts]) => opts)), encoding: 'utf8' });
+  const run = spawnSync('python3', ['-c', program], { input: JSON.stringify(cases.map(([opts, , media = []]) => ({ opts, media }))), encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(JSON.parse(run.stdout), cases.map(([, accepted]) => accepted));
 });

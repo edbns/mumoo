@@ -48,9 +48,12 @@ test('the shelf is six rows of four, in order, each card distinct', async () => 
       assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Our photography', 'Riso', 'Spray', 'Window', 'Pulise', 'Dust']);
       for (const row of ['photography', 'riso', 'spray', 'window', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
       const photography = slots.filter(slot => slot.row === 'photography');
-      assert.equal(new Set(photography.map(slot => slot.effectId)).size, 4, `${genre} photography repeats an effect`);
+      // A card is a baked effect, or (with a live look, while the library is short) our one approved photo, once.
+      assert.equal(new Set(photography.map(slot => slot.effectId ?? slot.plateId)).size, 4, `${genre} photography repeats a picture`);
+      assert.ok(photography.filter(slot => slot.plateId).length <= 1, `${genre} draws our one photo on more than one card`);
       assert.equal(new Set(photography.map(slot => slot.typeStyle)).size, 4, `${genre} photography repeats a type style`);
-      assert.ok(photography.every(slot => slot.plateId === undefined && slot.colors === undefined && slot.filter === undefined), 'photography is drawn from a baked effect, not a photo or a live filter');
+      assert.ok(photography.every(slot => slot.colors === undefined && slot.filter === undefined && (slot.plateId === undefined) !== (slot.effectId === undefined)), 'photography is drawn from a baked effect or our photo, never both');
+      assert.ok(photography.filter(slot => slot.plateId).every(slot => slot.look), 'our photo is dealt to a card only to carry a live look');
       assert.ok(slots.filter(slot => slot.row === 'dust').every(slot => slot.plateId === 'burnnet-woman-1547507-1920'), 'Dust is drawn from the approved photo');
       const pulise = slots.filter(slot => slot.row === 'pulise');
       assert.equal(new Set(pulise.map(slot => slot.layout.cut)).size, 4, `${genre} Pulise cards open on the same colour`);

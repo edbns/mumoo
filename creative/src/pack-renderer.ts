@@ -248,6 +248,7 @@ export async function createPackRenderer(
         // Our photography draws one baked effect, or (replacing it) the person's own picture, never both.
         if (style === 'filter' && current.effectId && (current.photoUrl || current.motionUrl)) throw new Error('Our photography draws an effect or the person’s own picture, not both.');
         const ownBackdrop = style === 'filter' && !current.effectId;
+        if (style === 'filter' && current.plateId && (current.effectId || current.photoUrl || current.motionUrl)) throw new Error('Our photography draws one picture: our photo, an effect, or the person’s own.');
         if (current.look && (!isLiveLook(current.look) || style !== 'filter' || current.effectId)) throw new Error('A live look is drawn only on a picture of Our photography, not on a baked effect.');
         const windowMode = style === 'window' ? checkWindow(current) : null;
         const windowOwn = windowMode === 'person' || windowMode === 'plain';
@@ -256,7 +257,8 @@ export async function createPackRenderer(
         // Window brings her cut-out only for a card with her in front; a plain card of the same photo does not read it.
         const cutOut = style === 'dust' || style === 'riso' || windowMode === 'person';
         const ownPicture = cutOut || ownBackdrop || windowOwn;
-        const photoUrl = (cutOut || windowOwn) && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
+        // Our photography can also draw our approved photo itself (with a live look on it).
+        const photoUrl = (cutOut || windowOwn || style === 'filter') && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
         const cutoutUrl = cutOut ? (current.plateId ? plateCutoutUrl(current.plateId) : current.cutoutUrl) : undefined;
         if (ownPicture) await ensurePicture(photoUrl, cutoutUrl, current.motionUrl);
         else await ensurePicture(undefined, undefined, undefined);
@@ -284,13 +286,20 @@ export async function createPackRenderer(
         const { ms, energy, beatIndex, beatGapMs } = reaction;
         // A video or GIF shows the clip's frame for this moment.
         if (motion) {
-          // The edit: pieces of the clip, cut on the beat, differently for each card.
-          const key = `${motionUrlLoaded}|${current.cutSeed ?? 0}|${JSON.stringify(current.motionShots ?? null)}|${current.music?.beatsMs.length ?? 0}`;
-          if (key !== cutsKey) {
-            cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, DURATION_MS);
-            cutsKey = key;
+          if (current.look) {
+            // A card with a live look plays its video straight through, as one piece (looping if it is shorter than the clip), not cut up.
+            cuts = [];
+            cutsKey = '';
+            await motion.seek(ms % Math.max(1, motion.durationMs));
+          } else {
+            // The edit: pieces of the clip, cut on the beat, differently for each card.
+            const key = `${motionUrlLoaded}|${current.cutSeed ?? 0}|${JSON.stringify(current.motionShots ?? null)}|${current.music?.beatsMs.length ?? 0}`;
+            if (key !== cutsKey) {
+              cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, DURATION_MS);
+              cutsKey = key;
+            }
+            await motion.seek(cuts.length ? sourceMsAt(cuts, ms) : ms);
           }
-          await motion.seek(cuts.length ? sourceMsAt(cuts, ms) : ms);
         }
 
         // Dust: the picture is read into grains once, then every frame is a function of the clock.

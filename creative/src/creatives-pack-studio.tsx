@@ -176,8 +176,8 @@ export function CreativesPackStudio({
         return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? 'We have no approved photos for this yet. Sign in (top right) to use your own.' : `We have no approved photos for this yet. Upload one photo to see ${def.title} made from it.` }];
       }
     }
-    // Our photography is dealt once it knows what our library holds.
-    if (def.id === 'photography' && library === null) return [def.id, { slots: [], note: '' }];
+    // Our photography is dealt once it knows what our library holds and which approved photo it may draw a look on.
+    if (def.id === 'photography' && (library === null || plates === null)) return [def.id, { slots: [], note: '' }];
     // Window is dealt once it knows its pictures: the person's own, once it has been read (what shows in the letters decides the colours), or our approved photos.
     if (def.id === 'window' && (pictures.window ? !windowOwn.own : plates === null)) return [def.id, { slots: [], note: windowOwn.problem }];
     if (lyricsOn(def.id) && !hasLyrics) {
