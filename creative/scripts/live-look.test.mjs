@@ -94,18 +94,24 @@ function profile(genre, sadness = 1, attitude = 'defiant') {
   };
 }
 
+const picture = (id, attitude = 'defiant') => ({ id, kind: 'video', attitudes: [attitude], tags: ['street'], genre: null, subGenre: null, url: `/${id}.jpg`, motionUrl: `/${id}.mp4`, shots: [[0, 1000]] });
+
 test('a look rides on Our photography cards only, a few different ones, and gospel gets none', () => {
-  const club = pack.recommendRow('photography', profile('Techno'), 0);
+  const library = [picture('a'), picture('b'), picture('c')];
+  const club = pack.recommendRow('photography', profile('Techno'), 0, [], null, library);
   assert.equal(club.length, 4);
-  const worn = club.filter(slot => slot.look).map(slot => slot.look);
-  assert.ok(worn.length >= 2 && worn.length <= 3 && new Set(worn).size === worn.length, 'different looks on different cards');
-  assert.notDeepEqual(pack.recommendRow('photography', profile('Techno'), 1).map(slot => slot.look), club.map(slot => slot.look), 'Refresh deals other looks');
-  assert.ok(club.every(slot => !slot.look || deal.isLiveLook(slot.look)));
+  const wearing = club.filter(slot => slot.libraryId);
+  assert.equal(wearing.length, 3);
+  assert.ok(wearing.every(slot => slot.look && deal.isLiveLook(slot.look)), 'every library picture carries a look, none is dealt to a baked effect and lost');
+  assert.equal(new Set(wearing.map(slot => slot.look)).size, 3, 'three different looks');
+  assert.ok(club.filter(slot => !slot.libraryId).every(slot => !slot.look && slot.effectId), 'a baked effect never carries a look');
+  assert.notDeepEqual(pack.recommendRow('photography', profile('Techno'), 1, [], null, library).map(slot => slot.look), club.map(slot => slot.look), 'Refresh deals other looks');
+  assert.ok(pack.recommendRow('photography', profile('Techno'), 0).every(slot => !slot.look), 'with no picture to draw on there is no look');
   for (const row of ['looks', 'riso', 'spray', 'pulise', 'dust']) {
     assert.ok(pack.recommendRow(row, profile('Techno'), 0).every(slot => !slot.look), `${row} has no look`);
   }
-  const sad = pack.recommendRow('photography', profile('Pop', 3, 'sad'), 0);
-  assert.ok(sad.filter(slot => slot.look).every(slot => slot.look === 'arctic'), 'a sad song gets only the cold look');
+  const sad = pack.recommendRow('photography', profile('Pop', 3, 'sad'), 0, [], null, ['a', 'b', 'c'].map(id => picture(id, 'sad')));
+  assert.ok(sad.filter(slot => slot.look).length >= 1 && sad.filter(slot => slot.look).every(slot => slot.look === 'arctic'), 'a sad song gets only the cold look');
   const ours = pack.recommendRow('photography', profile('Techno'), 0, [{ id: 'plate-1', cutout: true }]);
   assert.equal(ours.length, 4);
   const onPhoto = ours.filter(slot => slot.plateId);
@@ -116,9 +122,8 @@ test('a look rides on Our photography cards only, a few different ones, and gosp
   const two = pack.recommendRow('photography', profile('Techno'), 0, [{ id: 'plate-1', cutout: true }, { id: 'plate-2', cutout: false }]);
   assert.equal(two.filter(slot => slot.plateId).length, 2);
   assert.equal(new Set(two.filter(slot => slot.plateId).map(slot => slot.plateId)).size, 2, 'each photo on one card');
-  assert.ok(club.every(slot => !slot.plateId), 'with no approved photo there is nothing to draw a look on');
-  const again = pack.recommendRow('photography', profile('Techno'), 0);
-  assert.deepEqual(again.map(slot => slot.look), club.map(slot => slot.look), 'the same song and refresh deal the same looks');
+  assert.ok(club.every(slot => !slot.plateId), 'with an approved photo missing there is nothing extra to draw on');
+  assert.deepEqual(pack.recommendRow('photography', profile('Techno'), 0, [], null, library).map(slot => slot.look), club.map(slot => slot.look), 'the same song and refresh deal the same looks');
 });
 
 const python = spawnSync('python3', ['-c', 'import modal'], { encoding: 'utf8' });

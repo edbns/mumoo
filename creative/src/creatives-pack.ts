@@ -441,11 +441,16 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
   ];
   const faces = dealFaces(lane, intent, seed, 'photography', cards.map((_, index) => typeNeeds(typeOf(index))));
   const hand = hashPick(seed, 'gen', 997).toString(36);
-  const looks = dealLooks(lane, seed, cards.length);
-  // While the library is short, a card with a look can be drawn from one of our approved photos, each photo on one card of the hand (never the same picture twice).
+  // A look needs a picture to be drawn on: a library picture, or (while the library is short) one of our approved photos, each on one card.
+  // A baked effect cannot carry one, so looks are dealt only among the cards that can, never lost on a baked effect.
   const photos = seededOrder(plateIds, `${seed}:ours`, id => id);
+  let spare = photos.length;
+  const canWear = cards.map(card => ('pick' in card ? true : spare-- > 0));
+  const wearers = canWear.flatMap((can, index) => (can ? [index] : []));
+  const dealt = dealLooks(lane, seed, wearers.length);
+  const looks = cards.map((_, index) => (wearers.includes(index) ? dealt[wearers.indexOf(index)] : null));
   let taken = 0;
-  const ours = cards.map((card, index) => (!('pick' in card) && looks[index] && taken < photos.length ? photos[taken++] : null));
+  const ours = cards.map((card, index) => (!('pick' in card) && looks[index] ? photos[taken++] : null));
   return cards.map((card, index) => ({
     ...adPunchSlot('filter', index, intent, seed, lane, 'photography', faces[index]),
     ...('pick' in card
