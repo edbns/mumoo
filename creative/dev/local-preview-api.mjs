@@ -148,6 +148,81 @@ export function localPreviewApi() {
         send(response, 200, { uploads });
       }));
 
+      // The admin: only moo@mumoo.app, like the real list. Files "uploaded" here are kept in memory and served back.
+      const ADMIN = 'moo@mumoo.app';
+      const adminOnly = (handler) => async (request, response) => {
+        const email = emailOf(request);
+        if (!email) return send(response, 401, { error: 'Sign in to continue.' });
+        return email.toLowerCase() === ADMIN ? handler(request, response) : send(response, 403, { error: 'This account does not have access.' });
+      };
+      const files = new Map();
+      let library = [
+        { id: 'preview-lib-1', kind: 'photo', contentType: 'image/jpeg', bytes: 1_800_000, status: 'approved', attitudes: ['tender', 'nostalgic'], tags: ['sunset', 'beach'], genre: null, subGenre: null, note: 'Licence 118, Studio Ray', clearedBy: ADMIN, clearedAt: '2026-11-08T10:00:00Z', createdAt: '2026-11-08T10:00:00Z', url: samplePicture('#ff9821', '#2b231a') },
+        { id: 'preview-lib-2', kind: 'photo', contentType: 'image/jpeg', bytes: 2_400_000, status: 'pending', attitudes: [], tags: [], genre: null, subGenre: null, note: '', clearedBy: ADMIN, clearedAt: '2026-11-09T12:30:00Z', createdAt: '2026-11-09T12:30:00Z', url: samplePicture('#2fe92b', '#0f0f0f') },
+        { id: 'preview-lib-3', kind: 'gif', contentType: 'image/gif', bytes: 4_100_000, status: 'hidden', attitudes: ['playful'], tags: ['dance'], genre: 'Pop', subGenre: 'Dance-Pop', note: 'Own work', clearedBy: ADMIN, clearedAt: '2026-11-09T15:00:00Z', createdAt: '2026-11-09T15:00:00Z', url: samplePicture('#6b7367', '#26272d') },
+      ];
+      let pool = ['sunset', 'beach', 'dance'];
+      const tagsNow = () => pool.map(name => ({ name, items: library.filter(item => item.tags.includes(name)).length }));
+      const body = async request => JSON.parse((await readBody(request)).toString('utf8') || '{}');
+      const idParam = request => new URL(request.url, 'http://local').searchParams.get('id');
+      const tagParam = request => new URL(request.url, 'http://local').searchParams.get('tag');
+      route('/api/admin/overview', 'GET', adminOnly(async (_request, response) => send(response, 200, {
+        email: ADMIN, people: 3, problems: { unseen: problems.filter(item => !item.seen).length },
+        library: { approved: library.filter(item => item.status === 'approved').length, pending: library.filter(item => item.status === 'pending').length, hidden: library.filter(item => item.status === 'hidden').length },
+      })));
+      route('/api/admin/library', 'GET', adminOnly(async (_request, response) => send(response, 200, { items: library.filter(item => !item.hidden), tags: tagsNow() })));
+      route('/api/admin/library', 'POST', adminOnly(async (request, response) => {
+        if (tagParam(request)) return send(response, 200, { items: library, tags: tagsNow() });
+        const { type, bytes, note } = await body(request);
+        const id = `preview-lib-${Date.now()}`;
+        const kind = type.startsWith('video/') ? 'video' : type === 'image/gif' ? 'gif' : 'photo';
+        library = [{ id, kind, contentType: type, bytes, status: 'pending', attitudes: [], tags: [], genre: null, subGenre: null, note: note ?? '', clearedBy: ADMIN, clearedAt: new Date().toISOString(), createdAt: new Date().toISOString(), url: `/dev-media/${id}`, hidden: true }, ...library];
+        send(response, 201, { id, putUrl: `/dev-media/${id}` });
+      }));
+      route('/dev-media', 'PUT', async (request, response) => {
+        files.set(request.url.slice(1), { bytes: await readBody(request), type: request.headers['content-type'] });
+        response.statusCode = 200; response.end();
+      });
+      route('/dev-media', 'GET', async (request, response) => {
+        const file = files.get(request.url.slice(1));
+        if (!file) return send(response, 404, { error: 'Gone.' });
+        response.setHeader('Content-Type', file.type); response.end(file.bytes);
+      });
+      route('/api/admin/library', 'PUT', adminOnly(async (request, response) => {
+        const item = library.find(entry => entry.id === idParam(request));
+        if (!item) return send(response, 404, { error: 'Not found.' });
+        delete item.hidden;
+        send(response, 200, { item });
+      }));
+      route('/api/admin/library', 'PATCH', adminOnly(async (request, response) => {
+        const item = library.find(entry => entry.id === idParam(request));
+        if (!item) return send(response, 404, { error: 'Not found.' });
+        const change = await body(request);
+        if (change.status === 'approved' && !(change.attitudes ?? item.attitudes).length) return send(response, 400, { error: 'Give it at least one attitude before approving it.' });
+        Object.assign(item, { ...change, genre: change.genre === '' ? null : (change.genre ?? item.genre), subGenre: change.subGenre === '' ? null : (change.subGenre ?? item.subGenre) });
+        pool = [...new Set([...pool, ...item.tags])];
+        send(response, 200, { item, tags: tagsNow() });
+      }));
+      route('/api/admin/library', 'DELETE', adminOnly(async (request, response) => {
+        const tag = tagParam(request);
+        if (tag) { pool = pool.filter(name => name !== tag); library = library.map(item => ({ ...item, tags: item.tags.filter(name => name !== tag) })); }
+        else library = library.filter(item => item.id !== idParam(request));
+        send(response, 200, { items: library, tags: tagsNow() });
+      }));
+      let problems = [
+        { id: 3, kind: 'render', userId: 'u1', email: 'dana@example.com', message: 'The cloud render did not respond in time.', createdAt: '2026-11-10T05:12:00Z', seen: false },
+        { id: 2, kind: 'sign_in', userId: null, email: 'sam@example.com', message: 'Code not accepted: That code is wrong or has expired.', createdAt: '2026-11-10T03:40:00Z', seen: false },
+        { id: 1, kind: 'download', userId: 'u2', email: 'lee@example.com', message: 'A download that was in progress did not finish.', createdAt: '2026-11-09T19:02:00Z', seen: true },
+      ];
+      const problemsNow = () => ({ problems, unseen: problems.filter(item => !item.seen).length });
+      route('/api/admin/problems', 'GET', adminOnly(async (_request, response) => send(response, 200, problemsNow())));
+      route('/api/admin/problems', 'PATCH', adminOnly(async (request, response) => {
+        const params = new URL(request.url, 'http://local').searchParams;
+        problems = problems.map(item => params.get('all') === '1' || String(item.id) === params.get('id') ? { ...item, seen: true } : item);
+        send(response, 200, problemsNow());
+      }));
+      route('/api/report-problem', 'POST', async (_request, response) => send(response, 202, { ok: true }));
+
       route('/.netlify/functions/transcribe-lyrics', 'POST', async (request, response) => {
         const form = (await readBody(request)).toString('utf8');
         const meta = JSON.parse(/name="meta"\r\n\r\n([\s\S]*?)\r\n--/.exec(form)[1]);

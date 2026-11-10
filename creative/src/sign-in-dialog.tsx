@@ -9,8 +9,10 @@ const PRIVACY_URL = '/privacy';
 const WELCOME_MS = 1400;
 
 /** The sign-in popup: email, then the code we sent to it, then a short welcome. */
-export function SignInDialog({ open, onClose, onSendCode, onCheckCode }: {
+export function SignInDialog({ open, onClose, onSendCode, onCheckCode, hideTerms = false }: {
   open: boolean;
+  /** The admin page is not for the public, so it has no terms line. */
+  hideTerms?: boolean;
   onClose: () => void;
   /** Rejects with the words to show when the code could not be sent. */
   onSendCode: (address: string) => Promise<void>;
@@ -38,6 +40,6 @@ export function SignInDialog({ open, onClose, onSendCode, onCheckCode }: {
       onResend={onSendCode}
       onVerifyCode={onCheckCode}
     />
-    <p className="mt-4 text-center text-xs text-muted-foreground">By continuing, you agree to our <a className="text-foreground underline underline-offset-4" href={TERMS_URL} target="_blank" rel="noreferrer">Terms of Service</a> and <a className="text-foreground underline underline-offset-4" href={PRIVACY_URL} target="_blank" rel="noreferrer">Privacy Policy</a>.</p>
+    {!hideTerms && <p className="mt-4 text-center text-xs text-muted-foreground">By continuing, you agree to our <a className="text-foreground underline underline-offset-4" href={TERMS_URL} target="_blank" rel="noreferrer">Terms of Service</a> and <a className="text-foreground underline underline-offset-4" href={PRIVACY_URL} target="_blank" rel="noreferrer">Privacy Policy</a>.</p>}
   </Modal>;
 }

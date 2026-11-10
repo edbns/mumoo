@@ -2,3 +2,16 @@
   base = "creative"
   command = "npm run build"
   publish = "dist"
+
+# The admin is its own page. It is never indexed, and the server (not the page) decides who may use it.
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+
+[[headers]]
+  for = "/admin*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    Cache-Control = "no-store"
+    X-Frame-Options = "DENY"

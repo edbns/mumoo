@@ -3,6 +3,7 @@ import type { Cart, CartItem } from './cart';
 import { PENDING_KEY, expired, readPending, writePending, type PendingDownload } from './cart-jobs';
 import { friendlyError } from './friendly-error';
 import { JOB_TIMEOUT_MS, awaitCloudJob } from './pack-cloud-export';
+import { reportProblem } from './report-problem';
 
 export type DownloadProgress = { label: string; percent: number };
 /** What the person is told when a download ends, wherever they are in the app. */
@@ -74,8 +75,13 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
         return video;
       }));
       setProgress({ label: 'Getting your download ready…', percent: 100 });
-      const { file, name } = await bundle(videos);
-      saveFile(file, name);
+      // The renders are done: from here a failure is the download's (the file could not be put together or saved), not a render's.
+      try {
+        const { file, name } = await bundle(videos);
+        saveFile(file, name);
+      } catch (cause) {
+        throw Object.assign(cause instanceof Error ? cause : new Error(String(cause)), { problemKind: 'download' });
+      }
     } catch (cause) {
       // One render failing ends the wait for the others.
       waiting.abort();
@@ -98,7 +104,9 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
       await follow(await begin());
     } catch (cause) {
       localStorage.removeItem(PENDING_KEY);
-      setMessage({ kind: 'error', text: `${friendlyError(cause, 'The creatives could not be exported.')} Your cart is kept.` });
+      const text = friendlyError(cause, 'The creatives could not be exported.');
+      reportProblem((cause as { problemKind?: 'download' }).problemKind ?? 'render', text);
+      setMessage({ kind: 'error', text: `${text} Your cart is kept.` });
     } finally {
       running.current = false;
       setProgress(null);
@@ -126,6 +134,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     const pending = readPending(raw);
     if (!pending || expired(pending, Date.now(), JOB_TIMEOUT_MS)) {
       localStorage.removeItem(PENDING_KEY);
+      reportProblem('download', 'A download that was in progress did not finish.');
       setMessage({ kind: 'error', text: 'A download that was in progress did not finish. Your cart is kept, press Download to try again.' });
       return;
     }

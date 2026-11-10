@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { UserDropdownMenu } from '@/components/ui/user-dropdown-menu';
 import { ACCOUNT_MENU, type AccountPage } from './account-pages';
 import { PurchaseCredits } from './purchase-credits';
+import { reportProblem } from './report-problem';
 
 /** Neon Auth (managed Better Auth). The browser only ever talks to Neon's auth server and our own /api/account. */
 export const authClient = createAuthClient(import.meta.env.VITE_NEON_AUTH_URL, { adapter: BetterAuthReactAdapter() });
@@ -62,6 +63,26 @@ async function attempt(run: () => Outcome, mistake: string) {
   if (result.error) throw new Error(mistake);
 }
 
+/** Sends the sign-in code to `email`. Fails with the words to show, and tells the admin's error log. */
+export async function sendSignInCode(email: string) {
+  try {
+    await attempt(() => emailCode.emailOtp.sendVerificationOtp({ email, type: 'sign-in' }), 'Check the email address and try again.');
+  } catch (cause) {
+    reportProblem('sign_in', `Could not send the code: ${(cause as Error).message}`, { email, signedOut: true });
+    throw cause;
+  }
+}
+
+/** Signs in with the code that was sent to `email`. Fails with the words to show, and tells the admin's error log. */
+export async function checkSignInCode(email: string, otp: string) {
+  try {
+    await attempt(() => emailCode.signIn.emailOtp({ email, otp }), 'That code is wrong or has expired.');
+  } catch (cause) {
+    reportProblem('sign_in', `Code not accepted: ${(cause as Error).message}`, { email, signedOut: true });
+    throw cause;
+  }
+}
+
 export async function requestEmailChange(newEmail: string) {
   await attempt(() => emailChange.emailOtp.requestEmailChange({ newEmail }), 'Check the email address and try again.');
 }
@@ -100,12 +121,12 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   const closeSignIn = useCallback(() => setOpen(false), []);
 
   async function sendCode(email: string) {
-    await attempt(() => emailCode.emailOtp.sendVerificationOtp({ email, type: 'sign-in' }), 'Check the email address and try again.');
+    await sendSignInCode(email);
     address.current = email;
   }
 
   async function checkCode(otp: string) {
-    await attempt(() => emailCode.signIn.emailOtp({ email: address.current, otp }), 'That code is wrong or has expired.');
+    await checkSignInCode(address.current, otp);
     return true;
   }
 

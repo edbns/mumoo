@@ -1,12 +1,18 @@
 # What is left
 
-## 1. Admin dashboard
-- Sign-in for admins only (a list of admin emails, checked on the server).
-- Financials: sales, refunds, tokens sold and used, per day and per month.
-- Errors: failed renders, failed downloads, failed sign-ins, with the time and the person; mark as seen.
-- Approved content: upload cleared-copyright photos, videos and music, with who cleared them and when.
-  Each item is tagged (genre, mood, kind) so the creatives templates can pick from it later.
-- Approve, hide and delete an item.
+## 1. Admin dashboard (`/admin`)
+Done (staging DB migrated, tests in `scripts/admin.test.mjs`):
+- Sign-in for admins only: `ADMIN_EMAILS` (comma separated) is checked on the server, and the email must be confirmed in Neon Auth.
+- Errors: failed renders, downloads and sign-ins, with the time and the person; mark as seen.
+- Approved content: photos, videos and GIFs (no music: music comes from the users), with who cleared them and when.
+  Each item has attitudes (the brain's 18 codes, up to 4), a few shared tags (up to 5 per item, 40 in all) and an optional genre / sub-genre.
+  Approve, hide and delete an item.
+
+Still to do:
+- Set `ADMIN_EMAILS=moo@mumoo.app` in the Netlify environment (staging and production).
+- The creatives templates must read only `approved` library items: attitude and tags match, an item with a genre is preferred for that genre, one without is free for any.
+- Financials: sales, refunds, tokens sold and used, per day and per month (needs payments).
+- Referral figures (needs the referral program).
 
 ## 2. Referral program
 - Each person gets a personal link and code.
