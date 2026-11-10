@@ -78,7 +78,7 @@ function App() {
   const [lyricsInfo, setLyricsInfo] = useState<{ language?: string; origin: 'transcribed' | 'typed' }>({ origin: 'transcribed' });
   /** The same words as `composition.cues`, with the line breaks and timing marks the lyrics editor needs to open on them again. */
   const [lyricWords, setLyricWords] = useState<LyricWord[]>([]);
-  /** The creator said the song has no words (instrumental, or only sounds): nothing is transcribed or read, and the creatives are pictures only. */
+  /** The creator said the song has no words (instrumental, or only sounds): nothing is transcribed or read. */
   const [noLyrics, setNoLyrics] = useState(false);
   const [position, setPosition] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -205,7 +205,7 @@ function App() {
     setGenre(value);
   }
 
-  /** The song has no words: any lyrics work (even a transcription in progress) is dropped, and the creatives are pictures only. Turned off, the lyrics step starts again. */
+  /** The song has no words: any lyrics work (even a transcription in progress) is dropped. Turned off, the lyrics step starts again. */
   function chooseNoLyrics(on: boolean) {
     if (on) {
       stop();
@@ -368,7 +368,7 @@ function App() {
           <ClipPicker audio={buffer} start={composition.clipStartMs} valid={clipValid} position={position}
             playing={playing} onPlay={() => playing ? stop() : void play(true)} onSelect={selectClip} />
           {clipValid && noLyrics && <div className="flex flex-wrap items-center gap-3 rounded-[var(--radius-panel)] bg-background p-5">
-            <p className="m-0 flex-1">No lyrics. We will not listen for words, and your creatives will be pictures only.</p>
+            <p className="m-0 flex-1">Changed your mind?</p>
             <Button variant="secondary" onClick={() => chooseNoLyrics(false)}>Add lyrics instead</Button>
           </div>}
           {clipValid && !noLyrics && <LyricsStudio key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs}

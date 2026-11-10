@@ -294,7 +294,6 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
       lane, intent, seed,
       dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation),
       pickLibrary(library, { attitude: meaning?.attitude ?? null, genre, subGenre: profile.creator.subGenre?.value ?? '' }, profile.clip.sourceSha256, generation, ROW_SIZE),
-      plates.map(plate => plate.id),
     ),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, cutOutPlates),
@@ -432,7 +431,7 @@ function dealEffects(lane: MoodLane, meaning: LyricMeaning | null, cover: CoverR
  * (as many as there are, up to four), or our approved photo with one of four baked effects (or the person's own picture). A card that carries a live look
  * is drawn from a single picture (a library photo, or our approved photo while the library is short) or one video played straight through, never an edit of cuts.
  */
-function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, effects: readonly PhotoEffect[], picks: readonly LibraryPicture[], plateIds: readonly string[]): CreativesPackSlot[] {
+function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, effects: readonly PhotoEffect[], picks: readonly LibraryPicture[]): CreativesPackSlot[] {
   const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
   const typeOf = (index: number) => types[index % types.length];
   const cards = [
@@ -441,16 +440,10 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
   ];
   const faces = dealFaces(lane, intent, seed, 'photography', cards.map((_, index) => typeNeeds(typeOf(index))));
   const hand = hashPick(seed, 'gen', 997).toString(36);
-  // A look needs a picture to be drawn on: a library picture, or (while the library is short) one of our approved photos, each on one card.
-  // A baked effect cannot carry one, so looks are dealt only among the cards that can, never lost on a baked effect.
-  const photos = seededOrder(plateIds, `${seed}:ours`, id => id);
-  let spare = photos.length;
-  const canWear = cards.map(card => ('pick' in card ? true : spare-- > 0));
-  const wearers = canWear.flatMap((can, index) => (can ? [index] : []));
+  // A look is drawn on a library picture (or the person's own, in the studio), never on a baked effect, so it is dealt only among the library cards.
+  const wearers = cards.flatMap((card, index) => ('pick' in card ? [index] : []));
   const dealt = dealLooks(lane, seed, wearers.length);
   const looks = cards.map((_, index) => (wearers.includes(index) ? dealt[wearers.indexOf(index)] : null));
-  let taken = 0;
-  const ours = cards.map((card, index) => (!('pick' in card) && looks[index] ? photos[taken++] : null));
   return cards.map((card, index) => ({
     ...adPunchSlot('filter', index, intent, seed, lane, 'photography', faces[index]),
     ...('pick' in card
@@ -460,20 +453,12 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
         reason: `${lane} · library · ${card.pick.attitudes.join('+')} · ${typeOf(index)}${looks[index] ? ` · ${looks[index]}` : ''}`,
         libraryId: card.pick.id,
       }
-      // With nothing in the library, a card that carries a look is drawn from our one approved photo, as a single picture, so the look can be seen. The other cards keep their baked effects.
-      : looks[index] && ours[index]
-        ? {
-          id: `ad-photography-ours-${ours[index]}-${looks[index]}-${hand}`,
-          label: liveLookTitle(looks[index]!),
-          reason: `${lane} · our photo · ${looks[index]} · ${typeOf(index)}`,
-          plateId: ours[index]!,
-        }
-        : {
-          id: `ad-photography-${card.effect.id}-${hand}`,
-          label: card.effect.title,
-          reason: `${lane} · ${card.effect.mood} · ${card.effect.title} · ${typeOf(index)}`,
-          effectId: card.effect.id,
-        }),
+      : {
+        id: `ad-photography-${card.effect.id}-${hand}`,
+        label: card.effect.title,
+        reason: `${lane} · ${card.effect.mood} · ${card.effect.title} · ${typeOf(index)}`,
+        effectId: card.effect.id,
+      }),
     typeStyle: typeOf(index),
     // On a library picture or the person's own, never on a baked effect (the studio leaves it off when the card shows one).
     ...(looks[index] ? { look: looks[index]! } : {}),

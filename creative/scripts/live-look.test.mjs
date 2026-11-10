@@ -112,17 +112,8 @@ test('a look rides on Our photography cards only, a few different ones, and gosp
   }
   const sad = pack.recommendRow('photography', profile('Pop', 3, 'sad'), 0, [], null, ['a', 'b', 'c'].map(id => picture(id, 'sad')));
   assert.ok(sad.filter(slot => slot.look).length >= 1 && sad.filter(slot => slot.look).every(slot => slot.look === 'arctic'), 'a sad song gets only the cold look');
-  const ours = pack.recommendRow('photography', profile('Techno'), 0, [{ id: 'plate-1', cutout: true }]);
-  assert.equal(ours.length, 4);
-  const onPhoto = ours.filter(slot => slot.plateId);
-  assert.equal(onPhoto.length, 1, 'one approved photo is drawn on one card, never twice');
-  assert.ok(onPhoto.every(slot => slot.plateId === 'plate-1' && slot.look && !slot.effectId && !slot.libraryId), 'it carries a look and is a single picture');
-  assert.ok(ours.filter(slot => !slot.plateId).every(slot => slot.effectId), 'the other cards keep their baked effects');
-  assert.equal(new Set(ours.map(slot => slot.id)).size, 4, 'every card has its own id');
-  const two = pack.recommendRow('photography', profile('Techno'), 0, [{ id: 'plate-1', cutout: true }, { id: 'plate-2', cutout: false }]);
-  assert.equal(two.filter(slot => slot.plateId).length, 2);
-  assert.equal(new Set(two.filter(slot => slot.plateId).map(slot => slot.plateId)).size, 2, 'each photo on one card');
-  assert.ok(club.every(slot => !slot.plateId), 'with an approved photo missing there is nothing extra to draw on');
+  const withPhoto = pack.recommendRow('photography', profile('Techno'), 0, [{ id: 'plate-1', cutout: true }]);
+  assert.ok(withPhoto.every(slot => !slot.plateId && !slot.look && slot.effectId), 'our approved photo is not borrowed to show a look; with no library the cards are the baked effects');
   assert.deepEqual(pack.recommendRow('photography', profile('Techno'), 0, [], null, library).map(slot => slot.look), club.map(slot => slot.look), 'the same song and refresh deal the same looks');
 });
 

@@ -433,7 +433,7 @@ export function CreativesPackStudio({
     {shelfStatus && <p role="status" className="hint">{shelfStatus}</p>}
     {cart.full && <p role="status" className="hint">Your cart is full ({CART_LIMIT}). Take one out to add another.</p>}
     <p className="hint text-center">This is only a preview. All creatives will be rendered in HD.</p>
-    {noLyrics && <p className="hint text-center">Your song has no lyrics, so these are pictures only.</p>}
+    {noLyrics && <p className="hint text-center">Your song has no lyrics, so there is no lyric type on these.</p>}
     {rowsFor(noLyrics).filter(def => def.upload || view[def.id].slots.length || view[def.id].note).map(def => {
       const { slots, note } = view[def.id];
       const rowReady = readyRows.includes(def.id);
