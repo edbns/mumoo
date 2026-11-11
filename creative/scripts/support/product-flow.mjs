@@ -82,6 +82,10 @@ export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = []
       : route.fulfill({ json: result });
   });
 
+  // Nobody is heard singing in these tests, so the singer stays open.
+  await page.route('**/.netlify/functions/detect-voice', route => route.fulfill({ status: 202, json: { id: 'fc-voice0001' } }));
+  await page.route('**/.netlify/functions/detect-voice-status*', route => route.fulfill({ json: { version: 1, value: null, reason: 'no_singing' } }));
+
   let reading = { polls: 0 };
   await page.route('**/.netlify/functions/read-lyric-meaning', route => {
     meaningCalls.push(route.request().postDataJSON());

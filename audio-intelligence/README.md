@@ -6,6 +6,7 @@ Cloud workers for the Creative Studio. Each runs on Modal (CPU only) and is call
 |---|---|---|
 | Lyrics | `modal_lyrics_v2_staging.py` | Transcribe (faster-whisper) and time every word (MMS forced alignment), in any language. Also times lyrics the user typed. |
 | Lyric meaning | `modal_lyric_meaning_staging.py` | What the approved words mean (attitude, sadness, intensity), read by Qwen3-8B (Apache 2.0) that we host ourselves on a GPU. Lyrics stay in memory for the request: no third party, no storage, no training. Under 12 words it answers "neutral" without asking the model. The first call after a quiet spell takes about a minute to wake the GPU. |
+| Singer voice | `modal_voice_staging.py` (`voice_detection.py`) | Who sings in the selected 15 seconds: female, male, both, or nobody. Demucs separates the voice from the music, pYIN finds where it sings, a wav2vec2 timbre reader (Apache 2.0) votes on each 4 second stretch. Answers `null` rather than guess (instrumental, too little singing, voices that disagree). About 10–30 s of 4 CPU cores per clip; async submit/status like lyrics. Pitch alone was tried and rejected: it called a male pop singer female. The reader was trained on speech, so it is weaker on high operatic voices. |
 | Music analysis | `modal_music_staging.py` | Beats, tempo and energy for a selected 15 seconds (`music_analysis.py`). |
 | Creatives encode | `modal_creatives_encode_staging.py` | Encodes the creatives pack to MP4. |
 

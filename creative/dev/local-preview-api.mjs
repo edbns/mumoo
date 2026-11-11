@@ -241,6 +241,10 @@ export function localPreviewApi() {
       route('/.netlify/functions/read-lyric-meaning', 'POST', async (_request, response) => send(response, 202, { id: startJob(NEUTRAL_READING) }));
       route('/.netlify/functions/read-lyric-meaning-status', 'GET', async (request, response) => poll(request, response));
 
+      // The preview has no voice worker: it hears no singer, so the Doodle row deals its default singers.
+      route('/.netlify/functions/detect-voice', 'POST', async (_request, response) => send(response, 202, { id: startJob({ version: 1, value: null, reason: 'no_singing' }) }));
+      route('/.netlify/functions/detect-voice-status', 'GET', async (request, response) => poll(request, response));
+
       route('/.netlify/functions/analyze-music', 'POST', async (request, response) => {
         const sha256 = createHash('sha256').update(await readBody(request)).digest('hex');
         send(response, 200, {
