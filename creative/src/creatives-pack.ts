@@ -24,7 +24,7 @@ import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
 import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
 import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
-import { pickLibrary, type LibraryPicture } from './library-pick';
+import { pickLibrary, type LibraryPicture, type LibraryWanted } from './library-pick';
 import { dealDoodle, doodleMood, type DoodlePaper } from './doodle-cast';
 import type { DoodleMood } from './doodle-parts';
 
@@ -110,6 +110,8 @@ export type CreativesPackSlot = {
   cutSeed?: number;
   /** Our photography: the approved library picture (a photo, video or GIF) this card is drawn from, until the person uses their own. */
   libraryId?: string;
+  /** The Director's reel (`pack-director.ts`): library pictures, clips and GIFs this card is edited from, to the song's energy, in the order this card opens on them. Replaces `libraryId`, `plateId` and `effectId`. */
+  reelIds?: string[];
   /** Our photography: the baked effect on our approved photo (`punch-plates/effects/{id}.jpg`), until the person uses their own picture. */
   effectId?: string;
   /** Our photography: a live look drawn on the picture (ours from the library, or the person's own), never on a baked effect. */
@@ -323,6 +325,30 @@ export function windowHand(profile: CreativeProfileV1, generation: number, libra
   return pickLibrary(library.filter(windowCapable), wanted, profile.clip.sourceSha256, generation, ROW_SIZE);
 }
 
+/** How many library pictures a Director's reel is edited from. */
+const REEL_POOL = 6;
+const isClip = (item: LibraryPicture) => item.kind !== 'photo' && Boolean(item.motionUrl);
+
+/** The pictures a reel is edited from: the best fits for the song, with at least one clip among them when the library has one (video sells; a reel of stills does not). */
+export function reelPool(items: readonly LibraryPicture[], wanted: LibraryWanted, song: string, generation: number): LibraryPicture[] {
+  const pool = pickLibrary(items, wanted, song, generation, REEL_POOL);
+  if (pool.length < 2 || pool.some(isClip)) return pool;
+  const [clip] = pickLibrary(items.filter(isClip), wanted, song, generation, 1);
+  return clip ? [...pool.slice(0, -1), clip] : pool;
+}
+
+/** A card that is edited from the pool instead of drawn from one picture. Each card of a row opens on a different picture. With fewer than two pictures it stays as it was. */
+export function reeled(slot: CreativesPackSlot, pool: readonly LibraryPicture[], index: number): CreativesPackSlot {
+  if (pool.length < 2) return slot;
+  const start = index % pool.length;
+  const reelIds = [...pool.slice(start), ...pool.slice(0, start)].map(item => item.id);
+  const directed: CreativesPackSlot = { ...slot, id: `${slot.id}-reel`, reason: `${slot.reason} · directed`, reelIds };
+  delete directed.libraryId;
+  delete directed.plateId;
+  delete directed.effectId;
+  return directed;
+}
+
 export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], own: WindowOwn | null = null, library: readonly LibraryPicture[] = [], readings: Readonly<Record<string, WindowReading>> = {}, ownPicture = false): CreativesPackSlot[] {
   const { intent, meaning, lane, genre } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
@@ -360,8 +386,15 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     pulise: () => puliseSlots(lane, intent, seed),
     dust: () => dustSlots(lane, intent, seed, cover?.hue, photos),
   }[row]();
+  // Our photography, its live looks (not Depth, which needs one photo with its cut-out) and Riso (whole-frame, from clips) are edited by the Director from a pool, once there are two or more pictures to edit.
+  const directed = (items: readonly LibraryPicture[] | null, song: string) => (items && !ownPicture && !own ? reelPool(items, wanted, song, generation) : []);
+  const pool = row === 'photography' ? directed(library, profile.clip.sourceSha256)
+    : isLookRow(row) && row !== 'depth' ? directed(library, `${profile.clip.sourceSha256}:${row}`)
+      : row === 'riso' ? directed(library.filter(isClip), `${profile.clip.sourceSha256}:riso`)
+        : [];
+  const edited = pool.length < 2 ? slots : slots.map((slot, index) => reeled(slot, pool, index));
   const grade = moodGrade(meaning);
-  return grade && !UNGRADED.includes(row) ? slots.map(slot => ({ ...slot, grade })) : slots;
+  return grade && !UNGRADED.includes(row) ? edited.map(slot => ({ ...slot, grade })) : edited;
 }
 
 /** Colours for card `index` of a Dust row; when the cover has a colour, the first two cards grow from it. */

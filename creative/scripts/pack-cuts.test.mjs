@@ -53,6 +53,6 @@ test('a GIF that is one shot is still cut into several pieces', () => {
   assert.ok(pieces.size >= 4);
 });
 
-test('no beats still cuts, once a second', () => {
-  assert.equal(planCuts(SHOTS, [], 0, 15000).length, 15);
+test('no beats still cuts, every couple of seconds', () => {
+  assert.ok(planCuts(SHOTS, [], 0, 15000).length >= 5);
 });

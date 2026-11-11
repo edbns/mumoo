@@ -112,12 +112,13 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
   const form = new FormData();
   form.append('audio', new Blob([input.wav as BlobPart], { type: 'audio/wav' }), 'clip.wav');
   // Data only. The picture itself never leaves the person's storage through the browser again.
-  const { photoUrl: _photo, cutoutUrl: _cutout, motionUrl: _motion, ...scene } = input.opts;
+  const { photoUrl: _photo, cutoutUrl: _cutout, motionUrl: _motion, reel, ...scene } = input.opts;
   void [_photo, _cutout, _motion];
   form.append('meta', JSON.stringify({
     ...(input.uploadId ? { upload: input.uploadId } : {}),
     ...(input.libraryId ? { library: input.libraryId } : {}),
-    opts: { ...scene, fallbackText: (scene.fallbackText || 'NOW').slice(0, 80) },
+    // A reel goes as the library ids it is edited from, in order; the server swaps in fresh links of its own.
+    opts: { ...scene, ...(reel?.length ? { reel: reel.map(({ id, kind, shots }) => ({ id, kind, ...(shots ? { shots } : {}) })) } : {}), fallbackText: (scene.fallbackText || 'NOW').slice(0, 80) },
   }));
   const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
   const response = await withAccess(input.token, access => fetch('/.netlify/functions/encode-creative', {

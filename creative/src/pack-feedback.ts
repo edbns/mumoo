@@ -47,6 +47,7 @@ export function reportPackFeedback(
   extras?: { selectedIds?: string[]; generation?: number; ownPicture?: boolean },
 ) {
   if (!token) return;
+  const libraryId = slot.libraryId ?? slot.reelIds?.[0];
   void send(token, {
     ...songFacts(profile),
     event,
@@ -58,9 +59,10 @@ export function reportPackFeedback(
       fontSecondary: slot.fontSecondary,
       ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
       ...(slot.effectId ? { effectId: slot.effectId } : {}),
-      ...(slot.libraryId ? { libraryId: slot.libraryId } : {}),
+      // A reel is told by the picture it opens on, the one the Director leads with.
+      ...(libraryId ? { libraryId } : {}),
       // Only when the look was really drawn: on a library picture or the person's own, never on a baked effect.
-      ...(slot.look && (slot.libraryId || extras?.ownPicture) ? { look: slot.look } : {}),
+      ...(slot.look && (libraryId || extras?.ownPicture) ? { look: slot.look } : {}),
     },
     ...(extras?.ownPicture !== undefined && { ownPicture: extras.ownPicture }),
     ...(extras?.selectedIds && { selectedIds: extras.selectedIds.slice(0, 32) }),

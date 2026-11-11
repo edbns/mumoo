@@ -21,6 +21,7 @@ import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
 import { dustWordAt, sampleDust, type DustPoints } from './pack-dust';
 import { loadMotion, type Motion } from './pack-motion';
+import { clearReelPictures, loadReel, type Reel, type ReelSource } from './pack-reel';
 import { planCuts, sourceMsAt, type Cut, type Shot } from './pack-cuts';
 import { plateCutoutUrl, plateUrl } from './punch-plates';
 import { risoInkSetById } from './riso-look';
@@ -54,6 +55,11 @@ export type PackRendererOpts = {
   motionUrl?: string;
   /** A clip's shots (start and end, in ms of the clip) and which arrangement of them this card plays. */
   motionShots?: readonly Shot[];
+  /**
+   * The Director's reel: several of our library's pictures and clips edited together to the music (`pack-director.ts`), instead of one picture.
+   * Our photography, its live looks and Riso (whole-frame) draw it; it replaces `plateId`, `effectId` and the picture or clip of one.
+   */
+  reel?: readonly ReelSource[];
   cutSeed?: number;
   /** Look Bank card: baked Shaders Pro background id + lyric type style. */
   bankId?: string;
@@ -150,6 +156,7 @@ export async function createPackRenderer(
   let cutoutTexture: Texture | null = null;
   let cutoutUrlLoaded = '';
   let motion: Motion | null = null;
+  let reel: Reel | null = null;
   let motionUrlLoaded = '';
   let cuts: Cut[] = [];
   let cutsKey = '';
@@ -171,7 +178,9 @@ export async function createPackRenderer(
     cutoutUrlLoaded = '';
     motion?.destroy();
     motion = null;
+    reel = null;
     motionUrlLoaded = '';
+    clearReelPictures();
     cutsKey = '';
     dustPoints = null;
     dustKey = '';
@@ -191,7 +200,7 @@ export async function createPackRenderer(
    * A picture that is replaced is given back to the GPU at once: the shelf draws one card after another, and Window
    * brings her cut-out in and out with every card.
    */
-  async function ensurePicture(photoUrl: string | undefined, cutoutUrl: string | undefined, motionUrl: string | undefined) {
+  async function ensurePicture(photoUrl: string | undefined, cutoutUrl: string | undefined, motionUrl: string | undefined, sources?: readonly ReelSource[]) {
     if (photoUrl !== photoUrlLoaded || (photoUrl && !photoTexture)) {
       photoUrlLoaded = '';
       photoTexture?.destroy(true);
@@ -206,12 +215,17 @@ export async function createPackRenderer(
       if (cutoutUrl) cutoutTexture = await loadTexture(cutoutUrl, 'The photo’s cut-out');
       cutoutUrlLoaded = cutoutUrl ?? '';
     }
-    if (motionUrl !== (motionUrlLoaded || undefined)) {
+    const motionKey = sources?.length ? `reel:${sources.map(item => item.id).join(',')}` : motionUrl;
+    if (motionKey !== (motionUrlLoaded || undefined)) {
       motion?.destroy();
       motion = null;
+      reel = null;
       motionUrlLoaded = '';
-      if (motionUrl) motion = await loadMotion(motionUrl);
-      motionUrlLoaded = motionUrl ?? '';
+      if (sources?.length) {
+        reel = await loadReel(sources);
+        motion = reel;
+      } else if (motionUrl) motion = await loadMotion(motionUrl);
+      motionUrlLoaded = motionKey ?? '';
     }
   }
 
@@ -253,6 +267,8 @@ export async function createPackRenderer(
         const { style } = current;
         await ensureFonts(familiesFor(current));
         // Our photography draws one baked effect, or (replacing it) the person's own picture, never both.
+        const reelled = Boolean(current.reel?.length);
+        if (reelled && (!(style === 'filter' || style === 'riso') || current.effectId || current.plateId || current.photoUrl || current.motionUrl || current.cutoutUrl)) throw new Error('A reel is drawn by Our photography or Riso, alone, not with another picture.');
         if (style === 'filter' && current.effectId && (current.photoUrl || current.motionUrl)) throw new Error('Our photography draws an effect or the person’s own picture, not both.');
         const ownBackdrop = style === 'filter' && !current.effectId;
         if (style === 'filter' && current.plateId && (current.effectId || current.photoUrl || current.motionUrl)) throw new Error('Our photography draws one picture: our photo, an effect, or the person’s own.');
@@ -266,13 +282,13 @@ export async function createPackRenderer(
         // Depth live looks need the cut-out as a near layer (same media path as Dust / Riso photos).
         // Riso on a clip is whole-frame: no cut-out.
         const depthLook = Boolean(current.look && isDepth(current.look));
-        const risoMotion = style === 'riso' && Boolean(current.motionUrl);
+        const risoMotion = style === 'riso' && Boolean(current.motionUrl || reelled);
         const cutOut = style === 'dust' || (style === 'riso' && !risoMotion) || windowMode === 'person' || (ownBackdrop && depthLook);
         const ownPicture = cutOut || ownBackdrop || windowOwn || risoMotion;
         // Our photography can also draw our approved photo itself (with a live look on it).
         const photoUrl = (cutOut || windowOwn || style === 'filter') && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
         const cutoutUrl = cutOut ? (current.plateId ? plateCutoutUrl(current.plateId) : current.cutoutUrl) : undefined;
-        if (ownPicture) await ensurePicture(photoUrl, cutoutUrl, current.motionUrl);
+        if (ownPicture) await ensurePicture(photoUrl, cutoutUrl, current.motionUrl, current.reel);
         else await ensurePicture(undefined, undefined, undefined);
 
         // A baked still: a Look Bank background, a photography effect, or a Window's effect or background. One that cannot be loaded shows the downtime message (a Window card has none: it throws).
@@ -298,16 +314,20 @@ export async function createPackRenderer(
         const { ms, energy, beatIndex, beatGapMs } = reaction;
         // A video or GIF shows the clip's frame for this moment.
         if (motion) {
-          if (current.look) {
+          if (reel) {
+            // The Director's edit of several pictures, to this music; `seek` takes the moment of the song.
+            reel.direct(current.music, current.cutSeed ?? 0, DURATION_MS);
+            await motion.seek(ms);
+          } else if (current.look) {
             // A card with a live look plays its video straight through, as one piece (looping if it is shorter than the clip), not cut up.
             cuts = [];
             cutsKey = '';
             await motion.seek(ms % Math.max(1, motion.durationMs));
           } else {
             // The edit: pieces of the clip, cut on the beat, differently for each card.
-            const key = `${motionUrlLoaded}|${current.cutSeed ?? 0}|${JSON.stringify(current.motionShots ?? null)}|${current.music?.beatsMs.length ?? 0}`;
+            const key = `${motionUrlLoaded}|${current.cutSeed ?? 0}|${JSON.stringify(current.motionShots ?? null)}|${current.music?.beatsMs.length ?? 0}|${current.music?.energy.length ?? 0}`;
             if (key !== cutsKey) {
-              cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, DURATION_MS);
+              cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, DURATION_MS, current.music);
               cutsKey = key;
             }
             await motion.seek(cuts.length ? sourceMsAt(cuts, ms) : ms);

@@ -316,6 +316,21 @@ export async function listApproved() {
   })));
 }
 
+/**
+ * The pictures of a Director's reel: for each id, in order, what the cloud renderer needs to draw it, as a link it can fetch (half an hour: a render
+ * queues and runs in chunks) and, for a clip, its shots. Null for an id that is not an approved, ready item, so a reel is never drawn with a hole.
+ */
+export async function libraryReel(ids) {
+  const rows = await db()`select id, kind, shots from library_items where id = any(${ids}::uuid[]) and arrived and ready and status = 'approved'`;
+  const found = new Map(rows.map((row) => [row.id, row]));
+  return Promise.all(ids.map(async (id) => {
+    const row = found.get(id);
+    if (!row) return null;
+    if (row.kind === 'photo') return { kind: 'photo', url: await signedDownload(keyOf(id), null, 1800) };
+    return { kind: 'clip', url: await signedDownload(motionKey(id), null, 1800), ...(row.shots ? { shots: row.shots } : {}) };
+  }));
+}
+
 /** What a render needs of an approved item, read from storage: `{ photo }` (with `cutout` once it has one) or `{ motion }`. Null when it is not approved and ready. */
 export async function libraryMedia(id) {
   const [row] = await db()`select kind, cutout from library_items where id = ${id} and arrived and ready and status = 'approved'`;

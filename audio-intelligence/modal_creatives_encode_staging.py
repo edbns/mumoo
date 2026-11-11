@@ -25,6 +25,7 @@ import struct
 import subprocess
 import tempfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import HTTPException, Request, Response
 import modal
@@ -50,10 +51,13 @@ CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
-    "motionShots", "cutSeed", "look", "inkSet", "sprayPalette", "windowMode", "windowPalette", "windowAllowed",
+    "motionShots", "reel", "cutSeed", "look", "inkSet", "sprayPalette", "windowMode", "windowPalette", "windowAllowed",
     "doodleId", "doodlePaper", "doodleMood",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
+# A Director's reel: two to six library pictures or clips the page fetches itself, from links the site made for them (private bucket, signed, short-lived).
+REEL_MAX = 6
+REEL_HOST_SUFFIX = ".r2.cloudflarestorage.com"
 # The kinds of creative the page draws, the Riso ink sets, the Spray walls and the Window screens and faces it knows (creative/src/ad-punch.ts, riso-look.ts, spray-look.ts, window-look.ts, window-deal.ts; a test keeps these in step).
 # The live looks drawn on a picture of Our photography (creative/src/live-look-deal.ts; a test keeps these in step).
 LIVE_LOOKS = {"thermal", "arctic", "night", "whitehot", "blackhot", "rainbow", "lava", "crimson", "amber", "gold", "ultraviolet", "acid", "vapor", "candy", "dusk", "lagoon", "aurora", "cyanotype", "halftone", "halftonebw", "halftonenews", "halftoneblue", "halftonered", "halftonepink", "halftoneteal", "halftonepop", "halftoneneon", "halftoneinvert", "halftonegold", "halftonecmyk", "halftoneriso", "halftoneblueprint", "halftonesepia", "halftonemanga", "halftonesubway", "halftonesunset", "halftonematcha", "halftonecandy", "halftonetarot", "halftoneacid", "halftonesilver", "halftonephosphor", "halftoneuv", "halftonecopper", "halftoneengrave", "halftonehatch", "halftoneled", "halftonebenday", "dithermac", "ditherinvert", "dithergameboy", "dithercga", "dithercgagreen", "ditherega", "ditherc64", "ditherapple2", "ditherpico8", "ditheramiga", "ditherreceipt", "ditherblueprint", "ditheramber", "dithersunset", "dithervapor", "ditherforest", "dithernews", "ditherneon", "dithergold", "ditherown", "glowbloom", "glowpink", "glowcyan", "glowsplit", "glowamber", "glowgold", "glowuv", "glowtoxic", "glowred", "glowpeach", "glowice", "glowprism", "glowdream", "glownoir", "glowclub", "glowmist", "glowlilac", "glowrose", "streakblue", "streakamber", "streakteal", "streakmagenta", "streakwhite", "streakred", "streakgreen", "streakgold", "streakcyan", "streakviolet", "streakprism", "streaksunset", "streakice", "streakburn", "streakrain", "streakzoom", "streakspeed", "asciigreen", "asciiamber", "asciiwhite", "asciitype", "asciicolour", "asciicyan", "asciipink", "asciiblueprint", "asciimatrix", "asciired", "asciigold", "asciiice", "asciinews", "asciisunset", "asciibinary", "asciiblocks", "asciislash", "asciimumoo", "depthfog", "depthtilt", "depthwarm", "depthsilhouette", "depthneon", "depthecho", "depthzoom", "depthdream", "depthgold", "depthnoir", "depthspot", "depthdouble", "depthice", "depthember"}
@@ -314,6 +318,29 @@ def parse_meta(raw: str) -> dict:
             ok = isinstance(shot, list) and len(shot) == 2 and all(type(edge) is int for edge in shot)
             if not ok or not 0 <= shot[0] < shot[1] <= 60_000:
                 raise ValueError("motionShots")
+    if "reel" in opts:
+        reel = opts["reel"]
+        # Our photography (with a live look that is not Depth, which needs a cut-out) and Riso draw a reel, alone: it is the card's only picture.
+        if opts["style"] not in ("filter", "riso") or any(key in opts for key in ("plateId", "effectId")):
+            raise ValueError("reel")
+        if isinstance(opts.get("look"), str) and opts["look"].startswith("depth"):
+            raise ValueError("reel")
+        if not isinstance(reel, list) or not 2 <= len(reel) <= REEL_MAX:
+            raise ValueError("reel")
+        for entry in reel:
+            if not isinstance(entry, dict) or not {"kind", "url"} <= set(entry) <= {"kind", "url", "shots"} or entry["kind"] not in ("photo", "clip"):
+                raise ValueError("reel")
+            link = urlparse(entry["url"]) if isinstance(entry["url"], str) and len(entry["url"]) <= 3000 else None
+            if link is None or link.scheme != "https" or link.username or link.password or link.port or not (link.hostname or "").endswith(REEL_HOST_SUFFIX):
+                raise ValueError("reel")
+            if "shots" in entry:
+                shots = entry["shots"]
+                if entry["kind"] != "clip" or not isinstance(shots, list) or not 0 < len(shots) <= 40:
+                    raise ValueError("reel")
+                for shot in shots:
+                    ok = isinstance(shot, list) and len(shot) == 2 and all(type(edge) is int for edge in shot)
+                    if not ok or not 0 <= shot[0] < shot[1] <= 60_000:
+                        raise ValueError("reel")
     if "typeStyle" in opts and opts["typeStyle"] not in TYPE_STYLES:
         raise ValueError("typeStyle")
     grade = opts.get("grade")
@@ -361,8 +388,12 @@ def check_media(opts: dict, media: dict[str, bytes]) -> None:
     """Dust and Riso are drawn from an approved photo (`plateId`) and Our photography (style "filter") from that photo (`plateId`, with a live look) or one baked effect on it
     (`effectId`); the page loads either from the site itself. All three can instead be drawn from the person's own picture:
     Dust a photo with its cut-out mask, Riso a photo with its cut-out or a clip (whole-frame print), Our photography a photo or a clip.
-    Window has its own rules (`window_media`). Nothing else takes a picture (Spray takes none). Raises ValueError when the
-    media sent is not exactly what the card needs."""
+    Window has its own rules (`window_media`). Nothing else takes a picture (Spray takes none). A reel takes no media at all:
+    the page fetches its pictures itself. Raises ValueError when the media sent is not exactly what the card needs."""
+    if "reel" in opts:
+        if media:
+            raise ValueError("media")
+        return
     if opts["style"] == "window":
         wanted = window_media(opts, media)
     else:

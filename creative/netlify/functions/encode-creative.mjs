@@ -1,8 +1,9 @@
 import { validAccess } from '../lib/access.mjs';
 import { personFrom } from '../lib/person.mjs';
-import { libraryMedia } from '../lib/library.mjs';
+import { libraryMedia, libraryReel } from '../lib/library.mjs';
 import { uploadMedia } from '../lib/uploads.mjs';
 import { ownMedia } from '../lib/render-media.mjs';
+import { reelFrom, reelIds } from '../lib/reel.mjs';
 
 /**
  * Submit a cloud render job. Tiny request (≈960 KB WAV + JSON); returns a job id at once.
@@ -80,6 +81,15 @@ export default async function encodeCreative(request) {
       if (sent.parts.photo) outbound.append('photo', new Blob([sent.parts.photo], { type: 'image/jpeg' }), 'photo.jpg');
       if (sent.parts.cutout) outbound.append('cutout', new Blob([sent.parts.cutout], { type: 'image/png' }), 'cutout.png');
       if (sent.parts.motion) outbound.append('motion', new Blob([sent.parts.motion], { type: 'video/mp4' }), 'motion.mp4');
+    }
+    if (scene.opts?.reel !== undefined) {
+      // A reel is several library pictures edited together in the cloud; the worker fetches them itself from links made here, so no bytes pass through.
+      if (upload !== undefined || library !== undefined) return error(400, 'Choose one picture.');
+      const asked = reelIds(scene.opts);
+      if (asked.refused) return error(400, asked.refused);
+      const found = await libraryReel(asked.ids);
+      if (found.includes(null)) return error(404, 'A picture of that reel is no longer in the library.');
+      scene.opts = { ...scene.opts, reel: reelFrom(found) };
     }
     outbound.append('meta', JSON.stringify(scene));
 

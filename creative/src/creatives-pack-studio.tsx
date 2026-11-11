@@ -22,6 +22,7 @@ import {
   destroySharedPackRenderer,
   type PackRendererOpts,
 } from './pack-renderer';
+import type { ReelSource } from './pack-reel';
 import { clipToMonoWav, submitCloudJob } from './pack-cloud-export';
 import { LoadingMask } from './loading-mask';
 import { loadPunchPlatesManifest } from './punch-plates';
@@ -43,7 +44,7 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
 }
 
 /** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust a photo and its cut-out, Riso a photo with cut-out or a clip, Our photography a photo or a clip, Window either (the cut-out is used by the cards that have her in front). */
-type Picture = Pick<PackRendererOpts, 'photoUrl' | 'cutoutUrl' | 'motionUrl' | 'motionShots'>;
+type Picture = Pick<PackRendererOpts, 'photoUrl' | 'cutoutUrl' | 'motionUrl' | 'motionShots' | 'reel'>;
 
 function drawingFrom(upload: Pick<Upload, 'url' | 'cutoutUrl' | 'motionUrl' | 'shots'> | null): Picture | undefined {
   if (!upload?.url) return undefined;
@@ -180,8 +181,18 @@ export function CreativesPackStudio({
   const libraryCutouts = (library ?? []).some(item => item.kind === 'photo' && item.cutoutUrl);
   const libraryRisoMotion = (library ?? []).some(item => item.kind !== 'photo' && item.motionUrl);
   const libraryItem = (id: string | undefined) => (id ? (library ?? []).find(item => item.id === id) ?? null : null);
+  /** The pictures and clips of a Director's reel, in the order it opens on them. Null when too few of them are still in the library. */
+  const reelOf = (ids: readonly string[] | undefined): Picture | undefined => {
+    const sources = (ids ?? []).flatMap((id): ReelSource[] => {
+      const item = libraryItem(id);
+      if (!item) return [];
+      if (item.kind === 'photo') return [{ id, kind: 'photo', url: item.url }];
+      return item.motionUrl ? [{ id, kind: 'clip', url: item.motionUrl, ...(item.shots ? { shots: item.shots } : {}) }] : [];
+    });
+    return sources.length >= 2 ? { reel: sources } : undefined;
+  };
   const pictureOf = (row: ShelfRow, slot?: CreativesPackSlot) =>
-    (ownFor(row) ? drawingFrom(ownFor(row)) : undefined) ?? (slot?.libraryId ? drawingFrom(libraryItem(slot.libraryId)) : undefined);
+    (ownFor(row) ? drawingFrom(ownFor(row)) : undefined) ?? (slot?.reelIds ? reelOf(slot.reelIds) : undefined) ?? (slot?.libraryId ? drawingFrom(libraryItem(slot.libraryId)) : undefined);
   const pictureIds = own?.id ?? 'ours';
 
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
@@ -385,6 +396,10 @@ export function CreativesPackStudio({
     if (item.uploadId !== null) {
       const upload = (uploads.list ?? []).find(candidate => candidate.id === item.uploadId && candidate.status === 'ready' && candidate.url);
       return upload ? { available: true, picture: drawingFrom(upload) } : { available: false };
+    }
+    if (item.slot.reelIds) {
+      const picture = reelOf(item.slot.reelIds);
+      return picture ? { available: true, picture } : { available: false };
     }
     if (item.slot.libraryId) {
       const picture = drawingFrom(libraryItem(item.slot.libraryId));

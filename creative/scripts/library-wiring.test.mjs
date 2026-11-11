@@ -101,7 +101,8 @@ test('Dust is dealt from library cut-out photos; Riso from those or library clip
     assert.notDeepEqual(riso.map(slot => slot.libraryId), pack.recommendRow('riso', person, 1, plates, null, library).map(slot => slot.libraryId), 'Riso: Refresh deals them again');
 
     const clipsOnly = pack.recommendRow('riso', person, 0, plates, null, [clip('c1'), clip('c2'), item('uncut')]);
-    assert.ok(clipsOnly.every(slot => ['c1', 'c2'].includes(slot.libraryId) && !slot.plateId), 'Riso with only library clips does not fall back to plates');
+    assert.ok(clipsOnly.every(slot => (slot.reelIds ?? [slot.libraryId]).every(id => ['c1', 'c2'].includes(id)) && !slot.plateId), 'Riso with only library clips does not fall back to plates');
+    assert.ok(clipsOnly.every(slot => slot.reelIds?.length === 2), 'Riso edits two or more library clips into a reel');
 
     for (const row of ['riso', 'dust']) {
       const none = pack.recommendRow(row, person, 0, plates, null, [item('uncut')]);
@@ -149,18 +150,26 @@ test('Our photography is dealt from the library only; baked effects stand in jus
     const library = [item('lib-1', { tags: ['sunset'] }), item('lib-2', { genre: 'Pop' }), item('lib-3', { genre: 'Rock' }), item('lib-4', { attitudes: ['angry'] })];
     const some = pack.recommendRow('photography', person, 0, [], null, library);
     assert.equal(some.length, 3, 'the pictures that fit, then the nearest other to fill the hand, and no baked filler');
-    assert.deepEqual([...some.map(slot => slot.libraryId)].sort(), ['lib-1', 'lib-2', 'lib-4'], 'not the other genre; the other feeling only because the hand is short');
+    // Two or more pictures are edited into a reel (the Director); each card opens on a different one.
+    assert.ok(some.every(slot => slot.reelIds?.length === 3 && !slot.libraryId), 'three pictures: every card is a reel of them');
+    assert.deepEqual([...some.map(slot => slot.reelIds[0])].sort(), ['lib-1', 'lib-2', 'lib-4'], 'not the other genre; the other feeling only because the hand is short');
+    assert.ok(some.every(slot => !slot.reelIds.includes('lib-3')));
     assert.ok(some.every(slot => !slot.effectId));
     assert.equal(new Set(some.map(slot => slot.id)).size, 3);
     assert.equal(new Set(some.map(slot => slot.typeStyle)).size, 3, 'each card keeps its own lyric type');
-    assert.ok(some.filter(slot => slot.libraryId).every(slot => slot.style === 'filter' && !slot.effectId && !slot.plateId));
+    assert.ok(some.every(slot => slot.style === 'filter' && !slot.effectId && !slot.plateId));
+    // One picture alone is drawn as it is, not edited.
+    const alone = pack.recommendRow('photography', person, 0, [], null, [item('lib-1')]);
+    assert.ok(alone.length === 1 && alone[0].libraryId === 'lib-1' && !alone[0].reelIds);
     assert.deepEqual(some, pack.recommendRow('photography', person, 0, [], null, library), 'the same deal every time');
 
     const many = Array.from({ length: 6 }, (_, index) => item(`m${index}`));
     const full = pack.recommendRow('photography', person, 0, [], null, many);
-    assert.equal(full.filter(slot => slot.libraryId).length, 4);
+    assert.equal(full.filter(slot => slot.reelIds).length, 4);
     assert.ok(full.every(slot => !slot.effectId));
-    assert.notDeepEqual(full.map(slot => slot.libraryId), pack.recommendRow('photography', person, 1, [], null, many).map(slot => slot.libraryId), 'Refresh brings other pictures');
+    const again = pack.recommendRow('photography', person, 1, [], null, many);
+    assert.notDeepEqual(full.map(slot => slot.id), again.map(slot => slot.id), 'Refresh brings other cards');
+    assert.notDeepEqual(full.map(slot => slot.cutSeed), again.map(slot => slot.cutSeed), 'Refresh edits them another way');
 
     for (const row of ['spray', 'pulise']) {
       assert.deepEqual(pack.recommendRow(row, person, 0, [{ id: 'burnnet-woman-1547507-1920', cutout: true }], null, library), pack.recommendRow(row, person, 0, [{ id: 'burnnet-woman-1547507-1920', cutout: true }]), `${row} does not use the library`);

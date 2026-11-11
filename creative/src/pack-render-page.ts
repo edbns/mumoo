@@ -6,11 +6,14 @@
 import { DURATION_MS, FPS, HEIGHT, WIDTH } from './composition';
 import type { AdPunchStyle } from './ad-punch';
 import { createPackRenderer, type PackRenderer, type PackRendererOpts } from './pack-renderer';
+import { setReelPrefetch } from './pack-reel';
 
 const FRAMES = Math.round((DURATION_MS / 1000) * FPS);
 /** Dust grains, Riso dot screens, Spray grains and the Window's one full-frame shader are soft or drawn by shader already: edge smoothing only costs time here (6× under software GL). */
 const SMOOTH_ALREADY: readonly AdPunchStyle[] = ['dust', 'riso', 'spray', 'window', 'doodle'];
 let renderer: PackRenderer | null = null;
+/** A page renders one short chunk of one card: it fetches only the pictures of the reel that chunk plays. */
+setReelPrefetch(false);
 
 type PackFramePage = {
   prepare(opts: PackRendererOpts): Promise<{ frames: number; fps: number; width: number; height: number }>;
