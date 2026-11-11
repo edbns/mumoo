@@ -149,13 +149,17 @@ export function planReel(assets: readonly ReelAsset[], music: DirectorMusic | nu
   }
 
   const segments: Segment[] = [];
+  const shown = new Map<number, number>();
   let previous = -1;
   times.forEach((atMs, k) => {
     const endMs = times[k + 1] ?? durationMs;
     const chance = CLIP_CHANCE[band(levels[k])];
     // It opens on a clip; after that a still only follows a clip, and never twice.
     const afterStill = segments.length > 0 && assets[previous]?.kind === 'photo';
-    const clip = clips.length > 0 && (photos.length === 0 || k === 0 || afterStill || next() < chance);
+    // Every picture of the reel gets its turn: a still that has not been seen yet takes the next cut once the clips have each been shown twice.
+    const stillWaiting = photos.some(index => !shown.has(index)) && clips.every(index => (shown.get(index) ?? 0) >= 2);
+    const draw = next();
+    const clip = clips.length > 0 && (photos.length === 0 || k === 0 || afterStill || (draw < chance && !stillWaiting));
     const pool = clip ? clips : photos;
     const kind = clip ? 'clip' : 'photo';
     let asset = pool[cursor[kind] % pool.length];
@@ -165,6 +169,7 @@ export function planReel(assets: readonly ReelAsset[], music: DirectorMusic | nu
       cursor[kind] += 1;
     }
     previous = asset;
+    shown.set(asset, (shown.get(asset) ?? 0) + 1);
 
     const length = endMs - atMs;
     const picked = playlist.get(asset);

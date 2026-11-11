@@ -325,16 +325,27 @@ export function windowHand(profile: CreativeProfileV1, generation: number, libra
   return pickLibrary(library.filter(windowCapable), wanted, profile.clip.sourceSha256, generation, ROW_SIZE);
 }
 
-/** How many library pictures a Director's reel is edited from. */
-const REEL_POOL = 6;
+/** How many library pictures a Director's reel is edited from, and how many of them are clips when the library has that many (video sells). */
+export const REEL_POOL = 8;
+const REEL_CLIPS = 3;
 const isClip = (item: LibraryPicture) => item.kind !== 'photo' && Boolean(item.motionUrl);
 
-/** The pictures a reel is edited from: the best fits for the song, with at least one clip among them when the library has one (video sells; a reel of stills does not). */
+/** The pictures a reel is edited from: the best fits for the song, with up to three clips among them when the library has them (video sells; a reel of stills does not, and two pictures rotating look like a loop). */
 export function reelPool(items: readonly LibraryPicture[], wanted: LibraryWanted, song: string, generation: number): LibraryPicture[] {
   const pool = pickLibrary(items, wanted, song, generation, REEL_POOL);
-  if (pool.length < 2 || pool.some(isClip)) return pool;
-  const [clip] = pickLibrary(items.filter(isClip), wanted, song, generation, 1);
-  return clip ? [...pool.slice(0, -1), clip] : pool;
+  if (pool.length < 2) return pool;
+  // Not enough clips among the best fits: the best-fitting clips take the places of the last stills.
+  const edited = [...pool];
+  let clips = edited.filter(isClip).length;
+  for (const clip of pickLibrary(items.filter(isClip), wanted, song, generation, REEL_CLIPS)) {
+    if (clips >= REEL_CLIPS) break;
+    if (edited.some(item => item.id === clip.id)) continue;
+    const still = edited.map(isClip).lastIndexOf(false);
+    if (still < 0) break;
+    edited[still] = clip;
+    clips += 1;
+  }
+  return edited;
 }
 
 /** A card that is edited from the pool instead of drawn from one picture. Each card of a row opens on a different picture. With fewer than two pictures it stays as it was. */

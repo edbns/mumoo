@@ -55,10 +55,29 @@ function blur(source: Float32Array, radius: number): Float32Array {
  * Whole-frame Riso from a video or GIF frame (option 1: no cut-out). Lightness only; the print covers the
  * whole page and the lyrics stay visible through it. Writes into `into` when given, so the same texture can be
  * refreshed every frame without rebuilding the world.
+ *
+ * It is done every frame, so it is done small: a quarter of the frame's width and height (the halftone cell is far
+ * bigger than that, and the shader reads the map by position, so its size does not matter). At full size this took
+ * a third of a second a frame and the card could not play.
  */
+const FRAME_W = WIDTH / 4;
+const FRAME_H = HEIGHT / 4;
+let scratch: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null = null;
+const outputs = new WeakMap<HTMLCanvasElement, { ctx: CanvasRenderingContext2D; image: ImageData }>();
+
 export function prepareRisoFrame(image: Picture, into?: RisoPhoto): RisoPhoto {
-  const { pixels } = read(image);
-  const count = WIDTH * HEIGHT;
+  if (!scratch) {
+    const canvas = document.createElement('canvas');
+    canvas.width = FRAME_W;
+    canvas.height = FRAME_H;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Canvas 2D is unavailable.');
+    scratch = { canvas, ctx };
+  }
+  const cover = Math.max(FRAME_W / image.width, FRAME_H / image.height);
+  scratch.ctx.drawImage(image, (FRAME_W - image.width * cover) / 2, (FRAME_H - image.height * cover) / 2, image.width * cover, image.height * cover);
+  const pixels = scratch.ctx.getImageData(0, 0, FRAME_W, FRAME_H).data;
+  const count = FRAME_W * FRAME_H;
   const light = new Float32Array(count);
   const histogram = new Uint32Array(256);
   for (let i = 0; i < count; i++) {
@@ -76,18 +95,26 @@ export function prepareRisoFrame(image: Picture, into?: RisoPhoto): RisoPhoto {
   const low = percentile(0.02);
   const high = Math.max(low + 0.1, percentile(0.98));
   const canvas = into?.canvas ?? document.createElement('canvas');
-  canvas.width = WIDTH;
-  canvas.height = HEIGHT;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D is unavailable.');
-  const out = ctx.createImageData(WIDTH, HEIGHT);
-  for (let i = 0; i < count; i++) {
-    out.data[i * 4] = Math.round(Math.min(1, Math.max(0, (light[i] - low) / (high - low))) * 255);
-    out.data[i * 4 + 1] = 0;
-    out.data[i * 4 + 2] = 255;
-    out.data[i * 4 + 3] = 255;
+  // Setting a canvas's size clears it and drops its surface: only when it is not already this size.
+  if (canvas.width !== FRAME_W || canvas.height !== FRAME_H) {
+    canvas.width = FRAME_W;
+    canvas.height = FRAME_H;
   }
-  ctx.putImageData(out, 0, 0);
+  let output = outputs.get(canvas);
+  if (!output) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 2D is unavailable.');
+    output = { ctx, image: ctx.createImageData(FRAME_W, FRAME_H) };
+    outputs.set(canvas, output);
+  }
+  const { data } = output.image;
+  for (let i = 0; i < count; i++) {
+    data[i * 4] = Math.round(Math.min(1, Math.max(0, (light[i] - low) / (high - low))) * 255);
+    data[i * 4 + 1] = 0;
+    data[i * 4 + 2] = 255;
+    data[i * 4 + 3] = 255;
+  }
+  output.ctx.putImageData(output.image, 0, 0);
   return into ?? { canvas };
 }
 

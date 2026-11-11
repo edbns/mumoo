@@ -30,13 +30,40 @@ export type Reel = Motion & {
   direct(music: ImpactMusic | null, seed: number, durationMs: number): void;
 };
 
-type Loaded = { kind: 'photo'; image: ImageBitmap; subject?: HTMLCanvasElement } | { kind: 'clip'; motion: Motion };
+/** How much to brighten (or dim) a picture so a dark one is not lost to the looks and a blown-out one is not burnt. */
+type Exposure = { gain?: number };
+type Loaded = ({ kind: 'photo'; image: ImageBitmap; subject?: HTMLCanvasElement } | { kind: 'clip'; motion: Motion }) & Exposure;
+
+/** The average light every picture is brought to, and how far it may be pushed either way. */
+const TARGET_LIGHT = 0.4;
+const MIN_GAIN = 0.45;
+const MAX_GAIN = 2.5;
+const PROBE_W = 24;
+const PROBE_H = 42;
+/** Where in a clip its light is read: the same moment every time, so the preview and every cloud chunk agree. */
+const PROBE_CLIP_MS = 1200;
+
+/** How much a picture is brightened: from its average light, read once (on a few hundred pixels, so it costs nothing). */
+function exposureOf(shown: CanvasImageSource): number {
+  const probe = document.createElement('canvas');
+  probe.width = PROBE_W;
+  probe.height = PROBE_H;
+  const context = probe.getContext('2d', { willReadFrequently: true });
+  if (!context) return 1;
+  context.drawImage(shown, 0, 0, PROBE_W, PROBE_H);
+  const data = context.getImageData(0, 0, PROBE_W, PROBE_H).data;
+  let light = 0;
+  for (let i = 0; i < data.length; i += 4) light += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255;
+  const mean = light / (PROBE_W * PROBE_H);
+  return Math.min(MAX_GAIN, Math.max(MIN_GAIN, TARGET_LIGHT / Math.max(0.05, mean)));
+}
 
 /**
  * Pictures already read, kept by `reelKey`: one card after another on the shelf draws from the same few, and each
  * is fetched once. A card draws only the pieces it plays; the rest are fetched in the background in the browser.
  */
 const MAX_KEPT = 12;
+const LOOK_AHEAD_MS = 2500;
 const kept = new Map<string, Promise<Loaded>>();
 let prefetching = true;
 
@@ -78,11 +105,12 @@ function cutOut(photo: ImageBitmap, mask: ImageBitmap): HTMLCanvasElement {
 async function read(source: ReelSource): Promise<Loaded> {
   if (source.kind === 'clip') return { kind: 'clip', motion: await loadMotion(source.url) };
   const image = await bitmapOf(source.url, 'A picture of the reel');
-  if (!source.cutoutUrl) return { kind: 'photo', image };
+  const gain = exposureOf(image);
+  if (!source.cutoutUrl) return { kind: 'photo', image, gain };
   const mask = await bitmapOf(source.cutoutUrl, 'A cut-out of the reel');
   const subject = cutOut(image, mask);
   mask.close();
-  return { kind: 'photo', image, subject };
+  return { kind: 'photo', image, subject, gain };
 }
 
 function release(loaded: Loaded) {
@@ -138,21 +166,26 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
 
   let segments: Segment[] = [];
   let plannedFor = '';
-  let warmed = false;
+  let seeks = 0;
 
   /** Draws `shown` over the whole canvas the way a poster fills a frame, scaled up by `zoom` about the middle; the person too, in the same place. */
-  function cover(shown: CanvasImageSource & { width: number; height: number }, zoom: number, alone?: HTMLCanvasElement) {
+  function cover(shown: CanvasImageSource & { width: number; height: number }, zoom: number, gain: number, alone?: HTMLCanvasElement) {
     const scale = Math.max(WIDTH / shown.width, HEIGHT / shown.height) * zoom;
     const width = shown.width * scale;
     const height = shown.height * scale;
     const left = (WIDTH - width) / 2;
     const top = (HEIGHT - height) / 2;
+    const filter = Math.abs(gain - 1) < 0.02 ? 'none' : `brightness(${gain.toFixed(3)})`;
     picture.context.fillStyle = '#000';
     picture.context.fillRect(0, 0, WIDTH, HEIGHT);
+    picture.context.filter = filter;
     picture.context.drawImage(shown, left, top, width, height);
+    picture.context.filter = 'none';
     if (person) {
       person.context.clearRect(0, 0, WIDTH, HEIGHT);
+      person.context.filter = filter;
       if (alone) person.context.drawImage(alone, left, top, width, height);
+      person.context.filter = 'none';
     }
   }
 
@@ -174,17 +207,21 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
         const length = Math.max(1, segment.endMs - segment.atMs);
         const along = Math.min(1, Math.max(0, (ms - segment.atMs) / length));
         const [from, to] = segment.zoom;
-        cover(loaded.image, from + (to - from) * along, loaded.subject);
+        cover(loaded.image, from + (to - from) * along, loaded.gain ?? 1, loaded.subject);
       } else {
+        if (loaded.gain === undefined) {
+          await loaded.motion.seek(Math.min(PROBE_CLIP_MS, loaded.motion.durationMs * 0.3));
+          loaded.gain = exposureOf(loaded.motion.texture.source.resource as HTMLCanvasElement);
+        }
         await loaded.motion.seek(clipMsAt(segment, ms));
-        cover(loaded.motion.texture.source.resource as HTMLCanvasElement, 1);
+        cover(loaded.motion.texture.source.resource as HTMLCanvasElement, 1, loaded.gain);
       }
       pictureSource.update();
       personSource?.update();
-      // The rest of the reel is fetched while this card is looked at, so playing it does not stall on a first sight of a clip.
-      if (!warmed && prefetching) {
-        warmed = true;
-        for (const other of sources) void keep(other).catch(() => undefined);
+      // Playing the reel (a poster is one look, playing is many): the pictures the next couple of seconds need are fetched ahead, so a first sight of a clip does not stall it.
+      seeks += 1;
+      if (seeks >= 2 && prefetching) {
+        for (const ahead of segments) if (ahead.atMs > ms && ahead.atMs < ms + LOOK_AHEAD_MS) void keep(sources[ahead.asset]).catch(() => undefined);
       }
     },
     destroy() {

@@ -54,6 +54,16 @@ test('soft music still shows the pictures: no cut is longer than a few seconds',
   }
 });
 
+test('every picture of a reel gets its turn, on loud music too, whatever the seed', () => {
+  const pool = [CLIP, SHORT, CLIP, PHOTO, PHOTO, PHOTO, PHOTO, PHOTO];
+  const loud = { beatsMs: BEATS, downbeatsMs: BARS, energy: ENERGY.map(f => ({ ...f, rms: 0.8 })) };
+  for (const seed of [0, 1, 2, 3, 4, 5, 6, 7, 4000, 4001, 4002, 4003]) {
+    const seen = new Set(planReel(pool, loud, seed, DURATION).map(s => s.asset));
+    // 15 s at 125 bpm has room for every one of eight pictures except where the temper is calm.
+    assert.ok(seen.size >= (seed % 4 === 2 ? 5 : 7), `seed ${seed}: ${seen.size} of ${pool.length}`);
+  }
+});
+
 test('cuts land on beats', () => {
   for (const seed of [0, 1, 2, 3]) {
     for (const segment of planReel(ASSETS, MUSIC, seed, DURATION).slice(1)) assert.ok(BEATS.includes(segment.atMs), `cut at ${segment.atMs}`);

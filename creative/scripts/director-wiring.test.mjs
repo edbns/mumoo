@@ -85,7 +85,9 @@ test('Dust and Window keep drawing one picture', () => {
 });
 
 test('Refresh deals the director other pictures, and the same song gets the same reels', () => {
-  const reels = generation => pack.recommendRow('photography', profile(), generation, [], null, LIBRARY, {}, false).map(slot => slot.reelIds.join());
+  // A library bigger than the pool of eight: otherwise every deal would hold the same eight pictures.
+  const big = [...LIBRARY, ...Array.from({ length: 16 }, (_, i) => photo(20 + i)), clip(40), clip(41)];
+  const reels = generation => pack.recommendRow('photography', profile(), generation, [], null, big, {}, false).map(slot => slot.reelIds.join());
   assert.deepEqual(reels(0), reels(0));
   assert.notDeepEqual(reels(0), reels(1));
 });
@@ -100,7 +102,7 @@ test('the cloud’s links carry no id, so each picture is still told apart (by i
 
 /* ---------- the server ---------- */
 
-test('the server takes a reel of two to six library ids for Our photography and Riso only', () => {
+test('the server takes a reel of two to eight library ids for Our photography and Riso only', () => {
   const ids = [uuid(1), uuid(2), uuid(3)];
   const reel = ids.map(id => ({ id, kind: 'photo' }));
   assert.deepEqual(reelIds({ style: 'filter', reel }), { ids, depth: false });
@@ -149,7 +151,8 @@ const cases = {
   rotatingLook: [card({ look: 'halftone', reel: reelOf({}, {}, {}) }), true],
   risoReel: [card({ ...riso, look: undefined, reel: reelOf({ kind: 'clip' }, { kind: 'clip' }) }), true],
   oneOnly: [card({ reel: reelOf({}) }), false],
-  seven: [card({ reel: reelOf({}, {}, {}, {}, {}, {}, {}) }), false],
+  nine: [card({ reel: reelOf({}, {}, {}, {}, {}, {}, {}, {}, {}) }), false],
+  eight: [card({ reel: reelOf({}, {}, {}, {}, {}, {}, {}, {}) }), true],
   notALink: [card({ reel: reelOf({}, { url: 'javascript:alert(1)' }) }), false],
   httpLink: [card({ reel: reelOf({}, { url: R2.replace('https', 'http') }) }), false],
   anotherHost: [card({ reel: reelOf({}, { url: 'https://evil.example.com/a.mp4' }) }), false],
