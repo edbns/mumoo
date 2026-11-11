@@ -22,9 +22,9 @@ export const LIVE_LOOKS = [
   { id: 'whitehot', family: 'thermal', title: 'White hot', lanes: ['quiet', 'dark', 'techno', 'general'] },
   { id: 'blackhot', family: 'thermal', title: 'Black hot', lanes: ['quiet', 'techno', 'general'] },
   /** The rainbow mode of a heat camera. */
-  { id: 'rainbow', family: 'thermal', title: 'Rainbow', lanes: ['techno', 'party', 'general'] },
+  { id: 'rainbow', family: 'thermal', title: 'Rainbow', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   /** Hot colours: molten rock, a red wash, old amber, gold leaf. */
-  { id: 'lava', family: 'thermal', title: 'Lava', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'lava', family: 'thermal', title: 'Lava', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   { id: 'crimson', family: 'thermal', title: 'Crimson', lanes: ['dark', 'techno'] },
   { id: 'amber', family: 'thermal', title: 'Amber', lanes: ['quiet', 'dark', 'general'] },
   { id: 'gold', family: 'thermal', title: 'Gold', lanes: ['quiet', 'party', 'general'] },
@@ -221,6 +221,12 @@ const STREAK_GEOMETRY: Record<StreaksLookId, string> = {
 };
 
 /**
+ * What the Thermal row deals: the colourings that read as a heat camera (iron, rainbow) and a hot one (lava). The other colourings of the family
+ * (neon, cool and soft ones, the grey modes) stay defined but are not dealt: a row of Thermal that does not look thermal is not Thermal.
+ */
+const HEAT_CAMERA: readonly LiveLookId[] = ['thermal', 'rainbow', 'lava'];
+
+/**
  * The look of each of `count` cards of a family's row: every card carries one a lane welcomes (a card that shows its picture as it is looks like a look that did not work),
  * and neighbouring cards never carry the same, so a row is never one look four times. With three looks and four cards one look comes twice, never side by side.
  * The seed (the song and the row's Refresh count) decides the order, so Refresh deals new ones. A lane no look of the family welcomes deals none (the row is then left out);
@@ -228,7 +234,7 @@ const STREAK_GEOMETRY: Record<StreaksLookId, string> = {
  * Streaks also prefer a different geometry on each card (horizontal / diagonal / vertical / cross / radial / edge) so the filter itself does not duplicate.
  */
 export function dealLooks(lane: MoodLane, seed: string, count: number, family: LookFamily): (LiveLookId | null)[] {
-  const welcome = LIVE_LOOKS.filter(look => look.family === family && (look.lanes as readonly MoodLane[]).includes(lane));
+  const welcome = LIVE_LOOKS.filter(look => look.family === family && (look.lanes as readonly MoodLane[]).includes(lane) && (family !== 'thermal' || HEAT_CAMERA.includes(look.id)));
   const order = shuffled(welcome.map(look => look.id), seed, 'look', id => id);
   if (!order.length) return Array.from({ length: count }, () => null);
   if (order.length === 1) {

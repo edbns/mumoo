@@ -17,6 +17,8 @@ export type TexturePalette = {
   luma: number;
   /** How cold and how hot (0-1, 2nd and 98th percentile) the picture's parts read to a heat look (`heatSource`), which the look stretches over its ramp. */
   range: [number, number];
+  /** The same for plain light (0-1, 2nd and 98th percentile): looks that drag the bright parts (Streaks) judge "bright" against it, not against heat. */
+  lumaRange: [number, number];
 };
 
 const W = 40;
@@ -25,6 +27,16 @@ const WHITE = '#f7f4ee';
 const BLACK = '#0d0d12';
 
 const cache = new Map<string, TexturePalette>();
+
+/**
+ * A texture that shows many pictures one after another (a reel) says which one it shows, and gives a small copy of it, so the
+ * palette (and the range a look stretches) is read from the picture on screen and not from whichever one came first.
+ */
+export type Reference = { key: string; canvas: HTMLCanvasElement };
+export const references = new WeakMap<Texture, Reference>();
+/** The size the palette is read at: a reference is made this size, so reading it costs one copy. */
+export const REFERENCE_W = W;
+export const REFERENCE_H = H;
 
 function relLum(r: number, g: number, b: number): number {
   const lin = (v: number) => {
@@ -69,7 +81,8 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 
 /** `look`: the live look drawn on the picture, so the ink, the scrim and the accent suit what is seen. */
 export function analyzeTexture(texture: Texture, look?: LiveLookId): TexturePalette {
-  const key = `${texture.uid}:${look ?? ''}`;
+  const reference = references.get(texture);
+  const key = `${texture.uid}:${reference?.key ?? ''}:${look ?? ''}`;
   const cached = cache.get(key);
   if (cached) return cached;
 
@@ -78,7 +91,7 @@ export function analyzeTexture(texture: Texture, look?: LiveLookId): TexturePale
   canvas.height = H;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Palette analysis is unavailable.');
-  ctx.drawImage(texture.source.resource as CanvasImageSource, 0, 0, W, H);
+  ctx.drawImage((reference?.canvas ?? texture.source.resource) as CanvasImageSource, 0, 0, W, H);
   const data = ctx.getImageData(0, 0, W, H).data;
 
   // How cold and how hot the picture itself reads, then (with a look) the picture as the look shows it.
@@ -86,6 +99,10 @@ export function analyzeTexture(texture: Texture, look?: LiveLookId): TexturePale
   for (let i = 0; i < data.length; i += 4) lights.push(heatSource(data[i], data[i + 1], data[i + 2]));
   lights.sort((a, b) => a - b);
   const range: [number, number] = [lights[Math.floor(lights.length * 0.02)], lights[Math.min(lights.length - 1, Math.floor(lights.length * 0.98))]];
+  const plain: number[] = [];
+  for (let i = 0; i < data.length; i += 4) plain.push((0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255);
+  plain.sort((a, b) => a - b);
+  const lumaRange: [number, number] = [plain[Math.floor(plain.length * 0.02)], plain[Math.min(plain.length - 1, Math.floor(plain.length * 0.98))]];
   if (look) {
     for (let i = 0; i < data.length; i += 4) {
       const [r, g, b] = lookPixel(look, data[i], data[i + 1], data[i + 2], range);
@@ -145,7 +162,7 @@ export function analyzeTexture(texture: Texture, look?: LiveLookId): TexturePale
     accent = ink; // a truly monochrome image: accent is the ink itself
   }
 
-  const palette: TexturePalette = { ink, accent, scrim, luma: meanLum, range };
+  const palette: TexturePalette = { ink, accent, scrim, luma: meanLum, range, lumaRange };
   cache.set(key, palette);
   return palette;
 }

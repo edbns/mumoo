@@ -8,7 +8,7 @@ import { ASCII_STYLES, DEPTH_STYLES, DITHER_STYLES, GLOW_STYLES, HALFTONE_STYLES
 import { ASCII_GLYPHS, ASCII_RAMPS } from './ascii-styles';
 
 /** What a look needs to know about this moment. `range`: how cold and how hot the picture reads (0-1), which a look stretches over its ramp. */
-export type LiveLookInput = { beat: number; energy: number; ms: number; range: readonly [number, number] };
+export type LiveLookInput = { beat: number; energy: number; ms: number; range: readonly [number, number]; /** Plain light, for looks that drag the bright parts. */ lumaRange?: readonly [number, number] };
 
 /** `nearFilter` is set for Depth: the far layer uses `filter`, the cut-out subject uses `nearFilter`. */
 export type LiveLook = { filter: Filter; nearFilter?: Filter; update(input: LiveLookInput): void };
@@ -331,6 +331,8 @@ uniform sampler2D uTexture;
 uniform highp vec4 uInputSize;
 uniform float uBeat;
 uniform float uEnergy;
+uniform float uLow;
+uniform float uHigh;
 
 vec3 seen(vec2 uv) {
   vec4 source = texture(uTexture, uv);
@@ -351,21 +353,23 @@ void main(void) {
   float light = bright(graded);
   vec3 shadows = ${vec(shadows)};
   graded = graded * (0.35 + 0.45 * light) + shadows * (1.0 - light) * 0.7;
-  graded *= 1.0 - ${f(mid)} * (0.55 + 0.45 * (1.0 - abs(2.0 * light - 1.0)));
-  graded *= 0.72;
+  graded *= 1.0 - ${f(mid * 0.6)} * (0.55 + 0.45 * (1.0 - abs(2.0 * light - 1.0)));
+  graded *= 0.95;
 
   float rows = ${f(radius)};
   float cell = max(uInputSize.y / rows, 1.0);
   // Beat grows the haze and the strength so the flare is obvious on the hit.
   float swell = 1.0 + uBeat * (0.7 + 0.9 * uEnergy);
   float reach = cell * swell;
-  float gate = ${f(threshold)} - uBeat * 0.08 * uEnergy - uEnergy * 0.04;
+  // The bright parts are judged against this picture's own range of light: a dark picture still glows from its brightest parts, and a pale one does not wash to white.
+  float gate = mix(uLow, uHigh, clamp(${f(threshold)} + 0.25, 0.62, 0.9)) - uBeat * 0.08 * uEnergy - uEnergy * 0.04;
+  float top = max(uHigh, gate + 0.12);
   float glow = 0.0;
   float weight = 0.0;
   vec3 glowColour = vec3(0.0);
   // Centre hotspot + two rings of eight taps on a golden-angle spiral (~18 reads).
   {
-    float amount = pow(smoothstep(gate, 1.0, bright(rgb)), 0.75);
+    float amount = pow(smoothstep(gate, top, bright(rgb)), 0.75);
     glow += amount * 1.6;
     weight += 1.6;
     glowColour += tintOf(bright(rgb)) * amount * 1.6;
@@ -376,7 +380,7 @@ void main(void) {
     float angle = n * 2.399963;
     vec2 way = vec2(cos(angle), sin(angle)) * reach * ring * uInputSize.zw;
     vec3 sampleColour = seen(vTextureCoord + way);
-    float amount = pow(smoothstep(gate, 1.0, bright(sampleColour)), 0.75);
+    float amount = pow(smoothstep(gate, top, bright(sampleColour)), 0.75);
     float w = 1.0 - 0.25 * floor(n / 8.0);
     glow += amount * w;
     weight += w;
@@ -387,12 +391,12 @@ void main(void) {
   ${clubCode}
   ${chroma > 0 ? `
   float split = reach * ${f(chroma)} * uInputSize.z;
-  float left = pow(smoothstep(gate, 1.0, bright(seen(vTextureCoord - vec2(split, 0.0)))), 0.75);
-  float right = pow(smoothstep(gate, 1.0, bright(seen(vTextureCoord + vec2(split, 0.0)))), 0.75);
+  float left = pow(smoothstep(gate, top, bright(seen(vTextureCoord - vec2(split, 0.0)))), 0.75);
+  float right = pow(smoothstep(gate, top, bright(seen(vTextureCoord + vec2(split, 0.0)))), 0.75);
   glowColour = vec3(glowColour.r * (0.55 + 0.9 * left), glowColour.g, glowColour.b * (0.55 + 0.9 * right));
   glow = max(glow, max(left, right) * 0.65);
   ` : ''}
-  float power = (${f(strength)} + uEnergy * 0.45) * (1.0 + uBeat * (0.7 + 0.85 * uEnergy));
+  float power = (${f(strength)} + uEnergy * 0.45) * (1.0 + uBeat * (0.7 + 0.85 * uEnergy)) * 0.85;
   // Screen the tinted bloom over the dark grade so bright parts flare instead of washing flat.
   vec3 bloom = glowColour * glow * power;
   vec3 colour = 1.0 - (1.0 - graded) * (1.0 - clamp(bloom, 0.0, 1.0));
@@ -405,8 +409,14 @@ void main(void) {
 };
 
 function glowLook(id: GlowLookId): LiveLook {
-  const { filter, set } = make(glowSource(id), `live-look-${id}`, { uBeat: 0, uEnergy: 0 });
-  return { filter, update: ({ beat, energy }) => set({ uBeat: beat, uEnergy: energy }) };
+  const { filter, set } = make(glowSource(id), `live-look-${id}`, { uBeat: 0, uEnergy: 0, uLow: 0, uHigh: 1 });
+  return {
+    filter,
+    update: ({ beat, energy, range, lumaRange }) => set({
+      uBeat: beat, uEnergy: energy,
+      uLow: (lumaRange ?? range)[0], uHigh: Math.max((lumaRange ?? range)[1], (lumaRange ?? range)[0] + MIN_SPREAD),
+    }),
+  };
 }
 
 /**
@@ -470,9 +480,9 @@ const streaksSource = (id: StreaksLookId) => {
       float edgeHere = max(max(1.0 - vTextureCoord.x * 3.2, 1.0 - vTextureCoord.y * 3.2), 0.0);
       amount = amount + edgeHere * (0.6 + 0.4 * amount);
       ` : ''}
-      colour += tintOf(bright(rgb)) * amount * 2.2;
-      streak = max(streak, amount * 2.2);
-      wsum += amount * 2.2;
+      colour += tintOf(bright(rgb)) * amount * 1.4;
+      streak = max(streak, amount * 1.4);
+      wsum += amount * 1.4;
     }
     ${label} = max(streak, wsum * 0.35);
     ${label}Colour = wsum > 0.001 ? colour / max(wsum, 0.001) : tintOf(1.0);
@@ -516,12 +526,12 @@ void main(void) {
   graded *= 1.0 - ${f(mid)} * (0.55 + 0.45 * (1.0 - abs(2.0 * light - 1.0)));
   graded *= 0.55;
 
-  float span = ${f(length)} * uInputSize.x * (1.0 + uBeat * (0.85 + 1.0 * uEnergy)) * uInputSize.z;
+  float span = ${f(length * 0.75)} * uInputSize.x * (1.0 + uBeat * (0.85 + 1.0 * uEnergy)) * uInputSize.z;
   float drift = sin(uTime * 0.4) * 0.0523599 * (0.35 + 0.65 * uEnergy);
   // Gate off the picture's own range so a bright photo still has dark body and hot trails, not a white wash.
-  float gate = mix(uLow, uHigh, clamp(${f(threshold)} + 0.25, 0.4, 0.78));
-  gate = max(mix(uLow, uHigh, 0.38), gate - uBeat * 0.12 * uEnergy - uEnergy * 0.05);
-  float hot = mix(uLow, uHigh, 0.84);
+  float gate = mix(uLow, uHigh, clamp(${f(threshold)} + 0.4, 0.58, 0.85));
+  gate = max(mix(uLow, uHigh, 0.5), gate - uBeat * 0.12 * uEnergy - uEnergy * 0.05);
+  float hot = mix(uLow, uHigh, 0.9);
 
   float mainStreak = 0.0;
   vec3 mainStreakColour = tintOf(1.0);
@@ -536,7 +546,7 @@ void main(void) {
 
   // Accumulated streak can be >> 1; keep power hot so trails read as the filter.
   float power = (${f(strength)} + uEnergy * 0.7) * (1.0 + uBeat * (0.9 + 1.1 * uEnergy));
-  vec3 bloom = mainStreakColour * clamp(mainStreak, 0.0, 3.8) * power * 0.7;
+  vec3 bloom = mainStreakColour * clamp(mainStreak, 0.0, 3.8) * power * 0.36;
   // Soft-clip bloom while keeping the tint (so blue stays blue, not white wash).
   bloom = bloom / (1.0 + bloom * 0.45);
   float lyricSafe = 1.0 - smoothstep(0.34, 0.48, abs(vTextureCoord.y - 0.42)) * 0.12;
@@ -553,9 +563,10 @@ function streaksLook(id: StreaksLookId): LiveLook {
   const { filter, set } = make(streaksSource(id), `live-look-${id}`, { uBeat: 0, uEnergy: 0, uTime: 0, uLow: 0, uHigh: 1 });
   return {
     filter,
-    update: ({ beat, energy, ms, range }) => set({
+    // "Bright" in this shader is plain light, so it is judged against the picture's range of plain light (the heat range is another scale: a dark red picture reads hot, and nothing would pass the gate).
+    update: ({ beat, energy, ms, range, lumaRange }) => set({
       uBeat: beat, uEnergy: energy, uTime: ms / 1000,
-      uLow: range[0], uHigh: Math.max(range[1], range[0] + MIN_SPREAD),
+      uLow: (lumaRange ?? range)[0], uHigh: Math.max((lumaRange ?? range)[1], (lumaRange ?? range)[0] + MIN_SPREAD),
     }),
   };
 }

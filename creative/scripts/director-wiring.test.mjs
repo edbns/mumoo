@@ -181,3 +181,12 @@ test('the worker takes a reel of fetched library links and refuses every mistake
   const answers = JSON.parse(run.stdout);
   Object.entries(cases).forEach(([name, [, accepted]], index) => assert.equal(answers[index].accepted, accepted, `${name}: ${JSON.stringify(answers[index])}`));
 });
+
+test('the palette and the look’s range are read from the picture on screen, not from the first one of the reel', async () => {
+  const { readFileSync } = await import('node:fs');
+  const palette = readFileSync(new URL('../src/pack-palette.ts', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../src/pack-reel.ts', import.meta.url), 'utf8');
+  assert.ok(/references\.get\(texture\)/.test(palette) && /reference\?\.key/.test(palette), 'the palette is cached per picture of a reel');
+  assert.ok(/references\.set\(texture, \{ key: reelKey\(sources\[segment\.asset\]\)/.test(source), 'every frame says which picture it shows');
+  assert.ok(/SUBJECT_MAX/.test(source), 'a cut-out that covers almost all of the picture, or none, is not put in front of the look');
+});

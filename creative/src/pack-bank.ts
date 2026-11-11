@@ -134,7 +134,7 @@ export function createBankWorld(): BankWorld {
       if (input.look) {
         let look = looks.get(input.look);
         if (!look) looks.set(input.look, look = createLiveLook(input.look));
-        look.update({ beat: input.beat, energy: input.energy, ms: input.ms, range: palette.range });
+        look.update({ beat: input.beat, energy: input.energy, ms: input.ms, range: palette.range, lumaRange: palette.lumaRange });
         bg.filters = [look.filter];
 
         if (depth && cutout && look.nearFilter) {

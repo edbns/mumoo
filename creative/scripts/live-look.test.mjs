@@ -40,10 +40,12 @@ test('every card of a row carries a look of its effect that the lane welcomes, n
 test('every effect has many colourings in every lane, so Refresh keeps showing new ones', () => {
   for (const family of FAMILIES) {
     for (const lane of ['quiet', 'dark', 'techno', 'party', 'general']) {
-      assert.ok(deal.LIVE_LOOKS.filter(look => look.family === family && look.lanes.includes(lane)).length >= 6, `${family} welcomes at least 6 colourings in ${lane}`);
+      // Thermal deals only what reads as a heat camera (iron, rainbow) or a hot one (lava): three, not a rack of colours.
+      const many = family === 'thermal' ? 3 : 6;
+      assert.ok(deal.LIVE_LOOKS.filter(look => look.family === family && look.lanes.includes(lane) && (family !== 'thermal' || ['thermal', 'rainbow', 'lava'].includes(look.id))).length >= many, `${family} welcomes at least ${many} colourings in ${lane}`);
       const seen = new Set();
       for (let refresh = 0; refresh < 6; refresh++) deal.dealLooks(lane, `song:${refresh}`, 4, family).forEach(look => seen.add(look));
-      assert.ok(seen.size >= 6, `${family}/${lane}: six refreshes showed ${seen.size} different looks`);
+      assert.ok(seen.size >= many, `${family}/${lane}: six refreshes showed ${seen.size} different looks`);
     }
   }
 });

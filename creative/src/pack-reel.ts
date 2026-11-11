@@ -1,6 +1,7 @@
 import { CanvasSource, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH, type ImpactMusic } from './composition';
 import { loadMotion, type Motion } from './pack-motion';
+import { REFERENCE_H, REFERENCE_W, references } from './pack-palette';
 import { clipMsAt, planReel, segmentAt, type ReelAsset, type Segment, type Shot } from './pack-director';
 
 /**
@@ -31,7 +32,11 @@ export type Reel = Motion & {
 };
 
 /** How much to brighten (or dim) a picture so a dark one is not lost to the looks and a blown-out one is not burnt. */
-type Exposure = { gain?: number };
+type Exposure = {
+  gain?: number;
+  /** A small copy of the picture as it is shown, which the palette and the look's range are read from (`references`). */
+  reference?: HTMLCanvasElement;
+};
 type Loaded = ({ kind: 'photo'; image: ImageBitmap; subject?: HTMLCanvasElement } | { kind: 'clip'; motion: Motion }) & Exposure;
 
 /** The average light every picture is brought to, and how far it may be pushed either way. */
@@ -58,6 +63,23 @@ function exposureOf(shown: CanvasImageSource): number {
   return Math.min(MAX_GAIN, Math.max(MIN_GAIN, TARGET_LIGHT / Math.max(0.05, mean)));
 }
 
+/** The picture as it is shown (brightened), small, for the palette to read: the same for a picture whenever it plays. */
+function referenceOf(shown: CanvasImageSource & { width: number; height: number }, gain: number): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = REFERENCE_W;
+  canvas.height = REFERENCE_H;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) return canvas;
+  const scale = Math.max(REFERENCE_W / shown.width, REFERENCE_H / shown.height);
+  const width = shown.width * scale;
+  const height = shown.height * scale;
+  context.fillStyle = '#000';
+  context.fillRect(0, 0, REFERENCE_W, REFERENCE_H);
+  context.filter = Math.abs(gain - 1) < 0.02 ? 'none' : `brightness(${gain.toFixed(3)})`;
+  context.drawImage(shown, (REFERENCE_W - width) / 2, (REFERENCE_H - height) / 2, width, height);
+  return canvas;
+}
+
 /**
  * Pictures already read, kept by `reelKey`: one card after another on the shelf draws from the same few, and each
  * is fetched once. A card draws only the pieces it plays; the rest are fetched in the background in the browser.
@@ -80,8 +102,12 @@ async function bitmapOf(url: string, what: string): Promise<ImageBitmap> {
   return image;
 }
 
-/** The photo with her mask as its alpha, made once (the mask is a grey picture, white where she is). */
-function cutOut(photo: ImageBitmap, mask: ImageBitmap): HTMLCanvasElement {
+/** How much of the picture a usable person fills: a mask of almost nothing, or of nearly all of it, would put the picture back on top of the look. */
+const SUBJECT_MIN = 0.04;
+const SUBJECT_MAX = 0.6;
+
+/** The photo with her mask as its alpha, made once (the mask is a grey picture, white where she is). Null when the mask is not a person worth putting in front. */
+function cutOut(photo: ImageBitmap, mask: ImageBitmap): HTMLCanvasElement | null {
   const width = Math.max(1, mask.width);
   const height = Math.max(1, mask.height);
   const canvas = document.createElement('canvas');
@@ -97,7 +123,13 @@ function cutOut(photo: ImageBitmap, mask: ImageBitmap): HTMLCanvasElement {
   maskContext.drawImage(mask, 0, 0, width, height);
   const colour = context.getImageData(0, 0, width, height);
   const alpha = maskContext.getImageData(0, 0, width, height).data;
-  for (let i = 0; i < width * height; i += 1) colour.data[i * 4 + 3] = alpha[i * 4];
+  let covered = 0;
+  for (let i = 0; i < width * height; i += 1) {
+    colour.data[i * 4 + 3] = alpha[i * 4];
+    covered += alpha[i * 4];
+  }
+  const share = covered / 255 / (width * height);
+  if (share < SUBJECT_MIN || share > SUBJECT_MAX) return null;
   context.putImageData(colour, 0, 0);
   return canvas;
 }
@@ -106,11 +138,12 @@ async function read(source: ReelSource): Promise<Loaded> {
   if (source.kind === 'clip') return { kind: 'clip', motion: await loadMotion(source.url) };
   const image = await bitmapOf(source.url, 'A picture of the reel');
   const gain = exposureOf(image);
-  if (!source.cutoutUrl) return { kind: 'photo', image, gain };
+  const reference = referenceOf(image, gain);
+  if (!source.cutoutUrl) return { kind: 'photo', image, gain, reference };
   const mask = await bitmapOf(source.cutoutUrl, 'A cut-out of the reel');
   const subject = cutOut(image, mask);
   mask.close();
-  return { kind: 'photo', image, subject, gain };
+  return { kind: 'photo', image, ...(subject ? { subject } : {}), gain, reference };
 }
 
 function release(loaded: Loaded) {
@@ -211,11 +244,15 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
       } else {
         if (loaded.gain === undefined) {
           await loaded.motion.seek(Math.min(PROBE_CLIP_MS, loaded.motion.durationMs * 0.3));
-          loaded.gain = exposureOf(loaded.motion.texture.source.resource as HTMLCanvasElement);
+          const probed = loaded.motion.texture.source.resource as HTMLCanvasElement;
+          loaded.gain = exposureOf(probed);
+          loaded.reference = referenceOf(probed, loaded.gain);
         }
         await loaded.motion.seek(clipMsAt(segment, ms));
         cover(loaded.motion.texture.source.resource as HTMLCanvasElement, 1, loaded.gain);
       }
+      const reference = loaded.reference;
+      if (reference) references.set(texture, { key: reelKey(sources[segment.asset]), canvas: reference });
       pictureSource.update();
       personSource?.update();
       // Playing the reel (a poster is one look, playing is many): the pictures the next couple of seconds need are fetched ahead, so a first sight of a clip does not stall it.
