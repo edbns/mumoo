@@ -48,6 +48,26 @@ export const LIVE_LOOKS = [
   { id: 'halftoneneon', family: 'halftone', title: 'Neon dots', lanes: ['dark', 'techno', 'party'] },
   { id: 'halftoneinvert', family: 'halftone', title: 'White on black', lanes: ['quiet', 'dark', 'techno', 'general', 'gospel'] },
   { id: 'halftonegold', family: 'halftone', title: 'Gold on black', lanes: ['quiet', 'dark', 'party', 'general', 'gospel'] },
+  /** More prints: analog print, two inks, dark card and metal, and other marks than dots (lines, squares). */
+  { id: 'halftonecmyk', family: 'halftone', title: 'CMYK comic', lanes: ['quiet', 'dark', 'techno', 'party', 'general', 'gospel'] },
+  { id: 'halftoneriso', family: 'halftone', title: 'Riso two-ink', lanes: ['quiet', 'techno', 'party', 'general', 'gospel'] },
+  { id: 'halftoneblueprint', family: 'halftone', title: 'Blueprint', lanes: ['quiet', 'dark', 'techno', 'general', 'gospel'] },
+  { id: 'halftonesepia', family: 'halftone', title: 'Sepia press', lanes: ['quiet', 'dark', 'general', 'gospel'] },
+  { id: 'halftonemanga', family: 'halftone', title: 'Manga screentone', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'halftonesubway', family: 'halftone', title: 'Subway poster', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'halftonesunset', family: 'halftone', title: 'Sunset screenprint', lanes: ['quiet', 'party', 'general', 'gospel'] },
+  { id: 'halftonematcha', family: 'halftone', title: 'Matcha and charcoal', lanes: ['quiet', 'general', 'gospel'] },
+  { id: 'halftonecandy', family: 'halftone', title: 'Cotton candy', lanes: ['quiet', 'party', 'general', 'gospel'] },
+  { id: 'halftonetarot', family: 'halftone', title: 'Tarot midnight', lanes: ['quiet', 'dark', 'general', 'gospel'] },
+  { id: 'halftoneacid', family: 'halftone', title: 'Acid zine', lanes: ['dark', 'techno', 'party'] },
+  { id: 'halftonesilver', family: 'halftone', title: 'Silver foil', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'halftonephosphor', family: 'halftone', title: 'Phosphor terminal', lanes: ['dark', 'techno'] },
+  { id: 'halftoneuv', family: 'halftone', title: 'UV blacklight', lanes: ['dark', 'techno', 'party'] },
+  { id: 'halftonecopper', family: 'halftone', title: 'Copper etching', lanes: ['quiet', 'dark', 'general', 'gospel'] },
+  { id: 'halftoneengrave', family: 'halftone', title: 'Engraving', lanes: ['quiet', 'dark', 'general', 'gospel'] },
+  { id: 'halftonehatch', family: 'halftone', title: 'Crosshatch', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'halftoneled', family: 'halftone', title: 'LED matrix', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'halftonebenday', family: 'halftone', title: 'Ben-Day dots', lanes: ['techno', 'party', 'general'] },
 ] as const satisfies readonly { id: string; family: LookFamily; title: string; lanes: readonly MoodLane[] }[];
 
 export type LiveLookId = (typeof LIVE_LOOKS)[number]['id'];

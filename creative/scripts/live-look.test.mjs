@@ -90,7 +90,7 @@ test('halftone prints dark as mostly ink and light as mostly paper, in the pictu
 
 test('every halftone is its own ink and paper: flat inks stay one colour, a dark paper reverses light and dark', () => {
   const halftones = deal.LIVE_LOOKS.filter(look => look.family === 'halftone').map(look => look.id);
-  assert.ok(halftones.length >= 8, 'many inks and papers');
+  assert.ok(halftones.length >= 30, 'many inks and papers');
   assert.deepEqual([...halftones].sort(), Object.keys(ramp.HALFTONE_STYLES).sort(), 'every halftone has a style, and every style a place in the list');
   // Black and white: black on white, nothing else.
   const bwDark = ramp.lookPixel('halftonebw', 10, 10, 10, [0, 1]);
@@ -108,6 +108,42 @@ test('every halftone is its own ink and paper: flat inks stay one colour, a dark
     for (const colour of [[0, 0, 0], [255, 255, 255], [200, 40, 40], [30, 90, 200]]) {
       for (const value of ramp.lookPixel(id, ...colour, [0, 1])) assert.ok(value >= 0 && value <= 255, `${id} ${colour}`);
     }
+  }
+});
+
+test('halftone prints that use several inks lay them over each other like a press, and other marks than dots exist', () => {
+  const style = id => ramp.HALFTONE_STYLES[id];
+  // A white picture is blank paper in every print that prints on paper, and a black one is all ink.
+  for (const id of ['halftonecmyk', 'halftoneriso', 'halftonesubway', 'halftonesunset', 'halftonecandy']) {
+    const white = ramp.lookPixel(id, 255, 255, 255, [0, 1]);
+    const paper = style(id).paper.map(value => value * 255);
+    assert.ok(white.every((value, i) => Math.abs(value - paper[i]) < 6), `${id}: a white picture shows the paper: ${white}`);
+  }
+  const black = ramp.lookPixel('halftonecmyk', 0, 0, 0, [0, 1]);
+  assert.ok(black.every(value => value < 70), `CMYK: black is dark ink: ${black}`);
+  // The four process inks each answer to their own colour: a cyan picture has cyan ink and no magenta or yellow.
+  const cyanPicture = ramp.lookPixel('halftonecmyk', 0, 200, 255, [0, 1]);
+  assert.ok(cyanPicture[2] > cyanPicture[0] && cyanPicture[2] > 150, `a cyan picture prints blue-green: ${cyanPicture}`);
+  // Where two inks meet they make a third: Riso's pink over blue is darker than either alone.
+  const rich = ramp.lookPixel('halftoneriso', 60, 60, 60, [0, 1]);
+  assert.ok(rich[0] < 235 && rich[2] < 235, `overlapping inks darken: ${rich}`);
+  // Glowing inks brighten where they meet on a dark card.
+  const glow = ramp.lookPixel('halftoneuv', 255, 255, 255, [0, 1]);
+  assert.ok(glow[2] > 150 && glow[0] < 255, `UV inks glow on indigo: ${glow}`);
+  // Marks other than round dots, and a print whose dots are all one size.
+  const shapes = new Set(Object.values(ramp.HALFTONE_STYLES).flatMap(entry => entry.screens.map(screen => screen.shape ?? 'round')));
+  for (const shape of ['round', 'square', 'line', 'wave']) assert.ok(shapes.has(shape), `a print uses ${shape} marks`);
+  const hatch = style('halftonehatch').screens;
+  assert.equal(new Set(hatch.map(screen => screen.angle)).size, 3, 'crosshatch lays three directions');
+  assert.ok(hatch.every((screen, i) => i === 0 || screen.from > hatch[i - 1].from), 'each hatch only joins in darker parts');
+  const benday = ramp.HALFTONE_STYLES.halftonebenday.screens[0];
+  assert.ok(benday.fixed > 0 && benday.ink === 'poster', 'Ben-Day dots are one size and change colour');
+  assert.deepEqual(ramp.lookPixel('halftonebenday', 250, 250, 250, [0, 1]).map(Math.round), ramp.lookPixel('halftonebenday', 255, 255, 255, [0, 1]).map(Math.round), 'light parts of Ben-Day are the same');
+  // Every print is a real design: paper, at least one screen, angles in turns, fractions in range.
+  for (const [id, entry] of Object.entries(ramp.HALFTONE_STYLES)) {
+    assert.ok(entry.screens.length >= 1 && entry.screens.length <= 4, id);
+    assert.ok(entry.paper.every(value => value >= 0 && value <= 1), id);
+    for (const screen of entry.screens) assert.ok((screen.from ?? 0) >= 0 && (screen.from ?? 0) < 1 && (screen.fixed ?? 0.5) > 0 && (screen.fixed ?? 0.5) < 0.8, id);
   }
 });
 

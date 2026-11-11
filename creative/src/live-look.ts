@@ -113,14 +113,68 @@ function heatLook(id: HeatLookId): LiveLook {
 }
 
 /**
- * Halftone: the picture printed as a screen of round dots, the way a newspaper or a comic is. The screen is turned 15 degrees; each dot is the ink of its cell
- * (the picture's own colour, or one flat ink) and as big as the cell is dark, so shade becomes size (or as light, on a dark paper). The paper and the ink come from HALFTONE_STYLES. The beat swells every dot, more when
- * the song is loud. The dot size is set by the picture's height (about a hundred rows), so a small preview and the full render show the same print.
- * The numbers match live-look-ramp.ts, which the palette reader uses to choose type colour against the print.
+ * Halftone: the picture printed the way a newspaper, a comic or a zine is. Each print (halftone-styles.ts) is a paper and one or more screens; a screen is a grid
+ * of marks at its own angle, in its own ink, and each mark is as big as its part of the picture asks (shade becomes size). Inks lie on each other as in a press.
+ * The beat swells every mark, more when the song is loud. The marks are sized by the picture's height (rows of marks), so a small preview and the full render
+ * show the same print. The paper's grain, its wear and the missing specks of ink are here only; live-look-ramp.ts has the colours without them.
  */
 const halftoneSource = (id: HalftoneLookId) => {
-  const { paper, ink, negative, sat = 1.4, gain = 0.55 } = HALFTONE_STYLES[id];
+  const { paper, screens, rows = 100, grain = 0, distress = 0, contrast = 1 } = HALFTONE_STYLES[id];
   const vec = (rgb: readonly number[]) => `vec3(${rgb.map(f).join(', ')})`;
+  // Several screens look at the picture several times, so each looks fewer times at it.
+  const blur = screens.length > 2 ? 3 : 5;
+  const channel = {
+    dark: '(1.0 - lc)', light: 'lc', mid: '(1.0 - abs(2.0 * lc - 1.0))',
+    cyan: 'cmy.x', magenta: 'cmy.y', yellow: 'cmy.z', black: 'key',
+  };
+  const code = screens.map((screen, index) => {
+    const { ink, angle = 15, shape = 'round', blend = 'cover', offset = [0, 0], from = 0, fixed, sat = 1.4, gain = 0.55 } = screen;
+    const line = shape === 'line' || shape === 'wave';
+    const inkCode = ink === 'own' ? `clamp((vec3(light) + (rgb - vec3(light)) * ${f(sat)}) * ${f(gain)}, 0.0, 1.0)`
+      : ink === 'poster' ? 'step(vec3(0.5), clamp(vec3(light) + (rgb - vec3(light)) * 1.8, 0.0, 1.0))'
+        : vec(ink);
+    const lay = { cover: 'ink', multiply: 'colour * ink', screen: 'vec3(1.0) - (vec3(1.0) - colour) * (vec3(1.0) - ink)' }[blend];
+    // Where the grid cell is, where the mark sits in it, and where in the picture to look to size it.
+    const place = line ? `
+    float warp = ${shape === 'wave' ? `0.2 * sin(grid.x * 0.9 + ${f(index)})` : '0.0'};
+    float across = grid.y + warp;
+    float row = floor(across) + 0.5;
+    vec2 local = vec2(fract(grid.x) - 0.5, across - row);
+    vec2 middle = (vec2(grid.x - ${f(offset[0])}, row - warp - ${f(offset[1])}) * cell) * turn;`
+      : `
+    vec2 id = floor(grid) + 0.5;
+    vec2 local = grid - id;
+    vec2 middle = ((id - vec2(${f(offset[0])}, ${f(offset[1])})) * cell) * turn;`;
+    const shapeSize = fixed !== undefined
+      ? `float size = ${f(fixed)} * (1.0 + uBeat * (0.1 + 0.2 * uEnergy));`
+      : shape === 'round' ? 'float size = 0.5642 * sqrt(cover) + 0.2 * cover * cover * cover;'
+        : shape === 'square' ? 'float size = 0.5 * sqrt(cover) + 0.03 * cover;'
+          : 'float size = 0.5 * cover + 0.03 * cover * cover * cover;';
+    const reach = shape === 'square' ? 'max(abs(local.x), abs(local.y))' : line ? 'abs(local.y)' : 'length(local)';
+    const present = fixed !== undefined ? '1.0' : 'step(0.002, cover)';
+    return `
+  {
+    float angle = ${f((angle * Math.PI) / 180)};
+    mat2 turn = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
+    vec2 grid = (turn * px) / cell + vec2(${f(offset[0])}, ${f(offset[1])});${place}
+    float near = cell * 0.3;
+    vec3 rgb = ${blur === 5
+    ? 'seen(middle) * 0.4 + (seen(middle + vec2(near, 0.0)) + seen(middle - vec2(near, 0.0)) + seen(middle + vec2(0.0, near)) + seen(middle - vec2(0.0, near))) * 0.15'
+    : 'seen(middle) * 0.5 + (seen(middle + vec2(near)) + seen(middle - vec2(near))) * 0.25'};
+    float light = dot(rgb, vec3(0.299, 0.587, 0.114));
+    float lc = clamp((light - 0.5) * ${f(contrast)} + 0.5, 0.0, 1.0);
+    float key = 1.0 - max(max(rgb.r, rgb.g), rgb.b);
+    vec3 cmy = (vec3(1.0) - rgb - vec3(key)) / max(1.0 - key, 0.001);
+    float cover = clamp(((${channel[screen.channel ?? 'dark']} - ${f(from)}) / ${f(1 - from)}) * 1.05, 0.0, 1.0);
+    cover = clamp(cover + uBeat * (0.05 + 0.12 * uEnergy) * (0.4 + cover), 0.0, 1.0);
+    ${shapeSize}
+    float edge = 1.5 / cell;
+    float mark = (1.0 - smoothstep(size - edge, size + edge, ${reach})) * ${present};
+    ${distress ? `mark *= 1.0 - step(${f(1 - distress * 0.3)}, noise(floor(px / 2.5) + ${f(index * 17)}));` : ''}
+    vec3 ink = ${inkCode};
+    colour = mix(colour, ${lay}, mark);
+  }`;
+  }).join('\n');
   return `
 in vec2 vTextureCoord;
 out vec4 finalColor;
@@ -128,33 +182,30 @@ uniform sampler2D uTexture;
 uniform highp vec4 uInputSize;
 uniform float uBeat;
 uniform float uEnergy;
-const vec3 paper = ${vec(paper)};
 
 vec3 seen(vec2 px) {
   vec4 source = texture(uTexture, px * uInputSize.zw);
   return source.a > 0.0 ? source.rgb / source.a : source.rgb;
 }
 
+float noise(vec2 p) {
+  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+float soft(vec2 p) {
+  vec2 cell = floor(p);
+  vec2 into = smoothstep(0.0, 1.0, fract(p));
+  return mix(mix(noise(cell), noise(cell + vec2(1.0, 0.0)), into.x), mix(noise(cell + vec2(0.0, 1.0)), noise(cell + vec2(1.0, 1.0)), into.x), into.y);
+}
+
 void main(void) {
   vec4 centre = texture(uTexture, vTextureCoord);
-  float cell = clamp(uInputSize.y / 100.0, 5.0, 18.0);
-  float angle = 0.2617994;
-  mat2 turn = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
-  vec2 grid = (turn * (vTextureCoord * uInputSize.xy)) / cell;
-  vec2 id = floor(grid) + 0.5;
-  vec2 local = grid - id;
-  vec2 middle = ((id * cell) * turn);
-  float near = cell * 0.3;
-  vec3 rgb = seen(middle) * 0.4
-    + (seen(middle + vec2(near, 0.0)) + seen(middle - vec2(near, 0.0)) + seen(middle + vec2(0.0, near)) + seen(middle - vec2(0.0, near))) * 0.15;
-  float light = dot(rgb, vec3(0.299, 0.587, 0.114));
-  float cover = clamp(${negative ? 'light' : '(1.0 - light)'} * 1.05, 0.0, 1.0);
-  cover = clamp(cover + uBeat * (0.05 + 0.12 * uEnergy) * (0.4 + cover), 0.0, 1.0);
-  float radius = 0.5642 * sqrt(cover) + 0.2 * cover * cover * cover;
-  float edge = 1.5 / cell;
-  float dotted = 1.0 - smoothstep(radius - edge, radius + edge, length(local));
-  vec3 ink = ${ink === 'own' ? `clamp((vec3(light) + (rgb - vec3(light)) * ${f(sat)}) * ${f(gain)}, 0.0, 1.0)` : vec(ink)};
-  finalColor = vec4(mix(paper, ink, dotted), 1.0) * centre.a;
+  float cell = clamp(uInputSize.y / ${f(rows)}, 3.0, 24.0);
+  vec2 px = vTextureCoord * uInputSize.xy;
+  vec3 colour = ${vec(paper)};
+  ${grain || distress ? `colour *= 1.0 + (noise(floor(px / 2.0)) - 0.5) * ${f(grain)} + (soft(px / 45.0) - 0.5) * ${f(distress * 0.3)};` : ''}
+${code}
+  finalColor = vec4(colour, 1.0) * centre.a;
 }
 `;
 };
@@ -176,6 +227,25 @@ const BUILDERS: Record<LiveLookId, () => LiveLook> = {
   halftoneneon: () => halftoneLook('halftoneneon'),
   halftoneinvert: () => halftoneLook('halftoneinvert'),
   halftonegold: () => halftoneLook('halftonegold'),
+  halftonecmyk: () => halftoneLook('halftonecmyk'),
+  halftoneriso: () => halftoneLook('halftoneriso'),
+  halftoneblueprint: () => halftoneLook('halftoneblueprint'),
+  halftonesepia: () => halftoneLook('halftonesepia'),
+  halftonemanga: () => halftoneLook('halftonemanga'),
+  halftonesubway: () => halftoneLook('halftonesubway'),
+  halftonesunset: () => halftoneLook('halftonesunset'),
+  halftonematcha: () => halftoneLook('halftonematcha'),
+  halftonecandy: () => halftoneLook('halftonecandy'),
+  halftonetarot: () => halftoneLook('halftonetarot'),
+  halftoneacid: () => halftoneLook('halftoneacid'),
+  halftonesilver: () => halftoneLook('halftonesilver'),
+  halftonephosphor: () => halftoneLook('halftonephosphor'),
+  halftoneuv: () => halftoneLook('halftoneuv'),
+  halftonecopper: () => halftoneLook('halftonecopper'),
+  halftoneengrave: () => halftoneLook('halftoneengrave'),
+  halftonehatch: () => halftoneLook('halftonehatch'),
+  halftoneled: () => halftoneLook('halftoneled'),
+  halftonebenday: () => halftoneLook('halftonebenday'),
   thermal: () => heatLook('thermal'),
   arctic: () => heatLook('arctic'),
   night: () => heatLook('night'),
