@@ -6,7 +6,7 @@
  *
  * Depth looks draw two layers: the full picture (far) and the cut-out subject (near), moving apart on the beat.
  */
-import { Container, Graphics, Sprite, Text } from 'pixi.js';
+import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
 import { LOOK_DOWN_MESSAGE } from './pack-looks';
 import { analyzeTexture } from './pack-palette';
@@ -47,6 +47,35 @@ export function createBankWorld(): BankWorld {
   const looks = new Map<LiveLookId, LiveLook>();
   const type = createTypeLayer();
   root.addChild(bg, nearLayer, scrim, type.root, down);
+
+  // A cut-out is a grey mask (white where the person is), not a picture: Depth's near layer is the photo with that mask as its alpha, made once per pair.
+  let subject: { photo: Texture; mask: Texture; texture: Texture } | null = null;
+  function subjectOf(photo: Texture, mask: Texture): Texture | null {
+    if (subject?.photo === photo && subject.mask === mask) return subject.texture;
+    const picture = photo.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
+    const cut = mask.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
+    if (!picture || !cut) return null;
+    const width = Math.max(1, Math.round(cut.width));
+    const height = Math.max(1, Math.round(cut.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = width;
+    maskCanvas.height = height;
+    const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx || !maskCtx) return null;
+    ctx.drawImage(picture, 0, 0, width, height);
+    maskCtx.drawImage(cut, 0, 0, width, height);
+    const colour = ctx.getImageData(0, 0, width, height);
+    const alpha = maskCtx.getImageData(0, 0, width, height).data;
+    for (let i = 0; i < width * height; i++) colour.data[i * 4 + 3] = alpha[i * 4];
+    ctx.putImageData(colour, 0, 0);
+    subject?.texture.destroy(true);
+    subject = { photo, mask, texture: Texture.from(canvas) };
+    return subject.texture;
+  }
 
   function clearDown() {
     while (down.children.length) {
@@ -98,7 +127,7 @@ export function createBankWorld(): BankWorld {
       const amount = DRIFT[style] ?? 1;
       const cover = Math.max(WIDTH / texture.width, HEIGHT / texture.height) * (1.1 + 0.03 * amount * Math.sin(t * Math.PI));
       const depth = input.look && isDepth(input.look) ? DEPTH_STYLES[input.look as DepthLookId] : null;
-      const cutout = depth && input.cutout ? input.cutout : null;
+      const cutout = depth && input.cutout ? subjectOf(texture, input.cutout) : null;
 
       bg.texture = texture;
       bg.visible = true;
@@ -188,6 +217,8 @@ export function createBankWorld(): BankWorld {
     destroy() {
       bg.filters = [];
       for (const sprite of [nearMain, nearEchoA, nearEchoB]) sprite.filters = [];
+      subject?.texture.destroy(true);
+      subject = null;
       for (const look of looks.values()) {
         look.filter.destroy();
         look.nearFilter?.destroy();
