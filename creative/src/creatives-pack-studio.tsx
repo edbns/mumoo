@@ -384,15 +384,18 @@ export function CreativesPackStudio({
     reportPackFeedback(token, profile, 'select', slot, { selectedIds: [...cart.items.map(held => held.id), slot.id], generation: item.generation, ownPicture: item.uploadId !== null });
   }
 
-  /** What a cart item is drawn from now: the person's own picture (if it is still there) or our photography. */
+  /** What a cart item is drawn from now: the person's own picture (if it is still there) or the library / plate. */
   function pictureFor(item: CartItem): { available: boolean; picture?: Picture } {
+    // Own upload wins over a library id left on the dealt slot (Riso still deals library ids under an own picture).
+    if (item.uploadId !== null) {
+      const upload = (uploads.list ?? []).find(candidate => candidate.id === item.uploadId && candidate.status === 'ready' && candidate.url);
+      return upload ? { available: true, picture: drawingFrom(upload) } : { available: false };
+    }
     if (item.slot.libraryId) {
       const picture = drawingFrom(libraryItem(item.slot.libraryId));
       return picture ? { available: true, picture } : { available: false };
     }
-    if (item.uploadId === null) return { available: true };
-    const upload = (uploads.list ?? []).find(candidate => candidate.id === item.uploadId && candidate.status === 'ready' && candidate.url);
-    return upload ? { available: true, picture: drawingFrom(upload) } : { available: false };
+    return { available: true };
   }
 
   function togglePlay(id: string) {
@@ -432,8 +435,8 @@ export function CreativesPackStudio({
           token,
           wav,
           opts: packOpts(item.slot, composition, music, fallbackText, item.lyrics, pictureFor(item).picture),
-          ...(item.uploadId ? { uploadId: item.uploadId } : {}),
-          ...(item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
+          // Never send both: own upload replaces the library picture on this row.
+          ...(item.uploadId ? { uploadId: item.uploadId } : item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
         }));
         reportPackFeedback(token, profile, 'download', item.slot, { selectedIds: cart.items.map(held => held.id), generation: item.generation, ownPicture: item.uploadId !== null });
       }
