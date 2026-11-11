@@ -1,6 +1,7 @@
 import type { CreativeProfileV1 } from './creative-profile';
 import type { CreativesPackSlot, ShelfRow } from './creatives-pack';
 import { readSong } from './creatives-pack';
+import { freshAccess } from './staging-token';
 
 export type PackFeedbackEvent = 'play' | 'select' | 'download';
 
@@ -29,7 +30,7 @@ async function send(token: string, body: unknown) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Mumoo-Brain-Access': token,
+      'X-Mumoo-Brain-Access': await freshAccess(token),
       ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
     },
     body: JSON.stringify(body),

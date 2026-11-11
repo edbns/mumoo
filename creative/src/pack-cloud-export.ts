@@ -9,6 +9,7 @@
  */
 import { DURATION_MS } from './composition';
 import { sleep } from './lyrics-cloud';
+import { freshAccess } from './staging-token';
 import type { PackRendererOpts } from './pack-renderer';
 
 const SAMPLE_RATE = 32_000;
@@ -82,7 +83,16 @@ export async function clipToMonoWav(audio: AudioBuffer, clipStartMs: number): Pr
 
 async function errorMessage(response: Response): Promise<string> {
   const result = await response.json().catch(() => null) as { error?: string } | null;
+  // The page renews its access by itself; if it still could not, say what to do, not what the gateway called it.
+  if (response.status === 401 && /staging access/i.test(result?.error ?? '')) return 'Please reload the page and try again.';
   return result?.error || 'Creatives are temporarily unavailable. Reload and try again.';
+}
+
+/** Sends a request with a current access token; if the server still refuses it, once more with a brand new one. */
+async function withAccess(token: string, send: (access: string) => Promise<Response>): Promise<Response> {
+  const response = await send(await freshAccess(token));
+  if (response.status !== 401) return response;
+  return send(await freshAccess(token, true));
 }
 
 export type CloudJobInput = {
@@ -110,11 +120,11 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
     opts: { ...scene, fallbackText: (scene.fallbackText || 'NOW').slice(0, 80) },
   }));
   const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
-  const response = await fetch('/.netlify/functions/encode-creative', {
+  const response = await withAccess(input.token, access => fetch('/.netlify/functions/encode-creative', {
     method: 'POST',
-    headers: { 'x-mumoo-brain-access': input.token, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+    headers: { 'x-mumoo-brain-access': access, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
     body: form,
-  });
+  }));
   if (!response.ok) throw new Error(await errorMessage(response));
   const result = await response.json().catch(() => null) as { id?: string } | null;
   if (!result?.id) throw new Error('Your creative did not start. Reload and try again.');
@@ -123,15 +133,15 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
 
 /** Poll until the MP4 is ready. Cheap: one tiny GET every 1.5 s, no work on this machine. Aborting the signal stops it. */
 export async function awaitCloudJob(token: string, id: string, signal?: AbortSignal): Promise<Blob> {
-  // Signed-in people get the finished video kept in their history; the token is good for far longer than a render.
+  // Signed-in people get the finished video kept in their history; the access token is renewed by `withAccess` whenever it gets old, however long the render takes.
   const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
   const deadline = Date.now() + JOB_TIMEOUT_MS;
   while (Date.now() < deadline) {
     await sleep(POLL_MS, signal);
-    const response = await fetch(`/.netlify/functions/encode-creative-status?id=${encodeURIComponent(id)}`, {
-      headers: { 'x-mumoo-brain-access': token, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+    const response = await withAccess(token, access => fetch(`/.netlify/functions/encode-creative-status?id=${encodeURIComponent(id)}`, {
+      headers: { 'x-mumoo-brain-access': access, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
       signal,
-    });
+    }));
     if (response.status === 202) continue;
     if (!response.ok) throw new Error(await errorMessage(response));
     const blob = await response.blob();

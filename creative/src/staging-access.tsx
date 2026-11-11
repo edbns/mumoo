@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { freshAccess } from './staging-token';
 
 /**
  * Staging open access: fetches a short-lived signed token without a password, in the background, with nothing on screen.
@@ -6,17 +7,9 @@ import { useEffect } from 'react';
  */
 export function StagingAccess({ onAccess }: { onAccess: (token: string) => void }) {
   useEffect(() => {
-    const controller = new AbortController();
-    void fetch('/api/brain-tester-access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{}',
-      signal: controller.signal,
-    })
-      .then(response => response.ok ? response.json() : null)
-      .then(value => { if (typeof value?.token === 'string') onAccess(value.token); })
-      .catch(() => undefined);
-    return () => controller.abort();
+    let alive = true;
+    void freshAccess().then(token => { if (alive && token) onAccess(token); });
+    return () => { alive = false; };
   }, [onAccess]);
   return null;
 }
