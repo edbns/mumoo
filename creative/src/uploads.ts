@@ -1,13 +1,14 @@
 import { accountFetch } from './account';
 import { shrinkPhoto } from './photo-shrink';
 
-/** Which row of the shelf a picture is kept for. */
-export type PictureUse = 'dust' | 'filter' | 'riso' | 'window' | 'thermal' | 'halftone' | 'dither' | 'glow' | 'streaks' | 'ascii' | 'depth';
+/**
+ * What a picture is kept for. The shelf has one upload button, and its picture is `any`: every template that can draw it does.
+ * The others are the older one-picture-per-row uses, which the server still understands.
+ */
+export type PictureUse = 'any' | 'dust' | 'filter' | 'riso' | 'window' | 'thermal' | 'halftone' | 'dither' | 'glow' | 'streaks' | 'ascii' | 'depth';
 
-/** Dust and Depth need a cut-out of a person, so they take photos only. Riso still prefers a cut-out photo, but also takes a video or GIF as a whole-frame print (no cut-out). */
-export const photoOnly = (use: PictureUse) => use === 'dust' || use === 'depth';
-/** Rows that, without the person's own picture, are dealt from approved photos that have a cut-out. */
-export const needsCutoutLibrary = (use: PictureUse) => use === 'dust' || use === 'riso' || use === 'depth';
+/** The picture the whole shelf draws. */
+export const SHELF_PICTURE: PictureUse = 'any';
 
 /**
  * A person's own picture, kept privately in their storage (each row keeps one; a new one replaces it).
@@ -38,20 +39,8 @@ const MOTION_LIMITS: Record<string, number> = { 'video/mp4': 150e6, 'video/quick
 const MAX_PHOTO_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_SECONDS = 60;
 
-/** What each row's file picker offers. The server enforces the same limits. */
-export const ACCEPT: Record<PictureUse, string> = {
-  dust: PHOTO_TYPES.join(','),
-  riso: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
-  filter: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
-  window: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
-  thermal: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
-  halftone: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
-  dither: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
-  glow: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
-  streaks: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
-  ascii: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
-  depth: PHOTO_TYPES.join(','),
-};
+/** What the shelf's file picker offers: a photo, a video or a GIF. The server enforces the same limits. */
+export const ACCEPT = [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(',');
 
 /** Answers of the uploads API: the person's pictures as they now are. */
 async function pictures(response: Response): Promise<Upload[]> {
@@ -125,7 +114,6 @@ export async function addUpload(file: File, use: PictureUse, onProgress: (share:
     const photo = await shrinkPhoto(file);
     return pictures(await accountFetch(`/api/uploads?kind=photo&use=${use}`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: photo }));
   }
-  if (photoOnly(use)) throw new Error(`${use === 'dust' ? 'Dust' : 'Depth'} uses a photo (JPEG, PNG or WebP).`);
   const limit = MOTION_LIMITS[file.type];
   if (!limit) throw new Error('Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.');
   if (file.size > limit) throw new Error(`That ${file.type === 'image/gif' ? 'GIF' : 'video'} is larger than ${limit / 1e6} MB.`);

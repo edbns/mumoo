@@ -101,6 +101,9 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .creatives-pack-select:disabled { opacity: 1; cursor: default; }
 .creatives-pack-select:not(:disabled) { cursor: pointer; }
 .creatives-pack-item { display: flex; flex-direction: column; gap: 8px; }
+.creatives-pack-caption { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 32px; }
+.creatives-pack-name { font-size: 13px; font-weight: 500; }
+.creatives-pack-actions { display: inline-flex; gap: 2px; }
 
 .download-notice {
   position: fixed; left: 50%; bottom: 20px; z-index: 20; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px));

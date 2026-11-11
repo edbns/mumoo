@@ -3,21 +3,20 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileDropzone } from '@/components/ui/file-dropzone';
 import { Modal } from '@/components/ui/modal';
-import { ACCEPT, photoOnly, type PictureUse } from './uploads';
+import { ACCEPT, SHELF_PICTURE } from './uploads';
 import type { Uploads } from './use-uploads';
 
 /**
- * One row's own picture: a button that opens the upload popup, and a plain line about what is happening to it.
+ * The shelf's own picture: one button that opens the upload popup (photo, video or GIF), and a plain line about what is happening to it.
  * Adding a picture replaces the old one once it is ready, so nothing needs choosing or removing.
  */
-export function PictureUpload({ use, uploads, onChange }: {
-  use: PictureUse;
+export function PictureUpload({ uploads, onChange }: {
   uploads: Uploads;
-  /** Called before the row's picture changes, so the page can stop what is playing. */
+  /** Called before the picture changes, so the page can stop what is playing. */
   onChange: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const photo = photoOnly(use);
+  const use = SHELF_PICTURE;
   const sending = uploads.sending?.use === use ? uploads.sending : null;
   const preparing = uploads.current.some(item => item.use === use && item.status === 'preparing');
   const problem = uploads.problem && (uploads.problem.use === use || uploads.problem.use === null) ? uploads.problem.message : '';
@@ -39,16 +38,16 @@ export function PictureUpload({ use, uploads, onChange }: {
       Upload
     </Button>
     <Modal open={open} onClose={() => setOpen(false)}
-      title={photo ? 'Use your own photo' : 'Use your own photo or video'}
-      description="By uploading you confirm you own the rights to it.">
+      title="Use your own photo or video"
+      description="By uploading you confirm you own the rights to it. A video or GIF leaves out the creatives that need a photo.">
       {uploads.signedIn
         ? <div className="flex flex-col gap-3">
           <FileDropzone
-          accept={ACCEPT[use]}
+          accept={ACCEPT}
           icon={ImageIcon}
-          title={photo ? 'Drop your photo here' : 'Drop your photo, video or GIF here'}
-          hint={photo ? 'JPG, PNG or WebP' : 'JPG, PNG, WebP, MP4, MOV, WebM or GIF'}
-          buttonLabel={photo ? 'Select photo' : 'Select file'}
+          title="Drop your photo, video or GIF here"
+          hint="JPG, PNG, WebP, MP4, MOV, WebM or GIF"
+          buttonLabel="Select file"
           inputLabel="Picture file"
           onSelect={file => void pick(file)}
           />

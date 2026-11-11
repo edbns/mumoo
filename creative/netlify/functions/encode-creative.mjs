@@ -2,6 +2,7 @@ import { validAccess } from '../lib/access.mjs';
 import { personFrom } from '../lib/person.mjs';
 import { libraryMedia } from '../lib/library.mjs';
 import { uploadMedia } from '../lib/uploads.mjs';
+import { ownMedia } from '../lib/render-media.mjs';
 
 /**
  * Submit a cloud render job. Tiny request (≈960 KB WAV + JSON); returns a job id at once.
@@ -73,12 +74,12 @@ export default async function encodeCreative(request) {
       if (!person) return error(401, 'Sign in to use your own pictures.');
       const media = await uploadMedia(person.id, upload);
       if (!media) return error(404, 'That picture was not found, or is still being prepared.');
-      // A picture kept for Filters cannot be sent to Dust, and the other way round. Live-look rows are drawn in the Filters style, on a picture kept under their own name.
-      const style = scene.opts?.style;
-      if (media.use !== style && !(style === 'filter' && ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'].includes(media.use))) return error(400, 'That picture is kept for a different style.');
-      if (media.photo) outbound.append('photo', new Blob([media.photo], { type: 'image/jpeg' }), 'photo.jpg');
-      if (media.cutout) outbound.append('cutout', new Blob([media.cutout], { type: 'image/png' }), 'cutout.png');
-      if (media.motion) outbound.append('motion', new Blob([media.motion], { type: 'video/mp4' }), 'motion.mp4');
+      // A picture kept for one row cannot be sent to another; one kept for the whole shelf is cut down to what this card needs.
+      const sent = ownMedia(scene.opts?.style, scene.opts?.look, media);
+      if (sent.refused) return error(400, sent.refused);
+      if (sent.parts.photo) outbound.append('photo', new Blob([sent.parts.photo], { type: 'image/jpeg' }), 'photo.jpg');
+      if (sent.parts.cutout) outbound.append('cutout', new Blob([sent.parts.cutout], { type: 'image/png' }), 'cutout.png');
+      if (sent.parts.motion) outbound.append('motion', new Blob([sent.parts.motion], { type: 'video/mp4' }), 'motion.mp4');
     }
     outbound.append('meta', JSON.stringify(scene));
 

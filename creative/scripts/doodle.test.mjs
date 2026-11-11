@@ -105,7 +105,7 @@ test('the shelf has a Doodle row of four made of the lyrics, and the creator’s
   const { server, pack } = await load();
   try {
     const row = pack.SHELF_ROWS.find(item => item.id === 'doodle');
-    assert.deepEqual({ title: row.title, lyrics: row.lyrics, upload: row.upload }, { title: 'Doodle', lyrics: 'always', upload: undefined }, 'no picture goes into it');
+    assert.deepEqual({ title: row.title, lyrics: row.lyrics, picture: row.picture }, { title: 'Doodle', lyrics: 'always', picture: undefined }, 'no picture goes into it');
     assert.ok(!pack.rowsFor(true).some(item => item.id === 'doodle'), 'a song with no words has no Doodle');
     const person = voice => ({
       version: 1,

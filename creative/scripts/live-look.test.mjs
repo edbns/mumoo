@@ -322,7 +322,7 @@ test('Thermal, Halftone, Dither, Glow, Streaks, ASCII and Depth are rows of thei
     assert.notDeepEqual(pack.recommendRow(family, profile('Techno'), 1, [], null, [], {}, true).map(slot => slot.look), own.map(slot => slot.look), `${family}: Refresh deals other colourings of their picture`);
     assert.deepEqual(pack.recommendRow(family, profile('Techno'), 0, [], null, library, {}, true).map(slot => slot.id), own.map(slot => slot.id), 'their picture replaces the library cards');
   }
-  assert.deepEqual(pack.SHELF_ROWS.filter(row => ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'].includes(row.id)).map(row => row.upload), ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'], 'each row keeps its own uploaded picture');
+  assert.deepEqual(pack.SHELF_ROWS.filter(row => ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'].includes(row.id)).map(row => row.picture), ['any', 'any', 'any', 'any', 'any', 'any', 'photo'], 'each look takes the shelf picture (Depth only a photo)');
   const thermalIds = new Set(pack.recommendRow('thermal', profile('Techno'), 0, [], null, library).map(slot => slot.id));
   assert.ok(pack.recommendRow('halftone', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'the rows never share a card');
   assert.ok(pack.recommendRow('dither', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'Dither does not share cards with Thermal');

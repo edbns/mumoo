@@ -9,6 +9,9 @@ import { deleteObject, getObject, objectSize, putObject, signedDownload, signedU
  *   riso    a photo with its cut-out (halftone of the person), or a video or GIF as a whole-frame print (no cut-out)
  *   filter  a photo as it is, or a video or GIF prepared into a small clip with a poster
  *   window  either: a photo gets a cut-out like dust (a person can stand in front of the word), a video or GIF a clip like filter
+ *   any     the one picture of the whole shelf: a photo (its cut-out is made once, whichever templates use it) or a video or GIF
+ *           (prepared once). Every template that can draw it does; the rest are left off the shelf. The uses above are the older
+ *           one-per-row pictures, still drawn when a cart holds one.
  *
  * A new picture replaces the one before it: the old one (rows and files) is removed the moment the new one is
  * ready, so until then the row keeps drawing the old one. Uploading is the person's confirmation that they own
@@ -21,11 +24,11 @@ import { deleteObject, getObject, objectSize, putObject, signedDownload, signedU
 export const MAX_PHOTO_BYTES = 3_000_000;
 export const MAX_GIF_BYTES = 25_000_000;
 export const MAX_VIDEO_BYTES = 150_000_000;
-export const USES = ['dust', 'filter', 'riso', 'window', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'];
-/** The rows whose photo is cut out (the subject's mask is made by the worker). */
-const CUTOUT_USES = ['dust', 'riso', 'window', 'depth'];
-/** The rows that also take a video or GIF. */
-export const MOTION_USES = ['filter', 'window', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'riso'];
+export const USES = ['dust', 'filter', 'riso', 'window', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth', 'any'];
+/** The uses whose photo is cut out (the subject's mask is made by the worker). */
+const CUTOUT_USES = ['dust', 'riso', 'window', 'depth', 'any'];
+/** The uses that also take a video or GIF. */
+export const MOTION_USES = ['filter', 'window', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'riso', 'any'];
 export const MOTION_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'image/gif'];
 
 const PREPARE = 'https://edbns-mumoo-staging--mumoo-prepare-media-staging';

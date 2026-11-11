@@ -1,5 +1,4 @@
 import type { CreativeProfileV1 } from './creative-profile';
-import type { PictureUse } from './uploads';
 import { deriveMusicIntent, type MusicIntentV1 } from './music-intent';
 import {
   dealFonts,
@@ -45,31 +44,39 @@ export type ShelfRow = 'photography' | LookFamily | 'looks' | 'riso' | 'spray' |
  * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
  * never redraws (or re-renders) another:
  *   lyrics  'switch': the row has its own Lyrics on/off. 'always': made of the lyrics, so there is no switch.
- *   upload  the row shows our approved photography, and the person can use their own picture instead (kept for this use).
- * Every row has its own Refresh.
+ *   picture the row draws a picture, ours until the person uploads their own (the shelf has one upload for all of them).
+ *           'photo': only a photo will do (Dust and Depth stand the person's cut-out in front), so a video leaves the row off the shelf.
+ *           'any': a photo, video or GIF.
+ * The shelf shows one creative of each row. Every row has its own Refresh, and "More" deals the rest of its four.
  */
-export type ShelfRowDef = { id: ShelfRow; title: string; lyrics: 'switch' | 'always'; upload?: PictureUse };
+export type ShelfRowDef = { id: ShelfRow; title: string; lyrics: 'switch' | 'always'; picture?: 'photo' | 'any' };
 export const SHELF_ROWS: readonly ShelfRowDef[] = [
-  { id: 'photography', title: 'Our photography', lyrics: 'switch', upload: 'filter' },
+  { id: 'photography', title: 'Our photography', lyrics: 'switch', picture: 'any' },
   // One effect per row, each dealt in its different colourings, on pictures of our library or the person's own (a row has no picture to draw until the library has one or they upload theirs).
-  { id: 'thermal', title: 'Thermal', lyrics: 'switch', upload: 'thermal' },
-  { id: 'halftone', title: 'Halftone', lyrics: 'switch', upload: 'halftone' },
-  { id: 'dither', title: 'Dither', lyrics: 'switch', upload: 'dither' },
-  { id: 'glow', title: 'Glow', lyrics: 'switch', upload: 'glow' },
-  { id: 'streaks', title: 'Streaks', lyrics: 'switch', upload: 'streaks' },
-  { id: 'ascii', title: 'ASCII', lyrics: 'switch', upload: 'ascii' },
-  { id: 'depth', title: 'Depth', lyrics: 'switch', upload: 'depth' },
-  { id: 'riso', title: 'Riso', lyrics: 'switch', upload: 'riso' },
+  { id: 'thermal', title: 'Thermal', lyrics: 'switch', picture: 'any' },
+  { id: 'halftone', title: 'Halftone', lyrics: 'switch', picture: 'any' },
+  { id: 'dither', title: 'Dither', lyrics: 'switch', picture: 'any' },
+  { id: 'glow', title: 'Glow', lyrics: 'switch', picture: 'any' },
+  { id: 'streaks', title: 'Streaks', lyrics: 'switch', picture: 'any' },
+  { id: 'ascii', title: 'ASCII', lyrics: 'switch', picture: 'any' },
+  { id: 'depth', title: 'Depth', lyrics: 'switch', picture: 'photo' },
+  { id: 'riso', title: 'Riso', lyrics: 'switch', picture: 'any' },
   { id: 'spray', title: 'Spray', lyrics: 'always' },
-  { id: 'window', title: 'Window', lyrics: 'always', upload: 'window' },
+  { id: 'window', title: 'Window', lyrics: 'always', picture: 'any' },
   { id: 'doodle', title: 'Doodle', lyrics: 'always' },
   // "Moving backgrounds" (id 'looks', the Shaders backgrounds under lyric type) is off the shelf until its backgrounds are good enough.
   // To bring it back, add { id: 'looks', title: 'Moving backgrounds', lyrics: 'switch' } here.
   { id: 'pulise', title: 'Pulise', lyrics: 'always' },
-  { id: 'dust', title: 'Dust', lyrics: 'switch', upload: 'dust' },
+  { id: 'dust', title: 'Dust', lyrics: 'switch', picture: 'photo' },
 ];
-/** The rows of the shelf for a song: with no words, only the rows that work without them (Spray, Window and Pulise are made of the lyrics). */
-export const rowsFor = (noLyrics: boolean): readonly ShelfRowDef[] => (noLyrics ? SHELF_ROWS.filter(def => def.lyrics === 'switch') : SHELF_ROWS);
+/** What the person's own picture is: a photo (with its cut-out), or a video or GIF. */
+export type OwnKind = 'photo' | 'motion';
+/**
+ * The rows of the shelf for a song and the person's own picture. With no words, only the rows that work without them
+ * (Spray, Window, Doodle and Pulise are made of the lyrics). With a video or GIF, only the rows that can use one (Dust and Depth need a photo).
+ */
+export const rowsFor = (noLyrics: boolean, own: OwnKind | null = null): readonly ShelfRowDef[] =>
+  SHELF_ROWS.filter(def => !(noLyrics && def.lyrics === 'always') && !(own === 'motion' && def.picture === 'photo'));
 const ROW_SIZE = 4;
 
 export type CreativesPackSlot = {

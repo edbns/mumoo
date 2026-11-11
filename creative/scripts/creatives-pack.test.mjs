@@ -346,26 +346,17 @@ test('every row is recommended on its own, so refreshing one never changes anoth
   } finally { await server.close(); }
 });
 
-test('rows say what they own: lyrics switch, upload kind, and Pulise and Spray take no upload', async () => {
+test('rows say what they own: lyrics switch, which picture they take, and Pulise and Spray take none', async () => {
   const { server, pack } = await load();
   try {
     const rows = Object.fromEntries(pack.SHELF_ROWS.map(def => [def.id, def]));
     assert.equal(rows.looks, undefined, 'Moving backgrounds is off the shelf');
     for (const row of ['pulise', 'spray']) {
       assert.equal(rows[row].lyrics, 'always', row);
-      assert.equal(rows[row].upload, undefined, `${row} takes no upload`);
+      assert.equal(rows[row].picture, undefined, `${row} takes no picture`);
     }
-    assert.equal(rows.dust.upload, 'dust');
-    assert.equal(rows.riso.upload, 'riso');
-    assert.equal(rows.photography.upload, 'filter');
-    assert.equal(rows.window.upload, 'window');
-    assert.equal(rows.thermal.upload, 'thermal');
-    assert.equal(rows.halftone.upload, 'halftone');
-    assert.equal(rows.dither.upload, 'dither');
-    assert.equal(rows.glow.upload, 'glow');
-    assert.equal(rows.streaks.upload, 'streaks');
-    assert.equal(rows.ascii.upload, 'ascii');
-    assert.equal(rows.depth.upload, 'depth');
+    for (const row of ['dust', 'depth']) assert.equal(rows[row].picture, 'photo', `${row} needs a photo`);
+    for (const row of ['photography', 'riso', 'window', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii']) assert.equal(rows[row].picture, 'any', `${row} takes a photo, video or GIF`);
     assert.equal(rows.window.lyrics, 'always', 'the word is the window');
     for (const row of ['photography', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth', 'riso', 'dust']) assert.equal(rows[row].lyrics, 'switch', row);
   } finally { await server.close(); }
