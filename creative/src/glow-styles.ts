@@ -28,63 +28,65 @@ export type GlowStyle = {
 };
 
 const WHITE: Rgb = [1.0, 1.0, 1.0];
+/** Soft looks still bloom hard: the picture is pulled down so the haze is the point. */
 const soft = (tint: Rgb | readonly [Rgb, Rgb], extra: Partial<GlowStyle> = {}): GlowStyle => ({
-  tint, threshold: 0.45, radius: 42, strength: 0.7,
-  grade: { shadows: [0.08, 0.06, 0.12], contrast: 1.05, mid: 0.12 },
+  tint, threshold: 0.32, radius: 58, strength: 1.45,
+  grade: { shadows: [0.06, 0.05, 0.1], contrast: 1.15, mid: 0.32 },
   ...extra,
 });
+/** Neon / club: deep grade, hot tinted bleed that flares on the beat. */
 const neon = (tint: Rgb | readonly [Rgb, Rgb], extra: Partial<GlowStyle> = {}): GlowStyle => ({
-  tint, threshold: 0.5, radius: 34, strength: 1.05,
-  grade: { shadows: [0.02, 0.01, 0.06], contrast: 1.25, mid: 0.28 },
+  tint, threshold: 0.38, radius: 48, strength: 1.85,
+  grade: { shadows: [0.01, 0.0, 0.05], contrast: 1.4, mid: 0.48 },
   ...extra,
 });
 
 export const GLOW_STYLES: Record<GlowLookId, GlowStyle> = {
   /** Soft white bloom. */
-  glowbloom: soft(WHITE, { strength: 0.65, radius: 48, grade: { shadows: [0.1, 0.1, 0.14], contrast: 1.02, mid: 0.1 } }),
+  glowbloom: soft(WHITE, { strength: 1.35, radius: 68, grade: { shadows: [0.08, 0.08, 0.12], contrast: 1.12, mid: 0.28 } }),
   /** Hot pink neon. */
-  glowpink: neon([1.0, 0.15, 0.55]),
+  glowpink: neon([1.0, 0.12, 0.55]),
   /** Cyan neon. */
-  glowcyan: neon([0.15, 0.95, 1.0]),
+  glowcyan: neon([0.1, 0.95, 1.0]),
   /** Magenta and cyan split. */
-  glowsplit: neon([[0.95, 0.1, 0.7], [0.1, 0.95, 1.0]] as const, { chroma: 0.35, strength: 1.1 }),
+  glowsplit: neon([[0.95, 0.08, 0.7], [0.08, 0.95, 1.0]] as const, { chroma: 0.55, strength: 2.0 }),
   /** Amber street light. */
-  glowamber: neon([1.0, 0.55, 0.12], { threshold: 0.48, grade: { shadows: [0.06, 0.03, 0.02], contrast: 1.2, mid: 0.25 } }),
+  glowamber: neon([1.0, 0.52, 0.08], { threshold: 0.34, grade: { shadows: [0.05, 0.02, 0.01], contrast: 1.35, mid: 0.45 } }),
   /** Gold. */
-  glowgold: soft([1.0, 0.78, 0.28], { strength: 0.75, grade: { shadows: [0.08, 0.05, 0.02], contrast: 1.08, mid: 0.14 } }),
+  glowgold: soft([1.0, 0.78, 0.22], { strength: 1.5, grade: { shadows: [0.06, 0.04, 0.01], contrast: 1.2, mid: 0.34 } }),
   /** Ultraviolet. */
-  glowuv: neon([[0.35, 0.05, 0.95], [0.95, 0.35, 1.0]] as const, { grade: { shadows: [0.04, 0.0, 0.12], contrast: 1.3, mid: 0.3 } }),
+  glowuv: neon([[0.3, 0.02, 0.95], [0.95, 0.3, 1.0]] as const, { grade: { shadows: [0.03, 0.0, 0.1], contrast: 1.45, mid: 0.5 } }),
   /** Toxic green. */
-  glowtoxic: neon([0.35, 1.0, 0.2], { grade: { shadows: [0.02, 0.06, 0.02], contrast: 1.28, mid: 0.28 } }),
+  glowtoxic: neon([0.3, 1.0, 0.15], { grade: { shadows: [0.01, 0.05, 0.01], contrast: 1.4, mid: 0.48 } }),
   /** Red alert. */
-  glowred: neon([1.0, 0.08, 0.1], { strength: 1.15, grade: { shadows: [0.08, 0.0, 0.02], contrast: 1.35, mid: 0.32 } }),
+  glowred: neon([1.0, 0.05, 0.08], { strength: 2.05, grade: { shadows: [0.06, 0.0, 0.01], contrast: 1.5, mid: 0.52 } }),
   /** Sunset peach. */
-  glowpeach: soft([[1.0, 0.45, 0.35], [1.0, 0.85, 0.55]] as const, { radius: 44, strength: 0.72 }),
+  glowpeach: soft([[1.0, 0.4, 0.28], [1.0, 0.85, 0.5]] as const, { radius: 62, strength: 1.5 }),
   /** Ice blue. */
-  glowice: soft([0.55, 0.85, 1.0], { threshold: 0.48, grade: { shadows: [0.04, 0.08, 0.16], contrast: 1.1, mid: 0.16 } }),
+  glowice: soft([0.45, 0.82, 1.0], { threshold: 0.34, grade: { shadows: [0.03, 0.06, 0.14], contrast: 1.22, mid: 0.36 } }),
   /** Rainbow prism: large chroma split. */
-  glowprism: neon([[1.0, 0.2, 0.4], [0.2, 0.85, 1.0]] as const, { chroma: 0.85, radius: 38, strength: 1.0 }),
-  /** Dream: pastel, strong lift, low contrast. */
-  glowdream: soft([[1.0, 0.75, 0.9], [0.75, 0.9, 1.0]] as const, {
-    threshold: 0.35, radius: 52, strength: 0.9,
-    grade: { shadows: [0.16, 0.12, 0.2], contrast: 0.92, mid: 0.05 },
+  glowprism: neon([[1.0, 0.15, 0.35], [0.15, 0.85, 1.0]] as const, { chroma: 1.1, radius: 52, strength: 1.9 }),
+  /** Dream: pastel haze, wide soft bloom. */
+  glowdream: soft([[1.0, 0.72, 0.9], [0.72, 0.9, 1.0]] as const, {
+    threshold: 0.22, radius: 72, strength: 1.65,
+    grade: { shadows: [0.12, 0.1, 0.18], contrast: 1.05, mid: 0.22 },
   }),
-  /** Noir: very dark grade, single white glow. */
+  /** Noir: crushed blacks, hard white glow. */
   glownoir: {
-    tint: WHITE, threshold: 0.58, radius: 30, strength: 0.95,
-    grade: { shadows: [0.0, 0.0, 0.02], contrast: 1.45, mid: 0.42 },
+    tint: WHITE, threshold: 0.42, radius: 42, strength: 1.9,
+    grade: { shadows: [0.0, 0.0, 0.02], contrast: 1.6, mid: 0.58 },
   },
   /** Club: dark with pink and blue glow by position. */
-  glowclub: neon([1.0, 0.2, 0.7], {
-    club: true, strength: 1.15, radius: 36,
-    grade: { shadows: [0.02, 0.0, 0.08], contrast: 1.35, mid: 0.35 },
+  glowclub: neon([1.0, 0.15, 0.7], {
+    club: true, strength: 2.1, radius: 50,
+    grade: { shadows: [0.01, 0.0, 0.07], contrast: 1.5, mid: 0.55 },
   }),
-  /** Soft mist: pale lift for quiet songs. */
-  glowmist: soft([0.85, 0.9, 1.0], { threshold: 0.4, radius: 50, strength: 0.55, grade: { shadows: [0.1, 0.12, 0.16], contrast: 1.0, mid: 0.08 } }),
+  /** Soft mist: pale wide haze. */
+  glowmist: soft([0.82, 0.9, 1.0], { threshold: 0.28, radius: 70, strength: 1.25, grade: { shadows: [0.08, 0.1, 0.14], contrast: 1.1, mid: 0.26 } }),
   /** Soft lilac bloom. */
-  glowlilac: soft([0.75, 0.55, 1.0], { strength: 0.68, grade: { shadows: [0.1, 0.06, 0.16], contrast: 1.05, mid: 0.12 } }),
+  glowlilac: soft([0.72, 0.48, 1.0], { strength: 1.4, grade: { shadows: [0.08, 0.04, 0.14], contrast: 1.18, mid: 0.32 } }),
   /** Soft rose. */
-  glowrose: soft([1.0, 0.55, 0.65], { strength: 0.7, grade: { shadows: [0.12, 0.06, 0.08], contrast: 1.06, mid: 0.12 } }),
+  glowrose: soft([1.0, 0.48, 0.6], { strength: 1.4, grade: { shadows: [0.1, 0.04, 0.06], contrast: 1.18, mid: 0.32 } }),
 };
 
 const luma = (r: number, g: number, b: number) => (0.299 * r + 0.587 * g + 0.114 * b) / 255;
@@ -96,9 +98,10 @@ export function glowGrade(style: GlowStyle, r: number, g: number, b: number): [n
   const { shadows, contrast = 1.2, mid = 0.25 } = style.grade;
   const rgb = [r, g, b].map(value => clamp(((value / 255) - 0.5) * contrast + 0.5));
   const light = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-  const shadowed = rgb.map((channel, i) => channel * (1 - (1 - light) * 0.55) + shadows[i] * (1 - light) * 0.55);
-  const pulled = shadowed.map(channel => channel * (1 - mid * (1 - Math.abs(2 * light - 1) * 0.35)));
-  return pulled.map(clamp) as [number, number, number];
+  const shadowed = rgb.map((channel, i) => channel * (0.35 + 0.45 * light) + shadows[i] * (1 - light) * 0.7);
+  const pulled = shadowed.map(channel => channel * (1 - mid * (0.55 + 0.45 * (1 - Math.abs(2 * light - 1)))));
+  // Keep the base clearly below the original so the bloom is what you see.
+  return pulled.map(channel => clamp(channel * 0.72)) as [number, number, number];
 }
 
 /** Tint of the glow for a brightness 0-1 (club ignored here; the shader owns that). */
@@ -120,7 +123,12 @@ export function glowAverage(look: GlowLookId, r: number, g: number, b: number): 
   const light = luma(r, g, b);
   const threshold = style.threshold ?? 0.55;
   const amount = clamp((light - threshold) / Math.max(1e-3, 1 - threshold));
-  const glow = amount * amount * (style.strength ?? 0.85) * 0.85;
+  // Brightness squared approximates the blur; strength is high so the tint reads as the look.
+  const glow = Math.pow(amount, 0.9) * (style.strength ?? 1.6) * 0.9;
   const tint = glowTint(style, light);
-  return [0, 1, 2].map(i => softClip(base[i] + tint[i] * glow) * 255) as [number, number, number];
+  return [0, 1, 2].map(i => {
+    const bloom = tint[i] * glow;
+    const screened = 1 - (1 - base[i]) * (1 - clamp(bloom));
+    return softClip(base[i] + bloom * 0.85 * 0.35 + screened * 0.65) * 255;
+  }) as [number, number, number];
 }

@@ -211,7 +211,7 @@ test('glow grades dark and lifts bright with its tint, without blowing past 255'
   assert.ok(noirLight.every(value => value > 180), `noir light blooms: ${noirLight}`);
   const pink = ramp.lookPixel('glowpink', 180, 180, 180, [0, 1]);
   const cyan = ramp.lookPixel('glowcyan', 180, 180, 180, [0, 1]);
-  assert.ok(pink[0] > cyan[0] && cyan[2] > pink[2], `pink and cyan neon pull opposite ways: ${pink} vs ${cyan}`);
+  assert.ok(pink[0] > cyan[0] && cyan[1] > pink[1], `pink and cyan neon pull opposite ways: ${pink} vs ${cyan}`);
   const bloom = ramp.lookPixel('glowbloom', 220, 220, 220, [0, 1]);
   assert.ok(bloom.every(value => value > 150 && value <= 255), `soft bloom stays readable: ${bloom}`);
   for (const id of glows) {

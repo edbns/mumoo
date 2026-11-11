@@ -344,45 +344,59 @@ ${tintCode}
 void main(void) {
   vec4 centre = texture(uTexture, vTextureCoord);
   vec3 rgb = centre.a > 0.0 ? centre.rgb / centre.a : centre.rgb;
-  // Grade: punch contrast, cast shadows, pull midtones down so the glow can read.
+  // Grade hard: crush midtones and lift shadows into a cast so the bloom is what you notice, not the photo.
   vec3 graded = clamp((rgb - 0.5) * ${f(contrast)} + 0.5, 0.0, 1.0);
   float light = bright(graded);
   vec3 shadows = ${vec(shadows)};
-  graded = mix(graded * (0.45 + 0.55 * light) + shadows * (1.0 - light) * 0.55, graded, 0.15);
-  graded *= 1.0 - ${f(mid)} * (1.0 - abs(2.0 * light - 1.0) * 0.35);
+  graded = graded * (0.35 + 0.45 * light) + shadows * (1.0 - light) * 0.7;
+  graded *= 1.0 - ${f(mid)} * (0.55 + 0.45 * (1.0 - abs(2.0 * light - 1.0)));
+  graded *= 0.72;
 
   float rows = ${f(radius)};
   float cell = max(uInputSize.y / rows, 1.0);
-  float swell = 1.0 + uBeat * (0.35 + 0.45 * uEnergy);
+  // Beat grows the haze and the strength so the flare is obvious on the hit.
+  float swell = 1.0 + uBeat * (0.7 + 0.9 * uEnergy);
   float reach = cell * swell;
-  float gate = ${f(threshold)} - uBeat * 0.04 * uEnergy;
+  float gate = ${f(threshold)} - uBeat * 0.08 * uEnergy - uEnergy * 0.04;
   float glow = 0.0;
+  float weight = 0.0;
   vec3 glowColour = vec3(0.0);
-  // Two rings of eight taps on a golden-angle spiral (~17 reads with the centre).
+  // Centre hotspot + two rings of eight taps on a golden-angle spiral (~18 reads).
+  {
+    float amount = pow(smoothstep(gate, 1.0, bright(rgb)), 0.75);
+    glow += amount * 1.6;
+    weight += 1.6;
+    glowColour += tintOf(bright(rgb)) * amount * 1.6;
+  }
   for (int i = 0; i < 16; i++) {
     float n = float(i);
-    float ring = 0.45 + 0.55 * floor(n / 8.0);
+    float ring = 0.4 + 0.7 * floor(n / 8.0);
     float angle = n * 2.399963;
     vec2 way = vec2(cos(angle), sin(angle)) * reach * ring * uInputSize.zw;
     vec3 sampleColour = seen(vTextureCoord + way);
-    float amount = smoothstep(gate, 1.0, bright(sampleColour));
-    glow += amount;
-    glowColour += tintOf(bright(sampleColour)) * amount;
+    float amount = pow(smoothstep(gate, 1.0, bright(sampleColour)), 0.75);
+    float w = 1.0 - 0.25 * floor(n / 8.0);
+    glow += amount * w;
+    weight += w;
+    glowColour += tintOf(bright(sampleColour)) * amount * w;
   }
-  glow /= 16.0;
-  glowColour = glow > 0.001 ? glowColour / max(glow * 16.0, 0.001) : tintOf(1.0);
+  glow /= max(weight, 0.001);
+  glowColour = glow > 0.001 ? glowColour / max(glow * weight, 0.001) : tintOf(1.0);
   ${clubCode}
   ${chroma > 0 ? `
   float split = reach * ${f(chroma)} * uInputSize.z;
-  float left = smoothstep(gate, 1.0, bright(seen(vTextureCoord - vec2(split, 0.0))));
-  float right = smoothstep(gate, 1.0, bright(seen(vTextureCoord + vec2(split, 0.0))));
-  glowColour = vec3(glowColour.r * (0.65 + 0.7 * left), glowColour.g, glowColour.b * (0.65 + 0.7 * right));
-  glow = max(glow, max(left, right) * 0.5);
+  float left = pow(smoothstep(gate, 1.0, bright(seen(vTextureCoord - vec2(split, 0.0)))), 0.75);
+  float right = pow(smoothstep(gate, 1.0, bright(seen(vTextureCoord + vec2(split, 0.0)))), 0.75);
+  glowColour = vec3(glowColour.r * (0.55 + 0.9 * left), glowColour.g, glowColour.b * (0.55 + 0.9 * right));
+  glow = max(glow, max(left, right) * 0.65);
   ` : ''}
-  float power = (${f(strength)} + uEnergy * 0.25) * (1.0 + uBeat * (0.35 + 0.4 * uEnergy));
-  vec3 colour = graded + glowColour * glow * power;
-  // Soft clip so a bright picture does not wash the lyrics out.
-  colour = colour / (1.0 + max(colour - vec3(0.85), vec3(0.0)) * 1.4);
+  float power = (${f(strength)} + uEnergy * 0.45) * (1.0 + uBeat * (0.7 + 0.85 * uEnergy));
+  // Screen the tinted bloom over the dark grade so bright parts flare instead of washing flat.
+  vec3 bloom = glowColour * glow * power;
+  vec3 colour = 1.0 - (1.0 - graded) * (1.0 - clamp(bloom, 0.0, 1.0));
+  colour = mix(graded + bloom * 0.85, colour, 0.65);
+  // Soft clip: keep lyrics readable, but let the flare stay hot.
+  colour = colour / (1.0 + max(colour - vec3(0.92), vec3(0.0)) * 0.9);
   finalColor = vec4(clamp(colour, 0.0, 1.0), 1.0) * centre.a;
 }
 `;
