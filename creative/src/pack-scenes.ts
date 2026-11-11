@@ -58,7 +58,7 @@ export function createPackScene(): PackScene {
   }
 
   function updateRiso(input: PackSceneInput) {
-    if (!input.risoPhoto || !input.inks) throw new Error('Riso needs a photo with its cut-out, and its inks.');
+    if (!input.risoPhoto || !input.inks) throw new Error('Riso needs a picture and its inks.');
     if (riso?.photo !== input.risoPhoto || riso.seed !== input.seed) {
       riso?.world.destroy();
       riso = { photo: input.risoPhoto, seed: input.seed, world: createRisoWorld(input.risoPhoto, input.seed) };

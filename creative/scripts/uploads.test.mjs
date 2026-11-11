@@ -175,8 +175,8 @@ test('only JPEGs of a sensible size are accepted, and only for a known row', { s
   assert.deepEqual(await reserveMotion(userId, 'filter', 'application/pdf', 100), { refused: 'format' });
   assert.deepEqual(await reserveMotion(userId, 'filter', 'image/gif', 25_000_001), { refused: 'size' });
   assert.deepEqual(await reserveMotion(userId, 'window', 'image/gif', 25_000_001), { refused: 'size' });
-  assert.deepEqual(await reserveMotion(userId, 'dust', 'video/mp4', 1000), { refused: 'format' }, 'Dust and Riso take photos only');
-  assert.deepEqual(await reserveMotion(userId, 'riso', 'video/mp4', 1000), { refused: 'format' });
+  assert.deepEqual(await reserveMotion(userId, 'dust', 'video/mp4', 1000), { refused: 'format' }, 'Dust takes photos only');
+  assert.ok((await reserveMotion(userId, 'riso', 'video/mp4', 1000)).id, 'Riso also takes a video or GIF');
 }));
 
 test('a video reservation that never arrived gives its room back, by time or when the next picture is added', { skip: !READY, timeout: 60000 }, () => withPerson(async (sql, userId) => {

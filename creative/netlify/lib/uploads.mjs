@@ -6,7 +6,7 @@ import { deleteObject, getObject, objectSize, putObject, signedDownload, signedU
  * A person's own pictures, kept privately in R2. Each row of the shelf (a picture's `use`) keeps at most ONE:
  *
  *   dust    a photo (the browser shrinks it to a JPEG) and a cut-out mask of its subject
- *   riso    the same as dust: a Riso print is a halftone of the person, so it needs her cut-out
+ *   riso    a photo with its cut-out (halftone of the person), or a video or GIF as a whole-frame print (no cut-out)
  *   filter  a photo as it is, or a video or GIF prepared into a small clip with a poster
  *   window  either: a photo gets a cut-out like dust (a person can stand in front of the word), a video or GIF a clip like filter
  *
@@ -25,7 +25,7 @@ export const USES = ['dust', 'filter', 'riso', 'window', 'thermal', 'halftone', 
 /** The rows whose photo is cut out (the subject's mask is made by the worker). */
 const CUTOUT_USES = ['dust', 'riso', 'window', 'depth'];
 /** The rows that also take a video or GIF. */
-export const MOTION_USES = ['filter', 'window', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii'];
+export const MOTION_USES = ['filter', 'window', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'riso'];
 export const MOTION_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'image/gif'];
 
 const PREPARE = 'https://edbns-mumoo-staging--mumoo-prepare-media-staging';
@@ -177,8 +177,9 @@ export async function listUploads(userId) {
 }
 
 /**
- * What a render needs of a ready picture, with the row it is kept for: Dust and Riso take the photo and its cut-out,
- * a Filter takes the photo or the clip, a Window the photo and its cut-out or the clip. Null when it is not ready or not theirs.
+ * What a render needs of a ready picture, with the row it is kept for: Dust (and Riso photos) take the photo and its
+ * cut-out, a Riso clip takes the clip alone, a Filter takes the photo or the clip, a Window the photo and its cut-out
+ * or the clip. Null when it is not ready or not theirs.
  */
 export async function uploadMedia(userId, id) {
   const [row] = await db()`select kind, use from uploads where id = ${id} and user_id = ${userId} and status = 'ready'`;

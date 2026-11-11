@@ -4,8 +4,10 @@ import { shrinkPhoto } from './photo-shrink';
 /** Which row of the shelf a picture is kept for. */
 export type PictureUse = 'dust' | 'filter' | 'riso' | 'window' | 'thermal' | 'halftone' | 'dither' | 'glow' | 'streaks' | 'ascii' | 'depth';
 
-/** Dust, Riso and Depth are made only of a person cut out of a photo, so they take photos and nothing else. (A Window photo is cut out too, but a Window also takes a video or GIF.) */
-export const photoOnly = (use: PictureUse) => use === 'dust' || use === 'riso' || use === 'depth';
+/** Dust and Depth need a cut-out of a person, so they take photos only. Riso still prefers a cut-out photo, but also takes a video or GIF as a whole-frame print (no cut-out). */
+export const photoOnly = (use: PictureUse) => use === 'dust' || use === 'depth';
+/** Rows that, without the person's own picture, are dealt from approved photos that have a cut-out. */
+export const needsCutoutLibrary = (use: PictureUse) => use === 'dust' || use === 'riso' || use === 'depth';
 
 /**
  * A person's own picture, kept privately in their storage (each row keeps one; a new one replaces it).
@@ -39,7 +41,7 @@ const MAX_SECONDS = 60;
 /** What each row's file picker offers. The server enforces the same limits. */
 export const ACCEPT: Record<PictureUse, string> = {
   dust: PHOTO_TYPES.join(','),
-  riso: PHOTO_TYPES.join(','),
+  riso: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
   filter: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
   window: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
   thermal: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
@@ -123,7 +125,7 @@ export async function addUpload(file: File, use: PictureUse, onProgress: (share:
     const photo = await shrinkPhoto(file);
     return pictures(await accountFetch(`/api/uploads?kind=photo&use=${use}`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: photo }));
   }
-  if (photoOnly(use)) throw new Error(`${use === 'dust' ? 'Dust' : use === 'riso' ? 'Riso' : 'Depth'} uses a photo (JPEG, PNG or WebP).`);
+  if (photoOnly(use)) throw new Error(`${use === 'dust' ? 'Dust' : 'Depth'} uses a photo (JPEG, PNG or WebP).`);
   const limit = MOTION_LIMITS[file.type];
   if (!limit) throw new Error('Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.');
   if (file.size > limit) throw new Error(`That ${file.type === 'image/gif' ? 'GIF' : 'video'} is larger than ${limit / 1e6} MB.`);

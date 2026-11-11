@@ -51,6 +51,46 @@ function blur(source: Float32Array, radius: number): Float32Array {
   return pass(pass(source, WIDTH, HEIGHT, WIDTH, 1), HEIGHT, WIDTH, 1, WIDTH);
 }
 
+/**
+ * Whole-frame Riso from a video or GIF frame (option 1: no cut-out). Lightness only; the print covers the
+ * whole page and the lyrics stay visible through it. Writes into `into` when given, so the same texture can be
+ * refreshed every frame without rebuilding the world.
+ */
+export function prepareRisoFrame(image: Picture, into?: RisoPhoto): RisoPhoto {
+  const { pixels } = read(image);
+  const count = WIDTH * HEIGHT;
+  const light = new Float32Array(count);
+  const histogram = new Uint32Array(256);
+  for (let i = 0; i < count; i++) {
+    light[i] = (0.2126 * pixels[i * 4] + 0.7152 * pixels[i * 4 + 1] + 0.0722 * pixels[i * 4 + 2]) / 255;
+    histogram[Math.min(255, Math.max(0, Math.round(light[i] * 255)))]++;
+  }
+  const percentile = (at: number) => {
+    let seen = 0;
+    for (let bin = 0; bin < 256; bin++) {
+      seen += histogram[bin];
+      if (seen >= count * at) return bin / 255;
+    }
+    return 1;
+  };
+  const low = percentile(0.02);
+  const high = Math.max(low + 0.1, percentile(0.98));
+  const canvas = into?.canvas ?? document.createElement('canvas');
+  canvas.width = WIDTH;
+  canvas.height = HEIGHT;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas 2D is unavailable.');
+  const out = ctx.createImageData(WIDTH, HEIGHT);
+  for (let i = 0; i < count; i++) {
+    out.data[i * 4] = Math.round(Math.min(1, Math.max(0, (light[i] - low) / (high - low))) * 255);
+    out.data[i * 4 + 1] = 0;
+    out.data[i * 4 + 2] = 255;
+    out.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(out, 0, 0);
+  return into ?? { canvas };
+}
+
 export function prepareRisoPhoto(image: Picture, cutout: Picture): RisoPhoto {
   const { pixels } = read(image);
   const cut = read(cutout).pixels;

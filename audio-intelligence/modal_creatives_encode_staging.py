@@ -360,8 +360,9 @@ def window_media(opts: dict, media: dict[str, bytes]) -> set[str]:
 def check_media(opts: dict, media: dict[str, bytes]) -> None:
     """Dust and Riso are drawn from an approved photo (`plateId`) and Our photography (style "filter") from that photo (`plateId`, with a live look) or one baked effect on it
     (`effectId`); the page loads either from the site itself. All three can instead be drawn from the person's own picture:
-    Dust and Riso a photo with its cut-out mask, Our photography a photo or a clip. Window has its own rules (`window_media`).
-    Nothing else takes a picture (Spray takes none). Raises ValueError when the media sent is not exactly what the card needs."""
+    Dust a photo with its cut-out mask, Riso a photo with its cut-out or a clip (whole-frame print), Our photography a photo or a clip.
+    Window has its own rules (`window_media`). Nothing else takes a picture (Spray takes none). Raises ValueError when the
+    media sent is not exactly what the card needs."""
     if opts["style"] == "window":
         wanted = window_media(opts, media)
     else:
@@ -381,7 +382,10 @@ def check_media(opts: dict, media: dict[str, bytes]) -> None:
         else:
             approved = {"dust": "plateId", "riso": "plateId"}.get(opts["style"])
             if approved and approved not in named:
-                wanted = {"photo", "cutout"}
+                if opts["style"] == "riso" and "motion" in media:
+                    wanted = {"motion"}
+                else:
+                    wanted = {"photo", "cutout"}
             if named - {approved}:
                 raise ValueError("media")
     if set(media) != wanted:

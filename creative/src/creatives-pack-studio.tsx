@@ -10,7 +10,7 @@ import { PauseIcon, PlayIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RollingButton } from '@/components/ui/rolling-button';
 import { PictureUpload } from './picture-upload';
-import { photoOnly, type PictureUse, type Upload } from './uploads';
+import { needsCutoutLibrary, type PictureUse, type Upload } from './uploads';
 import type { Uploads } from './use-uploads';
 import { useWindowOwn } from './use-window-own';
 import { loadDisplayFonts } from './ad-fonts';
@@ -43,7 +43,7 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   };
 }
 
-/** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust and Riso a photo and its cut-out, Our photography a photo or a clip, Window either (the cut-out is used by the cards that have her in front). */
+/** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust a photo and its cut-out, Riso a photo with cut-out or a clip, Our photography a photo or a clip, Window either (the cut-out is used by the cards that have her in front). */
 type Picture = Pick<PackRendererOpts, 'photoUrl' | 'cutoutUrl' | 'motionUrl' | 'motionShots'>;
 
 function drawingFrom(upload: Pick<Upload, 'url' | 'cutoutUrl' | 'motionUrl' | 'shots'> | null): Picture | undefined {
@@ -180,12 +180,12 @@ export function CreativesPackStudio({
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
     // Made of the lyrics, and there are none: nothing is dealt, drawn or paid for.
     if (noLyrics && def.lyrics === 'always') return [def.id, { slots: [], note: '' }];
-    // Dust and Riso are made from approved photos that have a cut-out; Our photography needs no photo of ours, its looks are baked.
-    if (def.upload && photoOnly(def.upload) && !pictures[def.upload]) {
+    // Dust, Riso and Depth are dealt from approved photos that have a cut-out (Riso may also use the person's own video).
+    if (def.upload && needsCutoutLibrary(def.upload) && !pictures[def.upload]) {
       if (plates === null || library === null) {
         return [def.id, { slots: [], note: '' }];
       } else if (!plates.some(plate => plate.cutout) && !libraryCutouts) {
-        return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? 'We have no approved photos for this yet. Sign in (top right) to use your own.' : `We have no approved photos for this yet. Upload one photo to see ${def.title} made from it.` }];
+        return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? 'We have no approved photos for this yet. Sign in (top right) to use your own.' : `We have no approved photos for this yet. Upload one photo${def.upload === 'riso' ? ', video or GIF' : ''} to see ${def.title} made from it.` }];
       }
     }
     // Our photography is dealt once it knows what our library holds and which approved photo it may draw a look on.

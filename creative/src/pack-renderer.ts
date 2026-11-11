@@ -24,7 +24,7 @@ import { loadMotion, type Motion } from './pack-motion';
 import { planCuts, sourceMsAt, type Cut, type Shot } from './pack-cuts';
 import { plateCutoutUrl, plateUrl } from './punch-plates';
 import { risoInkSetById } from './riso-look';
-import { prepareRisoPhoto, type RisoPhoto } from './riso-photo';
+import { prepareRisoFrame, prepareRisoPhoto, type RisoPhoto } from './riso-photo';
 import { sprayPaletteById } from './spray-look';
 import { WINDOW_PALETTE_IDS } from './window-look';
 import type { WindowMode } from './window-deal';
@@ -48,7 +48,7 @@ export type PackRendererOpts = {
   plateId?: string;
   /** Our photography and Window: one baked effect on our approved photo, found the same way. */
   effectId?: string;
-  /** Or the person's own picture, which replaces ours. Dust and Riso: a photo with its cut-out mask. Our photography: a photo, or a clip (a video or GIF) drawn plain. Window: a photo with its cut-out (used only when the card has her in front), or a clip drawn plain. */
+  /** Or the person's own picture, which replaces ours. Dust: a photo with its cut-out mask. Riso: a photo with its cut-out, or a clip printed whole-frame. Our photography: a photo, or a clip drawn plain. Window: a photo with its cut-out (used only when the card has her in front), or a clip drawn plain. */
   photoUrl?: string;
   cutoutUrl?: string;
   motionUrl?: string;
@@ -263,10 +263,12 @@ export async function createPackRenderer(
         if (style === 'spray' && !current.sprayPalette) throw new Error('Spray needs a wall and paints.');
         if (style === 'doodle' && !(current.doodleId && current.doodlePaper && current.doodleMood)) throw new Error('Doodle needs a singer, a paper and a mood.');
         // Window brings her cut-out only for a card with her in front; a plain card of the same photo does not read it.
-        // Depth live looks need the cut-out as a near layer (same media path as Dust / Riso).
+        // Depth live looks need the cut-out as a near layer (same media path as Dust / Riso photos).
+        // Riso on a clip is whole-frame: no cut-out.
         const depthLook = Boolean(current.look && isDepth(current.look));
-        const cutOut = style === 'dust' || style === 'riso' || windowMode === 'person' || (ownBackdrop && depthLook);
-        const ownPicture = cutOut || ownBackdrop || windowOwn;
+        const risoMotion = style === 'riso' && Boolean(current.motionUrl);
+        const cutOut = style === 'dust' || (style === 'riso' && !risoMotion) || windowMode === 'person' || (ownBackdrop && depthLook);
+        const ownPicture = cutOut || ownBackdrop || windowOwn || risoMotion;
         // Our photography can also draw our approved photo itself (with a live look on it).
         const photoUrl = (cutOut || windowOwn || style === 'filter') && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
         const cutoutUrl = cutOut ? (current.plateId ? plateCutoutUrl(current.plateId) : current.cutoutUrl) : undefined;
@@ -323,15 +325,27 @@ export async function createPackRenderer(
             dustKey = key;
           }
         }
-        // Riso: the photo is read into one light-and-silhouette map once, then every frame is a function of the clock.
+        // Riso photo: read into one light-and-silhouette map once. Riso clip: refresh a whole-frame lightness map each frame.
         if (style === 'riso') {
-          const picture = photoTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
-          const mask = cutoutTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
-          if (!picture || !mask) throw new Error('Riso needs a photo and its cut-out.');
-          const key = `${photoUrl}|${cutoutUrl}`;
-          if (risoKey !== key || !risoPhoto) {
-            risoPhoto = prepareRisoPhoto(picture, mask);
-            risoKey = key;
+          if (risoMotion) {
+            const frame = motion?.texture.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
+            if (!frame) throw new Error('Riso needs a video or GIF.');
+            const key = `${motionUrlLoaded}|motion`;
+            if (risoKey !== key || !risoPhoto) {
+              risoPhoto = prepareRisoFrame(frame);
+              risoKey = key;
+            } else {
+              prepareRisoFrame(frame, risoPhoto);
+            }
+          } else {
+            const picture = photoTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
+            const mask = cutoutTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
+            if (!picture || !mask) throw new Error('Riso needs a photo and its cut-out.');
+            const key = `${photoUrl}|${cutoutUrl}`;
+            if (risoKey !== key || !risoPhoto) {
+              risoPhoto = prepareRisoPhoto(picture, mask);
+              risoKey = key;
+            }
           }
         }
         if (ownBackdrop && !photoTexture && !motion) throw new Error('Our photography needs an effect or a picture.');

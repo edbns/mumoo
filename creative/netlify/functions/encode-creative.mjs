@@ -55,7 +55,7 @@ export default async function encodeCreative(request) {
       if (upload !== undefined) return error(400, 'Choose one picture.');
       if (!UUID.test(library)) return error(400, 'Invalid picture.');
       const style = scene.opts?.style;
-      // Our photography draws a library picture or video; Riso and Dust a library photo with its cut-out; Window either a photo with its cut-out or a clip.
+      // Our photography draws a library picture or video; Dust (and Riso photos) a library photo with its cut-out; Window either a photo with its cut-out or a clip.
       if (!['filter', 'riso', 'dust', 'window'].includes(style)) return error(400, 'That picture is kept for a different style.');
       const media = await libraryMedia(library);
       if (!media) return error(404, 'That picture is no longer in the library.');

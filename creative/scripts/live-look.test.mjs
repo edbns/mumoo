@@ -377,6 +377,15 @@ print(json.dumps(answers))
     [{ ...filter, effectId: 'tropical-ascii-cam-1' }, true],
     [{ ...filter }, false, ['photo', 'motion']],
   ];
+  const riso = { style: 'riso', font: 'Anton', fontSecondary: 'Anton', layout: { rotate: 0, scaleBias: 1, cut: 0, seed: 3 }, cues: [], fallbackText: '', inkSet: 'pink-blue' };
+  cases.push(
+    [{ ...riso, plateId: 'burnnet-woman-1547507-1920' }, true],
+    [{ ...riso }, true, ['photo', 'cutout']],
+    [{ ...riso }, true, ['motion']],
+    [{ ...riso }, false, ['photo']],
+    [{ ...riso }, false, ['photo', 'motion']],
+    [{ ...riso }, false, ['cutout']],
+  );
   const run = spawnSync('python3', ['-c', program], { input: JSON.stringify(cases.map(([opts, , media = []]) => ({ opts, media }))), encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(JSON.parse(run.stdout), cases.map(([, accepted]) => accepted));

@@ -20,7 +20,7 @@ const pictures = async (status, userId) => reply(status, { uploads: await entrie
  * Your own pictures: at most one for each row of the shelf, and a new one replaces the old.
  *   GET    lists them (a picture still being prepared is settled first)
  *   POST   ?kind=photo&use=dust|filter|riso|window|thermal|halftone|dither|glow|streaks  a JPEG body (Dust, Riso and Window have its subject cut out)
- *   POST   ?kind=motion JSON {use, type, bytes}: reserves room (Filters and Window only), returns {id, putUrl} to send the video or GIF to
+ *   POST   ?kind=motion JSON {use, type, bytes}: reserves room (Filters, Window, Riso, …), returns {id, putUrl} to send the video or GIF to
  *   PUT    ?id=…        the video or GIF has been sent: start preparing it
  *   DELETE ?id=…        removes it and everything made from it
  *   DELETE ?except=a,b  removes every picture but those (a new run starts clean; the ones a cart still uses stay). `except=` alone removes all.

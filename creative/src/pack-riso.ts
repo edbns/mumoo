@@ -377,6 +377,8 @@ export function createRisoWorld(photo: RisoPhoto | null, seed: number): RisoWorl
   return {
     root,
     update(input) {
+      // A video Riso rewrites the same canvas each frame; push it to the GPU.
+      tone?.source.update();
       const downbeats = input.downbeatsMs ?? [];
       const offsets = input.inks.map((_, ink) => misregistration(seed, ink, input.ms, input.beatsMs, downbeats));
       if (cuesSeen !== input.cues || downbeatsSeen !== input.downbeatsMs) {
