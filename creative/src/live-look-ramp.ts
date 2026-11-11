@@ -7,9 +7,9 @@ import type { DitherLookId, GlowLookId, HalftoneLookId, HeatLookId, LiveLookId, 
 import { DITHER_STYLES, ditherAverage } from './dither-styles';
 import { GLOW_STYLES, glowAverage } from './glow-styles';
 import { HALFTONE_STYLES, halftoneAverage, screenCover } from './halftone-styles';
-import { STREAKS_STYLES, streaksAverage } from './streaks-styles';
+import { STREAKS_STYLES, streaksAverage, streaksGeometry } from './streaks-styles';
 
-export { DITHER_STYLES, GLOW_STYLES, HALFTONE_STYLES, STREAKS_STYLES };
+export { DITHER_STYLES, GLOW_STYLES, HALFTONE_STYLES, STREAKS_STYLES, streaksGeometry };
 
 type Stops = readonly (readonly [number, number, number])[];
 

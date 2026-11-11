@@ -428,11 +428,12 @@ const streaksSource = (id: StreaksLookId) => {
   const radial = style.direction === 'radial';
   const angle0 = typeof style.direction === 'number' ? (style.direction * Math.PI) / 180 : 0;
   const second = style.second !== undefined ? (style.second * Math.PI) / 180 : null;
-  // Primary direction: 16 taps; optional second: 8 taps (24 reads total with centre).
-  const tapsMain = second === null ? 20 : 14;
-  const tapsSecond = second === null ? 0 : 8;
+  // Dense bidirectional taps for a continuous beam (not ghosted copies). Stay under ~24 reads.
+  const tapsMain = second === null ? 11 : 7;
+  const tapsSecond = second === null ? 0 : 4;
 
-  const streakAlong = (label: string, taps: number, angleExpr: string) => `
+  // Peak-weighted directional bleed: a bright speck paints a continuous tinted beam, not discrete ghosts.
+  const streakAlong = (label: string, taps: number, angleExpr: string, bothWays: boolean) => `
   {
     vec2 dir = ${angleExpr};
     float streak = 0.0;
@@ -440,32 +441,42 @@ const streaksSource = (id: StreaksLookId) => {
     float wsum = 0.0;
     for (int i = 1; i <= ${taps}; i++) {
       float t = float(i) / float(${taps});
-      float w = pow(${f(falloff)}, float(i));
-      vec2 way = dir * span * t;
-      ${style.edge
-    ? `vec2 edgeUv = clamp(vTextureCoord + way, 0.0, 1.0);
-      float edge = max(1.0 - min(edgeUv.x, edgeUv.y) * 4.0, 0.0);
-      vec3 sampleColour = seen(edgeUv);
-      float amount = edge * (0.35 + 0.65 * smoothstep(gate * 0.5, 1.0, bright(sampleColour)));`
-    : `vec3 sampleColour = seen(vTextureCoord + way);
-      float amount = smoothstep(gate, 1.0, bright(sampleColour));
-      amount = max(amount, smoothstep(hot, 1.0, bright(sampleColour)) * 0.85);`}
-      vec3 tint = tintOf(bright(sampleColour));
-      ${style.prism ? `
-      // Channel split without extra reads: stagger R/B along the streak by tap.
-      float shift = (float(i) / float(${taps}) - 0.5) * 0.55;
-      tint = vec3(tint.r * (1.0 + shift), tint.g, tint.b * (1.0 - shift));
-      ` : ''}
-      colour += tint * amount * w;
-      streak += amount * w;
-      wsum += w;
+      float w = exp(-2.4 * t) * ${f(falloff)};
+      for (int side = 0; side < ${bothWays ? 2 : 1}; side++) {
+        float sign = side == 0 ? 1.0 : -1.0;
+        vec2 way = dir * span * t * sign;
+        vec3 sampleColour = seen(vTextureCoord + way);
+        float amount = max(smoothstep(gate, 1.0, bright(sampleColour)), smoothstep(hot, 1.0, bright(sampleColour)));
+        ${style.edge ? `
+        float edgeHere = max(max(1.0 - vTextureCoord.x * 3.2, 1.0 - vTextureCoord.y * 3.2), 0.0);
+        amount = max(amount * 0.25, edgeHere * (0.65 + 0.35 * amount));
+        ` : ''}
+        vec3 tint = tintOf(bright(sampleColour));
+        ${style.prism ? `
+        float shift = (t - 0.5) * 0.9 * sign;
+        tint = vec3(tint.r * (1.0 + shift), tint.g, tint.b * (1.0 - shift));
+        ` : ''}
+        colour += tint * amount * w;
+        streak = max(streak, amount * w);
+        wsum += amount * w;
+      }
     }
-    ${label} = streak / max(wsum, 0.001);
-    ${label}Colour = ${label} > 0.001 ? colour / max(streak, 0.001) : tintOf(1.0);
+    {
+      float amount = max(smoothstep(gate, 1.0, bright(rgb)), smoothstep(hot, 1.0, bright(rgb)));
+      ${style.edge ? `
+      float edgeHere = max(max(1.0 - vTextureCoord.x * 3.2, 1.0 - vTextureCoord.y * 3.2), 0.0);
+      amount = max(amount * 0.25, edgeHere * (0.7 + 0.3 * amount));
+      ` : ''}
+      colour += tintOf(bright(rgb)) * amount * 2.2;
+      streak = max(streak, amount * 2.2);
+      wsum += amount * 2.2;
+    }
+    ${label} = max(streak, wsum * 0.35);
+    ${label}Colour = wsum > 0.001 ? colour / max(wsum, 0.001) : tintOf(1.0);
   }`;
 
   const dirExpr = radial
-    ? `normalize(vTextureCoord - vec2(0.5))`
+    ? `normalize(vTextureCoord - vec2(0.5) + vec2(0.0001))`
     : `vec2(cos(${f(angle0)} + drift), sin(${f(angle0)} + drift))`;
   const secondDir = second === null ? '' : `vec2(cos(${f(second)} + drift * 0.6), sin(${f(second)} + drift * 0.6))`;
 
@@ -494,37 +505,42 @@ ${tintCode}
 void main(void) {
   vec4 centre = texture(uTexture, vTextureCoord);
   vec3 rgb = centre.a > 0.0 ? centre.rgb / centre.a : centre.rgb;
+  // Crush the photo so the tinted trails are the look, not a light filter on the original.
   vec3 graded = clamp((rgb - 0.5) * ${f(contrast)} + 0.5, 0.0, 1.0);
   float light = bright(graded);
   vec3 shadows = ${vec(shadows)};
-  graded = graded * (0.4 + 0.5 * light) + shadows * (1.0 - light) * 0.6;
-  graded *= 1.0 - ${f(mid)} * (0.45 + 0.4 * (1.0 - abs(2.0 * light - 1.0)));
-  graded *= 0.82;
+  graded = graded * (0.28 + 0.35 * light) + shadows * (1.0 - light) * 0.75;
+  graded *= 1.0 - ${f(mid)} * (0.55 + 0.45 * (1.0 - abs(2.0 * light - 1.0)));
+  graded *= 0.55;
 
-  float span = ${f(length)} * uInputSize.x * (1.0 + uBeat * (0.5 + 0.5 * uEnergy)) * uInputSize.z;
-  float drift = sin(uTime * 0.35) * 0.0523599 * (0.25 + 0.75 * uEnergy);
-  float gate = min(${f(threshold)}, mix(uHigh, uLow, 0.15) - 0.02);
-  gate = gate - uBeat * 0.05 * uEnergy;
-  float hot = max(gate, mix(uLow, uHigh, 0.85));
+  float span = ${f(length)} * uInputSize.x * (1.0 + uBeat * (0.85 + 1.0 * uEnergy)) * uInputSize.z;
+  float drift = sin(uTime * 0.4) * 0.0523599 * (0.35 + 0.65 * uEnergy);
+  // Gate off the picture's own range so a bright photo still has dark body and hot trails, not a white wash.
+  float gate = mix(uLow, uHigh, clamp(${f(threshold)} + 0.25, 0.4, 0.78));
+  gate = max(mix(uLow, uHigh, 0.38), gate - uBeat * 0.12 * uEnergy - uEnergy * 0.05);
+  float hot = mix(uLow, uHigh, 0.84);
 
   float mainStreak = 0.0;
   vec3 mainStreakColour = tintOf(1.0);
-  ${streakAlong('mainStreak', tapsMain, dirExpr)}
+  ${streakAlong('mainStreak', tapsMain, dirExpr, true)}
   ${second === null ? '' : `
   float sideStreak = 0.0;
   vec3 sideStreakColour = tintOf(1.0);
-  ${streakAlong('sideStreak', tapsSecond, secondDir)}
-  mainStreak = max(mainStreak, sideStreak * 0.85);
-  mainStreakColour = mix(mainStreakColour, sideStreakColour, clamp(sideStreak / max(mainStreak, 0.001), 0.0, 0.6));
+  ${streakAlong('sideStreak', tapsSecond, secondDir, true)}
+  mainStreak = mainStreak + sideStreak * 0.95;
+  mainStreakColour = mix(mainStreakColour, sideStreakColour, clamp(sideStreak / max(mainStreak, 0.001), 0.0, 0.75));
   `}
 
-  float power = (${f(strength)} + uEnergy * 0.35) * (1.0 + uBeat * (0.45 + 0.55 * uEnergy));
-  vec3 bloom = mainStreakColour * mainStreak * power;
-  // Keep the lyric band from going white: soften near the vertical centre band.
-  float lyricSafe = 1.0 - smoothstep(0.32, 0.5, abs(vTextureCoord.y - 0.42)) * 0.35;
+  // Accumulated streak can be >> 1; keep power hot so trails read as the filter.
+  float power = (${f(strength)} + uEnergy * 0.7) * (1.0 + uBeat * (0.9 + 1.1 * uEnergy));
+  vec3 bloom = mainStreakColour * clamp(mainStreak, 0.0, 3.8) * power * 0.7;
+  // Soft-clip bloom while keeping the tint (so blue stays blue, not white wash).
+  bloom = bloom / (1.0 + bloom * 0.45);
+  float lyricSafe = 1.0 - smoothstep(0.34, 0.48, abs(vTextureCoord.y - 0.42)) * 0.12;
   bloom *= lyricSafe;
-  vec3 colour = graded + bloom;
-  colour = colour / (1.0 + max(colour - vec3(0.9), vec3(0.0)) * 1.1);
+  vec3 screened = 1.0 - (1.0 - graded) * (1.0 - clamp(bloom, 0.0, 1.0));
+  vec3 colour = mix(graded + bloom, screened, 0.8);
+  colour = colour / (1.0 + max(colour - vec3(0.9), vec3(0.0)) * 0.75);
   finalColor = vec4(clamp(colour, 0.0, 1.0), 1.0) * centre.a;
 }
 `;

@@ -114,20 +114,20 @@ export const LIVE_LOOKS = [
   { id: 'streakblue', family: 'streaks', title: 'Anamorphic blue', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   { id: 'streakamber', family: 'streaks', title: 'Warm amber', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   { id: 'streakteal', family: 'streaks', title: 'Teal and orange', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakmagenta', family: 'streaks', title: 'Magenta', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'streakwhite', family: 'streaks', title: 'White streak', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'streakmagenta', family: 'streaks', title: 'Magenta', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'streakwhite', family: 'streaks', title: 'White streak', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   { id: 'streakred', family: 'streaks', title: 'Red laser', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'streakgreen', family: 'streaks', title: 'Green', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'streakgold', family: 'streaks', title: 'Gold diagonal', lanes: ['quiet', 'dark', 'party', 'general'] },
+  { id: 'streakgreen', family: 'streaks', title: 'Green', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'streakgold', family: 'streaks', title: 'Gold diagonal', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   { id: 'streakcyan', family: 'streaks', title: 'Cyan', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   { id: 'streakviolet', family: 'streaks', title: 'Violet', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakprism', family: 'streaks', title: 'Prism', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'streakprism', family: 'streaks', title: 'Prism', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   { id: 'streaksunset', family: 'streaks', title: 'Sunset', lanes: ['quiet', 'party', 'general'] },
   { id: 'streakice', family: 'streaks', title: 'Ice', lanes: ['quiet', 'dark', 'techno', 'general'] },
-  { id: 'streakburn', family: 'streaks', title: 'Film burn', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'streakrain', family: 'streaks', title: 'Rain', lanes: ['techno', 'party', 'general'] },
-  { id: 'streakzoom', family: 'streaks', title: 'Zoom pulse', lanes: ['techno', 'party', 'general'] },
-  { id: 'streakspeed', family: 'streaks', title: 'Speed lines', lanes: ['techno', 'party', 'general'] },
+  { id: 'streakburn', family: 'streaks', title: 'Film burn', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'streakrain', family: 'streaks', title: 'Rain', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'streakzoom', family: 'streaks', title: 'Zoom pulse', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'streakspeed', family: 'streaks', title: 'Speed lines', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
 ] as const satisfies readonly { id: string; family: LookFamily; title: string; lanes: readonly MoodLane[] }[];
 
 export type LiveLookId = (typeof LIVE_LOOKS)[number]['id'];
@@ -159,10 +159,35 @@ const shuffled = <T>(items: readonly T[], seed: string, salt: string, key: (item
   items.map(item => ({ item, order: hash(seed, `${salt}:${key(item)}`, 1_000_000) })).sort((a, b) => a.order - b.order).map(entry => entry.item);
 
 /**
+ * Streak geometry tags (mirrored from streaks-styles) so a row prefers four different filters —
+ * not four horizontal colourings that read as the same look.
+ */
+const STREAK_GEOMETRY: Record<StreaksLookId, string> = {
+  streakblue: 'horizontal',
+  streakamber: 'horizontal',
+  streakteal: 'cross',
+  streakmagenta: 'diagonal',
+  streakwhite: 'horizontal',
+  streakred: 'horizontal',
+  streakgreen: 'vertical',
+  streakgold: 'diagonal',
+  streakcyan: 'diagonal',
+  streakviolet: 'diagonal',
+  streakprism: 'cross',
+  streaksunset: 'diagonal',
+  streakice: 'horizontal',
+  streakburn: 'edge',
+  streakrain: 'vertical',
+  streakzoom: 'radial',
+  streakspeed: 'cross',
+};
+
+/**
  * The look of each of `count` cards of a family's row: every card carries one a lane welcomes (a card that shows its picture as it is looks like a look that did not work),
  * and neighbouring cards never carry the same, so a row is never one look four times. With three looks and four cards one look comes twice, never side by side.
  * The seed (the song and the row's Refresh count) decides the order, so Refresh deals new ones. A lane no look of the family welcomes deals none (the row is then left out);
  * a lane that welcomes only one look gets it on one card and the others show the picture as it is, rather than that look four times.
+ * Streaks also prefer a different geometry on each card (horizontal / diagonal / vertical / cross / radial / edge) so the filter itself does not duplicate.
  */
 export function dealLooks(lane: MoodLane, seed: string, count: number, family: LookFamily): (LiveLookId | null)[] {
   const welcome = LIVE_LOOKS.filter(look => look.family === family && (look.lanes as readonly MoodLane[]).includes(lane));
@@ -173,5 +198,22 @@ export function dealLooks(lane: MoodLane, seed: string, count: number, family: L
     return Array.from({ length: count }, (_, index) => (index === place ? order[0] : null));
   }
   const start = hash(seed, 'start', order.length);
-  return Array.from({ length: count }, (_, index) => order[(start + index) % order.length]);
+  const rotated = order.slice(start).concat(order.slice(0, start));
+  if (family !== 'streaks') {
+    return Array.from({ length: count }, (_, index) => rotated[index % rotated.length]);
+  }
+  const picked: LiveLookId[] = [];
+  const used = new Set<string>();
+  const pool = [...rotated];
+  while (picked.length < count && pool.length) {
+    let index = pool.findIndex(id => !used.has(STREAK_GEOMETRY[id as StreaksLookId]));
+    if (index < 0) {
+      used.clear();
+      index = 0;
+    }
+    const id = pool.splice(index, 1)[0]!;
+    picked.push(id);
+    used.add(STREAK_GEOMETRY[id as StreaksLookId]);
+  }
+  return picked;
 }

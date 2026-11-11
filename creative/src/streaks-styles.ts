@@ -4,6 +4,8 @@
  *
  * A colouring grades the picture, then drags its bright parts into tinted lines (anamorphic, rain, radial, edge leaks). One effect, as many colourings as
  * we care to write down: a new colouring is one entry here, an id in `live-look-deal.ts`, a builder in `live-look.ts` and an id in the worker.
+ *
+ * Every colouring has a different direction / shape so a row of four never reads as the same filter with a different tint.
  */
 import type { StreaksLookId } from './live-look-deal';
 
@@ -31,60 +33,79 @@ export type StreaksStyle = {
   edge?: boolean;
 };
 
+/** Hard anamorphic defaults: long hot trails over a crushed picture so each colouring is obvious. */
 const anamorphic = (tint: Rgb | readonly [Rgb, Rgb], extra: Partial<StreaksStyle> = {}): StreaksStyle => ({
-  direction: 0, length: 0.42, threshold: 0.48, strength: 1.35, falloff: 0.8,
-  tint, grade: { shadows: [0.02, 0.02, 0.06], contrast: 1.28, mid: 0.34 },
+  direction: 0, length: 0.92, threshold: 0.2, strength: 3.8, falloff: 0.92,
+  tint, grade: { shadows: [0.01, 0.01, 0.05], contrast: 1.5, mid: 0.58 },
   ...extra,
 });
 
 export const STREAKS_STYLES: Record<StreaksLookId, StreaksStyle> = {
-  /** Classic anamorphic blue. */
-  streakblue: anamorphic([0.35, 0.7, 1.0]),
-  /** Warm amber. */
-  streakamber: anamorphic([1.0, 0.62, 0.18], { grade: { shadows: [0.05, 0.02, 0.01], contrast: 1.25, mid: 0.32 } }),
-  /** Teal and orange. */
-  streakteal: anamorphic([[0.1, 0.75, 0.7], [1.0, 0.45, 0.12]] as const, { second: 12, length: 0.4 }),
-  /** Magenta. */
-  streakmagenta: anamorphic([1.0, 0.15, 0.7]),
-  /** White. */
-  streakwhite: anamorphic([1.0, 1.0, 1.0], { strength: 1.15, threshold: 0.52 }),
-  /** Red laser. */
-  streakred: anamorphic([1.0, 0.08, 0.12], { length: 0.48, strength: 1.5 }),
-  /** Green. */
-  streakgreen: anamorphic([0.25, 1.0, 0.35]),
-  /** Gold, diagonal. */
-  streakgold: anamorphic([1.0, 0.78, 0.25], { direction: 28, grade: { shadows: [0.05, 0.03, 0.01], contrast: 1.25, mid: 0.32 } }),
-  /** Cyan. */
-  streakcyan: anamorphic([0.15, 0.95, 1.0]),
-  /** Violet, diagonal. */
-  streakviolet: anamorphic([0.65, 0.25, 1.0], { direction: -22 }),
-  /** Prism: channels streaked differently. */
-  streakprism: anamorphic([[1.0, 0.25, 0.4], [0.2, 0.85, 1.0]] as const, { prism: true, length: 0.45, strength: 1.4 }),
-  /** Sunset. */
-  streaksunset: anamorphic([[0.95, 0.25, 0.35], [1.0, 0.75, 0.25]] as const, { direction: 18, length: 0.4 }),
-  /** Ice. */
-  streakice: anamorphic([0.65, 0.88, 1.0], { threshold: 0.45, grade: { shadows: [0.03, 0.06, 0.12], contrast: 1.22, mid: 0.3 } }),
+  /** Classic anamorphic blue — dead horizontal. */
+  streakblue: anamorphic([0.15, 0.55, 1.0]),
+  /** Warm amber — slight upward tilt so it never reads as blue. */
+  streakamber: anamorphic([1.0, 0.48, 0.05], {
+    direction: 8,
+    grade: { shadows: [0.06, 0.02, 0.0], contrast: 1.45, mid: 0.52 },
+  }),
+  /** Teal and orange crossed. */
+  streakteal: anamorphic([[0.0, 0.85, 0.8], [1.0, 0.35, 0.05]] as const, {
+    direction: -6, second: 78, length: 0.82, strength: 3.5,
+  }),
+  /** Magenta — steep diagonal. */
+  streakmagenta: anamorphic([1.0, 0.05, 0.72], { direction: 52, length: 0.9, strength: 3.6 }),
+  /** White — long flat flare, cooler grade. */
+  streakwhite: anamorphic([1.0, 1.0, 1.0], {
+    direction: 0, length: 0.95, strength: 3.1, threshold: 0.26,
+    grade: { shadows: [0.0, 0.0, 0.04], contrast: 1.55, mid: 0.6 },
+  }),
+  /** Red laser — long horizontal, hot. */
+  streakred: anamorphic([1.0, 0.02, 0.05], { direction: 0, length: 0.95, strength: 3.8 }),
+  /** Green — vertical so it cannot twin a horizontal. */
+  streakgreen: anamorphic([0.1, 1.0, 0.2], { direction: 90, length: 0.9, strength: 3.5 }),
+  /** Gold — shallow diagonal. */
+  streakgold: anamorphic([1.0, 0.72, 0.1], {
+    direction: 28, length: 0.88, strength: 3.45,
+    grade: { shadows: [0.06, 0.03, 0.0], contrast: 1.42, mid: 0.52 },
+  }),
+  /** Cyan — opposite shallow diagonal. */
+  streakcyan: anamorphic([0.0, 0.95, 1.0], { direction: -18, length: 0.9, strength: 3.55 }),
+  /** Violet — steep opposite diagonal. */
+  streakviolet: anamorphic([0.65, 0.1, 1.0], { direction: -48, length: 0.9, strength: 3.5 }),
+  /** Prism: channels streaked differently, crossed. */
+  streakprism: anamorphic([[1.0, 0.12, 0.3], [0.05, 0.85, 1.0]] as const, {
+    prism: true, direction: 12, second: -55, length: 0.85, strength: 3.6,
+  }),
+  /** Sunset — warm dual tint, mild uphill. */
+  streaksunset: anamorphic([[1.0, 0.15, 0.25], [1.0, 0.7, 0.1]] as const, {
+    direction: 22, length: 0.88, strength: 3.45,
+  }),
+  /** Ice — cold horizontal with blue shadows. */
+  streakice: anamorphic([0.45, 0.8, 1.0], {
+    direction: 0, length: 0.92, threshold: 0.2, strength: 3.35,
+    grade: { shadows: [0.01, 0.05, 0.14], contrast: 1.45, mid: 0.52 },
+  }),
   /** Film burn: orange-red leaks from the edges. */
   streakburn: {
-    direction: 0, second: 90, length: 0.55, threshold: 0.35, strength: 1.55, falloff: 0.72,
-    tint: [[1.0, 0.2, 0.05], [1.0, 0.55, 0.15]] as const,
-    grade: { shadows: [0.04, 0.01, 0.0], contrast: 1.3, mid: 0.38 },
+    direction: 0, second: 90, length: 0.7, threshold: 0.2, strength: 2.8, falloff: 0.8,
+    tint: [[1.0, 0.08, 0.0], [1.0, 0.45, 0.05]] as const,
+    grade: { shadows: [0.05, 0.01, 0.0], contrast: 1.5, mid: 0.58 },
     edge: true,
   },
   /** Rain: vertical blue-white. */
-  streakrain: anamorphic([0.7, 0.88, 1.0], {
-    direction: 90, length: 0.55, falloff: 0.78, strength: 1.25, threshold: 0.42,
-    grade: { shadows: [0.02, 0.04, 0.1], contrast: 1.25, mid: 0.36 },
+  streakrain: anamorphic([0.45, 0.75, 1.0], {
+    direction: 90, length: 0.98, falloff: 0.93, strength: 4.0, threshold: 0.16,
+    grade: { shadows: [0.01, 0.03, 0.12], contrast: 1.5, mid: 0.58 },
   }),
   /** Zoom pulse: radial from the centre. */
-  streakzoom: anamorphic([1.0, 0.9, 0.85], {
-    direction: 'radial', length: 0.4, strength: 1.4, threshold: 0.46,
-    grade: { shadows: [0.03, 0.02, 0.05], contrast: 1.32, mid: 0.4 },
+  streakzoom: anamorphic([1.0, 0.72, 0.45], {
+    direction: 'radial', length: 0.42, strength: 3.6, threshold: 0.17, falloff: 0.88,
+    grade: { shadows: [0.03, 0.01, 0.02], contrast: 1.55, mid: 0.6 },
   }),
-  /** Speed lines: steep diagonal. */
-  streakspeed: anamorphic([1.0, 0.95, 0.85], {
-    direction: -38, second: 142, length: 0.5, strength: 1.35, falloff: 0.76,
-    grade: { shadows: [0.02, 0.02, 0.04], contrast: 1.3, mid: 0.38 },
+  /** Speed lines: steep crossed diagonals. */
+  streakspeed: anamorphic([1.0, 0.95, 0.82], {
+    direction: -38, second: 142, length: 0.92, strength: 3.5, falloff: 0.87,
+    grade: { shadows: [0.01, 0.01, 0.03], contrast: 1.48, mid: 0.55 },
   }),
 };
 
@@ -96,9 +117,9 @@ export function streaksGrade(style: StreaksStyle, r: number, g: number, b: numbe
   const { shadows, contrast = 1.25, mid = 0.32 } = style.grade;
   const rgb = [r, g, b].map(value => clamp(((value / 255) - 0.5) * contrast + 0.5));
   const light = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-  const shadowed = rgb.map((channel, i) => channel * (0.4 + 0.5 * light) + shadows[i] * (1 - light) * 0.6);
-  const pulled = shadowed.map(channel => channel * (1 - mid * (0.45 + 0.4 * (1 - Math.abs(2 * light - 1)))));
-  return pulled.map(channel => clamp(channel * 0.82)) as [number, number, number];
+  const shadowed = rgb.map((channel, i) => channel * (0.3 + 0.4 * light) + shadows[i] * (1 - light) * 0.7);
+  const pulled = shadowed.map(channel => channel * (1 - mid * (0.55 + 0.45 * (1 - Math.abs(2 * light - 1)))));
+  return pulled.map(channel => clamp(channel * 0.62)) as [number, number, number];
 }
 
 export function streaksTint(style: StreaksStyle, brightness: number): Rgb {
@@ -120,7 +141,19 @@ export function streaksAverage(look: StreaksLookId, r: number, g: number, b: num
   const threshold = style.threshold ?? 0.55;
   const amount = clamp((light - threshold) / Math.max(1e-3, 1 - threshold));
   const fallback = light > 0.85 ? (light - 0.85) / 0.15 : 0;
-  const glow = Math.max(amount, fallback) * Math.max(amount, fallback) * (style.strength ?? 1.15) * 0.55;
+  const glow = Math.pow(Math.max(amount, fallback), 0.8) * (style.strength ?? 3.2) * 0.85;
   const tint = streaksTint(style, light);
   return [0, 1, 2].map(i => softClip(base[i] + tint[i] * glow) * 255) as [number, number, number];
+}
+
+/** Geometry bucket so a dealt row can avoid four near-identical filters. */
+export function streaksGeometry(look: StreaksLookId): string {
+  const style = STREAKS_STYLES[look];
+  if (style.edge) return 'edge';
+  if (style.direction === 'radial') return 'radial';
+  if (style.prism || style.second !== undefined) return 'cross';
+  const angle = ((style.direction % 180) + 180) % 180;
+  if (angle < 12 || angle > 168) return 'horizontal';
+  if (Math.abs(angle - 90) < 12) return 'vertical';
+  return 'diagonal';
 }

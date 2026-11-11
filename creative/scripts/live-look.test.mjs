@@ -27,6 +27,9 @@ test('every card of a row carries a look of its effect that the lane welcomes, n
         assert.ok(looks.every(look => look && familyOf(look) === family && deal.LIVE_LOOKS.find(entry => entry.id === look).lanes.includes(lane)), `${family}/${lane}/${seed}: ${looks}`);
         assert.ok(looks.every((look, index) => index === 0 || look !== looks[index - 1]), 'never the same look side by side');
         assert.ok(new Set(looks).size >= 2, 'never one look four times');
+        if (family === 'streaks') {
+          assert.equal(new Set(looks.map(look => ramp.streaksGeometry(look))).size, 4, `streaks/${lane}/${seed} deals four geometries: ${looks}`);
+        }
       }
     }
     assert.ok(new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(seed => deal.dealLooks('dark', seed, 4, family).join())).size >= 4, `${family}: a new seed (Refresh) deals different looks on different cards`);
@@ -228,10 +231,17 @@ test('streaks grade dark and tint bright highlights, without blowing past 255', 
   assert.deepEqual([...streaks].sort(), Object.keys(ramp.STREAKS_STYLES).sort(), 'every streak has a style, and every style a place in the list');
   const dark = ramp.lookPixel('streakblue', 10, 10, 10, [0, 1]);
   const light = ramp.lookPixel('streakblue', 250, 250, 250, [0, 1]);
-  assert.ok(dark.every(value => value < 50), `streak dark stays dark: ${dark}`);
-  assert.ok(light[2] > light[0] * 0.9 && light.every(value => value > 120), `blue streak lifts bright: ${light}`);
+  assert.ok(dark.every(value => value < 45), `streak dark stays dark: ${dark}`);
+  assert.ok(light[2] > light[0] && light[2] > 150, `blue streak lifts bright: ${light}`);
+  const red = ramp.lookPixel('streakred', 220, 220, 220, [0, 1]);
+  const cyan = ramp.lookPixel('streakcyan', 220, 220, 220, [0, 1]);
+  assert.ok(red[0] > cyan[0] && cyan[2] > red[2], `different colourings pull opposite ways: ${red} vs ${cyan}`);
   const burn = ramp.lookPixel('streakburn', 200, 200, 200, [0, 1]);
   assert.ok(burn[0] > burn[2], `film burn stays warm: ${burn}`);
+  const dealt = pack.recommendRow('streaks', profile('Techno'), 0, [], null, [picture('a'), picture('b'), picture('c'), picture('d')]);
+  assert.equal(new Set(dealt.map(slot => slot.look)).size, 4, 'a Streaks row deals four different colourings');
+  const geometries = dealt.map(slot => ramp.streaksGeometry(slot.look));
+  assert.equal(new Set(geometries).size, 4, `four cards get four streak geometries, not the same filter: ${geometries.join(',')}`);
   for (const id of streaks) {
     for (const colour of [[0, 0, 0], [255, 255, 255], [200, 40, 40], [30, 90, 200]]) {
       for (const value of ramp.lookPixel(id, ...colour, [0, 1])) assert.ok(value >= 0 && value <= 255, `${id} ${colour}`);
