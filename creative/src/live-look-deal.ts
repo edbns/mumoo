@@ -7,7 +7,7 @@
 import type { MoodLane } from './ad-fonts';
 
 /** A family is one effect with many colourings; each family has its own row on the shelf. */
-export const LOOK_FAMILIES = ['thermal', 'halftone', 'dither'] as const;
+export const LOOK_FAMILIES = ['thermal', 'halftone', 'dither', 'glow'] as const;
 export type LookFamily = (typeof LOOK_FAMILIES)[number];
 export const isLookFamily = (value: unknown): value is LookFamily => LOOK_FAMILIES.includes(value as LookFamily);
 
@@ -91,6 +91,25 @@ export const LIVE_LOOKS = [
   { id: 'ditherneon', family: 'dither', title: 'Neon', lanes: ['dark', 'techno', 'party'] },
   { id: 'dithergold', family: 'dither', title: 'Gold on black', lanes: ['quiet', 'dark', 'party', 'general'] },
   { id: 'ditherown', family: 'dither', title: 'Own colours', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  /** Glow: light bleeding from the bright parts of the picture. Soft blooms for quiet songs; neon and club for the loud ones. */
+  { id: 'glowbloom', family: 'glow', title: 'Soft bloom', lanes: ['quiet', 'general', 'gospel'] },
+  { id: 'glowpink', family: 'glow', title: 'Hot pink neon', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'glowcyan', family: 'glow', title: 'Cyan neon', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'glowsplit', family: 'glow', title: 'Magenta cyan', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'glowamber', family: 'glow', title: 'Amber street', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'glowgold', family: 'glow', title: 'Gold', lanes: ['quiet', 'general', 'gospel'] },
+  { id: 'glowuv', family: 'glow', title: 'Ultraviolet', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'glowtoxic', family: 'glow', title: 'Toxic green', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'glowred', family: 'glow', title: 'Red alert', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'glowpeach', family: 'glow', title: 'Sunset peach', lanes: ['quiet', 'general', 'gospel'] },
+  { id: 'glowice', family: 'glow', title: 'Ice blue', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'glowprism', family: 'glow', title: 'Rainbow prism', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'glowdream', family: 'glow', title: 'Dream', lanes: ['quiet', 'general', 'gospel'] },
+  { id: 'glownoir', family: 'glow', title: 'Noir', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'glowclub', family: 'glow', title: 'Club', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'glowmist', family: 'glow', title: 'Mist', lanes: ['quiet', 'general', 'gospel'] },
+  { id: 'glowlilac', family: 'glow', title: 'Lilac', lanes: ['quiet', 'general', 'gospel'] },
+  { id: 'glowrose', family: 'glow', title: 'Rose', lanes: ['quiet', 'party', 'general', 'gospel'] },
 ] as const satisfies readonly { id: string; family: LookFamily; title: string; lanes: readonly MoodLane[] }[];
 
 export type LiveLookId = (typeof LIVE_LOOKS)[number]['id'];
@@ -100,7 +119,9 @@ export type HeatLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'thermal
 export type HalftoneLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'halftone' }>['id'];
 /** The dither family: the picture reduced to square pixels and a flat palette. */
 export type DitherLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'dither' }>['id'];
-export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither' };
+/** The glow family: light bleeding from the bright parts of the picture. */
+export type GlowLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'glow' }>['id'];
+export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither', glow: 'Glow' };
 export const LIVE_LOOK_IDS: readonly LiveLookId[] = LIVE_LOOKS.map(look => look.id);
 
 export const isLiveLook = (value: unknown): value is LiveLookId => LIVE_LOOK_IDS.includes(value as LiveLookId);

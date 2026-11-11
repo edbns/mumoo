@@ -73,7 +73,7 @@ export default async function encodeCreative(request) {
       if (!media) return error(404, 'That picture was not found, or is still being prepared.');
       // A picture kept for Filters cannot be sent to Dust, and the other way round. Thermal and Halftone are drawn in the Filters style, on a picture kept under their own name.
       const style = scene.opts?.style;
-      if (media.use !== style && !(style === 'filter' && ['thermal', 'halftone', 'dither'].includes(media.use))) return error(400, 'That picture is kept for a different style.');
+      if (media.use !== style && !(style === 'filter' && ['thermal', 'halftone', 'dither', 'glow'].includes(media.use))) return error(400, 'That picture is kept for a different style.');
       if (media.photo) outbound.append('photo', new Blob([media.photo], { type: 'image/jpeg' }), 'photo.jpg');
       if (media.cutout) outbound.append('cutout', new Blob([media.cutout], { type: 'image/png' }), 'cutout.png');
       if (media.motion) outbound.append('motion', new Blob([media.motion], { type: 'video/mp4' }), 'motion.mp4');

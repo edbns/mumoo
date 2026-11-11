@@ -3,8 +3,8 @@
  * The preview and the cloud render run this same code. Each look reads the beat and the song's energy, so it moves with the music.
  */
 import { Filter, GlProgram, UniformGroup } from 'pixi.js';
-import type { DitherLookId, HalftoneLookId, HeatLookId, LiveLookId } from './live-look-deal';
-import { DITHER_STYLES, HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD } from './live-look-ramp';
+import type { DitherLookId, GlowLookId, HalftoneLookId, HeatLookId, LiveLookId } from './live-look-deal';
+import { DITHER_STYLES, GLOW_STYLES, HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD } from './live-look-ramp';
 
 /** What a look needs to know about this moment. `range`: how cold and how hot the picture reads (0-1), which a look stretches over its ramp. */
 export type LiveLookInput = { beat: number; energy: number; ms: number; range: readonly [number, number] };
@@ -243,21 +243,22 @@ const ditherSource = (id: DitherLookId) => {
 
   const own = palette === 'own8' || palette === 'own16';
   const steps = palette === 'own8' ? 1 : 3;
-  const paletteCode = own
+  const colours = own ? null : palette;
+  const paletteCode = own || !colours
     ? `
   float q = ${f(1 / steps)};
   vec3 shaped = clamp((rgb - 0.5) * ${f(contrast)} + 0.5, 0.0, 1.0);
   vec3 colour = clamp(floor(shaped / q + threshold) * q, 0.0, 1.0);`
     : `
-  float span = ${f((palette as readonly number[][]).length - 1)};
+  float span = ${f(colours.length - 1)};
   float x = tone * span;
   float base = floor(min(x, span - 0.001));
   float into = x - base;
   float gate = threshold + uBeat * 0.08 * uEnergy;
   int pick = int(clamp(base + step(gate, into), 0.0, span));
-${(palette as readonly (readonly number[])[]).map((rgb, index) => `  vec3 p${index} = ${vec(rgb)};`).join('\n')}
+${colours.map((rgb, index) => `  vec3 p${index} = ${vec(rgb)};`).join('\n')}
   vec3 colour = p0;
-${(palette as readonly (readonly number[])[]).map((_, index) => (index === 0 ? '' : `  if (pick == ${index}) colour = p${index};`)).filter(Boolean).join('\n')}`;
+${colours.map((_, index) => (index === 0 ? '' : `  if (pick == ${index}) colour = p${index};`)).filter(Boolean).join('\n')}`;
 
   return `
 in vec2 vTextureCoord;
@@ -298,7 +299,119 @@ function ditherLook(id: DitherLookId): LiveLook {
   return { filter, update: ({ beat, energy }) => set({ uBeat: beat, uEnergy: energy }) };
 }
 
+/**
+ * Glow: light bleeding from the bright parts of the picture. The picture is graded darker first so the bloom reads; the glow is a wide spiral blur of
+ * what is above a threshold, tinted, then soft-clipped on top. Strength and radius swell with the beat. Radius is in rows of the picture's height.
+ */
+const glowSource = (id: GlowLookId) => {
+  const style = GLOW_STYLES[id];
+  const threshold = style.threshold ?? 0.55;
+  const radius = style.radius ?? 36;
+  const strength = style.strength ?? 0.85;
+  const chroma = style.chroma ?? 0;
+  const { shadows, contrast = 1.2, mid = 0.25 } = style.grade;
+  const vec = (rgb: readonly number[]) => `vec3(${rgb.map(f).join(', ')})`;
+  const dual = typeof style.tint[0] !== 'number';
+  const tintPair = dual ? style.tint as readonly [readonly [number, number, number], readonly [number, number, number]] : null;
+  const tintOne = dual ? null : style.tint as readonly [number, number, number];
+  const tintCode = tintPair
+    ? `vec3 tintA = ${vec(tintPair[0])}; vec3 tintB = ${vec(tintPair[1])}; vec3 tintOf(float t) { return mix(tintA, tintB, clamp(t, 0.0, 1.0)); }`
+    : `vec3 tintOf(float t) { return ${vec(tintOne!)}; }`;
+  const clubCode = style.club
+    ? `float club = step(0.5, fract((vTextureCoord.x + vTextureCoord.y * 0.35) * 2.5));
+  glowColour = mix(vec3(1.0, 0.2, 0.7), vec3(0.2, 0.55, 1.0), club);`
+    : '';
+
+  return `
+in vec2 vTextureCoord;
+out vec4 finalColor;
+uniform sampler2D uTexture;
+uniform highp vec4 uInputSize;
+uniform float uBeat;
+uniform float uEnergy;
+
+vec3 seen(vec2 uv) {
+  vec4 source = texture(uTexture, uv);
+  return source.a > 0.0 ? source.rgb / source.a : source.rgb;
+}
+
+float bright(vec3 rgb) {
+  return dot(rgb, vec3(0.299, 0.587, 0.114));
+}
+
+${tintCode}
+
+void main(void) {
+  vec4 centre = texture(uTexture, vTextureCoord);
+  vec3 rgb = centre.a > 0.0 ? centre.rgb / centre.a : centre.rgb;
+  // Grade: punch contrast, cast shadows, pull midtones down so the glow can read.
+  vec3 graded = clamp((rgb - 0.5) * ${f(contrast)} + 0.5, 0.0, 1.0);
+  float light = bright(graded);
+  vec3 shadows = ${vec(shadows)};
+  graded = mix(graded * (0.45 + 0.55 * light) + shadows * (1.0 - light) * 0.55, graded, 0.15);
+  graded *= 1.0 - ${f(mid)} * (1.0 - abs(2.0 * light - 1.0) * 0.35);
+
+  float rows = ${f(radius)};
+  float cell = max(uInputSize.y / rows, 1.0);
+  float swell = 1.0 + uBeat * (0.35 + 0.45 * uEnergy);
+  float reach = cell * swell;
+  float gate = ${f(threshold)} - uBeat * 0.04 * uEnergy;
+  float glow = 0.0;
+  vec3 glowColour = vec3(0.0);
+  // Two rings of eight taps on a golden-angle spiral (~17 reads with the centre).
+  for (int i = 0; i < 16; i++) {
+    float n = float(i);
+    float ring = 0.45 + 0.55 * floor(n / 8.0);
+    float angle = n * 2.399963;
+    vec2 way = vec2(cos(angle), sin(angle)) * reach * ring * uInputSize.zw;
+    vec3 sampleColour = seen(vTextureCoord + way);
+    float amount = smoothstep(gate, 1.0, bright(sampleColour));
+    glow += amount;
+    glowColour += tintOf(bright(sampleColour)) * amount;
+  }
+  glow /= 16.0;
+  glowColour = glow > 0.001 ? glowColour / max(glow * 16.0, 0.001) : tintOf(1.0);
+  ${clubCode}
+  ${chroma > 0 ? `
+  float split = reach * ${f(chroma)} * uInputSize.z;
+  float left = smoothstep(gate, 1.0, bright(seen(vTextureCoord - vec2(split, 0.0))));
+  float right = smoothstep(gate, 1.0, bright(seen(vTextureCoord + vec2(split, 0.0))));
+  glowColour = vec3(glowColour.r * (0.65 + 0.7 * left), glowColour.g, glowColour.b * (0.65 + 0.7 * right));
+  glow = max(glow, max(left, right) * 0.5);
+  ` : ''}
+  float power = (${f(strength)} + uEnergy * 0.25) * (1.0 + uBeat * (0.35 + 0.4 * uEnergy));
+  vec3 colour = graded + glowColour * glow * power;
+  // Soft clip so a bright picture does not wash the lyrics out.
+  colour = colour / (1.0 + max(colour - vec3(0.85), vec3(0.0)) * 1.4);
+  finalColor = vec4(clamp(colour, 0.0, 1.0), 1.0) * centre.a;
+}
+`;
+};
+
+function glowLook(id: GlowLookId): LiveLook {
+  const { filter, set } = make(glowSource(id), `live-look-${id}`, { uBeat: 0, uEnergy: 0 });
+  return { filter, update: ({ beat, energy }) => set({ uBeat: beat, uEnergy: energy }) };
+}
+
 const BUILDERS: Record<LiveLookId, () => LiveLook> = {
+  glowbloom: () => glowLook('glowbloom'),
+  glowpink: () => glowLook('glowpink'),
+  glowcyan: () => glowLook('glowcyan'),
+  glowsplit: () => glowLook('glowsplit'),
+  glowamber: () => glowLook('glowamber'),
+  glowgold: () => glowLook('glowgold'),
+  glowuv: () => glowLook('glowuv'),
+  glowtoxic: () => glowLook('glowtoxic'),
+  glowred: () => glowLook('glowred'),
+  glowpeach: () => glowLook('glowpeach'),
+  glowice: () => glowLook('glowice'),
+  glowprism: () => glowLook('glowprism'),
+  glowdream: () => glowLook('glowdream'),
+  glownoir: () => glowLook('glownoir'),
+  glowclub: () => glowLook('glowclub'),
+  glowmist: () => glowLook('glowmist'),
+  glowlilac: () => glowLook('glowlilac'),
+  glowrose: () => glowLook('glowrose'),
   dithermac: () => ditherLook('dithermac'),
   ditherinvert: () => ditherLook('ditherinvert'),
   dithergameboy: () => ditherLook('dithergameboy'),

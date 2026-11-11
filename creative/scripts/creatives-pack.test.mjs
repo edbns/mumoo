@@ -27,10 +27,11 @@ const WORKER = readFileSync(new URL('../../audio-intelligence/modal_creatives_en
 const workerSet = name => [...WORKER.match(new RegExp(`^${name} = \\{([^}]*)\\}`, 'm'))[1].matchAll(/"([^"]+)"/g)].map(match => match[1]);
 
 const PLATES = [{ id: 'burnnet-woman-1547507-1920', cutout: true }];
-/** Our library: the pictures Thermal, Halftone and Dither are drawn on (they have no picture of ours without it). */
+/** Our library: the pictures live-look rows are drawn on (they have no picture of ours without it). */
 const LIBRARY = ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id, kind: 'photo', attitudes: ['neutral'], tags: ['street'], genre: null, subGenre: null, url: `/${id}.jpg` }));
 /** One row, with the library only for the rows that live on it. */
-const recommend = (pack, row, person, generation = 0, plates = PLATES) => pack.recommendRow(row, person, generation, plates, null, row === 'thermal' || row === 'halftone' || row === 'dither' ? LIBRARY : []);
+const LOOK_ROWS = new Set(['thermal', 'halftone', 'dither', 'glow']);
+const recommend = (pack, row, person, generation = 0, plates = PLATES) => pack.recommendRow(row, person, generation, plates, null, LOOK_ROWS.has(row) ? LIBRARY : []);
 
 /** Every row of the shelf, in order. */
 const shelf = (pack, person, generation = 0, plates = PLATES) => pack.SHELF_ROWS.flatMap(row => recommend(pack, row.id, person, generation, plates));
@@ -43,17 +44,17 @@ async function load() {
   return { server, pack };
 }
 
-test('the shelf is ten rows of four, in order, each card distinct', async () => {
+test('the shelf is eleven rows of four, in order, each card distinct', async () => {
   const { server, pack } = await load();
   try {
     for (const genre of ['Gospel', 'Slap House', 'Pop', 'Ambient']) {
       const slots = shelf(pack, profile(genre));
       // Thermal (the heat effect) is not dealt on a gospel song; every other row has four cards.
       const thermal = genre === 'Gospel' ? 0 : 4;
-      assert.equal(slots.length, 36 + thermal, genre);
-      assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', ...(thermal ? ['thermal'] : []), 'halftone', 'dither', 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust'], 'rows come in order');
-      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Our photography', 'Thermal', 'Halftone', 'Dither', 'Riso', 'Spray', 'Window', 'Doodle', 'Pulise', 'Dust']);
-      for (const row of ['photography', 'halftone', 'dither', 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
+      assert.equal(slots.length, 40 + thermal, genre);
+      assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', ...(thermal ? ['thermal'] : []), 'halftone', 'dither', 'glow', 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust'], 'rows come in order');
+      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Our photography', 'Thermal', 'Halftone', 'Dither', 'Glow', 'Riso', 'Spray', 'Window', 'Doodle', 'Pulise', 'Dust']);
+      for (const row of ['photography', 'halftone', 'dither', 'glow', 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
       assert.equal(slots.filter(slot => slot.row === 'thermal').length, thermal, `${genre} thermal`);
       const photography = slots.filter(slot => slot.row === 'photography');
       // A card is a baked effect, or (with a live look, while the library is short) our one approved photo, once.
@@ -124,7 +125,7 @@ test('a refresh deals four effects the earlier ones did not, and the deal is see
     assert.equal(new Set(first).size, 20, 'five refreshes in a row never repeat an effect');
     assert.deepEqual(row(person, 3).map(slot => slot.id), row(person, 3).map(slot => slot.id), 'the same song and refresh deal the same cards, with the same ids');
     assert.notDeepEqual(row(person, 0).map(slot => slot.effectId), row(profile('Pop', 'hello', 'b'.repeat(64)), 0).map(slot => slot.effectId), 'another song is dealt other effects');
-    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 40);
+    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 44);
   } finally { await server.close(); }
 });
 
@@ -242,7 +243,7 @@ test('the cover decides which backgrounds lead: warm cover → warm looks, cool 
     assert.ok(cool.every(look => look.warmth < 0.4), 'cool cover leads with cool backgrounds');
 
     // No cover: nothing changes, still a full pack.
-    assert.equal(shelf(pack, profile('Pop')).length, 40, 'still a full shelf');
+    assert.equal(shelf(pack, profile('Pop')).length, 44, 'still a full shelf');
   } finally { await server.close(); }
 });
 
@@ -282,7 +283,7 @@ test('the lyrics grade the colours and calm the beat without changing the look',
     const sad = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'heartbroken', sadness: 3, intensity: 2 }));
     assert.ok(sad.every(slot => slot.reason.startsWith('techno')));
     const graded = sad.filter(slot => !['riso', 'spray', 'window', 'doodle'].includes(slot.row));
-    assert.equal(graded.length, 24);
+    assert.equal(graded.length, 28);
     const grade = graded[0].grade;
     assert.ok(grade.saturation < 1 && grade.warmth < 0 && grade.brightness < 1 && grade.calm > 0.5, JSON.stringify(grade));
     assert.ok(graded.every(slot => JSON.stringify(slot.grade) === JSON.stringify(grade)));
@@ -355,8 +356,9 @@ test('rows say what they own: lyrics switch, upload kind, and Pulise and Spray t
     assert.equal(rows.thermal.upload, 'thermal');
     assert.equal(rows.halftone.upload, 'halftone');
     assert.equal(rows.dither.upload, 'dither');
+    assert.equal(rows.glow.upload, 'glow');
     assert.equal(rows.window.lyrics, 'always', 'the word is the window');
-    for (const row of ['photography', 'thermal', 'halftone', 'dither', 'riso', 'dust']) assert.equal(rows[row].lyrics, 'switch', row);
+    for (const row of ['photography', 'thermal', 'halftone', 'dither', 'glow', 'riso', 'dust']) assert.equal(rows[row].lyrics, 'switch', row);
   } finally { await server.close(); }
 });
 
