@@ -24,7 +24,7 @@ import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
 import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
-import { dealLooks, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
+import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
 import { pickLibrary, type LibraryPicture } from './library-pick';
 import { dealDoodle, doodleMood, type DoodlePaper } from './doodle-cast';
 import type { DoodleMood } from './doodle-parts';
@@ -39,7 +39,7 @@ const PHOTO_EFFECTS = effectsData as PhotoEffect[];
 export type PackFamily = 'ad_punch';
 
 /** Every row that can be dealt. 'looks' (Moving backgrounds) is dealt but not on the shelf: see SHELF_ROWS. */
-export type ShelfRow = 'photography' | 'thermal' | 'halftone' | 'looks' | 'riso' | 'spray' | 'window' | 'doodle' | 'pulise' | 'dust';
+export type ShelfRow = 'photography' | LookFamily | 'looks' | 'riso' | 'spray' | 'window' | 'doodle' | 'pulise' | 'dust';
 
 /**
  * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
@@ -317,14 +317,16 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const wanted = { attitude: meaning?.attitude ?? null, genre, subGenre: profile.creator.subGenre?.value ?? '' };
   const cutOutLibrary = pickLibrary(library.filter(item => item.kind === 'photo' && item.cutoutUrl), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
   const photos: PhotoSources = { plateIds: cutOutPlates, libraryIds: cutOutLibrary };
+  /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
+  const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, pickLibrary(library, wanted, `${profile.clip.sourceSha256}:${family}`, generation, ROW_SIZE), ownPicture);
   const slots = {
     photography: () => photographySlots(
       lane, intent, seed,
       dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation),
       pickLibrary(library, wanted, profile.clip.sourceSha256, generation, ROW_SIZE),
     ),
-    thermal: () => lookSlots('thermal', lane, intent, seed, pickLibrary(library, wanted, `${profile.clip.sourceSha256}:thermal`, generation, ROW_SIZE), ownPicture),
-    halftone: () => lookSlots('halftone', lane, intent, seed, pickLibrary(library, wanted, `${profile.clip.sourceSha256}:halftone`, generation, ROW_SIZE), ownPicture),
+    thermal: () => effectRow('thermal'),
+    halftone: () => effectRow('halftone'),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, photos),
     spray: () => spraySlots(lane, intent, seed),
@@ -519,6 +521,9 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
  * has no colouring for, the row is empty (the page says so). The card is one picture, or one video played straight through, never an edit of cuts.
  * When the person has uploaded a picture of their own (`ownPicture`), the four cards are that picture in four colourings (the page draws it; no library picture is named).
  */
+/** Whether a shelf row is one effect's row (Thermal, Halftone, ...): dealt in colourings of one live look, on library pictures or the person's own. */
+export const isLookRow = (row: ShelfRow): row is LookFamily => isLookFamily(row);
+
 function lookSlots(family: LookFamily, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
   const row: ShelfRow = family;
   const cards: (LibraryPicture | null)[] = ownPicture ? Array.from({ length: ROW_SIZE }, () => null) : picks.slice(0, ROW_SIZE);

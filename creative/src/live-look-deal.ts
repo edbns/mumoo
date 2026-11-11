@@ -7,7 +7,9 @@
 import type { MoodLane } from './ad-fonts';
 
 /** A family is one effect with many colourings; each family has its own row on the shelf. */
-export type LookFamily = 'thermal' | 'halftone';
+export const LOOK_FAMILIES = ['thermal', 'halftone'] as const;
+export type LookFamily = (typeof LOOK_FAMILIES)[number];
+export const isLookFamily = (value: unknown): value is LookFamily => LOOK_FAMILIES.includes(value as LookFamily);
 
 export const LIVE_LOOKS = [
   /** The picture as a heat camera sees it: bodies hot, shade cold, soft and banded, in the iron palette. It flares on the beat. */
