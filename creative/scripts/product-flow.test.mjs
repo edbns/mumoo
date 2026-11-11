@@ -141,7 +141,7 @@ test('what the lyrics mean greys and cools the previews of the same song', { tim
     } finally { await product.close(); }
   };
   const plain = await preview(NEUTRAL_READING);
-  const sad = await preview({ ...NEUTRAL_READING, attitude: 'heartbroken', sadness: 3, intensity: 2 });
+  const sad = await preview({ ...NEUTRAL_READING, attitude: 'sad', sadness: 3, intensity: 2 });
   assert.ok(sad.spread < plain.spread - 8, `sad words dull the previews: ${plain.spread} → ${sad.spread}`);
   assert.ok(sad.warm < plain.warm - 8, `sad words cool the previews: ${plain.warm} → ${sad.warm}`);
 });

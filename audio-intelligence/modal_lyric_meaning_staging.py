@@ -29,10 +29,7 @@ MIN_WORDS = 12
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 LANG_RE = re.compile(r"^[a-z]{2,3}$")
 
-ATTITUDES = [
-    "joyful", "playful", "flirty", "tender", "romantic", "hopeful", "boastful", "defiant", "annoyed", "angry",
-    "menacing", "bitter", "heartbroken", "lonely", "nostalgic", "reflective", "spiritual", "neutral",
-]
+ATTITUDES = ["happy", "fun", "flirty", "love", "confident", "angry", "sad", "thoughtful", "spiritual", "neutral"]
 
 SCHEMA = {
     "type": "object",
@@ -57,9 +54,13 @@ SYSTEM = (
     "Attitude and sadness belong to the SPEAKER, in the speaker's own voice. Swearing, slang and insults are not anger "
     "by themselves: many songs swear in a relaxed, cocky or playful voice. Words the speaker quotes from someone else "
     "(a lover's complaint, an insult thrown at them) say what others feel; the speaker's attitude is how they answer. "
-    "A speaker who shrugs off blame, refuses to change or brags is defiant or boastful, not angry and not sad. "
-    "Choose angry only when the speaker is themselves furious at someone, and sad only when the speaker is themselves in pain. "
-    "Bragging, shrugging things off, defiance and irritation score sadness 0, or 1 at most when a little hurt shows; "
+    "The attitudes: happy (joy, hope, good times), fun (playful, partying, silly), flirty (teasing, desire, seduction), "
+    "love (tender or romantic devotion), confident (bragging, swagger, defiance, refusing to change), angry (fury, "
+    "irritation, bitterness, threats), sad (heartbreak, loneliness, pain), thoughtful (memories, nostalgia, looking "
+    "back or inward), spiritual (faith, praise, God).\n"
+    "A speaker who shrugs off blame, refuses to change or brags is confident, not angry and not sad. "
+    "Choose angry only when the speaker is themselves furious, bitter or threatening, and sad only when the speaker is themselves in pain. "
+    "Fun scores sadness 0; bragging, shrugging things off, defiance and irritation score 0, or 1 at most when a little hurt shows; "
     "money gone, trouble and a hard life told with a shrug are not sorrow.\n"
     "Never guess. If the excerpt is mostly vocal sounds (ah, mm, hey), a single short phrase, or otherwise too thin to "
     "show a feeling, set clarity to thin, attitude to neutral, sadness to 0 and intensity to 3.\n"

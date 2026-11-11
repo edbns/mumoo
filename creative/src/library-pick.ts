@@ -1,4 +1,5 @@
 import { themesFor } from './genre-guide';
+import { attitudeOf } from './lyric-meaning';
 
 /**
  * Choosing from the approved library. The library is what the admin cleared (see the admin page); this is how the brain
@@ -43,10 +44,12 @@ function hash(text: string) {
  */
 export function libraryFit(item: LibraryPicture, wanted: LibraryWanted, loose = false): number | null {
   let fit = 0;
-  const feeling = wanted.attitude && wanted.attitude !== 'neutral' ? wanted.attitude : null;
+  const wantedMood = attitudeOf(wanted.attitude);
+  const feeling = wantedMood && wantedMood !== 'neutral' ? wantedMood : null;
   if (feeling) {
-    if (item.attitudes.includes(feeling)) fit += 2;
-    else if (item.attitudes.includes('neutral')) fit += 1;
+    const moods = item.attitudes.map(attitudeOf);
+    if (moods.includes(feeling)) fit += 2;
+    else if (moods.includes('neutral')) fit += 1;
     else if (loose) fit -= 100;
     else return null;
   }

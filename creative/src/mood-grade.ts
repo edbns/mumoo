@@ -16,11 +16,9 @@ export type MoodGrade = {
 };
 
 const WARMTH: Partial<Record<LyricAttitude, number>> = {
-  angry: 0.4, defiant: 0.3, boastful: 0.3, flirty: 0.3, romantic: 0.3, joyful: 0.3, tender: 0.25, playful: 0.2,
-  annoyed: 0.2, hopeful: 0.15, nostalgic: 0, spiritual: 0, reflective: -0.1, bitter: -0.15, menacing: -0.2,
-  lonely: -0.2, heartbroken: -0.2,
+  confident: 0.3, flirty: 0.3, love: 0.3, happy: 0.25, angry: 0.2, fun: 0.2, spiritual: 0, thoughtful: -0.05, sad: -0.2,
 };
-const VIVID = new Set<LyricAttitude>(['joyful', 'playful', 'flirty', 'boastful']);
+const VIVID = new Set<LyricAttitude>(['happy', 'fun', 'flirty', 'confident']);
 
 const BEAT_CALM = 0.65;
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));

@@ -5,7 +5,7 @@ Done (staging DB migrated, tests in `scripts/admin.test.mjs`):
 - Sign-in for admins only: `ADMIN_EMAILS` (comma separated) is checked on the server, and the email must be confirmed in Neon Auth.
 - Errors: failed renders, downloads and sign-ins, with the time and the person; mark as seen.
 - Approved content: photos, videos and GIFs (no music: music comes from the users), with who cleared them and when.
-  Each item has attitudes (the brain's 18 codes, up to 4), a few shared tags (up to 5 per item, 40 in all) and an optional genre / sub-genre.
+  Each item has attitudes (the brain's 10 moods, up to 4), a few shared tags (up to 5 per item, 40 in all) and an optional genre / sub-genre.
   Approve, hide and delete an item.
 
 Still to do:

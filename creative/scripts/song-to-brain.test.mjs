@@ -47,16 +47,20 @@ async function load() {
 test('the model\'s answer is validated, never guessed at', async () => {
   const { server, meaning } = await load();
   try {
-    const good = { version: 1, clarity: 'clear', attitude: 'defiant', sadness: 0, intensity: 4, gist: 'ignored' };
-    assert.deepEqual(meaning.parseLyricMeaning(good), { attitude: 'defiant', sadness: 0, intensity: 4 });
-    // Anger, boasting and playfulness carry no sadness, defiance and irritation at most a little, whatever the model says; sorrowful attitudes keep theirs.
-    for (const attitude of ['angry', 'boastful', 'playful']) assert.equal(meaning.parseLyricMeaning({ ...good, attitude, sadness: 2 }).sadness, 0, attitude);
-    for (const attitude of ['defiant', 'annoyed']) {
+    const good = { version: 1, clarity: 'clear', attitude: 'confident', sadness: 0, intensity: 4, gist: 'ignored' };
+    assert.deepEqual(meaning.parseLyricMeaning(good), { attitude: 'confident', sadness: 0, intensity: 4 });
+    // Fun carries no sadness, swagger and anger at most a little, whatever the model says; sorrowful moods keep theirs.
+    assert.equal(meaning.parseLyricMeaning({ ...good, attitude: 'fun', sadness: 2 }).sadness, 0);
+    for (const attitude of ['confident', 'angry']) {
       assert.equal(meaning.parseLyricMeaning({ ...good, attitude, sadness: 3 }).sadness, 1, `${attitude} keeps at most a little hurt`);
       assert.equal(meaning.parseLyricMeaning({ ...good, attitude, sadness: 0 }).sadness, 0);
     }
-    assert.equal(meaning.parseLyricMeaning({ ...good, attitude: 'heartbroken', sadness: 3 }).sadness, 3);
-    assert.equal(meaning.parseLyricMeaning({ ...good, attitude: 'bitter', sadness: 2 }).sadness, 2);
+    assert.equal(meaning.parseLyricMeaning({ ...good, attitude: 'sad', sadness: 3 }).sadness, 3);
+    assert.equal(meaning.parseLyricMeaning({ ...good, attitude: 'thoughtful', sadness: 2 }).sadness, 2);
+    // A reader not yet redeployed still speaks the old moods: each is folded into its new one.
+    for (const [old, now] of [['joyful', 'happy'], ['playful', 'fun'], ['romantic', 'love'], ['defiant', 'confident'], ['menacing', 'angry'], ['lonely', 'sad'], ['nostalgic', 'thoughtful']]) {
+      assert.equal(meaning.parseLyricMeaning({ ...good, attitude: old }).attitude, now, old);
+    }
     // A clip with too little to read says so, and means nothing.
     assert.deepEqual(meaning.parseLyricMeaning({ ...good, clarity: 'thin', attitude: 'flirty' }), meaning.NEUTRAL_MEANING);
     for (const bad of [null, {}, { ...good, version: 2 }, { ...good, attitude: 'furious' }, { ...good, sadness: 4 },

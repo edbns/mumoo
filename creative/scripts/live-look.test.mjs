@@ -171,7 +171,7 @@ test('the worker knows the same looks as the page', () => {
   assert.deepEqual([...body[1].matchAll(/"([^"]+)"/g)].map(match => match[1]).sort(), [...deal.LIVE_LOOK_IDS].sort());
 });
 
-function profile(genre, sadness = 1, attitude = 'defiant') {
+function profile(genre, sadness = 1, attitude = 'confident') {
   const sha = 'c'.repeat(64);
   const frames = Array.from({ length: 20 }, (_, i) => ({ timeMs: i * 100, rms: 0.2, onsetStrength: 1, centroidHz: 2200, bandwidthHz: 1600, rolloffHz: 3000 }));
   return {
@@ -188,8 +188,8 @@ function profile(genre, sadness = 1, attitude = 'defiant') {
   };
 }
 
-const picture = (id, attitude = 'defiant') => ({ id, kind: 'video', attitudes: [attitude], tags: ['street'], genre: null, subGenre: null, url: `/${id}.jpg`, motionUrl: `/${id}.mp4`, shots: [[0, 1000]] });
-const cutoutPicture = (id, attitude = 'defiant') => ({ id, kind: 'photo', attitudes: [attitude], tags: ['street'], genre: null, subGenre: null, url: `/${id}.jpg`, cutoutUrl: `/${id}.cut.png` });
+const picture = (id, attitude = 'confident') => ({ id, kind: 'video', attitudes: [attitude], tags: ['street'], genre: null, subGenre: null, url: `/${id}.jpg`, motionUrl: `/${id}.mp4`, shots: [[0, 1000]] });
+const cutoutPicture = (id, attitude = 'confident') => ({ id, kind: 'photo', attitudes: [attitude], tags: ['street'], genre: null, subGenre: null, url: `/${id}.jpg`, cutoutUrl: `/${id}.cut.png` });
 
 test('dither maps dark to the dark end of its palette and light to the bright end, and own colours stay near the picture', () => {
   const dithers = deal.LIVE_LOOKS.filter(look => look.family === 'dither').map(look => look.id);

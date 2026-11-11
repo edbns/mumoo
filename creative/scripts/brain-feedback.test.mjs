@@ -10,7 +10,7 @@ const READY = Boolean(process.env.DATABASE_URL);
 
 const card = (over = {}) => ({
   version: 1, event: 'download', clipSha256: randomBytes(32).toString('hex'), primaryGenre: 'Latin & Urbano', subGenre: 'Reggaeton',
-  vibe: 'Dark/Cinematic', lane: 'dark', language: 'es', lyricsOrigin: 'typed', lyricAttitude: 'defiant', lyricSadness: 1, lyricIntensity: 4,
+  vibe: 'Dark/Cinematic', lane: 'dark', language: 'es', lyricsOrigin: 'typed', lyricAttitude: 'confident', lyricSadness: 1, lyricIntensity: 4,
   row: 'photography', slot: { id: 'ad-photography-x', style: 'filter', font: 'Anton', fontSecondary: 'Inter', typeStyle: 'punch', libraryId: randomUUID(), look: 'thermal' },
   ownPicture: false, generation: 2, ...over,
 });
@@ -55,7 +55,7 @@ test('actions are kept; a signed-in person\'s downloads are numbered, and deleti
   const [kept] = rows;
   assert.equal(kept.genre, 'Latin & Urbano');
   assert.equal(kept.sub_genre, 'Reggaeton');
-  assert.equal(kept.attitude, 'defiant');
+  assert.equal(kept.attitude, 'confident');
   assert.equal(kept.sadness, 1);
   assert.equal(kept.row_id, 'photography');
   assert.equal(kept.library_id, first.slot.libraryId);

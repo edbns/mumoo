@@ -166,10 +166,10 @@ export function doodleLabel(id: string): string {
 /** What the words feel like, as the face of a singer. Anything unread (or neutral) is a happy face: a doodle that does not feel anything is dull. */
 export function doodleMood(attitude: LyricAttitude | null | undefined): DoodleMood {
   switch (attitude) {
-    case 'flirty': case 'romantic': return 'flirty';
-    case 'boastful': case 'defiant': return 'boastful';
-    case 'angry': case 'annoyed': case 'menacing': case 'bitter': return 'angry';
-    case 'heartbroken': case 'lonely': case 'nostalgic': case 'reflective': return 'sad';
+    case 'flirty': case 'love': return 'flirty';
+    case 'confident': return 'boastful';
+    case 'angry': return 'angry';
+    case 'sad': case 'thoughtful': return 'sad';
     default: return 'joyful';
   }
 }

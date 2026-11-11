@@ -119,9 +119,9 @@ test('letters move one after another, words each their own way, and a card\'s se
 const LANE_SONGS = [
   ['Gospel', 'praise the lord'],
   ['Slap House', 'hello'],
-  ['Pop', 'hello', { attitude: 'heartbroken', sadness: 3, intensity: 2 }],
+  ['Pop', 'hello', { attitude: 'sad', sadness: 3, intensity: 2 }],
   ['Pop', 'hello', { attitude: 'angry', sadness: 0, intensity: 5 }],
-  ['Pop', 'hello', { attitude: 'joyful', sadness: 0, intensity: 4 }],
+  ['Pop', 'hello', { attitude: 'happy', sadness: 0, intensity: 4 }],
   ['Pop', 'hello'],
 ];
 

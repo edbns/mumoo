@@ -16,10 +16,10 @@ async function load() {
   return { server, pick: await server.ssrLoadModule('/src/library-pick.ts'), pack: await server.ssrLoadModule('/src/creatives-pack.ts'), look: await server.ssrLoadModule('/src/window-look.ts') };
 }
 
-const item = (id, over = {}) => ({ id, kind: 'photo', attitudes: ['tender'], tags: [], genre: null, subGenre: null, url: `https://x/${id}`, ...over });
+const item = (id, over = {}) => ({ id, kind: 'photo', attitudes: ['love'], tags: [], genre: null, subGenre: null, url: `https://x/${id}`, ...over });
 const ids = list => list.map(entry => entry.id);
 
-function profile(genre = 'Pop', subGenre, attitude = 'tender', sha = 'b'.repeat(64)) {
+function profile(genre = 'Pop', subGenre, attitude = 'love', sha = 'b'.repeat(64)) {
   const frames = Array.from({ length: 20 }, (_, i) => ({ timeMs: i * 100, rms: 0.2, onsetStrength: 1, centroidHz: 2200, bandwidthHz: 1600, rolloffHz: 3000 }));
   return {
     version: 1,
@@ -38,10 +38,10 @@ function profile(genre = 'Pop', subGenre, attitude = 'tender', sha = 'b'.repeat(
 test('the attitude is the main match; neutral fits any song; a song with no feeling takes anything', async () => {
   const { server, pick } = await load();
   try {
-    const items = [item('a', { attitudes: ['tender'] }), item('b', { attitudes: ['angry'] }), item('c', { attitudes: ['neutral'] })];
-    const tender = { attitude: 'tender', genre: 'Pop', subGenre: '' };
+    const items = [item('a', { attitudes: ['love'] }), item('b', { attitudes: ['angry'] }), item('c', { attitudes: ['neutral'] })];
+    const tender = { attitude: 'love', genre: 'Pop', subGenre: '' };
     assert.deepEqual(ids(pick.pickLibrary(items, tender, 's', 0, 4)), ['a', 'c', 'b'], 'exact match first, neutral next, then the wrong feeling only to fill the hand');
-    assert.ok(!ids(pick.pickLibrary([...items, item('d', { attitudes: ['tender'] }), item('e', { attitudes: ['tender'] })], tender, 's', 0, 3)).includes('b'), 'with enough that fit, the wrong feeling is never used');
+    assert.ok(!ids(pick.pickLibrary([...items, item('d', { attitudes: ['love'] }), item('e', { attitudes: ['love'] })], tender, 's', 0, 3)).includes('b'), 'with enough that fit, the wrong feeling is never used');
     assert.deepEqual(ids(pick.pickLibrary(items, { ...tender, attitude: 'neutral' }, 's', 0, 4)).sort(), ['a', 'b', 'c'], 'a neutral song takes anything');
     assert.deepEqual(ids(pick.pickLibrary(items, { ...tender, attitude: null }, 's', 0, 4)).sort(), ['a', 'b', 'c'], 'unread lyrics take anything');
   } finally { await server.close(); }
@@ -57,10 +57,10 @@ test('a genre is preferred when set, kept for its own genre, and an item with no
       item('dance', { genre: 'Pop', subGenre: 'Dance-Pop' }),
       item('rock', { genre: 'Rock' }),
     ];
-    const wanted = { attitude: 'tender', genre: 'Pop', subGenre: 'Indie Pop' };
+    const wanted = { attitude: 'love', genre: 'Pop', subGenre: 'Indie Pop' };
     assert.deepEqual(ids(pick.pickLibrary(items, wanted, 's', 0, 4)), ['indie', 'pop', 'free'], 'sub-genre first, then genre, then free; other genres and sub-genres never');
     assert.deepEqual(ids(pick.pickLibrary(items, { ...wanted, genre: 'pop', subGenre: ' indie pop ' }, 's', 0, 4)), ['indie', 'pop', 'free'], 'case and spaces do not matter');
-    assert.deepEqual(ids(pick.pickLibrary(items, { attitude: 'tender', genre: 'Jazz, Soul & Blues', subGenre: '' }, 's', 0, 4)), ['free'], 'only the free one fits another genre');
+    assert.deepEqual(ids(pick.pickLibrary(items, { attitude: 'love', genre: 'Jazz, Soul & Blues', subGenre: '' }, 's', 0, 4)), ['free'], 'only the free one fits another genre');
   } finally { await server.close(); }
 });
 
@@ -68,7 +68,7 @@ test('the same song gets the same order; Refresh moves on to the next hand and w
   const { server, pick } = await load();
   try {
     const items = Array.from({ length: 6 }, (_, index) => item(`i${index}`));
-    const wanted = { attitude: 'tender', genre: 'Pop', subGenre: '' };
+    const wanted = { attitude: 'love', genre: 'Pop', subGenre: '' };
     const hand = generation => ids(pick.pickLibrary(items, wanted, 'song', generation, 4));
     assert.deepEqual(hand(0), hand(0));
     assert.equal(new Set(hand(0)).size, 4);
@@ -212,7 +212,7 @@ test('every genre of the app is guided; every theme is a short, valid tag', asyn
 test('a genre theme in an item\'s tags is a small plus: it breaks a tie, but never beats a better attitude or genre, and never refuses', async () => {
   const { server, pick } = await load();
   try {
-    const wanted = { attitude: 'tender', genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' };
+    const wanted = { attitude: 'love', genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' };
     const items = [item('plain'), item('club', { tags: ['club'] }), item('both', { tags: ['club', 'dark', 'neon'] }), item('neutral-club', { attitudes: ['neutral'], tags: ['club', 'dark'] }), item('beach', { tags: ['beach'] })];
     const order = ids(pick.pickLibrary(items, wanted, 's', 0, 5));
     assert.equal(order[0], 'both', 'Techno: three themes count as two (the most a theme can add)');
@@ -279,7 +279,7 @@ test('only approved, ready items reach the templates; a video waits for our work
       made.push(hidden);
       await itemArrived(hidden);
 
-      for (const id of [photo, video]) assert.equal((await changeItem(id, { attitudes: ['tender'], status: 'approved', genre: 'Pop', subGenre: 'Indie Pop', tags: [] })).status, 'approved');
+      for (const id of [photo, video]) assert.equal((await changeItem(id, { attitudes: ['love'], status: 'approved', genre: 'Pop', subGenre: 'Indie Pop', tags: [] })).status, 'approved');
 
       let list = await listApproved();
       assert.deepEqual(list.filter(entry => made.includes(entry.id)).map(entry => entry.id), [photo], 'the pending photo and the unfinished video are not offered');
@@ -323,7 +323,7 @@ test('a video our worker cannot prepare says why and is never offered', { skip: 
       const video = await arrive('video/mp4', 500, new Uint8Array(500).fill(1));
       made.push(video);
       await itemArrived(video);
-      await changeItem(video, { attitudes: ['joyful'], status: 'approved' });
+      await changeItem(video, { attitudes: ['happy'], status: 'approved' });
       const looked = (await listLibrary()).items.find(entry => entry.id === video);
       assert.equal(looked.ready, false);
       assert.equal(looked.problem, 'That video is longer than a minute.');
@@ -351,12 +351,12 @@ test('the public library answers GET only, and only with what is approved and re
     await itemArrived(id);
     const before = await (await libraryHandler(new Request('https://example.test/api/library'))).json();
     assert.equal(before.items.some(entry => entry.id === id), false, 'a waiting photo is not offered');
-    await changeItem(id, { attitudes: ['playful'], status: 'approved' });
+    await changeItem(id, { attitudes: ['fun'], status: 'approved' });
     const response = await libraryHandler(new Request('https://example.test/api/library'));
     assert.equal(response.status, 200);
     const after = await response.json();
     const offered = after.items.find(entry => entry.id === id);
-    assert.ok(offered && offered.kind === 'photo' && offered.attitudes[0] === 'playful');
+    assert.ok(offered && offered.kind === 'photo' && offered.attitudes[0] === 'fun');
     assert.equal(JSON.stringify(offered).includes('moo@mumoo.app'), false, 'who cleared it is not for everyone to see');
     await changeItem(id, { status: 'hidden' });
     assert.equal((await (await libraryHandler(new Request('https://example.test/api/library'))).json()).items.some(entry => entry.id === id), false, 'hiding takes it out at once');

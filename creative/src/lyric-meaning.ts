@@ -5,10 +5,22 @@ import type { MoodLane } from './ad-fonts';
  * Only these codes are kept. The lyrics themselves never leave the request that reads them.
  */
 export const ATTITUDES = [
-  'joyful', 'playful', 'flirty', 'tender', 'romantic', 'hopeful', 'boastful', 'defiant', 'annoyed', 'angry',
-  'menacing', 'bitter', 'heartbroken', 'lonely', 'nostalgic', 'reflective', 'spiritual', 'neutral',
+  'happy', 'fun', 'flirty', 'love', 'confident', 'angry', 'sad', 'thoughtful', 'spiritual', 'neutral',
 ] as const;
 export type LyricAttitude = typeof ATTITUDES[number];
+
+/** The finer moods we used to have, and the one each became: an older reader or library item still speaks them. */
+export const FORMER_ATTITUDES: Readonly<Record<string, LyricAttitude>> = {
+  joyful: 'happy', hopeful: 'happy', playful: 'fun', tender: 'love', romantic: 'love', boastful: 'confident', defiant: 'confident',
+  annoyed: 'angry', bitter: 'angry', menacing: 'angry', heartbroken: 'sad', lonely: 'sad', nostalgic: 'thoughtful', reflective: 'thoughtful',
+};
+
+/** Today's mood for a code, old or new; null when it is not one. */
+export function attitudeOf(code: unknown): LyricAttitude | null {
+  if (typeof code !== 'string') return null;
+  if ((ATTITUDES as readonly string[]).includes(code)) return code as LyricAttitude;
+  return FORMER_ATTITUDES[code] ?? null;
+}
 
 export type LyricMeaning = {
   attitude: LyricAttitude;
@@ -31,21 +43,22 @@ export function parseLyricMeaning(raw: unknown): LyricMeaning | null {
   const body = raw as Record<string, unknown> | null;
   if (!body || body.version !== 1) return null;
   if (body.clarity === 'thin') return NEUTRAL_MEANING;
-  const { attitude, sadness, intensity } = body;
-  if (typeof attitude !== 'string' || !(ATTITUDES as readonly string[]).includes(attitude)) return null;
+  const { sadness, intensity } = body;
+  const attitude = attitudeOf(body.attitude);
+  if (!attitude) return null;
   if (!Number.isInteger(sadness) || (sadness as number) < 0 || (sadness as number) > 3) return null;
   if (!Number.isInteger(intensity) || (intensity as number) < 1 || (intensity as number) > 5) return null;
-  // The model is told that boasting, anger and playfulness carry no sadness; it sometimes forgets, and a stray 2 would dull the colours of a cocky or angry song. Defiance and irritation can hide a little hurt, so they keep at most 1. The rule is kept here, in code.
-  const sorrow = Math.min(sadness as number, MOST_SORROW[attitude as LyricAttitude] ?? 3);
-  return { attitude: attitude as LyricAttitude, sadness: sorrow, intensity: intensity as number };
+  // The model is told that fun carries no sadness and swagger or anger little; it sometimes forgets, and a stray 2 would dull the colours of a cocky or angry song. The rule is kept here, in code.
+  const sorrow = Math.min(sadness as number, MOST_SORROW[attitude] ?? 3);
+  return { attitude, sadness: sorrow, intensity: intensity as number };
 }
 
-const MOST_SORROW: Partial<Record<LyricAttitude, number>> = { boastful: 0, angry: 0, playful: 0, defiant: 1, annoyed: 1 };
+const MOST_SORROW: Partial<Record<LyricAttitude, number>> = { fun: 0, confident: 1, angry: 1 };
 
-const HEAVY = new Set<LyricAttitude>(['heartbroken', 'lonely']);
-const HARSH = new Set<LyricAttitude>(['angry', 'menacing', 'bitter']);
-const SOFT = new Set<LyricAttitude>(['tender', 'romantic']);
-const BRIGHT = new Set<LyricAttitude>(['joyful', 'playful', 'flirty', 'boastful']);
+const HEAVY = new Set<LyricAttitude>(['sad']);
+const HARSH = new Set<LyricAttitude>(['angry']);
+const SOFT = new Set<LyricAttitude>(['love']);
+const BRIGHT = new Set<LyricAttitude>(['happy', 'fun', 'flirty', 'confident']);
 
 /** Sad or harsh words never sit on a sunny background. */
 export function leansDeep(meaning: LyricMeaning | null): boolean {

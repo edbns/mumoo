@@ -95,7 +95,7 @@ test('every face feels what the words feel: a sad song has no cheerful card, an 
   try {
     assert.ok(cast.dealDoodle('Pop', null, 'sad', 'x').every(card => card.mood === 'sad'));
     assert.ok(cast.dealDoodle('Pop', null, 'angry', 'x').every(card => ['angry', 'boastful'].includes(card.mood)));
-    for (const [attitude, mood] of [['heartbroken', 'sad'], ['lonely', 'sad'], ['angry', 'angry'], ['menacing', 'angry'], ['flirty', 'flirty'], ['boastful', 'boastful'], ['joyful', 'joyful'], ['neutral', 'joyful'], [null, 'joyful']]) {
+    for (const [attitude, mood] of [['sad', 'sad'], ['thoughtful', 'sad'], ['angry', 'angry'], ['flirty', 'flirty'], ['love', 'flirty'], ['confident', 'boastful'], ['happy', 'joyful'], ['fun', 'joyful'], ['spiritual', 'joyful'], ['neutral', 'joyful'], [null, 'joyful']]) {
       assert.equal(cast.doodleMood(attitude), mood, String(attitude));
     }
   } finally { await server.close(); }
@@ -113,7 +113,7 @@ test('the shelf has a Doodle row of four made of the lyrics, and the creator’s
       creator: { primaryGenre: { value: 'Rock', source: 'creator' }, ...(voice && { voice: { value: voice, source: 'detected' } }) },
       musicAnalysis: { status: 'pending' },
       approvedLyrics: { cues: [{ text: 'hi', startMs: 0, endMs: 300 }], source: 'creator_reviewed' },
-      lyricMeaning: { status: 'ready', meaning: { attitude: 'heartbroken', sadness: 3, intensity: 2 } },
+      lyricMeaning: { status: 'ready', meaning: { attitude: 'sad', sadness: 3, intensity: 2 } },
     });
     const female = pack.recommendRow('doodle', person('female'), 0);
     assert.equal(female.length, 4);

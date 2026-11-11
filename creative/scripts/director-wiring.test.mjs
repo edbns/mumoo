@@ -13,8 +13,8 @@ const reel = await server.ssrLoadModule('/src/pack-reel.ts');
 await server.close();
 
 const uuid = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-const photo = n => ({ id: uuid(n), kind: 'photo', attitudes: ['tender'], tags: [], genre: null, subGenre: null, url: `https://x/${n}`, cutoutUrl: `https://x/${n}.cut` });
-const clip = (n, kind = 'video') => ({ id: uuid(n), kind, attitudes: ['tender'], tags: [], genre: null, subGenre: null, url: `https://x/${n}`, motionUrl: `https://x/${n}.mp4`, shots: [[0, 3000], [3000, 6000]] });
+const photo = n => ({ id: uuid(n), kind: 'photo', attitudes: ['love'], tags: [], genre: null, subGenre: null, url: `https://x/${n}`, cutoutUrl: `https://x/${n}.cut` });
+const clip = (n, kind = 'video') => ({ id: uuid(n), kind, attitudes: ['love'], tags: [], genre: null, subGenre: null, url: `https://x/${n}`, motionUrl: `https://x/${n}.mp4`, shots: [[0, 3000], [3000, 6000]] });
 
 function profile(sha = 'b'.repeat(64)) {
   const frames = Array.from({ length: 20 }, (_, i) => ({ timeMs: i * 100, rms: 0.2, onsetStrength: 1, centroidHz: 2200, bandwidthHz: 1600, rolloffHz: 3000 }));
@@ -28,7 +28,7 @@ function profile(sha = 'b'.repeat(64)) {
       result: { rhythm: { tempo: { status: 'estimated', bpm: 125, gridBpm: 125, alternativesBpm: [] }, beatsMs: [1000, 2000] }, features: { transientsMs: [500, 1500], frames } },
     },
     approvedLyrics: { cues: [{ text: 'hello', startMs: 0, endMs: 380 }], source: 'creator_reviewed' },
-    lyricMeaning: { status: 'ready', meaning: { attitude: 'tender', sadness: 1, intensity: 3 } },
+    lyricMeaning: { status: 'ready', meaning: { attitude: 'love', sadness: 1, intensity: 3 } },
   };
 }
 

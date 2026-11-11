@@ -101,13 +101,14 @@ test('a library item goes from upload to approved, is checked at every step, and
 
     assert.match((await changeItem(id, { status: 'approved' })).refused, /attitude/, 'needs an attitude first');
     assert.match((await changeItem(id, { attitudes: ['sparkly'] })).refused, /list/);
-    assert.match((await changeItem(id, { attitudes: ['joyful', 'playful', 'flirty', 'tender', 'romantic'] })).refused, /At most 4/);
+    assert.match((await changeItem(id, { attitudes: ['happy', 'fun', 'flirty', 'love', 'confident'] })).refused, /At most 4/);
+    assert.match((await changeItem(id, { attitudes: ['joyful'] })).refused, /list/, 'the old moods are gone from the list');
     assert.match((await changeItem(id, { tags: ['a', 'b', 'c', 'd', 'e', 'f'] })).refused, /At most 5/);
     assert.match((await changeItem(id, { tags: ['bad!tag'] })).refused, /symbols/);
     assert.match((await changeItem(id, { status: 'pending' })).refused, /approved or hidden/);
 
-    const done = await changeItem(id, { attitudes: ['tender', 'nostalgic', 'tender'], tags: [` ${tags[0].toUpperCase()} `, tags[1]], genre: 'Pop', subGenre: 'Indie Pop', status: 'approved' });
-    assert.deepEqual(done.attitudes, ['tender', 'nostalgic']);
+    const done = await changeItem(id, { attitudes: ['love', 'thoughtful', 'love'], tags: [` ${tags[0].toUpperCase()} `, tags[1]], genre: 'Pop', subGenre: 'Indie Pop', status: 'approved' });
+    assert.deepEqual(done.attitudes, ['love', 'thoughtful']);
     assert.deepEqual(done.tags, tags, 'tags are lowercased and tidy');
     assert.equal(done.status, 'approved');
     assert.equal(done.subGenre, 'Indie Pop');

@@ -142,7 +142,7 @@ test('calm songs are not first dealt the harsh effects, club songs are', async (
     const mood = slot => list.find(effect => effect.id === slot.effectId).mood;
     const harsh = ['glitchy', 'techno', 'retro', 'graphic', 'bold'];
     // Gospel by genre, and a quiet lane by what the words say (a pop song with lonely lyrics).
-    const lonely = { attitude: 'lonely', sadness: 3, intensity: 2 };
+    const lonely = { attitude: 'sad', sadness: 3, intensity: 2 };
     for (const [genre, sha, meaning] of [['Gospel', 'a'], ['Gospel', 'b'], ['Pop', 'a', lonely], ['Pop', 'c', lonely]]) {
       const person = profile(genre, 'hello', sha.repeat(64), meaning);
       for (let generation = 0; generation < 3; generation++) {
@@ -165,7 +165,7 @@ test('the cover colours lead the effects, and sad words never sit on a bright on
     const warmth = value => pack.recommendRow('photography', withCover(value), 0, []).reduce((n, slot) => n + read(slot).warmth, 0) / 4;
     assert.ok(warmth(cover('#e1782a')) > warmth(cover('#2a3ea0', { hue: 230, warmth: 0, lightness: 0.25 })) + 0.15, 'a warm cover is dealt warmer effects than a cool one');
 
-    const sad = { attitude: 'lonely', sadness: 3, intensity: 2 };
+    const sad = { attitude: 'sad', sadness: 3, intensity: 2 };
     for (let generation = 0; generation < 9; generation++) {
       for (const slot of pack.recommendRow('photography', profile('Pop', 'tears fall like rain tonight alone', 'a'.repeat(64), sad), generation, [])) assert.ok(read(slot).lightness < 0.6, `${slot.effectId} is too bright for sad words`);
     }
@@ -190,7 +190,7 @@ test('lyrics steer the lane when genre does not lock it', async () => {
     const spiritual = { attitude: 'spiritual', sadness: 0, intensity: 3 };
     const faith = shelf(pack, profile('Pop', 'praise the lord', 'a'.repeat(64), spiritual));
     assert.ok(faith[0].reason.startsWith('gospel'), faith[0].reason);
-    const sad = shelf(pack, profile('Pop', 'hello', 'a'.repeat(64), { attitude: 'heartbroken', sadness: 3, intensity: 2 }));
+    const sad = shelf(pack, profile('Pop', 'hello', 'a'.repeat(64), { attitude: 'sad', sadness: 3, intensity: 2 }));
     assert.ok(sad[0].reason.startsWith('quiet'), sad[0].reason);
     // Genre lock wins over lyrics.
     const club = shelf(pack, profile('Techno', 'praise the lord', 'a'.repeat(64), spiritual));
@@ -227,7 +227,7 @@ test('sad lyrics never land on a bright background', async () => {
     const bank = (await import('../src/look-lab/bank.json', { with: { type: 'json' } })).default;
     const tone = new Map(bank.map(item => [item.slug, item.tone]));
     for (const gen of [0, 1, 2]) {
-      for (const slot of looks(pack, profile('Ambient', 'tears fall like rain tonight alone', 'a'.repeat(64), { attitude: 'lonely', sadness: 3, intensity: 2 }), gen)) {
+      for (const slot of looks(pack, profile('Ambient', 'tears fall like rain tonight alone', 'a'.repeat(64), { attitude: 'sad', sadness: 3, intensity: 2 }), gen)) {
         assert.equal(tone.get(slot.bankId), 'deep', slot.bankId);
       }
     }
@@ -286,7 +286,7 @@ test('the lyrics grade the colours and calm the beat without changing the look',
     assert.ok(neutral.every(slot => !slot.grade));
 
     // Sad words on a club song: same lane and looks, sadder colours, calmer hits. Riso inks, Spray paints, Window screens and the Doodle paper are the design, so they are not graded.
-    const sad = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'heartbroken', sadness: 3, intensity: 2 }));
+    const sad = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'sad', sadness: 3, intensity: 2 }));
     assert.ok(sad.every(slot => slot.reason.startsWith('techno')));
     const graded = sad.filter(slot => !['riso', 'spray', 'window', 'doodle'].includes(slot.row));
     assert.equal(graded.length, 40);
@@ -296,7 +296,7 @@ test('the lyrics grade the colours and calm the beat without changing the look',
     assert.ok(sad.filter(slot => ['riso', 'spray', 'window', 'doodle'].includes(slot.row)).every(slot => slot.grade === undefined), 'Riso, Spray, Window and Doodle keep their own colours');
 
     // Defiant and forceful: warmer, punchier, no calming.
-    const defiant = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'defiant', sadness: 0, intensity: 4 }))[0].grade;
+    const defiant = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'confident', sadness: 0, intensity: 4 }))[0].grade;
     assert.ok(defiant.warmth > 0 && defiant.contrast > 1 && defiant.calm === 0, JSON.stringify(defiant));
   } finally { await server.close(); }
 });
@@ -315,14 +315,14 @@ test('the attitude of the words picks backgrounds that look like it', async () =
     assert.deepEqual(song({ attitude: 'neutral', sadness: 0, intensity: 3 }).map(slot => slot.id), song(undefined).map(slot => slot.id));
 
     // Tender words lead with lighter, warmer pictures than angry ones; sad ones go darker and cooler still.
-    const tender = song({ attitude: 'tender', sadness: 0, intensity: 2 });
+    const tender = song({ attitude: 'love', sadness: 0, intensity: 2 });
     const angry = song({ attitude: 'angry', sadness: 0, intensity: 5 });
-    const lonely = song({ attitude: 'lonely', sadness: 3, intensity: 1 });
+    const lonely = song({ attitude: 'sad', sadness: 3, intensity: 1 });
     assert.ok(mean(tender, 'lightness') > mean(angry, 'lightness') + 0.1, 'tender is lighter than angry');
     assert.ok(mean(lonely, 'warmth') < mean(tender, 'warmth'), 'lonely is cooler than tender');
 
     // The fit itself: a defiant song suits a dark, saturated, warm look better than a pale grey one.
-    const defiant = { attitude: 'defiant', sadness: 0, intensity: 4 };
+    const defiant = { attitude: 'confident', sadness: 0, intensity: 4 };
     assert.ok(fit.attitudeFit(defiant, read('neon-flow-5')) > fit.attitudeFit(defiant, read('lit-rays-5')) + 0.2);
     // More sadness always asks for a darker, cooler picture, never a brighter one.
     const dark = fit.attitudeFit({ ...defiant, sadness: 3 }, read('shifted-swirls-9')) - fit.attitudeFit({ ...defiant, sadness: 0 }, read('shifted-swirls-9'));

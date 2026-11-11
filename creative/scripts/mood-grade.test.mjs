@@ -23,7 +23,7 @@ test('neutral words grade nothing; the matrix for no change is the identity', as
 test('sad words desaturate, cool and darken; calm shrinks the beat but never removes it', async () => {
   const { server, grade } = await load();
   try {
-    const sad = grade.moodGrade({ attitude: 'heartbroken', sadness: 3, intensity: 1 });
+    const sad = grade.moodGrade({ attitude: 'sad', sadness: 3, intensity: 1 });
     const [r, g, b] = apply(grade.gradeMatrix(sad), [0.8, 0.4, 0.2]);
     // An orange pixel turns duller, bluer and darker than it was.
     assert.ok(b / r > 0.2 / 0.8, 'cooler');

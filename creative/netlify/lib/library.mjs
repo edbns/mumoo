@@ -11,8 +11,7 @@ import { deleteObject, getObject, objectSize, signedDownload, signedUpload } fro
 
 /** The brain's attitude codes. A test keeps this the same as ATTITUDES in src/lyric-meaning.ts. */
 export const ATTITUDES = [
-  'joyful', 'playful', 'flirty', 'tender', 'romantic', 'hopeful', 'boastful', 'defiant', 'annoyed', 'angry',
-  'menacing', 'bitter', 'heartbroken', 'lonely', 'nostalgic', 'reflective', 'spiritual', 'neutral',
+  'happy', 'fun', 'flirty', 'love', 'confident', 'angry', 'sad', 'thoughtful', 'spiritual', 'neutral',
 ];
 export const MAX_ATTITUDES = 4;
 export const MAX_TAGS_PER_ITEM = 5;
