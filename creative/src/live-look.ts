@@ -448,8 +448,9 @@ const streaksSource = (id: StreaksLookId) => {
         vec3 sampleColour = seen(vTextureCoord + way);
         float amount = max(smoothstep(gate, 1.0, bright(sampleColour)), smoothstep(hot, 1.0, bright(sampleColour)));
         ${style.edge ? `
+        // Edge leak adds on top of normal highlight streaks — never replaces them (or the middle goes black).
         float edgeHere = max(max(1.0 - vTextureCoord.x * 3.2, 1.0 - vTextureCoord.y * 3.2), 0.0);
-        amount = max(amount * 0.25, edgeHere * (0.65 + 0.35 * amount));
+        amount = amount + edgeHere * (0.55 + 0.45 * amount);
         ` : ''}
         vec3 tint = tintOf(bright(sampleColour));
         ${style.prism ? `
@@ -465,7 +466,7 @@ const streaksSource = (id: StreaksLookId) => {
       float amount = max(smoothstep(gate, 1.0, bright(rgb)), smoothstep(hot, 1.0, bright(rgb)));
       ${style.edge ? `
       float edgeHere = max(max(1.0 - vTextureCoord.x * 3.2, 1.0 - vTextureCoord.y * 3.2), 0.0);
-      amount = max(amount * 0.25, edgeHere * (0.7 + 0.3 * amount));
+      amount = amount + edgeHere * (0.6 + 0.4 * amount);
       ` : ''}
       colour += tintOf(bright(rgb)) * amount * 2.2;
       streak = max(streak, amount * 2.2);

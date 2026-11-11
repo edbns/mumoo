@@ -126,7 +126,7 @@ export const LIVE_LOOKS = [
   { id: 'streakice', family: 'streaks', title: 'Ice', lanes: ['quiet', 'dark', 'techno', 'general'] },
   { id: 'streakburn', family: 'streaks', title: 'Film burn', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   { id: 'streakrain', family: 'streaks', title: 'Rain', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakzoom', family: 'streaks', title: 'Zoom pulse', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'streakzoom', family: 'streaks', title: 'Starburst', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   { id: 'streakspeed', family: 'streaks', title: 'Speed lines', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
 ] as const satisfies readonly { id: string; family: LookFamily; title: string; lanes: readonly MoodLane[] }[];
 
@@ -178,7 +178,7 @@ const STREAK_GEOMETRY: Record<StreaksLookId, string> = {
   streakice: 'horizontal',
   streakburn: 'edge',
   streakrain: 'vertical',
-  streakzoom: 'radial',
+  streakzoom: 'cross',
   streakspeed: 'cross',
 };
 

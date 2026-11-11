@@ -85,11 +85,11 @@ export const STREAKS_STYLES: Record<StreaksLookId, StreaksStyle> = {
     direction: 0, length: 0.92, threshold: 0.2, strength: 3.35,
     grade: { shadows: [0.01, 0.05, 0.14], contrast: 1.45, mid: 0.52 },
   }),
-  /** Film burn: orange-red leaks from the edges. */
+  /** Film burn: orange-red streaks plus a warm edge leak. */
   streakburn: {
-    direction: 0, second: 90, length: 0.7, threshold: 0.2, strength: 2.8, falloff: 0.8,
+    direction: 0, second: 90, length: 0.85, threshold: 0.2, strength: 3.4, falloff: 0.88,
     tint: [[1.0, 0.08, 0.0], [1.0, 0.45, 0.05]] as const,
-    grade: { shadows: [0.05, 0.01, 0.0], contrast: 1.5, mid: 0.58 },
+    grade: { shadows: [0.05, 0.01, 0.0], contrast: 1.45, mid: 0.52 },
     edge: true,
   },
   /** Rain: vertical blue-white. */
@@ -97,10 +97,10 @@ export const STREAKS_STYLES: Record<StreaksLookId, StreaksStyle> = {
     direction: 90, length: 0.98, falloff: 0.93, strength: 4.0, threshold: 0.16,
     grade: { shadows: [0.01, 0.03, 0.12], contrast: 1.5, mid: 0.58 },
   }),
-  /** Zoom pulse: radial from the centre. */
-  streakzoom: anamorphic([1.0, 0.72, 0.45], {
-    direction: 'radial', length: 0.42, strength: 3.6, threshold: 0.17, falloff: 0.88,
-    grade: { shadows: [0.03, 0.01, 0.02], contrast: 1.55, mid: 0.6 },
+  /** Zoom pulse: starburst cross (radial-from-centre looked like a black card on real photos). */
+  streakzoom: anamorphic([1.0, 0.82, 0.55], {
+    direction: -70, second: 20, length: 0.88, strength: 3.7, threshold: 0.18, falloff: 0.9,
+    grade: { shadows: [0.03, 0.01, 0.02], contrast: 1.48, mid: 0.55 },
   }),
   /** Speed lines: steep crossed diagonals. */
   streakspeed: anamorphic([1.0, 0.95, 0.82], {
@@ -150,9 +150,9 @@ export function streaksAverage(look: StreaksLookId, r: number, g: number, b: num
 export function streaksGeometry(look: StreaksLookId): string {
   const style = STREAKS_STYLES[look];
   if (style.edge) return 'edge';
-  if (style.direction === 'radial') return 'radial';
+  if (style.direction === 'radial') return 'cross';
   if (style.prism || style.second !== undefined) return 'cross';
-  const angle = ((style.direction % 180) + 180) % 180;
+  const angle = ((Number(style.direction) % 180) + 180) % 180;
   if (angle < 12 || angle > 168) return 'horizontal';
   if (Math.abs(angle - 90) < 12) return 'vertical';
   return 'diagonal';
