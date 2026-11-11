@@ -155,7 +155,7 @@ export function CreativesPackStudio({
   // Links are renewed from time to time, so rows are keyed by id, not link.
   const useOf = (row: ShelfRow) => SHELF_ROWS.find(def => def.id === row)?.upload;
   const ownPicture = (use: PictureUse) => uploads.current.find(item => item.use === use && item.status === 'ready' && item.url) ?? null;
-  const pictures: Record<PictureUse, Upload | null> = { dust: ownPicture('dust'), riso: ownPicture('riso'), filter: ownPicture('filter'), window: ownPicture('window'), thermal: ownPicture('thermal'), halftone: ownPicture('halftone'), dither: ownPicture('dither'), glow: ownPicture('glow'), streaks: ownPicture('streaks') };
+  const pictures: Record<PictureUse, Upload | null> = { dust: ownPicture('dust'), riso: ownPicture('riso'), filter: ownPicture('filter'), window: ownPicture('window'), thermal: ownPicture('thermal'), halftone: ownPicture('halftone'), dither: ownPicture('dither'), glow: ownPicture('glow'), streaks: ownPicture('streaks'), ascii: ownPicture('ascii') };
   const windowOwn = useWindowOwn(pictures.window);
   // Our approved library fills Our photography until the person uses their own picture there.
   const library = useLibrary();
@@ -175,7 +175,7 @@ export function CreativesPackStudio({
     const use = useOf(row);
     return (use ? drawingFrom(pictures[use]) : undefined) ?? (slot?.libraryId ? drawingFrom(libraryItem(slot.libraryId)) : undefined);
   };
-  const pictureIds = `${pictures.dust?.id ?? 'ours'}|${pictures.riso?.id ?? 'ours'}|${pictures.filter?.id ?? 'ours'}|${pictures.window?.id ?? 'ours'}|${pictures.thermal?.id ?? 'ours'}|${pictures.halftone?.id ?? 'ours'}|${pictures.dither?.id ?? 'ours'}|${pictures.glow?.id ?? 'ours'}|${pictures.streaks?.id ?? 'ours'}`;
+  const pictureIds = `${pictures.dust?.id ?? 'ours'}|${pictures.riso?.id ?? 'ours'}|${pictures.filter?.id ?? 'ours'}|${pictures.window?.id ?? 'ours'}|${pictures.thermal?.id ?? 'ours'}|${pictures.halftone?.id ?? 'ours'}|${pictures.dither?.id ?? 'ours'}|${pictures.glow?.id ?? 'ours'}|${pictures.streaks?.id ?? 'ours'}|${pictures.ascii?.id ?? 'ours'}`;
 
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
     // Made of the lyrics, and there are none: nothing is dealt, drawn or paid for.

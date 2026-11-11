@@ -3,13 +3,14 @@
  * and the palette reader (pack-palette.ts) runs the same function over a small copy of the picture, so the lyric ink and the
  * scrim that keep the words readable are chosen against the picture as it is *seen* (looked), not as it was.
  */
-import type { DitherLookId, GlowLookId, HalftoneLookId, HeatLookId, LiveLookId, StreaksLookId } from './live-look-deal';
+import type { AsciiLookId, DitherLookId, GlowLookId, HalftoneLookId, HeatLookId, LiveLookId, StreaksLookId } from './live-look-deal';
+import { ASCII_STYLES, asciiAverage } from './ascii-styles';
 import { DITHER_STYLES, ditherAverage } from './dither-styles';
 import { GLOW_STYLES, glowAverage } from './glow-styles';
 import { HALFTONE_STYLES, halftoneAverage, screenCover } from './halftone-styles';
 import { STREAKS_STYLES, streaksAverage, streaksGeometry } from './streaks-styles';
 
-export { DITHER_STYLES, GLOW_STYLES, HALFTONE_STYLES, STREAKS_STYLES, streaksGeometry };
+export { ASCII_STYLES, DITHER_STYLES, GLOW_STYLES, HALFTONE_STYLES, STREAKS_STYLES, streaksGeometry };
 
 type Stops = readonly (readonly [number, number, number])[];
 
@@ -115,6 +116,7 @@ export const isHalftone = (look: LiveLookId): look is HalftoneLookId => look in 
 export const isDither = (look: LiveLookId): look is DitherLookId => look in DITHER_STYLES;
 export const isGlow = (look: LiveLookId): look is GlowLookId => look in GLOW_STYLES;
 export const isStreaks = (look: LiveLookId): look is StreaksLookId => look in STREAKS_STYLES;
+export const isAscii = (look: LiveLookId): look is AsciiLookId => look in ASCII_STYLES;
 
 /** The colour of a dither pixel as it averages over a cell: see dither-styles.ts. */
 export const ditherPixel = ditherAverage;
@@ -122,6 +124,8 @@ export const ditherPixel = ditherAverage;
 export const glowPixel = glowAverage;
 /** The colour of a streaks pixel as it averages over a cell: see streaks-styles.ts. */
 export const streaksPixel = streaksAverage;
+/** The colour of an ASCII pixel as it averages over a cell: see ascii-styles.ts. */
+export const asciiPixel = asciiAverage;
 
 /** A pixel (0-255) as the look shows it, without the beat, the grain or the softening, which move too much to read the type against. */
 export function lookPixel(look: LiveLookId, r: number, g: number, b: number, range: readonly [number, number]): [number, number, number] {
@@ -129,6 +133,7 @@ export function lookPixel(look: LiveLookId, r: number, g: number, b: number, ran
   if (isDither(look)) return ditherPixel(look, r, g, b);
   if (isGlow(look)) return glowPixel(look, r, g, b);
   if (isStreaks(look)) return streaksPixel(look, r, g, b);
+  if (isAscii(look)) return asciiPixel(look, r, g, b);
   const [low, high] = [range[0], Math.max(range[1], range[0] + MIN_SPREAD)];
   const [lr, lg, lb] = rampColor(LOOK_STOPS[look], heatOf(heatSource(r, g, b), low, high));
   return [lr * 255, lg * 255, lb * 255];

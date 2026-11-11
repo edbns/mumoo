@@ -3,8 +3,9 @@
  * The preview and the cloud render run this same code. Each look reads the beat and the song's energy, so it moves with the music.
  */
 import { Filter, GlProgram, UniformGroup } from 'pixi.js';
-import type { DitherLookId, GlowLookId, HalftoneLookId, HeatLookId, LiveLookId, StreaksLookId } from './live-look-deal';
-import { DITHER_STYLES, GLOW_STYLES, HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD, STREAKS_STYLES } from './live-look-ramp';
+import type { AsciiLookId, DitherLookId, GlowLookId, HalftoneLookId, HeatLookId, LiveLookId, StreaksLookId } from './live-look-deal';
+import { ASCII_STYLES, DITHER_STYLES, GLOW_STYLES, HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD, STREAKS_STYLES } from './live-look-ramp';
+import { ASCII_GLYPHS, ASCII_RAMPS } from './ascii-styles';
 
 /** What a look needs to know about this moment. `range`: how cold and how hot the picture reads (0-1), which a look stretches over its ramp. */
 export type LiveLookInput = { beat: number; energy: number; ms: number; range: readonly [number, number] };
@@ -558,7 +559,130 @@ function streaksLook(id: StreaksLookId): LiveLook {
   };
 }
 
+/**
+ * ASCII: the picture rebuilt from 5×7 bitmap characters (no font). A grid of cells reads brightness (3 taps), picks a glyph from the
+ * colouring's ramp, and draws it in ink on paper. Beat steps bright cells up the ramp; optional rain scrolls columns.
+ */
+const asciiSource = (id: AsciiLookId) => {
+  const style = ASCII_STYLES[id];
+  const cols = style.cols ?? 80;
+  const ramp = ASCII_RAMPS[style.ramp];
+  const glyphs = ramp.map(name => ASCII_GLYPHS[name]);
+  const vec = (rgb: readonly number[]) => `vec3(${rgb.map(f).join(', ')})`;
+  const pictureInk = style.ink === 'picture';
+  const inkExpr = pictureInk ? 'sampleRgb' : vec(style.ink as readonly [number, number, number]);
+  const paperExpr = vec(style.paper);
+  // No dynamic array indexing (some WebGL paths black out): pick the row with ifs, then the bit with ifs.
+  const glyphSelect = glyphs.map((rows, index) => `
+  if (gid == ${index}) {
+    float row = 0.0;
+    if (gy == 0) row = ${f(rows[0])};
+    else if (gy == 1) row = ${f(rows[1])};
+    else if (gy == 2) row = ${f(rows[2])};
+    else if (gy == 3) row = ${f(rows[3])};
+    else if (gy == 4) row = ${f(rows[4])};
+    else if (gy == 5) row = ${f(rows[5])};
+    else row = ${f(rows[6])};
+    float bit = 0.0;
+    if (gx == 0) bit = floor(mod(floor(row / 16.0), 2.0));
+    else if (gx == 1) bit = floor(mod(floor(row / 8.0), 2.0));
+    else if (gx == 2) bit = floor(mod(floor(row / 4.0), 2.0));
+    else if (gx == 3) bit = floor(mod(floor(row / 2.0), 2.0));
+    else bit = floor(mod(row, 2.0));
+    return bit >= 1.0;
+  }`).join('');
+
+  return `
+in vec2 vTextureCoord;
+out vec4 finalColor;
+uniform sampler2D uTexture;
+uniform highp vec4 uInputSize;
+uniform float uBeat;
+uniform float uEnergy;
+uniform float uTime;
+
+vec3 seen(vec2 uv) {
+  vec4 source = texture(uTexture, clamp(uv, 0.0, 1.0));
+  return source.a > 0.0 ? source.rgb / source.a : source.rgb;
+}
+
+float bright(vec3 rgb) {
+  return dot(rgb, vec3(0.299, 0.587, 0.114));
+}
+
+bool glyphOn(int gid, int gx, int gy) {
+  ${glyphSelect}
+  return false;
+}
+
+void main(void) {
+  vec4 centre = texture(uTexture, vTextureCoord);
+  float cols = ${f(cols)};
+  float cellW = uInputSize.x / cols;
+  float cellH = cellW * 2.0;
+  vec2 px = vTextureCoord * uInputSize.xy;
+  float col = floor(px.x / cellW);
+  float row = floor(px.y / cellH);
+  ${style.rain ? `
+  float rain = floor(mod(uTime * (1.2 + 2.4 * fract(sin(col * 12.9898) * 43758.5453)) * (0.35 + 0.65 * uEnergy), 64.0));
+  row = mod(row + rain, floor(uInputSize.y / cellH) + 1.0);
+  ` : ''}
+  vec2 middle = vec2((col + 0.5) * cellW, (floor(px.y / cellH) + 0.5) * cellH) * uInputSize.zw;
+  vec2 reach = vec2(cellW, cellH) * 0.18 * uInputSize.zw;
+  vec3 sampleRgb = seen(middle) * 0.5 + seen(middle + vec2(reach.x, 0.0)) * 0.25 + seen(middle - vec2(reach.x, 0.0)) * 0.25;
+  float light = bright(sampleRgb);
+  float tone = ${style.invert ? '1.0 - light' : 'light'};
+  // Bright cells step up the ramp on the beat.
+  float steps = ${f(glyphs.length - 1)};
+  float x = clamp(tone, 0.0, 1.0) * steps + uBeat * (0.6 + 1.1 * uEnergy) * step(0.55, tone);
+  int gid = int(clamp(floor(x + 0.5), 0.0, steps));
+  vec2 local = vec2(fract(px.x / cellW), fract(px.y / cellH));
+  // Slight letterboxing so glyphs do not touch cell edges.
+  vec2 inset = (local - 0.08) / 0.84;
+  vec3 paper = ${paperExpr};
+  vec3 ink = ${inkExpr};
+  if (inset.x < 0.0 || inset.y < 0.0 || inset.x > 1.0 || inset.y > 1.0) {
+    finalColor = vec4(paper, 1.0) * centre.a;
+    return;
+  }
+  int gx = int(clamp(floor(inset.x * 5.0), 0.0, 4.0));
+  int gy = int(clamp(floor(inset.y * 7.0), 0.0, 6.0));
+  float on = glyphOn(gid, gx, gy) ? 1.0 : 0.0;
+  ${style.rain ? `
+  // Fading rain trail: newer cells (near the head) stay brighter.
+  float trail = 0.45 + 0.55 * fract(row * 0.17 + col * 0.09 + uTime * 0.3);
+  on *= mix(0.35, 1.0, trail);
+  ` : ''}
+  vec3 colour = mix(paper, ink, on);
+  finalColor = vec4(colour, 1.0) * centre.a;
+}
+`;
+};
+
+function asciiLook(id: AsciiLookId): LiveLook {
+  const { filter, set } = make(asciiSource(id), `live-look-${id}`, { uBeat: 0, uEnergy: 0, uTime: 0 });
+  return { filter, update: ({ beat, energy, ms }) => set({ uBeat: beat, uEnergy: energy, uTime: ms / 1000 }) };
+}
+
 const BUILDERS: Record<LiveLookId, () => LiveLook> = {
+  asciigreen: () => asciiLook('asciigreen'),
+  asciiamber: () => asciiLook('asciiamber'),
+  asciiwhite: () => asciiLook('asciiwhite'),
+  asciitype: () => asciiLook('asciitype'),
+  asciicolour: () => asciiLook('asciicolour'),
+  asciicyan: () => asciiLook('asciicyan'),
+  asciipink: () => asciiLook('asciipink'),
+  asciiblueprint: () => asciiLook('asciiblueprint'),
+  asciimatrix: () => asciiLook('asciimatrix'),
+  asciired: () => asciiLook('asciired'),
+  asciigold: () => asciiLook('asciigold'),
+  asciiice: () => asciiLook('asciiice'),
+  asciinews: () => asciiLook('asciinews'),
+  asciisunset: () => asciiLook('asciisunset'),
+  asciibinary: () => asciiLook('asciibinary'),
+  asciiblocks: () => asciiLook('asciiblocks'),
+  asciislash: () => asciiLook('asciislash'),
+  asciimumoo: () => asciiLook('asciimumoo'),
   streakblue: () => streaksLook('streakblue'),
   streakamber: () => streaksLook('streakamber'),
   streakteal: () => streaksLook('streakteal'),

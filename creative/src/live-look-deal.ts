@@ -7,7 +7,7 @@
 import type { MoodLane } from './ad-fonts';
 
 /** A family is one effect with many colourings; each family has its own row on the shelf. */
-export const LOOK_FAMILIES = ['thermal', 'halftone', 'dither', 'glow', 'streaks'] as const;
+export const LOOK_FAMILIES = ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii'] as const;
 export type LookFamily = (typeof LOOK_FAMILIES)[number];
 export const isLookFamily = (value: unknown): value is LookFamily => LOOK_FAMILIES.includes(value as LookFamily);
 
@@ -128,6 +128,25 @@ export const LIVE_LOOKS = [
   { id: 'streakrain', family: 'streaks', title: 'Rain', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   { id: 'streakzoom', family: 'streaks', title: 'Starburst', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   { id: 'streakspeed', family: 'streaks', title: 'Speed lines', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  /** ASCII: the picture rebuilt from text characters. Not dealt on gospel. */
+  { id: 'asciigreen', family: 'ascii', title: 'Green phosphor', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'asciiamber', family: 'ascii', title: 'Amber terminal', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'asciiwhite', family: 'ascii', title: 'White on black', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'asciitype', family: 'ascii', title: 'Typewriter', lanes: ['quiet', 'general'] },
+  { id: 'asciicolour', family: 'ascii', title: 'Colour ASCII', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'asciicyan', family: 'ascii', title: 'Cyan editor', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'asciipink', family: 'ascii', title: 'Hot pink', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'asciiblueprint', family: 'ascii', title: 'Blueprint', lanes: ['quiet', 'dark', 'general'] },
+  { id: 'asciimatrix', family: 'ascii', title: 'Matrix rain', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'asciired', family: 'ascii', title: 'Red alert', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'asciigold', family: 'ascii', title: 'Gold on black', lanes: ['quiet', 'dark', 'party', 'general'] },
+  { id: 'asciiice', family: 'ascii', title: 'Ice', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'asciinews', family: 'ascii', title: 'Newsprint', lanes: ['quiet', 'general'] },
+  { id: 'asciisunset', family: 'ascii', title: 'Sunset terminal', lanes: ['quiet', 'party', 'general'] },
+  { id: 'asciibinary', family: 'ascii', title: 'Binary', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'asciiblocks', family: 'ascii', title: 'Blocks', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'asciislash', family: 'ascii', title: 'Slashes', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'asciimumoo', family: 'ascii', title: 'MUMOO', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
 ] as const satisfies readonly { id: string; family: LookFamily; title: string; lanes: readonly MoodLane[] }[];
 
 export type LiveLookId = (typeof LIVE_LOOKS)[number]['id'];
@@ -141,7 +160,9 @@ export type DitherLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'dithe
 export type GlowLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'glow' }>['id'];
 /** The streaks family: light dragged into lines. */
 export type StreaksLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'streaks' }>['id'];
-export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither', glow: 'Glow', streaks: 'Streaks' };
+/** The ASCII family: the picture rebuilt from text characters. */
+export type AsciiLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'ascii' }>['id'];
+export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither', glow: 'Glow', streaks: 'Streaks', ascii: 'ASCII' };
 export const LIVE_LOOK_IDS: readonly LiveLookId[] = LIVE_LOOKS.map(look => look.id);
 
 export const isLiveLook = (value: unknown): value is LiveLookId => LIVE_LOOK_IDS.includes(value as LiveLookId);

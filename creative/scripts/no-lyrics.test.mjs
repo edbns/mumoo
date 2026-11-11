@@ -9,7 +9,7 @@ const composition = await server.ssrLoadModule('/src/composition.ts');
 await server.close();
 
 test('a song with no words shows only the rows that work without them', () => {
-  assert.deepEqual(pack.rowsFor(true).map(row => row.id), ['photography', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'riso', 'dust']);
+  assert.deepEqual(pack.rowsFor(true).map(row => row.id), ['photography', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'riso', 'dust']);
   assert.ok(pack.rowsFor(true).every(row => row.lyrics === 'switch'), 'none of them is made of the lyrics');
   assert.deepEqual(pack.rowsFor(false).map(row => row.id), pack.SHELF_ROWS.map(row => row.id), 'with words, every row');
   assert.ok(pack.rowsFor(true).length < pack.rowsFor(false).length);

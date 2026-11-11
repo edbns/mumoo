@@ -15,7 +15,7 @@ const workerPath = fileURLToPath(new URL('../../audio-intelligence/modal_creativ
 const WORKER = readFileSync(workerPath, 'utf8');
 const LANES = ['party', 'quiet', 'gospel', 'techno', 'dark', 'general'];
 
-const FAMILIES = ['thermal', 'halftone', 'dither', 'glow', 'streaks'];
+const FAMILIES = ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii'];
 const familyOf = id => deal.LIVE_LOOKS.find(entry => entry.id === id).family;
 
 test('every card of a row carries a look of its effect that the lane welcomes, never the same on neighbours', () => {
@@ -48,9 +48,10 @@ test('every effect has many colourings in every lane, so Refresh keeps showing n
   }
 });
 
-test('Thermal and Streaks are not dealt on a gospel song; Halftone, Dither and Glow are', () => {
+test('Thermal, Streaks and ASCII are not dealt on a gospel song; Halftone, Dither and Glow are', () => {
   assert.deepEqual(deal.dealLooks('gospel', 'seed', 4, 'thermal'), [null, null, null, null]);
   assert.deepEqual(deal.dealLooks('gospel', 'seed', 4, 'streaks'), [null, null, null, null]);
+  assert.deepEqual(deal.dealLooks('gospel', 'seed', 4, 'ascii'), [null, null, null, null]);
   assert.ok(deal.dealLooks('gospel', 'seed', 4, 'halftone').every(look => look && familyOf(look) === 'halftone'));
   assert.ok(deal.dealLooks('gospel', 'seed', 4, 'dither').every(look => look && familyOf(look) === 'dither'));
   assert.ok(deal.dealLooks('gospel', 'seed', 4, 'glow').every(look => look && familyOf(look) === 'glow'));
@@ -225,6 +226,28 @@ test('glow grades dark and lifts bright with its tint, without blowing past 255'
   }
 });
 
+test('ascii mixes paper toward ink by brightness, without blowing past 255', () => {
+  const asciis = deal.LIVE_LOOKS.filter(look => look.family === 'ascii').map(look => look.id);
+  assert.ok(asciis.length >= 12, 'many ascii colourings');
+  assert.deepEqual([...asciis].sort(), Object.keys(ramp.ASCII_STYLES).sort(), 'every ascii has a style, and every style a place in the list');
+  const dark = ramp.lookPixel('asciigreen', 10, 10, 10, [0, 1]);
+  const light = ramp.lookPixel('asciigreen', 250, 250, 250, [0, 1]);
+  assert.ok(dark.every(value => value < 40), `green paper stays dark: ${dark}`);
+  assert.ok(light[1] > light[0] && light[1] > 120, `green ink lifts bright: ${light}`);
+  const typeDark = ramp.lookPixel('asciitype', 20, 20, 20, [0, 1]);
+  const typeLight = ramp.lookPixel('asciitype', 240, 240, 240, [0, 1]);
+  assert.ok(typeDark[0] < typeLight[0], `typewriter puts more ink on dark: ${typeDark} vs ${typeLight}`);
+  const colour = ramp.lookPixel('asciicolour', 220, 40, 40, [0, 1]);
+  assert.ok(colour[0] > colour[1] && colour[0] > colour[2], `colour ASCII keeps the picture's hue: ${colour}`);
+  const dealt = pack.recommendRow('ascii', profile('Techno'), 0, [], null, [picture('a'), picture('b'), picture('c'), picture('d')]);
+  assert.equal(new Set(dealt.map(slot => slot.look)).size, 4, 'an ASCII row deals four different colourings');
+  for (const id of asciis) {
+    for (const colour of [[0, 0, 0], [255, 255, 255], [200, 40, 40], [30, 90, 200]]) {
+      for (const value of ramp.lookPixel(id, ...colour, [0, 1])) assert.ok(value >= 0 && value <= 255, `${id} ${colour}`);
+    }
+  }
+});
+
 test('streaks grade dark and tint bright highlights, without blowing past 255', () => {
   const streaks = deal.LIVE_LOOKS.filter(look => look.family === 'streaks').map(look => look.id);
   assert.ok(streaks.length >= 12, 'many streaks');
@@ -249,7 +272,7 @@ test('streaks grade dark and tint bright highlights, without blowing past 255', 
   }
 });
 
-test('Thermal, Halftone, Dither, Glow and Streaks are rows of their own, drawn on library pictures only, and Our photography carries no look', () => {
+test('Thermal, Halftone, Dither, Glow, Streaks and ASCII are rows of their own, drawn on library pictures only, and Our photography carries no look', () => {
   const library = [picture('a'), picture('b'), picture('c'), picture('d')];
   for (const family of FAMILIES) {
     const row = pack.recommendRow(family, profile('Techno'), 0, [], null, library);
@@ -276,14 +299,16 @@ test('Thermal, Halftone, Dither, Glow and Streaks are rows of their own, drawn o
     assert.notDeepEqual(pack.recommendRow(family, profile('Techno'), 1, [], null, [], {}, true).map(slot => slot.look), own.map(slot => slot.look), `${family}: Refresh deals other colourings of their picture`);
     assert.deepEqual(pack.recommendRow(family, profile('Techno'), 0, [], null, library, {}, true).map(slot => slot.id), own.map(slot => slot.id), 'their picture replaces the library cards');
   }
-  assert.deepEqual(pack.SHELF_ROWS.filter(row => ['thermal', 'halftone', 'dither', 'glow', 'streaks'].includes(row.id)).map(row => row.upload), ['thermal', 'halftone', 'dither', 'glow', 'streaks'], 'each row keeps its own uploaded picture');
+  assert.deepEqual(pack.SHELF_ROWS.filter(row => ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii'].includes(row.id)).map(row => row.upload), ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii'], 'each row keeps its own uploaded picture');
   const thermalIds = new Set(pack.recommendRow('thermal', profile('Techno'), 0, [], null, library).map(slot => slot.id));
   assert.ok(pack.recommendRow('halftone', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'the rows never share a card');
   assert.ok(pack.recommendRow('dither', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'Dither does not share cards with Thermal');
   assert.ok(pack.recommendRow('glow', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'Glow does not share cards with Thermal');
   assert.ok(pack.recommendRow('streaks', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'Streaks does not share cards with Thermal');
+  assert.ok(pack.recommendRow('ascii', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'ASCII does not share cards with Thermal');
   assert.deepEqual(pack.recommendRow('thermal', profile('Gospel'), 0, [], null, library), [], 'no Thermal on a gospel song');
   assert.deepEqual(pack.recommendRow('streaks', profile('Gospel'), 0, [], null, library), [], 'no Streaks on a gospel song');
+  assert.deepEqual(pack.recommendRow('ascii', profile('Gospel'), 0, [], null, library), [], 'no ASCII on a gospel song');
   assert.equal(pack.recommendRow('halftone', profile('Gospel'), 0, [], null, library).length, 4, 'Halftone suits a gospel song');
   assert.equal(pack.recommendRow('dither', profile('Gospel'), 0, [], null, library).length, 4, 'Dither suits a gospel song');
   assert.equal(pack.recommendRow('glow', profile('Gospel'), 0, [], null, library).length, 4, 'Glow suits a gospel song');
