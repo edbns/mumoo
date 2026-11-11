@@ -15,31 +15,39 @@ const workerPath = fileURLToPath(new URL('../../audio-intelligence/modal_creativ
 const WORKER = readFileSync(workerPath, 'utf8');
 const LANES = ['party', 'quiet', 'gospel', 'techno', 'dark', 'general'];
 
-test('every card of a row carries a look the lane welcomes, never the same on neighbours', () => {
-  for (const lane of ['quiet', 'dark', 'techno', 'party', 'general']) {
-    for (const seed of ['a', 'b', 'c', 'd', 'e', 'f']) {
-      const looks = deal.dealLooks(lane, seed, 4);
-      assert.equal(looks.length, 4);
-      assert.ok(looks.every(look => look && deal.isLiveLook(look) && deal.LIVE_LOOKS.find(entry => entry.id === look).lanes.includes(lane)), `${lane}/${seed}: ${looks}`);
-      assert.ok(looks.every((look, index) => index === 0 || look !== looks[index - 1]), 'never the same look side by side');
-      assert.ok(new Set(looks).size >= 2, 'never one look four times');
+const FAMILIES = ['thermal', 'halftone'];
+const familyOf = id => deal.LIVE_LOOKS.find(entry => entry.id === id).family;
+
+test('every card of a row carries a look of its effect that the lane welcomes, never the same on neighbours', () => {
+  for (const family of FAMILIES) {
+    for (const lane of ['quiet', 'dark', 'techno', 'party', 'general']) {
+      for (const seed of ['a', 'b', 'c', 'd', 'e', 'f']) {
+        const looks = deal.dealLooks(lane, seed, 4, family);
+        assert.equal(looks.length, 4);
+        assert.ok(looks.every(look => look && familyOf(look) === family && deal.LIVE_LOOKS.find(entry => entry.id === look).lanes.includes(lane)), `${family}/${lane}/${seed}: ${looks}`);
+        assert.ok(looks.every((look, index) => index === 0 || look !== looks[index - 1]), 'never the same look side by side');
+        assert.ok(new Set(looks).size >= 2, 'never one look four times');
+      }
+    }
+    assert.ok(new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(seed => deal.dealLooks('dark', seed, 4, family).join())).size >= 4, `${family}: a new seed (Refresh) deals different looks on different cards`);
+    assert.deepEqual(deal.dealLooks('dark', 's', 4, family), deal.dealLooks('dark', 's', 4, family), 'the same song always gets the same deal');
+  }
+});
+
+test('every effect has many colourings in every lane, so Refresh keeps showing new ones', () => {
+  for (const family of FAMILIES) {
+    for (const lane of ['quiet', 'dark', 'techno', 'party', 'general']) {
+      assert.ok(deal.LIVE_LOOKS.filter(look => look.family === family && look.lanes.includes(lane)).length >= 6, `${family} welcomes at least 6 colourings in ${lane}`);
+      const seen = new Set();
+      for (let refresh = 0; refresh < 6; refresh++) deal.dealLooks(lane, `song:${refresh}`, 4, family).forEach(look => seen.add(look));
+      assert.ok(seen.size >= 6, `${family}/${lane}: six refreshes showed ${seen.size} different looks`);
     }
   }
-  assert.ok(new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(seed => deal.dealLooks('dark', seed, 4).join())).size >= 4, 'a new seed (Refresh) deals different looks on different cards');
-  assert.deepEqual(deal.dealLooks('dark', 's', 4), deal.dealLooks('dark', 's', 4), 'the same song always gets the same deal');
 });
 
-test('every lane has many looks, so Refresh keeps showing new ones', () => {
-  for (const lane of ['quiet', 'dark', 'techno', 'party', 'general']) {
-    assert.ok(deal.LIVE_LOOKS.filter(look => look.lanes.includes(lane)).length >= 8, `${lane} welcomes at least 8 looks`);
-    const seen = new Set();
-    for (let refresh = 0; refresh < 6; refresh++) deal.dealLooks(lane, `song:${refresh}`, 4).forEach(look => seen.add(look));
-    assert.ok(seen.size >= 8, `${lane}: six refreshes showed ${seen.size} different looks`);
-  }
-});
-
-test('gospel songs are never dealt a look', () => {
-  assert.deepEqual(deal.dealLooks('gospel', 'seed', 4), [null, null, null, null]);
+test('Thermal is not dealt on a gospel song, Halftone is', () => {
+  assert.deepEqual(deal.dealLooks('gospel', 'seed', 4, 'thermal'), [null, null, null, null]);
+  assert.ok(deal.dealLooks('gospel', 'seed', 4, 'halftone').every(look => look && familyOf(look) === 'halftone'));
 });
 
 test('every look has a title and welcomes only real lanes', () => {
@@ -76,8 +84,31 @@ test('halftone prints dark as mostly ink and light as mostly paper, in the pictu
   assert.ok(light[0] > 215 && light[1] > 200 && light[2] > 180, `light is cream paper: ${light}`);
   const red = ramp.lookPixel('halftone', 200, 40, 40, [0, 1]);
   assert.ok(red[0] > red[1] * 1.5 && red[0] > red[2] * 1.5, `a red picture prints red ink: ${red}`);
-  assert.ok(ramp.halftoneCover(0, 0, 0) === 1 && ramp.halftoneCover(255, 255, 255) === 0);
+  assert.ok(ramp.halftoneCover('halftone', 0, 0, 0) === 1 && ramp.halftoneCover('halftone', 255, 255, 255) === 0);
   for (const value of [...dark, ...light, ...red]) assert.ok(value >= 0 && value <= 255);
+});
+
+test('every halftone is its own ink and paper: flat inks stay one colour, a dark paper reverses light and dark', () => {
+  const halftones = deal.LIVE_LOOKS.filter(look => look.family === 'halftone').map(look => look.id);
+  assert.ok(halftones.length >= 8, 'many inks and papers');
+  assert.deepEqual([...halftones].sort(), Object.keys(ramp.HALFTONE_STYLES).sort(), 'every halftone has a style, and every style a place in the list');
+  // Black and white: black on white, nothing else.
+  const bwDark = ramp.lookPixel('halftonebw', 10, 10, 10, [0, 1]);
+  const bwLight = ramp.lookPixel('halftonebw', 250, 250, 250, [0, 1]);
+  assert.ok(bwDark[0] < 40 && bwLight[0] > 230, `black ink on white paper: ${bwDark} ${bwLight}`);
+  // A red ink prints red whatever the picture's colour is.
+  const redInk = ramp.lookPixel('halftonered', 20, 120, 220, [0, 1]);
+  assert.ok(redInk[0] > redInk[2] * 1.3, `a flat red ink does not take the picture's blue: ${redInk}`);
+  // On a dark paper a light part of the picture is the ink, and a dark part is the paper.
+  const invertLight = ramp.lookPixel('halftoneinvert', 250, 250, 250, [0, 1]);
+  const invertDark = ramp.lookPixel('halftoneinvert', 5, 5, 5, [0, 1]);
+  assert.ok(invertLight[0] > 200 && invertDark[0] < 40, `white on black: ${invertLight} ${invertDark}`);
+  assert.ok(ramp.halftoneCover('halftoneinvert', 255, 255, 255) === 1 && ramp.halftoneCover('halftoneinvert', 0, 0, 0) === 0);
+  for (const id of halftones) {
+    for (const colour of [[0, 0, 0], [255, 255, 255], [200, 40, 40], [30, 90, 200]]) {
+      for (const value of ramp.lookPixel(id, ...colour, [0, 1])) assert.ok(value >= 0 && value <= 255, `${id} ${colour}`);
+    }
+  }
 });
 
 test('every look the page can deal is one the shader and the palette reader know', () => {
@@ -113,27 +144,30 @@ function profile(genre, sadness = 1, attitude = 'defiant') {
 
 const picture = (id, attitude = 'defiant') => ({ id, kind: 'video', attitudes: [attitude], tags: ['street'], genre: null, subGenre: null, url: `/${id}.jpg`, motionUrl: `/${id}.mp4`, shots: [[0, 1000]] });
 
-test('a look rides on Our photography cards only, a few different ones, and gospel gets none', () => {
-  const library = [picture('a'), picture('b'), picture('c')];
-  const club = pack.recommendRow('photography', profile('Techno'), 0, [], null, library);
-  assert.equal(club.length, 3, 'three library pictures, three cards, no baked filler');
-  const wearing = club.filter(slot => slot.libraryId);
-  assert.equal(wearing.length, 3);
-  assert.ok(wearing.every(slot => slot.look && deal.isLiveLook(slot.look)), 'every library picture carries a look, none is dealt to a baked effect and lost');
-  assert.equal(new Set(wearing.map(slot => slot.look)).size, 3, 'three different looks');
-  assert.ok(club.every(slot => !slot.effectId), 'no baked effect beside the library pictures');
-  assert.ok(pack.recommendRow('photography', profile('Techno'), 0).every(slot => slot.effectId && !slot.look), 'a baked effect never carries a look');
-  const refreshed = new Set([0, 1, 2, 3, 4, 5, 6, 7].map(generation => pack.recommendRow('photography', profile('Techno'), generation, [], null, library).map(slot => slot.look).join()));
-  assert.ok(refreshed.size >= 3, 'Refresh deals the looks in other orders');
-  assert.ok(pack.recommendRow('photography', profile('Techno'), 0).every(slot => !slot.look), 'with no picture to draw on there is no look');
-  for (const row of ['looks', 'riso', 'spray', 'pulise', 'dust']) {
-    assert.ok(pack.recommendRow(row, profile('Techno'), 0).every(slot => !slot.look), `${row} has no look`);
+test('Thermal and Halftone are rows of their own, drawn on library pictures only, and Our photography carries no look', () => {
+  const library = [picture('a'), picture('b'), picture('c'), picture('d')];
+  for (const family of FAMILIES) {
+    const row = pack.recommendRow(family, profile('Techno'), 0, [], null, library);
+    assert.equal(row.length, 4, `${family}: four library pictures, four cards`);
+    assert.ok(row.every(slot => slot.row === family && slot.style === 'filter' && slot.libraryId && !slot.effectId && !slot.plateId), `${family} is drawn on library pictures`);
+    assert.ok(row.every(slot => slot.look && familyOf(slot.look) === family), `${family} deals only its own colourings`);
+    assert.ok(row.every(slot => slot.label.includes(deal.liveLookTitle(slot.look))), 'the card says which look it is');
+    assert.ok(new Set(row.map(slot => slot.look)).size >= 2, `${family} is not one look four times`);
+    assert.equal(new Set(row.map(slot => slot.id)).size, 4);
+    const refreshed = new Set([0, 1, 2, 3, 4, 5, 6, 7].map(generation => pack.recommendRow(family, profile('Techno'), generation, [], null, library).map(slot => slot.look).join()));
+    assert.ok(refreshed.size >= 3, `${family}: Refresh deals other looks`);
+    assert.deepEqual(pack.recommendRow(family, profile('Techno'), 0, [], null, library).map(slot => slot.look), row.map(slot => slot.look), 'the same song and refresh deal the same looks');
+    assert.deepEqual(pack.recommendRow(family, profile('Techno'), 0), [], `${family} has no picture to draw on without the library, so the row is empty`);
+    const sad = pack.recommendRow(family, profile('Pop', 3, 'sad'), 0, [], null, ['a', 'b', 'c', 'd'].map(id => picture(id, 'sad')));
+    assert.ok(sad.length === 4 && sad.every(slot => slot.look), `${family}: a calm song gets looks too`);
   }
-  const sad = pack.recommendRow('photography', profile('Pop', 3, 'sad'), 0, [], null, ['a', 'b', 'c'].map(id => picture(id, 'sad')));
-  assert.ok(sad.length === 3 && sad.every(slot => slot.look), 'a calm song carries looks too');
-  const withPhoto = pack.recommendRow('photography', profile('Techno'), 0, [{ id: 'plate-1', cutout: true }]);
-  assert.ok(withPhoto.every(slot => !slot.plateId && !slot.look && slot.effectId), 'our approved photo is not borrowed to show a look; with no library the cards are the baked effects');
-  assert.deepEqual(pack.recommendRow('photography', profile('Techno'), 0, [], null, library).map(slot => slot.look), club.map(slot => slot.look), 'the same song and refresh deal the same looks');
+  const thermalIds = new Set(pack.recommendRow('thermal', profile('Techno'), 0, [], null, library).map(slot => slot.id));
+  assert.ok(pack.recommendRow('halftone', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'the rows never share a card');
+  assert.deepEqual(pack.recommendRow('thermal', profile('Gospel'), 0, [], null, library), [], 'no Thermal on a gospel song');
+  assert.equal(pack.recommendRow('halftone', profile('Gospel'), 0, [], null, library).length, 4, 'Halftone suits a gospel song');
+  for (const row of ['photography', 'looks', 'riso', 'spray', 'pulise', 'dust']) {
+    assert.ok(pack.recommendRow(row, profile('Techno'), 0, [], null, library).every(slot => !slot.look), `${row} has no look`);
+  }
 });
 
 const python = spawnSync('python3', ['-c', 'import modal'], { encoding: 'utf8' });

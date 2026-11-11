@@ -3,7 +3,7 @@
  * and the palette reader (pack-palette.ts) runs the same function over a small copy of the picture, so the lyric ink and the
  * scrim that keep the words readable are chosen against the picture as it is *seen* (looked), not as it was.
  */
-import type { HeatLookId, LiveLookId } from './live-look-deal';
+import type { HalftoneLookId, HeatLookId, LiveLookId } from './live-look-deal';
 
 type Stops = readonly (readonly [number, number, number])[];
 
@@ -96,32 +96,57 @@ export function rampColor(stops: Stops, heat: number): [number, number, number] 
 /** The narrowest range a look stretches: a flat picture is not blown up into noise. */
 export const MIN_SPREAD = 0.25;
 
-/** The cream the halftone is printed on (0-1 per channel). The shader uses the same numbers. */
-export const HALFTONE_PAPER: readonly [number, number, number] = [0.96, 0.93, 0.86];
+type Rgb = readonly [number, number, number];
 
-/** How much of a halftone cell the ink covers where the picture has this colour (0-1): dark parts are mostly ink, light parts mostly paper. */
-export function halftoneCover(r: number, g: number, b: number): number {
+/**
+ * How each halftone is printed: the paper, the ink (`'own'`: the picture's own colour, a printer's richer and darker version of it; or one flat colour),
+ * and `negative` (light dots on dark paper, so a light part of the picture is a big dot). `sat` and `gain` shape the picture's own ink.
+ * One effect, as many inks and papers as we care to write down.
+ */
+export type HalftoneStyle = { paper: Rgb; ink: 'own' | Rgb; negative?: true; sat?: number; gain?: number };
+
+export const HALFTONE_STYLES: Record<HalftoneLookId, HalftoneStyle> = {
+  halftone: { paper: [0.96, 0.93, 0.86], ink: 'own' },
+  halftonebw: { paper: [0.98, 0.98, 0.97], ink: [0.05, 0.05, 0.06] },
+  halftonenews: { paper: [0.82, 0.8, 0.74], ink: [0.1, 0.1, 0.11] },
+  halftoneblue: { paper: [0.95, 0.96, 0.98], ink: [0.06, 0.16, 0.5] },
+  halftonered: { paper: [0.96, 0.93, 0.86], ink: [0.82, 0.1, 0.12] },
+  halftonepink: { paper: [0.97, 0.94, 0.9], ink: [0.95, 0.25, 0.55] },
+  halftoneteal: { paper: [0.96, 0.95, 0.9], ink: [0.0, 0.5, 0.52] },
+  halftonepop: { paper: [1.0, 0.93, 0.45], ink: 'own', sat: 2.2, gain: 0.85 },
+  halftoneneon: { paper: [0.03, 0.02, 0.06], ink: 'own', negative: true, sat: 2.0, gain: 1.35 },
+  halftoneinvert: { paper: [0.03, 0.03, 0.04], ink: [0.97, 0.97, 0.95], negative: true },
+  halftonegold: { paper: [0.04, 0.03, 0.02], ink: [0.95, 0.74, 0.25], negative: true },
+};
+
+/** How much of a halftone cell the ink covers where the picture has this colour (0-1): on paper the dark parts are mostly ink, on a dark paper the light parts are. */
+export function halftoneCover(look: HalftoneLookId, r: number, g: number, b: number): number {
   const light = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return Math.min(1, Math.max(0, (1 - light) * 1.05));
+  return Math.min(1, Math.max(0, (HALFTONE_STYLES[look].negative ? light : 1 - light) * 1.05));
 }
 
-/** The halftone's ink for a colour (0-255 in, 0-1 out): the picture's own colour, a little richer and darker, as a printer's ink is. */
-export function halftoneInk(r: number, g: number, b: number): [number, number, number] {
+/** The halftone's ink for a colour (0-255 in, 0-1 out). */
+export function halftoneInk(look: HalftoneLookId, r: number, g: number, b: number): Rgb {
+  const { ink, sat = 1.4, gain = 0.55 } = HALFTONE_STYLES[look];
+  if (ink !== 'own') return ink;
   const light = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  const ink = (channel: number) => Math.min(1, Math.max(0, (light + (channel / 255 - light) * 1.4) * 0.55));
-  return [ink(r), ink(g), ink(b)];
+  const own = (channel: number) => Math.min(1, Math.max(0, (light + (channel / 255 - light) * sat) * gain));
+  return [own(r), own(g), own(b)];
 }
 
 /** A halftone pixel as it averages over a cell: paper and ink in the proportion the ink covers. The dots themselves and their swell on the beat are in the shader only. */
-export function halftonePixel(r: number, g: number, b: number): [number, number, number] {
-  const cover = halftoneCover(r, g, b);
-  const ink = halftoneInk(r, g, b);
-  return [0, 1, 2].map(i => (HALFTONE_PAPER[i] + (ink[i] - HALFTONE_PAPER[i]) * cover) * 255) as [number, number, number];
+export function halftonePixel(look: HalftoneLookId, r: number, g: number, b: number): [number, number, number] {
+  const cover = halftoneCover(look, r, g, b);
+  const ink = halftoneInk(look, r, g, b);
+  const { paper } = HALFTONE_STYLES[look];
+  return [0, 1, 2].map(i => (paper[i] + (ink[i] - paper[i]) * cover) * 255) as [number, number, number];
 }
+
+export const isHalftone = (look: LiveLookId): look is HalftoneLookId => look in HALFTONE_STYLES;
 
 /** A pixel (0-255) as the look shows it, without the beat, the grain or the softening, which move too much to read the type against. */
 export function lookPixel(look: LiveLookId, r: number, g: number, b: number, range: readonly [number, number]): [number, number, number] {
-  if (look === 'halftone') return halftonePixel(r, g, b);
+  if (isHalftone(look)) return halftonePixel(look, r, g, b);
   const [low, high] = [range[0], Math.max(range[1], range[0] + MIN_SPREAD)];
   const [lr, lg, lb] = rampColor(LOOK_STOPS[look], heatOf(heatSource(r, g, b), low, high));
   return [lr * 255, lg * 255, lb * 255];

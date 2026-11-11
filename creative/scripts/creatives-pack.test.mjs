@@ -27,8 +27,13 @@ const WORKER = readFileSync(new URL('../../audio-intelligence/modal_creatives_en
 const workerSet = name => [...WORKER.match(new RegExp(`^${name} = \\{([^}]*)\\}`, 'm'))[1].matchAll(/"([^"]+)"/g)].map(match => match[1]);
 
 const PLATES = [{ id: 'burnnet-woman-1547507-1920', cutout: true }];
+/** Our library: the pictures Thermal and Halftone are drawn on (they have no picture of ours without it). */
+const LIBRARY = ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id, kind: 'photo', attitudes: ['neutral'], tags: ['street'], genre: null, subGenre: null, url: `/${id}.jpg` }));
+/** One row, with the library only for the rows that live on it. */
+const recommend = (pack, row, person, generation = 0, plates = PLATES) => pack.recommendRow(row, person, generation, plates, null, row === 'thermal' || row === 'halftone' ? LIBRARY : []);
+
 /** Every row of the shelf, in order. */
-const shelf = (pack, person, generation = 0, plates = PLATES) => pack.SHELF_ROWS.flatMap(row => pack.recommendRow(row.id, person, generation, plates));
+const shelf = (pack, person, generation = 0, plates = PLATES) => pack.SHELF_ROWS.flatMap(row => recommend(pack, row.id, person, generation, plates));
 /** Moving backgrounds: not on the shelf, but still dealt. */
 const looks = (pack, person, generation = 0) => pack.recommendRow('looks', person, generation, PLATES);
 
@@ -38,22 +43,25 @@ async function load() {
   return { server, pack };
 }
 
-test('the shelf is seven rows of four, in order, each card distinct', async () => {
+test('the shelf is nine rows of four, in order, each card distinct', async () => {
   const { server, pack } = await load();
   try {
     for (const genre of ['Gospel', 'Slap House', 'Pop', 'Ambient']) {
       const slots = shelf(pack, profile(genre));
-      assert.equal(slots.length, 28, genre);
-      assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust'], 'rows come in order');
-      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Our photography', 'Riso', 'Spray', 'Window', 'Doodle', 'Pulise', 'Dust']);
-      for (const row of ['photography', 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
+      // Thermal (the heat effect) is not dealt on a gospel song; every other row has four cards.
+      const thermal = genre === 'Gospel' ? 0 : 4;
+      assert.equal(slots.length, 32 + thermal, genre);
+      assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', ...(thermal ? ['thermal'] : []), 'halftone', 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust'], 'rows come in order');
+      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Our photography', 'Thermal', 'Halftone', 'Riso', 'Spray', 'Window', 'Doodle', 'Pulise', 'Dust']);
+      for (const row of ['photography', 'halftone', 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
+      assert.equal(slots.filter(slot => slot.row === 'thermal').length, thermal, `${genre} thermal`);
       const photography = slots.filter(slot => slot.row === 'photography');
       // A card is a baked effect, or (with a live look, while the library is short) our one approved photo, once.
       assert.equal(new Set(photography.map(slot => slot.effectId ?? slot.plateId)).size, 4, `${genre} photography repeats a picture`);
       assert.ok(photography.filter(slot => slot.plateId).length <= 1, `${genre} draws our one photo on more than one card`);
       assert.equal(new Set(photography.map(slot => slot.typeStyle)).size, 4, `${genre} photography repeats a type style`);
       assert.ok(photography.every(slot => slot.colors === undefined && slot.filter === undefined && (slot.plateId === undefined) !== (slot.effectId === undefined)), 'photography is drawn from a baked effect or our photo, never both');
-      assert.ok(photography.filter(slot => slot.plateId).every(slot => slot.look), 'our photo is dealt to a card only to carry a live look');
+      assert.ok(photography.every(slot => !slot.look), 'Our photography carries no live look: each effect has its own row');
       assert.ok(slots.filter(slot => slot.row === 'dust').every(slot => slot.plateId === 'burnnet-woman-1547507-1920'), 'Dust is drawn from the approved photo');
       const pulise = slots.filter(slot => slot.row === 'pulise');
       assert.equal(new Set(pulise.map(slot => slot.layout.cut)).size, 4, `${genre} Pulise cards open on the same colour`);
@@ -116,7 +124,7 @@ test('a refresh deals four effects the earlier ones did not, and the deal is see
     assert.equal(new Set(first).size, 20, 'five refreshes in a row never repeat an effect');
     assert.deepEqual(row(person, 3).map(slot => slot.id), row(person, 3).map(slot => slot.id), 'the same song and refresh deal the same cards, with the same ids');
     assert.notDeepEqual(row(person, 0).map(slot => slot.effectId), row(profile('Pop', 'hello', 'b'.repeat(64)), 0).map(slot => slot.effectId), 'another song is dealt other effects');
-    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 28);
+    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 36);
   } finally { await server.close(); }
 });
 
@@ -234,7 +242,7 @@ test('the cover decides which backgrounds lead: warm cover → warm looks, cool 
     assert.ok(cool.every(look => look.warmth < 0.4), 'cool cover leads with cool backgrounds');
 
     // No cover: nothing changes, still a full pack.
-    assert.equal(shelf(pack, profile('Pop')).length, 28, 'still a full shelf');
+    assert.equal(shelf(pack, profile('Pop')).length, 36, 'still a full shelf');
   } finally { await server.close(); }
 });
 
@@ -274,7 +282,7 @@ test('the lyrics grade the colours and calm the beat without changing the look',
     const sad = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'heartbroken', sadness: 3, intensity: 2 }));
     assert.ok(sad.every(slot => slot.reason.startsWith('techno')));
     const graded = sad.filter(slot => !['riso', 'spray', 'window', 'doodle'].includes(slot.row));
-    assert.equal(graded.length, 12);
+    assert.equal(graded.length, 20);
     const grade = graded[0].grade;
     assert.ok(grade.saturation < 1 && grade.warmth < 0 && grade.brightness < 1 && grade.calm > 0.5, JSON.stringify(grade));
     assert.ok(graded.every(slot => JSON.stringify(slot.grade) === JSON.stringify(grade)));
@@ -319,9 +327,9 @@ test('every row is recommended on its own, so refreshing one never changes anoth
   const { server, pack } = await load();
   try {
     const person = profile('Pop');
-    const ids = (row, generation) => pack.recommendRow(row, person, generation, PLATES).map(slot => slot.id).join();
+    const ids = (row, generation) => recommend(pack, row, person, generation).map(slot => slot.id).join();
     for (const row of pack.SHELF_ROWS.map(def => def.id)) {
-      assert.equal(pack.recommendRow(row, person, 0, PLATES).length, 4, `${row} has four cards`);
+      assert.equal(recommend(pack, row, person, 0).length, 4, `${row} has four cards`);
       assert.equal(ids(row, 0), ids(row, 0), `${row} is repeatable`);
       assert.notEqual(ids(row, 0), ids(row, 1), `${row} changes when refreshed`);
     }

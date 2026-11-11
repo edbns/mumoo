@@ -162,6 +162,8 @@ export function CreativesPackStudio({
   // Riso and Dust draw library photos that have a cut-out (the row deals only those); Window does not use the library yet.
   const libraryFor = (row: ShelfRow) => {
     const use = useOf(row);
+    // Thermal and Halftone draw our library pictures only (there is no picture of the person's own to replace them).
+    if (row === 'thermal' || row === 'halftone') return library ?? [];
     return (row === 'photography' || row === 'riso' || row === 'dust' || row === 'window') && use && !pictures[use] ? library ?? [] : [];
   };
   // Window deals from library pictures too, once it has read how each looks (the four it is about to deal).
@@ -188,12 +190,17 @@ export function CreativesPackStudio({
     }
     // Our photography is dealt once it knows what our library holds and which approved photo it may draw a look on.
     if (def.id === 'photography' && (library === null || plates === null)) return [def.id, { slots: [], note: '' }];
+    // Thermal and Halftone are dealt once it knows what our library holds.
+    if ((def.id === 'thermal' || def.id === 'halftone') && library === null) return [def.id, { slots: [], note: '' }];
     // Window is dealt once it knows its pictures: the person's own, once it has been read (what shows in the letters decides the colours), or our approved photos.
     if (def.id === 'window' && (pictures.window ? !windowOwn.own : plates === null || library === null || windowReads.pending)) return [def.id, { slots: [], note: windowOwn.problem }];
     if (lyricsOn(def.id) && !hasLyrics) {
       return [def.id, { slots: [], note: def.lyrics === 'always' ? `${def.title} is made of your lyrics. Approve your synced lyrics first.` : 'Approve your synced lyrics, or switch this row’s lyrics off.' }];
     }
-    return [def.id, { slots: recommendRow(def.id, profile, controls[def.id].generation, plates ?? [], def.id === 'window' ? windowOwn.own : null, libraryFor(def.id), windowReads.readings), note: '' }];
+    const slots = recommendRow(def.id, profile, controls[def.id].generation, plates ?? [], def.id === 'window' ? windowOwn.own : null, libraryFor(def.id), windowReads.readings);
+    // Thermal and Halftone are drawn on our library pictures, so with none for this song they say so instead of vanishing.
+    const note = !slots.length && (def.id === 'thermal' || def.id === 'halftone') ? `${def.title} is drawn on pictures from our library, and none fits this song yet.` : '';
+    return [def.id, { slots, note }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover, profile.creator.primaryGenre.value, profile.creator.voice?.value,
     controls, plates, hasLyrics, noLyrics, pictureIds, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem, windowReads.pending, Object.keys(windowReads.readings).join(','),

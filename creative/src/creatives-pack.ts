@@ -24,7 +24,7 @@ import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
 import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
-import { dealLooks, liveLookTitle, type LiveLookId } from './live-look-deal';
+import { dealLooks, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
 import { pickLibrary, type LibraryPicture } from './library-pick';
 import { dealDoodle, doodleMood, type DoodlePaper } from './doodle-cast';
 import type { DoodleMood } from './doodle-parts';
@@ -39,7 +39,7 @@ const PHOTO_EFFECTS = effectsData as PhotoEffect[];
 export type PackFamily = 'ad_punch';
 
 /** Every row that can be dealt. 'looks' (Moving backgrounds) is dealt but not on the shelf: see SHELF_ROWS. */
-export type ShelfRow = 'photography' | 'looks' | 'riso' | 'spray' | 'window' | 'doodle' | 'pulise' | 'dust';
+export type ShelfRow = 'photography' | 'thermal' | 'halftone' | 'looks' | 'riso' | 'spray' | 'window' | 'doodle' | 'pulise' | 'dust';
 
 /**
  * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
@@ -51,6 +51,9 @@ export type ShelfRow = 'photography' | 'looks' | 'riso' | 'spray' | 'window' | '
 export type ShelfRowDef = { id: ShelfRow; title: string; lyrics: 'switch' | 'always'; upload?: PictureUse };
 export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'photography', title: 'Our photography', lyrics: 'switch', upload: 'filter' },
+  // One effect per row, each dealt in its different colourings, on pictures of our library (a row has no picture to draw until the library has one).
+  { id: 'thermal', title: 'Thermal', lyrics: 'switch' },
+  { id: 'halftone', title: 'Halftone', lyrics: 'switch' },
   { id: 'riso', title: 'Riso', lyrics: 'switch', upload: 'riso' },
   { id: 'spray', title: 'Spray', lyrics: 'always' },
   { id: 'window', title: 'Window', lyrics: 'always', upload: 'window' },
@@ -320,6 +323,8 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
       dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation),
       pickLibrary(library, wanted, profile.clip.sourceSha256, generation, ROW_SIZE),
     ),
+    thermal: () => lookSlots('thermal', lane, intent, seed, pickLibrary(library, wanted, `${profile.clip.sourceSha256}:thermal`, generation, ROW_SIZE)),
+    halftone: () => lookSlots('halftone', lane, intent, seed, pickLibrary(library, wanted, `${profile.clip.sourceSha256}:halftone`, generation, ROW_SIZE)),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, photos),
     spray: () => spraySlots(lane, intent, seed),
@@ -488,17 +493,13 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
     : effects.slice(0, ROW_SIZE).map(effect => ({ effect }));
   const faces = dealFaces(lane, intent, seed, 'photography', cards.map((_, index) => typeNeeds(typeOf(index))));
   const hand = hashPick(seed, 'gen', 997).toString(36);
-  // A look is drawn on a library picture (or the person's own, in the studio), never on a baked effect, so it is dealt only among the library cards.
-  const wearers = cards.flatMap((card, index) => ('pick' in card ? [index] : []));
-  const dealt = dealLooks(lane, seed, wearers.length);
-  const looks = cards.map((_, index) => (wearers.includes(index) ? dealt[wearers.indexOf(index)] : null));
   return cards.map((card, index) => ({
     ...adPunchSlot('filter', index, intent, seed, lane, 'photography', faces[index]),
     ...('pick' in card
       ? {
         id: `ad-photography-library-${card.pick.id}-${hand}`,
-        label: [card.pick.tags[0] ?? card.pick.attitudes[0] ?? 'Our library', looks[index] && liveLookTitle(looks[index]!)].filter(Boolean).join(' · '),
-        reason: `${lane} · library · ${card.pick.attitudes.join('+')} · ${typeOf(index)}${looks[index] ? ` · ${looks[index]}` : ''}`,
+        label: card.pick.tags[0] ?? card.pick.attitudes[0] ?? 'Our library',
+        reason: `${lane} · library · ${card.pick.attitudes.join('+')} · ${typeOf(index)}`,
         libraryId: card.pick.id,
       }
       : {
@@ -508,8 +509,32 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
         effectId: card.effect.id,
       }),
     typeStyle: typeOf(index),
-    // On a library picture or the person's own, never on a baked effect (the studio leaves it off when the card shows one).
-    ...(looks[index] ? { look: looks[index]! } : {}),
+    cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
+  }));
+}
+
+/**
+ * One effect's row (Thermal, Halftone): up to four cards, each a library picture that fits the song, each in a different colouring of the effect
+ * (`dealLooks`: never the same on neighbours, a new Refresh deals others), each with its own lyric type. With no library picture, or a lane the effect
+ * has no colouring for, the row is empty and left off the shelf. The card is one picture, or one video played straight through, never an edit of cuts.
+ */
+function lookSlots(family: LookFamily, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, picks: readonly LibraryPicture[]): CreativesPackSlot[] {
+  const row: ShelfRow = family;
+  const cards = picks.slice(0, ROW_SIZE);
+  const looks = dealLooks(lane, seed, cards.length, family);
+  if (!cards.length || looks.some(look => !look)) return [];
+  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
+  const typeOf = (index: number) => types[index % types.length];
+  const faces = dealFaces(lane, intent, seed, row, cards.map((_, index) => typeNeeds(typeOf(index))));
+  const hand = hashPick(seed, 'gen', 997).toString(36);
+  return cards.map((pick, index) => ({
+    ...adPunchSlot('filter', index, intent, seed, lane, row, faces[index]),
+    id: `ad-${family}-${pick.id}-${hand}`,
+    label: [pick.tags[0] ?? pick.attitudes[0] ?? 'Our library', liveLookTitle(looks[index]!)].join(' · '),
+    reason: `${lane} · library · ${pick.attitudes.join('+')} · ${typeOf(index)} · ${looks[index]}`,
+    libraryId: pick.id,
+    typeStyle: typeOf(index),
+    look: looks[index]!,
     cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
   }));
 }

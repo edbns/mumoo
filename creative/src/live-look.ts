@@ -3,8 +3,8 @@
  * The preview and the cloud render run this same code. Each look reads the beat and the song's energy, so it moves with the music.
  */
 import { Filter, GlProgram, UniformGroup } from 'pixi.js';
-import type { HeatLookId, LiveLookId } from './live-look-deal';
-import { HALFTONE_PAPER, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD } from './live-look-ramp';
+import type { HalftoneLookId, HeatLookId, LiveLookId } from './live-look-deal';
+import { HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD } from './live-look-ramp';
 
 /** What a look needs to know about this moment. `range`: how cold and how hot the picture reads (0-1), which a look stretches over its ramp. */
 export type LiveLookInput = { beat: number; energy: number; ms: number; range: readonly [number, number] };
@@ -114,18 +114,21 @@ function heatLook(id: HeatLookId): LiveLook {
 
 /**
  * Halftone: the picture printed as a screen of round dots, the way a newspaper or a comic is. The screen is turned 15 degrees; each dot is the ink of its cell
- * (the picture's own colour, richer and darker) and as big as the cell is dark, so shade becomes size. The paper is cream. The beat swells every dot, more when
+ * (the picture's own colour, or one flat ink) and as big as the cell is dark, so shade becomes size (or as light, on a dark paper). The paper and the ink come from HALFTONE_STYLES. The beat swells every dot, more when
  * the song is loud. The dot size is set by the picture's height (about a hundred rows), so a small preview and the full render show the same print.
  * The numbers match live-look-ramp.ts, which the palette reader uses to choose type colour against the print.
  */
-const halftoneSource = () => `
+const halftoneSource = (id: HalftoneLookId) => {
+  const { paper, ink, negative, sat = 1.4, gain = 0.55 } = HALFTONE_STYLES[id];
+  const vec = (rgb: readonly number[]) => `vec3(${rgb.map(f).join(', ')})`;
+  return `
 in vec2 vTextureCoord;
 out vec4 finalColor;
 uniform sampler2D uTexture;
 uniform highp vec4 uInputSize;
 uniform float uBeat;
 uniform float uEnergy;
-const vec3 paper = vec3(${HALFTONE_PAPER.map(f).join(', ')});
+const vec3 paper = ${vec(paper)};
 
 vec3 seen(vec2 px) {
   vec4 source = texture(uTexture, px * uInputSize.zw);
@@ -145,23 +148,34 @@ void main(void) {
   vec3 rgb = seen(middle) * 0.4
     + (seen(middle + vec2(near, 0.0)) + seen(middle - vec2(near, 0.0)) + seen(middle + vec2(0.0, near)) + seen(middle - vec2(0.0, near))) * 0.15;
   float light = dot(rgb, vec3(0.299, 0.587, 0.114));
-  float cover = clamp((1.0 - light) * 1.05, 0.0, 1.0);
+  float cover = clamp(${negative ? 'light' : '(1.0 - light)'} * 1.05, 0.0, 1.0);
   cover = clamp(cover + uBeat * (0.05 + 0.12 * uEnergy) * (0.4 + cover), 0.0, 1.0);
   float radius = 0.5642 * sqrt(cover) + 0.2 * cover * cover * cover;
   float edge = 1.5 / cell;
   float dotted = 1.0 - smoothstep(radius - edge, radius + edge, length(local));
-  vec3 ink = clamp((vec3(light) + (rgb - vec3(light)) * 1.4) * 0.55, 0.0, 1.0);
+  vec3 ink = ${ink === 'own' ? `clamp((vec3(light) + (rgb - vec3(light)) * ${f(sat)}) * ${f(gain)}, 0.0, 1.0)` : vec(ink)};
   finalColor = vec4(mix(paper, ink, dotted), 1.0) * centre.a;
 }
 `;
+};
 
-function halftoneLook(): LiveLook {
-  const { filter, set } = make(halftoneSource(), 'live-look-halftone', { uBeat: 0, uEnergy: 0 });
+function halftoneLook(id: HalftoneLookId): LiveLook {
+  const { filter, set } = make(halftoneSource(id), `live-look-${id}`, { uBeat: 0, uEnergy: 0 });
   return { filter, update: ({ beat, energy }) => set({ uBeat: beat, uEnergy: energy }) };
 }
 
 const BUILDERS: Record<LiveLookId, () => LiveLook> = {
-  halftone: () => halftoneLook(),
+  halftone: () => halftoneLook('halftone'),
+  halftonebw: () => halftoneLook('halftonebw'),
+  halftonenews: () => halftoneLook('halftonenews'),
+  halftoneblue: () => halftoneLook('halftoneblue'),
+  halftonered: () => halftoneLook('halftonered'),
+  halftonepink: () => halftoneLook('halftonepink'),
+  halftoneteal: () => halftoneLook('halftoneteal'),
+  halftonepop: () => halftoneLook('halftonepop'),
+  halftoneneon: () => halftoneLook('halftoneneon'),
+  halftoneinvert: () => halftoneLook('halftoneinvert'),
+  halftonegold: () => halftoneLook('halftonegold'),
   thermal: () => heatLook('thermal'),
   arctic: () => heatLook('arctic'),
   night: () => heatLook('night'),
