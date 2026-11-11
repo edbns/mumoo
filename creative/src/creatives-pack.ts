@@ -51,9 +51,9 @@ export type ShelfRow = 'photography' | 'thermal' | 'halftone' | 'looks' | 'riso'
 export type ShelfRowDef = { id: ShelfRow; title: string; lyrics: 'switch' | 'always'; upload?: PictureUse };
 export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'photography', title: 'Our photography', lyrics: 'switch', upload: 'filter' },
-  // One effect per row, each dealt in its different colourings, on pictures of our library (a row has no picture to draw until the library has one).
-  { id: 'thermal', title: 'Thermal', lyrics: 'switch' },
-  { id: 'halftone', title: 'Halftone', lyrics: 'switch' },
+  // One effect per row, each dealt in its different colourings, on pictures of our library or the person's own (a row has no picture to draw until the library has one or they upload theirs).
+  { id: 'thermal', title: 'Thermal', lyrics: 'switch', upload: 'thermal' },
+  { id: 'halftone', title: 'Halftone', lyrics: 'switch', upload: 'halftone' },
   { id: 'riso', title: 'Riso', lyrics: 'switch', upload: 'riso' },
   { id: 'spray', title: 'Spray', lyrics: 'always' },
   { id: 'window', title: 'Window', lyrics: 'always', upload: 'window' },
@@ -308,7 +308,7 @@ export function windowHand(profile: CreativeProfileV1, generation: number, libra
   return pickLibrary(library.filter(windowCapable), wanted, profile.clip.sourceSha256, generation, ROW_SIZE);
 }
 
-export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], own: WindowOwn | null = null, library: readonly LibraryPicture[] = [], readings: Readonly<Record<string, WindowReading>> = {}): CreativesPackSlot[] {
+export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], own: WindowOwn | null = null, library: readonly LibraryPicture[] = [], readings: Readonly<Record<string, WindowReading>> = {}, ownPicture = false): CreativesPackSlot[] {
   const { intent, meaning, lane, genre } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
@@ -323,8 +323,8 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
       dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation),
       pickLibrary(library, wanted, profile.clip.sourceSha256, generation, ROW_SIZE),
     ),
-    thermal: () => lookSlots('thermal', lane, intent, seed, pickLibrary(library, wanted, `${profile.clip.sourceSha256}:thermal`, generation, ROW_SIZE)),
-    halftone: () => lookSlots('halftone', lane, intent, seed, pickLibrary(library, wanted, `${profile.clip.sourceSha256}:halftone`, generation, ROW_SIZE)),
+    thermal: () => lookSlots('thermal', lane, intent, seed, pickLibrary(library, wanted, `${profile.clip.sourceSha256}:thermal`, generation, ROW_SIZE), ownPicture),
+    halftone: () => lookSlots('halftone', lane, intent, seed, pickLibrary(library, wanted, `${profile.clip.sourceSha256}:halftone`, generation, ROW_SIZE), ownPicture),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, photos),
     spray: () => spraySlots(lane, intent, seed),
@@ -516,11 +516,12 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
 /**
  * One effect's row (Thermal, Halftone): up to four cards, each a library picture that fits the song, each in a different colouring of the effect
  * (`dealLooks`: never the same on neighbours, a new Refresh deals others), each with its own lyric type. With no library picture, or a lane the effect
- * has no colouring for, the row is empty and left off the shelf. The card is one picture, or one video played straight through, never an edit of cuts.
+ * has no colouring for, the row is empty (the page says so). The card is one picture, or one video played straight through, never an edit of cuts.
+ * When the person has uploaded a picture of their own (`ownPicture`), the four cards are that picture in four colourings (the page draws it; no library picture is named).
  */
-function lookSlots(family: LookFamily, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, picks: readonly LibraryPicture[]): CreativesPackSlot[] {
+function lookSlots(family: LookFamily, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
   const row: ShelfRow = family;
-  const cards = picks.slice(0, ROW_SIZE);
+  const cards: (LibraryPicture | null)[] = ownPicture ? Array.from({ length: ROW_SIZE }, () => null) : picks.slice(0, ROW_SIZE);
   const looks = dealLooks(lane, seed, cards.length, family);
   if (!cards.length || looks.some(look => !look)) return [];
   const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
@@ -529,10 +530,10 @@ function lookSlots(family: LookFamily, lane: MoodLane, intent: MusicIntentV1 | n
   const hand = hashPick(seed, 'gen', 997).toString(36);
   return cards.map((pick, index) => ({
     ...adPunchSlot('filter', index, intent, seed, lane, row, faces[index]),
-    id: `ad-${family}-${pick.id}-${hand}`,
-    label: [pick.tags[0] ?? pick.attitudes[0] ?? 'Our library', liveLookTitle(looks[index]!)].join(' · '),
-    reason: `${lane} · library · ${pick.attitudes.join('+')} · ${typeOf(index)} · ${looks[index]}`,
-    libraryId: pick.id,
+    id: `ad-${family}-${pick?.id ?? `own${index}`}-${hand}`,
+    label: pick ? [pick.tags[0] ?? pick.attitudes[0] ?? 'Our library', liveLookTitle(looks[index]!)].join(' · ') : liveLookTitle(looks[index]!),
+    reason: pick ? `${lane} · library · ${pick.attitudes.join('+')} · ${typeOf(index)} · ${looks[index]}` : `${lane} · own picture · ${typeOf(index)} · ${looks[index]}`,
+    ...(pick ? { libraryId: pick.id } : {}),
     typeStyle: typeOf(index),
     look: looks[index]!,
     cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,

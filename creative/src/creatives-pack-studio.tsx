@@ -155,14 +155,14 @@ export function CreativesPackStudio({
   // Links are renewed from time to time, so rows are keyed by id, not link.
   const useOf = (row: ShelfRow) => SHELF_ROWS.find(def => def.id === row)?.upload;
   const ownPicture = (use: PictureUse) => uploads.current.find(item => item.use === use && item.status === 'ready' && item.url) ?? null;
-  const pictures: Record<PictureUse, Upload | null> = { dust: ownPicture('dust'), riso: ownPicture('riso'), filter: ownPicture('filter'), window: ownPicture('window') };
+  const pictures: Record<PictureUse, Upload | null> = { dust: ownPicture('dust'), riso: ownPicture('riso'), filter: ownPicture('filter'), window: ownPicture('window'), thermal: ownPicture('thermal'), halftone: ownPicture('halftone') };
   const windowOwn = useWindowOwn(pictures.window);
   // Our approved library fills Our photography until the person uses their own picture there.
   const library = useLibrary();
   // Riso and Dust draw library photos that have a cut-out (the row deals only those); Window does not use the library yet.
   const libraryFor = (row: ShelfRow) => {
     const use = useOf(row);
-    // Thermal and Halftone draw our library pictures only (there is no picture of the person's own to replace them).
+    // Thermal and Halftone deal from our library; a picture of the person's own is drawn on all four cards instead (see `recommendRow`).
     if (row === 'thermal' || row === 'halftone') return library ?? [];
     return (row === 'photography' || row === 'riso' || row === 'dust' || row === 'window') && use && !pictures[use] ? library ?? [] : [];
   };
@@ -175,7 +175,7 @@ export function CreativesPackStudio({
     const use = useOf(row);
     return (use ? drawingFrom(pictures[use]) : undefined) ?? (slot?.libraryId ? drawingFrom(libraryItem(slot.libraryId)) : undefined);
   };
-  const pictureIds = `${pictures.dust?.id ?? 'ours'}|${pictures.riso?.id ?? 'ours'}|${pictures.filter?.id ?? 'ours'}|${pictures.window?.id ?? 'ours'}`;
+  const pictureIds = `${pictures.dust?.id ?? 'ours'}|${pictures.riso?.id ?? 'ours'}|${pictures.filter?.id ?? 'ours'}|${pictures.window?.id ?? 'ours'}|${pictures.thermal?.id ?? 'ours'}|${pictures.halftone?.id ?? 'ours'}`;
 
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
     // Made of the lyrics, and there are none: nothing is dealt, drawn or paid for.
@@ -191,15 +191,15 @@ export function CreativesPackStudio({
     // Our photography is dealt once it knows what our library holds and which approved photo it may draw a look on.
     if (def.id === 'photography' && (library === null || plates === null)) return [def.id, { slots: [], note: '' }];
     // Thermal and Halftone are dealt once it knows what our library holds.
-    if ((def.id === 'thermal' || def.id === 'halftone') && library === null) return [def.id, { slots: [], note: '' }];
+    if ((def.id === 'thermal' || def.id === 'halftone') && library === null && !pictures[def.id]) return [def.id, { slots: [], note: '' }];
     // Window is dealt once it knows its pictures: the person's own, once it has been read (what shows in the letters decides the colours), or our approved photos.
     if (def.id === 'window' && (pictures.window ? !windowOwn.own : plates === null || library === null || windowReads.pending)) return [def.id, { slots: [], note: windowOwn.problem }];
     if (lyricsOn(def.id) && !hasLyrics) {
       return [def.id, { slots: [], note: def.lyrics === 'always' ? `${def.title} is made of your lyrics. Approve your synced lyrics first.` : 'Approve your synced lyrics, or switch this row’s lyrics off.' }];
     }
-    const slots = recommendRow(def.id, profile, controls[def.id].generation, plates ?? [], def.id === 'window' ? windowOwn.own : null, libraryFor(def.id), windowReads.readings);
+    const slots = recommendRow(def.id, profile, controls[def.id].generation, plates ?? [], def.id === 'window' ? windowOwn.own : null, libraryFor(def.id), windowReads.readings, (def.id === 'thermal' || def.id === 'halftone') && Boolean(pictures[def.id]));
     // Thermal and Halftone are drawn on our library pictures, so with none for this song they say so instead of vanishing.
-    const note = !slots.length && (def.id === 'thermal' || def.id === 'halftone') ? `${def.title} is drawn on pictures from our library, and none fits this song yet.` : '';
+    const note = !slots.length && (def.id === 'thermal' || def.id === 'halftone') ? `${def.title} is drawn on pictures from our library, and none fits this song yet. Upload your own picture to see it here.` : '';
     return [def.id, { slots, note }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover, profile.creator.primaryGenre.value, profile.creator.voice?.value,
