@@ -96,10 +96,10 @@ function yieldFrame() {
 }
 
 type RowView = { slots: CreativesPackSlot[]; note: string };
-/** `generation` is the template's own Refresh count; `more` shows the rest of its four creatives next to the first. */
-type RowControls = { generation: number; more: boolean };
+/** `generation` is how many times the shelf has been refreshed (one Refresh deals every template again). */
+type RowControls = { generation: number };
 
-const FRESH_ROWS = Object.fromEntries(SHELF_ROWS.map(row => [row.id, { generation: 0, more: false }])) as Record<ShelfRow, RowControls>;
+const FRESH_ROWS = Object.fromEntries(SHELF_ROWS.map(row => [row.id, { generation: 0 }])) as Record<ShelfRow, RowControls>;
 
 /** The shelf shows one creative of each template. */
 const LEAD = 1;
@@ -121,7 +121,7 @@ export function CreativesPackStudio({
   download: CartDownload;
   uploads: Uploads;
   /** Where the app finds this page's download, which needs the music and pictures only this page has. */
-  downloadRef: MutableRefObject<(() => void) | null>;
+  downloadRef: MutableRefObject<(() => boolean) | null>;
   onPlay: () => void;
   onStop: () => void;
   onSeek?: (ms: number) => void;
@@ -133,7 +133,7 @@ export function CreativesPackStudio({
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [fontReady, setFontReady] = useState(false);
   const [error, setError] = useState('');
-  /** Every template has its own Refresh and "More", so a change repaints that template only. */
+  /** One Refresh for the whole shelf deals every template again. */
   const [controls, setControls] = useState(FRESH_ROWS);
   /** One Lyrics switch for the whole shelf: off, the templates made of the lyrics leave it and none of the rest shows words. */
   const [lyricsSwitch, setLyricsSwitch] = useState(true);
@@ -141,7 +141,6 @@ export function CreativesPackStudio({
   const [plates, setPlates] = useState<PlateRef[] | null>(null);
   /** The cards whose posters are finished. */
   const [readyCards, setReadyCards] = useState<ReadonlySet<string>>(new Set());
-  const [shelfStatus, setShelfStatus] = useState('');
   const music = useMemo(() => impactMusic(profile), [profile.musicAnalysis]);
   const intent = useMemo(
     () => (profile.musicAnalysis.status === 'ready' ? deriveMusicIntent(profile.musicAnalysis.result) : null),
@@ -156,7 +155,11 @@ export function CreativesPackStudio({
 
   // The shelf's one picture: the person's own, once it is ready (a new one replaces it), else ours.
   // Links are renewed from time to time, so cards are keyed by id, not link.
-  const own = uploads.current.find(item => item.use === SHELF_PICTURE && item.status === 'ready' && item.url) ?? null;
+  const uploaded = uploads.current.find(item => item.use === SHELF_PICTURE && item.status === 'ready' && item.url) ?? null;
+  // The person can go back to our pictures after uploading their own; a new upload is used at once.
+  const [ours, setOurs] = useState(false);
+  useEffect(() => { setOurs(false); }, [uploaded?.id]);
+  const own = ours ? null : uploaded;
   const ownKind: OwnKind | null = own ? (own.motionUrl ? 'motion' : 'photo') : null;
   /** The templates on the shelf now: a video or GIF leaves out the ones that need a photo, no lyrics the ones made of them. */
   const shelf = rowsFor(textless, ownKind);
@@ -210,7 +213,7 @@ export function CreativesPackStudio({
     library?.map(item => item.id + (item.cutoutUrl ? '+cut' : '') + (item.motionUrl ? '+m' : '')).join(','),
   ]);
   /** The cards on the page, in order: each template's first creative, and the rest of its four where the person asked for more. */
-  const cards = shelf.flatMap(def => view[def.id].slots.slice(0, controls[def.id].more ? undefined : LEAD).map((slot, index) => ({ def, slot, index })));
+  const cards = shelf.flatMap(def => view[def.id].slots.slice(0, LEAD).map(slot => ({ def, slot })));
   const pack = cards.map(card => card.slot);
   const allReady = cards.every(card => readyCards.has(card.slot.id));
 
@@ -278,7 +281,6 @@ export function CreativesPackStudio({
       for (const { def, slot } of stale) {
         if (cancelled) return;
         setError('');
-        setShelfStatus(`Preparing ${def.title}… (${done + 1} of ${total})`);
         await yieldFrame();
         const canvas = canvasRefs.current.get(slot.id);
         if (canvas) {
@@ -296,8 +298,6 @@ export function CreativesPackStudio({
         setReadyCards(ready => new Set(ready).add(slot.id));
         latest.current.onProgress(++done, total);
       }
-      if (cancelled) return;
-      setShelfStatus('');
     })();
     return () => { cancelled = true; };
   }, [fontReady, plates, library === null, cardKeys]);
@@ -350,10 +350,12 @@ export function CreativesPackStudio({
     setPlayingId(null);
   }
 
-  function change(row: ShelfRow, next: Partial<RowControls>) {
+  /** One Refresh for the whole shelf: every template deals a new creative. */
+  function refreshShelf() {
     stopPlayback();
-    if (next.generation !== undefined) reportRefresh(token, profile, row, next.generation);
-    setControls(current => ({ ...current, [row]: { ...current[row], ...next } }));
+    // One report for the whole shelf (not one per template), filed under the first template.
+    if (shelf[0]) reportRefresh(token, profile, shelf[0].id, controls[shelf[0].id].generation + 1);
+    setControls(current => Object.fromEntries(SHELF_ROWS.map(def => [def.id, { generation: current[def.id].generation + 1 }])) as Record<ShelfRow, RowControls>);
   }
 
   /** A card goes into the cart exactly as it is now, so refreshing its row afterwards cannot lose it. */
@@ -406,12 +408,12 @@ export function CreativesPackStudio({
   }
 
   /**
-   * Starts one cloud render per cart item. Waiting for them, handing over the file and emptying the cart happen in
+   * Starts one video per cart item; false when there is nothing to start. Waiting for them, handing over the file and emptying the cart happen in
    * the app, so they survive a refresh and work from any page.
    */
-  function downloadCart() {
+  function downloadCart(): boolean {
     const items = cart.items.filter(item => pictureFor(item).available);
-    if (download.progress !== null || !items.length) return;
+    if (download.progress !== null || !items.length) return false;
     onStop(); setPlayingId(null); setError('');
     download.start(songKeyOf(profile.clip.sourceSha256, profile.clip.offsetMs), items, async report => {
       report('Preparing audio…');
@@ -419,8 +421,8 @@ export function CreativesPackStudio({
       await yieldFrame();
       // One small WAV for the whole batch (≈960 KB).
       const wav = await clipToMonoWav(audio, composition.clipStartMs);
-      report(items.length > 1 ? `Starting ${items.length} cloud renders…` : 'Starting cloud render…');
-      // Every job is submitted now; the cloud renders them in parallel and we only hold job ids.
+      report(items.length > 1 ? `Starting ${items.length} creatives…` : 'Starting your creative…');
+      // Every job is submitted now; they are made in parallel and we only hold job ids.
       const ids: string[] = [];
       for (const item of items) {
         await yieldFrame();
@@ -435,6 +437,7 @@ export function CreativesPackStudio({
       }
       return ids;
     });
+    return true;
   }
   downloadRef.current = downloadCart;
   useEffect(() => () => { downloadRef.current = null; }, []);
@@ -444,27 +447,26 @@ export function CreativesPackStudio({
     {profile.lyricMeaning?.status === 'error' && <p className="hint">We could not read what your lyrics say, so these are matched to the sound alone.</p>}
     {error && <p role="alert">{error}</p>}
     {playbackError && <p role="alert">{playbackError}</p>}
-    {shelfStatus && <p role="status" className="hint">{shelfStatus}</p>}
     {cart.full && <p role="status" className="hint">Your cart is full ({CART_LIMIT}). Take one out to add another.</p>}
-    <p className="hint text-center">This is only a preview. All creatives will be rendered in HD.</p>
+    <p className="hint text-center">This is only a preview. Your downloads are in HD.</p>
     {noLyrics && <p className="hint text-center">Your song has no lyrics, so there is no lyric type on these.</p>}
     <div className="flex flex-wrap items-center justify-end gap-3 rounded-[var(--radius-panel)] bg-background p-5">
       {!noLyrics && <label className="lyrics-switch">
         <input type="checkbox" role="switch" checked={lyricsSwitch} onChange={event => { stopPlayback(); setLyricsSwitch(event.target.checked); }} />
         <span>Lyrics</span>
       </label>}
+      {uploaded && !ours && <Button variant="secondary" onClick={() => { stopPlayback(); setOurs(true); }}>Use our media</Button>}
       <PictureUpload uploads={uploads} onChange={stopPlayback} />
+      <Button className="shimmer" disabled={!allReady} onClick={refreshShelf} aria-label="Refresh all creatives">Refresh</Button>
     </div>
-    {ownKind === 'motion' && <p className="hint text-center">Your video or GIF is shown on the templates that can use one. Dust and Depth need a photo.</p>}
+    {ownKind && <p className="hint text-center">{ownKind === 'motion' ? 'Your video or GIF is shown on the templates that can use one. Dust and Depth need a photo.' : 'Your photo is shown on the templates that use a picture.'}</p>}
     {!textless && !hasLyrics && <p className="hint text-center" role="status">Approve your synced lyrics, or switch Lyrics off.</p>}
     {SHELF_ROWS.map(def => view[def.id].note ? <p key={def.id} className="hint text-center" role="status">{view[def.id].note}</p> : null)}
     {cards.length > 0 && <div className="creatives-pack-grid" role="list" aria-busy={!allReady}>
-      {cards.map(({ def, slot: item, index }) => {
+      {cards.map(({ def, slot: item }) => {
         const ready = readyCards.has(item.id);
         const inCart = cart.has(item.id);
         const isPlaying = playing && playingId === item.id;
-        const total = view[def.id].slots.length;
-        const lead = ready && readyCards.has(view[def.id].slots[0].id);
         return (
           <div key={item.id} className="creatives-pack-item" role="listitem">
             <div className={`creatives-pack-card${ready ? '' : ' pending'}${inCart ? ' selected' : ''}`}>
@@ -480,25 +482,19 @@ export function CreativesPackStudio({
                 className="creatives-pack-select"
                 disabled={!ready || (!inCart && cart.full)}
                 aria-pressed={inCart}
-                aria-label={`${def.title} creative ${index + 1}, ${inCart ? 'in your cart' : 'add to your cart'}`}
+                aria-label={`${def.title} creative, ${inCart ? 'in your cart' : 'add to your cart'}`}
                 onClick={() => toggleCart(item)}
               />
               <button
                 type="button"
                 className="creatives-pack-play"
                 disabled={!ready}
-                aria-label={`${isPlaying ? 'Pause' : 'Play'} ${def.title} creative ${index + 1}`}
+                aria-label={`${isPlaying ? 'Pause' : 'Play'} ${def.title} creative`}
                 onClick={() => togglePlay(item.id)}
               >{isPlaying ? <PauseIcon aria-hidden="true" className="size-5" /> : <PlayIcon aria-hidden="true" className="size-5" />}</button>
             </div>
             <div className="creatives-pack-caption">
-              <span className="creatives-pack-name">{def.title}{controls[def.id].more ? ` ${index + 1}/${total}` : ''}</span>
-              {index === 0 && <span className="creatives-pack-actions">
-                <Button variant="ghost" size="sm" disabled={!lead} aria-label={`Refresh ${def.title}`}
-                  onClick={() => change(def.id, { generation: controls[def.id].generation + 1 })}>Refresh</Button>
-                {total > LEAD && <Button variant="ghost" size="sm" aria-expanded={controls[def.id].more} aria-label={`${controls[def.id].more ? 'Fewer' : 'More'} ${def.title}`}
-                  onClick={() => change(def.id, { more: !controls[def.id].more })}>{controls[def.id].more ? 'Fewer' : 'More'}</Button>}
-              </span>}
+              <span className="creatives-pack-name">{def.title}</span>
             </div>
           </div>
         );

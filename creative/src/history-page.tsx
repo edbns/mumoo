@@ -10,6 +10,7 @@ import { accountFetch } from './account';
 import { LazyMedia } from './lazy-media';
 import type { ProfileTab } from './profile-nav';
 import { listUploads, removeUpload, type Upload } from './uploads';
+import type { DownloadProgress } from './use-cart-download';
 
 type Creative = { id: string; bytes: number; createdAt: string; url: string };
 type Storage = { used: number; quota: number };
@@ -52,7 +53,7 @@ function useMoreOnScroll(total: number, resetKey: string) {
 }
 
 /** Everything the person has kept, as one wide, endlessly scrolling wall: finished creatives or their own uploads, chosen in the notch. */
-export default function HistoryPage({ tab }: { tab: ProfileTab }) {
+export default function HistoryPage({ tab, progress, delivered }: { tab: ProfileTab; progress: DownloadProgress | null; delivered: number }) {
   const [creatives, setCreatives] = useState<Creative[] | null>(null);
   const [uploads, setUploads] = useState<Upload[] | null>(null);
   const [storage, setStorage] = useState<Storage | null>(null);
@@ -73,7 +74,8 @@ export default function HistoryPage({ tab }: { tab: ProfileTab }) {
       setError(cause instanceof Error ? cause.message : 'Your history is unavailable right now.');
     }
   }
-  useEffect(() => { void load(); }, []);
+  // Opened, and again whenever a download has just been delivered, so the new creatives appear.
+  useEffect(() => { void load(); }, [delivered]);
   useEffect(() => { setSelected(new Set()); }, [tab]);
 
   const items = (tab === 'creatives' ? creatives?.map(creativeItem) : uploads?.map(uploadItem)) ?? null;
@@ -139,6 +141,11 @@ export default function HistoryPage({ tab }: { tab: ProfileTab }) {
       {storage && <p className="m-0 text-sm text-muted-foreground">{size(Math.max(0, storage.quota - storage.used))} remaining space from {size(storage.quota)}</p>}
     </div>
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
+    {progress && <div className="flex flex-col gap-2 rounded-[var(--radius-panel)] bg-background p-5" role="status">
+      <strong className="text-sm">{progress.label}</strong>
+      <progress className="w-full accent-primary" max={100} value={progress.percent} aria-label="Your creatives are being made" />
+      <p className="m-0 text-sm text-muted-foreground">This can take a few minutes. They appear here when they are ready.</p>
+    </div>}
 
     {items?.length === 0 && <p className="m-0 py-24 text-center text-sm text-muted-foreground">
       {tab === 'creatives' ? 'Creatives you download while signed in are kept here.' : 'Each visit starts clean. Only the photos, videos and GIFs your cart still uses are kept here, private to you.'}

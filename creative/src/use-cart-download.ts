@@ -63,7 +63,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     const waiting = new AbortController();
     let done = 0;
     const show = () => setProgress({
-      label: total > 1 ? `Rendering ${done} of ${total} in the cloud…` : 'Rendering in the cloud…',
+      label: total > 1 ? `Making ${done} of ${total}…` : 'Making your creative…',
       percent: Math.floor(done / total * 100),
     });
     show();
@@ -90,7 +90,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     localStorage.removeItem(PENDING_KEY);
     const signedIn = await import('./account').then(account => account.sessionToken()).then(Boolean).catch(() => false);
     const count = pending.jobs.length;
-    const text = `${count === 1 ? 'Your creative is' : `Your ${count} creatives are`} ready${signedIn ? ', they are also in My library.' : ' and downloaded.'}`;
+    const text = `${count === 1 ? 'Your creative is' : `Your ${count} creatives are`} ready${signedIn ? ' and in your History.' : ' and downloaded.'}`;
     latest.current.cart.removeFrom(pending.songKey, pending.jobs.map(job => job.itemId));
     setMessage({ kind: 'ready', text });
     notify(text);

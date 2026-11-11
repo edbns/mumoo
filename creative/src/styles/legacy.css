@@ -171,3 +171,14 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .lyrics-switch input:focus-visible { outline: 2px solid var(--foreground); outline-offset: 2px; }
 .lyrics-switch input:disabled { opacity: .5; cursor: default; }
 
+
+/* A button that glints now and then, so the person notices it (the shelf's Refresh). */
+.shimmer { position: relative; overflow: hidden; isolation: isolate; }
+.shimmer::after {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; transform: translateX(-120%);
+  background: linear-gradient(105deg, transparent 30%, #ffffff66 50%, transparent 70%);
+  animation: shimmer-sweep 2.6s ease-in-out infinite;
+}
+.shimmer:disabled::after { animation: none; }
+@keyframes shimmer-sweep { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
+@media (prefers-reduced-motion: reduce) { .shimmer::after { animation: none; } }

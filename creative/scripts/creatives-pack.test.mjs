@@ -56,7 +56,7 @@ test('the shelf is twelve rows of four, in order, each card distinct', async () 
       const depth = genre === 'Gospel' ? 0 : 4;
       assert.equal(slots.length, 40 + thermal + streaks + ascii + depth, genre);
       assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', ...(thermal ? ['thermal'] : []), 'halftone', 'dither', 'glow', ...(streaks ? ['streaks'] : []), ...(ascii ? ['ascii'] : []), ...(depth ? ['depth'] : []), 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust'], 'rows come in order');
-      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Our photography', 'Thermal', 'Halftone', 'Dither', 'Glow', 'Streaks', 'ASCII', 'Depth', 'Riso', 'Spray', 'Window', 'Doodle', 'Pulise', 'Dust']);
+      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Directed', 'Thermal', 'Halftone', 'Dither', 'Glow', 'Streaks', 'ASCII', 'Depth', 'Riso', 'Spray', 'Window', 'Doodle', 'Pulise', 'Dust']);
       for (const row of ['photography', 'halftone', 'dither', 'glow', 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
       assert.equal(slots.filter(slot => slot.row === 'thermal').length, thermal, `${genre} thermal`);
       assert.equal(slots.filter(slot => slot.row === 'streaks').length, streaks, `${genre} streaks`);

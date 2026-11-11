@@ -2,7 +2,7 @@
 .masthead { position: relative; display: flex; justify-content: center; min-height: 2.75rem; padding: 0 1.5rem; }
 .masthead-logo { position: absolute; top: 1.5rem; left: 1.5rem; display: block; height: 1.25rem; width: auto; padding: 0; background: none; border-radius: 0; }
 .masthead-logo img { display: block; height: 100%; width: auto; }
-.masthead-actions { position: absolute; top: 1rem; right: 1.5rem; display: flex; align-items: center; gap: .75rem; }
+.masthead-actions { position: fixed; z-index: 9; top: 1rem; right: 1.5rem; display: flex; align-items: center; gap: .75rem; }
 
 /* The notch is the page's black, so it reads as part of the page edge; the two ears curve it into the top of the layer. */
 .step-nav { position: relative; background: var(--background); border-radius: 0 0 var(--layer-radius) var(--layer-radius); padding: .6rem 1.5rem 1rem; }

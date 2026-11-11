@@ -62,7 +62,7 @@ function App() {
   useEffect(() => { void loadProfilePage(); }, []);
   const [songName, setSongName] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
-  const downloadRef = useRef<(() => void) | null>(null);
+  const downloadRef = useRef<(() => boolean) | null>(null);
   const [genre, setGenre] = useState('');
   const [subGenre, setSubGenre] = useState('');
   const [loading, setLoading] = useState(false);
@@ -108,7 +108,8 @@ function App() {
   // The cart belongs to the song and clip being worked on, and is the same on every page.
   const cart = useCart(clipValid ? songKeyOf(composition.sourceSha256, composition.clipStartMs) : '');
   const uploads = useUploads();
-  const download = useCartDownload({ token: accessToken, cart, onDelivered: () => setCartOpen(false) });
+  const [delivered, setDelivered] = useState(0);
+  const download = useCartDownload({ token: accessToken, cart, onDelivered: () => { setCartOpen(false); setDelivered(count => count + 1); } });
   // The words are read the moment they are final (synced and not being edited), so the answer is ready by the creatives screen.
   const lyricMeaning = useLyricMeaning(accessToken, composition.cues, lyricsInfo.language,
     IS_ALIGNMENT_STAGING && clipValid && !lyricsState.busy && !lyricsState.dirty);
@@ -325,7 +326,8 @@ function App() {
       return { kind: 'blocked', reason: 'Finishing the analysis of your music and lyrics. Downloading is possible in a moment.' };
     }
     if (checkingPictures) return { kind: 'blocked', reason: 'Checking your pictures…' };
-    return { kind: 'download', run: () => downloadRef.current?.() };
+    // Pressing Download takes a signed-in person to their History, where the creatives show up as they are made.
+    return { kind: 'download', run: () => { if (downloadRef.current?.() && uploads.signedIn) { setCartOpen(false); setProfileTab('creatives'); setPage('history'); } } };
   })();
 
   return <>
@@ -345,7 +347,7 @@ function App() {
     {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
     {download.message && <DownloadNotice message={download.message} onDismiss={download.dismiss} />}
     {IS_ALIGNMENT_STAGING && !accessToken && <StagingAccess onAccess={setAccessToken} />}
-    {page !== 'create' && <Suspense fallback={null}><ProfilePage page={page} tab={profileTab} /></Suspense>}
+    {page !== 'create' && <Suspense fallback={null}><ProfilePage page={page} tab={profileTab} progress={download.progress} delivered={delivered} /></Suspense>}
     {/* The work stays exactly as it was while a page of the account is open: hidden, but still laid out, so its drawings are not cleared and redrawn. */}
     <div className={page === 'create' ? 'contents' : 'invisible fixed inset-0 overflow-hidden'} inert={page !== 'create'}>
     {!inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center' : 'desktop trim'}>

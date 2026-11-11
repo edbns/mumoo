@@ -14,8 +14,10 @@ test('a song with no words shows only the rows that work without them', () => {
   assert.deepEqual(pack.rowsFor(false).map(row => row.id), pack.SHELF_ROWS.map(row => row.id), 'with words, every row');
   assert.ok(pack.rowsFor(true).length < pack.rowsFor(false).length);
   // A video or GIF leaves out the templates that need a photo; a photo (or none) leaves them in.
-  assert.deepEqual(pack.rowsFor(false).map(row => row.id).filter(id => !pack.rowsFor(false, 'motion').some(row => row.id === id)), ['depth', 'dust']);
-  assert.deepEqual(pack.rowsFor(false, 'photo').map(row => row.id), pack.rowsFor(false).map(row => row.id));
+  assert.deepEqual(pack.rowsFor(false).map(row => row.id).filter(id => !pack.rowsFor(false, 'motion').some(row => row.id === id)), ['depth', 'spray', 'doodle', 'pulise', 'dust']);
+  // Any picture of their own leaves out the templates that draw none (Spray, Doodle, Pulise).
+  assert.deepEqual(pack.rowsFor(false).map(row => row.id).filter(id => !pack.rowsFor(false, 'photo').some(row => row.id === id)), ['spray', 'doodle', 'pulise']);
+  assert.deepEqual(pack.rowsFor(false, 'motion').map(row => row.id), ['photography', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'riso', 'window'], 'a video: no Spray, Doodle, Pulise, Dust or Depth');
   assert.deepEqual(pack.rowsFor(true, 'motion').map(row => row.id), ['photography', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'riso'], 'no lyrics and a video: both rules');
 });
 

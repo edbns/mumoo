@@ -82,7 +82,7 @@ export async function clipToMonoWav(audio: AudioBuffer, clipStartMs: number): Pr
 
 async function errorMessage(response: Response): Promise<string> {
   const result = await response.json().catch(() => null) as { error?: string } | null;
-  return result?.error || 'Cloud encode is temporarily unavailable. Reload and try again.';
+  return result?.error || 'Creatives are temporarily unavailable. Reload and try again.';
 }
 
 export type CloudJobInput = {
@@ -117,7 +117,7 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
   });
   if (!response.ok) throw new Error(await errorMessage(response));
   const result = await response.json().catch(() => null) as { id?: string } | null;
-  if (!result?.id) throw new Error('Cloud encode did not start. Reload and try again.');
+  if (!result?.id) throw new Error('Your creative did not start. Reload and try again.');
   return result.id;
 }
 
@@ -135,8 +135,8 @@ export async function awaitCloudJob(token: string, id: string, signal?: AbortSig
     if (response.status === 202) continue;
     if (!response.ok) throw new Error(await errorMessage(response));
     const blob = await response.blob();
-    if (blob.size < 1000) throw new Error('Cloud encode returned an empty file.');
+    if (blob.size < 1000) throw new Error('Your creative came back empty. Try again.');
     return blob;
   }
-  throw new Error('Cloud encode took too long. Try again in a moment.');
+  throw new Error('Your creative took too long. Try again in a moment.');
 }

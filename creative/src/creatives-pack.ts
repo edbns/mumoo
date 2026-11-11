@@ -51,7 +51,7 @@ export type ShelfRow = 'photography' | LookFamily | 'looks' | 'riso' | 'spray' |
  */
 export type ShelfRowDef = { id: ShelfRow; title: string; lyrics: 'switch' | 'always'; picture?: 'photo' | 'any' };
 export const SHELF_ROWS: readonly ShelfRowDef[] = [
-  { id: 'photography', title: 'Our photography', lyrics: 'switch', picture: 'any' },
+  { id: 'photography', title: 'Directed', lyrics: 'switch', picture: 'any' },
   // One effect per row, each dealt in its different colourings, on pictures of our library or the person's own (a row has no picture to draw until the library has one or they upload theirs).
   { id: 'thermal', title: 'Thermal', lyrics: 'switch', picture: 'any' },
   { id: 'halftone', title: 'Halftone', lyrics: 'switch', picture: 'any' },
@@ -73,10 +73,11 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
 export type OwnKind = 'photo' | 'motion';
 /**
  * The rows of the shelf for a song and the person's own picture. With no words, only the rows that work without them
- * (Spray, Window, Doodle and Pulise are made of the lyrics). With a video or GIF, only the rows that can use one (Dust and Depth need a photo).
+ * (Spray, Window, Doodle and Pulise are made of the lyrics). With any picture of their own, only the rows that draw a picture
+ * (Spray, Doodle and Pulise take none, so they leave). With a video or GIF, only the rows that can use one (Dust and Depth need a photo).
  */
 export const rowsFor = (noLyrics: boolean, own: OwnKind | null = null): readonly ShelfRowDef[] =>
-  SHELF_ROWS.filter(def => !(noLyrics && def.lyrics === 'always') && !(own === 'motion' && def.picture === 'photo'));
+  SHELF_ROWS.filter(def => !(noLyrics && def.lyrics === 'always') && !(own && !def.picture) && !(own === 'motion' && def.picture === 'photo'));
 const ROW_SIZE = 4;
 
 export type CreativesPackSlot = {
