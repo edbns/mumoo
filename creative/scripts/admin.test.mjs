@@ -99,7 +99,7 @@ test('a library item goes from upload to approved, is checked at every step, and
     assert.equal((await fetch(item.url)).status, 200, 'the admin can see it through a signed link');
     assert.ok([400, 403].includes((await fetch(item.url.split('?')[0])).status), 'nobody else can');
 
-    assert.match((await changeItem(id, { status: 'approved' })).refused, /attitude/, 'needs an attitude first');
+    assert.match((await changeItem(id, { status: 'approved' })).refused, /mood/, 'needs a mood first');
     assert.match((await changeItem(id, { attitudes: ['sparkly'] })).refused, /list/);
     assert.match((await changeItem(id, { attitudes: ['happy', 'fun', 'flirty', 'love', 'confident'] })).refused, /At most 4/);
     assert.match((await changeItem(id, { attitudes: ['joyful'] })).refused, /list/, 'the old moods are gone from the list');

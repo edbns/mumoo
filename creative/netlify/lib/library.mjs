@@ -248,7 +248,7 @@ function readTags(value) {
 
 /**
  * Changes an item: any of status, attitudes, tags, genre, subGenre, note. Returns the item, null when it is not
- * there, or { refused } with a reason in words. An item can only be approved once it has an attitude.
+ * there, or { refused } with a reason in words. An item can only be approved once it has a mood.
  */
 export async function changeItem(id, change) {
   const sql = db();
@@ -261,8 +261,8 @@ export async function changeItem(id, change) {
   }
   if ('attitudes' in change) {
     const list = Array.isArray(change.attitudes) ? [...new Set(change.attitudes)] : null;
-    if (!list || list.some(code => !ATTITUDES.includes(code))) return { refused: 'Choose attitudes from the list.' };
-    if (list.length > MAX_ATTITUDES) return { refused: `At most ${MAX_ATTITUDES} attitudes for one item. Fewer is better.` };
+    if (!list || list.some(code => !ATTITUDES.includes(code))) return { refused: 'Choose moods from the list.' };
+    if (list.length > MAX_ATTITUDES) return { refused: `At most ${MAX_ATTITUDES} moods for one item. Fewer is better.` };
     next.attitudes = list;
   }
   if ('tags' in change) {
@@ -275,7 +275,7 @@ export async function changeItem(id, change) {
     next.subGenre = next.genre ? (cleanName('subGenre' in change ? change.subGenre : next.subGenre) || null) : null;
   }
   if ('note' in change) next.note = cleanNote(change.note);
-  if (next.status === 'approved' && next.attitudes.length === 0) return { refused: 'Give it at least one attitude before approving it.' };
+  if (next.status === 'approved' && next.attitudes.length === 0) return { refused: 'Give it at least one mood before approving it.' };
 
   const [{ pool, known }] = await sql`select count(*)::int as pool, (count(*) filter (where name = any (${next.tags})))::int as known from library_tags`;
   const fresh = next.tags.length - known;

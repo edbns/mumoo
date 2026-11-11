@@ -24,9 +24,11 @@ const cap = (word: string) => word[0].toUpperCase() + word.slice(1);
 const megabytes = (bytes: number) => `${(bytes / 1_000_000).toFixed(bytes < 10_000_000 ? 1 : 0)} MB`;
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-function Chip({ on, children, ...props }: { on: boolean } & React.ComponentProps<'button'>) {
-  return <button type="button" aria-pressed={on} {...props}
-    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${on ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:bg-secondary hover:text-foreground'} disabled:cursor-not-allowed disabled:opacity-40`}>{children}</button>;
+/** `some`: on for only part of a selection (shown half-on, `aria-pressed="mixed"`). */
+function Chip({ on, some = false, children, ...props }: { on: boolean; some?: boolean } & React.ComponentProps<'button'>) {
+  const look = on ? 'bg-foreground text-background' : some ? 'bg-secondary text-foreground ring-1 ring-inset ring-foreground/40' : 'bg-muted text-muted-foreground hover:bg-secondary hover:text-foreground';
+  return <button type="button" aria-pressed={on ? true : some ? 'mixed' : false} {...props}
+    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${look} disabled:cursor-not-allowed disabled:opacity-40`}>{children}</button>;
 }
 
 function Media({ item, controls = false }: { item: LibraryItem; controls?: boolean }) {
@@ -38,8 +40,8 @@ function Media({ item, controls = false }: { item: LibraryItem; controls?: boole
 
 type Sending = { name: string; state: 'sending' | 'done' | 'failed'; reason?: string };
 
-/** Drop files in, say once that you cleared them, and they join the library as "Waiting" until you tag and approve them. */
-function Uploader({ onAdded }: { onAdded: (item: LibraryItem) => void }) {
+/** Drop files in, say once that you cleared them, and they join the library as "Waiting" until you tag and approve them. `onDone` gets the ids of a batch once it has all been sent. */
+function Uploader({ onAdded, onDone }: { onAdded: (item: LibraryItem) => void; onDone: (ids: string[]) => void }) {
   const [rights, setRights] = useState(false);
   const [note, setNote] = useState('');
   const [sending, setSending] = useState<Sending[]>([]);
@@ -51,14 +53,18 @@ function Uploader({ onAdded }: { onAdded: (item: LibraryItem) => void }) {
     if (!rights || files.length === 0) return;
     const set = (index: number, entry: Sending) => setSending(list => list.map((old, at) => at === index ? entry : old));
     setSending(files.map(file => ({ name: file.name, state: 'sending' })));
+    const added: string[] = [];
     for (const [index, file] of files.entries()) {
       try {
-        onAdded(await uploadFile(file, note));
+        const item = await uploadFile(file, note);
+        onAdded(item);
+        added.push(item.id);
         set(index, { name: file.name, state: 'done' });
       } catch (cause) {
         set(index, { name: file.name, state: 'failed', reason: (cause as Error).message });
       }
     }
+    if (added.length) onDone(added);
   }
   const drop = (event: DragEvent) => { event.preventDefault(); setOver(false); void send([...event.dataTransfer.files]); };
 
@@ -97,24 +103,31 @@ function Uploader({ onAdded }: { onAdded: (item: LibraryItem) => void }) {
   </section>;
 }
 
-function Card({ item, selected, onSelect }: { item: LibraryItem; selected: boolean; onSelect: () => void }) {
-  return <button type="button" onClick={onSelect} aria-pressed={selected} aria-label={`${item.kind}, ${STATUS_LABEL[item.status]}${item.attitudes.length ? `, ${item.attitudes.join(', ')}` : ', no attitude yet'}`}
-    className={`group flex flex-col overflow-hidden rounded-[var(--radius-panel)] bg-card p-0 text-left shadow-sm outline-ring transition-shadow focus-visible:outline-2 ${selected ? 'ring-2 ring-foreground' : 'hover:shadow-md'}`}>
+/** A card opens its item; its tick puts it in the selection (shift-click ticks every card between this one and the last ticked). */
+function Card({ item, selected, ticked, onSelect, onTick }: { item: LibraryItem; selected: boolean; ticked: boolean; onSelect: () => void; onTick: (range: boolean) => void }) {
+  return <div className="relative">
+  <button type="button" onClick={onSelect} aria-pressed={selected} aria-label={`${item.kind}, ${STATUS_LABEL[item.status]}${item.attitudes.length ? `, ${item.attitudes.join(', ')}` : ', no mood yet'}`}
+    className={`group flex w-full flex-col overflow-hidden rounded-[var(--radius-panel)] bg-card p-0 text-left shadow-sm outline-ring transition-shadow focus-visible:outline-2 ${selected || ticked ? 'ring-2 ring-foreground' : 'hover:shadow-md'}`}>
     <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
       <Media item={item} />
       <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[item.status]}`}>{STATUS_LABEL[item.status]}</span>
       {!item.ready && <span className={`absolute bottom-2 left-2 rounded-full px-2 py-0.5 text-xs font-medium ${item.problem ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{item.problem ? 'Cannot be used' : 'Preparing…'}</span>}
       {item.ready && item.warning && <span className="absolute bottom-2 left-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Low resolution</span>}
-      <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+      <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
         {item.kind === 'video' ? <FilmIcon className="size-3" aria-hidden="true" /> : <ImageIcon className="size-3" aria-hidden="true" />}{item.kind === 'gif' ? 'GIF' : cap(item.kind)}
       </span>
     </div>
     <div className="flex min-h-14 flex-wrap content-start gap-1 p-3">
-      {item.attitudes.length === 0 && <span className="text-xs text-destructive">No attitude yet</span>}
+      {item.attitudes.length === 0 && <span className="text-xs text-destructive">No mood yet</span>}
       {item.attitudes.map(code => <span key={code} className="rounded-full bg-foreground px-2 py-0.5 text-xs text-background">{cap(code)}</span>)}
       {item.tags.map(tag => <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{tag}</span>)}
     </div>
-  </button>;
+  </button>
+  <button type="button" role="checkbox" aria-checked={ticked} aria-label={ticked ? 'Unselect' : 'Select'} onClick={event => onTick(event.shiftKey)}
+    className={`absolute right-2 top-2 flex size-7 items-center justify-center rounded-full border-2 p-0 shadow-sm outline-ring transition-colors focus-visible:outline-2 ${ticked ? 'border-foreground bg-foreground text-background' : 'border-white bg-black/40 text-transparent hover:bg-black/60'}`}>
+    <CheckIcon className="size-4" aria-hidden="true" />
+  </button>
+  </div>;
 }
 
 /** The side panel for one item: what it is for (attitudes, tags, genre), where it came from, and approve, hide or delete. */
@@ -183,7 +196,7 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
     <div className="aspect-[3/4] max-h-80 self-center overflow-hidden rounded-[var(--radius-panel)] bg-muted"><Media item={item} controls /></div>
 
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-      <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Attitude (up to {MAX_ATTITUDES}) · the feeling it suits</legend>
+      <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Mood (up to {MAX_ATTITUDES}) · the feeling it suits</legend>
       <div className="flex flex-wrap gap-1.5">
         {ATTITUDES.map(code => <Chip key={code} on={attitudes.includes(code)} disabled={!attitudes.includes(code) && attitudes.length >= MAX_ATTITUDES}
           onClick={() => setAttitudes(list => toggle(list, code, MAX_ATTITUDES))}>{cap(code)}</Chip>)}
@@ -237,10 +250,202 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
 
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
     <div className="mt-auto flex flex-wrap items-center gap-2">
-      {item.status !== 'approved' && <Button disabled={busy || attitudes.length === 0} onClick={() => void save('approved')} title={attitudes.length === 0 ? 'Choose an attitude first' : undefined}><CheckIcon className="size-4" aria-hidden="true" />Approve</Button>}
+      {item.status !== 'approved' && <Button disabled={busy || attitudes.length === 0} onClick={() => void save('approved')} title={attitudes.length === 0 ? 'Choose a mood first' : undefined}><CheckIcon className="size-4" aria-hidden="true" />Approve</Button>}
       {item.status !== 'hidden' && <Button variant="secondary" disabled={busy} onClick={() => void save('hidden')}><EyeOffIcon className="size-4" aria-hidden="true" />Hide</Button>}
       <Button variant="secondary" disabled={busy || !dirty} onClick={() => void save()}>Save changes</Button>
       <Button variant="ghost" className="ml-auto text-destructive hover:text-destructive" disabled={busy} onClick={() => void remove()}><Trash2Icon className="size-4" aria-hidden="true" />Delete</Button>
+    </div>
+  </aside>;
+}
+
+/** What a bulk edit does to each chosen item: codes to add and to take off. A code in neither is left as each item has it. */
+type Edit = { add: string[]; drop: string[] };
+const NO_EDIT: Edit = { add: [], drop: [] };
+/** How a code stands across the selection, once the edit is applied: on all, on some, or on none. */
+function standing(code: string, items: readonly LibraryItem[], edit: Edit, field: 'attitudes' | 'tags'): 'all' | 'some' | 'none' {
+  if (edit.add.includes(code)) return 'all';
+  if (edit.drop.includes(code)) return 'none';
+  const having = items.filter(item => item[field].includes(code)).length;
+  return having === items.length ? 'all' : having ? 'some' : 'none';
+}
+/** On everywhere: take it off all. Otherwise: put it on all. */
+const flip = (edit: Edit, code: string, all: boolean): Edit => all
+  ? { add: edit.add.filter(entry => entry !== code), drop: [...edit.drop.filter(entry => entry !== code), code] }
+  : { add: [...edit.add.filter(entry => entry !== code), code], drop: edit.drop.filter(entry => entry !== code) };
+/** One item's list after the edit, kept within `limit` (what it already has stays first); `left` is what did not fit. */
+function edited(list: readonly string[], edit: Edit, limit: number) {
+  const kept = list.filter(code => !edit.drop.includes(code));
+  const wanted = edit.add.filter(code => !kept.includes(code));
+  const room = Math.max(0, limit - kept.length);
+  return { list: [...kept, ...wanted.slice(0, room)], left: wanted.length - Math.min(room, wanted.length) };
+}
+const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every(value => b.includes(value));
+/** Gentle on the server: a few changes at a time. */
+async function inTurns<T>(jobs: readonly (() => Promise<T>)[], width = 4): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = new Array(jobs.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(width, jobs.length) }, async () => {
+    while (next < jobs.length) {
+      const at = next++;
+      try { results[at] = { status: 'fulfilled', value: await jobs[at]() }; } catch (reason) { results[at] = { status: 'rejected', reason }; }
+    }
+  }));
+  return results;
+}
+const LEAVE = '__leave__';
+const NO_MOOD = '__none__';
+
+/** The side panel for several items at once: moods and tags put on or taken off all of them, one genre for all, and approve, hide or delete them together. */
+function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
+  items: LibraryItem[]; pool: TagCount[]; onClose: () => void;
+  onSaved: (items: LibraryItem[], tags: TagCount[] | null) => void; onDeleted: (library: Library | null, gone: string[]) => void;
+}) {
+  const [moods, setMoods] = useState<Edit>(NO_EDIT);
+  const [tags, setTags] = useState<Edit>(NO_EDIT);
+  const [genre, setGenre] = useState(LEAVE);
+  const [subGenre, setSubGenre] = useState('');
+  const [newTag, setNewTag] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [report, setReport] = useState('');
+
+  const poolNames = pool.map(entry => entry.name);
+  const shownTags = [...poolNames, ...tags.add.filter(tag => !poolNames.includes(tag))];
+  const group = GENRES.find(entry => entry.name === genre);
+  const suggested = genre !== LEAVE && genre ? themesFor(genre, subGenre) : [];
+  const dirty = moods.add.length + moods.drop.length + tags.add.length + tags.drop.length > 0 || genre !== LEAVE;
+
+  function addNewTag(raw: string) {
+    const tag = raw.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!tag) return;
+    if (!poolNames.includes(tag) && poolNames.length + tags.add.filter(entry => !poolNames.includes(entry)).length >= MAX_TAGS_IN_POOL) {
+      return setError(`The tag list is full (${MAX_TAGS_IN_POOL}). Remove one you do not use, or reuse one.`);
+    }
+    setError(''); setTags(edit => flip(edit, tag, false)); setNewTag('');
+  }
+
+  /** What each item is sent: only what changes for it. */
+  function plan(status?: 'approved' | 'hidden') {
+    let unfit = 0;
+    let moodless = 0;
+    const changes = items.flatMap(item => {
+      const nextMoods = edited(item.attitudes, moods, MAX_ATTITUDES);
+      const nextTags = edited(item.tags, tags, MAX_TAGS);
+      unfit += nextMoods.left + nextTags.left;
+      const change: Change = {};
+      if (!sameList(nextMoods.list, item.attitudes)) change.attitudes = nextMoods.list;
+      if (!sameList(nextTags.list, item.tags)) change.tags = nextTags.list;
+      if (genre !== LEAVE && (genre !== (item.genre ?? '') || (genre ? subGenre : '') !== (item.subGenre ?? ''))) {
+        change.genre = genre;
+        change.subGenre = genre ? subGenre : '';
+      }
+      if (status && status !== item.status) {
+        if (status === 'approved' && nextMoods.list.length === 0) { moodless += 1; return Object.keys(change).length ? [{ item, change }] : []; }
+        change.status = status;
+      }
+      return Object.keys(change).length ? [{ item, change }] : [];
+    });
+    return { changes, unfit, moodless };
+  }
+
+  async function apply(status?: 'approved' | 'hidden') {
+    const { changes, unfit, moodless } = plan(status);
+    setBusy(true); setError(''); setReport('');
+    const results = await inTurns(changes.map(({ item, change }) => () => changeItem(item.id, change)));
+    const saved = results.flatMap(result => (result.status === 'fulfilled' ? [result.value] : []));
+    const refused = [...new Set(results.flatMap(result => (result.status === 'rejected' ? [(result.reason as Error).message] : [])))];
+    onSaved(saved.map(entry => entry.item), saved.at(-1)?.tags ?? null);
+    const failed = results.length - saved.length;
+    setReport([
+      `Saved ${saved.length} of ${items.length}.`,
+      changes.length < items.length && !failed ? `${items.length - changes.length} already had this.` : '',
+      unfit ? `${unfit} mood or tag${unfit === 1 ? '' : 's'} did not fit (an item holds at most ${MAX_ATTITUDES} moods and ${MAX_TAGS} tags).` : '',
+      moodless ? `${moodless} not approved: give ${moodless === 1 ? 'it' : 'them'} a mood first.` : '',
+    ].filter(Boolean).join(' '));
+    if (refused.length) setError(`${failed} not saved: ${refused.join(' ')}`);
+    if (!failed) { setMoods(NO_EDIT); setTags(NO_EDIT); setGenre(LEAVE); setSubGenre(''); }
+    setBusy(false);
+  }
+
+  async function removeAll() {
+    if (!window.confirm(`Delete these ${items.length} files for good? They are removed from storage and cannot be undone.`)) return;
+    setBusy(true); setError('');
+    const results = await inTurns(items.map(item => () => deleteItem(item.id)), 2);
+    const gone = items.filter((_, at) => results[at].status === 'fulfilled').map(item => item.id);
+    const last = [...results].reverse().find(result => result.status === 'fulfilled') as PromiseFulfilledResult<Library> | undefined;
+    if (gone.length < items.length) setError(`${items.length - gone.length} could not be deleted. Try again in a moment.`);
+    setBusy(false);
+    onDeleted(last?.value ?? null, gone);
+  }
+
+  const label = 'mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground';
+  return <aside aria-label="Edit selected items" className="fixed inset-y-0 right-0 z-10 flex w-full max-w-md flex-col gap-5 overflow-y-auto bg-card p-6 shadow-2xl">
+    <div className="flex items-center justify-between">
+      <h2 className="m-0 text-base font-semibold">{items.length} selected</h2>
+      <Button variant="ghost" size="sm" onClick={onClose} aria-label="Clear the selection"><XIcon className="size-4" aria-hidden="true" /></Button>
+    </div>
+    <div className="flex gap-1.5 overflow-x-auto pb-1">
+      {items.map(item => <div key={item.id} className="aspect-[3/4] w-12 shrink-0 overflow-hidden rounded-md bg-muted"><Media item={item} /></div>)}
+    </div>
+    <p className="m-0 text-xs text-muted-foreground">Click a mood or tag to put it on all of them; click again to take it off all. Half-filled means some have it; leave it and they keep it as it is.</p>
+
+    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+      <legend className={label}>Mood (up to {MAX_ATTITUDES} each) · the feeling it suits</legend>
+      <div className="flex flex-wrap gap-1.5">
+        {ATTITUDES.map(code => {
+          const state = standing(code, items, moods, 'attitudes');
+          return <Chip key={code} on={state === 'all'} some={state === 'some'} onClick={() => setMoods(edit => flip(edit, code, state === 'all'))}>{cap(code)}</Chip>;
+        })}
+      </div>
+    </fieldset>
+
+    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+      <legend className={label}>Tags (up to {MAX_TAGS} each) · what is in it</legend>
+      <div className="flex flex-wrap gap-1.5">
+        {shownTags.map(tag => {
+          const state = standing(tag, items, tags, 'tags');
+          return <Chip key={tag} on={state === 'all'} some={state === 'some'} onClick={() => setTags(edit => flip(edit, tag, state === 'all'))}>{tag}{!poolNames.includes(tag) && ' (new)'}</Chip>;
+        })}
+        {shownTags.length === 0 && <span className="text-xs text-muted-foreground">No tags yet. Add the first one below.</span>}
+      </div>
+      {suggested.length > 0 && <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-muted-foreground">Suggested for {subGenre || genre}:</span>
+        {suggested.map(tag => {
+          const state = standing(tag, items, tags, 'tags');
+          return <Chip key={tag} on={state === 'all'} some={state === 'some'} onClick={() => (state === 'all' ? setTags(edit => flip(edit, tag, true)) : addNewTag(tag))}>{tag}</Chip>;
+        })}
+      </div>}
+      <form className="flex gap-2" onSubmit={event => { event.preventDefault(); addNewTag(newTag); }}>
+        <input value={newTag} onChange={event => setNewTag(event.target.value)} maxLength={24} placeholder="New tag for all, like beach" aria-label="New tag for all"
+          className="min-w-0 flex-1 rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm outline-ring focus-visible:outline-2" />
+        <Button variant="secondary" type="submit" disabled={!newTag.trim()}>Add</Button>
+      </form>
+    </fieldset>
+
+    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+      <legend className={label}>Genre · for all of them</legend>
+      <div className="grid grid-cols-2 gap-2">
+        <select aria-label="Genre for all" value={genre} onChange={event => { setGenre(event.target.value); setSubGenre(''); }}
+          className="rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm outline-ring focus-visible:outline-2">
+          <option value={LEAVE}>Leave as it is</option>
+          <option value="">Any genre</option>
+          {GENRES.map(entry => <option key={entry.name} value={entry.name}>{entry.name}</option>)}
+        </select>
+        <select aria-label="Sub-genre for all" value={subGenre} disabled={!group} onChange={event => setSubGenre(event.target.value)}
+          className="rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm outline-ring focus-visible:outline-2 disabled:opacity-50">
+          <option value="">Any sub-genre</option>
+          {group?.subGenres.map(entry => <option key={entry} value={entry}>{entry}</option>)}
+        </select>
+      </div>
+    </fieldset>
+
+    {report && <p role="status" className="m-0 text-sm text-emerald-700">{report}</p>}
+    {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
+    <div className="mt-auto flex flex-wrap items-center gap-2">
+      <Button disabled={busy} onClick={() => void apply('approved')}><CheckIcon className="size-4" aria-hidden="true" />{dirty ? 'Save and approve all' : 'Approve all'}</Button>
+      <Button variant="secondary" disabled={busy} onClick={() => void apply('hidden')}><EyeOffIcon className="size-4" aria-hidden="true" />Hide all</Button>
+      <Button variant="secondary" disabled={busy || !dirty} onClick={() => void apply()}>Save changes</Button>
+      <Button variant="ghost" className="ml-auto text-destructive hover:text-destructive" disabled={busy} onClick={() => void removeAll()}><Trash2Icon className="size-4" aria-hidden="true" />Delete all</Button>
     </div>
   </aside>;
 }
@@ -273,6 +478,8 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   const [status, setStatus] = useState<StatusFilter>('all');
   const [attitude, setAttitude] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
+  const anchor = useRef<string | null>(null);
 
   useEffect(() => { loadLibrary().then(setLibrary, (cause: Error) => setError(cause.message)); }, []);
   // A video or GIF is being prepared by our worker: look again until it is ready (or has said why it cannot be).
@@ -285,35 +492,65 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
 
   const replace = (next: Library) => { setLibrary(next); onChanged(); };
   const items = library?.items ?? [];
-  const shown = items.filter(item => (status === 'all' || item.status === status) && (!attitude || item.attitudes.includes(attitude)));
+  const moodFits = (item: LibraryItem) => !attitude || (attitude === NO_MOOD ? item.attitudes.length === 0 : item.attitudes.includes(attitude));
+  const shown = items.filter(item => (status === 'all' || item.status === status) && moodFits(item));
   const count = (value: StatusFilter) => value === 'all' ? items.length : items.filter(item => item.status === value).length;
   const open = items.find(item => item.id === openId) ?? null;
+  const chosen = items.filter(item => picked.includes(item.id));
+  const allShownPicked = shown.length > 0 && shown.every(item => picked.includes(item.id));
+
+  /** Ticks or unticks one card; with shift, every card shown between it and the last one ticked follows it. */
+  function tick(id: string, range: boolean) {
+    setOpenId(null);
+    const on = !picked.includes(id);
+    const from = range && anchor.current ? shown.findIndex(item => item.id === anchor.current) : -1;
+    const to = shown.findIndex(item => item.id === id);
+    const ids = from >= 0 && to >= 0 ? shown.slice(Math.min(from, to), Math.max(from, to) + 1).map(item => item.id) : [id];
+    setPicked(list => (on ? [...new Set([...list, ...ids])] : list.filter(entry => !ids.includes(entry))));
+    anchor.current = id;
+  }
+  const refresh = () => loadLibrary().then(setLibrary, () => undefined);
 
   return <div className="mx-auto flex max-w-6xl flex-col gap-6">
     <header><h1 className="m-0 text-2xl font-semibold">Library</h1>
       <p className="m-0 mt-1 text-sm text-muted-foreground">Cleared photos, videos and GIFs the templates may use. Only approved items are ever used.</p></header>
-    <Uploader onAdded={item => { setLibrary(current => current && { ...current, items: [item, ...current.items] }); setOpenId(item.id); onChanged(); }} />
+    <Uploader onAdded={item => { setLibrary(current => current && { ...current, items: [item, ...current.items] }); onChanged(); }}
+      onDone={ids => { if (ids.length === 1) { setPicked([]); setOpenId(ids[0]); } else { setOpenId(null); setPicked(ids); } }} />
     {library && <Tags tags={library.tags} onChange={replace} />}
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
 
     <div className="flex flex-wrap items-center gap-2">
       {(['all', 'pending', 'approved', 'hidden'] as const).map(value => <Chip key={value} on={status === value} onClick={() => setStatus(value)}>
         {value === 'all' ? 'All' : STATUS_LABEL[value]} {count(value)}</Chip>)}
-      <select aria-label="Filter by attitude" value={attitude} onChange={event => setAttitude(event.target.value)}
+      <select aria-label="Filter by mood" value={attitude} onChange={event => setAttitude(event.target.value)}
         className="ml-auto rounded-[var(--radius-control)] bg-card px-3 py-1.5 text-sm shadow-sm outline-ring focus-visible:outline-2">
-        <option value="">Every attitude</option>
+        <option value="">Every mood</option>
+        <option value={NO_MOOD}>No mood yet ({items.filter(item => item.attitudes.length === 0).length})</option>
         {ATTITUDES.map(code => <option key={code} value={code}>{cap(code)} ({items.filter(item => item.attitudes.includes(code)).length})</option>)}
       </select>
     </div>
+    {shown.length > 0 && <div className="-mt-3 flex flex-wrap items-center gap-2 text-sm">
+      <Button variant="secondary" size="sm" onClick={() => { setOpenId(null); setPicked(list => (allShownPicked ? list.filter(id => !shown.some(item => item.id === id)) : [...new Set([...list, ...shown.map(item => item.id)])])); }}>
+        {allShownPicked ? 'Unselect these' : `Select all shown (${shown.length})`}</Button>
+      {picked.length > 0 && <Button variant="ghost" size="sm" onClick={() => setPicked([])}>Clear selection ({picked.length})</Button>}
+      <span className="text-xs text-muted-foreground">Tick cards to edit many at once. Shift-click a tick to select a run of them.</span>
+    </div>}
 
     {!library ? <p className="m-0 text-sm text-muted-foreground">Loading…</p>
       : shown.length === 0 ? <p className="m-0 rounded-[var(--radius-panel)] bg-card p-10 text-center text-sm text-muted-foreground">
         {items.length === 0 ? 'Nothing here yet. Add your first cleared file above.' : 'Nothing matches these filters.'}</p>
       : <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-        {shown.map(item => <Card key={item.id} item={item} selected={item.id === openId} onSelect={() => setOpenId(item.id)} />)}
+        {shown.map(item => <Card key={item.id} item={item} selected={item.id === openId} ticked={picked.includes(item.id)}
+          onSelect={() => (picked.length ? tick(item.id, false) : setOpenId(item.id))} onTick={range => tick(item.id, range)} />)}
       </div>}
 
-    {open && library && <Panel item={open} pool={library.tags} onClose={() => setOpenId(null)}
+    {chosen.length > 0 && library && <BulkPanel items={chosen} pool={library.tags} onClose={() => setPicked([])}
+      onSaved={(saved, tags) => {
+        setLibrary(current => current && { items: current.items.map(item => saved.find(entry => entry.id === item.id) ?? item), tags: tags ?? current.tags });
+        onChanged(); void refresh();
+      }}
+      onDeleted={(next, gone) => { setPicked(list => list.filter(id => !gone.includes(id))); if (next) replace(next); else void refresh(); }} />}
+    {!chosen.length && open && library && <Panel item={open} pool={library.tags} onClose={() => setOpenId(null)}
       onSaved={(saved, tags) => { setLibrary(current => current && { items: current.items.map(item => item.id === saved.id ? saved : item), tags }); onChanged(); }}
       onDeleted={next => { setOpenId(null); replace(next); }} />}
   </div>;
