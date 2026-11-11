@@ -21,7 +21,7 @@ import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
 import { dustWordAt, sampleDust, type DustPoints } from './pack-dust';
 import { loadMotion, type Motion } from './pack-motion';
-import { clearReelPictures, loadReel, type Reel, type ReelSource } from './pack-reel';
+import { clearReelPictures, loadReel, reelKey, type Reel, type ReelSource } from './pack-reel';
 import { planCuts, sourceMsAt, type Cut, type Shot } from './pack-cuts';
 import { plateCutoutUrl, plateUrl } from './punch-plates';
 import { risoInkSetById } from './riso-look';
@@ -215,7 +215,7 @@ export async function createPackRenderer(
       if (cutoutUrl) cutoutTexture = await loadTexture(cutoutUrl, 'The photo’s cut-out');
       cutoutUrlLoaded = cutoutUrl ?? '';
     }
-    const motionKey = sources?.length ? `reel:${sources.map(item => item.id).join(',')}` : motionUrl;
+    const motionKey = sources?.length ? `reel:${sources.map(reelKey).join(',')}` : motionUrl;
     if (motionKey !== (motionUrlLoaded || undefined)) {
       motion?.destroy();
       motion = null;
@@ -369,7 +369,7 @@ export async function createPackRenderer(
           }
         }
         if (ownBackdrop && !photoTexture && !motion) throw new Error('Our photography needs an effect or a picture.');
-        if (depthLook && !cutoutTexture) throw new Error('Depth needs a photo and its cut-out.');
+        if (depthLook && !cutoutTexture && !reel?.subject) throw new Error('Depth needs a photo and its cut-out.');
         // Window: the picture behind the word is the clip's frame, the photo, or the baked still; her cut-out stands in front when the card says so.
         let windowPicture: WindowPicture | undefined;
         if (windowMode) {
@@ -403,6 +403,7 @@ export async function createPackRenderer(
           words: copy.words,
           background: ownBackdrop ? (motion?.texture ?? photoTexture) : still,
           cutout: depthLook ? cutoutTexture : null,
+          subject: depthLook ? reel?.subject ?? null : null,
           colors: current.colors,
           typeStyle: current.typeStyle,
           look: current.look,

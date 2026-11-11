@@ -35,6 +35,8 @@ export type PackSceneInput = {
   background?: Texture | null;
   /** Depth: the cut-out subject drawn as the near layer over `background`. */
   cutout?: Texture | null;
+  /** Depth on a reel: the person already cut out of the picture playing now (the photo with her mask as its alpha), instead of a mask to cut her with. */
+  subject?: Texture | null;
   /** Dust: the two colours of the template. */
   colors?: DustColors;
   typeStyle?: TypeStyleId;

@@ -320,19 +320,24 @@ def parse_meta(raw: str) -> dict:
                 raise ValueError("motionShots")
     if "reel" in opts:
         reel = opts["reel"]
-        # Our photography (with a live look that is not Depth, which needs a cut-out) and Riso draw a reel, alone: it is the card's only picture.
+        # Our photography (with a live look; Depth takes photos with cut-outs) and Riso draw a reel, alone: it is the card's only picture.
         if opts["style"] not in ("filter", "riso") or any(key in opts for key in ("plateId", "effectId")):
             raise ValueError("reel")
-        if isinstance(opts.get("look"), str) and opts["look"].startswith("depth"):
-            raise ValueError("reel")
+        depth = isinstance(opts.get("look"), str) and opts["look"].startswith("depth")
         if not isinstance(reel, list) or not 2 <= len(reel) <= REEL_MAX:
             raise ValueError("reel")
         for entry in reel:
-            if not isinstance(entry, dict) or not {"kind", "url"} <= set(entry) <= {"kind", "url", "shots"} or entry["kind"] not in ("photo", "clip"):
+            if not isinstance(entry, dict) or not {"kind", "url"} <= set(entry) <= {"kind", "url", "cutoutUrl", "shots"} or entry["kind"] not in ("photo", "clip"):
                 raise ValueError("reel")
-            link = urlparse(entry["url"]) if isinstance(entry["url"], str) and len(entry["url"]) <= 3000 else None
-            if link is None or link.scheme != "https" or link.username or link.password or link.port or not (link.hostname or "").endswith(REEL_HOST_SUFFIX):
+            # Depth puts the person in front of each picture: a reel of photos, each with its cut-out. No other reel carries one.
+            if depth != ("cutoutUrl" in entry) or (depth and entry["kind"] != "photo"):
                 raise ValueError("reel")
+            for field in ("url", "cutoutUrl"):
+                if field not in entry:
+                    continue
+                link = urlparse(entry[field]) if isinstance(entry[field], str) and len(entry[field]) <= 3000 else None
+                if link is None or link.scheme != "https" or link.username or link.password or link.port or not (link.hostname or "").endswith(REEL_HOST_SUFFIX):
+                    raise ValueError("reel")
             if "shots" in entry:
                 shots = entry["shots"]
                 if entry["kind"] != "clip" or not isinstance(shots, list) or not 0 < len(shots) <= 40:

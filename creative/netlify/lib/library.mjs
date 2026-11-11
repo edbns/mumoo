@@ -318,15 +318,20 @@ export async function listApproved() {
 
 /**
  * The pictures of a Director's reel: for each id, in order, what the cloud renderer needs to draw it, as a link it can fetch (half an hour: a render
- * queues and runs in chunks) and, for a clip, its shots. Null for an id that is not an approved, ready item, so a reel is never drawn with a hole.
+ * queues and runs in chunks) and, for a clip, its shots. `withCutouts` (Depth): photos only, each with its cut-out. Null for an id that is not an approved, ready item, so a reel is never drawn with a hole.
  */
-export async function libraryReel(ids) {
-  const rows = await db()`select id, kind, shots from library_items where id = any(${ids}::uuid[]) and arrived and ready and status = 'approved'`;
+export async function libraryReel(ids, withCutouts = false) {
+  const rows = await db()`select id, kind, shots, cutout from library_items where id = any(${ids}::uuid[]) and arrived and ready and status = 'approved'`;
   const found = new Map(rows.map((row) => [row.id, row]));
   return Promise.all(ids.map(async (id) => {
     const row = found.get(id);
     if (!row) return null;
-    if (row.kind === 'photo') return { kind: 'photo', url: await signedDownload(keyOf(id), null, 1800) };
+    if (row.kind === 'photo') {
+      // Depth puts the person in front, so each photo comes with its cut-out; one without it cannot be in that reel.
+      if (withCutouts && !row.cutout) return null;
+      return { kind: 'photo', url: await signedDownload(keyOf(id), null, 1800), ...(withCutouts ? { cutoutUrl: await signedDownload(cutoutKey(id), null, 1800) } : {}) };
+    }
+    if (withCutouts) return null;
     return { kind: 'clip', url: await signedDownload(motionKey(id), null, 1800), ...(row.shots ? { shots: row.shots } : {}) };
   }));
 }

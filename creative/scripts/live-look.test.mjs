@@ -299,8 +299,8 @@ test('Thermal, Halftone, Dither, Glow, Streaks, ASCII and Depth are rows of thei
   for (const family of FAMILIES) {
     const row = pack.recommendRow(family, profile('Techno'), 0, [], null, family === 'depth' ? cutouts : library);
     assert.equal(row.length, 4, `${family}: four library pictures, four cards`);
-    // Depth needs one photo with its cut-out; every other look is drawn on a reel the Director edits from the library's pictures.
-    assert.ok(row.every(slot => slot.row === family && slot.style === 'filter' && (family === 'depth' ? slot.libraryId && !slot.reelIds : slot.reelIds?.length >= 2 && !slot.libraryId) && !slot.effectId && !slot.plateId), `${family} is drawn on library pictures`);
+    // Every look is drawn on a reel the Director edits from the library's pictures (Depth: photos with a cut-out).
+    assert.ok(row.every(slot => slot.row === family && slot.style === 'filter' && slot.reelIds?.length >= 2 && !slot.libraryId && !slot.effectId && !slot.plateId), `${family} is drawn on library pictures`);
     assert.ok(row.every(slot => slot.look && familyOf(slot.look) === family), `${family} deals only its own colourings`);
     assert.ok(row.every(slot => slot.label.includes(deal.liveLookTitle(slot.look))), 'the card says which look it is');
     assert.ok(new Set(row.map(slot => slot.look)).size >= 2, `${family} is not one look four times`);

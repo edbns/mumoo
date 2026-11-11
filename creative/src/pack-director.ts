@@ -36,6 +36,8 @@ const MIN_PIECE_MS = 800;
 const MAX_PIECE_MS = 3200;
 /** No cut is shorter than this, however fast the song. */
 const MIN_CUT_MS = 450;
+/** Nor longer, however soft: a slow song still shows its pictures, a few seconds each at most, so a reel is always a mix. */
+const MAX_CUT_MS = 2600;
 /** How many beats a cut holds at the loud, middle and soft parts of the song: every beat, every other, every bar. */
 const HOLD = { high: 1, mid: 2, low: 4 } as const;
 /** Each card of a row is edited with a different temper, which scales how many beats a cut holds: brisk, calm, in between. */
@@ -119,6 +121,7 @@ function cutTimes(music: DirectorMusic | null, seed: number, durationMs: number)
       const bar = beats.slice(position, end + 1).findIndex(onBar);
       if (bar >= 0) end = position + bar;
     }
+    while (end > position && beats[end] - at > MAX_CUT_MS) end -= 1;
     while (end < beats.length && beats[end] - at < MIN_CUT_MS) end += 1;
     if (end >= beats.length || beats[end] > durationMs - MIN_CUT_MS) break;
     levels.push(here);

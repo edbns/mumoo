@@ -45,6 +45,15 @@ test('cuts come faster where the music is hard than where it is soft', () => {
   }
 });
 
+test('soft music still shows the pictures: no cut is longer than a few seconds', () => {
+  const soft = { beatsMs: BEATS, downbeatsMs: BARS, energy: ENERGY.map(f => ({ ...f, rms: 0.1 })) };
+  for (const seed of [0, 1, 2, 3, 7]) {
+    const segments = planReel(ASSETS, soft, seed, DURATION);
+    for (const segment of segments.slice(0, -1)) assert.ok(segment.endMs - segment.atMs <= 2600, `seed ${seed}: ${segment.endMs - segment.atMs}`);
+    assert.ok(new Set(segments.map(s => s.asset)).size >= 4, `seed ${seed}: ${new Set(segments.map(s => s.asset)).size} different pictures`);
+  }
+});
+
 test('cuts land on beats', () => {
   for (const seed of [0, 1, 2, 3]) {
     for (const segment of planReel(ASSETS, MUSIC, seed, DURATION).slice(1)) assert.ok(BEATS.includes(segment.atMs), `cut at ${segment.atMs}`);

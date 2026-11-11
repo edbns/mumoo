@@ -9,24 +9,31 @@ import { clipMsAt, planReel, segmentAt, type ReelAsset, type Segment, type Shot 
  * moment of the edit onto its canvas, so the shelf preview and the cloud render draw the same frame.
  */
 export type ReelSource = {
-  /** The library item, for the cart and the cloud (which swaps the link for a fresh one it makes itself). */
-  id: string;
+  /** The library item, for the cart and the cloud. The cloud's links carry no id (the worker takes none), so a picture is told apart by its link too (`reelKey`). */
+  id?: string;
   kind: 'photo' | 'clip';
   /** A link to the photo, or to the prepared clip. */
   url: string;
+  /** A photo's cut-out mask (white where the person is). Given only to a reel that draws Depth, which puts the person in front. */
+  cutoutUrl?: string;
   /** A clip's shots, in ms of the clip. */
   shots?: readonly Shot[];
 };
 
+/** What tells one picture of a reel from another: its library id, or (in the cloud) its link without the signature that changes every time. */
+export const reelKey = (source: ReelSource) => `${source.id ?? source.url.split('?')[0]}${source.cutoutUrl ? '|cut' : ''}`;
+
 export type Reel = Motion & {
+  /** Depth: the person of the picture playing now, cut out (a picture with her mask as its alpha), drawn the same way as `texture`. Null for a reel with no cut-outs. */
+  subject: Texture | null;
   /** Edits the reel to this music (once per music and seed). Call before `seek`; the milliseconds of `seek` are then those of the song. */
   direct(music: ImpactMusic | null, seed: number, durationMs: number): void;
 };
 
-type Loaded = { kind: 'photo'; image: ImageBitmap } | { kind: 'clip'; motion: Motion };
+type Loaded = { kind: 'photo'; image: ImageBitmap; subject?: HTMLCanvasElement } | { kind: 'clip'; motion: Motion };
 
 /**
- * Pictures already read, kept by library id: one card after another on the shelf draws from the same few, and each
+ * Pictures already read, kept by `reelKey`: one card after another on the shelf draws from the same few, and each
  * is fetched once. A card draws only the pieces it plays; the rest are fetched in the background in the browser.
  */
 const MAX_KEPT = 12;
@@ -38,13 +45,44 @@ export function setReelPrefetch(on: boolean) {
   prefetching = on;
 }
 
+async function bitmapOf(url: string, what: string): Promise<ImageBitmap> {
+  const response = await fetch(url, { cache: 'no-store' }).catch(() => null);
+  if (!response?.ok) throw new Error(`${what} could not be loaded${response ? ` (${response.status})` : ''}. Reload the page.`);
+  const image = await createImageBitmap(await response.blob()).catch(() => null);
+  if (!image) throw new Error(`${what} could not be read.`);
+  return image;
+}
+
+/** The photo with her mask as its alpha, made once (the mask is a grey picture, white where she is). */
+function cutOut(photo: ImageBitmap, mask: ImageBitmap): HTMLCanvasElement {
+  const width = Math.max(1, mask.width);
+  const height = Math.max(1, mask.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = width;
+  maskCanvas.height = height;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  const maskContext = maskCanvas.getContext('2d', { willReadFrequently: true });
+  if (!context || !maskContext) throw new Error('Canvas 2D is unavailable.');
+  context.drawImage(photo, 0, 0, width, height);
+  maskContext.drawImage(mask, 0, 0, width, height);
+  const colour = context.getImageData(0, 0, width, height);
+  const alpha = maskContext.getImageData(0, 0, width, height).data;
+  for (let i = 0; i < width * height; i += 1) colour.data[i * 4 + 3] = alpha[i * 4];
+  context.putImageData(colour, 0, 0);
+  return canvas;
+}
+
 async function read(source: ReelSource): Promise<Loaded> {
   if (source.kind === 'clip') return { kind: 'clip', motion: await loadMotion(source.url) };
-  const response = await fetch(source.url, { cache: 'no-store' }).catch(() => null);
-  if (!response?.ok) throw new Error(`A picture of the reel could not be loaded${response ? ` (${response.status})` : ''}. Reload the page.`);
-  const image = await createImageBitmap(await response.blob()).catch(() => null);
-  if (!image) throw new Error('A picture of the reel could not be read.');
-  return { kind: 'photo', image };
+  const image = await bitmapOf(source.url, 'A picture of the reel');
+  if (!source.cutoutUrl) return { kind: 'photo', image };
+  const mask = await bitmapOf(source.cutoutUrl, 'A cut-out of the reel');
+  const subject = cutOut(image, mask);
+  mask.close();
+  return { kind: 'photo', image, subject };
 }
 
 function release(loaded: Loaded) {
@@ -53,15 +91,16 @@ function release(loaded: Loaded) {
 }
 
 function keep(source: ReelSource): Promise<Loaded> {
-  const have = kept.get(source.id);
+  const key = reelKey(source);
+  const have = kept.get(key);
   if (have) {
-    kept.delete(source.id);
-    kept.set(source.id, have);
+    kept.delete(key);
+    kept.set(key, have);
     return have;
   }
   const loading = read(source);
-  loading.catch(() => { if (kept.get(source.id) === loading) kept.delete(source.id); });
-  kept.set(source.id, loading);
+  loading.catch(() => { if (kept.get(key) === loading) kept.delete(key); });
+  kept.set(key, loading);
   while (kept.size > MAX_KEPT) {
     const [oldest] = kept.keys();
     const gone = kept.get(oldest)!;
@@ -79,31 +118,47 @@ export function clearReelPictures() {
 
 export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
   if (sources.length < 1) throw new Error('A reel needs at least one picture.');
-  const canvas = document.createElement('canvas');
-  canvas.width = WIDTH;
-  canvas.height = HEIGHT;
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Canvas 2D is unavailable.');
-  const source = new CanvasSource({ resource: canvas });
-  const texture = new Texture({ source });
+  const surface = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = WIDTH;
+    canvas.height = HEIGHT;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas 2D is unavailable.');
+    return { canvas, context };
+  };
+  const picture = surface();
+  const pictureSource = new CanvasSource({ resource: picture.canvas });
+  const texture = new Texture({ source: pictureSource });
+  // Only a reel that has cut-outs (Depth) draws a second picture: the person, alone, on the same footing.
+  const cutouts = sources.some(item => item.cutoutUrl);
+  const person = cutouts ? surface() : null;
+  const personSource = person ? new CanvasSource({ resource: person.canvas }) : null;
+  const subject = personSource ? new Texture({ source: personSource }) : null;
   const assets: ReelAsset[] = sources.map(item => (item.kind === 'photo' ? { kind: 'photo' } : { kind: 'clip', shots: item.shots ?? [[0, 6000]] }));
 
   let segments: Segment[] = [];
   let plannedFor = '';
   let warmed = false;
 
-  /** Draws `picture` over the whole canvas the way a poster fills a frame, scaled up by `zoom` about the middle. */
-  function cover(picture: CanvasImageSource & { width: number; height: number }, zoom: number) {
-    const scale = Math.max(WIDTH / picture.width, HEIGHT / picture.height) * zoom;
-    const width = picture.width * scale;
-    const height = picture.height * scale;
-    context!.fillStyle = '#000';
-    context!.fillRect(0, 0, WIDTH, HEIGHT);
-    context!.drawImage(picture, (WIDTH - width) / 2, (HEIGHT - height) / 2, width, height);
+  /** Draws `shown` over the whole canvas the way a poster fills a frame, scaled up by `zoom` about the middle; the person too, in the same place. */
+  function cover(shown: CanvasImageSource & { width: number; height: number }, zoom: number, alone?: HTMLCanvasElement) {
+    const scale = Math.max(WIDTH / shown.width, HEIGHT / shown.height) * zoom;
+    const width = shown.width * scale;
+    const height = shown.height * scale;
+    const left = (WIDTH - width) / 2;
+    const top = (HEIGHT - height) / 2;
+    picture.context.fillStyle = '#000';
+    picture.context.fillRect(0, 0, WIDTH, HEIGHT);
+    picture.context.drawImage(shown, left, top, width, height);
+    if (person) {
+      person.context.clearRect(0, 0, WIDTH, HEIGHT);
+      if (alone) person.context.drawImage(alone, left, top, width, height);
+    }
   }
 
   return {
     texture,
+    subject,
     durationMs: 15_000,
     direct(music, seed, durationMs) {
       const key = `${seed}|${durationMs}|${music?.beatsMs.length ?? 0}|${music?.energy.length ?? 0}|${assets.length}`;
@@ -114,19 +169,18 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
     async seek(ms) {
       const segment = segmentAt(segments, ms);
       if (!segment) throw new Error('The reel has nothing to play.');
-      const item = sources[segment.asset];
-      const loaded = await keep(item);
+      const loaded = await keep(sources[segment.asset]);
       if (loaded.kind === 'photo') {
         const length = Math.max(1, segment.endMs - segment.atMs);
         const along = Math.min(1, Math.max(0, (ms - segment.atMs) / length));
         const [from, to] = segment.zoom;
-        cover(loaded.image, from + (to - from) * along);
+        cover(loaded.image, from + (to - from) * along, loaded.subject);
       } else {
         await loaded.motion.seek(clipMsAt(segment, ms));
-        const frame = loaded.motion.texture.source.resource as HTMLCanvasElement;
-        cover(frame, 1);
+        cover(loaded.motion.texture.source.resource as HTMLCanvasElement, 1);
       }
-      source.update();
+      pictureSource.update();
+      personSource?.update();
       // The rest of the reel is fetched while this card is looked at, so playing it does not stall on a first sight of a clip.
       if (!warmed && prefetching) {
         warmed = true;
@@ -134,8 +188,9 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
       }
     },
     destroy() {
-      // The pictures stay kept for the next card; only this reel's own canvas goes.
+      // The pictures stay kept for the next card; only this reel's own canvases go.
       texture.destroy(true);
+      subject?.destroy(true);
     },
   };
 }

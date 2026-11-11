@@ -386,10 +386,11 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     pulise: () => puliseSlots(lane, intent, seed),
     dust: () => dustSlots(lane, intent, seed, cover?.hue, photos),
   }[row]();
-  // Our photography, its live looks (not Depth, which needs one photo with its cut-out) and Riso (whole-frame, from clips) are edited by the Director from a pool, once there are two or more pictures to edit.
+  // Our photography, its live looks (Depth too, from photos that have a cut-out) and Riso (whole-frame, from clips) are edited by the Director from a pool, once there are two or more pictures to edit.
   const directed = (items: readonly LibraryPicture[] | null, song: string) => (items && !ownPicture && !own ? reelPool(items, wanted, song, generation) : []);
   const pool = row === 'photography' ? directed(library, profile.clip.sourceSha256)
-    : isLookRow(row) && row !== 'depth' ? directed(library, `${profile.clip.sourceSha256}:${row}`)
+    : row === 'depth' ? directed(library.filter(item => item.kind === 'photo' && item.cutoutUrl), `${profile.clip.sourceSha256}:depth`)
+      : isLookRow(row) ? directed(library, `${profile.clip.sourceSha256}:${row}`)
       : row === 'riso' ? directed(library.filter(isClip), `${profile.clip.sourceSha256}:riso`)
         : [];
   const edited = pool.length < 2 ? slots : slots.map((slot, index) => reeled(slot, pool, index));

@@ -87,8 +87,8 @@ export default async function encodeCreative(request) {
       if (upload !== undefined || library !== undefined) return error(400, 'Choose one picture.');
       const asked = reelIds(scene.opts);
       if (asked.refused) return error(400, asked.refused);
-      const found = await libraryReel(asked.ids);
-      if (found.includes(null)) return error(404, 'A picture of that reel is no longer in the library.');
+      const found = await libraryReel(asked.ids, asked.depth);
+      if (found.includes(null)) return error(404, 'A picture of that reel is no longer in the library, or has no cut-out yet.');
       scene.opts = { ...scene.opts, reel: reelFrom(found) };
     }
     outbound.append('meta', JSON.stringify(scene));

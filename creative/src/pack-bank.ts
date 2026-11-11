@@ -127,7 +127,7 @@ export function createBankWorld(): BankWorld {
       const amount = DRIFT[style] ?? 1;
       const cover = Math.max(WIDTH / texture.width, HEIGHT / texture.height) * (1.1 + 0.03 * amount * Math.sin(t * Math.PI));
       const depth = input.look && isDepth(input.look) ? DEPTH_STYLES[input.look as DepthLookId] : null;
-      const cutout = depth && input.cutout ? subjectOf(texture, input.cutout) : null;
+      const cutout = depth ? (input.subject ?? (input.cutout ? subjectOf(texture, input.cutout) : null)) : null;
 
       bg.texture = texture;
       bg.visible = true;

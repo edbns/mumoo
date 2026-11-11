@@ -182,17 +182,18 @@ export function CreativesPackStudio({
   const libraryRisoMotion = (library ?? []).some(item => item.kind !== 'photo' && item.motionUrl);
   const libraryItem = (id: string | undefined) => (id ? (library ?? []).find(item => item.id === id) ?? null : null);
   /** The pictures and clips of a Director's reel, in the order it opens on them. Null when too few of them are still in the library. */
-  const reelOf = (ids: readonly string[] | undefined): Picture | undefined => {
+  const reelOf = (ids: readonly string[] | undefined, depth = false): Picture | undefined => {
     const sources = (ids ?? []).flatMap((id): ReelSource[] => {
       const item = libraryItem(id);
       if (!item) return [];
-      if (item.kind === 'photo') return [{ id, kind: 'photo', url: item.url }];
+      // Depth also needs each photo's cut-out, to put the person in front.
+      if (item.kind === 'photo') return depth && !item.cutoutUrl ? [] : [{ id, kind: 'photo', url: item.url, ...(depth ? { cutoutUrl: item.cutoutUrl } : {}) }];
       return item.motionUrl ? [{ id, kind: 'clip', url: item.motionUrl, ...(item.shots ? { shots: item.shots } : {}) }] : [];
     });
     return sources.length >= 2 ? { reel: sources } : undefined;
   };
   const pictureOf = (row: ShelfRow, slot?: CreativesPackSlot) =>
-    (ownFor(row) ? drawingFrom(ownFor(row)) : undefined) ?? (slot?.reelIds ? reelOf(slot.reelIds) : undefined) ?? (slot?.libraryId ? drawingFrom(libraryItem(slot.libraryId)) : undefined);
+    (ownFor(row) ? drawingFrom(ownFor(row)) : undefined) ?? (slot?.reelIds ? reelOf(slot.reelIds, row === 'depth') : undefined) ?? (slot?.libraryId ? drawingFrom(libraryItem(slot.libraryId)) : undefined);
   const pictureIds = own?.id ?? 'ours';
 
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
@@ -398,7 +399,7 @@ export function CreativesPackStudio({
       return upload ? { available: true, picture: drawingFrom(upload) } : { available: false };
     }
     if (item.slot.reelIds) {
-      const picture = reelOf(item.slot.reelIds);
+      const picture = reelOf(item.slot.reelIds, item.slot.row === 'depth');
       return picture ? { available: true, picture } : { available: false };
     }
     if (item.slot.libraryId) {
