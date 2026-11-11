@@ -60,7 +60,8 @@ export default async function encodeCreative(request) {
       const media = await libraryMedia(library);
       if (!media) return error(404, 'That picture is no longer in the library.');
       const depthLook = typeof scene.opts?.look === 'string' && String(scene.opts.look).startsWith('depth');
-      const cutOut = style === 'riso' || style === 'dust' || (style === 'window' && Boolean(media.photo)) || (style === 'filter' && depthLook);
+      // Riso library clips are whole-frame (no cut-out); Riso/Dust photos still need the mask.
+      const cutOut = style === 'dust' || (style === 'riso' && Boolean(media.photo)) || (style === 'window' && Boolean(media.photo)) || (style === 'filter' && depthLook);
       if (cutOut && (!media.photo || !media.cutout)) return error(404, 'That picture has no cut-out yet.');
       if (media.photo) outbound.append('photo', new Blob([media.photo], { type: 'image/jpeg' }), 'photo.jpg');
       if (cutOut) outbound.append('cutout', new Blob([media.cutout], { type: 'image/png' }), 'cutout.png');

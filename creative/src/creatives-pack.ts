@@ -302,6 +302,8 @@ const UNGRADED: readonly ShelfRow[] = ['riso', 'spray', 'window', 'doodle'];
  */
 /** A library picture Window can draw: a photo that has its cut-out, or a video or GIF. */
 const windowCapable = (item: LibraryPicture) => (item.kind === 'photo' ? Boolean(item.cutoutUrl) : Boolean(item.motionUrl));
+/** Riso: a cut-out photo (person print) or a video/GIF (whole-frame print). Dust stays cut-out photos only. */
+const risoCapable = (item: LibraryPicture) => (item.kind === 'photo' ? Boolean(item.cutoutUrl) : Boolean(item.motionUrl));
 
 /**
  * The four library pictures Window deals from for this song and Refresh. The page reads how each looks (which screen colours read against it) before the
@@ -318,10 +320,12 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
-  // Riso and Dust draw a library photo that has its cut-out (the ones that fit this song); with none, our approved photos.
+  // Dust draws library photos that have a cut-out; Riso those, or library videos/GIFs; with none, our approved photos.
   const wanted = { attitude: meaning?.attitude ?? null, genre, subGenre: profile.creator.subGenre?.value ?? '' };
   const cutOutLibrary = pickLibrary(library.filter(item => item.kind === 'photo' && item.cutoutUrl), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
+  const risoLibrary = pickLibrary(library.filter(risoCapable), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
   const photos: PhotoSources = { plateIds: cutOutPlates, libraryIds: cutOutLibrary };
+  const risoPhotos: PhotoSources = { plateIds: cutOutPlates, libraryIds: risoLibrary };
   /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
   const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, pickLibrary(library, wanted, `${profile.clip.sourceSha256}:${family}`, generation, ROW_SIZE), ownPicture);
   const slots = {
@@ -338,7 +342,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     ascii: () => effectRow('ascii'),
     depth: () => depthSlots(lane, intent, seed, photos, pickLibrary(library.filter(item => item.kind === 'photo' && item.cutoutUrl), wanted, `${profile.clip.sourceSha256}:depth`, generation, ROW_SIZE), ownPicture),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
-    riso: () => risoSlots(lane, intent, seed, photos),
+    riso: () => risoSlots(lane, intent, seed, risoPhotos),
     spray: () => spraySlots(lane, intent, seed),
     window: () => {
       const read: WindowLibraryItem[] = own ? [] : windowHand(profile, generation, library).flatMap(item => (readings[item.id] ? [{ id: item.id, reading: readings[item.id], clip: item.kind !== 'photo' }] : []));
@@ -380,7 +384,8 @@ const sentence = (text: string) => `${text[0].toUpperCase()}${text.slice(1)}`;
 
 /**
  * Four Riso cards: each its own ink set (a seeded draw, so every Refresh deals them in a new order), its own heavy
- * capital face and its own scatter of the words. The photo is ours (dealt like Dust's) until the person uses their own.
+ * capital face and its own scatter of the words. Library cut-out photos or clips (or our approved photos) until the
+ * person uses their own. `cutSeed` makes each card cut a video differently on the beat.
  */
 function risoSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, photos: PhotoSources): CreativesPackSlot[] {
   const faces = dealFaces(lane, intent, seed, 'riso', HEAVY_CAPS_ROW);
@@ -389,6 +394,7 @@ function risoSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, p
     ...adPunchSlot('riso', index, intent, seed, lane, 'riso', face),
     label: sentence(sets[index].name),
     inkSet: sets[index].id,
+    cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
     ...dealt(photos, seed, index),
   }));
 }

@@ -159,7 +159,7 @@ export function CreativesPackStudio({
   const windowOwn = useWindowOwn(pictures.window);
   // Our approved library fills Our photography until the person uses their own picture there.
   const library = useLibrary();
-  // Riso and Dust draw library photos that have a cut-out (the row deals only those); Window does not use the library yet.
+  // Riso draws library cut-out photos or clips; Dust only cut-out photos; Window photos with cut-out or clips.
   const libraryFor = (row: ShelfRow) => {
     const use = useOf(row);
     // Live-look rows deal from our library; a picture of the person's own is drawn on all four cards instead (see `recommendRow`).
@@ -167,9 +167,10 @@ export function CreativesPackStudio({
     return (row === 'photography' || row === 'riso' || row === 'dust' || row === 'window') && use && !pictures[use] ? library ?? [] : [];
   };
   // Window deals from library pictures too, once it has read how each looks (the four it is about to deal).
-  const windowPictures = useMemo(() => (pictures.window ? [] : windowHand(profile, controls.window.generation, library ?? [])), [pictures.window?.id, profile.clip.sourceSha256, profile.lyricMeaning, profile.creator, controls.window.generation, library?.map(item => item.id + (item.cutoutUrl ? '+cut' : '')).join(',')]);
+  const windowPictures = useMemo(() => (pictures.window ? [] : windowHand(profile, controls.window.generation, library ?? [])), [pictures.window?.id, profile.clip.sourceSha256, profile.lyricMeaning, profile.creator, controls.window.generation, library?.map(item => item.id + (item.cutoutUrl ? '+cut' : '') + (item.motionUrl ? '+m' : '')).join(',')]);
   const windowReads = useWindowReadings(windowPictures);
   const libraryCutouts = (library ?? []).some(item => item.kind === 'photo' && item.cutoutUrl);
+  const libraryRisoMotion = (library ?? []).some(item => item.kind !== 'photo' && item.motionUrl);
   const libraryItem = (id: string | undefined) => (id ? (library ?? []).find(item => item.id === id) ?? null : null);
   const pictureOf = (row: ShelfRow, slot?: CreativesPackSlot) => {
     const use = useOf(row);
@@ -180,11 +181,11 @@ export function CreativesPackStudio({
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
     // Made of the lyrics, and there are none: nothing is dealt, drawn or paid for.
     if (noLyrics && def.lyrics === 'always') return [def.id, { slots: [], note: '' }];
-    // Dust, Riso and Depth are dealt from approved photos that have a cut-out (Riso may also use the person's own video).
+    // Dust and Depth need cut-out photos; Riso also accepts library videos/GIFs (and the person's own video).
     if (def.upload && needsCutoutLibrary(def.upload) && !pictures[def.upload]) {
       if (plates === null || library === null) {
         return [def.id, { slots: [], note: '' }];
-      } else if (!plates.some(plate => plate.cutout) && !libraryCutouts) {
+      } else if (!plates.some(plate => plate.cutout) && !libraryCutouts && !(def.upload === 'riso' && libraryRisoMotion)) {
         return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? 'We have no approved photos for this yet. Sign in (top right) to use your own.' : `We have no approved photos for this yet. Upload one photo${def.upload === 'riso' ? ', video or GIF' : ''} to see ${def.title} made from it.` }];
       }
     }
@@ -205,7 +206,7 @@ export function CreativesPackStudio({
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover, profile.creator.primaryGenre.value, profile.creator.voice?.value,
     controls, plates, hasLyrics, noLyrics, pictureIds, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem, windowReads.pending, Object.keys(windowReads.readings).join(','),
     // What the library holds, not the links to it (they are renewed all the time).
-    library?.map(item => item.id + (item.cutoutUrl ? '+cut' : '')).join(','),
+    library?.map(item => item.id + (item.cutoutUrl ? '+cut' : '') + (item.motionUrl ? '+m' : '')).join(','),
   ]);
   const pack = SHELF_ROWS.flatMap(def => view[def.id].slots);
   const paintedRows = SHELF_ROWS.filter(def => view[def.id].slots.length > 0);
