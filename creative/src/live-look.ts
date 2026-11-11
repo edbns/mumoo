@@ -3,8 +3,8 @@
  * The preview and the cloud render run this same code. Each look reads the beat and the song's energy, so it moves with the music.
  */
 import { Filter, GlProgram, UniformGroup } from 'pixi.js';
-import type { LiveLookId } from './live-look-deal';
-import { LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD } from './live-look-ramp';
+import type { HeatLookId, LiveLookId } from './live-look-deal';
+import { HALFTONE_PAPER, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD } from './live-look-ramp';
 
 /** What a look needs to know about this moment. `range`: how cold and how hot the picture reads (0-1), which a look stretches over its ramp. */
 export type LiveLookInput = { beat: number; energy: number; ms: number; range: readonly [number, number] };
@@ -30,7 +30,7 @@ void main(void) {
 const f = (n: number) => n.toFixed(3);
 
 /** The ramp function of the shader, written from the same stops the palette reader uses (live-look-ramp.ts). */
-function rampSource(id: LiveLookId): string {
+function rampSource(id: HeatLookId): string {
   const stops = LOOK_STOPS[id];
   return `
 vec3 ramp(float t) {
@@ -48,7 +48,7 @@ ${stops.slice(0, -1).map((_, i) => `  ${i ? 'else ' : ''}if (x < ${f(i + 1)}) re
  * The picture's own coldest-to-hottest range (uLow, uHigh) is spread over the whole ramp, so a pale or a dark picture still shows cold and hot.
  * The beat lifts everything toward the hot end, more when the song is loud, and settles. Grain and darker edges differ for each look.
  */
-const heatSource = (id: LiveLookId) => `
+const heatSource = (id: HeatLookId) => `
 in vec2 vTextureCoord;
 out vec4 finalColor;
 uniform sampler2D uTexture;
@@ -103,7 +103,7 @@ function make(fragment: string, name: string, initial: Record<string, number>) {
   return { filter, set: (values: Record<string, number>) => { Object.assign(group.uniforms, values); } };
 }
 
-function heatLook(id: LiveLookId): LiveLook {
+function heatLook(id: HeatLookId): LiveLook {
   const { grain, vignette } = LOOK_ROUGHNESS[id];
   const { filter, set } = make(heatSource(id), `live-look-${id}`, { uBeat: 0, uEnergy: 0, uTime: 0, uLow: 0, uHigh: 1, uGrain: grain, uVignette: vignette });
   return {
@@ -112,10 +112,74 @@ function heatLook(id: LiveLookId): LiveLook {
   };
 }
 
+/**
+ * Halftone: the picture printed as a screen of round dots, the way a newspaper or a comic is. The screen is turned 15 degrees; each dot is the ink of its cell
+ * (the picture's own colour, richer and darker) and as big as the cell is dark, so shade becomes size. The paper is cream. The beat swells every dot, more when
+ * the song is loud. The dot size is set by the picture's height (about a hundred rows), so a small preview and the full render show the same print.
+ * The numbers match live-look-ramp.ts, which the palette reader uses to choose type colour against the print.
+ */
+const halftoneSource = () => `
+in vec2 vTextureCoord;
+out vec4 finalColor;
+uniform sampler2D uTexture;
+uniform highp vec4 uInputSize;
+uniform float uBeat;
+uniform float uEnergy;
+const vec3 paper = vec3(${HALFTONE_PAPER.map(f).join(', ')});
+
+vec3 seen(vec2 px) {
+  vec4 source = texture(uTexture, px * uInputSize.zw);
+  return source.a > 0.0 ? source.rgb / source.a : source.rgb;
+}
+
+void main(void) {
+  vec4 centre = texture(uTexture, vTextureCoord);
+  float cell = clamp(uInputSize.y / 100.0, 5.0, 18.0);
+  float angle = 0.2617994;
+  mat2 turn = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
+  vec2 grid = (turn * (vTextureCoord * uInputSize.xy)) / cell;
+  vec2 id = floor(grid) + 0.5;
+  vec2 local = grid - id;
+  vec2 middle = ((id * cell) * turn);
+  float near = cell * 0.3;
+  vec3 rgb = seen(middle) * 0.4
+    + (seen(middle + vec2(near, 0.0)) + seen(middle - vec2(near, 0.0)) + seen(middle + vec2(0.0, near)) + seen(middle - vec2(0.0, near))) * 0.15;
+  float light = dot(rgb, vec3(0.299, 0.587, 0.114));
+  float cover = clamp((1.0 - light) * 1.05, 0.0, 1.0);
+  cover = clamp(cover + uBeat * (0.05 + 0.12 * uEnergy) * (0.4 + cover), 0.0, 1.0);
+  float radius = 0.5642 * sqrt(cover) + 0.2 * cover * cover * cover;
+  float edge = 1.5 / cell;
+  float dotted = 1.0 - smoothstep(radius - edge, radius + edge, length(local));
+  vec3 ink = clamp((vec3(light) + (rgb - vec3(light)) * 1.4) * 0.55, 0.0, 1.0);
+  finalColor = vec4(mix(paper, ink, dotted), 1.0) * centre.a;
+}
+`;
+
+function halftoneLook(): LiveLook {
+  const { filter, set } = make(halftoneSource(), 'live-look-halftone', { uBeat: 0, uEnergy: 0 });
+  return { filter, update: ({ beat, energy }) => set({ uBeat: beat, uEnergy: energy }) };
+}
+
 const BUILDERS: Record<LiveLookId, () => LiveLook> = {
+  halftone: () => halftoneLook(),
   thermal: () => heatLook('thermal'),
   arctic: () => heatLook('arctic'),
   night: () => heatLook('night'),
+  whitehot: () => heatLook('whitehot'),
+  blackhot: () => heatLook('blackhot'),
+  rainbow: () => heatLook('rainbow'),
+  lava: () => heatLook('lava'),
+  ultraviolet: () => heatLook('ultraviolet'),
+  acid: () => heatLook('acid'),
+  dusk: () => heatLook('dusk'),
+  amber: () => heatLook('amber'),
+  candy: () => heatLook('candy'),
+  lagoon: () => heatLook('lagoon'),
+  gold: () => heatLook('gold'),
+  crimson: () => heatLook('crimson'),
+  cyanotype: () => heatLook('cyanotype'),
+  aurora: () => heatLook('aurora'),
+  vapor: () => heatLook('vapor'),
 };
 
 export const createLiveLook = (id: LiveLookId): LiveLook => BUILDERS[id]();

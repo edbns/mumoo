@@ -29,6 +29,15 @@ test('every card of a row carries a look the lane welcomes, never the same on ne
   assert.deepEqual(deal.dealLooks('dark', 's', 4), deal.dealLooks('dark', 's', 4), 'the same song always gets the same deal');
 });
 
+test('every lane has many looks, so Refresh keeps showing new ones', () => {
+  for (const lane of ['quiet', 'dark', 'techno', 'party', 'general']) {
+    assert.ok(deal.LIVE_LOOKS.filter(look => look.lanes.includes(lane)).length >= 8, `${lane} welcomes at least 8 looks`);
+    const seen = new Set();
+    for (let refresh = 0; refresh < 6; refresh++) deal.dealLooks(lane, `song:${refresh}`, 4).forEach(look => seen.add(look));
+    assert.ok(seen.size >= 8, `${lane}: six refreshes showed ${seen.size} different looks`);
+  }
+});
+
 test('gospel songs are never dealt a look', () => {
   assert.deepEqual(deal.dealLooks('gospel', 'seed', 4), [null, null, null, null]);
 });
@@ -58,6 +67,17 @@ test('thermal reads cold shade as cold and warm skin as hot, over the picture\'s
   const b = ramp.lookPixel('thermal', 125, 125, 125, [0.47, 0.47]);
   assert.ok(Math.abs(a[0] - b[0]) < 25, 'a small step in a flat picture is a small step in colour');
   for (const value of [...dark, ...light, ...palest]) assert.ok(value >= 0 && value <= 255);
+});
+
+test('halftone prints dark as mostly ink and light as mostly paper, in the picture\'s own colour', () => {
+  const dark = ramp.lookPixel('halftone', 20, 20, 25, [0, 1]);
+  const light = ramp.lookPixel('halftone', 240, 240, 235, [0, 1]);
+  assert.ok(dark[0] < 60 && dark[1] < 60, `dark is ink: ${dark}`);
+  assert.ok(light[0] > 215 && light[1] > 200 && light[2] > 180, `light is cream paper: ${light}`);
+  const red = ramp.lookPixel('halftone', 200, 40, 40, [0, 1]);
+  assert.ok(red[0] > red[1] * 1.5 && red[0] > red[2] * 1.5, `a red picture prints red ink: ${red}`);
+  assert.ok(ramp.halftoneCover(0, 0, 0) === 1 && ramp.halftoneCover(255, 255, 255) === 0);
+  for (const value of [...dark, ...light, ...red]) assert.ok(value >= 0 && value <= 255);
 });
 
 test('every look the page can deal is one the shader and the palette reader know', () => {

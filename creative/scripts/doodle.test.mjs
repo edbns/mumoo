@@ -110,7 +110,7 @@ test('the shelf has a Doodle row of four made of the lyrics, and the creator’s
     const person = voice => ({
       version: 1,
       clip: { sourceSha256: 'a'.repeat(64), offsetMs: 0, durationMs: 15000 },
-      creator: { primaryGenre: { value: 'Rock', source: 'creator' }, ...(voice && { voice: { value: voice, source: 'creator' } }) },
+      creator: { primaryGenre: { value: 'Rock', source: 'creator' }, ...(voice && { voice: { value: voice, source: 'detected' } }) },
       musicAnalysis: { status: 'pending' },
       approvedLyrics: { cues: [{ text: 'hi', startMs: 0, endMs: 300 }], source: 'creator_reviewed' },
       lyricMeaning: { status: 'ready', meaning: { attitude: 'heartbroken', sadness: 3, intensity: 2 } },

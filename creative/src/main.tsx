@@ -7,7 +7,6 @@ import { ACCEPTED_AUDIO, ACCEPTED_LABEL, readSongCover, readSongTags, sniffAudio
 import { describeCover, type CoverRead } from './cover-palette';
 import { DURATION_MS, validate, type Composition } from './composition';
 import { findGenre, findSubGenre, GENRES, toOptions } from './genres';
-import type { DoodleVoice } from './doodle-cast';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { MusicAnalysisRunner } from './music-analysis-runner';
 import { useLyricMeaning } from './lyric-meaning-cloud';
@@ -44,8 +43,6 @@ const INITIAL: Composition = { sourceSha256: '', clipStartMs: 0, cues: [] };
 
 
 const GENRE_OPTIONS = toOptions(GENRES.map(group => group.name));
-const VOICE_CHOICES: readonly (readonly [DoodleVoice | '', string])[] = [['female', 'Female'], ['male', 'Male'], ['both', 'Both'], ['', 'Not sure']];
-
 const cuesOf = (words: readonly LyricWord[]) => words.map(({ text, startMs, endMs }) => ({ text, startMs, endMs }));
 
 function App() {
@@ -67,8 +64,6 @@ function App() {
   const downloadRef = useRef<(() => void) | null>(null);
   const [genre, setGenre] = useState('');
   const [subGenre, setSubGenre] = useState('');
-  /** Who sings, if the creator says (Doodle draws a woman, a man or both); '' when they did not say. */
-  const [voice, setVoice] = useState<DoodleVoice | ''>('');
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
   const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
@@ -122,7 +117,6 @@ function App() {
     creator: {
       primaryGenre: { value: selectedGenre!.name, source: 'creator' },
       subGenre: { value: selectedSubGenre!, source: 'creator' },
-      ...(voice && { voice: { value: voice, source: 'creator' as const } }),
       ...(songTags?.title && { title: { value: songTags.title, source: 'embedded_metadata' as const } }),
       ...(songTags?.artist && { artist: { value: songTags.artist, source: 'embedded_metadata' as const } }),
       ...(songCover && { cover: { value: songCover, source: 'embedded_metadata' as const } }),
@@ -229,7 +223,6 @@ function App() {
     void uploads.clear();
     setGenre('');
     setSubGenre('');
-    setVoice('');
     setComposition(INITIAL);
     setLyricWords([]);
     setCartOpen(false);
@@ -365,15 +358,6 @@ function App() {
             <Combobox label="Genre" placeholder="Search genres" options={GENRE_OPTIONS} value={genre} onValueChange={chooseGenre} />
             <Combobox label="Sub-genre" placeholder={selectedGenre ? 'Search sub-genres' : 'Choose a genre first'} disabled={!selectedGenre}
               options={toOptions(selectedGenre?.subGenres ?? [])} value={subGenre} onValueChange={setSubGenre} />
-            <div role="group" aria-labelledby="voice-label" className="flex flex-col gap-2">
-              <span id="voice-label" className="text-sm font-medium">Singing voice <span className="hint">(optional)</span></span>
-              <div className="flex flex-wrap gap-2">
-                {VOICE_CHOICES.map(([value, label]) => (
-                  <Button key={value || 'unsure'} variant={voice === value ? 'default' : 'secondary'} size="sm" aria-pressed={voice === value} onClick={() => setVoice(value)}>{label}</Button>
-                ))}
-              </div>
-              <p className="hint">Doodle draws the singer from it. Not sure is fine: you get both.</p>
-            </div>
           </div>
         </div>
         {error && <p role="alert">{error}</p>}

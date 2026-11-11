@@ -87,8 +87,8 @@ export interface CreativeProfileV1 {
     primaryGenre: { value: string; source: 'creator' };
     /** The sub-genre inside the genre, as the creator chose it. */
     subGenre?: { value: string; source: 'creator' };
-    /** Who sings, as the creator said it (Doodle draws a woman, a man or a duet from it). Absent when they did not say: the row then has both. */
-    voice?: { value: DoodleVoice; source: 'creator' };
+    /** Who sings (Doodle draws a woman, a man or a duet from it). The creator is not asked; this is filled only when the song's audio shows it. Absent otherwise: the row then has both. */
+    voice?: { value: DoodleVoice; source: 'detected' };
     title?: { value: string; source: 'embedded_metadata' | 'creator' };
     artist?: { value: string; source: 'embedded_metadata' | 'creator' };
     /** What the cover art inside the uploaded file looks like (numbers only; the picture is never kept). */

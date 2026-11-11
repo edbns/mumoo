@@ -12,9 +12,33 @@ export const LIVE_LOOKS = [
   { id: 'arctic', title: 'Arctic', lanes: ['quiet', 'dark', 'techno', 'general'] },
   /** A night-vision tube: phosphor green, heavy grain, dark edges. */
   { id: 'night', title: 'Night vision', lanes: ['dark', 'techno', 'party'] },
+  /** The same heat reading in the grey modes of a heat camera. */
+  { id: 'whitehot', title: 'White hot', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'blackhot', title: 'Black hot', lanes: ['quiet', 'techno', 'general'] },
+  /** The rainbow mode of a heat camera. */
+  { id: 'rainbow', title: 'Rainbow', lanes: ['techno', 'party', 'general'] },
+  /** Hot colours: molten rock, a red wash, old amber, gold leaf. */
+  { id: 'lava', title: 'Lava', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'crimson', title: 'Crimson', lanes: ['dark', 'techno'] },
+  { id: 'amber', title: 'Amber', lanes: ['quiet', 'dark', 'general'] },
+  { id: 'gold', title: 'Gold', lanes: ['quiet', 'party', 'general'] },
+  /** Neon colours: blacklight, toxic green, vapor wave, sweets. */
+  { id: 'ultraviolet', title: 'Ultraviolet', lanes: ['dark', 'techno', 'party'] },
+  { id: 'acid', title: 'Acid', lanes: ['dark', 'techno', 'party'] },
+  { id: 'vapor', title: 'Vapor wave', lanes: ['techno', 'party'] },
+  { id: 'candy', title: 'Candy', lanes: ['party', 'general'] },
+  /** Soft and cool colours: the sky after sunset, tropical water, northern lights, a blueprint. */
+  { id: 'dusk', title: 'Dusk', lanes: ['quiet', 'party', 'general'] },
+  { id: 'lagoon', title: 'Lagoon', lanes: ['quiet', 'party', 'general'] },
+  { id: 'aurora', title: 'Aurora', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'cyanotype', title: 'Cyanotype', lanes: ['quiet', 'general'] },
+  /** Not a colour ramp: the picture printed as dots of its own ink on cream paper, the dots swelling on the beat. */
+  { id: 'halftone', title: 'Halftone', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
 ] as const satisfies readonly { id: string; title: string; lanes: readonly MoodLane[] }[];
 
 export type LiveLookId = (typeof LIVE_LOOKS)[number]['id'];
+/** The looks that read the picture as heat and colour it with a ramp; every other look has a shader of its own. */
+export type HeatLookId = Exclude<LiveLookId, 'halftone'>;
 export const LIVE_LOOK_IDS: readonly LiveLookId[] = LIVE_LOOKS.map(look => look.id);
 
 export const isLiveLook = (value: unknown): value is LiveLookId => LIVE_LOOK_IDS.includes(value as LiveLookId);
