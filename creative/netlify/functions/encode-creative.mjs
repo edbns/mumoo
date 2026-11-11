@@ -59,7 +59,8 @@ export default async function encodeCreative(request) {
       if (!['filter', 'riso', 'dust', 'window'].includes(style)) return error(400, 'That picture is kept for a different style.');
       const media = await libraryMedia(library);
       if (!media) return error(404, 'That picture is no longer in the library.');
-      const cutOut = style === 'riso' || style === 'dust' || (style === 'window' && Boolean(media.photo));
+      const depthLook = typeof scene.opts?.look === 'string' && String(scene.opts.look).startsWith('depth');
+      const cutOut = style === 'riso' || style === 'dust' || (style === 'window' && Boolean(media.photo)) || (style === 'filter' && depthLook);
       if (cutOut && (!media.photo || !media.cutout)) return error(404, 'That picture has no cut-out yet.');
       if (media.photo) outbound.append('photo', new Blob([media.photo], { type: 'image/jpeg' }), 'photo.jpg');
       if (cutOut) outbound.append('cutout', new Blob([media.cutout], { type: 'image/png' }), 'cutout.png');
@@ -71,9 +72,9 @@ export default async function encodeCreative(request) {
       if (!person) return error(401, 'Sign in to use your own pictures.');
       const media = await uploadMedia(person.id, upload);
       if (!media) return error(404, 'That picture was not found, or is still being prepared.');
-      // A picture kept for Filters cannot be sent to Dust, and the other way round. Thermal and Halftone are drawn in the Filters style, on a picture kept under their own name.
+      // A picture kept for Filters cannot be sent to Dust, and the other way round. Live-look rows are drawn in the Filters style, on a picture kept under their own name.
       const style = scene.opts?.style;
-      if (media.use !== style && !(style === 'filter' && ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii'].includes(media.use))) return error(400, 'That picture is kept for a different style.');
+      if (media.use !== style && !(style === 'filter' && ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'].includes(media.use))) return error(400, 'That picture is kept for a different style.');
       if (media.photo) outbound.append('photo', new Blob([media.photo], { type: 'image/jpeg' }), 'photo.jpg');
       if (media.cutout) outbound.append('cutout', new Blob([media.cutout], { type: 'image/png' }), 'cutout.png');
       if (media.motion) outbound.append('motion', new Blob([media.motion], { type: 'video/mp4' }), 'motion.mp4');

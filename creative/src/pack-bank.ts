@@ -3,6 +3,8 @@
  * (Look Bank), a baked photography effect (Our photography), or the person's own picture.
  * Colors come from the picture itself (pack-palette), so type always belongs to the image.
  * If the picture is missing, show downtime copy — never a substitute design.
+ *
+ * Depth looks draw two layers: the full picture (far) and the cut-out subject (near), moving apart on the beat.
  */
 import { Container, Graphics, Sprite, Text } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
@@ -10,7 +12,8 @@ import { LOOK_DOWN_MESSAGE } from './pack-looks';
 import { analyzeTexture } from './pack-palette';
 import type { PackSceneInput } from './pack-copy';
 import { createLiveLook, type LiveLook } from './live-look';
-import type { LiveLookId } from './live-look-deal';
+import type { DepthLookId, LiveLookId } from './live-look-deal';
+import { DEPTH_STYLES, isDepth } from './live-look-ramp';
 import { createTypeLayer, type TimedWord, type TypeStyleId } from './pack-type';
 
 /** Calm styles keep the picture still; the rest let it drift and breathe with the beat. */
@@ -29,12 +32,21 @@ export function createBankWorld(): BankWorld {
   const bg = new Sprite();
   bg.anchor.set(0.5);
   bg.position.set(WIDTH / 2, HEIGHT / 2);
+  const nearLayer = new Container();
+  const nearMain = new Sprite();
+  nearMain.anchor.set(0.5);
+  const nearEchoA = new Sprite();
+  nearEchoA.anchor.set(0.5);
+  const nearEchoB = new Sprite();
+  nearEchoB.anchor.set(0.5);
+  nearLayer.addChild(nearEchoB, nearEchoA, nearMain);
+  nearLayer.visible = false;
   const scrim = new Graphics();
   const down = new Container();
   // Each live look is built the first time a card asks for it, then kept: the shelf draws card after card on this one world.
   const looks = new Map<LiveLookId, LiveLook>();
   const type = createTypeLayer();
-  root.addChild(bg, scrim, type.root, down);
+  root.addChild(bg, nearLayer, scrim, type.root, down);
 
   function clearDown() {
     while (down.children.length) {
@@ -47,6 +59,11 @@ export function createBankWorld(): BankWorld {
   function paintDown() {
     bg.visible = false;
     bg.filters = [];
+    nearLayer.visible = false;
+    for (const sprite of [nearMain, nearEchoA, nearEchoB]) {
+      sprite.filters = [];
+      sprite.visible = false;
+    }
     type.paint('minimal', { ms: 0, words: [], beat: 0, beatIndex: 0, energy: 0, seed: 0, ink: '#fff', accent: '#fff', shadow: '#000', font: 'Anton', fontSecondary: 'Anton' });
     scrim.clear();
     scrim.rect(0, 0, WIDTH, HEIGHT);
@@ -80,16 +97,69 @@ export function createBankWorld(): BankWorld {
       const t = input.ms / 15000;
       const amount = DRIFT[style] ?? 1;
       const cover = Math.max(WIDTH / texture.width, HEIGHT / texture.height) * (1.1 + 0.03 * amount * Math.sin(t * Math.PI));
+      const depth = input.look && isDepth(input.look) ? DEPTH_STYLES[input.look as DepthLookId] : null;
+      const cutout = depth && input.cutout ? input.cutout : null;
+
       bg.texture = texture;
-      bg.scale.set(cover * (1 + input.beat * 0.012 * amount * input.energy));
-      bg.position.set(WIDTH / 2 + (t - 0.5) * 36 * amount, HEIGHT / 2 + Math.sin(t * Math.PI * 2) * 14 * amount);
       bg.visible = true;
       if (input.look) {
         let look = looks.get(input.look);
         if (!look) looks.set(input.look, look = createLiveLook(input.look));
         look.update({ beat: input.beat, energy: input.energy, ms: input.ms, range: palette.range });
         bg.filters = [look.filter];
-      } else bg.filters = [];
+
+        if (depth && cutout && look.nearFilter) {
+          const push = (depth.push ?? 18) * input.beat * (0.55 + 0.45 * input.energy);
+          const sway = (depth.sway ?? 10) * Math.sin(input.ms / 900) * (0.35 + 0.65 * input.energy);
+          const farZoom = (depth.farZoom ?? 0.04) * (1 + input.beat * (depth.farZoom && depth.farZoom >= 0.1 ? 1.4 : 0.5) * input.energy);
+          bg.scale.set(cover * (1 + farZoom) * (1 + input.beat * 0.008 * amount * input.energy));
+          bg.position.set(
+            WIDTH / 2 + (t - 0.5) * 24 * amount - push * 0.35 + sway * 0.25,
+            HEIGHT / 2 + Math.sin(t * Math.PI * 2) * 10 * amount,
+          );
+
+          const nearCover = Math.max(WIDTH / cutout.width, HEIGHT / cutout.height) * (1.1 + 0.02 * amount * Math.sin(t * Math.PI));
+          const placeNear = (sprite: Sprite, ox: number, oy: number, alpha: number, scaleBoost: number) => {
+            sprite.texture = cutout;
+            sprite.filters = [look!.nearFilter!];
+            sprite.scale.set(nearCover * scaleBoost);
+            sprite.position.set(
+              WIDTH / 2 + (t - 0.5) * 36 * amount + push + sway + ox,
+              HEIGHT / 2 + Math.sin(t * Math.PI * 2) * 14 * amount + oy,
+            );
+            sprite.alpha = alpha;
+            sprite.visible = true;
+          };
+          placeNear(nearMain, 0, 0, 1, 1 + input.beat * 0.01 * input.energy);
+          if (depth.echo) {
+            placeNear(nearEchoA, -push * 0.55, sway * 0.2, 0.45 + 0.25 * input.beat, 1.02);
+            placeNear(nearEchoB, -push * 1.05, -sway * 0.15, 0.22 + 0.2 * input.beat, 1.04);
+          } else {
+            nearEchoA.visible = false;
+            nearEchoB.visible = false;
+            nearEchoA.filters = [];
+            nearEchoB.filters = [];
+          }
+          nearLayer.visible = true;
+        } else {
+          nearLayer.visible = false;
+          for (const sprite of [nearMain, nearEchoA, nearEchoB]) {
+            sprite.filters = [];
+            sprite.visible = false;
+          }
+          bg.scale.set(cover * (1 + input.beat * 0.012 * amount * input.energy));
+          bg.position.set(WIDTH / 2 + (t - 0.5) * 36 * amount, HEIGHT / 2 + Math.sin(t * Math.PI * 2) * 14 * amount);
+        }
+      } else {
+        bg.filters = [];
+        nearLayer.visible = false;
+        for (const sprite of [nearMain, nearEchoA, nearEchoB]) {
+          sprite.filters = [];
+          sprite.visible = false;
+        }
+        bg.scale.set(cover * (1 + input.beat * 0.012 * amount * input.energy));
+        bg.position.set(WIDTH / 2 + (t - 0.5) * 36 * amount, HEIGHT / 2 + Math.sin(t * Math.PI * 2) * 14 * amount);
+      }
 
       scrim.clear();
       // The scrim only exists to keep lyrics readable; with lyrics off the background shows as it is.
@@ -117,7 +187,11 @@ export function createBankWorld(): BankWorld {
     },
     destroy() {
       bg.filters = [];
-      for (const look of looks.values()) look.filter.destroy();
+      for (const sprite of [nearMain, nearEchoA, nearEchoB]) sprite.filters = [];
+      for (const look of looks.values()) {
+        look.filter.destroy();
+        look.nearFilter?.destroy();
+      }
       type.destroy();
       root.destroy({ children: true });
     },

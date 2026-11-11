@@ -15,7 +15,7 @@ const workerPath = fileURLToPath(new URL('../../audio-intelligence/modal_creativ
 const WORKER = readFileSync(workerPath, 'utf8');
 const LANES = ['party', 'quiet', 'gospel', 'techno', 'dark', 'general'];
 
-const FAMILIES = ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii'];
+const FAMILIES = ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'];
 const familyOf = id => deal.LIVE_LOOKS.find(entry => entry.id === id).family;
 
 test('every card of a row carries a look of its effect that the lane welcomes, never the same on neighbours', () => {
@@ -48,10 +48,11 @@ test('every effect has many colourings in every lane, so Refresh keeps showing n
   }
 });
 
-test('Thermal, Streaks and ASCII are not dealt on a gospel song; Halftone, Dither and Glow are', () => {
+test('Thermal, Streaks, ASCII and Depth are not dealt on a gospel song; Halftone, Dither and Glow are', () => {
   assert.deepEqual(deal.dealLooks('gospel', 'seed', 4, 'thermal'), [null, null, null, null]);
   assert.deepEqual(deal.dealLooks('gospel', 'seed', 4, 'streaks'), [null, null, null, null]);
   assert.deepEqual(deal.dealLooks('gospel', 'seed', 4, 'ascii'), [null, null, null, null]);
+  assert.deepEqual(deal.dealLooks('gospel', 'seed', 4, 'depth'), [null, null, null, null]);
   assert.ok(deal.dealLooks('gospel', 'seed', 4, 'halftone').every(look => look && familyOf(look) === 'halftone'));
   assert.ok(deal.dealLooks('gospel', 'seed', 4, 'dither').every(look => look && familyOf(look) === 'dither'));
   assert.ok(deal.dealLooks('gospel', 'seed', 4, 'glow').every(look => look && familyOf(look) === 'glow'));
@@ -186,6 +187,7 @@ function profile(genre, sadness = 1, attitude = 'defiant') {
 }
 
 const picture = (id, attitude = 'defiant') => ({ id, kind: 'video', attitudes: [attitude], tags: ['street'], genre: null, subGenre: null, url: `/${id}.jpg`, motionUrl: `/${id}.mp4`, shots: [[0, 1000]] });
+const cutoutPicture = (id, attitude = 'defiant') => ({ id, kind: 'photo', attitudes: [attitude], tags: ['street'], genre: null, subGenre: null, url: `/${id}.jpg`, cutoutUrl: `/${id}.cut.png` });
 
 test('dither maps dark to the dark end of its palette and light to the bright end, and own colours stay near the picture', () => {
   const dithers = deal.LIVE_LOOKS.filter(look => look.family === 'dither').map(look => look.id);
@@ -220,6 +222,25 @@ test('glow grades dark and lifts bright with its tint, without blowing past 255'
   const bloom = ramp.lookPixel('glowbloom', 220, 220, 220, [0, 1]);
   assert.ok(bloom.every(value => value > 150 && value <= 255), `soft bloom stays readable: ${bloom}`);
   for (const id of glows) {
+    for (const colour of [[0, 0, 0], [255, 255, 255], [200, 40, 40], [30, 90, 200]]) {
+      for (const value of ramp.lookPixel(id, ...colour, [0, 1])) assert.ok(value >= 0 && value <= 255, `${id} ${colour}`);
+    }
+  }
+});
+
+
+test('depth grades far and lifts toward near, without blowing past 255', () => {
+  const depths = deal.LIVE_LOOKS.filter(look => look.family === 'depth').map(look => look.id);
+  assert.ok(depths.length >= 12, 'many depth colourings');
+  assert.deepEqual([...depths].sort(), Object.keys(ramp.DEPTH_STYLES).sort(), 'every depth has a style, and every style a place in the list');
+  const fog = ramp.lookPixel('depthfog', 80, 80, 80, [0, 1]);
+  assert.ok(fog[2] >= fog[0], `fog pulls cool: ${fog}`);
+  const noir = ramp.lookPixel('depthnoir', 200, 100, 50, [0, 1]);
+  assert.ok(Math.abs(noir[0] - noir[1]) < 40, `noir far is greyish: ${noir}`);
+  const dealt = pack.recommendRow('depth', profile('Techno'), 0, [{ id: 'plate', cutout: true }], null, []);
+  assert.equal(dealt.length, 4, 'Depth deals from cut-out plates when the library has none');
+  assert.ok(dealt.every(slot => slot.plateId && slot.look && familyOf(slot.look) === 'depth'));
+  for (const id of depths) {
     for (const colour of [[0, 0, 0], [255, 255, 255], [200, 40, 40], [30, 90, 200]]) {
       for (const value of ramp.lookPixel(id, ...colour, [0, 1])) assert.ok(value >= 0 && value <= 255, `${id} ${colour}`);
     }
@@ -272,21 +293,23 @@ test('streaks grade dark and tint bright highlights, without blowing past 255', 
   }
 });
 
-test('Thermal, Halftone, Dither, Glow, Streaks and ASCII are rows of their own, drawn on library pictures only, and Our photography carries no look', () => {
+test('Thermal, Halftone, Dither, Glow, Streaks, ASCII and Depth are rows of their own, drawn on library pictures only, and Our photography carries no look', () => {
   const library = [picture('a'), picture('b'), picture('c'), picture('d')];
+  const cutouts = [cutoutPicture('a'), cutoutPicture('b'), cutoutPicture('c'), cutoutPicture('d')];
   for (const family of FAMILIES) {
-    const row = pack.recommendRow(family, profile('Techno'), 0, [], null, library);
+    const row = pack.recommendRow(family, profile('Techno'), 0, [], null, family === 'depth' ? cutouts : library);
     assert.equal(row.length, 4, `${family}: four library pictures, four cards`);
     assert.ok(row.every(slot => slot.row === family && slot.style === 'filter' && slot.libraryId && !slot.effectId && !slot.plateId), `${family} is drawn on library pictures`);
     assert.ok(row.every(slot => slot.look && familyOf(slot.look) === family), `${family} deals only its own colourings`);
     assert.ok(row.every(slot => slot.label.includes(deal.liveLookTitle(slot.look))), 'the card says which look it is');
     assert.ok(new Set(row.map(slot => slot.look)).size >= 2, `${family} is not one look four times`);
     assert.equal(new Set(row.map(slot => slot.id)).size, 4);
-    const refreshed = new Set([0, 1, 2, 3, 4, 5, 6, 7].map(generation => pack.recommendRow(family, profile('Techno'), generation, [], null, library).map(slot => slot.look).join()));
+    const pics = family === 'depth' ? cutouts : library;
+    const refreshed = new Set([0, 1, 2, 3, 4, 5, 6, 7].map(generation => pack.recommendRow(family, profile('Techno'), generation, [], null, pics).map(slot => slot.look).join()));
     assert.ok(refreshed.size >= 3, `${family}: Refresh deals other looks`);
-    assert.deepEqual(pack.recommendRow(family, profile('Techno'), 0, [], null, library).map(slot => slot.look), row.map(slot => slot.look), 'the same song and refresh deal the same looks');
+    assert.deepEqual(pack.recommendRow(family, profile('Techno'), 0, [], null, pics).map(slot => slot.look), row.map(slot => slot.look), 'the same song and refresh deal the same looks');
     assert.deepEqual(pack.recommendRow(family, profile('Techno'), 0), [], `${family} has no picture to draw on without the library, so the row is empty`);
-    const sad = pack.recommendRow(family, profile('Pop', 3, 'sad'), 0, [], null, ['a', 'b', 'c', 'd'].map(id => picture(id, 'sad')));
+    const sad = pack.recommendRow(family, profile('Pop', 3, 'sad'), 0, [], null, ['a', 'b', 'c', 'd'].map(id => family === 'depth' ? cutoutPicture(id, 'sad') : picture(id, 'sad')));
     assert.ok(sad.length === 4 && sad.every(slot => slot.look), `${family}: a calm song gets looks too`);
   }
   // A picture of the person's own is drawn on all four cards, each in another colouring, with no library picture needed or named.
@@ -299,7 +322,7 @@ test('Thermal, Halftone, Dither, Glow, Streaks and ASCII are rows of their own, 
     assert.notDeepEqual(pack.recommendRow(family, profile('Techno'), 1, [], null, [], {}, true).map(slot => slot.look), own.map(slot => slot.look), `${family}: Refresh deals other colourings of their picture`);
     assert.deepEqual(pack.recommendRow(family, profile('Techno'), 0, [], null, library, {}, true).map(slot => slot.id), own.map(slot => slot.id), 'their picture replaces the library cards');
   }
-  assert.deepEqual(pack.SHELF_ROWS.filter(row => ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii'].includes(row.id)).map(row => row.upload), ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii'], 'each row keeps its own uploaded picture');
+  assert.deepEqual(pack.SHELF_ROWS.filter(row => ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'].includes(row.id)).map(row => row.upload), ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'], 'each row keeps its own uploaded picture');
   const thermalIds = new Set(pack.recommendRow('thermal', profile('Techno'), 0, [], null, library).map(slot => slot.id));
   assert.ok(pack.recommendRow('halftone', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'the rows never share a card');
   assert.ok(pack.recommendRow('dither', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'Dither does not share cards with Thermal');
@@ -309,6 +332,7 @@ test('Thermal, Halftone, Dither, Glow, Streaks and ASCII are rows of their own, 
   assert.deepEqual(pack.recommendRow('thermal', profile('Gospel'), 0, [], null, library), [], 'no Thermal on a gospel song');
   assert.deepEqual(pack.recommendRow('streaks', profile('Gospel'), 0, [], null, library), [], 'no Streaks on a gospel song');
   assert.deepEqual(pack.recommendRow('ascii', profile('Gospel'), 0, [], null, library), [], 'no ASCII on a gospel song');
+  assert.deepEqual(pack.recommendRow('depth', profile('Gospel'), 0, [], null, cutouts), [], 'no Depth on a gospel song');
   assert.equal(pack.recommendRow('halftone', profile('Gospel'), 0, [], null, library).length, 4, 'Halftone suits a gospel song');
   assert.equal(pack.recommendRow('dither', profile('Gospel'), 0, [], null, library).length, 4, 'Dither suits a gospel song');
   assert.equal(pack.recommendRow('glow', profile('Gospel'), 0, [], null, library).length, 4, 'Glow suits a gospel song');
@@ -338,6 +362,8 @@ print(json.dumps(answers))
   const filter = { style: 'filter', font: 'Anton', fontSecondary: 'Anton', layout: { rotate: 0, scaleBias: 1, cut: 0, seed: 3 }, cues: [], fallbackText: '', typeStyle: 'minimal' };
   const cases = [
     [{ ...filter, look: 'thermal' }, true, ['photo']],
+    [{ ...filter, look: 'depthfog' }, true, ['photo', 'cutout']],
+    [{ ...filter, look: 'depthfog' }, false, ['photo']],
     [{ ...filter }, true, ['photo']],
     [{ ...filter, look: 'sepia' }, false],
     [{ ...filter, look: 'thermal', effectId: 'tropical-ascii-cam-1' }, false],

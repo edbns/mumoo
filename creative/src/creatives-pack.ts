@@ -58,6 +58,7 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'glow', title: 'Glow', lyrics: 'switch', upload: 'glow' },
   { id: 'streaks', title: 'Streaks', lyrics: 'switch', upload: 'streaks' },
   { id: 'ascii', title: 'ASCII', lyrics: 'switch', upload: 'ascii' },
+  { id: 'depth', title: 'Depth', lyrics: 'switch', upload: 'depth' },
   { id: 'riso', title: 'Riso', lyrics: 'switch', upload: 'riso' },
   { id: 'spray', title: 'Spray', lyrics: 'always' },
   { id: 'window', title: 'Window', lyrics: 'always', upload: 'window' },
@@ -335,6 +336,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     glow: () => effectRow('glow'),
     streaks: () => effectRow('streaks'),
     ascii: () => effectRow('ascii'),
+    depth: () => depthSlots(lane, intent, seed, photos, pickLibrary(library.filter(item => item.kind === 'photo' && item.cutoutUrl), wanted, `${profile.clip.sourceSha256}:depth`, generation, ROW_SIZE), ownPicture),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, photos),
     spray: () => spraySlots(lane, intent, seed),
@@ -531,6 +533,27 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
  */
 /** Whether a shelf row is one effect's row (Thermal, Halftone, ...): dealt in colourings of one live look, on library pictures or the person's own. */
 export const isLookRow = (row: ShelfRow): row is LookFamily => isLookFamily(row);
+
+/** Depth: library photos with a cut-out, else approved plates with a cut-out, else the person's own cut-out photo. */
+function depthSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, photos: PhotoSources, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
+  if (ownPicture || picks.length) return lookSlots('depth', lane, intent, seed, picks, ownPicture);
+  const looks = dealLooks(lane, seed, ROW_SIZE, 'depth');
+  if (!photos.plateIds.length || looks.some(look => !look)) return [];
+  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
+  const typeOf = (index: number) => types[index % types.length];
+  const faces = dealFaces(lane, intent, seed, 'depth', Array.from({ length: ROW_SIZE }, (_, index) => typeNeeds(typeOf(index))));
+  const hand = hashPick(seed, 'gen', 997).toString(36);
+  return Array.from({ length: ROW_SIZE }, (_, index) => ({
+    ...adPunchSlot('filter', index, intent, seed, lane, 'depth', faces[index]),
+    id: `ad-depth-${photos.plateIds[index % photos.plateIds.length]}-${index}-${hand}`,
+    label: liveLookTitle(looks[index]!),
+    reason: `${lane} · plate · ${typeOf(index)} · ${looks[index]}`,
+    plateId: photos.plateIds[index % photos.plateIds.length],
+    typeStyle: typeOf(index),
+    look: looks[index]!,
+    cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
+  }));
+}
 
 function lookSlots(family: LookFamily, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
   const row: ShelfRow = family;

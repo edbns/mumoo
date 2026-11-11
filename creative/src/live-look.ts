@@ -3,14 +3,15 @@
  * The preview and the cloud render run this same code. Each look reads the beat and the song's energy, so it moves with the music.
  */
 import { Filter, GlProgram, UniformGroup } from 'pixi.js';
-import type { AsciiLookId, DitherLookId, GlowLookId, HalftoneLookId, HeatLookId, LiveLookId, StreaksLookId } from './live-look-deal';
-import { ASCII_STYLES, DITHER_STYLES, GLOW_STYLES, HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD, STREAKS_STYLES } from './live-look-ramp';
+import type { AsciiLookId, DepthLookId, DitherLookId, GlowLookId, HalftoneLookId, HeatLookId, LiveLookId, StreaksLookId } from './live-look-deal';
+import { ASCII_STYLES, DEPTH_STYLES, DITHER_STYLES, GLOW_STYLES, HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD, STREAKS_STYLES } from './live-look-ramp';
 import { ASCII_GLYPHS, ASCII_RAMPS } from './ascii-styles';
 
 /** What a look needs to know about this moment. `range`: how cold and how hot the picture reads (0-1), which a look stretches over its ramp. */
 export type LiveLookInput = { beat: number; energy: number; ms: number; range: readonly [number, number] };
 
-export type LiveLook = { filter: Filter; update(input: LiveLookInput): void };
+/** `nearFilter` is set for Depth: the far layer uses `filter`, the cut-out subject uses `nearFilter`. */
+export type LiveLook = { filter: Filter; nearFilter?: Filter; update(input: LiveLookInput): void };
 
 // The same vertex stage Pixi's own filters use.
 const VERTEX = `
@@ -664,7 +665,161 @@ function asciiLook(id: AsciiLookId): LiveLook {
   return { filter, update: ({ beat, energy, ms }) => set({ uBeat: beat, uEnergy: energy, uTime: ms / 1000 }) };
 }
 
+/**
+ * Depth far layer: grade, optional blur, fog and spotlight. The near cut-out is a separate sprite with `nearFilter`.
+ * Blur stays under ~17 reads (centre + two rings of eight).
+ */
+const depthFarSource = (id: DepthLookId) => {
+  const style = DEPTH_STYLES[id];
+  const { shadows, contrast = 1.15, mid = 0.25, grey = 0, fog, fogAmount = 0, blur = 0 } = style.far;
+  const vec = (rgb: readonly number[]) => `vec3(${rgb.map(f).join(', ')})`;
+  const fogCode = fog && fogAmount > 0
+    ? `graded = mix(graded, ${vec(fog)}, ${f(fogAmount)} * (0.55 + 0.45 * (1.0 - light)));`
+    : '';
+  const greyCode = grey > 0
+    ? `float greyL = bright(graded); graded = mix(graded, vec3(greyL), ${f(grey)});`
+    : '';
+  const spotCode = style.spot
+    ? `float spot = exp(-dot(vTextureCoord - vec2(0.5), vTextureCoord - vec2(0.5)) * 6.5);
+  graded += vec3(0.35, 0.32, 0.28) * spot * (0.35 + 0.45 * uEnergy);`
+    : '';
+  const blurCode = blur > 0
+    ? `
+  float rows = ${f(blur)};
+  float cell = max(uInputSize.y / rows, 1.0);
+  float reach = cell * (1.0 + uBeat * 0.25 * uEnergy);
+  vec3 blur = rgb * 1.4;
+  float weight = 1.4;
+  for (int i = 0; i < 16; i++) {
+    float n = float(i);
+    float ring = 0.45 + 0.65 * floor(n / 8.0);
+    float angle = n * 2.399963;
+    vec2 way = vec2(cos(angle), sin(angle)) * reach * ring * uInputSize.zw;
+    vec4 sample = texture(uTexture, clamp(vTextureCoord + way, 0.0, 1.0));
+    vec3 sampleRgb = sample.a > 0.0 ? sample.rgb / sample.a : sample.rgb;
+    float w = 1.0 - 0.2 * floor(n / 8.0);
+    blur += sampleRgb * w;
+    weight += w;
+  }
+  rgb = blur / max(weight, 0.001);
+  `
+    : '';
+
+  return `
+in vec2 vTextureCoord;
+out vec4 finalColor;
+uniform sampler2D uTexture;
+uniform highp vec4 uInputSize;
+uniform float uBeat;
+uniform float uEnergy;
+
+vec3 seen(vec2 uv) {
+  vec4 source = texture(uTexture, clamp(uv, 0.0, 1.0));
+  return source.a > 0.0 ? source.rgb / source.a : source.rgb;
+}
+
+float bright(vec3 rgb) {
+  return dot(rgb, vec3(0.299, 0.587, 0.114));
+}
+
+void main(void) {
+  vec4 centre = texture(uTexture, vTextureCoord);
+  vec3 rgb = centre.a > 0.0 ? centre.rgb / centre.a : centre.rgb;
+  ${blurCode}
+  vec3 graded = clamp((rgb - 0.5) * ${f(contrast)} + 0.5, 0.0, 1.0);
+  float light = bright(graded);
+  vec3 shadows = ${vec(shadows)};
+  graded = graded * (0.4 + 0.6 * light) + shadows * (1.0 - light) * 0.7;
+  graded *= 1.0 - ${f(mid)} * (0.5 + 0.5 * (1.0 - abs(2.0 * light - 1.0)));
+  ${greyCode}
+  ${fogCode}
+  ${spotCode}
+  finalColor = vec4(clamp(graded, 0.0, 1.0), 1.0) * centre.a;
+}
+`;
+};
+
+/** Depth near layer: grade the cut-out, optional flat silhouette and neon edge (feathered). */
+const depthNearSource = (id: DepthLookId) => {
+  const style = DEPTH_STYLES[id];
+  const { shadows, contrast = 1.15, mid = 0.18, flat, outline } = style.near;
+  const vec = (rgb: readonly number[]) => `vec3(${rgb.map(f).join(', ')})`;
+  const body = flat
+    ? `vec3 graded = ${vec(flat)};`
+    : `
+  vec3 graded = clamp((rgb - 0.5) * ${f(contrast)} + 0.5, 0.0, 1.0);
+  float light = bright(graded);
+  vec3 shadows = ${vec(shadows)};
+  graded = graded * (0.45 + 0.55 * light) + shadows * (1.0 - light) * 0.65;
+  graded *= 1.0 - ${f(mid)} * (0.5 + 0.5 * (1.0 - abs(2.0 * light - 1.0)));
+  `;
+  const outlineCode = outline
+    ? `
+  float edge = 0.0;
+  vec2 px = uInputSize.zw * 2.0;
+  for (int i = 0; i < 8; i++) {
+    float angle = float(i) * 0.7853982;
+    vec2 way = vec2(cos(angle), sin(angle)) * px;
+    float around = texture(uTexture, clamp(vTextureCoord + way, 0.0, 1.0)).a;
+    edge = max(edge, abs(centre.a - around));
+  }
+  graded = mix(graded, ${vec(outline)}, clamp(edge * (1.6 + uBeat * 0.9 * uEnergy), 0.0, 1.0));
+  `
+    : '';
+
+  return `
+in vec2 vTextureCoord;
+out vec4 finalColor;
+uniform sampler2D uTexture;
+uniform highp vec4 uInputSize;
+uniform float uBeat;
+uniform float uEnergy;
+
+float bright(vec3 rgb) {
+  return dot(rgb, vec3(0.299, 0.587, 0.114));
+}
+
+void main(void) {
+  vec4 centre = texture(uTexture, vTextureCoord);
+  if (centre.a < 0.004) { finalColor = vec4(0.0); return; }
+  vec3 rgb = centre.rgb / max(centre.a, 0.001);
+  ${body}
+  ${outlineCode}
+  // Feather hard cut-out edges a little so the subject sits in the far layer.
+  float soft = smoothstep(0.02, 0.18, centre.a);
+  finalColor = vec4(clamp(graded, 0.0, 1.0), 1.0) * soft;
+}
+`;
+};
+
+function depthLook(id: DepthLookId): LiveLook {
+  const far = make(depthFarSource(id), `live-look-${id}-far`, { uBeat: 0, uEnergy: 0 });
+  const near = make(depthNearSource(id), `live-look-${id}-near`, { uBeat: 0, uEnergy: 0 });
+  return {
+    filter: far.filter,
+    nearFilter: near.filter,
+    update: ({ beat, energy }) => {
+      far.set({ uBeat: beat, uEnergy: energy });
+      near.set({ uBeat: beat, uEnergy: energy });
+    },
+  };
+}
+
 const BUILDERS: Record<LiveLookId, () => LiveLook> = {
+  depthfog: () => depthLook('depthfog'),
+  depthtilt: () => depthLook('depthtilt'),
+  depthwarm: () => depthLook('depthwarm'),
+  depthsilhouette: () => depthLook('depthsilhouette'),
+  depthneon: () => depthLook('depthneon'),
+  depthecho: () => depthLook('depthecho'),
+  depthzoom: () => depthLook('depthzoom'),
+  depthdream: () => depthLook('depthdream'),
+  depthgold: () => depthLook('depthgold'),
+  depthnoir: () => depthLook('depthnoir'),
+  depthspot: () => depthLook('depthspot'),
+  depthdouble: () => depthLook('depthdouble'),
+  depthice: () => depthLook('depthice'),
+  depthember: () => depthLook('depthember'),
   asciigreen: () => asciiLook('asciigreen'),
   asciiamber: () => asciiLook('asciiamber'),
   asciiwhite: () => asciiLook('asciiwhite'),

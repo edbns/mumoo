@@ -2,10 +2,10 @@ import { accountFetch } from './account';
 import { shrinkPhoto } from './photo-shrink';
 
 /** Which row of the shelf a picture is kept for. */
-export type PictureUse = 'dust' | 'filter' | 'riso' | 'window' | 'thermal' | 'halftone' | 'dither' | 'glow' | 'streaks' | 'ascii';
+export type PictureUse = 'dust' | 'filter' | 'riso' | 'window' | 'thermal' | 'halftone' | 'dither' | 'glow' | 'streaks' | 'ascii' | 'depth';
 
-/** Dust and Riso are made only of a person cut out of a photo, so they take photos and nothing else. (A Window photo is cut out too, but a Window also takes a video or GIF.) */
-export const photoOnly = (use: PictureUse) => use === 'dust' || use === 'riso';
+/** Dust, Riso and Depth are made only of a person cut out of a photo, so they take photos and nothing else. (A Window photo is cut out too, but a Window also takes a video or GIF.) */
+export const photoOnly = (use: PictureUse) => use === 'dust' || use === 'riso' || use === 'depth';
 
 /**
  * A person's own picture, kept privately in their storage (each row keeps one; a new one replaces it).
@@ -48,6 +48,7 @@ export const ACCEPT: Record<PictureUse, string> = {
   glow: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
   streaks: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
   ascii: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
+  depth: PHOTO_TYPES.join(','),
 };
 
 /** Answers of the uploads API: the person's pictures as they now are. */
@@ -122,7 +123,7 @@ export async function addUpload(file: File, use: PictureUse, onProgress: (share:
     const photo = await shrinkPhoto(file);
     return pictures(await accountFetch(`/api/uploads?kind=photo&use=${use}`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: photo }));
   }
-  if (photoOnly(use)) throw new Error(`${use === 'dust' ? 'Dust' : 'Riso'} uses a photo (JPEG, PNG or WebP).`);
+  if (photoOnly(use)) throw new Error(`${use === 'dust' ? 'Dust' : use === 'riso' ? 'Riso' : 'Depth'} uses a photo (JPEG, PNG or WebP).`);
   const limit = MOTION_LIMITS[file.type];
   if (!limit) throw new Error('Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.');
   if (file.size > limit) throw new Error(`That ${file.type === 'image/gif' ? 'GIF' : 'video'} is larger than ${limit / 1e6} MB.`);

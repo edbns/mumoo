@@ -9,7 +9,7 @@ const composition = await server.ssrLoadModule('/src/composition.ts');
 await server.close();
 
 test('a song with no words shows only the rows that work without them', () => {
-  assert.deepEqual(pack.rowsFor(true).map(row => row.id), ['photography', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'riso', 'dust']);
+  assert.deepEqual(pack.rowsFor(true).map(row => row.id), ['photography', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth', 'riso', 'dust']);
   assert.ok(pack.rowsFor(true).every(row => row.lyrics === 'switch'), 'none of them is made of the lyrics');
   assert.deepEqual(pack.rowsFor(false).map(row => row.id), pack.SHELF_ROWS.map(row => row.id), 'with words, every row');
   assert.ok(pack.rowsFor(true).length < pack.rowsFor(false).length);
@@ -28,7 +28,7 @@ test('with no words the page still deals a hand: no lyrics and no reading of the
     },
   };
   // Thermal and Halftone are drawn on library pictures, so they get a small library here.
-  const library = ['a', 'b', 'c', 'd'].map(id => ({ id, kind: 'photo', attitudes: ['neutral'], tags: [], genre: null, subGenre: null, url: `/${id}.jpg` }));
+  const library = ['a', 'b', 'c', 'd'].map(id => ({ id, kind: 'photo', attitudes: ['neutral'], tags: [], genre: null, subGenre: null, url: `/${id}.jpg`, cutoutUrl: `/${id}.cut.png` }));
   for (const row of pack.rowsFor(true)) assert.equal(pack.recommendRow(row.id, profile, 0, [], null, library).length, 4, row.id);
   assert.doesNotThrow(() => composition.validate({ sourceSha256: sha, clipStartMs: 0, cues: [] }, 60000), 'a clip with no cues is a valid clip');
 });

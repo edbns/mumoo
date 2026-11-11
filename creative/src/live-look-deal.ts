@@ -7,7 +7,7 @@
 import type { MoodLane } from './ad-fonts';
 
 /** A family is one effect with many colourings; each family has its own row on the shelf. */
-export const LOOK_FAMILIES = ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii'] as const;
+export const LOOK_FAMILIES = ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'] as const;
 export type LookFamily = (typeof LOOK_FAMILIES)[number];
 export const isLookFamily = (value: unknown): value is LookFamily => LOOK_FAMILIES.includes(value as LookFamily);
 
@@ -147,6 +147,21 @@ export const LIVE_LOOKS = [
   { id: 'asciiblocks', family: 'ascii', title: 'Blocks', lanes: ['dark', 'techno', 'party', 'general'] },
   { id: 'asciislash', family: 'ascii', title: 'Slashes', lanes: ['dark', 'techno', 'party', 'general'] },
   { id: 'asciimumoo', family: 'ascii', title: 'MUMOO', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  /** Depth: near cut-out against a graded far layer. Photos with a cut-out only. Not dealt on gospel. */
+  { id: 'depthfog', family: 'depth', title: 'Fog', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'depthtilt', family: 'depth', title: 'Tilt shift', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'depthwarm', family: 'depth', title: 'Warm near', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'depthsilhouette', family: 'depth', title: 'Silhouette', lanes: ['dark', 'techno', 'party'] },
+  { id: 'depthneon', family: 'depth', title: 'Neon outline', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'depthecho', family: 'depth', title: 'Echo', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'depthzoom', family: 'depth', title: 'Zoom pulse', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'depthdream', family: 'depth', title: 'Dream', lanes: ['quiet', 'general'] },
+  { id: 'depthgold', family: 'depth', title: 'Gold', lanes: ['quiet', 'general', 'party'] },
+  { id: 'depthnoir', family: 'depth', title: 'Noir', lanes: ['dark', 'techno'] },
+  { id: 'depthspot', family: 'depth', title: 'Spotlight', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'depthdouble', family: 'depth', title: 'Double exposure', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'depthice', family: 'depth', title: 'Ice', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'depthember', family: 'depth', title: 'Ember', lanes: ['dark', 'techno', 'party', 'general'] },
 ] as const satisfies readonly { id: string; family: LookFamily; title: string; lanes: readonly MoodLane[] }[];
 
 export type LiveLookId = (typeof LIVE_LOOKS)[number]['id'];
@@ -162,7 +177,9 @@ export type GlowLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'glow' }
 export type StreaksLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'streaks' }>['id'];
 /** The ASCII family: the picture rebuilt from text characters. */
 export type AsciiLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'ascii' }>['id'];
-export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither', glow: 'Glow', streaks: 'Streaks', ascii: 'ASCII' };
+/** The Depth family: near cut-out against a graded far layer. */
+export type DepthLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'depth' }>['id'];
+export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither', glow: 'Glow', streaks: 'Streaks', ascii: 'ASCII', depth: 'Depth' };
 export const LIVE_LOOK_IDS: readonly LiveLookId[] = LIVE_LOOKS.map(look => look.id);
 
 export const isLiveLook = (value: unknown): value is LiveLookId => LIVE_LOOK_IDS.includes(value as LiveLookId);
