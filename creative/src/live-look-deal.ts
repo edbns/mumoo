@@ -7,7 +7,7 @@
 import type { MoodLane } from './ad-fonts';
 
 /** A family is one effect with many colourings; each family has its own row on the shelf. */
-export const LOOK_FAMILIES = ['thermal', 'halftone'] as const;
+export const LOOK_FAMILIES = ['thermal', 'halftone', 'dither'] as const;
 export type LookFamily = (typeof LOOK_FAMILIES)[number];
 export const isLookFamily = (value: unknown): value is LookFamily => LOOK_FAMILIES.includes(value as LookFamily);
 
@@ -70,6 +70,27 @@ export const LIVE_LOOKS = [
   { id: 'halftonehatch', family: 'halftone', title: 'Crosshatch', lanes: ['quiet', 'dark', 'techno', 'general'] },
   { id: 'halftoneled', family: 'halftone', title: 'LED matrix', lanes: ['dark', 'techno', 'party', 'general'] },
   { id: 'halftonebenday', family: 'halftone', title: 'Ben-Day dots', lanes: ['techno', 'party', 'general'] },
+  /** Dither: the picture reduced to chunky square pixels and a flat palette, as old computers and receipt printers did. One effect, many palettes. */
+  { id: 'dithermac', family: 'dither', title: 'Mac classic', lanes: ['quiet', 'dark', 'techno', 'party', 'general', 'gospel'] },
+  { id: 'ditherinvert', family: 'dither', title: 'White on black', lanes: ['quiet', 'dark', 'techno', 'general', 'gospel'] },
+  { id: 'dithergameboy', family: 'dither', title: 'Game Boy', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'dithercga', family: 'dither', title: 'CGA', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'dithercgagreen', family: 'dither', title: 'CGA green', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'ditherega', family: 'dither', title: 'EGA', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'ditherc64', family: 'dither', title: 'Commodore 64', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'ditherapple2', family: 'dither', title: 'Apple II', lanes: ['quiet', 'techno', 'party', 'general'] },
+  { id: 'ditherpico8', family: 'dither', title: 'PICO-8', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'ditheramiga', family: 'dither', title: 'Amiga', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'ditherreceipt', family: 'dither', title: 'Receipt', lanes: ['quiet', 'dark', 'techno', 'party', 'general', 'gospel'] },
+  { id: 'ditherblueprint', family: 'dither', title: 'Blueprint', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'ditheramber', family: 'dither', title: 'Amber CRT', lanes: ['quiet', 'dark', 'general'] },
+  { id: 'dithersunset', family: 'dither', title: 'Sunset', lanes: ['quiet', 'party', 'general', 'gospel'] },
+  { id: 'dithervapor', family: 'dither', title: 'Vapor', lanes: ['dark', 'techno', 'party'] },
+  { id: 'ditherforest', family: 'dither', title: 'Forest', lanes: ['quiet', 'general'] },
+  { id: 'dithernews', family: 'dither', title: 'Newsprint', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'ditherneon', family: 'dither', title: 'Neon', lanes: ['dark', 'techno', 'party'] },
+  { id: 'dithergold', family: 'dither', title: 'Gold on black', lanes: ['quiet', 'dark', 'party', 'general'] },
+  { id: 'ditherown', family: 'dither', title: 'Own colours', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
 ] as const satisfies readonly { id: string; family: LookFamily; title: string; lanes: readonly MoodLane[] }[];
 
 export type LiveLookId = (typeof LIVE_LOOKS)[number]['id'];
@@ -77,7 +98,9 @@ export type LiveLookId = (typeof LIVE_LOOKS)[number]['id'];
 export type HeatLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'thermal' }>['id'];
 /** The halftone family: the picture printed as dots of one ink on one paper. */
 export type HalftoneLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'halftone' }>['id'];
-export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone' };
+/** The dither family: the picture reduced to square pixels and a flat palette. */
+export type DitherLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'dither' }>['id'];
+export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither' };
 export const LIVE_LOOK_IDS: readonly LiveLookId[] = LIVE_LOOKS.map(look => look.id);
 
 export const isLiveLook = (value: unknown): value is LiveLookId => LIVE_LOOK_IDS.includes(value as LiveLookId);

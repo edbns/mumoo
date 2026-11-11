@@ -2,7 +2,7 @@ import { accountFetch } from './account';
 import { shrinkPhoto } from './photo-shrink';
 
 /** Which row of the shelf a picture is kept for. */
-export type PictureUse = 'dust' | 'filter' | 'riso' | 'window' | 'thermal' | 'halftone';
+export type PictureUse = 'dust' | 'filter' | 'riso' | 'window' | 'thermal' | 'halftone' | 'dither';
 
 /** Dust and Riso are made only of a person cut out of a photo, so they take photos and nothing else. (A Window photo is cut out too, but a Window also takes a video or GIF.) */
 export const photoOnly = (use: PictureUse) => use === 'dust' || use === 'riso';
@@ -44,6 +44,7 @@ export const ACCEPT: Record<PictureUse, string> = {
   window: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
   thermal: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
   halftone: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
+  dither: [...PHOTO_TYPES, ...Object.keys(MOTION_LIMITS)].join(','),
 };
 
 /** Answers of the uploads API: the person's pictures as they now are. */

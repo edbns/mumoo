@@ -54,6 +54,7 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
   // One effect per row, each dealt in its different colourings, on pictures of our library or the person's own (a row has no picture to draw until the library has one or they upload theirs).
   { id: 'thermal', title: 'Thermal', lyrics: 'switch', upload: 'thermal' },
   { id: 'halftone', title: 'Halftone', lyrics: 'switch', upload: 'halftone' },
+  { id: 'dither', title: 'Dither', lyrics: 'switch', upload: 'dither' },
   { id: 'riso', title: 'Riso', lyrics: 'switch', upload: 'riso' },
   { id: 'spray', title: 'Spray', lyrics: 'always' },
   { id: 'window', title: 'Window', lyrics: 'always', upload: 'window' },
@@ -327,6 +328,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     ),
     thermal: () => effectRow('thermal'),
     halftone: () => effectRow('halftone'),
+    dither: () => effectRow('dither'),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, photos),
     spray: () => spraySlots(lane, intent, seed),

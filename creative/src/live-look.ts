@@ -3,8 +3,8 @@
  * The preview and the cloud render run this same code. Each look reads the beat and the song's energy, so it moves with the music.
  */
 import { Filter, GlProgram, UniformGroup } from 'pixi.js';
-import type { HalftoneLookId, HeatLookId, LiveLookId } from './live-look-deal';
-import { HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD } from './live-look-ramp';
+import type { DitherLookId, HalftoneLookId, HeatLookId, LiveLookId } from './live-look-deal';
+import { DITHER_STYLES, HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD } from './live-look-ramp';
 
 /** What a look needs to know about this moment. `range`: how cold and how hot the picture reads (0-1), which a look stretches over its ramp. */
 export type LiveLookInput = { beat: number; energy: number; ms: number; range: readonly [number, number] };
@@ -215,7 +215,110 @@ function halftoneLook(id: HalftoneLookId): LiveLook {
   return { filter, update: ({ beat, energy }) => set({ uBeat: beat, uEnergy: energy }) };
 }
 
+/**
+ * Dither: the picture reduced to chunky square blocks and a flat palette, as old computers and receipt printers did. Each colouring
+ * (dither-styles.ts) picks a palette and a threshold matrix. The beat nudges the threshold and grows the blocks by one step when the
+ * song is loud. Block size is in rows of the picture's height, so a small preview and the full render show the same print.
+ */
+const ditherSource = (id: DitherLookId) => {
+  const { palette, matrix, rows = 120, contrast = 1, levels } = DITHER_STYLES[id];
+  const vec = (rgb: readonly number[]) => `vec3(${rgb.map(f).join(', ')})`;
+  // Threshold matrices in float maths only (no bitwise ops): some WebGL paths reject `&` / `<<` in filter shaders.
+  const matrixCode = matrix === 'bayer2'
+    ? `float bx = mod(float(ix), 2.0); float by = mod(float(iy), 2.0); float b2 = by * 2.0 + bx; float threshold = ((b2 < 0.5 ? 0.0 : b2 < 1.5 ? 2.0 : b2 < 2.5 ? 3.0 : 1.0) + 0.5) / 4.0;`
+    : matrix === 'bayer4'
+      ? `float bx = mod(float(ix), 4.0); float by = mod(float(iy), 4.0); float b4 = 0.0
+    + (mod(bx, 2.0) < 0.5 ? 0.0 : 8.0) + (mod(by, 2.0) < 0.5 ? 0.0 : 4.0)
+    + (bx < 2.0 ? 0.0 : 2.0) + (by < 2.0 ? 0.0 : 1.0);
+    float threshold = (b4 + 0.5) / 16.0;`
+      : matrix === 'bayer8'
+        ? `float bx = mod(float(ix), 8.0); float by = mod(float(iy), 8.0); float b8 = 0.0
+    + (mod(bx, 2.0) < 0.5 ? 0.0 : 32.0) + (mod(by, 2.0) < 0.5 ? 0.0 : 16.0)
+    + (mod(bx, 4.0) < 2.0 ? 0.0 : 8.0) + (mod(by, 4.0) < 2.0 ? 0.0 : 4.0)
+    + (bx < 4.0 ? 0.0 : 2.0) + (by < 4.0 ? 0.0 : 1.0);
+    float threshold = (b8 + 0.5) / 64.0;`
+        : matrix === 'diagonal'
+          ? `float threshold = fract((float(ix + iy) + 0.5) / 4.0);`
+          : `float threshold = fract(sin(dot(vec2(float(ix), float(iy)), vec2(12.9898, 78.233))) * 43758.5453);`;
+
+  const own = palette === 'own8' || palette === 'own16';
+  const steps = palette === 'own8' ? 1 : 3;
+  const paletteCode = own
+    ? `
+  float q = ${f(1 / steps)};
+  vec3 shaped = clamp((rgb - 0.5) * ${f(contrast)} + 0.5, 0.0, 1.0);
+  vec3 colour = clamp(floor(shaped / q + threshold) * q, 0.0, 1.0);`
+    : `
+  float span = ${f((palette as readonly number[][]).length - 1)};
+  float x = tone * span;
+  float base = floor(min(x, span - 0.001));
+  float into = x - base;
+  float gate = threshold + uBeat * 0.08 * uEnergy;
+  int pick = int(clamp(base + step(gate, into), 0.0, span));
+${(palette as readonly (readonly number[])[]).map((rgb, index) => `  vec3 p${index} = ${vec(rgb)};`).join('\n')}
+  vec3 colour = p0;
+${(palette as readonly (readonly number[])[]).map((_, index) => (index === 0 ? '' : `  if (pick == ${index}) colour = p${index};`)).filter(Boolean).join('\n')}`;
+
+  return `
+in vec2 vTextureCoord;
+out vec4 finalColor;
+uniform sampler2D uTexture;
+uniform highp vec4 uInputSize;
+uniform float uBeat;
+uniform float uEnergy;
+
+vec3 seen(vec2 uv) {
+  vec4 source = texture(uTexture, uv);
+  return source.a > 0.0 ? source.rgb / source.a : source.rgb;
+}
+
+void main(void) {
+  vec4 centre = texture(uTexture, vTextureCoord);
+  // One block larger on a strong beat.
+  float rows = max(${f(rows)} - step(0.45, uBeat) * (0.5 + 0.5 * uEnergy), 24.0);
+  float cell = max(uInputSize.y / rows, 2.0);
+  vec2 px = vTextureCoord * uInputSize.xy;
+  vec2 id = floor(px / cell);
+  vec2 middle = (id + 0.5) * cell * uInputSize.zw;
+  vec3 rgb = seen(middle);
+  float light = dot(rgb, vec3(0.299, 0.587, 0.114));
+  float tone = clamp((light - 0.5) * ${f(contrast)} + 0.5, 0.0, 1.0);
+  ${levels && levels > 1 ? `tone = (floor(tone * ${f(levels)}) + fract(tone * ${f(levels)})) / ${f(levels)};` : ''}
+  int ix = int(id.x);
+  int iy = int(id.y);
+  ${matrixCode}
+  ${paletteCode}
+  finalColor = vec4(colour, 1.0) * centre.a;
+}
+`;
+};
+
+function ditherLook(id: DitherLookId): LiveLook {
+  const { filter, set } = make(ditherSource(id), `live-look-${id}`, { uBeat: 0, uEnergy: 0 });
+  return { filter, update: ({ beat, energy }) => set({ uBeat: beat, uEnergy: energy }) };
+}
+
 const BUILDERS: Record<LiveLookId, () => LiveLook> = {
+  dithermac: () => ditherLook('dithermac'),
+  ditherinvert: () => ditherLook('ditherinvert'),
+  dithergameboy: () => ditherLook('dithergameboy'),
+  dithercga: () => ditherLook('dithercga'),
+  dithercgagreen: () => ditherLook('dithercgagreen'),
+  ditherega: () => ditherLook('ditherega'),
+  ditherc64: () => ditherLook('ditherc64'),
+  ditherapple2: () => ditherLook('ditherapple2'),
+  ditherpico8: () => ditherLook('ditherpico8'),
+  ditheramiga: () => ditherLook('ditheramiga'),
+  ditherreceipt: () => ditherLook('ditherreceipt'),
+  ditherblueprint: () => ditherLook('ditherblueprint'),
+  ditheramber: () => ditherLook('ditheramber'),
+  dithersunset: () => ditherLook('dithersunset'),
+  dithervapor: () => ditherLook('dithervapor'),
+  ditherforest: () => ditherLook('ditherforest'),
+  dithernews: () => ditherLook('dithernews'),
+  ditherneon: () => ditherLook('ditherneon'),
+  dithergold: () => ditherLook('dithergold'),
+  ditherown: () => ditherLook('ditherown'),
   halftone: () => halftoneLook('halftone'),
   halftonebw: () => halftoneLook('halftonebw'),
   halftonenews: () => halftoneLook('halftonenews'),

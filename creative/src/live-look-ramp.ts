@@ -3,10 +3,11 @@
  * and the palette reader (pack-palette.ts) runs the same function over a small copy of the picture, so the lyric ink and the
  * scrim that keep the words readable are chosen against the picture as it is *seen* (looked), not as it was.
  */
-import type { HalftoneLookId, HeatLookId, LiveLookId } from './live-look-deal';
+import type { DitherLookId, HalftoneLookId, HeatLookId, LiveLookId } from './live-look-deal';
+import { DITHER_STYLES, ditherAverage } from './dither-styles';
 import { HALFTONE_STYLES, halftoneAverage, screenCover } from './halftone-styles';
 
-export { HALFTONE_STYLES };
+export { DITHER_STYLES, HALFTONE_STYLES };
 
 type Stops = readonly (readonly [number, number, number])[];
 
@@ -109,10 +110,15 @@ export function halftoneCover(look: HalftoneLookId, r: number, g: number, b: num
 }
 
 export const isHalftone = (look: LiveLookId): look is HalftoneLookId => look in HALFTONE_STYLES;
+export const isDither = (look: LiveLookId): look is DitherLookId => look in DITHER_STYLES;
+
+/** The colour of a dither pixel as it averages over a cell: see dither-styles.ts. */
+export const ditherPixel = ditherAverage;
 
 /** A pixel (0-255) as the look shows it, without the beat, the grain or the softening, which move too much to read the type against. */
 export function lookPixel(look: LiveLookId, r: number, g: number, b: number, range: readonly [number, number]): [number, number, number] {
   if (isHalftone(look)) return halftonePixel(look, r, g, b);
+  if (isDither(look)) return ditherPixel(look, r, g, b);
   const [low, high] = [range[0], Math.max(range[1], range[0] + MIN_SPREAD)];
   const [lr, lg, lb] = rampColor(LOOK_STOPS[look], heatOf(heatSource(r, g, b), low, high));
   return [lr * 255, lg * 255, lb * 255];
