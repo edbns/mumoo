@@ -21,11 +21,11 @@ import { deleteObject, getObject, objectSize, putObject, signedDownload, signedU
 export const MAX_PHOTO_BYTES = 3_000_000;
 export const MAX_GIF_BYTES = 25_000_000;
 export const MAX_VIDEO_BYTES = 150_000_000;
-export const USES = ['dust', 'filter', 'riso', 'window', 'thermal', 'halftone', 'dither', 'glow'];
+export const USES = ['dust', 'filter', 'riso', 'window', 'thermal', 'halftone', 'dither', 'glow', 'streaks'];
 /** The rows whose photo is cut out (the subject's mask is made by the worker). */
 const CUTOUT_USES = ['dust', 'riso', 'window'];
 /** The rows that also take a video or GIF. */
-export const MOTION_USES = ['filter', 'window', 'thermal', 'halftone', 'dither', 'glow'];
+export const MOTION_USES = ['filter', 'window', 'thermal', 'halftone', 'dither', 'glow', 'streaks'];
 export const MOTION_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'image/gif'];
 
 const PREPARE = 'https://edbns-mumoo-staging--mumoo-prepare-media-staging';

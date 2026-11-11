@@ -3,8 +3,8 @@
  * The preview and the cloud render run this same code. Each look reads the beat and the song's energy, so it moves with the music.
  */
 import { Filter, GlProgram, UniformGroup } from 'pixi.js';
-import type { DitherLookId, GlowLookId, HalftoneLookId, HeatLookId, LiveLookId } from './live-look-deal';
-import { DITHER_STYLES, GLOW_STYLES, HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD } from './live-look-ramp';
+import type { DitherLookId, GlowLookId, HalftoneLookId, HeatLookId, LiveLookId, StreaksLookId } from './live-look-deal';
+import { DITHER_STYLES, GLOW_STYLES, HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD, STREAKS_STYLES } from './live-look-ramp';
 
 /** What a look needs to know about this moment. `range`: how cold and how hot the picture reads (0-1), which a look stretches over its ramp. */
 export type LiveLookInput = { beat: number; energy: number; ms: number; range: readonly [number, number] };
@@ -407,7 +407,158 @@ function glowLook(id: GlowLookId): LiveLook {
   return { filter, update: ({ beat, energy }) => set({ uBeat: beat, uEnergy: energy }) };
 }
 
+/**
+ * Streaks: light dragged into lines. The picture is graded, then its bright parts (or the edges, for film burn) are blurred along a direction with
+ * exponential fall-off and added back tinted. Length stretches on the beat; the angle drifts slowly with time. Uses `range` so a flat picture still streaks.
+ */
+const streaksSource = (id: StreaksLookId) => {
+  const style = STREAKS_STYLES[id];
+  const length = style.length ?? 0.38;
+  const threshold = style.threshold ?? 0.55;
+  const strength = style.strength ?? 1.15;
+  const falloff = style.falloff ?? 0.82;
+  const { shadows, contrast = 1.25, mid = 0.32 } = style.grade;
+  const vec = (rgb: readonly number[]) => `vec3(${rgb.map(f).join(', ')})`;
+  const dual = typeof style.tint[0] !== 'number';
+  const tintPair = dual ? style.tint as readonly [readonly [number, number, number], readonly [number, number, number]] : null;
+  const tintOne = dual ? null : style.tint as readonly [number, number, number];
+  const tintCode = tintPair
+    ? `vec3 tintA = ${vec(tintPair[0])}; vec3 tintB = ${vec(tintPair[1])}; vec3 tintOf(float t) { return mix(tintA, tintB, clamp(t, 0.0, 1.0)); }`
+    : `vec3 tintOf(float t) { return ${vec(tintOne!)}; }`;
+  const radial = style.direction === 'radial';
+  const angle0 = typeof style.direction === 'number' ? (style.direction * Math.PI) / 180 : 0;
+  const second = style.second !== undefined ? (style.second * Math.PI) / 180 : null;
+  // Primary direction: 16 taps; optional second: 8 taps (24 reads total with centre).
+  const tapsMain = second === null ? 20 : 14;
+  const tapsSecond = second === null ? 0 : 8;
+
+  const streakAlong = (label: string, taps: number, angleExpr: string) => `
+  {
+    vec2 dir = ${angleExpr};
+    float streak = 0.0;
+    vec3 colour = vec3(0.0);
+    float wsum = 0.0;
+    for (int i = 1; i <= ${taps}; i++) {
+      float t = float(i) / float(${taps});
+      float w = pow(${f(falloff)}, float(i));
+      vec2 way = dir * span * t;
+      ${style.edge
+    ? `vec2 edgeUv = clamp(vTextureCoord + way, 0.0, 1.0);
+      float edge = max(1.0 - min(edgeUv.x, edgeUv.y) * 4.0, 0.0);
+      vec3 sampleColour = seen(edgeUv);
+      float amount = edge * (0.35 + 0.65 * smoothstep(gate * 0.5, 1.0, bright(sampleColour)));`
+    : `vec3 sampleColour = seen(vTextureCoord + way);
+      float amount = smoothstep(gate, 1.0, bright(sampleColour));
+      amount = max(amount, smoothstep(hot, 1.0, bright(sampleColour)) * 0.85);`}
+      vec3 tint = tintOf(bright(sampleColour));
+      ${style.prism ? `
+      // Channel split without extra reads: stagger R/B along the streak by tap.
+      float shift = (float(i) / float(${taps}) - 0.5) * 0.55;
+      tint = vec3(tint.r * (1.0 + shift), tint.g, tint.b * (1.0 - shift));
+      ` : ''}
+      colour += tint * amount * w;
+      streak += amount * w;
+      wsum += w;
+    }
+    ${label} = streak / max(wsum, 0.001);
+    ${label}Colour = ${label} > 0.001 ? colour / max(streak, 0.001) : tintOf(1.0);
+  }`;
+
+  const dirExpr = radial
+    ? `normalize(vTextureCoord - vec2(0.5))`
+    : `vec2(cos(${f(angle0)} + drift), sin(${f(angle0)} + drift))`;
+  const secondDir = second === null ? '' : `vec2(cos(${f(second)} + drift * 0.6), sin(${f(second)} + drift * 0.6))`;
+
+  return `
+in vec2 vTextureCoord;
+out vec4 finalColor;
+uniform sampler2D uTexture;
+uniform highp vec4 uInputSize;
+uniform float uBeat;
+uniform float uEnergy;
+uniform float uTime;
+uniform float uLow;
+uniform float uHigh;
+
+vec3 seen(vec2 uv) {
+  vec4 source = texture(uTexture, clamp(uv, 0.0, 1.0));
+  return source.a > 0.0 ? source.rgb / source.a : source.rgb;
+}
+
+float bright(vec3 rgb) {
+  return dot(rgb, vec3(0.299, 0.587, 0.114));
+}
+
+${tintCode}
+
+void main(void) {
+  vec4 centre = texture(uTexture, vTextureCoord);
+  vec3 rgb = centre.a > 0.0 ? centre.rgb / centre.a : centre.rgb;
+  vec3 graded = clamp((rgb - 0.5) * ${f(contrast)} + 0.5, 0.0, 1.0);
+  float light = bright(graded);
+  vec3 shadows = ${vec(shadows)};
+  graded = graded * (0.4 + 0.5 * light) + shadows * (1.0 - light) * 0.6;
+  graded *= 1.0 - ${f(mid)} * (0.45 + 0.4 * (1.0 - abs(2.0 * light - 1.0)));
+  graded *= 0.82;
+
+  float span = ${f(length)} * uInputSize.x * (1.0 + uBeat * (0.5 + 0.5 * uEnergy)) * uInputSize.z;
+  float drift = sin(uTime * 0.35) * 0.0523599 * (0.25 + 0.75 * uEnergy);
+  float gate = min(${f(threshold)}, mix(uHigh, uLow, 0.15) - 0.02);
+  gate = gate - uBeat * 0.05 * uEnergy;
+  float hot = max(gate, mix(uLow, uHigh, 0.85));
+
+  float mainStreak = 0.0;
+  vec3 mainStreakColour = tintOf(1.0);
+  ${streakAlong('mainStreak', tapsMain, dirExpr)}
+  ${second === null ? '' : `
+  float sideStreak = 0.0;
+  vec3 sideStreakColour = tintOf(1.0);
+  ${streakAlong('sideStreak', tapsSecond, secondDir)}
+  mainStreak = max(mainStreak, sideStreak * 0.85);
+  mainStreakColour = mix(mainStreakColour, sideStreakColour, clamp(sideStreak / max(mainStreak, 0.001), 0.0, 0.6));
+  `}
+
+  float power = (${f(strength)} + uEnergy * 0.35) * (1.0 + uBeat * (0.45 + 0.55 * uEnergy));
+  vec3 bloom = mainStreakColour * mainStreak * power;
+  // Keep the lyric band from going white: soften near the vertical centre band.
+  float lyricSafe = 1.0 - smoothstep(0.32, 0.5, abs(vTextureCoord.y - 0.42)) * 0.35;
+  bloom *= lyricSafe;
+  vec3 colour = graded + bloom;
+  colour = colour / (1.0 + max(colour - vec3(0.9), vec3(0.0)) * 1.1);
+  finalColor = vec4(clamp(colour, 0.0, 1.0), 1.0) * centre.a;
+}
+`;
+};
+
+function streaksLook(id: StreaksLookId): LiveLook {
+  const { filter, set } = make(streaksSource(id), `live-look-${id}`, { uBeat: 0, uEnergy: 0, uTime: 0, uLow: 0, uHigh: 1 });
+  return {
+    filter,
+    update: ({ beat, energy, ms, range }) => set({
+      uBeat: beat, uEnergy: energy, uTime: ms / 1000,
+      uLow: range[0], uHigh: Math.max(range[1], range[0] + MIN_SPREAD),
+    }),
+  };
+}
+
 const BUILDERS: Record<LiveLookId, () => LiveLook> = {
+  streakblue: () => streaksLook('streakblue'),
+  streakamber: () => streaksLook('streakamber'),
+  streakteal: () => streaksLook('streakteal'),
+  streakmagenta: () => streaksLook('streakmagenta'),
+  streakwhite: () => streaksLook('streakwhite'),
+  streakred: () => streaksLook('streakred'),
+  streakgreen: () => streaksLook('streakgreen'),
+  streakgold: () => streaksLook('streakgold'),
+  streakcyan: () => streaksLook('streakcyan'),
+  streakviolet: () => streaksLook('streakviolet'),
+  streakprism: () => streaksLook('streakprism'),
+  streaksunset: () => streaksLook('streaksunset'),
+  streakice: () => streaksLook('streakice'),
+  streakburn: () => streaksLook('streakburn'),
+  streakrain: () => streaksLook('streakrain'),
+  streakzoom: () => streaksLook('streakzoom'),
+  streakspeed: () => streaksLook('streakspeed'),
   glowbloom: () => glowLook('glowbloom'),
   glowpink: () => glowLook('glowpink'),
   glowcyan: () => glowLook('glowcyan'),

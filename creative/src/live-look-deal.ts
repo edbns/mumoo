@@ -7,7 +7,7 @@
 import type { MoodLane } from './ad-fonts';
 
 /** A family is one effect with many colourings; each family has its own row on the shelf. */
-export const LOOK_FAMILIES = ['thermal', 'halftone', 'dither', 'glow'] as const;
+export const LOOK_FAMILIES = ['thermal', 'halftone', 'dither', 'glow', 'streaks'] as const;
 export type LookFamily = (typeof LOOK_FAMILIES)[number];
 export const isLookFamily = (value: unknown): value is LookFamily => LOOK_FAMILIES.includes(value as LookFamily);
 
@@ -110,6 +110,24 @@ export const LIVE_LOOKS = [
   { id: 'glowmist', family: 'glow', title: 'Mist', lanes: ['quiet', 'general', 'gospel'] },
   { id: 'glowlilac', family: 'glow', title: 'Lilac', lanes: ['quiet', 'general', 'gospel'] },
   { id: 'glowrose', family: 'glow', title: 'Rose', lanes: ['quiet', 'party', 'general', 'gospel'] },
+  /** Streaks: light dragged into lines (anamorphic, rain, radial, edge leaks). Not dealt on gospel. */
+  { id: 'streakblue', family: 'streaks', title: 'Anamorphic blue', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'streakamber', family: 'streaks', title: 'Warm amber', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'streakteal', family: 'streaks', title: 'Teal and orange', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'streakmagenta', family: 'streaks', title: 'Magenta', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'streakwhite', family: 'streaks', title: 'White streak', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'streakred', family: 'streaks', title: 'Red laser', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'streakgreen', family: 'streaks', title: 'Green', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'streakgold', family: 'streaks', title: 'Gold diagonal', lanes: ['quiet', 'dark', 'party', 'general'] },
+  { id: 'streakcyan', family: 'streaks', title: 'Cyan', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'streakviolet', family: 'streaks', title: 'Violet', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
+  { id: 'streakprism', family: 'streaks', title: 'Prism', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'streaksunset', family: 'streaks', title: 'Sunset', lanes: ['quiet', 'party', 'general'] },
+  { id: 'streakice', family: 'streaks', title: 'Ice', lanes: ['quiet', 'dark', 'techno', 'general'] },
+  { id: 'streakburn', family: 'streaks', title: 'Film burn', lanes: ['dark', 'techno', 'party', 'general'] },
+  { id: 'streakrain', family: 'streaks', title: 'Rain', lanes: ['techno', 'party', 'general'] },
+  { id: 'streakzoom', family: 'streaks', title: 'Zoom pulse', lanes: ['techno', 'party', 'general'] },
+  { id: 'streakspeed', family: 'streaks', title: 'Speed lines', lanes: ['techno', 'party', 'general'] },
 ] as const satisfies readonly { id: string; family: LookFamily; title: string; lanes: readonly MoodLane[] }[];
 
 export type LiveLookId = (typeof LIVE_LOOKS)[number]['id'];
@@ -121,7 +139,9 @@ export type HalftoneLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'hal
 export type DitherLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'dither' }>['id'];
 /** The glow family: light bleeding from the bright parts of the picture. */
 export type GlowLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'glow' }>['id'];
-export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither', glow: 'Glow' };
+/** The streaks family: light dragged into lines. */
+export type StreaksLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'streaks' }>['id'];
+export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither', glow: 'Glow', streaks: 'Streaks' };
 export const LIVE_LOOK_IDS: readonly LiveLookId[] = LIVE_LOOKS.map(look => look.id);
 
 export const isLiveLook = (value: unknown): value is LiveLookId => LIVE_LOOK_IDS.includes(value as LiveLookId);
