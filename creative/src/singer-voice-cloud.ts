@@ -12,21 +12,21 @@ import { useEffect, useState } from 'react';
 import type { DoodleVoice } from './doodle-cast';
 import { parseSingerVoice, type SingerVoiceState } from './singer-voice';
 import { clipToWav16k, sleep } from './lyrics-cloud';
+import { withAccess } from './staging-token';
 
 const POLL_MS = 1500;
 const JOB_TIMEOUT_MS = 170_000;
 
 async function readOnce(token: string, wav: Uint8Array, signal: AbortSignal): Promise<DoodleVoice | null> {
-  const headers = { 'x-mumoo-brain-access': token };
   const form = new FormData();
   form.append('audio', new Blob([wav as BlobPart], { type: 'audio/wav' }), 'clip.wav');
-  const submitted = await fetch('/.netlify/functions/detect-voice', { method: 'POST', headers, body: form, signal });
+  const submitted = await withAccess(token, access => fetch('/.netlify/functions/detect-voice', { method: 'POST', headers: { 'x-mumoo-brain-access': access }, body: form, signal }));
   const { id } = (await submitted.json().catch(() => null) ?? {}) as { id?: string };
   if (!submitted.ok || !id) throw new Error('The voice reading did not start.');
   const deadline = Date.now() + JOB_TIMEOUT_MS;
   while (Date.now() < deadline) {
     await sleep(POLL_MS, signal);
-    const response = await fetch(`/.netlify/functions/detect-voice-status?id=${encodeURIComponent(id)}`, { headers, signal });
+    const response = await withAccess(token, access => fetch(`/.netlify/functions/detect-voice-status?id=${encodeURIComponent(id)}`, { headers: { 'x-mumoo-brain-access': access }, signal }));
     if (response.status === 202) continue;
     const answer = response.ok ? parseSingerVoice(await response.json().catch(() => null)) : undefined;
     if (!answer) throw new Error('The voice reading failed.');

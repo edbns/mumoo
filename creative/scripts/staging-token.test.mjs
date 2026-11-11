@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
 import { createServer } from 'vite';
 
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
-const { freshAccess, rememberAccess } = await server.ssrLoadModule('/src/staging-token.ts');
+const { freshAccess, rememberAccess, withAccess } = await server.ssrLoadModule('/src/staging-token.ts');
 await server.close();
 
 const realFetch = globalThis.fetch;
@@ -42,4 +43,29 @@ test('several requests at once ask for one token, and a failed renewal keeps the
     Date.now = () => start + 2 * 60 * 60 * 1000;
     assert.equal(await freshAccess('none'), tokens[0], 'offline: the last token is better than none');
   } finally { globalThis.fetch = realFetch; Date.now = realNow; }
+});
+
+test('a request the server refuses for an old token is sent once more with a new one, and only once', async () => {
+  const minted = fakeServer();
+  try {
+    rememberAccess('stale');
+    const sent = [];
+    const answer = await withAccess('stale', async access => { sent.push(access); return new Response('', { status: access === 'stale' ? 401 : 200 }); });
+    assert.equal(answer.status, 200);
+    assert.deepEqual(sent, ['stale', 'token-1']);
+    sent.length = 0;
+    const refused = await withAccess('x', async access => { sent.push(access); return new Response('', { status: 401 }); });
+    assert.equal(refused.status, 401);
+    assert.equal(sent.length, 2, 'never a loop');
+    assert.ok(minted.minted >= 1);
+  } finally { globalThis.fetch = realFetch; Date.now = realNow; }
+});
+
+test('everything in the page that sends staging access renews it (a page left open must never send a token minted at load)', () => {
+  const sources = readdirSync(new URL('../src/', import.meta.url)).filter(name => /\.(ts|tsx)$/.test(name) && name !== 'staging-token.ts');
+  for (const name of sources) {
+    const code = readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8');
+    if (!/x-mumoo-brain-access/i.test(code)) continue;
+    assert.ok(/withAccess|freshAccess/.test(code), `${name} sends staging access without renewing it`);
+  }
 });

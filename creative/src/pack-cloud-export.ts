@@ -9,7 +9,7 @@
  */
 import { DURATION_MS } from './composition';
 import { sleep } from './lyrics-cloud';
-import { freshAccess } from './staging-token';
+import { withAccess } from './staging-token';
 import type { PackRendererOpts } from './pack-renderer';
 
 const SAMPLE_RATE = 32_000;
@@ -86,13 +86,6 @@ async function errorMessage(response: Response): Promise<string> {
   // The page renews its access by itself; if it still could not, say what to do, not what the gateway called it.
   if (response.status === 401 && /staging access/i.test(result?.error ?? '')) return 'Please reload the page and try again.';
   return result?.error || 'Creatives are temporarily unavailable. Reload and try again.';
-}
-
-/** Sends a request with a current access token; if the server still refuses it, once more with a brand new one. */
-async function withAccess(token: string, send: (access: string) => Promise<Response>): Promise<Response> {
-  const response = await send(await freshAccess(token));
-  if (response.status !== 401) return response;
-  return send(await freshAccess(token, true));
 }
 
 export type CloudJobInput = {

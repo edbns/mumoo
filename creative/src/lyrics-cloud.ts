@@ -9,6 +9,7 @@
 import { DURATION_MS, type LyricCue } from './composition';
 import { encodePcmWav } from './staging-alignment';
 import { joinWords } from './lyric-text';
+import { withAccess } from './staging-token';
 
 export const MAX_LYRIC_WORDS = 120;
 const RATE = 16_000;
@@ -87,9 +88,9 @@ export async function submitLyricsJob({ token, wav, lines, language, signal }: J
   const form = new FormData();
   form.append('audio', new Blob([wav as BlobPart], { type: 'audio/wav' }), 'clip.wav');
   form.append('meta', JSON.stringify({ lines: lines ?? null, language: language ?? null }));
-  const response = await call('/.netlify/functions/transcribe-lyrics', {
-    method: 'POST', headers: { 'x-mumoo-brain-access': token }, body: form, signal,
-  });
+  const response = await withAccess(token, access => call('/.netlify/functions/transcribe-lyrics', {
+    method: 'POST', headers: { 'x-mumoo-brain-access': access }, body: form, signal,
+  }));
   if (!response.ok) throw await failure(response);
   const body = await response.json().catch(() => null) as { id?: string } | null;
   if (!body?.id) throw new LyricsError('Lyrics did not start. Reload and try again.');
@@ -137,9 +138,9 @@ export async function awaitLyricsJob(token: string, id: string, signal?: AbortSi
   const deadline = Date.now() + JOB_TIMEOUT_MS;
   while (Date.now() < deadline) {
     await sleep(POLL_MS, signal);
-    const response = await call(`/.netlify/functions/transcribe-lyrics-status?id=${encodeURIComponent(id)}`, {
-      headers: { 'x-mumoo-brain-access': token }, signal,
-    });
+    const response = await withAccess(token, access => call(`/.netlify/functions/transcribe-lyrics-status?id=${encodeURIComponent(id)}`, {
+      headers: { 'x-mumoo-brain-access': access }, signal,
+    }));
     if (response.status === 202) continue;
     if (!response.ok) throw await failure(response);
     return parseLyricsResult(await response.json().catch(() => null));

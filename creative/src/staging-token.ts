@@ -27,6 +27,16 @@ export async function freshAccess(fallback = '', renew = false): Promise<string>
   return current?.token ?? fallback;
 }
 
+/**
+ * Sends a request with a current access token; if the server still refuses it (401), once more with a brand new one.
+ * Every call that carries staging access goes through this, so a page left open for an hour never fails on an old token.
+ */
+export async function withAccess(token: string, send: (access: string) => Promise<Response>): Promise<Response> {
+  const response = await send(await freshAccess(token));
+  if (response.status !== 401) return response;
+  return send(await freshAccess(token, true));
+}
+
 /** Keeps a token the page already has, so it is not asked for twice. */
 export function rememberAccess(token: string) {
   current = { token, mintedAt: Date.now() };

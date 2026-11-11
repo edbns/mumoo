@@ -13,22 +13,22 @@ import { joinWords } from './lyric-text';
 import { phrasesFor } from './lyric-motion';
 import { parseLyricMeaning, type LyricMeaning, type LyricMeaningState } from './lyric-meaning';
 import { sleep } from './lyrics-cloud';
+import { withAccess } from './staging-token';
 
 const POLL_MS = 1500;
 const JOB_TIMEOUT_MS = 170_000;
 
 async function readLyricMeaning(token: string, lines: string[], language: string | undefined, signal: AbortSignal): Promise<LyricMeaning> {
-  const headers = { 'x-mumoo-brain-access': token };
-  const submitted = await fetch('/.netlify/functions/read-lyric-meaning', {
-    method: 'POST', signal, headers: { ...headers, 'Content-Type': 'application/json' },
+  const submitted = await withAccess(token, access => fetch('/.netlify/functions/read-lyric-meaning', {
+    method: 'POST', signal, headers: { 'x-mumoo-brain-access': access, 'Content-Type': 'application/json' },
     body: JSON.stringify({ lines, language: language ?? null }),
-  });
+  }));
   const { id } = (await submitted.json().catch(() => null) ?? {}) as { id?: string };
   if (!submitted.ok || !id) throw new Error('The lyric reading did not start.');
   const deadline = Date.now() + JOB_TIMEOUT_MS;
   while (Date.now() < deadline) {
     await sleep(POLL_MS, signal);
-    const response = await fetch(`/.netlify/functions/read-lyric-meaning-status?id=${encodeURIComponent(id)}`, { headers, signal });
+    const response = await withAccess(token, access => fetch(`/.netlify/functions/read-lyric-meaning-status?id=${encodeURIComponent(id)}`, { headers: { 'x-mumoo-brain-access': access }, signal }));
     if (response.status === 202) continue;
     const meaning = response.ok ? parseLyricMeaning(await response.json().catch(() => null)) : null;
     if (!meaning) throw new Error('The lyric reading failed.');
