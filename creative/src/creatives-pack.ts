@@ -24,7 +24,7 @@ import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
 import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
 import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
-import { pickLibrary, showing, type LibraryPicture, type LibraryWanted } from './library-pick';
+import { libraryFit, pickLibrary, showing, type LibraryPicture, type LibraryWanted } from './library-pick';
 import { dealDoodle, doodleMood, type DoodlePaper } from './doodle-cast';
 import type { DoodleMood } from './doodle-parts';
 
@@ -350,7 +350,12 @@ export function windowHand(profile: CreativeProfileV1, generation: number, libra
 /** How many library pictures a Director's reel is edited from, and how many of them are clips when the library has that many (video sells). */
 export const REEL_POOL = 8;
 const REEL_CLIPS = 3;
+/** A picture brings something new to a reel only while it fits the song at least this share as well as the best one: variety never pulls in a weak fit. */
+const REEL_CLOSE = 0.6;
 const isClip = (item: LibraryPicture) => item.kind !== 'photo' && Boolean(item.motionUrl);
+
+/** One thing an item shows, the same in the singular and the plural ("car" and "cars"). */
+const thingKey = (thing: string) => thing.replace(/s$/, '');
 
 /**
  * `count` of the `ranked` pictures (best fit first) that show different things: each next one is the best that brings a tag, or a look
@@ -362,22 +367,34 @@ export function mixed(ranked: readonly LibraryPicture[], count: number): Library
   const seen = new Set<string>();
   const rest = [...ranked];
   while (picked.length < count && rest.length) {
-    const fresh = rest.findIndex(item => showing(item).some(thing => !seen.has(thing)));
+    const fresh = rest.findIndex(item => showing(item).some(thing => !seen.has(thingKey(thing))));
     const [next] = rest.splice(Math.max(0, fresh), 1);
     picked.push(next);
-    for (const thing of showing(next)) seen.add(thing);
+    for (const thing of showing(next)) seen.add(thingKey(thing));
   }
   return picked;
 }
 
-/** The pictures a reel is edited from: the best fits for the song, with up to three clips among them when the library has them (video sells; a reel of stills does not, and two pictures rotating look like a loop). */
+/**
+ * The pictures a reel is edited from: the best fits for the song that show different things, chosen among all that fit it closely (so
+ * a library of many look-alike car clips still gives the girls and the club their turn), with up to three clips among them when the
+ * library has them (video sells; a reel of stills does not, and two pictures rotating look like a loop). Refresh starts the mix further
+ * along the close fits, so every reel stays a close fit; with too few of them, the next best fill it.
+ */
 export function reelPool(items: readonly LibraryPicture[], wanted: LibraryWanted, song: string, generation: number): LibraryPicture[] {
-  const pool = mixed(pickLibrary(items, wanted, song, generation, REEL_POOL * 2), REEL_POOL);
+  const ranked = pickLibrary(items, wanted, song, 0, items.length);
+  const fits = new Map(ranked.map(item => [item.id, libraryFit(item, wanted) ?? 0]));
+  const best = Math.max(0, ...fits.values());
+  // When nothing shows what the song wants, every picture fits as well as the best: Refresh walks the whole library.
+  const close = ranked.filter(item => (fits.get(item.id) ?? 0) >= REEL_CLOSE * best);
+  const start = close.length ? (generation * REEL_POOL) % close.length : 0;
+  const mix = mixed([...close.slice(start), ...close.slice(0, start)], REEL_POOL);
+  const pool = [...mix, ...ranked.filter(item => !mix.includes(item))].slice(0, REEL_POOL);
   if (pool.length < 2) return pool;
   // Not enough clips among the best fits: the best-fitting clips take the places of the last stills.
   const edited = [...pool];
   let clips = edited.filter(isClip).length;
-  for (const clip of pickLibrary(items.filter(isClip), wanted, song, generation, REEL_CLIPS)) {
+  for (const clip of ranked.filter(isClip)) {
     if (clips >= REEL_CLIPS) break;
     if (edited.some(item => item.id === clip.id)) continue;
     const still = edited.map(isClip).lastIndexOf(false);

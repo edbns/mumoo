@@ -324,11 +324,38 @@ test('a reel is edited from pictures that show different things, not eight of th
     const wanted = { attitude: 'confident', genre: 'Electronic & Dance (EDM)', subGenre: 'House' };
     const clip = (id, tags) => item(id, { kind: 'video', attitudes: [], tags, motionUrl: `https://x/${id}.mp4`, shots: [[0, 2000]] });
     const cars = Array.from({ length: 10 }, (_, i) => clip(`car${i}`, ['car', 'luxury', 'night']));
-    const others = [clip('club', ['club', 'crowd']), clip('girls', ['girls', 'dancing']), clip('champagne', ['champagne'])];
-    const pool = ids(pack.reelPool([...cars, ...others], wanted, 'song', 0));
+    const others = [clip('club', ['club', 'crowd']), clip('girls', ['girls', 'night', 'club']), clip('champagne', ['champagne', 'money', 'night'])];
+    const pool = ids(pack.reelPool([...cars, ...others, clip('skating', ['skating'])], wanted, 'song', 0));
     assert.equal(pool.length, pack.REEL_POOL);
     for (const id of ['club', 'girls', 'champagne']) assert.ok(pool.includes(id), `${id} is in the reel beside the cars`);
+    assert.ok(!pool.includes('skating'), 'a picture that shows nothing the song wants is not in its reel for variety');
     assert.deepEqual(ids(pack.mixed([cars[0], cars[1], others[0]], 2)), ['car0', 'club'], 'the next best that brings something new comes before another car');
+    assert.deepEqual(ids(pack.mixed([cars[0], clip('plural', ['cars', 'luxury', 'nights']), others[0]], 2)), ['car0', 'club'], '"cars" is not something new beside "car"');
+  } finally { await server.close(); }
+});
+
+test('a library of look-alike clips still gives the others their turn, and every Refresh of a reel stays a close fit', async () => {
+  const { server, pack, pick } = await load();
+  try {
+    const wanted = { attitude: 'confident', genre: 'Pop', subGenre: '', themes: ['money', 'cars'] };
+    const clip = (id, tags, looks) => item(id, { kind: 'video', attitudes: [], tags, motionUrl: `https://x/${id}.mp4`, shots: [[0, 2000]], ...(looks ? { looks } : {}) });
+    const cars = Array.from({ length: 20 }, (_, i) => clip(`car${i}`, ['cars', 'money']));
+    const girls = clip('girls', ['money', 'nightlife']);
+    const rain = clip('rain', ['cars', 'money'], { rain: 0.8 });
+    assert.ok(pick.libraryFit(girls, wanted) >= 0.6 * pick.libraryFit(cars[0], wanted), 'the girls fit the song closely');
+    const pool = ids(pack.reelPool([...cars, rain, girls], wanted, 'song', 0));
+    for (const id of ['girls', 'rain']) assert.ok(pool.includes(id), `${id} is in the reel beside twenty look-alike cars`);
+
+    const weak = Array.from({ length: 20 }, (_, i) => clip(`weak${i}`, ['party']));
+    const best = pick.libraryFit(cars[0], wanted);
+    for (let generation = 0; generation < 4; generation++) {
+      const reel = pack.reelPool([...cars, ...weak], wanted, 'song', generation);
+      assert.equal(reel.length, pack.REEL_POOL);
+      assert.ok(reel.every(entry => pick.libraryFit(entry, wanted) >= 0.6 * best), `Refresh ${generation} draws only close fits`);
+    }
+    assert.notDeepEqual(ids(pack.reelPool([...cars, ...weak], wanted, 'song', 0)), ids(pack.reelPool([...cars, ...weak], wanted, 'song', 1)), 'Refresh deals another reel');
+    const few = pack.reelPool([cars[0], cars[1], ...weak], wanted, 'song', 1);
+    assert.deepEqual(ids(few).slice(0, 2).sort(), ['car0', 'car1'], 'with few close fits, Refresh keeps them and the next best fill the reel');
   } finally { await server.close(); }
 });
 
