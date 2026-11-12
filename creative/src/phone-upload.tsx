@@ -23,7 +23,7 @@ const EXTENSIONS: Record<string, string> = {
 };
 
 type Handoff = { id: string; phoneUrl: string; expiresAt: number };
-type State = { step: 'idle' } | { step: 'starting' } | { step: 'waiting'; handoff: Handoff } | { step: 'receiving'; count: number } | { step: 'expired' } | { step: 'failed'; error: string };
+type State = { step: 'idle' } | { step: 'starting' } | { step: 'waiting'; handoff: Handoff } | { step: 'receiving'; index: number; count: number } | { step: 'expired' } | { step: 'failed'; error: string };
 
 function QrCode({ text }: { text: string }) {
   const { path, size } = useMemo(() => {
@@ -33,6 +33,21 @@ function QrCode({ text }: { text: string }) {
   return <svg viewBox={`0 0 ${size} ${size}`} className="size-44 rounded-md bg-white" shapeRendering="crispEdges" role="img" aria-label="QR code to open on your phone">
     <path d={path} fill="#000" />
   </svg>;
+}
+
+/** A file from the phone, read in pieces so a large video does not fail to open. */
+async function download(url: string, name: string): Promise<File> {
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok || !response.body) throw new Error();
+  const type = response.headers.get('content-type') ?? '';
+  const reader = response.body.getReader();
+  const parts: Uint8Array[] = [];
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    parts.push(value);
+  }
+  return new File(parts as BlobPart[], name + (EXTENSIONS[type] ?? ''), { type });
 }
 
 const remove = (token: string, id: string) =>
@@ -66,20 +81,20 @@ export function PhoneUpload({ token, kind, onFiles }: { token: string; kind: Pho
     let timer: ReturnType<typeof setTimeout>;
     const receive = async (urls: string[]) => {
       received = true;
-      setState({ step: 'receiving', count: urls.length });
+      const files: File[] = [];
       try {
-        if (!urls.length) throw new Error();
-        const files = await Promise.all(urls.map(async (url, index) => {
-          const response = await fetch(url);
-          if (!response.ok) throw new Error();
-          const blob = await response.blob();
-          const name = urls.length > 1 ? `${COPY[kind].name} ${index + 1}` : COPY[kind].name;
-          return new File([blob], name + (EXTENSIONS[blob.type] ?? ''), { type: blob.type });
-        }));
-        if (mounted.current) deliver.current(files);
-        setState({ step: 'idle' });
-      } catch {
-        setState({ step: 'failed', error: 'It arrived but could not be opened here. Send it again.' });
+        // One after another, read in pieces: a browser refuses to take a large video in one go (`response.blob()`).
+        for (const [index, url] of urls.entries()) {
+          setState({ step: 'receiving', index, count: urls.length });
+          const file = await download(url, urls.length > 1 ? `${COPY[kind].name} ${index + 1}` : COPY[kind].name).catch(() => null);
+          if (file) files.push(file);
+        }
+        if (files.length && mounted.current) deliver.current(files);
+        const missed = urls.length - files.length;
+        setState(!missed ? { step: 'idle' } : {
+          step: 'failed',
+          error: files.length ? `${missed} of ${urls.length} could not be opened here. Send ${missed > 1 ? 'those' : 'that one'} again.` : 'It arrived but could not be opened here. Send it again.',
+        });
       } finally {
         remove(token, waiting.id);
       }
@@ -113,7 +128,7 @@ export function PhoneUpload({ token, kind, onFiles }: { token: string; kind: Pho
       <p className="m-0 text-sm">Scan with your phone's camera, then {COPY[kind].ask}. It opens here.</p>
       <p className="m-0 text-xs text-muted-foreground">The code works for 15 minutes. Waiting for your phone…</p>
     </>}
-    {state.step === 'receiving' && <p className="m-0 text-sm" role="status">{state.count > 1 ? `${state.count} files arrived. Opening them…` : 'It arrived. Opening it…'}</p>}
+    {state.step === 'receiving' && <p className="m-0 text-sm" role="status">{state.count > 1 ? `${state.count} files arrived. Opening ${state.index + 1} of ${state.count}…` : 'It arrived. Opening it…'}</p>}
     {state.step === 'expired' && <p className="m-0 text-sm">The code expired. Make a new one to try again.</p>}
     {state.step === 'failed' && <p className="m-0 text-sm" role="alert">{state.error}</p>}
     <div className="flex gap-2">

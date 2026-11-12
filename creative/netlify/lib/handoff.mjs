@@ -68,7 +68,10 @@ export async function phoneUploadUrls(id, expiry, count, now = Math.floor(Date.n
   return { putUrls, doneUrl: await signedUpload(doneKey(id), seconds) };
 }
 
-/** Null until the phone has marked the handoff done; then each file that is there, with its size and a five-minute link to fetch it. */
+/**
+ * Null until the phone has marked the handoff done; then each file that is there, with its size and a 15-minute link to fetch it
+ * (the computer opens them one after another, so the last of ten large videos starts well after the first).
+ */
 export async function arrived(id) {
   if ((await objectSize(doneKey(id))) === null) return null;
   const sizes = await Promise.all(Array.from({ length: MAX_HANDOFF_FILES.picture }, (_, n) => objectSize(handoffKey(id, n))));
@@ -76,7 +79,7 @@ export async function arrived(id) {
   for (const [n, bytes] of sizes.entries()) {
     if (bytes === null) continue;
     if (bytes > MAX_HANDOFF_BYTES) await deleteObject(handoffKey(id, n));
-    else files.push({ bytes, url: await signedDownload(handoffKey(id, n), null, 300) });
+    else files.push({ bytes, url: await signedDownload(handoffKey(id, n), null, 900) });
   }
   return { files };
 }
