@@ -63,7 +63,7 @@ export function LearningView() {
       <img src={item.url} alt="" className="size-10 shrink-0 rounded object-cover" />
       <span className="flex flex-col">
         <span className="capitalize">{item.kind}</span>
-        <span className="text-xs text-muted-foreground">{[...item.attitudes, ...item.tags].join(', ') || 'No mood or tags'}</span>
+        <span className="text-xs text-muted-foreground">{item.tags.join(', ') || 'No tags yet'}</span>
       </span>
     </span>;
   };

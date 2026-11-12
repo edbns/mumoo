@@ -342,9 +342,27 @@ export const REEL_POOL = 8;
 const REEL_CLIPS = 3;
 const isClip = (item: LibraryPicture) => item.kind !== 'photo' && Boolean(item.motionUrl);
 
+/**
+ * `count` of the `ranked` pictures (best fit first) that show different things: each next one is the best that brings a tag
+ * the reel does not have yet (a car, then the girls, then the club), so a reel is not eight cars. With none left that do, the best of the rest.
+ */
+export function mixed(ranked: readonly LibraryPicture[], count: number): LibraryPicture[] {
+  const picked: LibraryPicture[] = [];
+  const seen = new Set<string>();
+  const rest = [...ranked];
+  const key = (tag: string) => tag.trim().toLowerCase();
+  while (picked.length < count && rest.length) {
+    const fresh = rest.findIndex(item => item.tags.some(tag => !seen.has(key(tag))));
+    const [next] = rest.splice(Math.max(0, fresh), 1);
+    picked.push(next);
+    for (const tag of next.tags) seen.add(key(tag));
+  }
+  return picked;
+}
+
 /** The pictures a reel is edited from: the best fits for the song, with up to three clips among them when the library has them (video sells; a reel of stills does not, and two pictures rotating look like a loop). */
 export function reelPool(items: readonly LibraryPicture[], wanted: LibraryWanted, song: string, generation: number): LibraryPicture[] {
-  const pool = pickLibrary(items, wanted, song, generation, REEL_POOL);
+  const pool = mixed(pickLibrary(items, wanted, song, generation, REEL_POOL * 2), REEL_POOL);
   if (pool.length < 2) return pool;
   // Not enough clips among the best fits: the best-fitting clips take the places of the last stills.
   const edited = [...pool];

@@ -1,18 +1,19 @@
 import { themesFor } from './genre-guide';
-import { attitudeOf } from './lyric-meaning';
-import { themesShown, type SongTheme } from './song-themes';
+import { attitudeOf, type LyricAttitude } from './lyric-meaning';
+import { tagShows, type SongTheme } from './song-themes';
 
 /**
  * Choosing from the approved library. The library is what the admin cleared (see the admin page); this is how the brain
  * picks from it for one song. Only approved, ready items ever get here (the server sends nothing else).
  *
- *   attitude   the song's attitude is the main match: an item that lists it fits; an item that lists "neutral" fits any
- *              song (a little less); a song with no feeling (neutral, or lyrics not read) takes anything.
- *   genre      optional on an item. Set, it is preferred for that genre (and sub-genre) and kept away from every other;
- *              unset, it is free for any song.
- *              An item that lists one of the song's other moods fits just below the main one.
- *   tags       a tag that is one of the song's genre themes (`genre-guide.ts`) is a small plus (less than a step of attitude or genre), never a reason to refuse.
- *              A tag that shows what the words are about (`song-themes.ts`) is a bigger plus, still less than a step of attitude.
+ * A picture says what is in it (its tags: car, girls, club, champagne); the song says what it feels and is about. The brain
+ * turns the song into the things it wants to see, and a picture fits by how many of them its tags show:
+ *   themes     what the words are about (`song-themes.ts`): the strongest pull.
+ *   mood       the song's feeling, as things to see (`MOOD_CONTENT`): a confident song wants money, cars, fame.
+ *   genre      the genre's own looks (`genre-guide.ts`). An item may also be kept for one genre (and sub-genre): then it
+ *              is preferred for it and never used for another; unset, it is free for any song.
+ * A picture that shows none of them still fills a hand that the fitting ones cannot. A picture has no mood of its own:
+ * the mood belongs to the song (the `attitudes` of older items are not read).
  */
 export type LibraryPicture = {
   id: string;
@@ -35,7 +36,7 @@ export type LibraryPicture = {
 /** A picture with no history is taken as this many plays at the library's usual rate: a few plays never swing it far. */
 const PRIOR_PLAYS = 20;
 const LEARNED_WEIGHT = 1.5;
-/** Below a theme (0.4): what people kept only orders pictures that fit the song equally well. */
+/** Below the least a shown thing counts (0.5): what people kept only orders pictures that fit the song equally well. */
 const MOST_LEARNED = 0.3;
 
 /** What the brain knows of the song that the library cares about. */
@@ -43,15 +44,57 @@ export type LibraryWanted = {
   attitude: string | null;
   genre: string;
   subGenre: string;
-  /** The other moods the words carry: an item that lists one fits, a little below the main mood. */
+  /** The other moods the words carry: what they want to see counts too, a little less. */
   moods?: readonly string[];
   /** What the words are about (`song-themes.ts`), shown by the item's tags. */
   themes?: readonly SongTheme[];
 };
 
-/** Two shown themes (0.8) never lift a neutral item (1) over the main mood (2); they can lift one of the other moods (1.5) over it. */
-const THEME_STEP = 0.4;
-const MOST_THEMES = 2;
+/** A song's feeling, as the things a picture for it can show. Neutral asks for nothing; the themes and the genre then lead. */
+export const MOOD_CONTENT: Readonly<Record<LyricAttitude, readonly SongTheme[]>> = {
+  happy: ['summer', 'friends', 'party', 'freedom'],
+  fun: ['party', 'dancing', 'friends', 'summer'],
+  flirty: ['seduction', 'dancing', 'nightlife'],
+  love: ['romance', 'seduction', 'summer'],
+  confident: ['money', 'cars', 'fame', 'nightlife', 'street'],
+  angry: ['street', 'city', 'cars'],
+  sad: ['heartbreak', 'nature', 'city'],
+  thoughtful: ['nature', 'city', 'freedom'],
+  spiritual: ['faith', 'nature', 'freedom'],
+  neutral: [],
+};
+
+/** How much one thing the song wants counts when a picture shows it: what the words are about most, then its feeling and its genre. */
+const THEME_WEIGHT = 2;
+const MOOD_WEIGHT = 1;
+const OTHER_MOOD_WEIGHT = 0.5;
+const GENRE_WEIGHT = 1;
+
+type Want = { show: (tag: string) => boolean; weight: number };
+
+/** A genre look (`THEME_TAGS`): the tag is it, or has it as a word of its own (also in the plural). */
+const showsWord = (word: string) => (tag: string) => {
+  const words = tag.trim().toLowerCase().split(/[\s-]+/);
+  return words.includes(word) || words.includes(`${word}s`) || (word.endsWith('s') && words.includes(word.slice(0, -1)));
+};
+
+/** Everything the song wants to see, each once, at the weight of its strongest reason. */
+export function wantsOf(wanted: LibraryWanted): Want[] {
+  const weights = new Map<string, Want>();
+  const want = (key: string, show: Want['show'], weight: number) => {
+    const have = weights.get(key);
+    if (!have || have.weight < weight) weights.set(key, { show, weight });
+  };
+  for (const theme of wanted.themes ?? []) want(theme, tag => tagShows(tag, theme), THEME_WEIGHT);
+  const main = attitudeOf(wanted.attitude);
+  if (main) for (const theme of MOOD_CONTENT[main]) want(theme, tag => tagShows(tag, theme), MOOD_WEIGHT);
+  for (const other of wanted.moods ?? []) {
+    const mood = attitudeOf(other);
+    if (mood && mood !== main) for (const theme of MOOD_CONTENT[mood]) want(theme, tag => tagShows(tag, theme), OTHER_MOOD_WEIGHT);
+  }
+  for (const look of themesFor(wanted.genre, wanted.subGenre)) want(`genre:${look}`, showsWord(look), GENRE_WEIGHT);
+  return [...weights.values()];
+}
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
@@ -62,22 +105,11 @@ function hash(text: string) {
 }
 
 /**
- * How well an item fits the song, or null when it must not be used for it. With `loose`, an item that lists a different feeling is not refused
- * but ranks below every fit (a negative number): it only fills a hand that the fitting items cannot. A genre is never loosened.
+ * How well an item fits the song: the weight of every thing the song wants that its tags show (0 when it shows none).
+ * Null only when the item is kept for another genre or sub-genre. `wants` is `wantsOf(wanted)`, worked out once per hand.
  */
-export function libraryFit(item: LibraryPicture, wanted: LibraryWanted, loose = false): number | null {
+export function libraryFit(item: LibraryPicture, wanted: LibraryWanted, wants: readonly Want[] = wantsOf(wanted)): number | null {
   let fit = 0;
-  const wantedMood = attitudeOf(wanted.attitude);
-  const feeling = wantedMood && wantedMood !== 'neutral' ? wantedMood : null;
-  if (feeling) {
-    const moods = item.attitudes.map(attitudeOf);
-    const more = (wanted.moods ?? []).map(attitudeOf);
-    if (moods.includes(feeling)) fit += 2;
-    else if (moods.some(mood => mood && mood !== 'neutral' && more.includes(mood))) fit += 1.5;
-    else if (moods.includes('neutral')) fit += 1;
-    else if (loose) fit -= 100;
-    else return null;
-  }
   if (item.genre) {
     if (!same(item.genre, wanted.genre)) return null;
     fit += 4;
@@ -86,9 +118,8 @@ export function libraryFit(item: LibraryPicture, wanted: LibraryWanted, loose = 
       fit += 2;
     }
   }
-  const themes = themesFor(wanted.genre, wanted.subGenre);
-  const shown = wanted.themes?.length ? Math.min(MOST_THEMES, themesShown(item.tags, wanted.themes)) : 0;
-  return fit + Math.min(2, item.tags.filter(tag => themes.includes(tag)).length) * 0.25 + shown * THEME_STEP;
+  for (const want of wants) if (item.tags.some(want.show)) fit += want.weight;
+  return fit;
 }
 
 /** The library's usual rate of keeping a card it was played on; a library nobody has used yet keeps one in ten. */
@@ -118,23 +149,21 @@ export function learnedNudge(learned: LibraryPicture['learned'], usual: number, 
 
 /**
  * Up to `count` items for this song, best fit first. `song` keeps the order the same for the same song; `generation`
- * (the row's Refresh count) moves on to the next hand, and after the last the deal starts again. While fewer than `count`
- * items fit, the nearest others (a different feeling, never another genre) fill the hand, so a small library still fills the row.
+ * (the row's Refresh count) moves on to the next hand, and after the last the deal starts again. Refresh walks only the
+ * pictures that show something the song wants, while there is a hand of them; with fewer, the others (never one kept for
+ * another genre) fill it, so a small library still fills the row.
  */
 export function pickLibrary(items: readonly LibraryPicture[], wanted: LibraryWanted, song: string, generation: number, count: number): LibraryPicture[] {
   const usual = usualRate(items);
   const learning = items.some(item => item.learned);
-  const order = (loose: boolean) => items
-    .map(item => {
-      const fit = libraryFit(item, wanted, loose);
-      return { item, fit: fit === null || !learning ? fit : fit + learnedNudge(item.learned, usual, `${song}:${item.id}`) };
-    })
+  const wants = wantsOf(wanted);
+  const scored = items
+    .map(item => ({ item, fit: libraryFit(item, wanted, wants) }))
     .filter((entry): entry is { item: LibraryPicture; fit: number } => entry.fit !== null)
-    .sort((a, b) => b.fit - a.fit || hash(`${song}:${a.item.id}`) - hash(`${song}:${b.item.id}`) || (a.item.id < b.item.id ? -1 : 1))
-    .map(entry => entry.item);
-  // The items that fit come first. While they are fewer than a hand, the nearest others (a different feeling, never another genre) fill it, so a small library still fills the row.
-  const fitting = order(false);
-  const ranked = fitting.length >= count ? fitting : order(true);
+    .map(entry => ({ ...entry, rank: learning ? entry.fit + learnedNudge(entry.item.learned, usual, `${song}:${entry.item.id}`) : entry.fit }))
+    .sort((a, b) => b.rank - a.rank || hash(`${song}:${a.item.id}`) - hash(`${song}:${b.item.id}`) || (a.item.id < b.item.id ? -1 : 1));
+  const fitting = scored.filter(entry => entry.fit > 0);
+  const ranked = (fitting.length >= count ? fitting : scored).map(entry => entry.item);
   if (ranked.length <= count) return ranked;
   const start = (generation * count) % ranked.length;
   return Array.from({ length: count }, (_, index) => ranked[(start + index) % ranked.length]);

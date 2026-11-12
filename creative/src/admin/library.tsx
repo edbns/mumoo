@@ -3,16 +3,19 @@ import { CheckIcon, EyeOffIcon, FilmIcon, ImageIcon, Trash2Icon, UploadIcon, XIc
 import { Button } from '@/components/ui/button';
 import { GENRES } from '../genres';
 import { themesFor } from '../genre-guide';
-import { ATTITUDES } from '../lyric-meaning';
 import {
   changeItem, deleteItem, deleteTag, loadLibrary, uploadFile,
   type Change, type Library, type LibraryItem, type LibraryStatus, type TagCount,
 } from './api';
 
 /** The most the server allows; the page stops short of them so a person is never told off after the fact. */
-const MAX_ATTITUDES = 4;
-const MAX_TAGS = 5;
-const MAX_TAGS_IN_POOL = 40;
+const MAX_TAGS = 15;
+const MAX_TAGS_IN_POOL = 200;
+/** Words for what is often in the picture, offered on every item so the same thing is always called the same (car, not cars or lambo). */
+const COMMON_TAGS = [
+  'car', 'girls', 'guys', 'couple', 'club', 'party', 'dancing', 'crowd', 'champagne', 'money', 'jewelry', 'luxury',
+  'night', 'neon', 'city', 'street', 'beach', 'pool', 'sunset', 'road', 'stage', 'studio', 'fashion', 'close up',
+];
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm';
 const STATUS_LABEL: Record<LibraryStatus, string> = { pending: 'Waiting', approved: 'Approved', hidden: 'Hidden' };
 const STATUS_STYLE: Record<LibraryStatus, string> = {
@@ -106,7 +109,7 @@ function Uploader({ onAdded, onDone }: { onAdded: (item: LibraryItem) => void; o
 /** A card opens its item; its tick puts it in the selection (shift-click ticks every card between this one and the last ticked). */
 function Card({ item, selected, ticked, onSelect, onTick }: { item: LibraryItem; selected: boolean; ticked: boolean; onSelect: () => void; onTick: (range: boolean) => void }) {
   return <div className="relative">
-  <button type="button" onClick={onSelect} aria-pressed={selected} aria-label={`${item.kind}, ${STATUS_LABEL[item.status]}${item.attitudes.length ? `, ${item.attitudes.join(', ')}` : ', no mood yet'}`}
+  <button type="button" onClick={onSelect} aria-pressed={selected} aria-label={`${item.kind}, ${STATUS_LABEL[item.status]}${item.tags.length ? `, ${item.tags.join(', ')}` : ', no tags yet'}`}
     className={`group flex w-full flex-col overflow-hidden rounded-[var(--radius-panel)] bg-card p-0 text-left shadow-sm outline-ring transition-shadow focus-visible:outline-2 ${selected || ticked ? 'ring-2 ring-foreground' : 'hover:shadow-md'}`}>
     <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
       <Media item={item} />
@@ -118,8 +121,7 @@ function Card({ item, selected, ticked, onSelect, onTick }: { item: LibraryItem;
       </span>
     </div>
     <div className="flex min-h-14 flex-wrap content-start gap-1 p-3">
-      {item.attitudes.length === 0 && <span className="text-xs text-destructive">No mood yet</span>}
-      {item.attitudes.map(code => <span key={code} className="rounded-full bg-foreground px-2 py-0.5 text-xs text-background">{cap(code)}</span>)}
+      {item.tags.length === 0 && <span className="text-xs text-destructive">No tags yet</span>}
       {item.tags.map(tag => <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{tag}</span>)}
     </div>
   </button>
@@ -130,12 +132,15 @@ function Card({ item, selected, ticked, onSelect, onTick }: { item: LibraryItem;
   </div>;
 }
 
-/** The side panel for one item: what it is for (attitudes, tags, genre), where it came from, and approve, hide or delete. */
+/** Tags worth offering that the list does not have yet: the chosen genre's looks, then the common words. */
+const suggestionsFor = (genre: string, subGenre: string, poolNames: readonly string[]) =>
+  [...new Set([...(genre ? themesFor(genre, subGenre) : []), ...COMMON_TAGS])].filter(tag => !poolNames.includes(tag));
+
+/** The side panel for one item: what is in it (tags), a genre it is kept for, where it came from, and approve, hide or delete. */
 function Panel({ item, pool, onClose, onSaved, onDeleted }: {
   item: LibraryItem; pool: TagCount[]; onClose: () => void;
   onSaved: (item: LibraryItem, tags: TagCount[]) => void; onDeleted: (library: Library) => void;
 }) {
-  const [attitudes, setAttitudes] = useState(item.attitudes);
   const [tags, setTags] = useState(item.tags);
   const [genre, setGenre] = useState(item.genre ?? '');
   const [subGenre, setSubGenre] = useState(item.subGenre ?? '');
@@ -146,21 +151,20 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
 
   // Another item was chosen: start from its values.
   useEffect(() => {
-    setAttitudes(item.attitudes); setTags(item.tags); setGenre(item.genre ?? ''); setSubGenre(item.subGenre ?? ''); setNote(item.note); setNewTag(''); setError('');
+    setTags(item.tags); setGenre(item.genre ?? ''); setSubGenre(item.subGenre ?? ''); setNote(item.note); setNewTag(''); setError('');
   }, [item.id]);
 
   const same = (a: string[], b: string[]) => a.length === b.length && a.every(value => b.includes(value));
-  const dirty = !same(attitudes, item.attitudes) || !same(tags, item.tags) || genre !== (item.genre ?? '') || subGenre !== (item.subGenre ?? '') || note !== item.note;
+  const dirty = !same(tags, item.tags) || genre !== (item.genre ?? '') || subGenre !== (item.subGenre ?? '') || note !== item.note;
   const toggle = (list: string[], value: string, limit: number) => list.includes(value) ? list.filter(entry => entry !== value) : list.length < limit ? [...list, value] : list;
   const group = GENRES.find(entry => entry.name === genre);
   const poolNames = pool.map(entry => entry.name);
   const shownTags = [...poolNames, ...tags.filter(tag => !poolNames.includes(tag))];
 
-  // The guidance's themes for the chosen genre: one click gives the item a tag the brain looks for.
-  const suggested = genre ? themesFor(genre, subGenre) : [];
+  // One click gives the item a tag the brain looks for; it then shows among the item's tags.
+  const suggested = suggestionsFor(genre, subGenre, [...poolNames, ...tags]);
   function suggest(tag: string) {
-    if (tags.includes(tag)) return setTags(list => list.filter(entry => entry !== tag));
-    if (tags.length >= MAX_TAGS) return setError(`At most ${MAX_TAGS} tags for one item. Fewer is better.`);
+    if (tags.length >= MAX_TAGS) return setError(`At most ${MAX_TAGS} tags for one item.`);
     if (!poolNames.includes(tag) && poolNames.length >= MAX_TAGS_IN_POOL) return setError(`The tag list is full (${MAX_TAGS_IN_POOL}). Remove one you do not use, or reuse one.`);
     setError(''); setTags(list => [...list, tag]);
   }
@@ -168,14 +172,14 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
   function addNewTag() {
     const tag = newTag.trim().toLowerCase().replace(/\s+/g, ' ');
     if (!tag) return;
-    if (tags.length >= MAX_TAGS) return setError(`At most ${MAX_TAGS} tags for one item. Fewer is better.`);
+    if (tags.length >= MAX_TAGS) return setError(`At most ${MAX_TAGS} tags for one item.`);
     if (!poolNames.includes(tag) && poolNames.length >= MAX_TAGS_IN_POOL) return setError(`The tag list is full (${MAX_TAGS_IN_POOL}). Remove one you do not use, or reuse one.`);
     setError(''); setTags(list => list.includes(tag) ? list : [...list, tag]); setNewTag('');
   }
 
   async function save(status?: 'approved' | 'hidden') {
     setBusy(true); setError('');
-    const change: Change = { attitudes, tags, genre, subGenre: genre ? subGenre : '', note, ...(status && { status }) };
+    const change: Change = { tags, genre, subGenre: genre ? subGenre : '', note, ...(status && { status }) };
     try {
       const saved = await changeItem(item.id, change);
       onSaved(saved.item, saved.tags);
@@ -196,23 +200,15 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
     <div className="aspect-[3/4] max-h-80 self-center overflow-hidden rounded-[var(--radius-panel)] bg-muted"><Media item={item} controls /></div>
 
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-      <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Mood (up to {MAX_ATTITUDES}) · the feeling it suits</legend>
-      <div className="flex flex-wrap gap-1.5">
-        {ATTITUDES.map(code => <Chip key={code} on={attitudes.includes(code)} disabled={!attitudes.includes(code) && attitudes.length >= MAX_ATTITUDES}
-          onClick={() => setAttitudes(list => toggle(list, code, MAX_ATTITUDES))}>{cap(code)}</Chip>)}
-      </div>
-    </fieldset>
-
-    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-      <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Tags (up to {MAX_TAGS}) · what is in it</legend>
+      <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Tags (up to {MAX_TAGS}) · everything you see in it</legend>
       <div className="flex flex-wrap gap-1.5">
         {shownTags.map(tag => <Chip key={tag} on={tags.includes(tag)} disabled={!tags.includes(tag) && tags.length >= MAX_TAGS}
           onClick={() => setTags(list => toggle(list, tag, MAX_TAGS))}>{tag}{!poolNames.includes(tag) && ' (new)'}</Chip>)}
         {shownTags.length === 0 && <span className="text-xs text-muted-foreground">No tags yet. Add the first one below.</span>}
       </div>
       {suggested.length > 0 && <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-xs text-muted-foreground">Suggested for {subGenre || genre}:</span>
-        {suggested.map(tag => <Chip key={tag} on={tags.includes(tag)} onClick={() => suggest(tag)}>{tag}</Chip>)}
+        <span className="text-xs text-muted-foreground">Suggested:</span>
+        {suggested.map(tag => <Chip key={tag} on={false} onClick={() => suggest(tag)}>{tag}</Chip>)}
       </div>}
       <form className="flex gap-2" onSubmit={event => { event.preventDefault(); addNewTag(); }}>
         <input value={newTag} onChange={event => setNewTag(event.target.value)} maxLength={24} placeholder="New tag, like beach" aria-label="New tag"
@@ -250,7 +246,7 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
 
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
     <div className="mt-auto flex flex-wrap items-center gap-2">
-      {item.status !== 'approved' && <Button disabled={busy || attitudes.length === 0} onClick={() => void save('approved')} title={attitudes.length === 0 ? 'Choose a mood first' : undefined}><CheckIcon className="size-4" aria-hidden="true" />Approve</Button>}
+      {item.status !== 'approved' && <Button disabled={busy} onClick={() => void save('approved')}><CheckIcon className="size-4" aria-hidden="true" />Approve</Button>}
       {item.status !== 'hidden' && <Button variant="secondary" disabled={busy} onClick={() => void save('hidden')}><EyeOffIcon className="size-4" aria-hidden="true" />Hide</Button>}
       <Button variant="secondary" disabled={busy || !dirty} onClick={() => void save()}>Save changes</Button>
       <Button variant="ghost" className="ml-auto text-destructive hover:text-destructive" disabled={busy} onClick={() => void remove()}><Trash2Icon className="size-4" aria-hidden="true" />Delete</Button>
@@ -258,14 +254,14 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
   </aside>;
 }
 
-/** What a bulk edit does to each chosen item: codes to add and to take off. A code in neither is left as each item has it. */
+/** What a bulk edit does to each chosen item: tags to add and to take off. A tag in neither is left as each item has it. */
 type Edit = { add: string[]; drop: string[] };
 const NO_EDIT: Edit = { add: [], drop: [] };
-/** How a code stands across the selection, once the edit is applied: on all, on some, or on none. */
-function standing(code: string, items: readonly LibraryItem[], edit: Edit, field: 'attitudes' | 'tags'): 'all' | 'some' | 'none' {
+/** How a tag stands across the selection, once the edit is applied: on all, on some, or on none. */
+function standing(code: string, items: readonly LibraryItem[], edit: Edit): 'all' | 'some' | 'none' {
   if (edit.add.includes(code)) return 'all';
   if (edit.drop.includes(code)) return 'none';
-  const having = items.filter(item => item[field].includes(code)).length;
+  const having = items.filter(item => item.tags.includes(code)).length;
   return having === items.length ? 'all' : having ? 'some' : 'none';
 }
 /** On everywhere: take it off all. Otherwise: put it on all. */
@@ -293,7 +289,7 @@ async function inTurns<T>(jobs: readonly (() => Promise<T>)[], width = 4): Promi
   return results;
 }
 const LEAVE = '__leave__';
-const NO_MOOD = '__none__';
+const NO_TAGS = '__none__';
 
 /** The selection, while cards are being ticked: how many, and the way to edit them (the panel would hide half the cards). */
 function SelectionBar({ count, shown, onClear, onEdit }: { count: number; shown: boolean; onClear: () => void; onEdit: () => void }) {
@@ -305,12 +301,11 @@ function SelectionBar({ count, shown, onClear, onEdit }: { count: number; shown:
   </div>;
 }
 
-/** The side panel for several items at once: moods and tags put on or taken off all of them, one genre for all, and approve, hide or delete them together. */
+/** The side panel for several items at once: tags put on or taken off all of them, one genre for all, and approve, hide or delete them together. */
 function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
   items: LibraryItem[]; pool: TagCount[]; onClose: () => void;
   onSaved: (items: LibraryItem[], tags: TagCount[] | null) => void; onDeleted: (library: Library | null, gone: string[]) => void;
 }) {
-  const [moods, setMoods] = useState<Edit>(NO_EDIT);
   const [tags, setTags] = useState<Edit>(NO_EDIT);
   const [genre, setGenre] = useState(LEAVE);
   const [subGenre, setSubGenre] = useState('');
@@ -322,8 +317,8 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
   const poolNames = pool.map(entry => entry.name);
   const shownTags = [...poolNames, ...tags.add.filter(tag => !poolNames.includes(tag))];
   const group = GENRES.find(entry => entry.name === genre);
-  const suggested = genre !== LEAVE && genre ? themesFor(genre, subGenre) : [];
-  const dirty = moods.add.length + moods.drop.length + tags.add.length + tags.drop.length > 0 || genre !== LEAVE;
+  const suggested = suggestionsFor(genre !== LEAVE ? genre : '', subGenre, shownTags);
+  const dirty = tags.add.length + tags.drop.length > 0 || genre !== LEAVE;
 
   function addNewTag(raw: string) {
     const tag = raw.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -337,29 +332,23 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
   /** What each item is sent: only what changes for it. */
   function plan(status?: 'approved' | 'hidden') {
     let unfit = 0;
-    let moodless = 0;
     const changes = items.flatMap(item => {
-      const nextMoods = edited(item.attitudes, moods, MAX_ATTITUDES);
       const nextTags = edited(item.tags, tags, MAX_TAGS);
-      unfit += nextMoods.left + nextTags.left;
+      unfit += nextTags.left;
       const change: Change = {};
-      if (!sameList(nextMoods.list, item.attitudes)) change.attitudes = nextMoods.list;
       if (!sameList(nextTags.list, item.tags)) change.tags = nextTags.list;
       if (genre !== LEAVE && (genre !== (item.genre ?? '') || (genre ? subGenre : '') !== (item.subGenre ?? ''))) {
         change.genre = genre;
         change.subGenre = genre ? subGenre : '';
       }
-      if (status && status !== item.status) {
-        if (status === 'approved' && nextMoods.list.length === 0) { moodless += 1; return Object.keys(change).length ? [{ item, change }] : []; }
-        change.status = status;
-      }
+      if (status && status !== item.status) change.status = status;
       return Object.keys(change).length ? [{ item, change }] : [];
     });
-    return { changes, unfit, moodless };
+    return { changes, unfit };
   }
 
   async function apply(status?: 'approved' | 'hidden') {
-    const { changes, unfit, moodless } = plan(status);
+    const { changes, unfit } = plan(status);
     setBusy(true); setError(''); setReport('');
     const results = await inTurns(changes.map(({ item, change }) => () => changeItem(item.id, change)));
     const saved = results.flatMap(result => (result.status === 'fulfilled' ? [result.value] : []));
@@ -369,11 +358,10 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
     setReport([
       `Saved ${saved.length} of ${items.length}.`,
       changes.length < items.length && !failed ? `${items.length - changes.length} already had this.` : '',
-      unfit ? `${unfit} mood or tag${unfit === 1 ? '' : 's'} did not fit (an item holds at most ${MAX_ATTITUDES} moods and ${MAX_TAGS} tags).` : '',
-      moodless ? `${moodless} not approved: give ${moodless === 1 ? 'it' : 'them'} a mood first.` : '',
+      unfit ? `${unfit} tag${unfit === 1 ? '' : 's'} did not fit (an item holds at most ${MAX_TAGS} tags).` : '',
     ].filter(Boolean).join(' '));
     if (refused.length) setError(`${failed} not saved: ${refused.join(' ')}`);
-    if (!failed) { setMoods(NO_EDIT); setTags(NO_EDIT); setGenre(LEAVE); setSubGenre(''); }
+    if (!failed) { setTags(NO_EDIT); setGenre(LEAVE); setSubGenre(''); }
     setBusy(false);
   }
 
@@ -394,33 +382,20 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
       <h2 className="m-0 text-base font-semibold">{items.length} selected</h2>
       <Button variant="ghost" size="sm" onClick={onClose} aria-label="Back to the selection"><XIcon className="size-4" aria-hidden="true" /></Button>
     </div>
-    <p className="m-0 text-xs text-muted-foreground">Click a mood or tag to put it on all of them; click again to take it off all. Half-filled means some have it; leave it and they keep it as it is.</p>
+    <p className="m-0 text-xs text-muted-foreground">Click a tag to put it on all of them; click again to take it off all. Half-filled means some have it; leave it and they keep it as it is.</p>
 
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-      <legend className={label}>Mood (up to {MAX_ATTITUDES} each) · the feeling it suits</legend>
-      <div className="flex flex-wrap gap-1.5">
-        {ATTITUDES.map(code => {
-          const state = standing(code, items, moods, 'attitudes');
-          return <Chip key={code} on={state === 'all'} some={state === 'some'} onClick={() => setMoods(edit => flip(edit, code, state === 'all'))}>{cap(code)}</Chip>;
-        })}
-      </div>
-    </fieldset>
-
-    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-      <legend className={label}>Tags (up to {MAX_TAGS} each) · what is in it</legend>
+      <legend className={label}>Tags (up to {MAX_TAGS} each) · everything you see in them</legend>
       <div className="flex flex-wrap gap-1.5">
         {shownTags.map(tag => {
-          const state = standing(tag, items, tags, 'tags');
+          const state = standing(tag, items, tags);
           return <Chip key={tag} on={state === 'all'} some={state === 'some'} onClick={() => setTags(edit => flip(edit, tag, state === 'all'))}>{tag}{!poolNames.includes(tag) && ' (new)'}</Chip>;
         })}
         {shownTags.length === 0 && <span className="text-xs text-muted-foreground">No tags yet. Add the first one below.</span>}
       </div>
       {suggested.length > 0 && <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-xs text-muted-foreground">Suggested for {subGenre || genre}:</span>
-        {suggested.map(tag => {
-          const state = standing(tag, items, tags, 'tags');
-          return <Chip key={tag} on={state === 'all'} some={state === 'some'} onClick={() => (state === 'all' ? setTags(edit => flip(edit, tag, true)) : addNewTag(tag))}>{tag}</Chip>;
-        })}
+        <span className="text-xs text-muted-foreground">Suggested:</span>
+        {suggested.map(tag => <Chip key={tag} on={false} onClick={() => addNewTag(tag)}>{tag}</Chip>)}
       </div>}
       <form className="flex gap-2" onSubmit={event => { event.preventDefault(); addNewTag(newTag); }}>
         <input value={newTag} onChange={event => setNewTag(event.target.value)} maxLength={24} placeholder="New tag for all, like beach" aria-label="New tag for all"
@@ -483,7 +458,7 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   const [library, setLibrary] = useState<Library | null>(null);
   const [error, setError] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
-  const [attitude, setAttitude] = useState('');
+  const [tag, setTag] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   /** The ticked cards are being edited (the panel is open); until then only the selection bar shows. */
@@ -502,8 +477,8 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
 
   const replace = (next: Library) => { setLibrary(next); onChanged(); };
   const items = library?.items ?? [];
-  const moodFits = (item: LibraryItem) => !attitude || (attitude === NO_MOOD ? item.attitudes.length === 0 : item.attitudes.includes(attitude));
-  const shown = items.filter(item => (status === 'all' || item.status === status) && moodFits(item));
+  const tagFits = (item: LibraryItem) => !tag || (tag === NO_TAGS ? item.tags.length === 0 : item.tags.includes(tag));
+  const shown = items.filter(item => (status === 'all' || item.status === status) && tagFits(item));
   const count = (value: StatusFilter) => value === 'all' ? items.length : items.filter(item => item.status === value).length;
   const open = items.find(item => item.id === openId) ?? null;
   const chosen = items.filter(item => picked.includes(item.id));
@@ -532,11 +507,11 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
     <div className="flex flex-wrap items-center gap-2">
       {(['all', 'pending', 'approved', 'hidden'] as const).map(value => <Chip key={value} on={status === value} onClick={() => setStatus(value)}>
         {value === 'all' ? 'All' : STATUS_LABEL[value]} {count(value)}</Chip>)}
-      <select aria-label="Filter by mood" value={attitude} onChange={event => setAttitude(event.target.value)}
+      <select aria-label="Filter by tag" value={tag} onChange={event => setTag(event.target.value)}
         className="ml-auto rounded-[var(--radius-control)] bg-card px-3 py-1.5 text-sm shadow-sm outline-ring focus-visible:outline-2">
-        <option value="">Every mood</option>
-        <option value={NO_MOOD}>No mood yet ({items.filter(item => item.attitudes.length === 0).length})</option>
-        {ATTITUDES.map(code => <option key={code} value={code}>{cap(code)} ({items.filter(item => item.attitudes.includes(code)).length})</option>)}
+        <option value="">Every tag</option>
+        <option value={NO_TAGS}>No tags yet ({items.filter(item => item.tags.length === 0).length})</option>
+        {(library?.tags ?? []).map(entry => <option key={entry.name} value={entry.name}>{entry.name} ({items.filter(item => item.tags.includes(entry.name)).length})</option>)}
       </select>
     </div>
     {shown.length > 0 && <div className="-mt-3 flex flex-wrap items-center gap-2 text-sm">

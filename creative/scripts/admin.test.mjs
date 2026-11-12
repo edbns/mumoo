@@ -102,11 +102,11 @@ test('a library item goes from upload to approved, is checked at every step, and
     assert.equal((await fetch(item.url)).status, 200, 'the admin can see it through a signed link');
     assert.ok([400, 403].includes((await fetch(item.url.split('?')[0])).status), 'nobody else can');
 
-    assert.match((await changeItem(id, { status: 'approved' })).refused, /mood/, 'needs a mood first');
+    assert.equal((await changeItem(id, { status: 'approved' })).status, 'approved', 'no mood needed: the tags say what is in it, the song brings the feeling');
     assert.match((await changeItem(id, { attitudes: ['sparkly'] })).refused, /list/);
     assert.match((await changeItem(id, { attitudes: ['happy', 'fun', 'flirty', 'love', 'confident'] })).refused, /At most 4/);
     assert.match((await changeItem(id, { attitudes: ['joyful'] })).refused, /list/, 'the old moods are gone from the list');
-    assert.match((await changeItem(id, { tags: ['a', 'b', 'c', 'd', 'e', 'f'] })).refused, /At most 5/);
+    assert.match((await changeItem(id, { tags: 'abcdefghijklmnop'.split('') })).refused, /At most 15/);
     assert.match((await changeItem(id, { tags: ['bad!tag'] })).refused, /symbols/);
     assert.match((await changeItem(id, { status: 'pending' })).refused, /approved or hidden/);
 
@@ -134,7 +134,7 @@ test('a library item goes from upload to approved, is checked at every step, and
   }
 });
 
-test('the tag list is kept small', { skip: !READY, timeout: 60000 }, async () => {
+test('the tag list has a limit', { skip: !READY, timeout: 60000 }, async () => {
   // This runs against the shared staging list, which a person may be using: it never adds a tag to it. The limit is lowered for this process
   // to the size the list already has, so the next new tag meets it at once.
   const { tags } = await listLibrary();

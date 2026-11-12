@@ -5,8 +5,8 @@ import { deleteObject, getObject, objectSize, signedDownload, signedUpload } fro
 
 /**
  * The approved library. Files sit in the private bucket under library/, and the admin sees them through short-lived links.
- * Everything the admin types is checked here, not in the page: the brain only understands its own attitude codes,
- * and the tag list is kept small on purpose (a short list lets the brain choose fast).
+ * Everything the admin types is checked here, not in the page. An item's tags say what is in it (car, girls, club); the
+ * mood belongs to the song, so an item needs none (older items may still carry `attitudes`; the brain does not read them).
  */
 
 /** The brain's attitude codes. A test keeps this the same as ATTITUDES in src/lyric-meaning.ts. */
@@ -14,8 +14,8 @@ export const ATTITUDES = [
   'happy', 'fun', 'flirty', 'love', 'confident', 'angry', 'sad', 'thoughtful', 'spiritual', 'neutral',
 ];
 export const MAX_ATTITUDES = 4;
-export const MAX_TAGS_PER_ITEM = 5;
-export const MAX_TAGS_IN_POOL = 40;
+export const MAX_TAGS_PER_ITEM = 15;
+export const MAX_TAGS_IN_POOL = 200;
 /** The size of the tag list. A test can lower it for its own process (`MUMOO_MAX_TAGS_IN_POOL`) to meet the limit without filling the real list. */
 const tagLimit = () => Number(process.env.MUMOO_MAX_TAGS_IN_POOL) || MAX_TAGS_IN_POOL;
 export const TAG = /^[a-z0-9][a-z0-9 -]{0,22}[a-z0-9]$|^[a-z0-9]$/;
@@ -242,13 +242,13 @@ function readTags(value) {
   if (!Array.isArray(value)) return { refused: 'Tags must be a list.' };
   const tags = [...new Set(value.map(tag => (typeof tag === 'string' ? tag.trim().toLowerCase().replace(/\s+/g, ' ') : '')))];
   if (tags.some(tag => !TAG.test(tag))) return { refused: 'A tag is one to three short words or a few letters, with no symbols.' };
-  if (tags.length > MAX_TAGS_PER_ITEM) return { refused: `At most ${MAX_TAGS_PER_ITEM} tags for one item. Fewer is better.` };
+  if (tags.length > MAX_TAGS_PER_ITEM) return { refused: `At most ${MAX_TAGS_PER_ITEM} tags for one item.` };
   return { tags };
 }
 
 /**
  * Changes an item: any of status, attitudes, tags, genre, subGenre, note. Returns the item, null when it is not
- * there, or { refused } with a reason in words. An item can only be approved once it has a mood.
+ * there, or { refused } with a reason in words.
  */
 export async function changeItem(id, change) {
   const sql = db();
@@ -275,8 +275,6 @@ export async function changeItem(id, change) {
     next.subGenre = next.genre ? (cleanName('subGenre' in change ? change.subGenre : next.subGenre) || null) : null;
   }
   if ('note' in change) next.note = cleanNote(change.note);
-  if (next.status === 'approved' && next.attitudes.length === 0) return { refused: 'Give it at least one mood before approving it.' };
-
   const [{ pool, known }] = await sql`select count(*)::int as pool, (count(*) filter (where name = any (${next.tags})))::int as known from library_tags`;
   const fresh = next.tags.length - known;
   if (fresh > 0 && pool + fresh > tagLimit()) return { refused: `The tag list is full (${tagLimit()}). Remove a tag you do not use, or reuse one.` };

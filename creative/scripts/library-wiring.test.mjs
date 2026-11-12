@@ -35,15 +35,25 @@ function profile(genre = 'Pop', subGenre, attitude = 'love', sha = 'b'.repeat(64
   };
 }
 
-test('the attitude is the main match; neutral fits any song; a song with no feeling takes anything', async () => {
+test('a picture fits by what its tags show, never by a mood of its own: a confident House song wants the cars and the club', async () => {
   const { server, pick } = await load();
   try {
-    const items = [item('a', { attitudes: ['love'] }), item('b', { attitudes: ['angry'] }), item('c', { attitudes: ['neutral'] })];
-    const tender = { attitude: 'love', genre: 'Pop', subGenre: '' };
-    assert.deepEqual(ids(pick.pickLibrary(items, tender, 's', 0, 4)), ['a', 'c', 'b'], 'exact match first, neutral next, then the wrong feeling only to fill the hand');
-    assert.ok(!ids(pick.pickLibrary([...items, item('d', { attitudes: ['love'] }), item('e', { attitudes: ['love'] })], tender, 's', 0, 3)).includes('b'), 'with enough that fit, the wrong feeling is never used');
-    assert.deepEqual(ids(pick.pickLibrary(items, { ...tender, attitude: 'neutral' }, 's', 0, 4)).sort(), ['a', 'b', 'c'], 'a neutral song takes anything');
-    assert.deepEqual(ids(pick.pickLibrary(items, { ...tender, attitude: null }, 's', 0, 4)).sort(), ['a', 'b', 'c'], 'unread lyrics take anything');
+    const wanted = { attitude: 'confident', genre: 'Electronic & Dance (EDM)', subGenre: 'House' };
+    const items = [
+      item('car', { attitudes: [], tags: ['car', 'luxury'] }),
+      item('club', { attitudes: [], tags: ['club', 'girls'] }),
+      item('beach', { attitudes: [], tags: ['beach'] }),
+      item('plain', { attitudes: [], tags: [] }),
+    ];
+    const fit = id => pick.libraryFit(items.find(entry => entry.id === id), wanted);
+    assert.ok(fit('car') > 0 && fit('club') > 0, 'money and cars for the feeling, the club for the genre');
+    assert.equal(fit('beach'), 0);
+    assert.equal(fit('plain'), 0);
+    assert.equal(pick.libraryFit(item('sad-car', { attitudes: ['sad'], tags: ['car', 'luxury'] }), wanted), fit('car'), 'a mood written on an older item is not read');
+    assert.deepEqual(new Set(ids(pick.pickLibrary(items, wanted, 's', 0, 2))), new Set(['car', 'club']), 'with enough that show something wanted, only they are dealt');
+    assert.deepEqual(ids(pick.pickLibrary(items, wanted, 's', 0, 4)).slice(2).sort(), ['beach', 'plain'], 'the others only fill a short hand');
+    const nothing = { attitude: null, genre: 'Nope', subGenre: '' };
+    assert.deepEqual(ids(pick.pickLibrary(items, nothing, 's', 0, 4)).sort(), ['beach', 'car', 'club', 'plain'], 'a song the brain knows nothing about takes anything');
   } finally { await server.close(); }
 });
 
@@ -152,7 +162,7 @@ test('Our photography is dealt from the library only; baked effects stand in jus
     assert.equal(some.length, 3, 'the pictures that fit, then the nearest other to fill the hand, and no baked filler');
     // Two or more pictures are edited into a reel (the Director); each card opens on a different one.
     assert.ok(some.every(slot => slot.reelIds?.length === 3 && !slot.libraryId), 'three pictures: every card is a reel of them');
-    assert.deepEqual([...some.map(slot => slot.reelIds[0])].sort(), ['lib-1', 'lib-2', 'lib-4'], 'not the other genre; the other feeling only because the hand is short');
+    assert.deepEqual([...some.map(slot => slot.reelIds[0])].sort(), ['lib-1', 'lib-2', 'lib-4'], 'not the other genre; one showing nothing wanted only because the hand is short');
     assert.ok(some.every(slot => !slot.reelIds.includes('lib-3')));
     assert.ok(some.every(slot => !slot.effectId));
     assert.equal(new Set(some.map(slot => slot.id)).size, 3);
@@ -209,51 +219,59 @@ test('every genre of the app is guided; every theme is a short, valid tag', asyn
   } finally { await server.close(); }
 });
 
-test('a genre theme in an item\'s tags is a small plus: it breaks a tie, but never beats a better attitude or genre, and never refuses', async () => {
+test('a genre look in an item\'s tags counts like the song\'s feeling, and an off-look tag is never a reason to refuse', async () => {
   const { server, pick } = await load();
   try {
     const wanted = { attitude: 'love', genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' };
-    const items = [item('plain'), item('club', { tags: ['club'] }), item('both', { tags: ['club', 'dark', 'neon'] }), item('neutral-club', { attitudes: ['neutral'], tags: ['club', 'dark'] }), item('beach', { tags: ['beach'] })];
-    const order = ids(pick.pickLibrary(items, wanted, 's', 0, 5));
-    assert.equal(order[0], 'both', 'Techno: three themes count as two (the most a theme can add)');
-    assert.ok(order.indexOf('club') < order.indexOf('plain'), 'one theme beats none');
-    assert.ok(order.indexOf('neutral-club') > order.indexOf('beach'), 'the exact attitude still beats a neutral item with themes');
-    assert.ok(order.includes('beach'), 'an off-theme tag is not a reason to refuse');
-    const house = ids(pick.pickLibrary(items, { ...wanted, subGenre: 'House' }, 's', 0, 5));
-    assert.deepEqual(new Set(house.slice(0, 2)), new Set(['club', 'both']), 'House likes club, and does not count dark or neon');
+    const items = [item('plain'), item('club', { tags: ['club'] }), item('both', { tags: ['club', 'dark', 'neon'] }), item('beach', { tags: ['beach'] })];
+    const fit = (id, over = {}) => pick.libraryFit(items.find(entry => entry.id === id), { ...wanted, ...over });
+    assert.ok(fit('both') > fit('club') && fit('club') > fit('plain'), 'Techno: club and dark both count');
+    assert.equal(fit('club'), fit('beach'), 'a Techno look counts as much as what a love song wants to see (summer)');
+    assert.ok(ids(pick.pickLibrary(items, wanted, 's', 0, 4)).includes('plain'), 'nothing is refused for its tags');
+    assert.equal(fit('both', { subGenre: 'House' }), fit('club', { subGenre: 'House' }), 'House likes club, and does not count dark or neon');
   } finally { await server.close(); }
 });
 
-test('what the words are about lifts the pictures whose tags show it; the other moods fit just below the main one', async () => {
+test('what the words are about pulls hardest, then the main feeling, then the other moods', async () => {
   const { server, pick, pack } = await load();
   try {
     // ATREVIMENTO: flirty, also fun and love, about seduction, romance and nightlife.
-    const wanted = { attitude: 'flirty', genre: 'Pop', subGenre: '', moods: ['fun', 'love'], themes: ['seduction', 'romance', 'nightlife'] };
+    const wanted = { attitude: 'flirty', genre: 'Nope', subGenre: '', moods: ['fun', 'love'], themes: ['seduction', 'romance', 'nightlife'] };
     const items = [
-      item('flirty-plain', { attitudes: ['flirty'], tags: ['skating'] }),
-      item('flirty-sexy', { attitudes: ['flirty'], tags: ['beautiful woman', 'close up'] }),
-      item('flirty-three', { attitudes: ['flirty'], tags: ['sexy', 'couple', 'neon'] }),
-      item('love-couple', { attitudes: ['love'], tags: ['couple', 'sexy'] }),
-      item('love-plain', { attitudes: ['love'] }),
-      item('neutral-neon', { attitudes: ['neutral'], tags: ['neon', 'sexy', 'couple'] }),
-      item('sad', { attitudes: ['sad'], tags: ['sexy', 'couple'] }),
+      item('plain', { tags: ['skating'] }),
+      item('sexy', { tags: ['beautiful woman', 'close up'] }),
+      item('three', { tags: ['sexy', 'couple', 'neon'] }),
+      item('dancing', { tags: ['dancing'] }),
+      item('friends', { tags: ['friends'] }),
     ];
     const fit = id => pick.libraryFit(items.find(entry => entry.id === id), wanted);
-    assert.ok(fit('flirty-sexy') > fit('flirty-plain'), 'a shown theme beats none at the same mood');
-    assert.ok(Math.abs((fit('flirty-three') - fit('flirty-sexy')) - (fit('flirty-sexy') - fit('flirty-plain'))) < 1e-9, 'three shown themes count as two');
-    assert.ok(fit('love-plain') < fit('flirty-plain'), 'another mood of the song fits, below the main one');
-    assert.ok(fit('love-plain') > pick.libraryFit(item('neutral-plain', { attitudes: ['neutral'] }), wanted), 'and above a neutral picture');
-    assert.ok(fit('neutral-neon') < fit('flirty-plain'), 'themes never lift a neutral picture over the main mood');
-    assert.equal(fit('sad'), null, 'themes never let in a feeling the song does not have');
-    assert.equal(pick.libraryFit(items[4], { ...wanted, moods: undefined }), null, 'without the other moods, a love picture does not fit a flirty song');
-    assert.equal(pick.libraryFit(items[1], { ...wanted, themes: undefined }), pick.libraryFit(items[0], { ...wanted, themes: undefined }), 'a song without themes ranks as before');
+    assert.ok(fit('three') > fit('sexy'), 'each theme shown counts');
+    assert.ok(fit('sexy') > fit('dancing'), 'a theme of the words beats what the feeling alone wants (flirty: dancing)');
+    assert.ok(fit('dancing') > fit('friends'), 'the main feeling beats another mood of the song (fun: friends)');
+    assert.ok(fit('friends') > fit('plain'));
+    assert.equal(pick.libraryFit(items[4], { ...wanted, moods: undefined }), 0, 'without the other moods, friends are not wanted');
+    assert.equal(pick.libraryFit(item('sad-sexy', { attitudes: ['sad'], tags: ['sexy'] }), wanted), pick.libraryFit(item('x', { attitudes: [], tags: ['sexy'] }), wanted), 'no mood of the picture\'s own is read');
 
     // The brain passes the reader's themes and moods on to every library pick.
     const song = profile('Pop', undefined, 'flirty');
     song.lyricMeaning.meaning = { ...song.lyricMeaning.meaning, moods: ['love'], themes: ['seduction'] };
     const clip = (id, over) => item(id, { kind: 'video', motionUrl: `https://x/${id}.mp4`, shots: [[0, 2000]], ...over });
-    const library = [clip('neutral', { attitudes: ['neutral'] }), clip('love', { attitudes: ['love'] }), clip('flirty', { attitudes: ['flirty'] }), clip('flirty-sexy', { attitudes: ['flirty'], tags: ['sexy'] })];
-    assert.deepEqual(ids(pack.windowHand(song, 0, library)), ['flirty-sexy', 'flirty', 'love', 'neutral']);
+    const library = [clip('plain'), clip('beach', { tags: ['beach'] }), clip('dancing', { tags: ['dancing'] }), clip('sexy', { tags: ['sexy'] })];
+    assert.deepEqual(ids(pack.windowHand(song, 0, library)), ['sexy', 'dancing', 'beach', 'plain']);
+  } finally { await server.close(); }
+});
+
+test('a reel is edited from pictures that show different things, not eight of the same', async () => {
+  const { server, pack } = await load();
+  try {
+    const wanted = { attitude: 'confident', genre: 'Electronic & Dance (EDM)', subGenre: 'House' };
+    const clip = (id, tags) => item(id, { kind: 'video', attitudes: [], tags, motionUrl: `https://x/${id}.mp4`, shots: [[0, 2000]] });
+    const cars = Array.from({ length: 10 }, (_, i) => clip(`car${i}`, ['car', 'luxury', 'night']));
+    const others = [clip('club', ['club', 'crowd']), clip('girls', ['girls', 'dancing']), clip('champagne', ['champagne'])];
+    const pool = ids(pack.reelPool([...cars, ...others], wanted, 'song', 0));
+    assert.equal(pool.length, pack.REEL_POOL);
+    for (const id of ['club', 'girls', 'champagne']) assert.ok(pool.includes(id), `${id} is in the reel beside the cars`);
+    assert.deepEqual(ids(pack.mixed([cars[0], cars[1], others[0]], 2)), ['car0', 'club'], 'the next best that brings something new comes before another car');
   } finally { await server.close(); }
 });
 
@@ -276,12 +294,12 @@ test('what people kept nudges the order a little: never past a better fit, the s
     assert.ok(fresh.some(n => n > 0) && fresh.some(n => n < 0));
     assert.ok(Math.abs(pick.usualRate([item('x', { learned: { shown: 90, won: 9 } })]) - 0.1) < 1e-9);
 
-    // Two pictures that fit the same: the one people keep leads for most songs. A better mood still beats any history.
+    // Two pictures that fit the same: the one people keep leads for most songs. Showing more of what the song wants still beats any history.
     const wanted = { attitude: 'love', genre: 'Pop', subGenre: '' };
-    const items = [item('kept', { learned: kept }), item('passed', { learned: ignored }), item('neutral-star', { attitudes: ['neutral'], learned: { shown: 500, won: 400 } })];
+    const items = [item('kept', { tags: ['couple'], learned: kept }), item('passed', { tags: ['couple'], learned: ignored }), item('star', { learned: { shown: 500, won: 400 } })];
     const leads = Array.from({ length: 30 }, (_, i) => ids(pick.pickLibrary(items, wanted, `song-${i}`, 0, 3)));
     assert.ok(leads.filter(order => order[0] === 'kept').length >= 25);
-    assert.ok(leads.every(order => order.indexOf('neutral-star') === 2), 'history never lifts a neutral picture over the song\'s mood');
+    assert.ok(leads.every(order => order.indexOf('star') === 2), 'history never lifts a picture over one that shows what the song wants');
     // Without any history the order is exactly as before.
     const plain = [item('p'), item('q'), item('r')];
     assert.deepEqual(ids(pick.pickLibrary(plain, wanted, 's', 0, 3)), ids(pick.pickLibrary(plain.map(entry => ({ ...entry })), wanted, 's', 0, 3)));
