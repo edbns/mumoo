@@ -11,6 +11,7 @@ import { listProblems, markSeen, recordProblem } from '../netlify/lib/problems.m
 import { storageReady } from '../netlify/lib/storage.mjs';
 import libraryHandler from '../netlify/functions/admin-library.mjs';
 import problemsHandler from '../netlify/functions/admin-problems.mjs';
+import learningHandler from '../netlify/functions/admin-learning.mjs';
 import reportHandler from '../netlify/functions/report-problem.mjs';
 
 const READY = storageReady() && Boolean(process.env.DATABASE_URL);
@@ -61,6 +62,8 @@ test('only the listed, confirmed admin gets in', { skip: !READY, timeout: 60000 
   assert.equal((await adminFrom(await asRequest('test-nobody', TEST_ADMIN))).refusal.status, 403, 'on the list but never confirmed their email');
   assert.equal((await libraryHandler(await asRequest('test-nobody', 'someone@example.com'))).status, 403);
   assert.equal((await problemsHandler(await asRequest(null))).status, 401);
+  assert.equal((await learningHandler(await asRequest(null, null, 'https://x.test/api/admin/learning'))).status, 401);
+  assert.equal((await learningHandler(await asRequest('test-nobody', 'someone@example.com', 'https://x.test/api/admin/learning'))).status, 403, 'what people do is for the admin only');
 
   const id = randomUUID();
   await sql`insert into neon_auth."user" (id, name, email, "emailVerified") values (${id}, 'Test admin', ${TEST_ADMIN}, false)`;

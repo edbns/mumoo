@@ -257,6 +257,37 @@ test('what the words are about lifts the pictures whose tags show it; the other 
   } finally { await server.close(); }
 });
 
+test('what people kept nudges the order a little: never past a better fit, the same for the same song, and new pictures still get turns', async () => {
+  const { server, pick } = await load();
+  try {
+    const usual = 0.1;
+    const kept = { shown: 200, won: 80 };
+    const ignored = { shown: 200, won: 2 };
+    for (const draw of ['a', 'b', 'c', 'd', 'e']) {
+      for (const learned of [kept, ignored, undefined, { shown: 0, won: 0 }]) {
+        const nudge = pick.learnedNudge(learned, usual, draw);
+        assert.ok(Math.abs(nudge) <= 0.3 + 1e-9, `${nudge}`);
+        assert.equal(nudge, pick.learnedNudge(learned, usual, draw), 'the same draw gives the same nudge');
+      }
+      assert.ok(pick.learnedNudge(kept, usual, draw) > pick.learnedNudge(ignored, usual, draw), 'a picture people keep leads one they pass over');
+    }
+    // A new picture is drawn around the usual rate: sometimes ahead, sometimes behind, so it gets its turns.
+    const fresh = Array.from({ length: 40 }, (_, i) => pick.learnedNudge(undefined, usual, `song${i}`));
+    assert.ok(fresh.some(n => n > 0) && fresh.some(n => n < 0));
+    assert.ok(Math.abs(pick.usualRate([item('x', { learned: { shown: 90, won: 9 } })]) - 0.1) < 1e-9);
+
+    // Two pictures that fit the same: the one people keep leads for most songs. A better mood still beats any history.
+    const wanted = { attitude: 'love', genre: 'Pop', subGenre: '' };
+    const items = [item('kept', { learned: kept }), item('passed', { learned: ignored }), item('neutral-star', { attitudes: ['neutral'], learned: { shown: 500, won: 400 } })];
+    const leads = Array.from({ length: 30 }, (_, i) => ids(pick.pickLibrary(items, wanted, `song-${i}`, 0, 3)));
+    assert.ok(leads.filter(order => order[0] === 'kept').length >= 25);
+    assert.ok(leads.every(order => order.indexOf('neutral-star') === 2), 'history never lifts a neutral picture over the song\'s mood');
+    // Without any history the order is exactly as before.
+    const plain = [item('p'), item('q'), item('r')];
+    assert.deepEqual(ids(pick.pickLibrary(plain, wanted, 's', 0, 3)), ids(pick.pickLibrary(plain.map(entry => ({ ...entry })), wanted, 's', 0, 3)));
+  } finally { await server.close(); }
+});
+
 /* ---------- the server (live storage and database) ---------- */
 
 const jpeg = size => Uint8Array.from({ length: size }, (_, i) => [0xff, 0xd8, 0xff][i] ?? 7);

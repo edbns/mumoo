@@ -38,4 +38,6 @@ Still to do:
 
 ## Brain feedback
 - Done: every play, select, download press and refresh is kept in `brain_feedback` (codes only), against the person when signed in; `nth_download` 1 is their first download (the free one).
-- To do: an admin page to read it (which attitudes and genres lead to which cards, what gets refreshed away); mark the free download properly once credits exist; log when a download actually finishes, not only when Download is pressed; use it to nudge the brain once there are enough real users.
+- Done (migration 023): the whole reel and the Director's seed, preview watch time (`watch`), finished downloads (`delivered`, copied from the card's own download press), and the song's other moods, themes, drive and key. Admin → Learning reads it per row, look, vibe, mood and library picture.
+- Done: library picks lean a little (at most ±0.3, below one theme) towards pictures people keep, with a seeded draw so new pictures still get turns (`learnedNudge`). Counts come with `/api/library` (last 90 days).
+- To do: mark the free download properly once credits exist; nudge looks and rows (not only library pictures) once there is enough traffic; nudge per mood or lane instead of overall.

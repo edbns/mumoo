@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AlertTriangleIcon, ImagesIcon, LayoutDashboardIcon, LogOutIcon, type LucideIcon } from 'lucide-react';
+import { AlertTriangleIcon, BrainIcon, ImagesIcon, LayoutDashboardIcon, LogOutIcon, type LucideIcon } from 'lucide-react';
 import '@fontsource-variable/inter';
 import { authClient, checkSignInCode, sendSignInCode } from '../account';
 import { Button } from '@/components/ui/button';
 import { SignInDialog } from '../sign-in-dialog';
 import { AdminError, loadOverview, type Overview } from './api';
+import { LearningView } from './learning';
 import { LibraryView } from './library';
 import { OverviewView } from './overview';
 import { ProblemsView } from './problems';
 import './admin.css';
 
-type Section = 'overview' | 'library' | 'errors';
+type Section = 'overview' | 'library' | 'learning' | 'errors';
 const SECTIONS: { id: Section; label: string; icon: LucideIcon }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboardIcon },
   { id: 'library', label: 'Library', icon: ImagesIcon },
+  { id: 'learning', label: 'Learning', icon: BrainIcon },
   { id: 'errors', label: 'Errors', icon: AlertTriangleIcon },
 ];
 const sectionFromHash = (): Section => SECTIONS.find(section => `#${section.id}` === window.location.hash)?.id ?? 'overview';
@@ -99,6 +101,7 @@ function Admin() {
     <main className="min-w-0 flex-1 p-8">
       {section === 'overview' && <OverviewView overview={overview} />}
       {section === 'library' && <LibraryView onChanged={refresh} />}
+      {section === 'learning' && <LearningView />}
       {section === 'errors' && <ProblemsView onChanged={refresh} />}
     </main>
   </div>;

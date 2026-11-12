@@ -303,6 +303,7 @@ export async function removeItem(id) {
 export async function listApproved() {
   await prepareWaiting();
   const rows = await db()`select * from library_items where arrived and ready and status = 'approved' order by created_at desc limit 500`;
+  const learned = await learnedCounts();
   return Promise.all(rows.map(async (row) => ({
     id: row.id,
     kind: row.kind,
@@ -310,9 +311,35 @@ export async function listApproved() {
     tags: row.tags,
     genre: row.genre,
     subGenre: row.sub_genre,
+    ...(learned.has(row.id) ? { learned: learned.get(row.id) } : {}),
     url: await signedDownload(row.kind === 'photo' ? keyOf(row.id) : posterKey(row.id), null),
     ...(row.kind === 'photo' ? (row.cutout ? { cutoutUrl: await signedDownload(cutoutKey(row.id), null) } : {}) : { motionUrl: await signedDownload(motionKey(row.id), null), ...(row.shots ? { shots: row.shots } : {}) }),
   })));
+}
+
+/** How far back what people did still counts: tastes move, and the library changes. */
+const LEARNED_DAYS = 90;
+
+/**
+ * For each library picture, how often a card drawn from it was played (`shown`) and how often one was kept: put in the cart or delivered
+ * (`won`). A reel counts for every picture in it. Cards drawn on the person's own picture say nothing about ours. Counts only, never who.
+ * Learning must never stop the library from loading: without the table, or on any error, nothing is learned.
+ */
+export async function learnedCounts() {
+  try {
+    const rows = await db()`
+      select id, count(*) filter (where event = 'play')::int as shown, count(*) filter (where event in ('select', 'delivered'))::int as won
+      from (
+        select event, unnest(coalesce(reel_ids, array[library_id])) as id from brain_feedback
+        where created_at > now() - make_interval(days => ${LEARNED_DAYS}) and event in ('play', 'select', 'delivered')
+          and (library_id is not null or reel_ids is not null) and own_picture is not true
+      ) used
+      group by id`;
+    return new Map(rows.map(row => [row.id, { shown: row.shown, won: row.won }]));
+  } catch (cause) {
+    console.error('learned counts:', cause);
+    return new Map();
+  }
 }
 
 /**

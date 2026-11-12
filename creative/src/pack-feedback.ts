@@ -3,7 +3,10 @@ import type { CreativesPackSlot, ShelfRow } from './creatives-pack';
 import { readSong } from './creatives-pack';
 import { freshAccess } from './staging-token';
 
-export type PackFeedbackEvent = 'play' | 'select' | 'download';
+export type PackFeedbackEvent = 'play' | 'select' | 'download' | 'watch';
+/** Shorter than this, a preview was a click past the card, not a watch. */
+export const LEAST_WATCH_MS = 500;
+const MOST_WATCH_MS = 600_000;
 
 /** What the brain learns from, for both kinds of action: the song as the brain understood it. Codes only, never words. */
 function songFacts(profile: CreativeProfileV1) {
@@ -20,6 +23,10 @@ function songFacts(profile: CreativeProfileV1) {
     lyricSadness: meaning?.sadness ?? null,
     lyricIntensity: meaning?.intensity ?? null,
     lyricsOrigin: profile.noLyrics ? 'none' : profile.approvedLyrics?.origin ?? null,
+    ...(meaning?.moods?.length ? { lyricMoods: meaning.moods } : {}),
+    ...(meaning?.themes?.length ? { lyricThemes: meaning.themes } : {}),
+    drive: intent?.drive ?? null,
+    mode: intent?.mode ?? null,
   };
 }
 
@@ -44,13 +51,16 @@ export function reportPackFeedback(
   profile: CreativeProfileV1,
   event: PackFeedbackEvent,
   slot: CreativesPackSlot,
-  extras?: { selectedIds?: string[]; generation?: number; ownPicture?: boolean },
+  extras?: { selectedIds?: string[]; generation?: number; ownPicture?: boolean; watchMs?: number },
 ) {
   if (!token) return;
   const libraryId = slot.libraryId ?? slot.reelIds?.[0];
+  // The whole reel, and the seed the Director cut it with, only when the reel was really drawn (not under the person's own picture).
+  const reel = slot.reelIds && !extras?.ownPicture ? { reelIds: slot.reelIds, ...(slot.cutSeed !== undefined ? { cutSeed: slot.cutSeed } : {}) } : {};
   void send(token, {
     ...songFacts(profile),
     event,
+    ...(extras?.watchMs !== undefined && { watchMs: extras.watchMs }),
     row: slot.row,
     slot: {
       id: slot.id,
@@ -63,11 +73,24 @@ export function reportPackFeedback(
       ...(libraryId ? { libraryId } : {}),
       // Only when the look was really drawn: on a library picture or the person's own, never on a baked effect.
       ...(slot.look && (libraryId || extras?.ownPicture) ? { look: slot.look } : {}),
+      ...reel,
     },
     ...(extras?.ownPicture !== undefined && { ownPicture: extras.ownPicture }),
     ...(extras?.selectedIds && { selectedIds: extras.selectedIds.slice(0, 32) }),
     ...(extras?.generation !== undefined && { generation: extras.generation }),
   });
+}
+
+/** A card's preview stopped: how long it was watched. */
+export function reportWatch(token: string, profile: CreativeProfileV1, slot: CreativesPackSlot, watchedMs: number, extras: { generation: number; ownPicture: boolean }) {
+  if (watchedMs < LEAST_WATCH_MS) return;
+  reportPackFeedback(token, profile, 'watch', slot, { ...extras, watchMs: Math.min(MOST_WATCH_MS, Math.round(watchedMs)) });
+}
+
+/** Downloaded creatives reached the person. The server tells each card as its own download press, so only the song and the cards are sent. */
+export function reportDelivered(token: string, clipSha256: string, slotIds: readonly string[]) {
+  if (!token || !slotIds.length) return;
+  void send(token, { version: 1, event: 'delivered', clipSha256, slotIds: slotIds.slice(0, 20) });
 }
 
 /** A row was rolled again: the hand it showed was not what the person wanted. `generation` is the count it moves to. */

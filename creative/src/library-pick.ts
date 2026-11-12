@@ -28,7 +28,15 @@ export type LibraryPicture = {
   /** A video or GIF's small prepared clip and its shots, as [start, end] in ms of the clip. Riso and Window can draw these. */
   motionUrl?: string;
   shots?: [number, number][];
+  /** What people did with cards drawn from it lately (`learnedCounts` on the server): played, and kept (cart or delivered). */
+  learned?: { shown: number; won: number };
 };
+
+/** A picture with no history is taken as this many plays at the library's usual rate: a few plays never swing it far. */
+const PRIOR_PLAYS = 20;
+const LEARNED_WEIGHT = 1.5;
+/** Below a theme (0.4): what people kept only orders pictures that fit the song equally well. */
+const MOST_LEARNED = 0.3;
 
 /** What the brain knows of the song that the library cares about. */
 export type LibraryWanted = {
@@ -83,14 +91,44 @@ export function libraryFit(item: LibraryPicture, wanted: LibraryWanted, loose = 
   return fit + Math.min(2, item.tags.filter(tag => themes.includes(tag)).length) * 0.25 + shown * THEME_STEP;
 }
 
+/** The library's usual rate of keeping a card it was played on; a library nobody has used yet keeps one in ten. */
+export function usualRate(items: readonly LibraryPicture[]): number {
+  let shown = 0;
+  let won = 0;
+  for (const item of items) { shown += item.learned?.shown ?? 0; won += item.learned?.won ?? 0; }
+  return (won + 1) / (shown + 10);
+}
+
+/**
+ * A small, seeded nudge from what people kept: a draw from how often this picture's cards are kept, against the library's usual rate.
+ * Each song draws again, so a picture with little history still gets its turns (exploration) and one that is kept often leads more
+ * (exploitation). The same `draw` always gives the same nudge, so Refresh walks one order and a hand never reshuffles under the person.
+ */
+export function learnedNudge(learned: LibraryPicture['learned'], usual: number, draw: string): number {
+  const shown = Math.max(0, learned?.shown ?? 0);
+  const won = Math.min(shown, Math.max(0, learned?.won ?? 0));
+  const rate = (won + usual * PRIOR_PLAYS) / (shown + PRIOR_PLAYS);
+  const spread = Math.sqrt((rate * (1 - rate)) / (shown + PRIOR_PLAYS + 1));
+  // Two seeded uniforms, one normal draw (Box-Muller).
+  const u = (hash(`${draw}:u`) + 1) / 4294967297;
+  const v = hash(`${draw}:v`) / 4294967296;
+  const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  return Math.max(-MOST_LEARNED, Math.min(MOST_LEARNED, (rate + spread * z - usual) * LEARNED_WEIGHT));
+}
+
 /**
  * Up to `count` items for this song, best fit first. `song` keeps the order the same for the same song; `generation`
  * (the row's Refresh count) moves on to the next hand, and after the last the deal starts again. While fewer than `count`
  * items fit, the nearest others (a different feeling, never another genre) fill the hand, so a small library still fills the row.
  */
 export function pickLibrary(items: readonly LibraryPicture[], wanted: LibraryWanted, song: string, generation: number, count: number): LibraryPicture[] {
+  const usual = usualRate(items);
+  const learning = items.some(item => item.learned);
   const order = (loose: boolean) => items
-    .map(item => ({ item, fit: libraryFit(item, wanted, loose) }))
+    .map(item => {
+      const fit = libraryFit(item, wanted, loose);
+      return { item, fit: fit === null || !learning ? fit : fit + learnedNudge(item.learned, usual, `${song}:${item.id}`) };
+    })
     .filter((entry): entry is { item: LibraryPicture; fit: number } => entry.fit !== null)
     .sort((a, b) => b.fit - a.fit || hash(`${song}:${a.item.id}`) - hash(`${song}:${b.item.id}`) || (a.item.id < b.item.id ? -1 : 1))
     .map(entry => entry.item);

@@ -15,7 +15,7 @@ import type { Uploads } from './use-uploads';
 import { useWindowOwn } from './use-window-own';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
-import { reportPackFeedback, reportRefresh } from './pack-feedback';
+import { reportPackFeedback, reportRefresh, reportWatch } from './pack-feedback';
 import {
   PREVIEW_HEIGHT,
   PREVIEW_WIDTH,
@@ -266,6 +266,25 @@ export function CreativesPackStudio({
       .catch(() => { if (alive) setFontReady(true); });
     return () => { alive = false; };
   }, [cueKey, fallbackText]);
+
+  // How long each card's preview is watched: told once, when it stops, another card starts, the shelf goes or the page closes.
+  const watchFacts = useRef({ token, profile, controls, ownFor });
+  watchFacts.current = { token, profile, controls, ownFor };
+  useEffect(() => {
+    if (!playing || !playingSlot) return;
+    const slot = playingSlot;
+    const since = performance.now();
+    const { controls: rows, ownFor: own } = watchFacts.current;
+    const extras = { generation: rows[slot.row].generation, ownPicture: Boolean(own(slot.row)) };
+    let told = false;
+    const tell = () => {
+      if (told) return;
+      told = true;
+      reportWatch(watchFacts.current.token, watchFacts.current.profile, slot, performance.now() - since, extras);
+    };
+    window.addEventListener('pagehide', tell);
+    return () => { window.removeEventListener('pagehide', tell); tell(); };
+  }, [playing, playingSlot?.id]);
 
   // A picture that has just become ready is drawn at once, and the one shared drawing surface must not be in use.
   useEffect(() => { if (playingId) stopPlayback(); }, [pictureIds]);

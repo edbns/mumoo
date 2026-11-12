@@ -27,6 +27,19 @@ export type Overview = {
   people: number;
 };
 
+/** What people did with one kind of thing (a row, a look, a picture…) over the period. */
+export type Tally = { key: string; plays: number; selects: number; downloads: number; delivered: number; refreshes: number; avgWatchMs: number };
+export type LearningEvent = {
+  at: string; event: string; row: string | null; look: string | null; vibe: string | null; lane: string | null;
+  mood: string | null; genre: string | null; watchMs: number | null; nthDownload: number | null;
+};
+export type Learning = {
+  days: number;
+  totals: Tally & { songs: number };
+  rows: Tally[]; looks: Tally[]; vibes: Tally[]; moods: Tally[]; pictures: Tally[];
+  recent: LearningEvent[];
+};
+
 /** One request to the admin API as the signed-in person. */
 export async function adminFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await sessionToken();
@@ -42,6 +55,7 @@ const id = (value: string) => `id=${encodeURIComponent(value)}`;
 
 export const loadOverview = () => adminFetch<Overview>('overview');
 export const loadLibrary = () => adminFetch<Library>('library');
+export const loadLearning = (days: number) => adminFetch<Learning>(`learning?days=${days}`);
 export const loadProblems = () => adminFetch<{ problems: Problem[]; unseen: number }>('problems');
 export const markProblemSeen = (problem: number) => adminFetch<{ problems: Problem[]; unseen: number }>(`problems?id=${problem}`, { method: 'PATCH' });
 export const markAllSeen = () => adminFetch<{ problems: Problem[]; unseen: number }>('problems?all=1', { method: 'PATCH' });

@@ -30,6 +30,28 @@ test('a body is accepted only when the brain understands it', () => {
   assert.ok(!keys.some(key => /lyric(s)?$|words|text/i.test(key)), 'no field can carry the lyrics');
 });
 
+test('the fuller telling: the whole reel and its seed, the watch, the delivery, and the song\'s moods, themes, drive and key', () => {
+  const reel = { ...card().slot, reelIds: [randomUUID(), randomUUID(), randomUUID()], cutSeed: 41 };
+  const fuller = card({ slot: reel, lyricMoods: ['fun', 'love'], lyricThemes: ['party', 'romance', 'nightlife'], drive: 0.77, mode: 'minor' });
+  assert.equal(validFeedback(fuller), true);
+  assert.equal(validFeedback(card({ drive: null, mode: null })), true, 'an older analysis has neither');
+  assert.equal(validFeedback(card({ event: 'watch', watchMs: 4200 })), true);
+  assert.equal(validFeedback({ version: 1, event: 'delivered', clipSha256: card().clipSha256, slotIds: ['ad-photography-x', 'ad-riso-y'] }), true, 'a delivery names only the song and its cards');
+  for (const bad of [
+    card({ event: 'watch' }), card({ event: 'watch', watchMs: 0 }), card({ event: 'watch', watchMs: 600_001 }), card({ event: 'watch', watchMs: 1.5 }),
+    card({ watchMs: 4200 }),
+    card({ slot: { ...reel, reelIds: [randomUUID()] } }), card({ slot: { ...reel, reelIds: Array.from({ length: 9 }, randomUUID) } }), card({ slot: { ...reel, reelIds: ['x', 'y'] } }),
+    card({ slot: { ...reel, cutSeed: -1 } }), card({ slot: { ...reel, cutSeed: 1_000_000 } }),
+    card({ lyricMoods: ['fun', 'love', 'sad'] }), card({ lyricThemes: ['Party'] }), card({ lyricThemes: ['the whole chorus goes here'] }),
+    card({ drive: 1.2 }), card({ mode: 'dorian' }),
+    { version: 1, event: 'delivered', clipSha256: card().clipSha256, slotIds: [] },
+    { version: 1, event: 'delivered', clipSha256: card().clipSha256, slotIds: Array.from({ length: 21 }, (_, i) => `s${i}`) },
+    { version: 1, event: 'delivered', clipSha256: 'nope', slotIds: ['s'] },
+  ]) {
+    assert.equal(validFeedback(bad), false, JSON.stringify(bad)?.slice(0, 120));
+  }
+});
+
 async function withPerson(run) {
   const sql = db();
   const userId = `test-${randomUUID()}`;
@@ -66,10 +88,31 @@ test('actions are kept; a signed-in person\'s downloads are numbered, and deleti
 
   await sql`delete from app_users where id = ${userId}`;
   const after = await sql`select user_id from brain_feedback where clip_sha256 = ${sha}`;
+  await sql`delete from brain_feedback where clip_sha256 = ${sha}`;
   assert.equal(after.length, 5, 'what was learned stays');
   assert.ok(after.every(row => row.user_id === null), 'but whose it was is forgotten');
-  await sql`delete from brain_feedback where clip_sha256 = ${sha}`;
 }));
+
+test('a watch keeps its time; a delivery is told as each card\'s own download, with its reel, seed and song', { skip: !READY, timeout: 60000 }, async () => {
+  const sql = db();
+  const reelIds = [randomUUID(), randomUUID()];
+  const pressed = card({ slot: { ...card().slot, id: 'ad-photography-reel', reelIds, cutSeed: 41 }, lyricMoods: ['fun'], lyricThemes: ['party'], drive: 0.7, mode: 'minor' });
+  const sha = pressed.clipSha256;
+  try {
+    assert.equal(await storeFeedback(card({ event: 'watch', watchMs: 4200, clipSha256: sha }), null), true);
+    assert.equal(await storeFeedback(pressed, null), true);
+    assert.equal(await storeFeedback({ version: 1, event: 'delivered', clipSha256: sha, slotIds: ['ad-photography-reel', 'never-pressed'] }, null), true);
+    const rows = await sql`select * from brain_feedback where clip_sha256 = ${sha} order by id`;
+    assert.deepEqual(rows.map(row => row.event), ['watch', 'download', 'delivered'], 'a card that was never pressed is not delivered');
+    assert.equal(rows[0].watch_ms, 4200);
+    const delivered = rows[2];
+    assert.deepEqual(delivered.reel_ids, reelIds);
+    assert.equal(delivered.cut_seed, 41);
+    assert.equal(delivered.genre, 'Latin & Urbano');
+    assert.deepEqual(delivered.lyric_themes, ['party']);
+    assert.equal(delivered.mode, 'minor');
+  } finally { await sql`delete from brain_feedback where clip_sha256 = ${sha}`; }
+});
 
 test('the endpoint keeps what a tester sends and refuses the rest', { skip: !READY, timeout: 60000 }, async () => {
   const previous = { ...process.env };

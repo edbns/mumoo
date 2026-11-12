@@ -3,6 +3,7 @@ import type { Cart, CartItem } from './cart';
 import { PENDING_KEY, expired, readPending, writePending, type PendingDownload } from './cart-jobs';
 import { friendlyError } from './friendly-error';
 import { JOB_TIMEOUT_MS, awaitCloudJob } from './pack-cloud-export';
+import { reportDelivered } from './pack-feedback';
 import { reportProblem } from './report-problem';
 
 export type DownloadProgress = { label: string; percent: number };
@@ -92,6 +93,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     const count = pending.jobs.length;
     const text = `${count === 1 ? 'Your creative is' : `Your ${count} creatives are`} ready${signedIn ? ' and in your History.' : ' and downloaded.'}`;
     latest.current.cart.removeFrom(pending.songKey, pending.jobs.map(job => job.itemId));
+    reportDelivered(latest.current.token, pending.songKey.split(':')[0], pending.jobs.map(job => job.itemId));
     setMessage({ kind: 'ready', text });
     notify(text);
     latest.current.onDelivered();
