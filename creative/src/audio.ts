@@ -1,4 +1,5 @@
 import { ACCEPTED_LABEL, sniffAudioFormat } from './audio-format';
+import { DURATION_MS } from './composition';
 
 /** Longest song we decode. A decoded buffer is ~10 MB per minute (mono, 44.1 kHz) — kept small for weak laptops. */
 export const MAX_SOURCE_MS = 10 * 60_000;
@@ -25,6 +26,18 @@ export function probeDurationMs(file: Blob): Promise<number | undefined> {
     element.onerror = () => done(undefined);
     element.src = url;
   });
+}
+
+/** A "15-second" clip from a phone often decodes a few hundredths short (encoder padding is trimmed); up to this much is filled with silence. */
+const SHORT_BY_MS = 500;
+
+/** Silence after the end, so a clip a hair under 15 seconds is 15 seconds. */
+function padTo(buffer: AudioBuffer, ms: number): AudioBuffer {
+  const length = Math.ceil((ms / 1000) * buffer.sampleRate);
+  if (buffer.length >= length) return buffer;
+  const padded = new AudioBuffer({ length, numberOfChannels: 1, sampleRate: buffer.sampleRate });
+  padded.copyToChannel(buffer.getChannelData(0), 0);
+  return padded;
 }
 
 /** Mix to mono so a long song costs half the memory; every later step (analysis, export) is mono anyway. */
@@ -68,7 +81,9 @@ export async function decodeAudio(bytes: ArrayBuffer, probedMs?: number): Promis
   if (decoded.duration * 1000 > MAX_SOURCE_MS) {
     throw new Error(`This song is ${Math.round(decoded.duration / 60)} minutes long. Use a song up to ${MAX_SOURCE_MS / 60_000} minutes, or trim it first.`);
   }
-  return toMono(decoded);
+  const mono = toMono(decoded);
+  const shortBy = DURATION_MS - mono.duration * 1000;
+  return shortBy > 0 && shortBy <= SHORT_BY_MS ? padTo(mono, DURATION_MS) : mono;
 }
 
 /** SHA-256 of the uploaded bytes, whatever the format. */

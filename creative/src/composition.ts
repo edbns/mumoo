@@ -34,7 +34,7 @@ function isTime(value: unknown): value is number {
 export function validate(value: unknown, sourceDurationMs: number): asserts value is Composition {
   if (!Number.isFinite(sourceDurationMs) || sourceDurationMs < DURATION_MS) {
     throw new Error(Number.isFinite(sourceDurationMs) && sourceDurationMs > 0
-      ? `This song is ${Math.round(sourceDurationMs / 100) / 10} seconds long. Choose one at least 15 seconds long.`
+      ? `This song is ${Math.floor(sourceDurationMs / 100) / 10} seconds long. Choose one at least 15 seconds long.`
       : 'Choose a song at least 15 seconds long.');
   }
   if (!value || typeof value !== 'object') throw new Error('Invalid composition.');
