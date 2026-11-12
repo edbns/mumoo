@@ -226,11 +226,17 @@ def with_colours(source: Path, directory: Path) -> Path | None:
     return fixed
 
 
+def size_from(answer: str) -> list[int]:
+    """[width, height] from ffprobe's csv answer. A stream with side data (iPhone HDR) gets extra empty fields: "1080x1920x"."""
+    found = re.match(r"\s*(\d+)x(\d+)", answer)
+    if not found:
+        raise PrepareError("That file could not be read as a photo, video or GIF.")
+    return [int(found[1]), int(found[2])]
+
+
 def size_of(path: Path) -> list[int]:
     """[width, height] of the first video stream, as ffmpeg decodes it (a phone video turned sideways is already turned)."""
-    answer = run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x", str(path)], 60).strip()
-    width, _, height = answer.partition("x")
-    return [int(width), int(height)]
+    return size_from(run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x", str(path)], 60))
 
 
 def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]], list[int]]:

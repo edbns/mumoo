@@ -1,6 +1,6 @@
 import unittest
 
-from modal_prepare_media_staging import opening_dark_ms, shots_from
+from modal_prepare_media_staging import opening_dark_ms, shots_from, size_from
 
 
 def luma_log(levels, step_ms=100):
@@ -42,6 +42,12 @@ class FirstShot(unittest.TestCase):
     def test_one_shot_keeps_its_picture(self):
         self.assertEqual(shots_from(scene_log(0), 900, 800), [[700, 900]])
         self.assertEqual(shots_from(scene_log(0), 5000, 0), [[0, 5000]])
+
+
+class Size(unittest.TestCase):
+    def test_plain_and_with_side_data(self):
+        self.assertEqual(size_from("1080x1920\n"), [1080, 1920])
+        self.assertEqual(size_from("1080x1920x\n"), [1080, 1920], "an iPhone HDR clip carries side data")
 
 
 if __name__ == "__main__":
