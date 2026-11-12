@@ -224,6 +224,39 @@ test('a genre theme in an item\'s tags is a small plus: it breaks a tie, but nev
   } finally { await server.close(); }
 });
 
+test('what the words are about lifts the pictures whose tags show it; the other moods fit just below the main one', async () => {
+  const { server, pick, pack } = await load();
+  try {
+    // ATREVIMENTO: flirty, also fun and love, about seduction, romance and nightlife.
+    const wanted = { attitude: 'flirty', genre: 'Pop', subGenre: '', moods: ['fun', 'love'], themes: ['seduction', 'romance', 'nightlife'] };
+    const items = [
+      item('flirty-plain', { attitudes: ['flirty'], tags: ['skating'] }),
+      item('flirty-sexy', { attitudes: ['flirty'], tags: ['beautiful woman', 'close up'] }),
+      item('flirty-three', { attitudes: ['flirty'], tags: ['sexy', 'couple', 'neon'] }),
+      item('love-couple', { attitudes: ['love'], tags: ['couple', 'sexy'] }),
+      item('love-plain', { attitudes: ['love'] }),
+      item('neutral-neon', { attitudes: ['neutral'], tags: ['neon', 'sexy', 'couple'] }),
+      item('sad', { attitudes: ['sad'], tags: ['sexy', 'couple'] }),
+    ];
+    const fit = id => pick.libraryFit(items.find(entry => entry.id === id), wanted);
+    assert.ok(fit('flirty-sexy') > fit('flirty-plain'), 'a shown theme beats none at the same mood');
+    assert.ok(Math.abs((fit('flirty-three') - fit('flirty-sexy')) - (fit('flirty-sexy') - fit('flirty-plain'))) < 1e-9, 'three shown themes count as two');
+    assert.ok(fit('love-plain') < fit('flirty-plain'), 'another mood of the song fits, below the main one');
+    assert.ok(fit('love-plain') > pick.libraryFit(item('neutral-plain', { attitudes: ['neutral'] }), wanted), 'and above a neutral picture');
+    assert.ok(fit('neutral-neon') < fit('flirty-plain'), 'themes never lift a neutral picture over the main mood');
+    assert.equal(fit('sad'), null, 'themes never let in a feeling the song does not have');
+    assert.equal(pick.libraryFit(items[4], { ...wanted, moods: undefined }), null, 'without the other moods, a love picture does not fit a flirty song');
+    assert.equal(pick.libraryFit(items[1], { ...wanted, themes: undefined }), pick.libraryFit(items[0], { ...wanted, themes: undefined }), 'a song without themes ranks as before');
+
+    // The brain passes the reader's themes and moods on to every library pick.
+    const song = profile('Pop', undefined, 'flirty');
+    song.lyricMeaning.meaning = { ...song.lyricMeaning.meaning, moods: ['love'], themes: ['seduction'] };
+    const clip = (id, over) => item(id, { kind: 'video', motionUrl: `https://x/${id}.mp4`, shots: [[0, 2000]], ...over });
+    const library = [clip('neutral', { attitudes: ['neutral'] }), clip('love', { attitudes: ['love'] }), clip('flirty', { attitudes: ['flirty'] }), clip('flirty-sexy', { attitudes: ['flirty'], tags: ['sexy'] })];
+    assert.deepEqual(ids(pack.windowHand(song, 0, library)), ['flirty-sexy', 'flirty', 'love', 'neutral']);
+  } finally { await server.close(); }
+});
+
 /* ---------- the server (live storage and database) ---------- */
 
 const jpeg = size => Uint8Array.from({ length: size }, (_, i) => [0xff, 0xd8, 0xff][i] ?? 7);

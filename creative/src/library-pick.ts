@@ -1,5 +1,6 @@
 import { themesFor } from './genre-guide';
 import { attitudeOf } from './lyric-meaning';
+import { themesShown, type SongTheme } from './song-themes';
 
 /**
  * Choosing from the approved library. The library is what the admin cleared (see the admin page); this is how the brain
@@ -9,7 +10,9 @@ import { attitudeOf } from './lyric-meaning';
  *              song (a little less); a song with no feeling (neutral, or lyrics not read) takes anything.
  *   genre      optional on an item. Set, it is preferred for that genre (and sub-genre) and kept away from every other;
  *              unset, it is free for any song.
+ *              An item that lists one of the song's other moods fits just below the main one.
  *   tags       a tag that is one of the song's genre themes (`genre-guide.ts`) is a small plus (less than a step of attitude or genre), never a reason to refuse.
+ *              A tag that shows what the words are about (`song-themes.ts`) is a bigger plus, still less than a step of attitude.
  */
 export type LibraryPicture = {
   id: string;
@@ -28,7 +31,19 @@ export type LibraryPicture = {
 };
 
 /** What the brain knows of the song that the library cares about. */
-export type LibraryWanted = { attitude: string | null; genre: string; subGenre: string };
+export type LibraryWanted = {
+  attitude: string | null;
+  genre: string;
+  subGenre: string;
+  /** The other moods the words carry: an item that lists one fits, a little below the main mood. */
+  moods?: readonly string[];
+  /** What the words are about (`song-themes.ts`), shown by the item's tags. */
+  themes?: readonly SongTheme[];
+};
+
+/** Two shown themes (0.8) never lift a neutral item (1) over the main mood (2); they can lift one of the other moods (1.5) over it. */
+const THEME_STEP = 0.4;
+const MOST_THEMES = 2;
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
@@ -48,7 +63,9 @@ export function libraryFit(item: LibraryPicture, wanted: LibraryWanted, loose = 
   const feeling = wantedMood && wantedMood !== 'neutral' ? wantedMood : null;
   if (feeling) {
     const moods = item.attitudes.map(attitudeOf);
+    const more = (wanted.moods ?? []).map(attitudeOf);
     if (moods.includes(feeling)) fit += 2;
+    else if (moods.some(mood => mood && mood !== 'neutral' && more.includes(mood))) fit += 1.5;
     else if (moods.includes('neutral')) fit += 1;
     else if (loose) fit -= 100;
     else return null;
@@ -62,7 +79,8 @@ export function libraryFit(item: LibraryPicture, wanted: LibraryWanted, loose = 
     }
   }
   const themes = themesFor(wanted.genre, wanted.subGenre);
-  return fit + Math.min(2, item.tags.filter(tag => themes.includes(tag)).length) * 0.25;
+  const shown = wanted.themes?.length ? Math.min(MOST_THEMES, themesShown(item.tags, wanted.themes)) : 0;
+  return fit + Math.min(2, item.tags.filter(tag => themes.includes(tag)).length) * 0.25 + shown * THEME_STEP;
 }
 
 /**

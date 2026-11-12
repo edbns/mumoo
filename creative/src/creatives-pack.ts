@@ -300,6 +300,17 @@ export function readSong(profile: CreativeProfileV1) {
   return { intent, genre, language, meaning, lane };
 }
 
+/** What the library is asked for this song: its moods, genre and what the words are about. */
+function libraryWanted(profile: CreativeProfileV1, meaning: LyricMeaning | null, genre: string): LibraryWanted {
+  return {
+    attitude: meaning?.attitude ?? null,
+    genre,
+    subGenre: profile.creator.subGenre?.value ?? '',
+    ...(meaning?.moods?.length ? { moods: meaning.moods } : {}),
+    ...(meaning?.themes?.length ? { themes: meaning.themes } : {}),
+  };
+}
+
 /** An approved photo; `cutout` says it also has the mask Dust needs. */
 export type PlateRef = { id: string; cutout: boolean };
 
@@ -322,7 +333,7 @@ const risoCapable = (item: LibraryPicture) => (item.kind === 'photo' ? Boolean(i
  */
 export function windowHand(profile: CreativeProfileV1, generation: number, library: readonly LibraryPicture[]): LibraryPicture[] {
   const { meaning, genre } = readSong(profile);
-  const wanted = { attitude: meaning?.attitude ?? null, genre, subGenre: profile.creator.subGenre?.value ?? '' };
+  const wanted = libraryWanted(profile, meaning, genre);
   return pickLibrary(library.filter(windowCapable), wanted, profile.clip.sourceSha256, generation, ROW_SIZE);
 }
 
@@ -367,7 +378,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
   // Dust draws library photos that have a cut-out; Riso those, or library videos/GIFs; with none, our approved photos.
-  const wanted = { attitude: meaning?.attitude ?? null, genre, subGenre: profile.creator.subGenre?.value ?? '' };
+  const wanted = libraryWanted(profile, meaning, genre);
   const cutOutLibrary = pickLibrary(library.filter(item => item.kind === 'photo' && item.cutoutUrl), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
   const risoLibrary = pickLibrary(library.filter(risoCapable), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
   const photos: PhotoSources = { plateIds: cutOutPlates, libraryIds: cutOutLibrary };
