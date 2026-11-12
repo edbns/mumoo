@@ -101,7 +101,13 @@ function Phone() {
     if (!file) return;
     if (state.step === 'chosen') URL.revokeObjectURL(state.preview);
     const preview = URL.createObjectURL(file);
-    setState({ step: 'chosen', file, preview, problem: await problemWith(kindName, file, preview) });
+    const problem = await problemWith(kindName, file, preview);
+    // The song step takes exactly one file: a good one goes at once, a refused one says why.
+    if (kindName === 'song') {
+      URL.revokeObjectURL(preview);
+      return problem ? setState({ step: 'failed', error: problem }) : void choose(file);
+    }
+    setState({ step: 'chosen', file, preview, problem });
   }
 
   async function choose(file: File) {
