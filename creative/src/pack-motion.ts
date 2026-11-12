@@ -14,6 +14,8 @@ export type Motion = {
   destroy(): void;
 };
 
+const SEEK_TIMEOUT_MS = 1500;
+
 export async function loadMotion(url: string): Promise<Motion> {
   // Fresh from the network, never the browser's cache (see loadTexture in pack-renderer.ts).
   const response = await fetch(url, { cache: 'no-store' }).catch(() => null);
@@ -42,8 +44,10 @@ export async function loadMotion(url: string): Promise<Motion> {
     async seek(ms) {
       const at = Math.min(Math.max(0, ms / 1000), Math.max(0, video.duration - 0.05));
       if (Math.abs(video.currentTime - at) > 0.0005 || video.readyState < 2) {
+        // A seek the browser never reports done would stop the card for good; after a moment it goes on with the frame it has.
         await new Promise<void>(resolve => {
-          video.onseeked = () => resolve();
+          const timer = setTimeout(resolve, SEEK_TIMEOUT_MS);
+          video.onseeked = () => { clearTimeout(timer); resolve(); };
           video.currentTime = at;
         });
       }

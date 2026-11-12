@@ -165,7 +165,11 @@ export function CreativesPackStudio({
   const [plates, setPlates] = useState<PlateRef[] | null>(null);
   /** The cards whose posters are finished. */
   const [readyCards, setReadyCards] = useState<ReadonlySet<string>>(new Set());
-  const music = useMemo(() => impactMusic(profile), [profile.musicAnalysis, profile.approvedLyrics]);
+  // The app builds the profile afresh on every render (about 20 a second while the song plays), so what is made from it is
+  // keyed on what it holds: a new `music` object would restart the live preview, flashing the card's poster between frames.
+  const lyricKey = JSON.stringify(profile.approvedLyrics?.cues ?? null);
+  const creatorKey = JSON.stringify(profile.creator);
+  const music = useMemo(() => impactMusic(profile), [profile.musicAnalysis, lyricKey]);
   const intent = useMemo(
     () => (profile.musicAnalysis.status === 'ready' ? deriveMusicIntent(profile.musicAnalysis.result) : null),
     [profile.musicAnalysis],
@@ -216,7 +220,7 @@ export function CreativesPackStudio({
   const platesFor = ownPool ? [] : plates ?? [];
   const dealtKey = dealt?.map(item => item.id + (item.cutoutUrl ? '+cut' : '') + (item.motionUrl ? '+m' : '')).join(',');
   // Window deals from library pictures too (or the person's own), once it has read how each looks (the four it is about to deal).
-  const windowPictures = useMemo(() => (own ? [] : windowHand(profile, controls.window.generation, dealt ?? [])), [own?.id, profile.clip.sourceSha256, profile.lyricMeaning, profile.creator, controls.window.generation, dealtKey]);
+  const windowPictures = useMemo(() => (own ? [] : windowHand(profile, controls.window.generation, dealt ?? [])), [own?.id, profile.clip.sourceSha256, profile.lyricMeaning, creatorKey, controls.window.generation, dealtKey]);
   const windowReads = useWindowReadings(windowPictures);
   const libraryCutouts = (library ?? []).some(item => item.kind === 'photo' && item.cutoutUrl);
   const libraryRisoMotion = (library ?? []).some(item => item.kind !== 'photo' && item.motionUrl);
@@ -264,7 +268,7 @@ export function CreativesPackStudio({
     const note = !slots.length && isLookRow(def.id) && !ownPool ? `${def.title} is drawn on pictures from our library, and none fits this song yet. Upload your own picture to see it here.` : '';
     return [def.id, { slots, note }];
   })) as Record<ShelfRow, RowView>, [
-    profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover, profile.creator.primaryGenre.value, profile.creator.voice?.value,
+    profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, creatorKey, lyricKey,
     controls, plates, hasLyrics, textless, pictureIds, ownKind, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem, windowReads.pending, Object.keys(windowReads.readings).join(','),
     // What the library (or the person's own pool) holds, not the links to it (they are renewed all the time).
     dealtKey,
