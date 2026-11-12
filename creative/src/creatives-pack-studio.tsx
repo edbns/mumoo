@@ -29,6 +29,7 @@ import { LoadingMask } from './loading-mask';
 import { loadPunchPlatesManifest } from './punch-plates';
 import { useLibrary } from './use-library';
 import { useWindowReadings } from './use-window-library';
+import type { LibraryPicture } from './library-pick';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 
 function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
@@ -56,6 +57,22 @@ function drawingFrom(upload: Pick<Upload, 'url' | 'cutoutUrl' | 'motionUrl' | 's
   if (!upload?.url) return undefined;
   if (upload.motionUrl) return { motionUrl: upload.motionUrl, ...(upload.shots ? { motionShots: upload.shots } : {}) };
   return { photoUrl: upload.url, ...(upload.cutoutUrl ? { cutoutUrl: upload.cutoutUrl } : {}) };
+}
+
+/** One of the person's own pictures, dealt like a library picture: it fits any song (no feeling, no genre of its own). */
+function asLibraryPicture(upload: Upload): LibraryPicture {
+  return {
+    id: upload.id,
+    kind: upload.kind === 'photo' ? 'photo' : 'video',
+    attitudes: ['neutral'],
+    tags: [],
+    genre: null,
+    subGenre: null,
+    url: upload.url ?? '',
+    ...(upload.cutoutUrl ? { cutoutUrl: upload.cutoutUrl } : {}),
+    ...(upload.motionUrl ? { motionUrl: upload.motionUrl } : {}),
+    ...(upload.shots ? { shots: upload.shots } : {}),
+  };
 }
 
 function packOpts(
@@ -160,33 +177,55 @@ export function CreativesPackStudio({
   const textless = noLyrics || !lyricsSwitch;
   const lyricsOn = () => !textless;
 
-  // The shelf's one picture: the person's own, once it is ready (a new one replaces it), else ours.
+  // The person's own pictures, once ready, else ours. One is drawn on every template (four colourings of it); two or more are
+  // dealt like our library, each card its own picture, and the Director edits reels from them.
   // Links are renewed from time to time, so cards are keyed by id, not link.
-  const uploaded = uploads.current.find(item => item.use === SHELF_PICTURE && item.status === 'ready' && item.url) ?? null;
+  const readyOwn = uploads.current.filter(item => item.use === SHELF_PICTURE && item.status === 'ready' && item.url);
+  const readyIds = readyOwn.map(item => item.id).join(',');
   // The person can go back to our pictures after uploading their own; a new upload is used at once.
   const [ours, setOurs] = useState(false);
-  useEffect(() => { setOurs(false); }, [uploaded?.id]);
-  const own = ours ? null : uploaded;
-  const ownKind: OwnKind | null = own ? (own.motionUrl ? 'motion' : 'photo') : null;
+  useEffect(() => { setOurs(false); }, [readyIds]);
+  const uploaded = readyOwn.length > 0;
+  const own = ours || readyOwn.length !== 1 ? null : readyOwn[0];
+  const ownPool = ours || readyOwn.length < 2 ? null : readyOwn.map(asLibraryPicture);
+  const ownKind: OwnKind | null = own ? (own.motionUrl ? 'motion' : 'photo')
+    : ownPool ? (ownPool.some(item => item.kind === 'photo') ? 'photo' : 'motion') : null;
+  /** Is this card drawn from the person's own pictures (one, or a pool of them)? */
+  const ownCard = (slot: CreativesPackSlot) => Boolean(ownFor(slot.row)) || (ownPool !== null && ownPoolIds(slot).length > 0);
+  /** The own pictures a pool card draws from: its one picture, or its reel's. */
+  const ownPoolIds = (slot: CreativesPackSlot) => {
+    const ids = slot.reelIds ?? (slot.libraryId ? [slot.libraryId] : []);
+    return ids.every(id => readyOwn.some(item => item.id === id)) ? ids : [];
+  };
   /** The templates on the shelf now: a video or GIF leaves out the ones that need a photo, no lyrics the ones made of them. */
   const shelf = rowsFor(textless, ownKind);
   /** The person's own picture, for a template that draws one. */
   const ownFor = (row: ShelfRow) => (SHELF_ROWS.find(def => def.id === row)?.picture ? own : null);
   const windowOwn = useWindowOwn(own);
-  // Our approved library fills the shelf until the person uses their own picture.
+  // Our approved library fills the shelf until the person uses their own pictures.
   const library = useLibrary();
+  /** What the shelf deals from: the person's own pictures when they have several, else our library. */
+  const dealt = ownPool ?? library;
   // Riso draws library cut-out photos or clips; Dust only cut-out photos; Window photos with cut-out or clips.
   const libraryFor = (row: ShelfRow) => {
     // Live-look rows deal from our library; a picture of the person's own is drawn on all four cards instead (see `recommendRow`).
-    if (isLookRow(row)) return library ?? [];
-    return (row === 'photography' || row === 'riso' || row === 'dust' || row === 'window') && !own ? library ?? [] : [];
+    if (isLookRow(row)) return dealt ?? [];
+    return (row === 'photography' || row === 'riso' || row === 'dust' || row === 'window') && !own ? dealt ?? [] : [];
   };
-  // Window deals from library pictures too, once it has read how each looks (the four it is about to deal).
-  const windowPictures = useMemo(() => (own ? [] : windowHand(profile, controls.window.generation, library ?? [])), [own?.id, profile.clip.sourceSha256, profile.lyricMeaning, profile.creator, controls.window.generation, library?.map(item => item.id + (item.cutoutUrl ? '+cut' : '') + (item.motionUrl ? '+m' : '')).join(',')]);
+  /** Our approved photos, which the person's own pictures replace. */
+  const platesFor = ownPool ? [] : plates ?? [];
+  const dealtKey = dealt?.map(item => item.id + (item.cutoutUrl ? '+cut' : '') + (item.motionUrl ? '+m' : '')).join(',');
+  // Window deals from library pictures too (or the person's own), once it has read how each looks (the four it is about to deal).
+  const windowPictures = useMemo(() => (own ? [] : windowHand(profile, controls.window.generation, dealt ?? [])), [own?.id, profile.clip.sourceSha256, profile.lyricMeaning, profile.creator, controls.window.generation, dealtKey]);
   const windowReads = useWindowReadings(windowPictures);
   const libraryCutouts = (library ?? []).some(item => item.kind === 'photo' && item.cutoutUrl);
   const libraryRisoMotion = (library ?? []).some(item => item.kind !== 'photo' && item.motionUrl);
-  const libraryItem = (id: string | undefined) => (id ? (library ?? []).find(item => item.id === id) ?? null : null);
+  /** A picture by id: one of the person's own (also one a cart still keeps from an earlier run), or our library's. */
+  const libraryItem = (id: string | undefined): LibraryPicture | null => {
+    if (!id) return null;
+    const upload = (uploads.list ?? []).find(item => item.id === id && item.status === 'ready' && item.url);
+    return upload ? asLibraryPicture(upload) : (library ?? []).find(item => item.id === id) ?? null;
+  };
   /** The pictures and clips of a Director's reel, in the order it opens on them. Null when too few of them are still in the library. */
   const reelOf = (ids: readonly string[] | undefined, depth = false): Picture | undefined => {
     const sources = (ids ?? []).flatMap((id): ReelSource[] => {
@@ -200,13 +239,13 @@ export function CreativesPackStudio({
   };
   const pictureOf = (row: ShelfRow, slot?: CreativesPackSlot) =>
     (ownFor(row) ? drawingFrom(ownFor(row)) : undefined) ?? (slot?.reelIds ? reelOf(slot.reelIds, row === 'depth') : undefined) ?? (slot?.libraryId ? drawingFrom(libraryItem(slot.libraryId)) : undefined);
-  const pictureIds = own?.id ?? 'ours';
+  const pictureIds = own?.id ?? (ownPool ? `own:${readyIds}` : 'ours');
 
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
     // Not on the shelf now (made of the lyrics and there are none, or needs a photo and the picture is a video): nothing is dealt, drawn or paid for.
     if (!shelf.some(item => item.id === def.id)) return [def.id, { slots: [], note: '' }];
     // Dust and Depth need cut-out photos; Riso also accepts library videos/GIFs (and the person's own video).
-    if ((def.id === 'dust' || def.id === 'riso' || def.id === 'depth') && !own) {
+    if ((def.id === 'dust' || def.id === 'riso' || def.id === 'depth') && !own && !ownPool) {
       if (plates === null || library === null) {
         return [def.id, { slots: [], note: '' }];
       } else if (!plates.some(plate => plate.cutout) && !libraryCutouts && !(def.id === 'riso' && libraryRisoMotion)) {
@@ -216,19 +255,19 @@ export function CreativesPackStudio({
     // Our photography is dealt once it knows what our library holds and which approved photo it may draw a look on.
     if (def.id === 'photography' && (library === null || plates === null)) return [def.id, { slots: [], note: '' }];
     // The looks are dealt once it knows what our library holds.
-    if (isLookRow(def.id) && library === null && !own) return [def.id, { slots: [], note: '' }];
+    if (isLookRow(def.id) && dealt === null && !own) return [def.id, { slots: [], note: '' }];
     // Window is dealt once it knows its pictures: the person's own, once it has been read (what shows in the letters decides the colours), or our approved photos.
-    if (def.id === 'window' && (own ? !windowOwn.own : plates === null || library === null || windowReads.pending)) return [def.id, { slots: [], note: windowOwn.problem }];
+    if (def.id === 'window' && (own ? !windowOwn.own : plates === null || dealt === null || windowReads.pending)) return [def.id, { slots: [], note: windowOwn.problem }];
     if (!textless && !hasLyrics) return [def.id, { slots: [], note: '' }];
-    const slots = recommendRow(def.id, profile, controls[def.id].generation, plates ?? [], def.id === 'window' ? windowOwn.own : null, libraryFor(def.id), windowReads.readings, isLookRow(def.id) && Boolean(ownFor(def.id)));
+    const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, def.id === 'window' ? windowOwn.own : null, libraryFor(def.id), windowReads.readings, isLookRow(def.id) && Boolean(ownFor(def.id)));
     // The looks are drawn on our library pictures, so with none for this song they say so instead of vanishing.
-    const note = !slots.length && isLookRow(def.id) ? `${def.title} is drawn on pictures from our library, and none fits this song yet. Upload your own picture to see it here.` : '';
+    const note = !slots.length && isLookRow(def.id) && !ownPool ? `${def.title} is drawn on pictures from our library, and none fits this song yet. Upload your own picture to see it here.` : '';
     return [def.id, { slots, note }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, profile.creator.cover, profile.creator.primaryGenre.value, profile.creator.voice?.value,
     controls, plates, hasLyrics, textless, pictureIds, ownKind, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem, windowReads.pending, Object.keys(windowReads.readings).join(','),
-    // What the library holds, not the links to it (they are renewed all the time).
-    library?.map(item => item.id + (item.cutoutUrl ? '+cut' : '') + (item.motionUrl ? '+m' : '')).join(','),
+    // What the library (or the person's own pool) holds, not the links to it (they are renewed all the time).
+    dealtKey,
   ]);
   /** The cards on the page, in order: each template's first creative, and the rest of its four where the person asked for more. */
   const cards = shelf.flatMap(def => view[def.id].slots.slice(0, LEAD).map(slot => ({ def, slot })));
@@ -268,14 +307,14 @@ export function CreativesPackStudio({
   }, [cueKey, fallbackText]);
 
   // How long each card's preview is watched: told once, when it stops, another card starts, the shelf goes or the page closes.
-  const watchFacts = useRef({ token, profile, controls, ownFor });
-  watchFacts.current = { token, profile, controls, ownFor };
+  const watchFacts = useRef({ token, profile, controls, ownCard });
+  watchFacts.current = { token, profile, controls, ownCard };
   useEffect(() => {
     if (!playing || !playingSlot) return;
     const slot = playingSlot;
     const since = performance.now();
-    const { controls: rows, ownFor: own } = watchFacts.current;
-    const extras = { generation: rows[slot.row].generation, ownPicture: Boolean(own(slot.row)) };
+    const { controls: rows, ownCard: isOwn } = watchFacts.current;
+    const extras = { generation: rows[slot.row].generation, ownPicture: isOwn(slot) };
     let told = false;
     const tell = () => {
       if (told) return;
@@ -403,17 +442,19 @@ export function CreativesPackStudio({
     }
     const card = canvasRefs.current.get(slot.id);
     if (!card) return;
+    const pooled = ownPool ? ownPoolIds(slot) : [];
     const item: CartItem = {
       id: slot.id,
       row: slot.row,
       slot,
       lyrics: lyricsOn(),
-      uploadId: ownFor(slot.row)?.id ?? null,
+      uploadId: ownFor(slot.row)?.id ?? (pooled.length && !slot.reelIds ? pooled[0] : null),
+      ...(pooled.length && slot.reelIds ? { ownReel: true as const } : {}),
       generation: controls[slot.row].generation,
       thumb: cardThumbnail(card),
     };
     cart.add(item);
-    reportPackFeedback(token, profile, 'select', slot, { selectedIds: [...cart.items.map(held => held.id), slot.id], generation: item.generation, ownPicture: item.uploadId !== null });
+    reportPackFeedback(token, profile, 'select', slot, { selectedIds: [...cart.items.map(held => held.id), slot.id], generation: item.generation, ownPicture: ownCard(slot) });
   }
 
   /** What a cart item is drawn from now: the person's own picture (if it is still there) or the library / plate. */
@@ -444,7 +485,7 @@ export function CreativesPackStudio({
     setPlayingId(id);
     if (playing) onStop();
     const slot = pack.find(item => item.id === id);
-    if (slot) reportPackFeedback(token, profile, 'play', slot, { generation: controls[slot.row].generation, ownPicture: Boolean(ownFor(slot.row)) });
+    if (slot) reportPackFeedback(token, profile, 'play', slot, { generation: controls[slot.row].generation, ownPicture: ownCard(slot) });
     onPlay();
   }
 
@@ -472,9 +513,9 @@ export function CreativesPackStudio({
           wav,
           opts: packOpts(item.slot, composition, music, fallbackText, item.lyrics, pictureFor(item).picture),
           // Never send both: own upload replaces the library picture on this row.
-          ...(item.uploadId ? { uploadId: item.uploadId } : item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
+          ...(item.uploadId ? { uploadId: item.uploadId } : item.ownReel ? { ownReel: true } : item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
         }));
-        reportPackFeedback(token, profile, 'download', item.slot, { selectedIds: cart.items.map(held => held.id), generation: item.generation, ownPicture: item.uploadId !== null });
+        reportPackFeedback(token, profile, 'download', item.slot, { selectedIds: cart.items.map(held => held.id), generation: item.generation, ownPicture: item.uploadId !== null || Boolean(item.ownReel) });
       }
       return ids;
     });
@@ -500,7 +541,9 @@ export function CreativesPackStudio({
       <PictureUpload uploads={uploads} token={token} onChange={stopPlayback} />
       <Button className="shimmer" disabled={!allReady} onClick={refreshShelf} aria-label="Refresh all creatives">Refresh</Button>
     </div>
-    {ownKind && <p className="hint text-center">{ownKind === 'motion' ? 'Your video or GIF is shown on the templates that can use one. Dust and Depth need a photo.' : 'Your photo is shown on the templates that use a picture.'}</p>}
+    {ownKind && <p className="hint text-center">{ownPool
+      ? (ownKind === 'motion' ? `Your ${ownPool.length} videos or GIFs are shared out over the templates that can use them. Dust and Depth need a photo.` : `Your ${ownPool.length} pictures are shared out over the templates that use a picture.`)
+      : ownKind === 'motion' ? 'Your video or GIF is shown on the templates that can use one. Dust and Depth need a photo.' : 'Your photo is shown on the templates that use a picture.'}</p>}
     {!textless && !hasLyrics && <p className="hint text-center" role="status">Approve your synced lyrics, or switch Lyrics off.</p>}
     {SHELF_ROWS.map(def => view[def.id].note ? <p key={def.id} className="hint text-center" role="status">{view[def.id].note}</p> : null)}
     {cards.length > 0 && <div className="creatives-pack-grid" role="list" aria-busy={!allReady}>

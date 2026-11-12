@@ -1,7 +1,7 @@
 import { validAccess } from '../lib/access.mjs';
 import { personFrom } from '../lib/person.mjs';
 import { libraryMedia, libraryReel } from '../lib/library.mjs';
-import { uploadMedia } from '../lib/uploads.mjs';
+import { uploadMedia, uploadReel } from '../lib/uploads.mjs';
 import { ownMedia } from '../lib/render-media.mjs';
 import { reelFrom, reelIds } from '../lib/reel.mjs';
 
@@ -49,7 +49,7 @@ export default async function encodeCreative(request) {
     }
     if (audio.size < 1000) return error(400, 'Audio file is too small.');
 
-    const { upload, library, ...scene } = JSON.parse(meta);
+    const { upload, library, ownReel, ...scene } = JSON.parse(meta);
     const outbound = new FormData();
     outbound.append('audio', audio, 'clip.wav');
     if (library !== undefined) {
@@ -87,8 +87,17 @@ export default async function encodeCreative(request) {
       if (upload !== undefined || library !== undefined) return error(400, 'Choose one picture.');
       const asked = reelIds(scene.opts);
       if (asked.refused) return error(400, asked.refused);
-      const found = await libraryReel(asked.ids, asked.depth);
-      if (found.includes(null)) return error(404, 'A picture of that reel is no longer in the library, or has no cut-out yet.');
+      let found;
+      if (ownReel === true) {
+        // A reel of the person's own pictures: only theirs, so they must be signed in.
+        const person = await personFrom(request);
+        if (!person) return error(401, 'Sign in to use your own pictures.');
+        found = await uploadReel(person.id, asked.ids, asked.depth);
+        if (found.includes(null)) return error(404, 'One of your pictures in that reel was removed, or is still being prepared.');
+      } else {
+        found = await libraryReel(asked.ids, asked.depth);
+        if (found.includes(null)) return error(404, 'A picture of that reel is no longer in the library, or has no cut-out yet.');
+      }
       scene.opts = { ...scene.opts, reel: reelFrom(found) };
     }
     outbound.append('meta', JSON.stringify(scene));

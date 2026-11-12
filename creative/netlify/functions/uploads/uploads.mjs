@@ -1,6 +1,6 @@
 import { personFrom, recordPerson } from '../../lib/person.mjs';
 import { storageReady } from '../../lib/storage.mjs';
-import { entries, listUploads, MAX_PHOTO_BYTES, motionArrived, removeAllExcept, removeUpload, reserveMotion, saveUpload, USES } from '../../lib/uploads.mjs';
+import { entries, listUploads, MAX_PHOTO_BYTES, MAX_SHELF_PICTURES, motionArrived, removeAllExcept, removeUpload, reserveMotion, saveUpload, USES } from '../../lib/uploads.mjs';
 
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -9,6 +9,7 @@ const REFUSALS = {
   size: [413, 'That file is too large.'],
   busy: [409, 'Your last picture is still being prepared. Try again in a moment.'],
   full: [409, 'Your storage is full. Delete some files or creatives to make room.'],
+  many: [409, `You already have ${MAX_SHELF_PICTURES} of your own pictures here. Start over to use others.`],
 };
 const refuse = (reason) => reply(...REFUSALS[reason]);
 /** Every change answers with the person's pictures as they now are, so the page needs no second request. */

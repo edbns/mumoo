@@ -14,7 +14,7 @@ import { useLyricMeaning } from './lyric-meaning-cloud';
 import { useSingerVoice } from './singer-voice-cloud';
 import { CreativesPackStudio } from './creatives-pack-studio';
 import { SHELF_ROWS } from './creatives-pack';
-import { useCart, songKeyOf } from './cart';
+import { ownIdsOf, useCart, songKeyOf } from './cart';
 import { CartButton, CartPanel, DownloadNotice, type CartAction, type CartLine } from './cart-panel';
 import { useCartDownload } from './use-cart-download';
 import { useUploads } from './use-uploads';
@@ -305,13 +305,17 @@ function App() {
   }
 
   const canContinue = valid && clipValid && genreValid && (noLyrics || composition.cues.length > 0) && !lyricsState.busy && !lyricsState.dirty;
-  const checkingPictures = cart.items.some(item => item.uploadId !== null) && (uploads.pending || (uploads.signedIn && uploads.list === null));
-  const lines: CartLine[] = cart.items.map(item => ({
-    item,
-    title: `${SHELF_ROWS.find(row => row.id === item.row)?.title ?? ''} · ${item.uploadId === null ? item.slot.label : 'Your picture'}`,
-    available: item.uploadId === null || checkingPictures
-      || (uploads.list ?? []).some(candidate => candidate.id === item.uploadId && candidate.status === 'ready' && candidate.url),
-  }));
+  const checkingPictures = cart.items.some(item => ownIdsOf(item).length > 0) && (uploads.pending || (uploads.signedIn && uploads.list === null));
+  const lines: CartLine[] = cart.items.map(item => {
+    const own = ownIdsOf(item);
+    return {
+      item,
+      title: `${SHELF_ROWS.find(row => row.id === item.row)?.title ?? ''} · ${!own.length ? item.slot.label : own.length > 1 ? 'Your pictures' : 'Your picture'}`,
+      // Every one of its own pictures must still be there: the cloud is not given a reel with one missing.
+      available: !own.length || checkingPictures
+        || own.every(id => (uploads.list ?? []).some(candidate => candidate.id === id && candidate.status === 'ready' && candidate.url)),
+    };
+  });
   // Videos are made from the creatives page, which has the music analysis and the pictures; elsewhere the cart leads there.
   const cartAction: CartAction = (() => {
     if (!inCreatives) {
@@ -362,7 +366,7 @@ function App() {
               onSelect={file => void choose(file)} onRemove={() => void choose(undefined)} />
             {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
             {!loading && !buffer && <p className="hint">Choose a song at least 15 seconds long to continue. No song file? A video with the song playing works too: a saved TikTok or Reel, a screen recording, or a voice memo.</p>}
-            {IS_ALIGNMENT_STAGING && accessToken && !loading && !buffer && <PhoneUpload token={accessToken} kind="song" onFile={file => void choose(file)} />}
+            {IS_ALIGNMENT_STAGING && accessToken && !loading && !buffer && <PhoneUpload token={accessToken} kind="song" onFiles={([file]) => void choose(file)} />}
           </div>
           <div className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-background p-5">
             <Combobox label="Genre" placeholder="Search genres" options={GENRE_OPTIONS} value={genre} onValueChange={chooseGenre} />

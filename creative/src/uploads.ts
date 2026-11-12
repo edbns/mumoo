@@ -9,6 +9,8 @@ export type PictureUse = 'any' | 'dust' | 'filter' | 'riso' | 'window' | 'therma
 
 /** The picture the whole shelf draws. */
 export const SHELF_PICTURE: PictureUse = 'any';
+/** How many of their own pictures the shelf keeps and deals from (netlify/lib/uploads.mjs). */
+export const MAX_SHELF_PICTURES = 10;
 
 /**
  * A person's own picture, kept privately in their storage (each row keeps one; a new one replaces it).

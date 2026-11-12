@@ -41,22 +41,39 @@ const KEYS = {
 const isJpeg = (bytes) => bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
 const bridge = () => ({ Authorization: `Bearer ${process.env.MUMOO_MUSIC_BRIDGE_SECRET}` });
 
-/** Why a picture was turned away: 'size', 'busy' (the row's last picture is still being prepared) or 'full'. Null when there is room and it is fine. */
+/** The shelf (`any`) keeps up to this many of the person's own pictures; the creatives deal from all of them. */
+export const MAX_SHELF_PICTURES = 10;
+
+/**
+ * Why a picture was turned away: 'size', 'busy' (an older row's last picture is still being prepared), 'many' (the shelf has
+ * its ten) or 'full'. Null when there is room and it is fine. The shelf takes several at once, so it is never busy.
+ */
 async function refusal(userId, use, bytes, limit) {
   if (bytes > limit) return 'size';
-  const [{ working }] = await db()`select exists (select 1 from uploads where user_id = ${userId} and use = ${use} and status = 'preparing' and job_id is not null) as working`;
-  if (working) return 'busy';
+  if (use === 'any') {
+    const [{ count }] = await db()`select count(*)::int as count from uploads where user_id = ${userId} and use = 'any' and status <> 'failed'`;
+    if (count >= MAX_SHELF_PICTURES) return 'many';
+  } else {
+    const [{ working }] = await db()`select exists (select 1 from uploads where user_id = ${userId} and use = ${use} and status = 'preparing' and job_id is not null) as working`;
+    if (working) return 'busy';
+  }
   return (await hasRoom(userId, bytes)) ? null : 'full';
 }
 
-/** Makes way for a new picture: a video that never arrived is of no use any more, nor is a failure an earlier version of this code kept. */
+/**
+ * Makes way for a new picture: a video that never arrived is of no use any more, nor is a failure an earlier version of this code kept.
+ * The shelf takes several pictures in a row, so there a video still on its way is only given up after an hour.
+ */
 async function clearStale(userId, use) {
-  const stale = await db()`select id from uploads where user_id = ${userId} and use = ${use} and (status = 'failed' or (status = 'preparing' and job_id is null))`;
+  const stale = use === 'any'
+    ? await db()`select id from uploads where user_id = ${userId} and use = 'any' and (status = 'failed' or (status = 'preparing' and job_id is null and created_at < now() - interval '1 hour'))`
+    : await db()`select id from uploads where user_id = ${userId} and use = ${use} and (status = 'failed' or (status = 'preparing' and job_id is null))`;
   await Promise.all(stale.map(row => removeUpload(userId, row.id)));
 }
 
-/** A picture is ready: the one it replaces (and every file made from it) goes. */
+/** A picture is ready: on an older one-picture row, the one it replaces (and every file made from it) goes. The shelf keeps them all. */
 async function replaceOthers(userId, use, keepId) {
+  if (use === 'any') return;
   const old = await db()`select id from uploads where user_id = ${userId} and use = ${use} and id <> ${keepId}`;
   await Promise.all(old.map(row => removeUpload(userId, row.id)));
 }
@@ -193,6 +210,24 @@ export async function uploadMedia(userId, id) {
     return { use: row.use, photo, cutout };
   }
   return { use: row.use, photo: await getObject(KEYS.still(userId, id)) };
+}
+
+/**
+ * A reel of the person's own shelf pictures, in the shape `libraryReel` gives: links the worker fetches itself for half an hour.
+ * Null in place of a picture that is not theirs, not ready, or (with `withCutouts`, for Depth) not a photo.
+ */
+export async function uploadReel(userId, ids, withCutouts = false) {
+  const rows = await db()`select id, kind, shots from uploads where user_id = ${userId} and id = any(${ids}::uuid[]) and use = 'any' and status = 'ready'`;
+  const found = new Map(rows.map((row) => [row.id, row]));
+  return Promise.all(ids.map(async (id) => {
+    const row = found.get(id);
+    if (!row) return null;
+    if (row.kind === 'photo') {
+      return { kind: 'photo', url: await signedDownload(KEYS.still(userId, id), null, 1800), ...(withCutouts ? { cutoutUrl: await signedDownload(KEYS.cutout(userId, id), null, 1800) } : {}) };
+    }
+    if (withCutouts) return null;
+    return { kind: 'clip', url: await signedDownload(KEYS.motion(userId, id), null, 1800), ...(row.shots ? { shots: row.shots } : {}) };
+  }));
 }
 
 /** Removes all of a person's pictures except those in `keep` (the ones their cart still draws from), and every file made from them. Returns how many went. */

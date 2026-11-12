@@ -50,6 +50,22 @@ test('Directed, the looks, Depth and Riso are edited reels of two or more librar
   }
 });
 
+test('several of the person\'s own pictures are dealt like the library, and nothing of ours comes in', () => {
+  // As the page deals them: no feeling, no genre, no tags of their own.
+  const own = [photo(11), photo(12), clip(13)].map(item => ({ ...item, attitudes: ['neutral'] }));
+  const ids = new Set(own.map(item => item.id));
+  for (const row of [...REEL_ROWS, 'riso', 'dust']) {
+    const slots = pack.recommendRow(row, profile(), 0, [], null, own, {}, false);
+    assert.ok(slots.length > 0, row);
+    for (const slot of slots) {
+      const drawn = slot.reelIds ?? (slot.libraryId ? [slot.libraryId] : []);
+      assert.ok(drawn.length > 0 && drawn.every(id => ids.has(id)), `${row}: ${JSON.stringify(slot)}`);
+      assert.equal(slot.plateId, undefined, `${row} draws none of our photos`);
+      assert.equal(slot.effectId, undefined, `${row} draws none of our baked effects`);
+    }
+  }
+});
+
 test('each card of a row opens on a different picture, and the cards are told apart', () => {
   for (const row of ['photography', 'thermal', 'riso']) {
     const slots = pack.recommendRow(row, profile(), 0, [], null, LIBRARY, {}, false);

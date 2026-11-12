@@ -7,7 +7,7 @@ import { withAccess } from './staging-token';
 /**
  * "Send from your phone": a QR code that opens /phone, where the person picks the file on their phone. The site does not
  * work on phones, but music, photos and videos are often kept on them. When the file arrives it goes on exactly as if it
- * had been chosen here (`onFile`), and is removed from storage (see netlify/lib/handoff.mjs).
+ * had been chosen here (`onFiles`: one song, or up to ten pictures), and is removed from storage (see netlify/lib/handoff.mjs).
  */
 const POLL_MS = 2000;
 const API = '/api/phone-handoff';
@@ -15,7 +15,7 @@ const API = '/api/phone-handoff';
 export type PhoneKind = 'song' | 'picture';
 const COPY: Record<PhoneKind, { ask: string; name: string }> = {
   song: { ask: 'pick your song or a video with it playing', name: 'Song from your phone' },
-  picture: { ask: 'pick a photo, a video or a GIF', name: 'Picture from your phone' },
+  picture: { ask: 'pick up to 10 photos, videos or GIFs', name: 'Picture from your phone' },
 };
 const EXTENSIONS: Record<string, string> = {
   'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif',
@@ -23,7 +23,7 @@ const EXTENSIONS: Record<string, string> = {
 };
 
 type Handoff = { id: string; phoneUrl: string; expiresAt: number };
-type State = { step: 'idle' } | { step: 'starting' } | { step: 'waiting'; handoff: Handoff } | { step: 'receiving' } | { step: 'expired' } | { step: 'failed'; error: string };
+type State = { step: 'idle' } | { step: 'starting' } | { step: 'waiting'; handoff: Handoff } | { step: 'receiving'; count: number } | { step: 'expired' } | { step: 'failed'; error: string };
 
 function QrCode({ text }: { text: string }) {
   const { path, size } = useMemo(() => {
@@ -38,7 +38,7 @@ function QrCode({ text }: { text: string }) {
 const remove = (token: string, id: string) =>
   void withAccess(token, access => fetch(`${API}?id=${id}`, { method: 'DELETE', headers: { 'x-mumoo-brain-access': access } })).catch(() => {});
 
-export function PhoneUpload({ token, kind, onFile }: { token: string; kind: PhoneKind; onFile: (file: File) => void }) {
+export function PhoneUpload({ token, kind, onFiles }: { token: string; kind: PhoneKind; onFiles: (files: File[]) => void }) {
   const [state, setState] = useState<State>({ step: 'idle' });
 
   async function start() {
@@ -53,8 +53,8 @@ export function PhoneUpload({ token, kind, onFile }: { token: string; kind: Phon
     }
   }
 
-  const deliver = useRef(onFile);
-  deliver.current = onFile;
+  const deliver = useRef(onFiles);
+  deliver.current = onFiles;
   /** Leaving the page stops a delivery; the panel moving on from "waiting" (to "receiving") must not. */
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -64,14 +64,19 @@ export function PhoneUpload({ token, kind, onFile }: { token: string; kind: Phon
     let stopped = false;
     let received = false;
     let timer: ReturnType<typeof setTimeout>;
-    const receive = async (url: string) => {
+    const receive = async (urls: string[]) => {
       received = true;
-      setState({ step: 'receiving' });
+      setState({ step: 'receiving', count: urls.length });
       try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error();
-        const blob = await response.blob();
-        if (mounted.current) deliver.current(new File([blob], COPY[kind].name + (EXTENSIONS[blob.type] ?? ''), { type: blob.type }));
+        if (!urls.length) throw new Error();
+        const files = await Promise.all(urls.map(async (url, index) => {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error();
+          const blob = await response.blob();
+          const name = urls.length > 1 ? `${COPY[kind].name} ${index + 1}` : COPY[kind].name;
+          return new File([blob], name + (EXTENSIONS[blob.type] ?? ''), { type: blob.type });
+        }));
+        if (mounted.current) deliver.current(files);
         setState({ step: 'idle' });
       } catch {
         setState({ step: 'failed', error: 'It arrived but could not be opened here. Send it again.' });
@@ -84,7 +89,7 @@ export function PhoneUpload({ token, kind, onFile }: { token: string; kind: Phon
       if (Date.now() > waiting.expiresAt) { setState({ step: 'expired' }); return; }
       try {
         const response = await withAccess(token, access => fetch(`${API}?id=${waiting.id}`, { headers: { 'x-mumoo-brain-access': access } }));
-        if (response.status === 200) return void receive((await response.json() as { url: string }).url);
+        if (response.status === 200) return void receive((await response.json() as { files: { url: string }[] }).files.map(file => file.url));
       } catch { /* a dropped poll is tried again */ }
       timer = setTimeout(check, POLL_MS);
     };
@@ -92,7 +97,7 @@ export function PhoneUpload({ token, kind, onFile }: { token: string; kind: Phon
     return () => {
       stopped = true;
       clearTimeout(timer);
-      // Closed or expired before the song came: nothing may stay behind.
+      // Closed or expired before the files came: nothing may stay behind.
       if (!received) remove(token, waiting.id);
     };
   }, [waiting, token, kind]);
@@ -108,7 +113,7 @@ export function PhoneUpload({ token, kind, onFile }: { token: string; kind: Phon
       <p className="m-0 text-sm">Scan with your phone's camera, then {COPY[kind].ask}. It opens here.</p>
       <p className="m-0 text-xs text-muted-foreground">The code works for 15 minutes. Waiting for your phone…</p>
     </>}
-    {state.step === 'receiving' && <p className="m-0 text-sm" role="status">It arrived. Opening it…</p>}
+    {state.step === 'receiving' && <p className="m-0 text-sm" role="status">{state.count > 1 ? `${state.count} files arrived. Opening them…` : 'It arrived. Opening it…'}</p>}
     {state.step === 'expired' && <p className="m-0 text-sm">The code expired. Make a new one to try again.</p>}
     {state.step === 'failed' && <p className="m-0 text-sm" role="alert">{state.error}</p>}
     <div className="flex gap-2">

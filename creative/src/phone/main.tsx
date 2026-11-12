@@ -6,10 +6,12 @@ import '../styles/index.css';
 
 /**
  * The page a phone opens from a QR code on the computer: the song step's (a song or a video with it) or the creatives'
- * (their own photo, video or GIF). It sends one file straight to private storage; the computer that showed the code
+ * (up to ten of their own photos, videos or GIFs). It sends them straight to private storage; the computer that showed the code
  * picks it up. The link (in the #fragment) is the only key: no sign-in on the phone.
  */
 const TOKEN = /^[0-9a-f-]{36}\.\d{10}\.(song|picture)\.[a-f0-9]{64}$/;
+/** As many as the creatives keep of a person's own pictures. */
+const MAX_PICTURES = 10;
 
 /** `video/*` and `image/*` make phones offer the photo library, where saved TikToks, screen recordings and photos are. */
 const KINDS = {
@@ -20,15 +22,16 @@ const KINDS = {
     accept: `${ACCEPTED_AUDIO},video/*`,
   },
   picture: {
-    title: 'Send your photo or video',
-    text: 'Pick a photo, a video (up to 60 seconds) or a GIF for your creatives. By sending it you confirm you own the rights to it.',
-    button: 'Choose photo or video',
+    title: 'Send your photos or videos',
+    text: `Pick up to ${MAX_PICTURES} photos, videos (up to 60 seconds each) or GIFs for your creatives, all at once. By sending them you confirm you own the rights to them.`,
+    button: 'Choose photos or videos',
     accept: 'image/jpeg,image/png,image/webp,image/gif,image/*,video/mp4,video/quicktime,video/webm,video/*',
   },
 } as const;
 
-type State = { step: 'choose' } | { step: 'chosen'; file: File; preview: string; problem: string }
-  | { step: 'sending'; percent: number } | { step: 'sent' } | { step: 'failed'; error: string };
+type Chosen = { file: File; preview: string; problem: string };
+type State = { step: 'choose' } | { step: 'chosen'; chosen: Chosen[]; dropped: number }
+  | { step: 'sending'; percent: number; count: number } | { step: 'sent'; count: number } | { step: 'failed'; error: string };
 
 /** The computer's own limits (src/uploads.ts, src/audio.ts), checked here so nothing is sent that it would refuse. */
 const MB = 1e6;
@@ -72,7 +75,7 @@ async function problemWith(kind: 'song' | 'picture', file: File, url: string): P
 
 const size = (bytes: number) => bytes >= MB ? `${(bytes / MB).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1000))} KB`;
 
-function send(url: string, file: File, onProgress: (percent: number) => void) {
+function send(url: string, file: Blob, onProgress: (percent: number) => void) {
   return new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open('PUT', url);
@@ -95,36 +98,55 @@ function Phone() {
     : expired() ? { step: 'failed', error: 'This QR code has expired. Make a new one on your computer.' } : { step: 'choose' });
   const input = useRef<HTMLInputElement>(null);
 
-  /** A file picked is shown first, checked against the computer's limits; it is only sent when the person says so. */
-  async function pick(file: File | undefined) {
+  const forget = () => { if (state.step === 'chosen') state.chosen.forEach(item => URL.revokeObjectURL(item.preview)); };
+
+  /**
+   * The song step takes exactly one file: a good one goes at once, a refused one says why. Pictures are picked together and
+   * shown, each checked against the computer's limits, and the good ones go together when the person says so.
+   */
+  async function pick(list: FileList | null) {
+    const files = [...(list ?? [])];
     if (input.current) input.current.value = '';
-    if (!file) return;
-    if (state.step === 'chosen') URL.revokeObjectURL(state.preview);
-    const preview = URL.createObjectURL(file);
-    const problem = await problemWith(kindName, file, preview);
-    // The song step takes exactly one file: a good one goes at once, a refused one says why.
+    if (!files.length) return;
+    forget();
     if (kindName === 'song') {
+      const preview = URL.createObjectURL(files[0]);
+      const problem = await problemWith('song', files[0], preview);
       URL.revokeObjectURL(preview);
-      return problem ? setState({ step: 'failed', error: problem }) : void choose(file);
+      return problem ? setState({ step: 'failed', error: problem }) : void choose([files[0]]);
     }
-    setState({ step: 'chosen', file, preview, problem });
+    const chosen = await Promise.all(files.slice(0, MAX_PICTURES).map(async file => {
+      const preview = URL.createObjectURL(file);
+      return { file, preview, problem: await problemWith('picture', file, preview) };
+    }));
+    setState({ step: 'chosen', chosen, dropped: Math.max(0, files.length - MAX_PICTURES) });
   }
 
-  async function choose(file: File) {
-    setState({ step: 'sending', percent: 0 });
+  async function choose(files: File[]) {
+    forget();
+    const total = files.reduce((sum, file) => sum + file.size, 0) || 1;
+    setState({ step: 'sending', percent: 0, count: files.length });
     try {
       const response = await fetch('/api/phone-handoff?step=phone', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, type: file.type, bytes: file.size }),
+        body: JSON.stringify({ token, files: files.map(file => ({ type: file.type, bytes: file.size })) }),
       });
-      const body = await response.json().catch(() => null) as { putUrl?: string; error?: string } | null;
-      if (!response.ok || !body?.putUrl) throw new Error(body?.error ?? 'Sending did not start. Try again.');
-      await send(body.putUrl, file, percent => setState({ step: 'sending', percent }));
-      setState({ step: 'sent' });
+      const body = await response.json().catch(() => null) as { putUrls?: string[]; doneUrl?: string; error?: string } | null;
+      if (!response.ok || body?.putUrls?.length !== files.length || !body.doneUrl) throw new Error(body?.error ?? 'Sending did not start. Try again.');
+      let sent = 0;
+      for (const [index, file] of files.entries()) {
+        await send(body.putUrls[index], file, percent => setState({ step: 'sending', percent: Math.round(((sent + (file.size * percent) / 100) / total) * 100), count: files.length }));
+        sent += file.size;
+      }
+      // Only now does the computer collect them, so it never takes half of them.
+      await send(body.doneUrl, new Blob([]), () => {});
+      setState({ step: 'sent', count: files.length });
     } catch (cause) {
       setState({ step: 'failed', error: cause instanceof Error ? cause.message : 'Something went wrong. Try again.' });
     }
   }
+
+  const good = state.step === 'chosen' ? state.chosen.filter(item => !item.problem).map(item => item.file) : [];
 
   return <main className="mx-auto flex min-h-dvh max-w-sm flex-col items-center justify-center gap-6 p-6 text-center">
     <img src="/brand/favicon.png" alt="MUMOO" className="size-12" />
@@ -133,18 +155,24 @@ function Phone() {
       <p className="m-0 text-muted-foreground">{kind.text}</p>
       <Button className="h-12 w-full text-base" onClick={() => input.current?.click()}>{kind.button}</Button>
     </>}
-    <input ref={input} type="file" accept={kind.accept} hidden aria-label={kind.button} onChange={event => void pick(event.target.files?.[0])} />
+    <input ref={input} type="file" accept={kind.accept} multiple={kindName === 'picture'} hidden aria-label={kind.button} onChange={event => void pick(event.target.files)} />
     {state.step === 'chosen' && <>
-      {state.file.type.startsWith('image/') && <img src={state.preview} alt="" className="max-h-72 w-full rounded-md object-contain" />}
-      {state.file.type.startsWith('video/') && <video src={state.preview} className="max-h-72 w-full rounded-md" controls playsInline muted />}
-      {state.file.type.startsWith('audio/') && <audio src={state.preview} className="w-full" controls />}
-      <p className="m-0 break-all text-sm text-muted-foreground">{state.file.name} · {size(state.file.size)}</p>
-      {state.problem && <p className="m-0 text-sm text-destructive" role="alert">{state.problem}</p>}
-      <Button className="h-12 w-full text-base" disabled={Boolean(state.problem)} onClick={() => void choose(state.file)}>Send to my computer</Button>
-      <Button variant="secondary" className="h-12 w-full text-base" onClick={() => input.current?.click()}>Choose another</Button>
+      <ul className="m-0 grid w-full list-none grid-cols-3 gap-2 p-0">
+        {state.chosen.map(item => <li key={item.preview} className="flex flex-col gap-1">
+          {item.file.type.startsWith('video/')
+            ? <video src={`${item.preview}#t=0.1`} className={`aspect-square w-full rounded-md bg-secondary object-cover ${item.problem ? 'opacity-40' : ''}`} playsInline muted preload="metadata" />
+            : <img src={item.preview} alt="" className={`aspect-square w-full rounded-md bg-secondary object-cover ${item.problem ? 'opacity-40' : ''}`} />}
+          <span className={`text-xs ${item.problem ? 'text-destructive' : 'text-muted-foreground'}`}>{item.problem || size(item.file.size)}</span>
+        </li>)}
+      </ul>
+      {state.dropped > 0 && <p className="m-0 text-sm text-muted-foreground">Only the first {MAX_PICTURES} are sent.</p>}
+      <Button className="h-12 w-full text-base" disabled={!good.length} onClick={() => void choose(good)}>
+        {good.length > 1 ? `Send ${good.length} to my computer` : 'Send to my computer'}
+      </Button>
+      <Button variant="secondary" className="h-12 w-full text-base" onClick={() => input.current?.click()}>Choose again</Button>
     </>}
     {state.step === 'sending' && <>
-      <h1 className="m-0 text-2xl font-semibold">Sending…</h1>
+      <h1 className="m-0 text-2xl font-semibold">{state.count > 1 ? `Sending ${state.count} files…` : 'Sending…'}</h1>
       <div className="h-2 w-full overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={state.percent} aria-valuemin={0} aria-valuemax={100}>
         <div className="h-full bg-primary transition-[width]" style={{ width: `${state.percent}%` }} />
       </div>
@@ -152,7 +180,7 @@ function Phone() {
     </>}
     {state.step === 'sent' && <>
       <h1 className="m-0 text-2xl font-semibold">Sent</h1>
-      <p className="m-0 text-muted-foreground">It is on its way to your computer. Carry on there; you can close this page.</p>
+      <p className="m-0 text-muted-foreground">{state.count > 1 ? 'They are' : 'It is'} on {state.count > 1 ? 'their' : 'its'} way to your computer. Carry on there; you can close this page.</p>
     </>}
     {state.step === 'failed' && <>
       <h1 className="m-0 text-2xl font-semibold">That did not work</h1>
@@ -161,5 +189,9 @@ function Phone() {
     </>}
   </main>;
 }
+
+// Scanning a new code reuses an open tab and changes only the #fragment: start again on the new link.
+window.addEventListener('hashchange', () => location.reload());
+window.addEventListener('pageshow', event => { if (event.persisted) location.reload(); });
 
 createRoot(document.getElementById('root')!).render(<Phone />);

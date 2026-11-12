@@ -1,5 +1,5 @@
 import { validAccess } from '../lib/access.mjs';
-import { acceptableFile, arrived, HANDOFF_KINDS, handoffFromToken, newHandoff, phoneUploadUrl, removeHandoff, validHandoffId } from '../lib/handoff.mjs';
+import { acceptableFiles, arrived, HANDOFF_KINDS, handoffFromToken, MAX_HANDOFF_FILES, newHandoff, phoneUploadUrls, removeHandoff, validHandoffId } from '../lib/handoff.mjs';
 import { storageReady } from '../lib/storage.mjs';
 
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
@@ -10,9 +10,9 @@ const reply = (status, data) => Response.json(data, { status, headers });
 /**
  * Send the song, or the creatives' own picture, from a phone (see lib/handoff.mjs).
  *   POST ?kind=song|picture      computer: start one → {id, phoneUrl, expiresAt}
- *   POST ?step=phone  {token, type, bytes}  phone: → {putUrl} to send the file to
- *   GET  ?id=…                   computer: 202 while waiting, then {bytes, url}
- *   DELETE ?id=…                 computer: it has the song (or gave up), remove it
+ *   POST ?step=phone  {token, files: [{type, bytes}]}  phone: → {putUrls, doneUrl}: one link per file, then the done mark
+ *   GET  ?id=…                   computer: 202 while waiting, then {files: [{bytes, url}]}
+ *   DELETE ?id=…                 computer: it has the files (or gave up), remove them
  * The computer's calls carry staging access; the phone's only its signed link.
  */
 export default async function phoneHandoff(request) {
@@ -23,13 +23,13 @@ export default async function phoneHandoff(request) {
   const params = new URL(request.url).searchParams;
 
   if (request.method === 'POST' && params.get('step') === 'phone') {
-    const { token, type, bytes } = await request.json().catch(() => ({}));
+    const { token, files } = await request.json().catch(() => ({}));
     const handoff = handoffFromToken(token, key);
     if (!handoff) return reply(410, { error: 'This link has expired. Make a new QR code on your computer.' });
-    if (!acceptableFile(handoff.kind, type ?? '', bytes)) {
-      return reply(415, { error: handoff.kind === 'song' ? 'Choose a song or a video under 200 MB.' : 'Choose a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.' });
+    if (!acceptableFiles(handoff.kind, files)) {
+      return reply(415, { error: handoff.kind === 'song' ? 'Choose one song or video under 200 MB.' : `Choose up to ${MAX_HANDOFF_FILES.picture} JPEG, PNG or WebP photos, MP4, MOV or WebM videos, or GIFs.` });
     }
-    return reply(200, { putUrl: await phoneUploadUrl(handoff.id, handoff.expiry) });
+    return reply(200, await phoneUploadUrls(handoff.id, handoff.expiry, files.length));
   }
 
   if (!validAccess(request.headers.get('x-mumoo-brain-access') ?? '', key)) return reply(401, { error: 'Staging access is invalid or expired.' });

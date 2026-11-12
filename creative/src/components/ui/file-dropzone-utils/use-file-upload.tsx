@@ -11,22 +11,25 @@ function matchesAccept(file: File, accept: string) {
 }
 
 /**
- * Drag-and-drop and the file dialog for one file (from the 21st.dev "File Dropzone", reduced to what a single song needs).
- * A file that is not allowed is reported in `errors` and never reaches `onSelect`.
+ * Drag-and-drop and the file dialog for one file (from the 21st.dev "File Dropzone", reduced to what a single song needs), or with
+ * `onSelectMany` for several at once. A file that is not allowed is reported in `errors` and never reaches `onSelect` / `onSelectMany`.
  */
-export function useFileUpload({ accept, onSelect }: { accept: string; onSelect: (file: File) => void }) {
+export function useFileUpload({ accept, onSelect, onSelectMany }: { accept: string; onSelect?: (file: File) => void; onSelectMany?: (files: File[]) => void }) {
   const id = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const dragDepth = useRef(0)
   const [errors, setErrors] = useState<string[]>([])
   const [isDragging, setIsDragging] = useState(false)
 
-  const take = useCallback((file: File | undefined) => {
-    if (!file) return
-    if (!matchesAccept(file, accept)) { setErrors(['This file type is not supported.']); return }
-    setErrors([])
-    onSelect(file)
-  }, [accept, onSelect])
+  const take = useCallback((list: FileList | null) => {
+    const files = [...(list ?? [])].slice(0, onSelectMany ? undefined : 1)
+    if (!files.length) return
+    const allowed = files.filter((file) => matchesAccept(file, accept))
+    setErrors(allowed.length < files.length ? [files.length > 1 ? 'Some of these files are not supported.' : 'This file type is not supported.'] : [])
+    if (!allowed.length) return
+    if (onSelectMany) onSelectMany(allowed)
+    else onSelect?.(allowed[0])
+  }, [accept, onSelect, onSelectMany])
 
   return {
     errors,
@@ -37,8 +40,9 @@ export function useFileUpload({ accept, onSelect }: { accept: string; onSelect: 
       type: 'file' as const,
       id: `${id}-file-input`,
       accept,
+      multiple: Boolean(onSelectMany),
       onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
-        take(event.target.files?.[0])
+        take(event.target.files)
         event.target.value = ''
       },
     }),
@@ -56,7 +60,7 @@ export function useFileUpload({ accept, onSelect }: { accept: string; onSelect: 
       event.preventDefault()
       dragDepth.current = 0
       setIsDragging(false)
-      take(event.dataTransfer.files[0])
+      take(event.dataTransfer.files)
     },
   }
 }

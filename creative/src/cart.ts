@@ -25,8 +25,10 @@ export type CartItem = {
   row: ShelfRow;
   slot: CreativesPackSlot;
   lyrics: boolean;
-  /** The person's own picture it was made from; null when it uses our approved photography. */
+  /** The person's own picture it was made from; null when it uses our approved photography, or is a reel of their own (`ownReel`). */
   uploadId: string | null;
+  /** The Director's reel (`slot.reelIds`) is edited from the person's own pictures, not our library. */
+  ownReel?: true;
   generation: number;
   /** JPEG data URL, `THUMB_WIDTH` x `THUMB_HEIGHT`, taken from the card when it was added. */
   thumb: string;
@@ -43,6 +45,7 @@ const isItem = (value: unknown): value is CartItem => {
     && SHELF_ROWS.some(row => row.id === item.row) && typeof item.slot === 'object' && item.slot !== null
     && item.slot.id === item.id && typeof item.lyrics === 'boolean'
     && (item.uploadId === null || typeof item.uploadId === 'string') && Number.isInteger(item.generation)
+    && (item.ownReel === undefined || (item.ownReel === true && Array.isArray(item.slot.reelIds) && item.slot.reelIds.every(id => typeof id === 'string')))
     && typeof item.thumb === 'string' && item.thumb.length <= THUMB_MAX_CHARS && THUMB_PATTERN.test(item.thumb);
 };
 
@@ -76,9 +79,13 @@ export function writeCarts(carts: readonly CartEntry[]): string {
   return JSON.stringify(stored);
 }
 
+/** The own pictures one cart item draws from: its one picture, or every picture of its reel of their own. */
+export const ownIdsOf = (item: CartItem): string[] =>
+  item.uploadId !== null ? [item.uploadId] : item.ownReel ? [...(item.slot.reelIds ?? [])] : [];
+
 /** The ids of own pictures that carts still draw from (every song's), so a clean start knows which to keep. */
 export const uploadIdsIn = (carts: readonly CartEntry[]): string[] =>
-  [...new Set(carts.flatMap(entry => entry.items.map(item => item.uploadId)).filter((id): id is string => id !== null))];
+  [...new Set(carts.flatMap(entry => entry.items.flatMap(ownIdsOf)))];
 
 /** The same, read from this browser's saved carts. */
 export const cartUploadIds = (): string[] => uploadIdsIn(readCarts(localStorage.getItem(KEY)));

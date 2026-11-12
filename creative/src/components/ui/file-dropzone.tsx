@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useFileUpload } from '@/components/ui/file-dropzone-utils/use-file-upload'
 
-/** The "File Dropzone" from 21st.dev, for one file: drop it or pick it, and a chosen file (when the page keeps one) shows in the same place. */
-export function FileDropzone({ accept, icon: Icon, title, hint, buttonLabel, inputLabel, removeLabel, fileName, onSelect, onRemove }: {
+/** The "File Dropzone" from 21st.dev, for one file (or several, with `onSelectMany`): drop it or pick it, and a chosen file (when the page keeps one) shows in the same place. */
+export function FileDropzone({ accept, icon: Icon, title, hint, buttonLabel, inputLabel, removeLabel, fileName, onSelect, onSelectMany, onRemove }: {
   accept: string
   icon: LucideIcon
   title: string
@@ -18,11 +18,13 @@ export function FileDropzone({ accept, icon: Icon, title, hint, buttonLabel, inp
   /** The file that is chosen right now, if the page keeps one; then `removeLabel` and `onRemove` let it be taken away. */
   fileName?: string
   removeLabel?: string
-  onSelect: (file: File) => void
+  onSelect?: (file: File) => void
+  /** Takes several files at once instead of one (`onSelect`). */
+  onSelectMany?: (files: File[]) => void
   onRemove?: () => void
 }) {
   const { errors, isDragging, openFileDialog, getInputProps, handleDragEnter, handleDragLeave, handleDragOver, handleDrop } =
-    useFileUpload({ accept, onSelect })
+    useFileUpload({ accept, onSelect, onSelectMany })
 
   return (
     <div className="flex flex-col gap-3">

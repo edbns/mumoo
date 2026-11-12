@@ -98,6 +98,8 @@ export type CloudJobInput = {
   uploadId?: string;
   /** Our photography draws an approved library picture: its id. The server reads it from the library. */
   libraryId?: string;
+  /** The reel in `opts` is edited from the signed-in person's own pictures: the server finds them in their storage, not the library. */
+  ownReel?: boolean;
 };
 
 /** Submit one render job. Returns immediately with a job id. */
@@ -110,6 +112,7 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
   form.append('meta', JSON.stringify({
     ...(input.uploadId ? { upload: input.uploadId } : {}),
     ...(input.libraryId ? { library: input.libraryId } : {}),
+    ...(input.ownReel ? { ownReel: true } : {}),
     // A reel goes as the library ids it is edited from, in order; the server swaps in fresh links of its own.
     opts: { ...scene, ...(reel?.length ? { reel: reel.map(({ id, kind, shots }) => ({ id, kind, ...(shots ? { shots } : {}) })) } : {}), fallbackText: (scene.fallbackText || 'NOW').slice(0, 80) },
   }));

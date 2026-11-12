@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { acceptableFile, HANDOFF_SECONDS, handoffFromToken, MAX_HANDOFF_BYTES, newHandoff } from '../netlify/lib/handoff.mjs';
+import { acceptableFile, acceptableFiles, HANDOFF_SECONDS, handoffFromToken, MAX_HANDOFF_BYTES, MAX_HANDOFF_FILES, newHandoff } from '../netlify/lib/handoff.mjs';
 
 const KEY = 'k'.repeat(40);
 const NOW = 1_800_000_000;
@@ -35,4 +35,15 @@ test('a song may be a song or a video; a picture a photo, video or GIF; nothing 
   assert.equal(acceptableFile('song', 'audio/mpeg', MAX_HANDOFF_BYTES + 1), false);
   assert.equal(acceptableFile('song', 'audio/mpeg', 0), false);
   assert.equal(acceptableFile('other', 'audio/mpeg', 5), false);
+});
+
+test('the song step takes one file from a phone; the creatives up to ten, each one acceptable', () => {
+  const photo = { type: 'image/jpeg', bytes: 5_000 };
+  assert.equal(acceptableFiles('song', [{ type: 'audio/mpeg', bytes: 5_000 }]), true);
+  assert.equal(acceptableFiles('song', [{ type: 'audio/mpeg', bytes: 5_000 }, { type: 'audio/mpeg', bytes: 5_000 }]), false, 'one song at a time');
+  assert.equal(acceptableFiles('picture', Array(MAX_HANDOFF_FILES.picture).fill(photo)), true);
+  assert.equal(acceptableFiles('picture', Array(MAX_HANDOFF_FILES.picture + 1).fill(photo)), false);
+  assert.equal(acceptableFiles('picture', [photo, { type: 'audio/mpeg', bytes: 5_000 }]), false, 'one wrong file refuses the lot');
+  assert.equal(acceptableFiles('picture', []), false);
+  assert.equal(acceptableFiles('picture', 'nonsense'), false);
 });
