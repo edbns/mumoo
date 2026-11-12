@@ -1,6 +1,7 @@
 import { themesFor } from './genre-guide';
+import { familyOf } from './genres';
 import { attitudeOf, type LyricAttitude } from './lyric-meaning';
-import { tagShows, type SongTheme } from './song-themes';
+import { tagShows, THEMES, type SongTheme } from './song-themes';
 
 /**
  * Choosing from the approved library. The library is what the admin cleared (see the admin page); this is how the brain
@@ -11,7 +12,9 @@ import { tagShows, type SongTheme } from './song-themes';
  *   themes     what the words are about (`song-themes.ts`): the strongest pull.
  *   mood       the song's feeling, as things to see (`MOOD_CONTENT`): a confident song wants money, cars, fame.
  *   genre      the genre's own looks (`genre-guide.ts`). An item may also be kept for one genre (and sub-genre): then it
- *              is preferred for it and never used for another; unset, it is free for any song.
+ *              is never used for another, and a little preferred for its own; unset, it is free for any song.
+ * A thing counts in full when the admin's tags show it, and up to half when only our vision model sees it (`looks`, 0..1):
+ * the tags are checked by a person, the model fills in what they missed.
  * A picture that shows none of them still fills a hand that the fitting ones cannot. A picture has no mood of its own:
  * the mood belongs to the song (the `attitudes` of older items are not read).
  */
@@ -31,12 +34,14 @@ export type LibraryPicture = {
   shots?: [number, number][];
   /** What people did with cards drawn from it lately (`learnedCounts` on the server): played, and kept (cart or delivered). */
   learned?: { shown: number; won: number };
+  /** How strongly our vision model sees each look in it (song themes and genre looks), 0..1; unseen looks are left out. */
+  looks?: Readonly<Record<string, number>>;
 };
 
 /** A picture with no history is taken as this many plays at the library's usual rate: a few plays never swing it far. */
 const PRIOR_PLAYS = 20;
 const LEARNED_WEIGHT = 1.5;
-/** Below the least a shown thing counts (0.5): what people kept only orders pictures that fit the song equally well. */
+/** Below the least a tagged thing counts (0.5): what people kept only orders pictures that fit the song about equally well. */
 const MOST_LEARNED = 0.3;
 
 /** What the brain knows of the song that the library cares about. */
@@ -48,6 +53,8 @@ export type LibraryWanted = {
   moods?: readonly string[];
   /** What the words are about (`song-themes.ts`), shown by the item's tags. */
   themes?: readonly SongTheme[];
+  /** The words said nothing (no lyrics, or too few): the attitude was heard in the music, and the genre's looks count double. */
+  fromSound?: true;
 };
 
 /** A song's feeling, as the things a picture for it can show. Neutral asks for nothing; the themes and the genre then lead. */
@@ -69,32 +76,47 @@ const THEME_WEIGHT = 2;
 const MOOD_WEIGHT = 1;
 const OTHER_MOOD_WEIGHT = 0.5;
 const GENRE_WEIGHT = 1;
+/** An item kept for the song's genre, and for its sub-genre too: a small plus, below one thing it shows. */
+const GENRE_KEPT = 0.75;
+const SUB_GENRE_KEPT = 0.25;
+/** The most a thing seen only by the vision model counts, against one the admin tagged. */
+const SEEN_SHARE = 0.5;
 
-type Want = { show: (tag: string) => boolean; weight: number };
+/** `look` names the same thing in the vision model's `looks`. */
+type Want = { show: (tag: string) => boolean; look: string; weight: number };
 
 /** A genre look (`THEME_TAGS`): the tag is it, or has it as a word of its own (also in the plural). */
 const showsWord = (word: string) => (tag: string) => {
   const words = tag.trim().toLowerCase().split(/[\s-]+/);
   return words.includes(word) || words.includes(`${word}s`) || (word.endsWith('s') && words.includes(word.slice(0, -1)));
 };
+const isTheme = (look: string): look is SongTheme => (THEMES as readonly string[]).includes(look);
 
 /** Everything the song wants to see, each once, at the weight of its strongest reason. */
 export function wantsOf(wanted: LibraryWanted): Want[] {
   const weights = new Map<string, Want>();
-  const want = (key: string, show: Want['show'], weight: number) => {
+  const want = (key: string, show: Want['show'], look: string, weight: number) => {
     const have = weights.get(key);
-    if (!have || have.weight < weight) weights.set(key, { show, weight });
+    if (!have || have.weight < weight) weights.set(key, { show, look, weight });
   };
-  for (const theme of wanted.themes ?? []) want(theme, tag => tagShows(tag, theme), THEME_WEIGHT);
+  const theme = (code: SongTheme, weight: number) => want(code, tag => tagShows(tag, code), code, weight);
+  for (const code of wanted.themes ?? []) theme(code, THEME_WEIGHT);
   const main = attitudeOf(wanted.attitude);
-  if (main) for (const theme of MOOD_CONTENT[main]) want(theme, tag => tagShows(tag, theme), MOOD_WEIGHT);
+  if (main) for (const code of MOOD_CONTENT[main]) theme(code, MOOD_WEIGHT);
   for (const other of wanted.moods ?? []) {
     const mood = attitudeOf(other);
-    if (mood && mood !== main) for (const theme of MOOD_CONTENT[mood]) want(theme, tag => tagShows(tag, theme), OTHER_MOOD_WEIGHT);
+    if (mood && mood !== main) for (const code of MOOD_CONTENT[mood]) theme(code, OTHER_MOOD_WEIGHT);
   }
-  for (const look of themesFor(wanted.genre, wanted.subGenre)) want(`genre:${look}`, showsWord(look), GENRE_WEIGHT);
+  const genreWeight = wanted.fromSound ? GENRE_WEIGHT * 2 : GENRE_WEIGHT;
+  for (const look of themesFor(wanted.genre, wanted.subGenre)) {
+    if (isTheme(look)) theme(look, genreWeight);
+    else want(`genre:${look}`, showsWord(look), look, genreWeight);
+  }
   return [...weights.values()];
 }
+
+/** How much of one wanted thing an item shows: all of it when tagged, up to half when only seen. */
+const shownBy = (item: LibraryPicture, want: Want) => (item.tags.some(want.show) ? 1 : SEEN_SHARE * (item.looks?.[want.look] ?? 0));
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
@@ -105,21 +127,30 @@ function hash(text: string) {
 }
 
 /**
- * How well an item fits the song: the weight of every thing the song wants that its tags show (0 when it shows none).
- * Null only when the item is kept for another genre or sub-genre. `wants` is `wantsOf(wanted)`, worked out once per hand.
+ * How well an item fits the song: the weight of every thing the song wants, times how much of it the item shows (0 when it shows none).
+ * Null only when the item is kept for another genre or sub-genre (one kept for House fits every house style). `wants` is
+ * `wantsOf(wanted)`, worked out once per hand.
  */
 export function libraryFit(item: LibraryPicture, wanted: LibraryWanted, wants: readonly Want[] = wantsOf(wanted)): number | null {
   let fit = 0;
   if (item.genre) {
     if (!same(item.genre, wanted.genre)) return null;
-    fit += 4;
+    fit += GENRE_KEPT;
     if (item.subGenre) {
-      if (!same(item.subGenre, wanted.subGenre)) return null;
-      fit += 2;
+      if (!same(item.subGenre, wanted.subGenre) && !same(item.subGenre, familyOf(wanted.subGenre))) return null;
+      fit += SUB_GENRE_KEPT;
     }
   }
-  for (const want of wants) if (item.tags.some(want.show)) fit += want.weight;
+  for (const want of wants) fit += want.weight * shownBy(item, want);
   return fit;
+}
+
+const CLEARLY_SEEN = 0.6;
+
+/** The things an item shows, as far as a reel's mix is concerned: its tags, and the looks the vision model sees clearly. */
+export function showing(item: LibraryPicture): string[] {
+  const clear = Object.entries(item.looks ?? {}).flatMap(([look, strength]) => (strength >= CLEARLY_SEEN ? [`look:${look}`] : []));
+  return [...item.tags.map(tag => tag.trim().toLowerCase()), ...clear];
 }
 
 /** The library's usual rate of keeping a card it was played on; a library nobody has used yet keeps one in ten. */

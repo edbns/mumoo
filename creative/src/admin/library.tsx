@@ -162,7 +162,8 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
   const shownTags = [...poolNames, ...tags.filter(tag => !poolNames.includes(tag))];
 
   // One click gives the item a tag the brain looks for; it then shows among the item's tags.
-  const suggested = suggestionsFor(genre, subGenre, [...poolNames, ...tags]);
+  const seen = item.seen.filter(tag => !tags.includes(tag));
+  const suggested = suggestionsFor(genre, subGenre, [...poolNames, ...tags, ...seen]);
   function suggest(tag: string) {
     if (tags.length >= MAX_TAGS) return setError(`At most ${MAX_TAGS} tags for one item.`);
     if (!poolNames.includes(tag) && poolNames.length >= MAX_TAGS_IN_POOL) return setError(`The tag list is full (${MAX_TAGS_IN_POOL}). Remove one you do not use, or reuse one.`);
@@ -206,6 +207,10 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
           onClick={() => setTags(list => toggle(list, tag, MAX_TAGS))}>{tag}{!poolNames.includes(tag) && ' (new)'}</Chip>)}
         {shownTags.length === 0 && <span className="text-xs text-muted-foreground">No tags yet. Add the first one below.</span>}
       </div>
+      {seen.length > 0 && <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-muted-foreground">Seen in it:</span>
+        {seen.map(tag => <Chip key={tag} on={false} onClick={() => suggest(tag)}>{tag}</Chip>)}
+      </div>}
       {suggested.length > 0 && <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-xs text-muted-foreground">Suggested:</span>
         {suggested.map(tag => <Chip key={tag} on={false} onClick={() => suggest(tag)}>{tag}</Chip>)}
@@ -307,6 +312,8 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
   onSaved: (items: LibraryItem[], tags: TagCount[] | null) => void; onDeleted: (library: Library | null, gone: string[]) => void;
 }) {
   const [tags, setTags] = useState<Edit>(NO_EDIT);
+  /** Each item also takes the tags our vision model saw in it (its own, not the others'). */
+  const [withSeen, setWithSeen] = useState(false);
   const [genre, setGenre] = useState(LEAVE);
   const [subGenre, setSubGenre] = useState('');
   const [newTag, setNewTag] = useState('');
@@ -318,7 +325,8 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
   const shownTags = [...poolNames, ...tags.add.filter(tag => !poolNames.includes(tag))];
   const group = GENRES.find(entry => entry.name === genre);
   const suggested = suggestionsFor(genre !== LEAVE ? genre : '', subGenre, shownTags);
-  const dirty = tags.add.length + tags.drop.length > 0 || genre !== LEAVE;
+  const seenCount = items.filter(item => item.seen.length).length;
+  const dirty = tags.add.length + tags.drop.length > 0 || withSeen || genre !== LEAVE;
 
   function addNewTag(raw: string) {
     const tag = raw.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -333,7 +341,8 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
   function plan(status?: 'approved' | 'hidden') {
     let unfit = 0;
     const changes = items.flatMap(item => {
-      const nextTags = edited(item.tags, tags, MAX_TAGS);
+      const own = withSeen ? { ...tags, add: [...tags.add, ...item.seen.filter(tag => !tags.drop.includes(tag))] } : tags;
+      const nextTags = edited(item.tags, own, MAX_TAGS);
       unfit += nextTags.left;
       const change: Change = {};
       if (!sameList(nextTags.list, item.tags)) change.tags = nextTags.list;
@@ -361,7 +370,7 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
       unfit ? `${unfit} tag${unfit === 1 ? '' : 's'} did not fit (an item holds at most ${MAX_TAGS} tags).` : '',
     ].filter(Boolean).join(' '));
     if (refused.length) setError(`${failed} not saved: ${refused.join(' ')}`);
-    if (!failed) { setTags(NO_EDIT); setGenre(LEAVE); setSubGenre(''); }
+    if (!failed) { setTags(NO_EDIT); setWithSeen(false); setGenre(LEAVE); setSubGenre(''); }
     setBusy(false);
   }
 
@@ -397,6 +406,10 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
         <span className="text-xs text-muted-foreground">Suggested:</span>
         {suggested.map(tag => <Chip key={tag} on={false} onClick={() => addNewTag(tag)}>{tag}</Chip>)}
       </div>}
+      {seenCount > 0 && <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={withSeen} onChange={event => setWithSeen(event.target.checked)} />
+        Also give each one the tags the system saw in it ({seenCount} have some)
+      </label>}
       <form className="flex gap-2" onSubmit={event => { event.preventDefault(); addNewTag(newTag); }}>
         <input value={newTag} onChange={event => setNewTag(event.target.value)} maxLength={24} placeholder="New tag for all, like beach" aria-label="New tag for all"
           className="min-w-0 flex-1 rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm outline-ring focus-visible:outline-2" />

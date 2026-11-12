@@ -36,9 +36,17 @@ export const THEME_TAGS = [
 const metal = ['architecture', 'fire', 'dark', 'smoke'];
 const punk = ['collage', 'street', 'crowd'];
 
-/** By sub-genre (the names in `GENRES`). */
+/**
+ * By sub-genre (the names in `GENRES`). A look is a tag of `THEME_TAGS`, or a song theme (`SONG_THEMES`: seduction, dancing,
+ * money...) when a style is known by what its videos show: slap house by night drives, luxury and the girls in them.
+ */
 const BY_SUB_GENRE: Record<string, readonly string[]> = {
   'House': ['club', 'nightlife', 'abstract', 'geometric'],
+  'Slap House': ['cars', 'luxury', 'nightlife', 'seduction', 'club'],
+  'Afro House': ['sunset', 'tropical', 'dancing', 'crowd', 'nature'],
+  'Tech House': ['club', 'crowd', 'dancing', 'dark', 'neon'],
+  'Deep House': ['sunset', 'beach', 'city', 'nightlife', 'smoke'],
+  'G-House': ['dark', 'luxury', 'street', 'cars', 'club'],
   'Techno': ['club', 'architecture', 'dark', 'futuristic'],
   'Synthwave / Vaporwave': ['retro', 'neon', 'cars', 'city', 'sunset'],
   'Dubstep / Riddim': ['robots', 'dark', 'glitch', 'abstract'],

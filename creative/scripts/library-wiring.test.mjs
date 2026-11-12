@@ -198,6 +198,7 @@ test('every genre of the app is guided; every theme is a short, valid tag', asyn
   try {
     const guide = await server.ssrLoadModule('/src/genre-guide.ts');
     const { GENRES } = await server.ssrLoadModule('/src/genres.ts');
+    const { THEMES } = await server.ssrLoadModule('/src/song-themes.ts');
     const unguided = [];
     for (const group of GENRES) {
       for (const sub of group.subGenres) {
@@ -205,7 +206,7 @@ test('every genre of the app is guided; every theme is a short, valid tag', asyn
         if (themes.length === 0) unguided.push(sub);
         assert.ok(themes.length <= 5, `${sub}: few themes, so the choice stays fast`);
         for (const theme of themes) {
-          assert.ok(guide.THEME_TAGS.includes(theme), `${sub}: "${theme}" is not in the shared vocabulary`);
+          assert.ok(guide.THEME_TAGS.includes(theme) || THEMES.includes(theme), `${sub}: "${theme}" is neither a genre look nor a song theme`);
           assert.match(theme, TAG, `${theme} is not a tag the server would accept`);
         }
       }
@@ -258,6 +259,62 @@ test('what the words are about pulls hardest, then the main feeling, then the ot
     const clip = (id, over) => item(id, { kind: 'video', motionUrl: `https://x/${id}.mp4`, shots: [[0, 2000]], ...over });
     const library = [clip('plain'), clip('beach', { tags: ['beach'] }), clip('dancing', { tags: ['dancing'] }), clip('sexy', { tags: ['sexy'] })];
     assert.deepEqual(ids(pack.windowHand(song, 0, library)), ['sexy', 'dancing', 'beach', 'plain']);
+  } finally { await server.close(); }
+});
+
+test('what our vision model sees counts up to half a tag: it fills in what the admin missed, and never outranks a tag', async () => {
+  const { server, pick } = await load();
+  try {
+    const wanted = { attitude: 'confident', genre: 'Electronic & Dance (EDM)', subGenre: 'Slap House' };
+    const fit = over => pick.libraryFit(item('x', { attitudes: [], ...over }), wanted);
+    assert.ok(fit({ looks: { cars: 1 } }) > fit({}), 'a car the admin did not tag still counts');
+    assert.ok(fit({ tags: ['car'] }) > fit({ looks: { cars: 1 } }), 'a tagged car counts more than a seen one');
+    assert.equal(fit({ tags: ['car'], looks: { cars: 1 } }), fit({ tags: ['car'] }), 'a tagged thing is not counted twice');
+    assert.ok(fit({ looks: { cars: 0.9 } }) > fit({ looks: { cars: 0.3 } }), 'the clearer it is seen, the more it counts');
+    assert.equal(fit({ looks: { faith: 1 } }), 0, 'a look the song does not want counts for nothing');
+  } finally { await server.close(); }
+});
+
+test('the vision model looks for exactly what the brain can ask for', async () => {
+  const { server } = await load();
+  try {
+    const { THEMES } = await server.ssrLoadModule('/src/song-themes.ts');
+    const { THEME_TAGS } = await server.ssrLoadModule('/src/genre-guide.ts');
+    const worker = readFileSync(new URL('../../audio-intelligence/modal_prepare_media_staging.py', import.meta.url), 'utf8');
+    const block = worker.match(/^LOOKS = \{([\s\S]*?)^\}/m)[1];
+    const looks = [...block.matchAll(/^\s+"([^"]+)":/gm)].map(match => match[1]);
+    assert.deepEqual([...looks].sort(), [...new Set([...THEMES, ...THEME_TAGS])].sort());
+    const words = [...worker.match(/^SEEN_WORDS = \[([\s\S]*?)\]/m)[1].matchAll(/"([^"]+)"/g)].map(match => match[1]);
+    for (const word of words) assert.match(word, TAG, `${word} is a tag the server accepts`);
+  } finally { await server.close(); }
+});
+
+test('house styles: Slap House wants cars, luxury and the girls; an item kept for House fits every house style', async () => {
+  const { server, pick } = await load();
+  try {
+    const slap = { attitude: 'neutral', genre: 'Electronic & Dance (EDM)', subGenre: 'Slap House' };
+    const fit = (over, wanted = slap) => pick.libraryFit(item('x', { attitudes: [], ...over }), wanted);
+    assert.ok(fit({ tags: ['girls'] }) > 0 && fit({ tags: ['car'] }) > 0 && fit({ tags: ['luxury life style'] }) > 0);
+    assert.equal(fit({ tags: ['beach'] }), 0);
+    assert.notEqual(fit({ genre: 'Electronic & Dance (EDM)', subGenre: 'House' }), null, 'kept for House: fits Slap House');
+    assert.equal(fit({ genre: 'Electronic & Dance (EDM)', subGenre: 'Slap House' }, { ...slap, subGenre: 'House' }), null, 'kept for Slap House: not for every House song');
+    assert.equal(fit({ genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' }), null);
+    assert.ok(fit({ genre: 'Electronic & Dance (EDM)' }) < fit({ tags: ['car'] }), 'being kept for the genre is a small plus, below one thing shown');
+  } finally { await server.close(); }
+});
+
+test('a song whose words say nothing is read by its sound, and its genre\'s looks count double', async () => {
+  const { server, pick, pack } = await load();
+  try {
+    const instrumental = profile('Electronic & Dance (EDM)', 'Slap House');
+    delete instrumental.lyricMeaning;
+    const clip = (id, tags) => item(id, { kind: 'video', attitudes: [], tags, motionUrl: `https://x/${id}.mp4`, shots: [[0, 2000]] });
+    const library = [clip('beach', ['beach']), clip('plain', []), clip('car', ['car']), clip('party', ['party'])];
+    const hand = ids(pack.windowHand(instrumental, 0, library));
+    assert.equal(hand[0], 'car', 'Slap House looks lead an instrumental');
+    assert.ok(hand.indexOf('party') < hand.indexOf('plain'), 'its driving sound is fun: a party fits');
+    const words = { attitude: null, genre: 'Electronic & Dance (EDM)', subGenre: 'Slap House' };
+    assert.equal(pick.libraryFit(item('c', { tags: ['car'] }), { ...words, fromSound: true }), 2 * pick.libraryFit(item('c', { tags: ['car'] }), words));
   } finally { await server.close(); }
 });
 

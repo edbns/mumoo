@@ -159,9 +159,9 @@ export function localPreviewApi() {
       };
       const files = new Map();
       let library = [
-        { id: 'preview-lib-1', kind: 'photo', contentType: 'image/jpeg', bytes: 1_800_000, status: 'approved', attitudes: ['tender', 'nostalgic'], tags: ['sunset', 'beach'], genre: null, subGenre: null, note: 'Licence 118, Studio Ray', clearedBy: ADMIN, clearedAt: '2026-11-08T10:00:00Z', createdAt: '2026-11-08T10:00:00Z', ready: true, problem: null, url: samplePicture('#ff9821', '#2b231a') },
-        { id: 'preview-lib-2', kind: 'photo', contentType: 'image/jpeg', bytes: 2_400_000, status: 'pending', attitudes: [], tags: [], genre: null, subGenre: null, note: '', clearedBy: ADMIN, clearedAt: '2026-11-09T12:30:00Z', createdAt: '2026-11-09T12:30:00Z', ready: true, problem: null, url: samplePicture('#2fe92b', '#0f0f0f') },
-        { id: 'preview-lib-3', kind: 'gif', contentType: 'image/gif', bytes: 4_100_000, status: 'hidden', attitudes: ['playful'], tags: ['dance'], genre: 'Pop', subGenre: 'Dance-Pop', note: 'Own work', clearedBy: ADMIN, clearedAt: '2026-11-09T15:00:00Z', createdAt: '2026-11-09T15:00:00Z', ready: true, problem: null, url: samplePicture('#6b7367', '#26272d') },
+        { id: 'preview-lib-1', kind: 'photo', contentType: 'image/jpeg', bytes: 1_800_000, status: 'approved', attitudes: ['tender', 'nostalgic'], tags: ['sunset', 'beach'], genre: null, subGenre: null, note: 'Licence 118, Studio Ray', clearedBy: ADMIN, clearedAt: '2026-11-08T10:00:00Z', createdAt: '2026-11-08T10:00:00Z', ready: true, problem: null, seen: ['couple', 'sea'], url: samplePicture('#ff9821', '#2b231a') },
+        { id: 'preview-lib-2', kind: 'photo', contentType: 'image/jpeg', bytes: 2_400_000, status: 'pending', attitudes: [], tags: [], genre: null, subGenre: null, note: '', clearedBy: ADMIN, clearedAt: '2026-11-09T12:30:00Z', createdAt: '2026-11-09T12:30:00Z', ready: true, problem: null, seen: [], url: samplePicture('#2fe92b', '#0f0f0f') },
+        { id: 'preview-lib-3', kind: 'gif', contentType: 'image/gif', bytes: 4_100_000, status: 'hidden', attitudes: ['playful'], tags: ['dance'], genre: 'Pop', subGenre: 'Dance-Pop', note: 'Own work', clearedBy: ADMIN, clearedAt: '2026-11-09T15:00:00Z', createdAt: '2026-11-09T15:00:00Z', ready: true, problem: null, seen: [], url: samplePicture('#6b7367', '#26272d') },
       ];
       let pool = ['sunset', 'beach', 'dance'];
       const tagsNow = () => pool.map(name => ({ name, items: library.filter(item => item.tags.includes(name)).length }));
@@ -183,7 +183,7 @@ export function localPreviewApi() {
         const { type, bytes, note } = await body(request);
         const id = `preview-lib-${Date.now()}`;
         const kind = type.startsWith('video/') ? 'video' : type === 'image/gif' ? 'gif' : 'photo';
-        library = [{ id, kind, contentType: type, bytes, status: 'pending', attitudes: [], tags: [], genre: null, subGenre: null, note: note ?? '', clearedBy: ADMIN, clearedAt: new Date().toISOString(), createdAt: new Date().toISOString(), ready: true, problem: null, url: `/dev-media/${id}`, hidden: true }, ...library];
+        library = [{ id, kind, contentType: type, bytes, status: 'pending', attitudes: [], tags: [], genre: null, subGenre: null, note: note ?? '', clearedBy: ADMIN, clearedAt: new Date().toISOString(), createdAt: new Date().toISOString(), ready: true, problem: null, seen: [], url: `/dev-media/${id}`, hidden: true }, ...library];
         send(response, 201, { id, putUrl: `/dev-media/${id}` });
       }));
       route('/dev-media', 'PUT', async (request, response) => {
@@ -205,7 +205,6 @@ export function localPreviewApi() {
         const item = library.find(entry => entry.id === idParam(request));
         if (!item) return send(response, 404, { error: 'Not found.' });
         const change = await body(request);
-        if (change.status === 'approved' && !(change.attitudes ?? item.attitudes).length) return send(response, 400, { error: 'Give it at least one attitude before approving it.' });
         Object.assign(item, { ...change, genre: change.genre === '' ? null : (change.genre ?? item.genre), subGenre: change.subGenre === '' ? null : (change.subGenre ?? item.subGenre) });
         pool = [...new Set([...pool, ...item.tags])];
         send(response, 200, { item, tags: tagsNow() });

@@ -1,6 +1,6 @@
 import unittest
 
-from modal_prepare_media_staging import opening_dark_ms, shots_from, size_from
+from modal_prepare_media_staging import LOOKS, SEEN_WORDS, looks_from, opening_dark_ms, seen_from, shots_from, size_from, strength
 
 
 def luma_log(levels, step_ms=100):
@@ -48,6 +48,25 @@ class Size(unittest.TestCase):
     def test_plain_and_with_side_data(self):
         self.assertEqual(size_from("1080x1920\n"), [1080, 1920])
         self.assertEqual(size_from("1080x1920x\n"), [1080, 1920], "an iPhone HDR clip carries side data")
+
+
+class Seeing(unittest.TestCase):
+    def test_strength_is_read_on_a_log_scale(self):
+        self.assertEqual(strength(0.001), 0)
+        self.assertEqual(strength(0.3), 1)
+        self.assertEqual(strength(0.9), 1)
+        self.assertAlmostEqual(strength(0.03), 0.5, places=2)
+
+    def test_a_look_is_its_best_phrasing_and_unseen_looks_are_left_out(self):
+        odds = {phrase: 0.001 for phrases in LOOKS.values() for phrase in phrases}
+        odds["a sports car"] = 0.3
+        odds["a car"] = 0.01
+        self.assertEqual(looks_from(odds), {"cars": 1.0})
+
+    def test_suggestions_are_the_clear_words_most_likely_first(self):
+        odds = {word: 0.001 for word in SEEN_WORDS}
+        odds.update({"heels": 0.5, "designer bag": 0.05, "car": 0.019})
+        self.assertEqual(seen_from(odds), ["heels", "designer bag"])
 
 
 if __name__ == "__main__":

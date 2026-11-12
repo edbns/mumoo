@@ -2,7 +2,7 @@ export type GenreGroup = { name: string; subGenres: readonly string[] };
 
 /** What the creator says the song is: a genre, then the sub-genre inside it. Both go to the brain, so each group ends with a "General" entry for a song that sits across it. */
 export const GENRES: readonly GenreGroup[] = [
-  { name: 'Electronic & Dance (EDM)', subGenres: ['House', 'Techno', 'Synthwave / Vaporwave', 'Dubstep / Riddim', 'Ambient / Downtempo', 'General Electronic'] },
+  { name: 'Electronic & Dance (EDM)', subGenres: ['House', 'Slap House', 'Afro House', 'Tech House', 'Deep House', 'G-House', 'Techno', 'Synthwave / Vaporwave', 'Dubstep / Riddim', 'Ambient / Downtempo', 'General Electronic'] },
   { name: 'Hip-Hop & Rap', subGenres: ['Trap', 'Boom Bap / Lo-Fi', 'Psychedelic Rap', 'General Hip-Hop'] },
   { name: 'Latin & Urbano', subGenres: ['Reggaeton', 'Latin Trap', 'Traditional Latin (Salsa, Bachata)', 'General Latin'] },
   { name: 'Rock', subGenres: ['Alternative / Indie Rock', 'Psychedelic Rock', 'General Rock'] },
@@ -23,5 +23,13 @@ export const findGenre = (value: string) => GENRES.find(group => same(group.name
 
 /** The sub-genre inside `group` that a typed or kept value names, or undefined. */
 export const findSubGenre = (group: GenreGroup | undefined, value: string) => group?.subGenres.find(item => same(item, value));
+
+/** House styles belong to House: a library item kept for House fits every one of them. */
+const FAMILY: Readonly<Record<string, string>> = {
+  'slap house': 'House', 'afro house': 'House', 'tech house': 'House', 'deep house': 'House', 'g-house': 'House',
+};
+
+/** The sub-genre a style belongs to ("Slap House" is House), or the sub-genre itself. */
+export const familyOf = (subGenre: string) => FAMILY[subGenre.trim().toLowerCase()] ?? subGenre;
 
 export const toOptions = (items: readonly string[]) => items.map(item => ({ value: item, label: item }));

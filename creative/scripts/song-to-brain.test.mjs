@@ -95,11 +95,12 @@ test('the lyric reader and the app share one list of themes, and a freely typed 
     const listed = [...reader.match(/^THEMES = \[([^\]]*)\]/m)[1].matchAll(/"([^"]+)"/g)].map(match => match[1]);
     assert.deepEqual(listed, THEMES);
     for (const [tag, theme] of [['beautiful woman', 'seduction'], ['breakdancing', 'dancing'], ['street dance', 'street'], ['neon red', 'nightlife'],
-      ['beach', 'summer'], ['sunset', 'summer'], ['couple', 'romance'], ['group of girls', 'friends'], ['sports cars', 'cars'], ['spiritual', 'faith']]) {
+      ['beach', 'summer'], ['sunset', 'summer'], ['couple', 'romance'], ['group of girls', 'friends'], ['sports cars', 'cars'], ['spiritual', 'faith'],
+      ['female', 'seduction'], ['woman', 'seduction'], ['guys', 'friends'], ['dj', 'fame']]) {
       assert.ok(tagShows(tag, theme), `${tag} shows ${theme}`);
     }
-    // Short words only count as words of their own: a scarf is not a car, a sunday is not summer.
-    for (const [tag, theme] of [['scarf', 'cars'], ['sunday', 'summer'], ['barefoot', 'nightlife'], ['woman', 'seduction']]) {
+    // Short words only count as words of their own: a scarf is not a car, a sunday is not summer, a woman is not a man.
+    for (const [tag, theme] of [['scarf', 'cars'], ['sunday', 'summer'], ['barefoot', 'nightlife'], ['woman', 'friends']]) {
       assert.ok(!tagShows(tag, theme), `${tag} does not show ${theme}`);
     }
     assert.equal(themesShown(['beach', 'couple', 'neon'], ['summer', 'romance', 'money']), 2);

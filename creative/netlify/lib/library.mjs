@@ -74,6 +74,7 @@ const isJpeg = (bytes) => bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 
 /** A worker job that started and has not yet written its id down is given this long before another request may start it again. */
 const STARTING_MS = 2 * 60 * 1000;
 const CUTOUT_TRIES = 3;
+const LOOK_TRIES = 3;
 /** A file whose upload never finished is of no use after this long. */
 const STALE_MS = 60 * 60 * 1000;
 
@@ -98,6 +99,8 @@ const asItem = async (row) => ({
   height: row.height,
   /** Words when the picture is too small for sharp creatives; the item can still be approved. */
   warning: resolutionWarning(row.width, row.height),
+  /** Tags our vision model suggests (the admin decides); those the item already has are left out. */
+  seen: (row.seen ?? []).filter(tag => !row.tags.includes(tag)),
   url: await signedDownload(keyOf(row.id), null),
 });
 
@@ -119,7 +122,13 @@ async function prepareItem(row) {
         else await sql`update library_items set problem = 'This photo is not a JPEG. Delete it and send it again.' where id = ${row.id}`;
         return;
       }
-      await cutOut(row);
+      // The cut-out comes first; a job still out before the first look is the cut-out's.
+      if (!row.cutout && row.look_tries === 0 && (row.cutout_tries < CUTOUT_TRIES || row.prepare_job)) await cutOut(row);
+      else await lookAt(row);
+      return;
+    }
+    if (row.ready) {
+      await lookAt(row);
       return;
     }
     if (row.prepare_job && row.prepare_job !== 'starting') {
@@ -184,9 +193,45 @@ async function cutOut(row) {
   }
 }
 
-/** Looks at every arrived item that is not ready and has no stated problem, so the library moves on whenever anyone looks at it. */
+/**
+ * A ready item (a photo after its cut-out) is looked at once by our vision model: how strongly it shows each look the brain asks for,
+ * and tags to suggest. A clip is looked at in its prepared copy. An item it cannot read is tried three times and then left to its tags. Never throws.
+ */
+async function lookAt(row) {
+  const sql = db();
+  try {
+    if (row.prepare_job && row.prepare_job !== 'starting') {
+      const answer = await askPrepare(row.prepare_job);
+      if (answer.failed) await sql`update library_items set prepare_job = null where id = ${row.id}`;
+      else if (answer.done) {
+        const looks = answer.done.looks && typeof answer.done.looks === 'object' ? answer.done.looks : {};
+        const seen = Array.isArray(answer.done.seen) ? answer.done.seen.filter(tag => typeof tag === 'string' && TAG.test(tag)) : [];
+        await sql`update library_items set looks = ${JSON.stringify(looks)}::jsonb, seen = ${seen}, prepare_job = null where id = ${row.id}`;
+      }
+      return;
+    }
+    const [claimed] = await sql`
+      update library_items set prepare_job = 'starting', prepare_at = now(), look_tries = look_tries + 1
+      where id = ${row.id} and ready and looks is null and look_tries < ${LOOK_TRIES}
+        and (prepare_job is null or (prepare_job = 'starting' and prepare_at < now() - ${`${STARTING_MS} milliseconds`}::interval))
+      returning id`;
+    if (!claimed) return;
+    try {
+      const job = await startPrepare(await signedDownload(row.kind === 'photo' ? keyOf(row.id) : motionKey(row.id), null, 1800), {}, 'describe');
+      await sql`update library_items set prepare_job = ${job} where id = ${row.id}`;
+    } catch (cause) {
+      // The worker never had it: that try does not count against the item.
+      await sql`update library_items set prepare_job = null, look_tries = look_tries - 1 where id = ${row.id}`;
+      throw cause;
+    }
+  } catch (cause) {
+    console.error('library look:', cause);
+  }
+}
+
+/** Looks at every arrived item that is not ready, still needs its cut-out or has not been looked at, and has no stated problem, so the library moves on whenever anyone looks at it. */
 async function prepareWaiting() {
-  const rows = await db()`select * from library_items where arrived and problem is null and (not ready or (kind = 'photo' and not cutout and cutout_tries < ${CUTOUT_TRIES})) limit 20`;
+  const rows = await db()`select * from library_items where arrived and problem is null and (not ready or (kind = 'photo' and not cutout and cutout_tries < ${CUTOUT_TRIES}) or (looks is null and look_tries < ${LOOK_TRIES})) order by ready, created_at desc limit 20`;
   await Promise.all(rows.map(prepareItem));
 }
 
@@ -309,6 +354,7 @@ export async function listApproved() {
     tags: row.tags,
     genre: row.genre,
     subGenre: row.sub_genre,
+    ...(row.looks && Object.keys(row.looks).length ? { looks: row.looks } : {}),
     ...(learned.has(row.id) ? { learned: learned.get(row.id) } : {}),
     url: await signedDownload(row.kind === 'photo' ? keyOf(row.id) : posterKey(row.id), null),
     ...(row.kind === 'photo' ? (row.cutout ? { cutoutUrl: await signedDownload(cutoutKey(row.id), null) } : {}) : { motionUrl: await signedDownload(motionKey(row.id), null), ...(row.shots ? { shots: row.shots } : {}) }),

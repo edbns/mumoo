@@ -8,7 +8,7 @@ export const SONG_THEMES = {
   party: ['party', 'club', 'crowd', 'celebrat', 'festival', 'high energy', 'drinks'],
   dancing: ['danc', 'twerk', 'moves', 'choreo'],
   nightlife: ['night', 'neon', 'club', 'bar', 'lights'],
-  seduction: ['sexy', 'seduct', 'sensual', 'close up', 'lips', 'body', 'silhouette', 'beautiful', 'pole', 'poll'],
+  seduction: ['sexy', 'seduct', 'sensual', 'close up', 'lips', 'body', 'silhouette', 'beautiful', 'pole', 'poll', 'girl', 'female', 'woman', 'women', 'model', 'heels', 'legs'],
   romance: ['couple', 'love', 'romanc', 'kiss', 'hug', 'wedding', 'holding hands'],
   heartbreak: ['alone', 'rain', 'tears', 'cry', 'crying', 'empty', 'lonely', 'black and white'],
   money: ['money', 'luxury', 'gold', 'jewel', 'cash', 'rich', 'champagne', 'designer'],
@@ -19,8 +19,8 @@ export const SONG_THEMES = {
   nature: ['nature', 'forest', 'mountain', 'field', 'flower', 'landscape', 'sky'],
   freedom: ['road', 'travel', 'flying', 'wind', 'horizon', 'open'],
   faith: ['church', 'pray', 'spiritual', 'cross', 'choir', 'worship', 'light rays'],
-  friends: ['friends', 'group', 'crew', 'squad', 'laugh', 'together'],
-  fame: ['stage', 'concert', 'spotlight', 'camera', 'studio', 'red carpet', 'fans'],
+  friends: ['friends', 'group', 'crew', 'squad', 'laugh', 'together', 'guys', 'girls', 'man', 'men', 'people'],
+  fame: ['stage', 'concert', 'spotlight', 'camera', 'studio', 'red carpet', 'fans', 'singer', 'rapper', 'performer', 'dj', 'festival'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type SongTheme = keyof typeof SONG_THEMES;

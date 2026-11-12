@@ -1,5 +1,5 @@
 import type { CreativeProfileV1 } from './creative-profile';
-import { deriveMusicIntent, type MusicIntentV1 } from './music-intent';
+import { deriveMusicIntent, type IntentVibe, type MusicIntentV1 } from './music-intent';
 import {
   dealFonts,
   fontsForLane,
@@ -18,13 +18,13 @@ import { dealWindow, dealWindowLibrary, type WindowLibraryItem, type WindowMode,
 import type { WindowReading } from './pack-window';
 import bankData from './look-lab/bank.json';
 import effectsData from '../punch-plates/effects/effects.json';
-import { laneFromMeaning, leansDeep, type LyricMeaning } from './lyric-meaning';
+import { laneFromMeaning, leansDeep, type LyricAttitude, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
 import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look-fit';
 import type { CoverRead } from './cover-palette';
 import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
-import { pickLibrary, type LibraryPicture, type LibraryWanted } from './library-pick';
+import { pickLibrary, showing, type LibraryPicture, type LibraryWanted } from './library-pick';
 import { dealDoodle, doodleMood, type DoodlePaper } from './doodle-cast';
 import type { DoodleMood } from './doodle-parts';
 
@@ -300,14 +300,24 @@ export function readSong(profile: CreativeProfileV1) {
   return { intent, genre, language, meaning, lane };
 }
 
-/** What the library is asked for this song: its moods, genre and what the words are about. */
-function libraryWanted(profile: CreativeProfileV1, meaning: LyricMeaning | null, genre: string): LibraryWanted {
+/** The attitude a song's sound carries, for when its words carry none: driving and bright is fun, harsh is confident, slow or brooding is thoughtful. */
+const SOUND_ATTITUDE: Readonly<Record<IntentVibe, LyricAttitude>> = {
+  'Uplifting/Energetic': 'fun',
+  'Aggressive/Industrial': 'confident',
+  'Dark/Cinematic': 'thoughtful',
+  'Ambient/Mellow': 'thoughtful',
+};
+
+/** What the library is asked for this song: its moods, genre and what the words are about. Words with no feeling (none, or too few) let the music say it. */
+function libraryWanted(profile: CreativeProfileV1, meaning: LyricMeaning | null, genre: string, intent: MusicIntentV1 | null): LibraryWanted {
+  const heard = (!meaning || meaning.attitude === 'neutral') && intent ? SOUND_ATTITUDE[intent.vibe] : null;
   return {
-    attitude: meaning?.attitude ?? null,
+    attitude: heard ?? meaning?.attitude ?? null,
     genre,
     subGenre: profile.creator.subGenre?.value ?? '',
     ...(meaning?.moods?.length ? { moods: meaning.moods } : {}),
     ...(meaning?.themes?.length ? { themes: meaning.themes } : {}),
+    ...(heard && !meaning?.themes?.length ? { fromSound: true as const } : {}),
   };
 }
 
@@ -332,8 +342,8 @@ const risoCapable = (item: LibraryPicture) => (item.kind === 'photo' ? Boolean(i
  * row is dealt, so it asks for exactly these.
  */
 export function windowHand(profile: CreativeProfileV1, generation: number, library: readonly LibraryPicture[]): LibraryPicture[] {
-  const { meaning, genre } = readSong(profile);
-  const wanted = libraryWanted(profile, meaning, genre);
+  const { intent, meaning, genre } = readSong(profile);
+  const wanted = libraryWanted(profile, meaning, genre, intent);
   return pickLibrary(library.filter(windowCapable), wanted, profile.clip.sourceSha256, generation, ROW_SIZE);
 }
 
@@ -343,19 +353,19 @@ const REEL_CLIPS = 3;
 const isClip = (item: LibraryPicture) => item.kind !== 'photo' && Boolean(item.motionUrl);
 
 /**
- * `count` of the `ranked` pictures (best fit first) that show different things: each next one is the best that brings a tag
- * the reel does not have yet (a car, then the girls, then the club), so a reel is not eight cars. With none left that do, the best of the rest.
+ * `count` of the `ranked` pictures (best fit first) that show different things: each next one is the best that brings a tag, or a look
+ * the vision model sees clearly, the reel does not have yet (a car, then the girls, then the club), so a reel is not eight cars.
+ * With none left that do, the best of the rest.
  */
 export function mixed(ranked: readonly LibraryPicture[], count: number): LibraryPicture[] {
   const picked: LibraryPicture[] = [];
   const seen = new Set<string>();
   const rest = [...ranked];
-  const key = (tag: string) => tag.trim().toLowerCase();
   while (picked.length < count && rest.length) {
-    const fresh = rest.findIndex(item => item.tags.some(tag => !seen.has(key(tag))));
+    const fresh = rest.findIndex(item => showing(item).some(thing => !seen.has(thing)));
     const [next] = rest.splice(Math.max(0, fresh), 1);
     picked.push(next);
-    for (const tag of next.tags) seen.add(key(tag));
+    for (const thing of showing(next)) seen.add(thing);
   }
   return picked;
 }
@@ -396,7 +406,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
   // Dust draws library photos that have a cut-out; Riso those, or library videos/GIFs; with none, our approved photos.
-  const wanted = libraryWanted(profile, meaning, genre);
+  const wanted = libraryWanted(profile, meaning, genre, intent);
   const cutOutLibrary = pickLibrary(library.filter(item => item.kind === 'photo' && item.cutoutUrl), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
   const risoLibrary = pickLibrary(library.filter(risoCapable), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
   const photos: PhotoSources = { plateIds: cutOutPlates, libraryIds: cutOutLibrary };

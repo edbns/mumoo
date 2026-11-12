@@ -4,6 +4,8 @@
           on onnxruntime: the rembg package alone took over a minute to import on a cold container)
   motion  a video or GIF  ->  a small H.264 copy (the whole video, muted, at most 720x1280), a poster still and
           the list of its shots, so a creative can cut and arrange them on the beat
+  describe  a library photo or prepared clip  ->  what it is seen to show (`LOOKS`, each 0..1) and tags to suggest
+          (`SEEN_WORDS`), by a self-hosted SigLIP 2 model (Apache 2.0). Nothing is generated; it only describes.
 
   submit  POST  JSON {kind, source, puts}  ->  {"id": "fc-..."}   (instant)
   status  GET   ?id=fc-...                 ->  202 running | 200 JSON result | 4xx/5xx
@@ -45,7 +47,76 @@ MASK_SIDE = 640
 MODEL_PATH = "/models/u2net.onnx"
 MODEL_URL = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx"
 MODEL_MD5 = "60024c5c889badc19c04ad937298a77b"
-OUTPUTS = {"photo": {"cutout"}, "motion": {"motion", "poster"}}
+OUTPUTS = {"photo": {"cutout"}, "motion": {"motion", "poster"}, "describe": set()}
+
+SEER = "google/siglip2-base-patch16-224"
+# What the brain can ask a picture to show: the song themes (SONG_THEMES in creative/src/song-themes.ts) and the genre looks
+# (THEME_TAGS in creative/src/genre-guide.ts); a test keeps the keys the same. A look is the best of its phrasings.
+LOOKS = {
+    "party": ["people partying", "a party", "a festival crowd"],
+    "dancing": ["people dancing", "a dancer", "breakdancing"],
+    "nightlife": ["a night out", "neon lights at night", "a nightclub"],
+    "seduction": ["a sexy woman", "a beautiful woman", "legs in high heels"],
+    "romance": ["a romantic couple", "a couple kissing"],
+    "heartbreak": ["a lonely, sad person", "tears"],
+    "money": ["money", "cash", "a luxury lifestyle", "champagne", "jewelry", "a designer bag"],
+    "cars": ["a car", "a sports car", "driving a car"],
+    "street": ["an urban street", "graffiti"],
+    "city": ["a city", "a city skyline at night"],
+    "summer": ["a beach", "summer", "a swimming pool"],
+    "nature": ["nature", "a forest", "a landscape"],
+    "freedom": ["an open road", "travel"],
+    "faith": ["a church", "people praying"],
+    "friends": ["a group of friends", "friends laughing together"],
+    "fame": ["a performer on stage", "a concert", "a DJ"],
+    "club": ["a nightclub", "a club with lights"],
+    "abstract": ["abstract shapes"],
+    "geometric": ["geometric shapes"],
+    "architecture": ["architecture"],
+    "neon": ["neon lights"],
+    "retro": ["a retro, vintage look"],
+    "beach": ["a beach"],
+    "tropical": ["palm trees"],
+    "sunset": ["a sunset"],
+    "space": ["outer space"],
+    "underwater": ["underwater"],
+    "rain": ["rain"],
+    "smoke": ["smoke"],
+    "fire": ["fire"],
+    "mountains": ["mountains"],
+    "road": ["a road"],
+    "crowd": ["a crowd of people"],
+    "fashion": ["fashion", "high heels", "a designer outfit"],
+    "luxury": ["luxury", "a luxury lifestyle"],
+    "robots": ["a robot"],
+    "dark": ["a dark, moody scene"],
+    "glitch": ["a glitch effect"],
+    "surreal": ["a surreal scene"],
+    "futuristic": ["a futuristic scene"],
+    "fantasy": ["a fantasy world"],
+    "cozy": ["a cozy room"],
+    "collage": ["a collage"],
+    "instruments": ["musical instruments"],
+    "studio": ["a music studio"],
+    "stage": ["a stage"],
+    "industrial": ["an industrial setting"],
+}
+# Tags the admin may be offered, as they would type them (each a tag the server accepts).
+SEEN_WORDS = [
+    "car", "sports car", "motorbike", "driving", "road", "girl", "girls", "guy", "guys", "woman", "man", "couple",
+    "crowd", "dancer", "dancing", "dj", "singer", "friends", "club", "bar", "festival", "concert", "stage", "studio",
+    "street", "city", "skyline", "rooftop", "beach", "pool", "sea", "desert", "yacht", "jet", "champagne", "drinks",
+    "money", "jewelry", "watch", "sunglasses", "designer bag", "heels", "dress", "suit", "fashion", "luxury", "neon",
+    "lights", "laser", "smoke", "fire", "fireworks", "confetti", "sunset", "night", "rain", "snow", "palm trees",
+    "flowers", "close up", "face", "hands", "legs", "silhouette", "black and white", "selfie", "walking", "kiss",
+    "microphone", "turntables", "guitar", "piano", "phone", "graffiti", "skating", "surfing", "gym", "hotel",
+]
+# SigLIP's own odds are small and spread: a clear look scores about 0.2 to 0.7, a faint one 0.01. Strength is read on a log scale between these.
+FAINT = 0.003
+CLEAR = 0.3
+SEEN_AT = 0.02
+MOST_SEEN = 8
+FRAMES = 6
 
 # One image for the whole app (the module imports fastapi at top level). The model is baked in,
 # so a job never waits on a download.
@@ -53,7 +124,10 @@ image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("ffmpeg")
     .pip_install("fastapi==0.115.12", "onnxruntime==1.20.1", "pillow==11.1.0", "numpy==2.2.6")
+    .pip_install("torch==2.6.0", index_url="https://download.pytorch.org/whl/cpu")
+    .pip_install("transformers==4.56.2", "sentencepiece==0.2.0", "protobuf==5.29.3")
     .run_commands(
+        f"python -c \"from transformers import AutoModel, AutoProcessor; AutoModel.from_pretrained('{SEER}'); AutoProcessor.from_pretrained('{SEER}')\"",
         "mkdir -p /models",
         # GitHub's release host now and then answers 5xx; the checksum below proves the file is whole.
         f"for try in 1 2 3 4 5; do python -c \"import urllib.request; urllib.request.urlretrieve('{MODEL_URL}', '{MODEL_PATH}')\" && break; sleep 5; done",
@@ -135,6 +209,77 @@ def cutout(source: Path) -> bytes:
     out = io.BytesIO()
     mask.save(out, format="PNG")
     return out.getvalue()
+
+
+def strength(odds: float) -> float:
+    """SigLIP's odds for a phrase as 0 (not seen) to 1 (clearly seen), on a log scale from FAINT to CLEAR."""
+    import math
+
+    if odds <= FAINT:
+        return 0.0
+    return round(min(1.0, math.log(odds / FAINT) / math.log(CLEAR / FAINT)), 2)
+
+
+def looks_from(odds: dict[str, float]) -> dict[str, float]:
+    """Each look's strength, from the best odds of its phrasings; looks not seen at all are left out."""
+    found = {look: strength(max(odds[phrase] for phrase in phrases)) for look, phrases in LOOKS.items()}
+    return {look: value for look, value in found.items() if value > 0}
+
+
+def seen_from(odds: dict[str, float]) -> list[str]:
+    """The suggested tags: the words seen clearly enough, most likely first."""
+    ranked = sorted(((odds[word], word) for word in SEEN_WORDS if odds[word] >= SEEN_AT), reverse=True)
+    return [word for _, word in ranked[:MOST_SEEN]]
+
+
+@functools.lru_cache(maxsize=1)
+def seer():
+    """The model and every phrase it is asked about, read once per container."""
+    import torch
+    from transformers import AutoModel, AutoProcessor
+
+    model = AutoModel.from_pretrained(SEER).eval()
+    processor = AutoProcessor.from_pretrained(SEER)
+    phrases = sorted({phrase for phrases in LOOKS.values() for phrase in phrases} | {f"__{word}" for word in SEEN_WORDS})
+    texts = [f"This is a photo of {phrase.removeprefix('__')}." for phrase in phrases]
+    with torch.no_grad():
+        encoded = processor(text=texts, padding="max_length", max_length=64, return_tensors="pt")
+        text = model.get_text_features(**encoded)
+    return model, processor, phrases, text / text.norm(dim=-1, keepdim=True)
+
+
+def frames_of(file: Path, directory: Path) -> list:
+    """The picture itself, or FRAMES stills spread across a clip."""
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        return [Image.open(file).convert("RGB")]
+    except UnidentifiedImageError:
+        pass
+    seconds = seconds_of(file) or 1.0
+    frames = []
+    for index in range(FRAMES):
+        still = directory / f"frame{index}.jpg"
+        run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-ss", f"{seconds * (index + 0.5) / FRAMES:.3f}", "-i", str(file), "-frames:v", "1", str(still)], 60)
+        if still.exists():
+            frames.append(Image.open(still).convert("RGB"))
+    if not frames:
+        raise PrepareError("That file could not be read as a photo, video or GIF.")
+    return frames
+
+
+def describe(file: Path, directory: Path) -> dict:
+    """What the picture is seen to show anywhere in it (the best frame for each phrase)."""
+    import torch
+
+    model, processor, phrases, text = seer()
+    with torch.no_grad():
+        pixels = processor(images=frames_of(file, directory), return_tensors="pt")
+        image = model.get_image_features(**pixels)
+        image = image / image.norm(dim=-1, keepdim=True)
+        odds = torch.sigmoid(image @ text.T * model.logit_scale.exp() + model.logit_bias).max(dim=0).values.tolist()
+    by_phrase = dict(zip(phrases, odds))
+    return {"looks": looks_from(by_phrase), "seen": seen_from({word: by_phrase[f"__{word}"] for word in SEEN_WORDS})}
 
 
 def shots_from(log: str, milliseconds: int, dark_ms: int = 0) -> list[list[int]]:
@@ -271,12 +416,15 @@ def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]]
 
 @app.function(image=image, cpu=4, memory=4096, min_containers=0, max_containers=6, scaledown_window=60, timeout=600)
 def prepare(kind: str, source: str, puts: dict[str, str]) -> dict:
-    """Returns {"ok": True, "bytes": {output: size}, "shots": [[start_ms, end_ms], ...], "width", "height" (video or GIF only)} or {"ok": False, "error": words for the person}."""
+    """Returns {"ok": True, "bytes": {output: size}, "shots": [[start_ms, end_ms], ...], "width", "height" (video or GIF only)},
+    for `describe` {"ok": True, "looks": {look: 0..1}, "seen": [tag, ...]}, or {"ok": False, "error": words for the person}."""
     with tempfile.TemporaryDirectory(prefix="mumoo-prepare-") as name:
         directory = Path(name)
         file = directory / "source"
         try:
             download(source, file)
+            if kind == "describe":
+                return {"ok": True, **describe(file, directory)}
             if kind == "photo":
                 made = {"cutout": (cutout(file), "image/png")}
             else:

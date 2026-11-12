@@ -16,6 +16,8 @@ export type LibraryItem = {
   ready: boolean; problem: string | null;
   /** The picture's size and, when it is too small for sharp creatives, words saying so. */
   width: number | null; height: number | null; warning: string | null;
+  /** Tags our vision model saw in it that it does not have yet: offered, never added by themselves. */
+  seen: string[];
 };
 export type TagCount = { name: string; items: number };
 export type Library = { items: LibraryItem[]; tags: TagCount[] };
