@@ -360,6 +360,7 @@ function App() {
           <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-background p-5">
             <FileDropzone accept={ACCEPTED_AUDIO} icon={Music2Icon} title="Drop your song here" hint={ACCEPTED_LABEL} buttonLabel="Select song" inputLabel="Song file" removeLabel="Remove song" fileName={songName || undefined}
               onSelect={file => void choose(file)} onRemove={() => void choose(undefined)} />
+            {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
             {!loading && !buffer && <p className="hint">Choose a song at least 15 seconds long to continue. No song file? A video with the song playing works too: a saved TikTok or Reel, a screen recording, or a voice memo.</p>}
             {IS_ALIGNMENT_STAGING && accessToken && !loading && !buffer && <PhoneUpload token={accessToken} kind="song" onFile={file => void choose(file)} />}
           </div>
@@ -369,7 +370,6 @@ function App() {
               options={toOptions(selectedGenre?.subGenres ?? [])} value={subGenre} onValueChange={setSubGenre} />
           </div>
         </div>
-        {error && <p role="alert">{error}</p>}
         <div className="mt-6 flex justify-end">
           <Button disabled={!buffer || !genreValid || loading} onClick={() => setStep(2)}>Continue</Button>
         </div></>}
