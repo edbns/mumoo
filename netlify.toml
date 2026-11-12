@@ -14,6 +14,20 @@
   to = "/admin.html"
   status = 200
 
+# Where a phone sends the song from (the QR code on the song step). Its link is in the #fragment, never sent to a server.
+[[redirects]]
+  from = "/phone"
+  to = "/phone.html"
+  status = 200
+
+[[headers]]
+  for = "/phone*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    Cache-Control = "no-store"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "no-referrer"
+
 [[headers]]
   for = "/admin*"
   [headers.values]

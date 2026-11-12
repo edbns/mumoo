@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileDropzone } from '@/components/ui/file-dropzone';
 import { Modal } from '@/components/ui/modal';
+import { PhoneUpload } from './phone-upload';
+import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 import { ACCEPT, SHELF_PICTURE } from './uploads';
 import type { Uploads } from './use-uploads';
 
@@ -10,8 +12,10 @@ import type { Uploads } from './use-uploads';
  * The shelf's own picture: one button that opens the upload popup (photo, video or GIF), and a plain line about what is happening to it.
  * Adding a picture replaces the old one once it is ready, so nothing needs choosing or removing.
  */
-export function PictureUpload({ uploads, onChange }: {
+export function PictureUpload({ uploads, token, onChange }: {
   uploads: Uploads;
+  /** Staging access, for sending the picture from a phone. */
+  token: string;
   /** Called before the picture changes, so the page can stop what is playing. */
   onChange: () => void;
 }) {
@@ -51,6 +55,7 @@ export function PictureUpload({ uploads, onChange }: {
           inputLabel="Picture file"
           onSelect={file => void pick(file)}
           />
+          {IS_ALIGNMENT_STAGING && token && !sending && !preparing && <PhoneUpload token={token} kind="picture" onFile={file => void pick(file)} />}
           {status && <p role="status" className="text-center text-sm text-muted-foreground">{status}</p>}
         </div>
         : <p className="text-sm text-muted-foreground">Sign in (top right) to use your own picture.</p>}

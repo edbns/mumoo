@@ -497,7 +497,7 @@ export function CreativesPackStudio({
         <span>Lyrics</span>
       </label>}
       {uploaded && !ours && <Button variant="secondary" onClick={() => { stopPlayback(); setOurs(true); }}>Use our media</Button>}
-      <PictureUpload uploads={uploads} onChange={stopPlayback} />
+      <PictureUpload uploads={uploads} token={token} onChange={stopPlayback} />
       <Button className="shimmer" disabled={!allReady} onClick={refreshShelf} aria-label="Refresh all creatives">Refresh</Button>
     </div>
     {ownKind && <p className="hint text-center">{ownKind === 'motion' ? 'Your video or GIF is shown on the templates that can use one. Dust and Depth need a photo.' : 'Your photo is shown on the templates that use a picture.'}</p>}

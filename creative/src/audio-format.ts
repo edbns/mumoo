@@ -20,8 +20,9 @@ function pictureMime(data: Uint8Array): SongCover['mime'] | null {
  */
 export type AudioFormat = 'wav' | 'mp3' | 'aac' | 'm4a' | 'ogg' | 'flac' | 'webm' | 'aiff';
 
-export const ACCEPTED_AUDIO = 'audio/*,.mp3,.wav,.m4a,.aac,.ogg,.oga,.opus,.flac,.weba,.webm,.mp4,.aif,.aiff';
-export const ACCEPTED_LABEL = 'MP3, WAV, M4A, AAC, OGG, Opus, FLAC';
+/** Videos too (`.mp4`, `.mov`, `.webm`): the browser decodes their sound track, so a saved TikTok or a screen recording is a song. */
+export const ACCEPTED_AUDIO = 'audio/*,.mp3,.wav,.m4a,.aac,.ogg,.oga,.opus,.flac,.weba,.webm,.mp4,.mov,.aif,.aiff';
+export const ACCEPTED_LABEL = 'MP3, WAV, M4A, AAC, OGG, Opus, FLAC, or a video (MP4, MOV)';
 
 const ascii = (view: Uint8Array, offset: number, length: number) =>
   String.fromCharCode(...view.subarray(offset, offset + length));

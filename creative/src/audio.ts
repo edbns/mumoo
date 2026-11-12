@@ -60,6 +60,8 @@ export async function decodeAudio(bytes: ArrayBuffer, probedMs?: number): Promis
     throw new Error(
       format === 'wav'
         ? 'This WAV could not be decoded.'
+        // MP4 and MOV videos sniff as M4A: name no format the person did not choose.
+        : format === 'm4a' ? 'Your browser could not read the sound in this file. Try another file, or export it as MP3 or WAV.'
         : `Your browser could not read this ${format.toUpperCase()} file. Try exporting it as MP3 or WAV.`,
     );
   }
