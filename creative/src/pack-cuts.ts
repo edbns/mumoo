@@ -16,8 +16,8 @@ export type Cut = {
   fromMs: number;
 };
 
-export function planCuts(shots: readonly Shot[], beatsMs: readonly number[], seed: number, durationMs: number, music?: Pick<DirectorMusic, 'downbeatsMs' | 'energy'> | null): Cut[] {
-  const direction: DirectorMusic = { beatsMs, downbeatsMs: music?.downbeatsMs, energy: music?.energy ?? [] };
+export function planCuts(shots: readonly Shot[], beatsMs: readonly number[], seed: number, durationMs: number, music?: Pick<DirectorMusic, 'downbeatsMs' | 'energy' | 'accentsMs' | 'pace'> | null): Cut[] {
+  const direction: DirectorMusic = { beatsMs, downbeatsMs: music?.downbeatsMs, energy: music?.energy ?? [], accentsMs: music?.accentsMs, pace: music?.pace };
   return planReel([{ kind: 'clip', shots }], direction, seed, durationMs).map(({ atMs, startMs, pieceEndMs, fromMs }) => ({ atMs, startMs, endMs: pieceEndMs, fromMs }));
 }
 

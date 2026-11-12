@@ -35,6 +35,11 @@ CLIP_MAX_BYTES = 38_000_000
 SCENE_THRESHOLD = 0.32
 MIN_SHOT_MS = 800
 MAX_SHOTS = 40
+# A clip's opening is dark until a frame is half as bright as the clip gets (and above near-black, 24 of 255; video black is 16).
+DARK_SCAN_SECONDS = 3
+DARK_Y = 24
+LIT_SHARE = 0.5
+MOST_DARK_MS = 2000
 # Dust reads the mask at 180x320, and U2-Net itself looks at 320x320, so a larger mask only costs time.
 MASK_SIDE = 640
 MODEL_PATH = "/models/u2net.onnx"
@@ -132,8 +137,9 @@ def cutout(source: Path) -> bytes:
     return out.getvalue()
 
 
-def shots_from(log: str, milliseconds: int) -> list[list[int]]:
-    """The video's shots as [start, end] in ms, from the scene changes ffmpeg reported. Shots under 0.8 s join their neighbour."""
+def shots_from(log: str, milliseconds: int, dark_ms: int = 0) -> list[list[int]]:
+    """The video's shots as [start, end] in ms, from the scene changes ffmpeg reported. Shots under 0.8 s join their neighbour.
+    The first shot starts after the dark opening (`opening_dark_ms`); when too little of it is left, the next shot opens the clip."""
     cuts = sorted({round(float(t) * 1000) for t in re.findall(r"pts_time:([0-9.]+)", log)})
     edges = [0, *[cut for cut in cuts if 0 < cut < milliseconds], milliseconds]
     out: list[list[int]] = []
@@ -145,7 +151,39 @@ def shots_from(log: str, milliseconds: int) -> list[list[int]]:
     if len(out) > 1 and out[0][1] - out[0][0] < MIN_SHOT_MS:
         out[1][0] = 0
         out.pop(0)
+    if dark_ms > 0:
+        if out[0][1] - dark_ms >= MIN_SHOT_MS // 2 or len(out) == 1:
+            out[0][0] = min(dark_ms, out[0][1] - 200)
+        else:
+            out.pop(0)
     return out[:MAX_SHOTS]
+
+
+def opening_dark_ms(log: str) -> int:
+    """How long a clip opens on black or fades in, in ms, from the brightness of its first frames (signalstats YAVG, 0-255).
+    A clip that is dark all the way through (a night scene) is not dark at its opening: nothing is skipped."""
+    frames = [(round(float(t) * 1000), float(y)) for t, y in re.findall(r"pts_time:([0-9.]+)[^\n]*\n[^\n]*?lavfi\.signalstats\.YAVG=([0-9.]+)", log)]
+    if not frames:
+        return 0
+    levels = sorted(y for _, y in frames)
+    lit = levels[int(len(levels) * 0.9)]
+    if lit < DARK_Y:
+        return 0
+    bar = max(DARK_Y, lit * LIT_SHARE)
+    first_lit = next(t for t, y in frames if y >= bar)
+    return min(first_lit, MOST_DARK_MS)
+
+
+def dark_opening(clip: Path) -> int:
+    """`opening_dark_ms` of the prepared clip; a clip whose opening cannot be read is played from its start, as before."""
+    try:
+        log = run([
+            "ffmpeg", "-hide_banner", "-t", str(DARK_SCAN_SECONDS), "-i", str(clip), "-an",
+            "-vf", "scale=-2:90,signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-f", "null", "-",
+        ], 60, stream="stderr")
+    except PrepareError:
+        return 0
+    return opening_dark_ms(log)
 
 
 def seconds_of(path: Path) -> float:
@@ -215,13 +253,14 @@ def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]]
     milliseconds = round(seconds_of(clip) * 1000)
     if milliseconds < 500:
         raise PrepareError("That video is too short to use.")
+    dark = dark_opening(clip) / 1000
     poster = directory / "poster.jpg"
     run([
-        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-ss", str(min(1.0, seconds / 2)), "-i", str(clip),
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-ss", str(min(dark + 1.0, max(dark, seconds / 2))), "-i", str(clip),
         "-frames:v", "1", "-q:v", "3", str(poster),
     ], 60)
     # The clip is never enlarged, so its size is the source's (up to full HD): what the person's pictures are really made of.
-    return clip.read_bytes(), poster.read_bytes(), shots_from(log, milliseconds), size_of(clip)
+    return clip.read_bytes(), poster.read_bytes(), shots_from(log, milliseconds, round(dark * 1000)), size_of(clip)
 
 
 @app.function(image=image, cpu=4, memory=4096, min_containers=0, max_containers=6, scaledown_window=60, timeout=600)

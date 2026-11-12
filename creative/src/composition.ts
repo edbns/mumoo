@@ -1,10 +1,21 @@
+import type { Pace } from './pack-director';
+
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
 export const FPS = 30;
 export const DURATION_MS = 15_000;
 export const FRAMES = FPS * DURATION_MS / 1000;
 
-export interface ImpactMusic { beatsMs: number[]; /** The first beat of each bar; the Dust scene breaks up hardest on these. */ downbeatsMs?: number[]; energy: { timeMs: number; rms: number }[] }
+export interface ImpactMusic {
+  beatsMs: number[];
+  /** The first beat of each bar; the Dust scene breaks up hardest on these. */
+  downbeatsMs?: number[];
+  energy: { timeMs: number; rms: number }[];
+  /** Section changes and sung line starts: the Director cuts on these (`songAccents`). */
+  accentsMs?: number[];
+  /** How the song wants to be cut, from its vibe. */
+  pace?: Pace;
+}
 
 /** One timed word (or short phrase) of the lyrics, in milliseconds from the start of the 15-second clip. */
 export interface LyricCue { text: string; startMs: number; endMs: number }

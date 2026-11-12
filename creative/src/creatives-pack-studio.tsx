@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
-import { FPS, playheadFrame, type Composition, type ImpactMusic } from './composition';
+import { DURATION_MS, FPS, playheadFrame, type Composition, type ImpactMusic } from './composition';
+import { songAccents } from './pack-director';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
 import { adPunchFallbackText, isLookRow, recommendRow, rowsFor, SHELF_ROWS, windowHand, type CreativesPackSlot, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
@@ -33,13 +34,18 @@ import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   if (profile.musicAnalysis.status !== 'ready') return null;
   const data = profile.musicAnalysis.result;
+  const downbeatsMs = data.rhythm.downbeatsMs.slice(0, 200);
+  const accentsMs = songAccents(data.temporalV1?.segments ?? [], profile.approvedLyrics?.cues ?? [], downbeatsMs, DURATION_MS).slice(0, 60);
+  const pace = deriveMusicIntent(data)?.treatmentHint;
   return {
     beatsMs: data.rhythm.beatsMs.slice(0, 500),
-    downbeatsMs: data.rhythm.downbeatsMs.slice(0, 200),
+    downbeatsMs,
     energy: data.features.frames.slice(0, 2000).map(point => ({
       timeMs: Math.max(0, Math.min(15000, Math.round(point.timeMs))),
       rms: Math.max(0, Math.min(1, point.rms)),
     })),
+    ...(accentsMs.length ? { accentsMs } : {}),
+    ...(pace ? { pace } : {}),
   };
 }
 
@@ -142,7 +148,7 @@ export function CreativesPackStudio({
   const [plates, setPlates] = useState<PlateRef[] | null>(null);
   /** The cards whose posters are finished. */
   const [readyCards, setReadyCards] = useState<ReadonlySet<string>>(new Set());
-  const music = useMemo(() => impactMusic(profile), [profile.musicAnalysis]);
+  const music = useMemo(() => impactMusic(profile), [profile.musicAnalysis, profile.approvedLyrics]);
   const intent = useMemo(
     () => (profile.musicAnalysis.status === 'ready' ? deriveMusicIntent(profile.musicAnalysis.result) : null),
     [profile.musicAnalysis],

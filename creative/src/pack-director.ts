@@ -30,7 +30,14 @@ export type DirectorMusic = {
   beatsMs: readonly number[];
   downbeatsMs?: readonly number[];
   energy: readonly { timeMs: number; rms: number }[];
+  /** Moments a cut should land on: where the song changes section and where a sung line starts (`songAccents`). */
+  accentsMs?: readonly number[];
+  /** How the song wants to be cut, from its vibe (`music-intent.ts`): restrained songs hold each picture longer. */
+  pace?: Pace;
 };
+
+export type Pace = 'kinetic' | 'balanced' | 'restrained';
+const PACE: Record<Pace, number> = { kinetic: 1, balanced: 1.5, restrained: 2 };
 
 const MIN_PIECE_MS = 800;
 const MAX_PIECE_MS = 3200;
@@ -46,6 +53,15 @@ const TEMPER = [1, 0.5, 2, 1] as const;
 const CLIP_CHANCE = { high: 0.88, mid: 0.72, low: 0.5 } as const;
 const HIGH = 0.66;
 const LOW = 0.33;
+/** Many videos open on black or fade in. A clip prepared before we measured that is never played from its very first frame. */
+export const OPENING_SKIP_MS = 300;
+/** A cut moves to a beat this close to an accent. */
+const ACCENT_SNAP_MS = 220;
+/** A section change: the song's energy rises or falls by this much from one stretch to the next. */
+const SECTION_CHANGE = 0.25;
+const SECTION_BAR_MS = 600;
+/** A sung word after a pause this long starts a line. */
+const LINE_GAP_MS = 450;
 
 export function random(seed: number) {
   let state = (seed * 2654435761) >>> 0 || 1;
@@ -57,7 +73,9 @@ export function random(seed: number) {
 
 /** Long shots are split so there is always enough to choose from, even for a GIF that is one shot. */
 export function pieces(shots: readonly Shot[]): Shot[] {
-  let pool: Shot[] = shots.filter(([start, end]) => end - start >= 200);
+  let pool: Shot[] = shots
+    .map(([start, end]): Shot => (start === 0 && end >= OPENING_SKIP_MS * 2 ? [OPENING_SKIP_MS, end] : [start, end]))
+    .filter(([start, end]) => end - start >= 200);
   const split = (shot: Shot): Shot[] => {
     const length = shot[1] - shot[0];
     if (length <= MAX_PIECE_MS) return [shot];
@@ -98,12 +116,14 @@ const band = (level: number) => (level >= HIGH ? 'high' : level >= LOW ? 'mid' :
 
 /** Where the cuts fall: on beats, holding fewer beats where the music is loud, ending on the bar where it is soft. */
 function cutTimes(music: DirectorMusic | null, seed: number, durationMs: number) {
-  const temper = TEMPER[Math.abs(seed) % TEMPER.length];
+  const temper = TEMPER[Math.abs(seed) % TEMPER.length] * PACE[music?.pace ?? 'kinetic'];
   const level = loudness(music?.energy ?? []);
   let beats = (music?.beatsMs ?? []).filter(ms => ms > 0 && ms < durationMs);
   if (!beats.length) beats = Array.from({ length: Math.floor(durationMs / 1000) - 1 }, (_, i) => (i + 1) * 1000);
   const bars = music?.downbeatsMs ?? [];
   const onBar = (ms: number) => bars.some(bar => Math.abs(bar - ms) < 40);
+  const accents = music?.accentsMs ?? [];
+  const nearAccent = (ms: number) => accents.some(accent => Math.abs(accent - ms) <= ACCENT_SNAP_MS);
 
   const times = [0];
   const levels: number[] = [];
@@ -123,6 +143,10 @@ function cutTimes(music: DirectorMusic | null, seed: number, durationMs: number)
     }
     while (end > position && beats[end] - at > MAX_CUT_MS) end -= 1;
     while (end < beats.length && beats[end] - at < MIN_CUT_MS) end += 1;
+    // A new section or a new sung line inside the hold takes the cut, a little early, onto its own beat.
+    for (let j = position; j < end; j += 1) {
+      if (beats[j] - at >= MIN_CUT_MS && nearAccent(beats[j])) { end = j; break; }
+    }
     if (end >= beats.length || beats[end] > durationMs - MIN_CUT_MS) break;
     levels.push(here);
     times.push(beats[end]);
@@ -130,6 +154,26 @@ function cutTimes(music: DirectorMusic | null, seed: number, durationMs: number)
   }
   levels.push(level(times[times.length - 1], durationMs));
   return { times, levels };
+}
+
+/**
+ * Where the song asks for a cut besides its beats: each stretch whose energy jumps or drops from the one before (a drop,
+ * a break, a chorus coming in) and each sung line's first word. Sorted, each once, inside the clip.
+ */
+export function songAccents(
+  segments: readonly { startMs: number; energyChange: number | null }[],
+  words: readonly { startMs: number; endMs: number }[],
+  downbeatsMs: readonly number[],
+  durationMs: number,
+): number[] {
+  // The analysis marks sections on whole seconds; the bar that starts nearest is where the change is really heard.
+  const onBar = (ms: number) => {
+    const bar = downbeatsMs.reduce((best, d) => (Math.abs(d - ms) < Math.abs(best - ms) ? d : best), Number.POSITIVE_INFINITY);
+    return Math.abs(bar - ms) <= SECTION_BAR_MS ? bar : ms;
+  };
+  const sections = segments.filter(segment => segment.energyChange !== null && Math.abs(segment.energyChange) >= SECTION_CHANGE).map(segment => onBar(segment.startMs));
+  const lines = words.filter((word, i) => i === 0 || word.startMs - words[i - 1].endMs >= LINE_GAP_MS).map(word => word.startMs);
+  return [...new Set([...sections, ...lines].map(Math.round))].filter(ms => ms > 0 && ms < durationMs).sort((a, b) => a - b);
 }
 
 export function planReel(assets: readonly ReelAsset[], music: DirectorMusic | null, seed: number, durationMs: number): Segment[] {

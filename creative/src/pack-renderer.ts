@@ -325,7 +325,7 @@ export async function createPackRenderer(
             await motion.seek(ms % Math.max(1, motion.durationMs));
           } else {
             // The edit: pieces of the clip, cut on the beat, differently for each card.
-            const key = `${motionUrlLoaded}|${current.cutSeed ?? 0}|${JSON.stringify(current.motionShots ?? null)}|${current.music?.beatsMs.length ?? 0}|${current.music?.energy.length ?? 0}`;
+            const key = `${motionUrlLoaded}|${current.cutSeed ?? 0}|${JSON.stringify(current.motionShots ?? null)}|${current.music?.beatsMs.length ?? 0}|${current.music?.energy.length ?? 0}|${current.music?.accentsMs?.join(',') ?? ''}|${current.music?.pace ?? ''}`;
             if (key !== cutsKey) {
               cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, DURATION_MS, current.music);
               cutsKey = key;

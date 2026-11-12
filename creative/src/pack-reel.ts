@@ -227,9 +227,9 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
     subject,
     durationMs: 15_000,
     direct(music, seed, durationMs) {
-      const key = `${seed}|${durationMs}|${music?.beatsMs.length ?? 0}|${music?.energy.length ?? 0}|${assets.length}`;
+      const key = `${seed}|${durationMs}|${music?.beatsMs.length ?? 0}|${music?.energy.length ?? 0}|${music?.accentsMs?.join(',') ?? ''}|${music?.pace ?? ''}|${assets.length}`;
       if (key === plannedFor) return;
-      segments = planReel(assets, music ? { beatsMs: music.beatsMs, downbeatsMs: music.downbeatsMs, energy: music.energy } : null, seed, durationMs);
+      segments = planReel(assets, music ? { beatsMs: music.beatsMs, downbeatsMs: music.downbeatsMs, energy: music.energy, accentsMs: music.accentsMs, pace: music.pace } : null, seed, durationMs);
       plannedFor = key;
     },
     async seek(ms) {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
-const { planReel, segmentAt, clipMsAt } = await server.ssrLoadModule('/src/pack-director.ts');
+const { planReel, segmentAt, clipMsAt, pieces, songAccents, OPENING_SKIP_MS } = await server.ssrLoadModule('/src/pack-director.ts');
 await server.close();
 
 const DURATION = 15000;
@@ -148,4 +148,54 @@ test('segmentAt finds the piece playing at a moment', () => {
   const segments = planReel(ASSETS, MUSIC, 2, DURATION);
   for (const segment of segments) assert.equal(segmentAt(segments, segment.atMs), segment);
   assert.equal(segmentAt(segments, DURATION - 1), segments.at(-1));
+});
+
+test('a clip is never played from its very first frame, where many videos are still black or fading in', () => {
+  for (const seed of [0, 1, 2, 3, 7]) {
+    for (const segment of planReel(ASSETS, MUSIC, seed, DURATION)) {
+      if (ASSETS[segment.asset].kind === 'clip') assert.ok(segment.startMs >= OPENING_SKIP_MS, `${segment.startMs}`);
+    }
+  }
+  // A clip whose dark opening was measured when it was prepared already starts later: that start is kept.
+  const measured = pieces([[1267, 6000]]);
+  assert.equal(measured[0][0], 1267);
+  assert.ok(measured.every(([start]) => start >= 1267));
+  // A first shot too short to lose its opening keeps it, rather than leaving nothing to play.
+  assert.deepEqual(pieces([[0, 500]]), [[0, 500]]);
+});
+
+test('a new section or a sung line inside a hold takes the cut onto its own beat', () => {
+  const soft = { ...MUSIC, energy: ENERGY.map(frame => ({ ...frame, rms: 0.1 })) };
+  let tried = 0;
+  for (const seed of [0, 1, 2, 3]) {
+    const plain = planReel(ASSETS, soft, seed, DURATION).map(s => s.atMs);
+    // An accent a little off the beat, where the plain edit does not cut.
+    const beat = BEATS.find(b => b > 3000 && !plain.includes(b) && !plain.some(cut => Math.abs(cut - b) < 450));
+    if (beat === undefined) continue;
+    const accented = planReel(ASSETS, { ...soft, accentsMs: [beat - 90] }, seed, DURATION).map(s => s.atMs);
+    tried += 1;
+    assert.ok(accented.includes(beat), `seed ${seed}: a cut lands on ${beat}`);
+    assert.deepEqual(accented.filter(at => at < beat - 450), plain.filter(at => at < beat - 450), 'the edit before it is untouched');
+  }
+  assert.ok(tried >= 2, `only ${tried} seeds had a beat to test`);
+  // No accents: the same edit as before.
+  assert.deepEqual(planReel(ASSETS, { ...MUSIC, accentsMs: [] }, 5, DURATION), planReel(ASSETS, MUSIC, 5, DURATION));
+});
+
+test('a restrained song holds each picture longer than a kinetic one', () => {
+  for (const seed of [0, 1, 2, 3]) {
+    const kinetic = planReel(ASSETS, { ...MUSIC, pace: 'kinetic' }, seed, DURATION);
+    const restrained = planReel(ASSETS, { ...MUSIC, pace: 'restrained' }, seed, DURATION);
+    assert.deepEqual(kinetic, planReel(ASSETS, MUSIC, seed, DURATION), 'kinetic is how the Director always cut');
+    assert.ok(restrained.length < kinetic.length, `seed ${seed}: ${restrained.length} cuts vs ${kinetic.length}`);
+  }
+});
+
+test('the song\'s accents: its section changes on the bar, and each sung line\'s first word', () => {
+  const segments = [{ startMs: 0, energyChange: null }, { startMs: 3000, energyChange: -0.29 }, { startMs: 5000, energyChange: 0.31 }, { startMs: 9000, energyChange: 0.1 }];
+  const words = [{ startMs: 400, endMs: 700 }, { startMs: 760, endMs: 1000 }, { startMs: 2100, endMs: 2400 }, { startMs: 2450, endMs: 2700 }];
+  // 3000 moves to the bar at 2420 (580 away); 5000 has none near enough (4340 is 660 away); 9000 is too small a change; 400 and 2100 start lines.
+  assert.deepEqual(songAccents(segments, words, BARS, DURATION), [400, 2100, 2420, 5000]);
+  assert.deepEqual(songAccents(segments, [], [], DURATION), [3000, 5000], 'no bars: the section marks stay where they are');
+  assert.deepEqual(songAccents([], [], BARS, DURATION), []);
 });
