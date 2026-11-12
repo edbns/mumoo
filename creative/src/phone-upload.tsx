@@ -55,6 +55,9 @@ export function PhoneUpload({ token, kind, onFile }: { token: string; kind: Phon
 
   const deliver = useRef(onFile);
   deliver.current = onFile;
+  /** Leaving the page stops a delivery; the panel moving on from "waiting" (to "receiving") must not. */
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const waiting = state.step === 'waiting' ? state.handoff : null;
   useEffect(() => {
     if (!waiting) return;
@@ -68,7 +71,7 @@ export function PhoneUpload({ token, kind, onFile }: { token: string; kind: Phon
         const response = await fetch(url);
         if (!response.ok) throw new Error();
         const blob = await response.blob();
-        if (!stopped) deliver.current(new File([blob], COPY[kind].name + (EXTENSIONS[blob.type] ?? ''), { type: blob.type }));
+        if (mounted.current) deliver.current(new File([blob], COPY[kind].name + (EXTENSIONS[blob.type] ?? ''), { type: blob.type }));
         setState({ step: 'idle' });
       } catch {
         setState({ step: 'failed', error: 'It arrived but could not be opened here. Send it again.' });
