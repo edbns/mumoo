@@ -134,6 +134,8 @@ export type { MoodLane };
 
 const GOSPEL_GENRE = /gospel|worship|christian|hymn|spiritual|choir/;
 const CLUB_GENRE = /techno|house|edm|dubstep|riddim|electronic/;
+/** Dembow and afrobeats move a crowd at drives too low for fast cutting. */
+const DANCEABLE = 0.5;
 
 export function moodLane(intent: MusicIntentV1 | null, genre: string): MoodLane {
   const g = genre.toLowerCase();
@@ -145,9 +147,8 @@ export function moodLane(intent: MusicIntentV1 | null, genre: string): MoodLane 
   if (!intent) return 'general';
   if (intent.vibe === 'Ambient/Mellow') return 'quiet';
   if (intent.vibe === 'Dark/Cinematic') return 'dark';
-  if (intent.vibe === 'Aggressive/Industrial' || intent.vibe === 'Uplifting/Energetic') {
-    return intent.cutRate === 'high' ? 'party' : 'general';
-  }
+  if (intent.vibe === 'Uplifting/Energetic') return intent.cutRate === 'high' || intent.drive >= DANCEABLE ? 'party' : 'general';
+  if (intent.vibe === 'Aggressive/Industrial') return intent.cutRate === 'high' ? 'party' : 'general';
   return 'general';
 }
 

@@ -115,7 +115,45 @@ def features(audio, with_temporal=False):
     result = {"sampleRateHz": SAMPLE_RATE, "windowSamples": WINDOW, "hopSamples": HOP,
               "frameTime": "center", "frames": frames,
               "transientsMs": event_times(peaks * HOP / SAMPLE_RATE)}
-    return (result, temporal_bins(magnitude, frames, result["transientsMs"])) if with_temporal else result
+    if not with_temporal:
+        return result
+    return result, temporal_bins(magnitude, frames, result["transientsMs"]), {"tonalityV1": tonality(audio), "timbreV1": timbre(magnitude)}
+
+
+KEYS = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+# Krumhansl-Kessler key profiles (major, minor), tonic first.
+MAJOR_PROFILE = (6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88)
+MINOR_PROFILE = (6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17)
+# Below this the two best keys (one major, one minor) explain the notes about equally well.
+MODE_MARGIN = 0.03
+
+
+def tonality(audio):
+    """The clip's key and whether it leans major or minor, from its average chroma (Krumhansl-Schmuckler)."""
+    import librosa
+    import numpy as np
+
+    if not np.any(np.abs(audio) > 1e-4):
+        return {"version": 1, "status": "unavailable", "key": None, "mode": None, "correlation": None, "majorMinorMargin": None}
+    chroma = librosa.feature.chroma_cqt(y=audio, sr=SAMPLE_RATE, hop_length=512, bins_per_octave=36).mean(axis=1)
+    scores = {}
+    for mode, profile in (("major", MAJOR_PROFILE), ("minor", MINOR_PROFILE)):
+        for tonic in range(12):
+            scores[(mode, tonic)] = float(np.corrcoef(chroma, np.roll(profile, tonic))[0, 1])
+    (mode, tonic), best = max(scores.items(), key=lambda entry: entry[1])
+    margin = max(v for (m, _), v in scores.items() if m == "major") - max(v for (m, _), v in scores.items() if m == "minor")
+    return {"version": 1, "status": "available", "key": KEYS[tonic],
+            "mode": mode if abs(margin) >= MODE_MARGIN else "ambiguous",
+            "correlation": round(best, 4), "majorMinorMargin": round(margin, 4)}
+
+
+def timbre(magnitude):
+    """How noise-like the mix is on average: spectral flatness, 0 pure tones … 1 white noise."""
+    import librosa
+    import numpy as np
+
+    flatness = librosa.feature.spectral_flatness(S=magnitude)[0]
+    return {"version": 1, "flatnessMean": round(float(np.mean(flatness)), 6), "flatnessMedian": round(float(np.median(flatness)), 6)}
 
 
 def temporal_bins(magnitude, frames, onsets):
@@ -223,7 +261,7 @@ def analyze(args, trace=None):
         audio = np.frombuffer(decode_clip(args.clip, args.ffmpeg), dtype="<f4").copy()
     decode_seconds = time.perf_counter() - start
     with stage(trace, "librosa_features"):
-        feature_result, bins = features(audio, with_temporal=True)
+        feature_result, bins, summaries = features(audio, with_temporal=True)
     feature_seconds = time.perf_counter() - start - decode_seconds
     beats, downbeats = [], []
     status = "unavailable"
@@ -259,6 +297,7 @@ def analyze(args, trace=None):
                    "downbeatsMs": downbeats, "tempo": tempo_result},
         "features": feature_result,
         "temporalV1": temporal_progression(bins, beats),
+        **summaries,
         "provenance": {"beatModel": model_info, "librosaVersion": version("librosa"), "contextMs": 0},
         "metrics": {"wallSeconds": round(time.perf_counter() - start, 6),
                     "pythonCpuSeconds": round(time.process_time() - cpu, 6),

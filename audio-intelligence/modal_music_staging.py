@@ -39,7 +39,7 @@ worker_image = (
           "NUMBA_NUM_THREADS": "1"})
     .run_commands(
         "cd /root && python -c \"import numpy as np; from music_analysis import features; "
-        "clip = np.zeros(330750, dtype=np.float32); clip[2000::11025] = 1; features(clip)\"",
+        "clip = np.zeros(330750, dtype=np.float32); clip[2000::11025] = 1; features(clip, with_temporal=True)\"",
     )
 )
 has_processed = False

@@ -36,7 +36,8 @@ function factsOf(profile: CreativeProfileV1): Fact[] {
     const intent = deriveMusicIntent(musicAnalysis.result);
     if (intent) {
       facts.push({ label: 'Vibe', value: intent.vibe });
-      facts.push({ label: 'Brightness', value: `${Math.round(intent.brightnessHz)} Hz` });
+      if (intent.mode && intent.mode !== 'ambiguous') facts.push({ label: 'Key', value: titleCase(intent.mode) });
+      facts.push({ label: 'Drive', value: `${Math.round(intent.drive * 100)}%` });
       facts.push({ label: 'Cut rate', value: titleCase(intent.cutRate) });
       facts.push({ label: 'Palette', value: titleCase(intent.palette.replace('-', ' ')) });
     }

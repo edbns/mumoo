@@ -654,6 +654,90 @@
           }
         }
       }
+    },
+    "tonalityV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "status",
+        "key",
+        "mode",
+        "correlation",
+        "majorMinorMargin"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "status": {
+          "enum": [
+            "available",
+            "unavailable"
+          ]
+        },
+        "key": {
+          "enum": [
+            "C",
+            "C#",
+            "D",
+            "D#",
+            "E",
+            "F",
+            "F#",
+            "G",
+            "G#",
+            "A",
+            "A#",
+            "B",
+            null
+          ]
+        },
+        "mode": {
+          "enum": [
+            "major",
+            "minor",
+            "ambiguous",
+            null
+          ]
+        },
+        "correlation": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "majorMinorMargin": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "timbreV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "flatnessMean",
+        "flatnessMedian"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "flatnessMean": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "flatnessMedian": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
     }
   },
   "$defs": {

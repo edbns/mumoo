@@ -11,7 +11,7 @@ import unittest
 import wave
 
 from audio_source import SAMPLE_RATE, decode_clip, inspect_clip
-from music_analysis import analyze, event_times, features, tempo, temporal_progression
+from music_analysis import analyze, event_times, features, tempo, temporal_progression, timbre, tonality
 
 
 def fixture(path, bpm, first_beat_ms=250, beats_per_bar=4):
@@ -107,13 +107,26 @@ class MusicAnalysisTests(unittest.TestCase):
     def test_temporal_frequency_band_energy_and_zero_state(self):
         import numpy as np
         t = np.arange(15 * SAMPLE_RATE) / SAMPLE_RATE
-        _, low = features((.4*np.sin(2*np.pi*100*t)).astype(np.float32), with_temporal=True)
-        _, high = features((.4*np.sin(2*np.pi*6000*t)).astype(np.float32), with_temporal=True)
+        _, low, _ = features((.4*np.sin(2*np.pi*100*t)).astype(np.float32), with_temporal=True)
+        _, high, _ = features((.4*np.sin(2*np.pi*6000*t)).astype(np.float32), with_temporal=True)
         self.assertGreater(low[7]["bandShares"]["low"], .9)
         self.assertGreater(high[7]["bandShares"]["high"], .9)
-        _, silent = features(np.zeros_like(t,dtype=np.float32), with_temporal=True)
+        _, silent, _ = features(np.zeros_like(t,dtype=np.float32), with_temporal=True)
         self.assertTrue(all(x["relativeEnergy"] is None for x in silent))
         self.assertTrue(all(x["bandShares"]["low"] is None for x in silent))
+
+    def test_tonality_tells_major_from_minor(self):
+        import numpy as np
+        t = np.arange(15 * SAMPLE_RATE) / SAMPLE_RATE
+        chord = lambda *hz: (sum(.2 * np.sin(2 * np.pi * f * t) for f in hz)).astype(np.float32)
+        major = tonality(chord(261.63, 329.63, 392.0, 523.25))  # C E G C
+        minor = tonality(chord(220.0, 261.63, 329.63, 440.0))  # A C E A
+        self.assertEqual((major["key"], major["mode"]), ("C", "major"))
+        self.assertEqual((minor["key"], minor["mode"]), ("A", "minor"))
+        self.assertEqual(tonality(np.zeros_like(t, dtype=np.float32))["status"], "unavailable")
+        noise = timbre(np.abs(np.random.default_rng(0).standard_normal((513, 200))))
+        tone = timbre(np.pad(np.ones((1, 200)), ((40, 472), (0, 0))) + 1e-6)
+        self.assertGreater(noise["flatnessMean"], tone["flatnessMean"])
 
     def test_feature_units_and_silence(self):
         import numpy as np
