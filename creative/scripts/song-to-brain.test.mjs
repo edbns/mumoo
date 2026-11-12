@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'vite';
 
 /**
@@ -67,6 +68,41 @@ test('the model\'s answer is validated, never guessed at', async () => {
       { ...good, sadness: 1.5 }, { ...good, intensity: 0 }, { ...good, intensity: '3' }]) {
       assert.equal(meaning.parseLyricMeaning(bad), null, JSON.stringify(bad));
     }
+  } finally { await server.close(); }
+});
+
+test('the extra moods and the themes only add to a reading: unknown codes are dropped, never a reason to refuse it', async () => {
+  const { server, meaning } = await load();
+  try {
+    const good = { version: 1, clarity: 'clear', attitude: 'flirty', sadness: 0, intensity: 3 };
+    assert.deepEqual(meaning.parseLyricMeaning({ ...good, moods: ['fun', 'love'], themes: ['seduction', 'romance', 'nightlife'] }),
+      { attitude: 'flirty', sadness: 0, intensity: 3, moods: ['fun', 'love'], themes: ['seduction', 'romance', 'nightlife'] });
+    // The main mood, neutral and repeats say nothing more; old codes fold into the new moods; at most two moods and three themes.
+    assert.deepEqual(meaning.parseLyricMeaning({ ...good, moods: ['flirty', 'neutral', 'playful', 'fun', 'tender', 'sad'] }).moods, ['fun', 'love']);
+    assert.deepEqual(meaning.parseLyricMeaning({ ...good, themes: ['party', 'party', 'weather', 'constructor', 'money', 'cars', 'fame'] }).themes, ['party', 'money', 'cars']);
+    // A reader not yet redeployed sends neither, and an empty or broken list leaves the reading as it was.
+    for (const extra of [{}, { moods: [], themes: [] }, { moods: 'fun', themes: null }, { moods: ['furious'], themes: [7] }]) {
+      assert.deepEqual(meaning.parseLyricMeaning({ ...good, ...extra }), { attitude: 'flirty', sadness: 0, intensity: 3 }, JSON.stringify(extra));
+    }
+  } finally { await server.close(); }
+});
+
+test('the lyric reader and the app share one list of themes, and a freely typed tag finds its theme', async () => {
+  const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
+  try {
+    const { THEMES, tagShows, themesShown } = await server.ssrLoadModule('/src/song-themes.ts');
+    const reader = readFileSync(new URL('../../audio-intelligence/modal_lyric_meaning_staging.py', import.meta.url), 'utf8');
+    const listed = [...reader.match(/^THEMES = \[([^\]]*)\]/m)[1].matchAll(/"([^"]+)"/g)].map(match => match[1]);
+    assert.deepEqual(listed, THEMES);
+    for (const [tag, theme] of [['beautiful woman', 'seduction'], ['breakdancing', 'dancing'], ['street dance', 'street'], ['neon red', 'nightlife'],
+      ['beach', 'summer'], ['sunset', 'summer'], ['couple', 'romance'], ['group of girls', 'friends'], ['sports cars', 'cars'], ['spiritual', 'faith']]) {
+      assert.ok(tagShows(tag, theme), `${tag} shows ${theme}`);
+    }
+    // Short words only count as words of their own: a scarf is not a car, a sunday is not summer.
+    for (const [tag, theme] of [['scarf', 'cars'], ['sunday', 'summer'], ['barefoot', 'nightlife'], ['woman', 'seduction']]) {
+      assert.ok(!tagShows(tag, theme), `${tag} does not show ${theme}`);
+    }
+    assert.equal(themesShown(['beach', 'couple', 'neon'], ['summer', 'romance', 'money']), 2);
   } finally { await server.close(); }
 });
 

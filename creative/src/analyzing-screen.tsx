@@ -43,8 +43,9 @@ function factsOf(profile: CreativeProfileV1): Fact[] {
     }
   }
   if (lyricMeaning?.status === 'ready') {
-    const { attitude, sadness, intensity } = lyricMeaning.meaning;
-    facts.push({ label: 'Attitude', value: titleCase(attitude) });
+    const { attitude, sadness, intensity, moods, themes } = lyricMeaning.meaning;
+    facts.push({ label: 'Mood', value: [attitude, ...(moods ?? [])].map(titleCase).join(', ') });
+    if (themes?.length) facts.push({ label: 'Themes', value: themes.map(titleCase).join(', ') });
     facts.push({ label: 'Sadness', value: `${sadness} / 3` });
     facts.push({ label: 'Intensity', value: `${intensity} / 5` });
   }

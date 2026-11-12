@@ -36,7 +36,8 @@ export default async function readLyricMeaningStatus(request) {
       if (result?.version !== 1) return error(502, 'The lyric reading worker returned an invalid result.');
       // Only the codes leave this function; the one-line gist the model wrote to think with stays behind.
       const { version, clarity, attitude, sadness, intensity } = result;
-      return Response.json({ version, clarity, attitude, sadness, intensity }, { headers });
+      const codes = (list, most) => (Array.isArray(list) ? list.filter(code => typeof code === 'string' && /^[a-z]{2,16}$/.test(code)).slice(0, most) : []);
+      return Response.json({ version, clarity, attitude, sadness, intensity, moods: codes(result.moods, 2), themes: codes(result.themes, 3) }, { headers });
     }
     const result = await response.json().catch(() => null);
     const detail = result?.detail ?? result?.error;

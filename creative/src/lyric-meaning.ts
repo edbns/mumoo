@@ -1,4 +1,5 @@
 import type { MoodLane } from './ad-fonts';
+import { themesOf, type SongTheme } from './song-themes';
 
 /**
  * What the words MEAN, as read by our own language model (see audio-intelligence/modal_lyric_meaning_staging.py).
@@ -28,7 +29,12 @@ export type LyricMeaning = {
   sadness: number;
   /** 1 calm and gentle … 5 fierce and forceful. */
   intensity: number;
+  /** Up to two more moods the words carry besides the main one (ATREVIMENTO: flirty, then fun and love). */
+  moods?: LyricAttitude[];
+  /** What the song is about, as something a picture can show (`song-themes.ts`). */
+  themes?: SongTheme[];
 };
+const MAX_MORE_MOODS = 2;
 
 export type LyricMeaningState =
   | { status: 'pending' }
@@ -50,7 +56,12 @@ export function parseLyricMeaning(raw: unknown): LyricMeaning | null {
   if (!Number.isInteger(intensity) || (intensity as number) < 1 || (intensity as number) > 5) return null;
   // The model is told that fun carries no sadness and swagger or anger little; it sometimes forgets, and a stray 2 would dull the colours of a cocky or angry song. The rule is kept here, in code.
   const sorrow = Math.min(sadness as number, MOST_SORROW[attitude] ?? 3);
-  return { attitude, sadness: sorrow, intensity: intensity as number };
+  // The extra moods and the themes only add to the reading: an unknown code in them is dropped, never a reason to refuse it.
+  const moods = Array.isArray(body.moods)
+    ? [...new Set(body.moods.map(attitudeOf).filter((mood): mood is LyricAttitude => Boolean(mood) && mood !== 'neutral' && mood !== attitude))].slice(0, MAX_MORE_MOODS)
+    : [];
+  const themes = themesOf(body.themes);
+  return { attitude, sadness: sorrow, intensity: intensity as number, ...(moods.length ? { moods } : {}), ...(themes.length ? { themes } : {}) };
 }
 
 const MOST_SORROW: Partial<Record<LyricAttitude, number>> = { fun: 0, confident: 1, angry: 1 };
