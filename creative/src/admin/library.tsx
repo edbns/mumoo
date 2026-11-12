@@ -295,6 +295,16 @@ async function inTurns<T>(jobs: readonly (() => Promise<T>)[], width = 4): Promi
 const LEAVE = '__leave__';
 const NO_MOOD = '__none__';
 
+/** The selection, while cards are being ticked: how many, and the way to edit them (the panel would hide half the cards). */
+function SelectionBar({ count, shown, onClear, onEdit }: { count: number; shown: boolean; onClear: () => void; onEdit: () => void }) {
+  return <div role="region" aria-label="Selection" aria-hidden={!shown}
+    className={`fixed bottom-6 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 rounded-full bg-foreground py-2 pl-5 pr-2 text-background shadow-2xl transition-transform duration-300 ease-out ${shown ? 'translate-y-0' : 'pointer-events-none translate-y-[200%]'}`}>
+    <span className="text-sm font-medium tabular-nums">{count} selected</span>
+    <Button variant="ghost" size="sm" tabIndex={shown ? 0 : -1} className="text-background hover:bg-background/15 hover:text-background" onClick={onClear}>Clear</Button>
+    <Button size="sm" tabIndex={shown ? 0 : -1} className="bg-background text-foreground hover:bg-background/90" onClick={onEdit}>Edit {count}</Button>
+  </div>;
+}
+
 /** The side panel for several items at once: moods and tags put on or taken off all of them, one genre for all, and approve, hide or delete them together. */
 function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
   items: LibraryItem[]; pool: TagCount[]; onClose: () => void;
@@ -382,10 +392,7 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
   return <aside aria-label="Edit selected items" className="fixed inset-y-0 right-0 z-10 flex w-full max-w-md flex-col gap-5 overflow-y-auto bg-card p-6 shadow-2xl">
     <div className="flex items-center justify-between">
       <h2 className="m-0 text-base font-semibold">{items.length} selected</h2>
-      <Button variant="ghost" size="sm" onClick={onClose} aria-label="Clear the selection"><XIcon className="size-4" aria-hidden="true" /></Button>
-    </div>
-    <div className="flex gap-1.5 overflow-x-auto pb-1">
-      {items.map(item => <div key={item.id} className="aspect-[3/4] w-12 shrink-0 overflow-hidden rounded-md bg-muted"><Media item={item} /></div>)}
+      <Button variant="ghost" size="sm" onClick={onClose} aria-label="Back to the selection"><XIcon className="size-4" aria-hidden="true" /></Button>
     </div>
     <p className="m-0 text-xs text-muted-foreground">Click a mood or tag to put it on all of them; click again to take it off all. Half-filled means some have it; leave it and they keep it as it is.</p>
 
@@ -479,6 +486,9 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   const [attitude, setAttitude] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
+  /** The ticked cards are being edited (the panel is open); until then only the selection bar shows. */
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { if (!picked.length) setEditing(false); }, [picked.length]);
   const anchor = useRef<string | null>(null);
 
   useEffect(() => { loadLibrary().then(setLibrary, (cause: Error) => setError(cause.message)); }, []);
@@ -511,7 +521,7 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   }
   const refresh = () => loadLibrary().then(setLibrary, () => undefined);
 
-  return <div className="mx-auto flex max-w-6xl flex-col gap-6">
+  return <div className={`mx-auto flex max-w-6xl flex-col gap-6 ${chosen.length ? 'pb-24' : ''}`}>
     <header><h1 className="m-0 text-2xl font-semibold">Library</h1>
       <p className="m-0 mt-1 text-sm text-muted-foreground">Cleared photos, videos and GIFs the templates may use. Only approved items are ever used.</p></header>
     <Uploader onAdded={item => { setLibrary(current => current && { ...current, items: [item, ...current.items] }); onChanged(); }}
@@ -544,7 +554,8 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
           onSelect={() => (picked.length ? tick(item.id, false) : setOpenId(item.id))} onTick={range => tick(item.id, range)} />)}
       </div>}
 
-    {chosen.length > 0 && library && <BulkPanel items={chosen} pool={library.tags} onClose={() => setPicked([])}
+    <SelectionBar count={chosen.length} shown={chosen.length > 0 && !editing} onClear={() => setPicked([])} onEdit={() => setEditing(true)} />
+    {chosen.length > 0 && editing && library && <BulkPanel items={chosen} pool={library.tags} onClose={() => setEditing(false)}
       onSaved={(saved, tags) => {
         setLibrary(current => current && { items: current.items.map(item => saved.find(entry => entry.id === item.id) ?? item), tags: tags ?? current.tags });
         onChanged(); void refresh();
