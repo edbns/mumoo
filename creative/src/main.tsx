@@ -10,6 +10,7 @@ import type { StyleMatch } from './style-search';
 import { PhoneUpload } from './phone-upload';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { MusicAnalysisRunner } from './music-analysis-runner';
+import { StylePrintRunner } from './style-print-runner';
 import { useLyricMeaning } from './lyric-meaning-cloud';
 import { useSingerVoice } from './singer-voice-cloud';
 import { CreativesPackStudio } from './creatives-pack-studio';
@@ -448,6 +449,8 @@ function App() {
     </div>
     {buffer && clipValid && IS_ALIGNMENT_STAGING && (composition.cues.length > 0 || noLyrics || inCreatives) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs}
       audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} accessToken={accessToken} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}
+    {buffer && clipValid && IS_ALIGNMENT_STAGING && inCreatives && <StylePrintRunner key={`${composition.sourceSha256}:${composition.clipStartMs}:${style?.name ?? '?'}`}
+      audio={buffer} clip={clip} style={style} unknown={genreUnknown} accessToken={accessToken} />}
 
     <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>
   </>;

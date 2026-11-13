@@ -8,10 +8,12 @@ import hmac
 import json
 import os
 from pathlib import Path
+import re
 import struct
 import time
 
 from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse
 import modal
 
 from sound_print import CHECKPOINT_SHA256, CLIP_SAMPLES, MODEL, SAMPLE_RATE, sound_print
@@ -21,8 +23,9 @@ app = modal.App("mumoo-sound-print-staging")
 WAV_SIZE = 44 + CLIP_SAMPLES * 2
 WAV_HEADER = struct.pack("<4sI4s4sIHHIIHH4sI", b"RIFF", WAV_SIZE - 8, b"WAVE", b"fmt ",
                          16, 1, 1, SAMPLE_RATE, SAMPLE_RATE * 2, 2, 16, b"data", WAV_SIZE - 44)
+CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 CHECKPOINT = "/models/music_audioset_epoch_15_esc_90.14.pt"
-gateway_image = modal.Image.debian_slim(python_version="3.12").pip_install("fastapi==0.115.12").add_local_python_source("sound_print")
+gateway_image = modal.Image.debian_slim(python_version="3.12").pip_install("fastapi==0.115.12", "numpy==1.26.4").add_local_python_source("sound_print")
 # The versions the prints were measured with on the owner's computer.
 worker_image = (
     modal.Image.debian_slim(python_version="3.12").apt_install("curl")
@@ -69,13 +72,21 @@ def print_selected(audio: bytes):
     return {"version": 1, "status": "ready", "model": MODEL, "values": values}
 
 
-@app.function(image=gateway_image, cpu=0.125, memory=128, min_containers=0, max_containers=4,
-              scaledown_window=5, timeout=160, secrets=[modal.Secret.from_name("mumoo-music-bridge")])
-@modal.fastapi_endpoint(method="POST", docs=False)
-async def print_clip(request: Request):
+def authorized(request: Request):
     bridge = os.environ.get("MUMOO_MUSIC_BRIDGE_SECRET", "")
     if len(bridge) < 32 or not hmac.compare_digest(request.headers.get("authorization", ""), "Bearer " + bridge):
         raise HTTPException(401, "Sound print access is invalid.")
+
+
+gateway = dict(image=gateway_image, cpu=0.125, memory=128, min_containers=0, max_containers=4,
+               scaledown_window=5, timeout=30, secrets=[modal.Secret.from_name("mumoo-music-bridge")])
+
+
+# A cold worker takes longer than the site's functions may wait, so the site starts a job and asks for it later.
+@app.function(**gateway)
+@modal.fastapi_endpoint(method="POST", docs=False)
+async def submit(request: Request):
+    authorized(request)
     body = bytearray()
     async for chunk in request.stream():
         if len(body) + len(chunk) > WAV_SIZE:
@@ -83,11 +94,26 @@ async def print_clip(request: Request):
         body.extend(chunk)
     if len(body) != WAV_SIZE or body[:44] != WAV_HEADER:
         raise HTTPException(400, "Expected exactly 15 seconds of mono 48 kHz PCM WAV.")
+    call = await print_selected.spawn.aio(bytes(body))
+    return {"id": call.object_id}
+
+
+@app.function(**gateway)
+@modal.fastapi_endpoint(method="GET", docs=False)
+async def status(request: Request, id: str = ""):
+    authorized(request)
+    if not CALL_RE.match(id):
+        raise HTTPException(400, "Invalid job id.")
     try:
-        return await print_selected.remote.aio(bytes(body))
-    except Exception as error:
+        result = await modal.FunctionCall.from_id(id).get.aio(timeout=0)
+    except TimeoutError:
+        return JSONResponse({"status": "running"}, status_code=202, headers={"Cache-Control": "no-store"})
+    except modal.exception.OutputExpiredError:
+        raise HTTPException(410, "This result expired. Start it again.") from None
+    except Exception as error:  # noqa: BLE001
         print(f"Sound print failed: {type(error).__name__}")
         raise HTTPException(502, "The sound print worker could not read this clip.") from None
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
 
 
 @app.local_entrypoint()
