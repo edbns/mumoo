@@ -1,4 +1,4 @@
-import { themesFor } from './genre-guide';
+import { styleLooksFor, themesFor } from './genre-guide';
 import { familyOf } from './genres';
 import { attitudeOf, type LyricAttitude } from './lyric-meaning';
 import { tagShows, THEMES, type SongTheme } from './song-themes';
@@ -11,7 +11,7 @@ import { tagShows, THEMES, type SongTheme } from './song-themes';
  * turns the song into the things it wants to see, and a picture fits by how many of them its tags show:
  *   themes     what the words are about (`song-themes.ts`): the strongest pull.
  *   mood       the song's feeling, as things to see (`MOOD_CONTENT`): a confident song wants money, cars, fame.
- *   genre      the genre's own looks (`genre-guide.ts`). An item may also be kept for one genre (and sub-genre): then it
+ *   genre      the genre's own looks, and what the style the creator picked is known for (`genre-guide.ts`). An item may also be kept for one genre (and sub-genre): then it
  *              is never used for another, and a little preferred for its own; unset, it is free for any song.
  * A thing counts in full when the admin's tags show it, and up to half when only our vision model sees it (`looks`, 0..1):
  * the tags are checked by a person, the model fills in what they missed.
@@ -49,6 +49,8 @@ export type LibraryWanted = {
   attitude: string | null;
   genre: string;
   subGenre: string;
+  /** The style the creator picked ("Afro house"): what it is known for counts as the genre's looks do. */
+  style?: string;
   /** The other moods the words carry: what they want to see counts too, a little less. */
   moods?: readonly string[];
   /** What the words are about (`song-themes.ts`), shown by the item's tags. */
@@ -85,10 +87,16 @@ const SEEN_SHARE = 0.5;
 /** `look` names the same thing in the vision model's `looks`. */
 type Want = { show: (tag: string) => boolean; look: string; weight: number };
 
-/** A genre look (`THEME_TAGS`): the tag is it, or has it as a word of its own (also in the plural). */
-const showsWord = (word: string) => (tag: string) => {
-  const words = tag.trim().toLowerCase().split(/[\s-]+/);
-  return words.includes(word) || words.includes(`${word}s`) || (word.endsWith('s') && words.includes(word.slice(0, -1)));
+const sameWord = (word: string, other: string | undefined) =>
+  other === word || other === `${word}s` || (word.endsWith('s') && other === word.slice(0, -1));
+
+/** A genre or style look ("club", "african dance"): the tag is it, or has its words in a row (also in the plural). */
+const showsWords = (look: string) => {
+  const wanted = look.toLowerCase().split(/[\s-]+/);
+  return (tag: string) => {
+    const words = tag.trim().toLowerCase().split(/[\s-]+/);
+    return words.some((_, at) => wanted.every((word, i) => sameWord(word, words[at + i])));
+  };
 };
 const isTheme = (look: string): look is SongTheme => (THEMES as readonly string[]).includes(look);
 
@@ -108,9 +116,9 @@ export function wantsOf(wanted: LibraryWanted): Want[] {
     if (mood && mood !== main) for (const code of MOOD_CONTENT[mood]) theme(code, OTHER_MOOD_WEIGHT);
   }
   const genreWeight = wanted.fromSound ? GENRE_WEIGHT * 2 : GENRE_WEIGHT;
-  for (const look of themesFor(wanted.genre, wanted.subGenre)) {
+  for (const look of [...themesFor(wanted.genre, wanted.subGenre), ...styleLooksFor(wanted.style)]) {
     if (isTheme(look)) theme(look, genreWeight);
-    else want(`genre:${look}`, showsWord(look), look, genreWeight);
+    else want(`genre:${look}`, showsWords(look), look, genreWeight);
   }
   return [...weights.values()];
 }

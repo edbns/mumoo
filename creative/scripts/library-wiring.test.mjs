@@ -57,6 +57,25 @@ test('a picture fits by what its tags show, never by a mood of its own: a confid
   } finally { await server.close(); }
 });
 
+test('a style adds what it is known for to its sub-genre\'s looks: Afro house wants african dance, plain House does not', async () => {
+  const { server, pick } = await load();
+  try {
+    const house = { attitude: null, genre: 'Electronic & Dance (EDM)', subGenre: 'Afro House' };
+    const afro = { ...house, style: 'afro HOUSE' };
+    const africa = item('africa', { tags: ['Africa'] });
+    const twerk = item('twerk', { tags: ['twerking'] });
+    const dance = item('dance', { tags: ['African dances'] });
+    const sunset = item('sunset', { tags: ['sunset'] });
+    const african = item('african', { tags: ['african'] });
+    assert.equal(pick.libraryFit(africa, house), 0, 'the sub-genre alone does not ask for it');
+    assert.ok(pick.libraryFit(africa, afro) > 0 && pick.libraryFit(twerk, afro) > 0, 'the style does, in any case');
+    assert.ok(pick.libraryFit(dance, afro) > pick.libraryFit(dance, house), 'african dance, also in the plural, on top of the sub-genre\'s dancing');
+    assert.equal(pick.libraryFit(african, afro), 0, 'two words are matched together, not one of them');
+    assert.equal(pick.libraryFit(sunset, afro), pick.libraryFit(sunset, house), 'the sub-genre\'s own looks still count');
+    assert.equal(pick.libraryFit(africa, { ...house, style: 'Amapiano' }), 0, 'a style without its own looks has only the sub-genre\'s');
+  } finally { await server.close(); }
+});
+
 test('a genre is preferred when set, kept for its own genre, and an item with none is free for any', async () => {
   const { server, pick } = await load();
   try {

@@ -1,4 +1,4 @@
-import { findGenre, findSubGenre } from './genres';
+import { findGenre, findSubGenre, styleKey } from './genres';
 
 /**
  * What the genre guidance says a genre looks like, as far as the brain can use it. Written from the guidance the owner
@@ -88,6 +88,21 @@ const BY_GENRE: Record<string, readonly string[]> = {
   'Reggae & Dancehall': ['tropical', 'nature', 'street', 'crowd'],
   'Experimental & Avant-Garde': ['glitch', 'abstract', 'architecture', 'surreal'],
 };
+
+/**
+ * By style, as the creator picked it in the song step (`style-search.ts`): what its videos are known for, preferred on top
+ * of its sub-genre's themes. Free words, matched against the admin's tags; a style left out has only its sub-genre's.
+ * Given by the owner.
+ */
+const BY_STYLE: Record<string, readonly string[]> = {
+  'Afro house': ['twerking', 'african dance', 'africa'],
+};
+const BY_STYLE_KEY = new Map(Object.entries(BY_STYLE).map(([style, looks]) => [styleKey(style), looks]));
+
+/** The looks a style is known for (`BY_STYLE`), none for a style without its own. */
+export function styleLooksFor(style: string | undefined): readonly string[] {
+  return (style && BY_STYLE_KEY.get(styleKey(style))) || [];
+}
 
 /** The themes of a song's genre and sub-genre (as typed or kept, in any case): the sub-genre's own, else its genre's, else none. */
 export function themesFor(genre: string, subGenre: string): readonly string[] {
