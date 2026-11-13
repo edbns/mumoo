@@ -12,6 +12,7 @@ import { storageReady } from '../netlify/lib/storage.mjs';
 import libraryHandler from '../netlify/functions/admin-library.mjs';
 import problemsHandler from '../netlify/functions/admin-problems.mjs';
 import learningHandler from '../netlify/functions/admin-learning.mjs';
+import genreHandler from '../netlify/functions/admin-genre.mjs';
 import reportHandler from '../netlify/functions/report-problem.mjs';
 
 const READY = storageReady() && Boolean(process.env.DATABASE_URL);
@@ -64,6 +65,8 @@ test('only the listed, confirmed admin gets in', { skip: !READY, timeout: 60000 
   assert.equal((await problemsHandler(await asRequest(null))).status, 401);
   assert.equal((await learningHandler(await asRequest(null, null, 'https://x.test/api/admin/learning'))).status, 401);
   assert.equal((await learningHandler(await asRequest('test-nobody', 'someone@example.com', 'https://x.test/api/admin/learning'))).status, 403, 'what people do is for the admin only');
+  assert.equal((await genreHandler(await asRequest(null, null, 'https://x.test/api/admin/genre'))).status, 401);
+  assert.equal((await genreHandler(await asRequest('test-nobody', 'someone@example.com', 'https://x.test/api/admin/genre', { method: 'POST' }))).status, 403, 'only the admin teaches genres');
 
   const id = randomUUID();
   await sql`insert into neon_auth."user" (id, name, email, "emailVerified") values (${id}, 'Test admin', ${TEST_ADMIN}, false)`;
@@ -72,8 +75,52 @@ test('only the listed, confirmed admin gets in', { skip: !READY, timeout: 60000 
     await sql`update neon_auth."user" set "emailVerified" = true where id = ${id}`;
     const { admin } = await adminFrom(await asRequest(id, TEST_ADMIN.toUpperCase()));
     assert.equal(admin.email, TEST_ADMIN);
+    await teachesGenre(asRequest, id);
   } finally { await sql`delete from neon_auth."user" where id = ${id}`; }
 }));
+
+/** The admin teaches a genre: a clip is printed, kept as seeded, counted, and can be forgotten. (Signed in as the confirmed test admin.) */
+async function teachesGenre(asRequest, id) {
+  const sql = db();
+  const song = randomBytes(32).toString('hex');
+  const realFetch = globalThis.fetch;
+  const previousSecret = process.env.MUMOO_MUSIC_BRIDGE_SECRET;
+  process.env.MUMOO_MUSIC_BRIDGE_SECRET = 'b'.repeat(40);
+  let running = true;
+  globalThis.fetch = async (url, init = {}) => {
+    if (!String(url).includes('mumoo-sound-print-staging')) return realFetch(url, init);
+    if (String(url).includes('-submit.')) return Response.json({ id: 'fc-abcdefgh1234' });
+    if (running) return Response.json({ status: 'running' }, { status: 202 });
+    return Response.json({ version: 1, status: 'ready', model: 'laion-clap test', values: Array.from({ length: 512 }, (_, i) => (i === 7 ? 1 : 0)) });
+  };
+  try {
+    const send = async (method, body, type, query = '') => genreHandler(await asRequest(id, TEST_ADMIN, `https://x.test/api/admin/genre${query}`, { method, body, headers: type ? { 'content-type': type } : {} }));
+    assert.equal((await send('POST', new Uint8Array(1000), 'audio/wav')).status, 400, 'only the 15 s at 48 kHz');
+    const started = await send('POST', new Uint8Array(44 + 15 * 48_000 * 2), 'audio/wav');
+    assert.equal(started.status, 202);
+    assert.deepEqual(await started.json(), { id: 'fc-abcdefgh1234' });
+
+    const label = { sourceSha256: song, offsetMs: 60_000, style: 'Amapiano', genre: 'African', subGenre: 'Amapiano', source: 'seeded' };
+    const keep = body => send('PUT', JSON.stringify(body), 'application/json');
+    assert.equal((await keep({ id: 'fc-abcdefgh1234', label: { ...label, source: 'creator' } })).status, 400, 'the admin only seeds');
+    assert.equal((await keep({ id: 'fc-abcdefgh1234', label })).status, 202);
+    running = false;
+    assert.deepEqual(await (await keep({ id: 'fc-abcdefgh1234', label })).json(), { status: 'stored' });
+
+    const overview = await (await send('GET')).json();
+    assert.deepEqual(overview.songs.find(row => row.song === song)?.clips, 1);
+    assert.ok(overview.groups.some(group => group.subGenre === 'Amapiano' && group.songs >= 1));
+    assert.equal(typeof overview.ready.clips, 'number');
+
+    assert.equal((await send('DELETE', undefined, undefined, '?song=nope')).status, 400);
+    const after = await (await send('DELETE', undefined, undefined, `?song=${song}`)).json();
+    assert.equal(after.songs.some(row => row.song === song), false, 'forgotten');
+  } finally {
+    globalThis.fetch = realFetch;
+    if (previousSecret === undefined) delete process.env.MUMOO_MUSIC_BRIDGE_SECRET; else process.env.MUMOO_MUSIC_BRIDGE_SECRET = previousSecret;
+    await sql`delete from style_prints where source_sha256 = ${song}`;
+  }
+}
 
 const photo = (size) => Uint8Array.from({ length: size }, (_, i) => [0xff, 0xd8, 0xff][i] ?? 7);
 const admin = { email: 'moo@mumoo.app' };

@@ -74,6 +74,19 @@ export const deleteItem = (item: string) => adminFetch<Library>(`library?${id(it
 export const addTag = (name: string) => adminFetch<Library>(`library?tag=${encodeURIComponent(name)}`, { method: 'POST' });
 export const deleteTag = (name: string) => adminFetch<Library>(`library?tag=${encodeURIComponent(name)}`, { method: 'DELETE' });
 
+/** Genre training: the songs the brain learns genres from, and how ready its guess is (see admin-genre). */
+export type GenreSong = { song: string; style: string; genre: string; subGenre: string; source: string; clips: number; at: string };
+export type GenreTraining = {
+  ready: { clips: number; asked: number; right: number };
+  groups: { genre: string; subGenre: string; songs: number }[];
+  songs: GenreSong[];
+};
+export type SeedLabel = { sourceSha256: string; offsetMs: number; style: string; genre: string; subGenre: string; source: 'seeded' };
+export const loadGenre = () => adminFetch<GenreTraining>('genre');
+export const forgetSong = (song: string) => adminFetch<GenreTraining>(`genre?song=${song}`, { method: 'DELETE' });
+export const startClipPrint = (wav: Blob) => adminFetch<{ id: string }>('genre', { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: wav });
+export const keepClipPrint = (job: string, label: SeedLabel) => adminFetch<{ status: 'running' | 'stored' | 'skipped' }>('genre', json('PUT', { id: job, label }));
+
 /** Sends one file: room is reserved, the file goes straight to storage, then it is confirmed. */
 export async function uploadFile(original: File, note: string): Promise<LibraryItem> {
   // A photo is sent as a small JPEG (what the templates draw); a GIF or video goes as it is and our worker prepares it.

@@ -84,6 +84,30 @@ export function guessStyle(print, rows, ownSha256, { nearest, agree, share } = G
   return { style, genre: best.genre, subGenre: best.subGenre };
 }
 
+/**
+ * What creators who do not know would see today: for each kept clip, hidden with its whole song, whether the site would
+ * ask and whether its guess is the right sub-genre. A yes to a wrong guess is kept as true, so `right` matters most.
+ */
+export function readiness(rows) {
+  let asked = 0;
+  let right = 0;
+  for (const row of rows) {
+    const guess = guessStyle(row.print, rows, row.source_sha256);
+    if (!guess) continue;
+    asked += 1;
+    if (guess.genre === row.genre && guess.subGenre === row.sub_genre) right += 1;
+  }
+  return { clips: rows.length, asked, right };
+}
+
+/** The sound print worker on Modal: `SUBMIT` takes a clip and returns a job id, `STATUS?id=` its print once ready. */
+export const PRINT_WORKER = {
+  SUBMIT: 'https://edbns-mumoo-staging--mumoo-sound-print-staging-submit.us-east.modal.run',
+  STATUS: 'https://edbns-mumoo-staging--mumoo-sound-print-staging-status.us-east.modal.run',
+};
+export const CLIP_WAV_SIZE = 44 + 15 * 48_000 * 2;
+export const CALL_ID = /^fc-[A-Za-z0-9]{8,48}$/;
+
 export async function loadPrints() {
   return db()`select source_sha256, style, genre, sub_genre, print from style_prints`;
 }
