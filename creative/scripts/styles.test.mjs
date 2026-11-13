@@ -8,6 +8,7 @@ import { createServer } from 'vite';
 const styles = JSON.parse(readFileSync(new URL('../src/styles.json', import.meta.url), 'utf8'));
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
 const { GENRES, styleKey } = await server.ssrLoadModule('/src/genres.ts');
+const { BY_STYLE } = await server.ssrLoadModule('/src/genre-guide.ts');
 await server.close();
 
 /** A style by its own name first, else by another of its names. */
@@ -62,4 +63,8 @@ test('the styles people make now land where their looks are', () => {
     assert.ok(style, `${name} is in the directory`);
     assert.deepEqual([style.genre, style.subGenre], [genre, subGenre], name);
   }
+});
+
+test('every style given its own looks is a style of the directory, by its own name', () => {
+  for (const name of Object.keys(BY_STYLE)) assert.ok(styles.some(style => style.name === name), name);
 });

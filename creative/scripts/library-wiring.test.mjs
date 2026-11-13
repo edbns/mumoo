@@ -72,7 +72,13 @@ test('a style adds what it is known for to its sub-genre\'s looks: Afro house wa
     assert.ok(pick.libraryFit(dance, afro) > pick.libraryFit(dance, house), 'african dance, also in the plural, on top of the sub-genre\'s dancing');
     assert.equal(pick.libraryFit(african, afro), 0, 'two words are matched together, not one of them');
     assert.equal(pick.libraryFit(sunset, afro), pick.libraryFit(sunset, house), 'the sub-genre\'s own looks still count');
-    assert.equal(pick.libraryFit(africa, { ...house, style: 'Amapiano' }), 0, 'a style without its own looks has only the sub-genre\'s');
+    assert.equal(pick.libraryFit(africa, { ...house, style: 'Afro tech' }), 0, 'a style without its own looks has only the sub-genre\'s');
+    const amapiano = { attitude: null, genre: 'Electronic & Dance (EDM)', subGenre: 'House', style: 'Amapiano' };
+    for (const tag of ['dance', 'Dancing', 'dancer']) assert.ok(pick.libraryFit(item(tag, { tags: [tag] }), amapiano) > 0, `${tag} is a form of dancers`);
+    assert.ok(pick.libraryFit(item('glasses', { tags: ['Sunglasses'] }), amapiano) > 0);
+    const dancehall = { attitude: null, genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'dancehall' };
+    assert.ok(pick.libraryFit(item('night', { tags: ['night life'] }), dancehall) > 0, 'nightlife, written as two words');
+    assert.equal(pick.libraryFit(item('ring', { tags: ['ring'] }), { ...dancehall, style: 'Brazilian funk' }), 0);
   } finally { await server.close(); }
 });
 

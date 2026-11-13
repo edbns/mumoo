@@ -89,8 +89,11 @@ export interface CreativeProfileV1 {
     primaryGenre: { value: string; source: 'creator' };
     /** The sub-genre inside the genre, as the creator chose it. */
     subGenre?: { value: string; source: 'creator' };
-    /** The style the creator typed (`styles.json`: "slap house", "Amapiano"); the genre and sub-genre are where it is placed. */
-    style?: { value: string; source: 'creator' };
+    /**
+     * The style the creator picked: `value` as they saw it ("DnB"), `name` the style's own in `styles.json` ("drum and bass").
+     * The genre and sub-genre are where it is placed.
+     */
+    style?: { value: string; name: string; source: 'creator' };
     /** Who sings (Doodle draws a woman, a man or a duet from it). The creator is not asked; this is filled only when the song's audio shows it. Absent otherwise: the row then has both. */
     voice?: { value: DoodleVoice; source: 'detected' };
     title?: { value: string; source: 'embedded_metadata' | 'creator' };

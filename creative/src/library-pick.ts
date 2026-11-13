@@ -87,15 +87,23 @@ const SEEN_SHARE = 0.5;
 /** `look` names the same thing in the vision model's `looks`. */
 type Want = { show: (tag: string) => boolean; look: string; weight: number };
 
-const sameWord = (word: string, other: string | undefined) =>
-  other === word || other === `${word}s` || (word.endsWith('s') && other === word.slice(0, -1));
+/** A word without its ending, so its forms meet: dance, dancer, dancers, dancing; party, parties. What is left keeps 3 letters (ring, rings). */
+function root(word: string) {
+  if (word.endsWith('ies') && word.length > 5) return `${word.slice(0, -3)}y`;
+  const ending = ['ers', 'ing', 'er', 'es', 's', 'e'].find(end => word.endsWith(end) && word.length - end.length >= 3);
+  return ending ? word.slice(0, -ending.length) : word;
+}
+const wordsOf = (text: string) => text.trim().toLowerCase().split(/[\s-]+/).filter(Boolean);
+/** Two ways to write words as one: each word's root run together, and the root of them written as one ("night life" and "nightlife"). */
+const forms = (words: readonly string[]) => [words.map(root).join(''), root(words.join(''))];
 
-/** A genre or style look ("club", "african dance"): the tag is it, or has its words in a row (also in the plural). */
+/** A genre or style look ("club", "african dance"): the tag is it, or has its words in a row, in any of their forms. */
 const showsWords = (look: string) => {
-  const wanted = look.toLowerCase().split(/[\s-]+/);
+  const wanted = forms(wordsOf(look));
   return (tag: string) => {
-    const words = tag.trim().toLowerCase().split(/[\s-]+/);
-    return words.some((_, at) => wanted.every((word, i) => sameWord(word, words[at + i])));
+    const words = wordsOf(tag);
+    return words.some((_, at) => words.slice(at).some((__, end) =>
+      forms(words.slice(at, at + end + 1)).some(form => wanted.includes(form))));
   };
 };
 const isTheme = (look: string): look is SongTheme => (THEMES as readonly string[]).includes(look);

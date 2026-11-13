@@ -127,7 +127,7 @@ function App() {
     creator: {
       // Not known: no genre, and the brain goes by the sound and the words.
       primaryGenre: { value: style?.genre ?? '', source: 'creator' },
-      ...(style && { subGenre: { value: style.subGenre, source: 'creator' as const }, style: { value: picked!.label, source: 'creator' as const } }),
+      ...(style && { subGenre: { value: style.subGenre, source: 'creator' as const }, style: { value: picked!.label, name: style.name, source: 'creator' as const } }),
       ...(songTags?.title && { title: { value: songTags.title, source: 'embedded_metadata' as const } }),
       ...(songTags?.artist && { artist: { value: songTags.artist, source: 'embedded_metadata' as const } }),
       ...(songCover && { cover: { value: songCover, source: 'embedded_metadata' as const } }),

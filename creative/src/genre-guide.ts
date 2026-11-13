@@ -89,17 +89,58 @@ const BY_GENRE: Record<string, readonly string[]> = {
   'Experimental & Avant-Garde': ['glitch', 'abstract', 'architecture', 'surreal'],
 };
 
+const afrobeats = ['dancers', 'colorful outfits', 'street party', 'beach', 'palm trees'];
+const rnb = ['candlelight', 'bedroom', 'couple', 'city night', 'silk'];
+
 /**
  * By style, as the creator picked it in the song step (`style-search.ts`): what its videos are known for, preferred on top
  * of its sub-genre's themes. Free words, matched against the admin's tags; a style left out has only its sub-genre's.
- * Given by the owner.
+ * Keyed by the style's own name in `styles.json` ("trap music", not "Trap"), so every name it is found by gets them.
+ * Given by the owner on 13 Nov 2026 ("romantic" in Bachata became "roses": a feeling is not seen, the song's mood has it).
  */
-const BY_STYLE: Record<string, readonly string[]> = {
-  'Afro house': ['twerking', 'african dance', 'africa'],
+export const BY_STYLE: Readonly<Record<string, readonly string[]>> = {
+  'Afrobeats': afrobeats,
+  'Afrobeat': afrobeats,
+  'Amapiano': ['township streets', 'dancers', 'sunglasses', 'bucket hats', 'cars'],
+  'Afro house': ['twerking', 'african dance', 'africa', 'sunset', 'bonfire'],
+  'gqom': ['dark club', 'strobe lights', 'street dance', 'hoodies', 'crowd'],
+  'dancehall': ['street party', 'dancing crowd', 'palm trees', 'gold chains', 'nightlife'],
+  'reggae': ['beach', 'palm trees', 'dreadlocks', 'sunset', 'bonfire'],
+  'reggaeton': ['sports cars', 'neon lights', 'club', 'dancers', 'beach'],
+  'Brazilian funk': ['favela', 'street party', 'dancers', 'motorcycles', 'sunglasses'],
+  'Latin trap': ['luxury cars', 'gold chains', 'neon lights', 'mansion', 'money'],
+  'salsa': ['couple dancing', 'nightclub', 'dresses', 'suits', 'city night'],
+  'bachata': ['couple dancing', 'beach', 'sunset', 'roses', 'evening wear'],
+  'trap music': ['luxury cars', 'gold chains', 'money', 'smoke', 'hoodies'],
+  'drill': ['hoodies', 'ski masks', 'city street', 'night', 'sports cars'],
+  'UK drill': ['London street', 'hoodies', 'puffer jackets', 'night', 'subway'],
+  'phonk': ['drifting cars', 'night street', 'neon lights', 'smoke', 'retro car'],
+  'hip-hop': ['luxury cars', 'gold chains', 'street', 'sneakers', 'crowd'],
+  'boom bap': ['brick wall', 'graffiti', 'hoodies', 'headphones', 'city street'],
+  'lo-fi music': ['bedroom', 'desk', 'rain', 'window', 'headphones'],
+  'rhythm and blues': rnb,
+  'contemporary R&B': rnb,
+  'British rhythm and blues': rnb,
+  'pop music': ['bright colors', 'dancers', 'stage lights', 'confetti', 'fashion'],
+  'K-pop': ['synchronized dance', 'neon lights', 'colorful outfits', 'stage', 'futuristic'],
+  'slap house': ['sports cars', 'nightlife', 'pool party', 'sunglasses', 'neon lights'],
+  'tech house': ['DJ booth', 'club crowd', 'laser lights', 'sunglasses', 'dancing'],
+  'deep house': ['sunset', 'beach club', 'ocean', 'rooftop', 'silhouettes'],
+  'techno': ['dark warehouse', 'strobe lights', 'black clothes', 'laser lights', 'crowd'],
+  'drum and bass': ['rave crowd', 'laser lights', 'smoke', 'street', 'night'],
+  'dubstep': ['festival stage', 'laser lights', 'smoke', 'crowd', 'neon'],
+  'synthwave': ['neon grid', 'retro car', 'sunset', 'palm trees', 'city night'],
+  'rock music': ['electric guitar', 'stage', 'leather jacket', 'crowd', 'smoke'],
+  'metal music': ['electric guitar', 'black clothes', 'stage fire', 'long hair', 'crowd'],
+  'punk music': ['leather jacket', 'skatepark', 'graffiti', 'crowd', 'boots'],
+  'country music': ['pickup truck', 'dirt road', 'cowboy hat', 'boots', 'barn'],
+  'jazz': ['saxophone', 'suit', 'dim lights', 'piano', 'lounge'],
+  'gospel music': ['choir', 'church', 'clapping hands', 'suits', 'dresses'],
+  'contemporary worship music': ['stage lights', 'raised hands', 'crowd', 'church', 'acoustic guitar'],
 };
 const BY_STYLE_KEY = new Map(Object.entries(BY_STYLE).map(([style, looks]) => [styleKey(style), looks]));
 
-/** The looks a style is known for (`BY_STYLE`), none for a style without its own. */
+/** The looks a style (its own name in `styles.json`) is known for (`BY_STYLE`), none for a style without its own. */
 export function styleLooksFor(style: string | undefined): readonly string[] {
   return (style && BY_STYLE_KEY.get(styleKey(style))) || [];
 }
