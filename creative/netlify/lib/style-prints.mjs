@@ -1,7 +1,8 @@
 import { db } from './person.mjs';
 
 /**
- * Genre learning (see migration 025): the sound print of a selected clip, kept with the style a person gave it.
+ * Genre learning (see migrations 025 and 026): the sound print of a selected clip, kept with the style a person gave it,
+ * and the brain's guess for a creator who does not know theirs.
  * What the browser says about the clip is checked here, not trusted.
  */
 export const PRINT_SOURCES = ['creator', 'confirmed', 'corrected', 'seeded'];
@@ -38,4 +39,57 @@ export async function countUnknown() {
   await db()`
     insert into style_unknowns (day, count) values (current_date, 1)
     on conflict (day) do update set count = style_unknowns.count + 1`;
+}
+
+/**
+ * How sure a guess must be before a creator is asked "We think it sounds like…": of the songs nearest the clip, at least
+ * `agree` share its sub-genre and they carry `share` of the votes. A wrong guess a creator says yes to is kept as true,
+ * so it is better to ask nothing than to ask on a weak guess.
+ */
+export const GUESS = { nearest: 7, agree: 2, share: 0.6 };
+export const GUESS_ANSWERS = ['yes', 'no', 'unsure'];
+const dot = (a, b) => a.reduce((sum, x, i) => sum + x * b[i], 0);
+
+/**
+ * The style a clip most likely is, from the kept prints (rows of style_prints), or null when the brain is not sure.
+ * Each song votes once, by its clip nearest this one (cosine: prints are unit length), weighted by how alike they sound.
+ * Votes are counted by sub-genre (a style only one song has could never win), and the sub-genre's most voted style is
+ * the guess. The clip's own song is left out, so a song labelled before is guessed as honestly as a new one.
+ */
+export function guessStyle(print, rows, ownSha256, { nearest, agree, share } = GUESS) {
+  const songs = new Map();
+  for (const row of rows) {
+    if (row.source_sha256 === ownSha256) continue;
+    const alike = dot(print, row.print);
+    if (!(songs.get(row.source_sha256)?.alike >= alike)) {
+      songs.set(row.source_sha256, { style: row.style, genre: row.genre, subGenre: row.sub_genre, alike });
+    }
+  }
+  const near = [...songs.values()].sort((a, b) => b.alike - a.alike).slice(0, nearest);
+  const groups = new Map();
+  let total = 0;
+  for (const song of near) {
+    const weight = Math.max(0, song.alike);
+    total += weight;
+    const key = `${song.genre}\n${song.subGenre}`;
+    const group = groups.get(key) ?? { genre: song.genre, subGenre: song.subGenre, weight: 0, songs: 0, styles: new Map() };
+    group.weight += weight;
+    group.songs += 1;
+    group.styles.set(song.style, (group.styles.get(song.style) ?? 0) + weight);
+    groups.set(key, group);
+  }
+  const best = [...groups.values()].sort((a, b) => b.weight - a.weight)[0];
+  if (!best || total <= 0 || best.songs < agree || best.weight < share * total) return null;
+  const style = [...best.styles].sort((a, b) => b[1] - a[1])[0][0];
+  return { style, genre: best.genre, subGenre: best.subGenre };
+}
+
+export async function loadPrints() {
+  return db()`select source_sha256, style, genre, sub_genre, print from style_prints`;
+}
+
+export async function countGuessAnswer(style, answer) {
+  await db()`
+    insert into style_guess_answers (day, style, answer, count) values (current_date, ${style}, ${answer}, 1)
+    on conflict (day, style, answer) do update set count = style_guess_answers.count + 1`;
 }

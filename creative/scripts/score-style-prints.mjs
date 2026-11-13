@@ -1,4 +1,5 @@
 import { db } from '../netlify/lib/person.mjs';
+import { guessStyle } from '../netlify/lib/style-prints.mjs';
 
 /**
  * How well the kept style prints would guess a song's style: each song in turn is hidden, and the clips nearest its
@@ -45,3 +46,14 @@ console.log(`${songs.size} songs, ${rows.length} prints, ${NEAREST} nearest clip
 for (const level of levels) {
   console.log(`${level.padEnd(6)} ${right[level]}/${songs.size} right (${guessable[level]} had another song of theirs to learn from)`);
 }
+
+// What a creator who does not know would see: the site's own guess, asked only when it is sure, for each clip kept.
+let asked = 0;
+let rightSub = 0;
+for (const row of rows) {
+  const guess = guessStyle(row.print, rows, row.source_sha256);
+  if (!guess) continue;
+  asked += 1;
+  if (guess.genre === row.genre && guess.subGenre === row.sub_genre) rightSub += 1;
+}
+console.log(`site   asked on ${asked}/${rows.length} clips, ${rightSub} of those the right sub-genre (a yes to a wrong one is kept as true)`);

@@ -39,6 +39,12 @@ export type Learning = {
   days: number;
   totals: Tally & { songs: number };
   rows: Tally[]; looks: Tally[]; vibes: Tally[]; moods: Tally[]; pictures: Tally[];
+  /** Genre learning: the kept style prints (all time), "I don't know" presses, and the answers to the brain's guesses, per guessed style. */
+  genre: {
+    prints: { songs: number; creator: number; confirmed: number; seeded: number };
+    unknowns: number;
+    answers: { style: string; yes: number; no: number; unsure: number }[];
+  };
   recent: LearningEvent[];
 };
 

@@ -10,7 +10,7 @@ import type { StyleMatch } from './style-search';
 import { PhoneUpload } from './phone-upload';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { MusicAnalysisRunner } from './music-analysis-runner';
-import { StylePrintRunner } from './style-print-runner';
+import { StylePrintRunner, useStyleGuess } from './style-print-runner';
 import { useLyricMeaning } from './lyric-meaning-cloud';
 import { useSingerVoice } from './singer-voice-cloud';
 import { CreativesPackStudio } from './creatives-pack-studio';
@@ -46,6 +46,7 @@ const INITIAL: Composition = { sourceSha256: '', clipStartMs: 0, cues: [] };
 
 
 const styleOption = ({ label }: StyleMatch): ComboboxOption => ({ value: label, label });
+const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const cuesOf = (words: readonly LyricWord[]) => words.map(({ text, startMs, endMs }) => ({ text, startMs, endMs }));
 
 function App() {
@@ -122,13 +123,19 @@ function App() {
   // Who sings is heard once the window is settled (the same moment the music is read), and only ever refines the Doodle row.
   const singerVoice = useSingerVoice(accessToken, buffer, composition.clipStartMs, `${composition.sourceSha256}:${composition.clipStartMs}`,
     IS_ALIGNMENT_STAGING && clipValid && (composition.cues.length > 0 || noLyrics || inCreatives));
+  // "I don't know": once the window is settled, the brain guesses the style from how it sounds and asks.
+  const [styleGuess, answerGuess] = useStyleGuess(accessToken, buffer, clip,
+    IS_ALIGNMENT_STAGING && genreUnknown && clipValid && (composition.cues.length > 0 || noLyrics || inCreatives));
+  const known = style ? { style, label: picked!.label, source: 'creator' as const }
+    : styleGuess.status === 'answered' && styleGuess.answer === 'yes' ? { style: styleGuess.style, label: capitalised(styleGuess.style.name), source: 'confirmed' as const }
+    : null;
     const profile: CreativeProfileV1 | null = clipValid && genreValid ? {
     version: 1,
     clip,
     creator: {
       // Not known: no genre, and the brain goes by the sound and the words.
-      primaryGenre: { value: style?.genre ?? '', source: 'creator' },
-      ...(style && { subGenre: { value: style.subGenre, source: 'creator' as const }, style: { value: picked!.label, name: style.name, source: 'creator' as const } }),
+      primaryGenre: { value: known?.style.genre ?? '', source: known?.source ?? 'creator' },
+      ...(known && { subGenre: { value: known.style.subGenre, source: known.source }, style: { value: known.label, name: known.style.name, source: known.source } }),
       ...(songTags?.title && { title: { value: songTags.title, source: 'embedded_metadata' as const } }),
       ...(songTags?.artist && { artist: { value: songTags.artist, source: 'embedded_metadata' as const } }),
       ...(songCover && { cover: { value: songCover, source: 'embedded_metadata' as const } }),
@@ -406,6 +413,15 @@ function App() {
             onSeek={ms => { stop(); seekTo(ms); }}
             onLyrics={({ words, ...info }) => { setLyricsInfo(info); setLyricWords(words); setComposition(current => ({ ...current, cues: cuesOf(words) })); }}
             onState={setLyricsState} />}
+          {styleGuess.status === 'asking' && <div role="group" aria-label="Genre guess" className="mt-6 flex flex-wrap items-center gap-3 rounded-[var(--radius-panel)] bg-background p-5">
+            <p className="m-0 flex-1">We think it sounds like <strong>{capitalised(styleGuess.style.name)}</strong>.</p>
+            <Button onClick={() => answerGuess('yes')}>Yes</Button>
+            <Button variant="secondary" onClick={() => answerGuess('no')}>No</Button>
+            <Button variant="secondary" onClick={() => answerGuess('unsure')}>Not sure</Button>
+          </div>}
+          {styleGuess.status === 'answered' && <p role="status" className="hint mt-6 mb-0">
+            {styleGuess.answer === 'yes' ? `${capitalised(styleGuess.style.name)} it is. Thanks, that helps MUMOO learn.` : 'No problem. We’ll go by the sound and the lyrics.'}
+          </p>}
           <div className="step-actions mt-6 flex items-center gap-3">
             <Button variant="secondary" onClick={() => { stop(); setStep(1); }}>Back</Button>
             {lyricsState.dirty && <span className="hint">Sync your edits first.</span>}

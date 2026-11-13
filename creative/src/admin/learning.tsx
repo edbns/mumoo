@@ -43,6 +43,39 @@ function Table({ title, note, tallies, label }: { title: string; note: string; t
   </section>;
 }
 
+/**
+ * How the brain learns genres: the songs it can compare a clip with, and how creators who did not know their genre answered
+ * "We think it sounds like…". Only a yes is kept; many no's for a style mean its guesses are not ready.
+ */
+function GenreLearning({ genre }: { genre: Learning['genre'] }) {
+  const asked = genre.answers.reduce((sum, row) => sum + row.yes + row.no + row.unsure, 0);
+  const yes = genre.answers.reduce((sum, row) => sum + row.yes, 0);
+  return <section aria-label="Genre learning" className="flex flex-col gap-3">
+    <div>
+      <h2 className="m-0 text-sm font-medium">Genre learning</h2>
+      <p className="m-0 text-xs text-muted-foreground">Songs with a known genre, and the answers to “We think it sounds like…”. Only a yes teaches the brain.</p>
+    </div>
+    <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <Stat label="Songs to learn from" value={genre.prints.songs} note={`${genre.prints.creator} picked · ${genre.prints.confirmed} confirmed · ${genre.prints.seeded} seeded clips`} />
+      <Stat label="I don’t know" value={genre.unknowns} note={asked ? `${asked} were asked a guess` : 'None asked a guess yet'} />
+      <Stat label="Guesses right" value={asked ? `${Math.round((yes / asked) * 100)}%` : '–'} note={asked ? `${yes} yes of ${asked} answers` : undefined} />
+    </div>
+    {genre.answers.length > 0 && <div className="overflow-x-auto rounded-[var(--radius-panel)] bg-card shadow-sm">
+      <table className="w-full border-collapse text-sm tabular-nums">
+        <thead><tr className="text-left text-xs text-muted-foreground">
+          {['Guessed', 'Yes', 'No', 'Not sure'].map(head => <th key={head} className="px-4 py-2 font-medium">{head}</th>)}
+        </tr></thead>
+        <tbody>{genre.answers.map(row => <tr key={row.style} className="border-t border-border">
+          <td className="px-4 py-2 capitalize">{row.style}</td>
+          <td className="px-4 py-2">{row.yes}</td>
+          <td className="px-4 py-2">{row.no}</td>
+          <td className="px-4 py-2">{row.unsure}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>}
+  </section>;
+}
+
 /** What people do with the creatives, so we can see what the brain is learning: per row, look, vibe, mood and library picture. */
 export function LearningView() {
   const [days, setDays] = useState<number>(30);
@@ -92,6 +125,7 @@ export function LearningView() {
       <Table title="Looks" note="The live look, else the lyric type, else the style." tallies={learning.looks} />
       <Table title="Vibe and lane" note="How the song was heard, and the lane the brain chose." tallies={learning.vibes} />
       <Table title="Moods of the words" note="The main mood the lyric reader found." tallies={learning.moods} />
+      <GenreLearning genre={learning.genre} />
       <section aria-label="Latest" className="flex flex-col gap-3">
         <h2 className="m-0 text-sm font-medium">Latest</h2>
         {learning.recent.length === 0 ? <p className="m-0 rounded-[var(--radius-panel)] bg-card p-5 text-sm text-muted-foreground">Nothing yet.</p>

@@ -36,6 +36,20 @@ export default async function handler(request) {
     const recent = await sql`
       select created_at, event, row_id, coalesce(look, type_style, style) as look, vibe, lane, attitude, genre, watch_ms, nth_download
       from brain_feedback where ${since} order by created_at desc limit 50`;
+    // Genre learning: what the brain has to learn from (all time), and how creators who did not know answered its guesses.
+    const [prints] = await sql`
+      select count(distinct source_sha256)::int as songs,
+        count(*) filter (where source = 'creator')::int as creator, count(*) filter (where source = 'confirmed')::int as confirmed,
+        count(*) filter (where source = 'seeded')::int as seeded
+      from style_prints`;
+    const [unknowns] = await sql`select coalesce(sum(count), 0)::int as count from style_unknowns where day > current_date - ${days}::int`;
+    const answers = await sql`
+      select style,
+        coalesce(sum(count) filter (where answer = 'yes'), 0)::int as yes,
+        coalesce(sum(count) filter (where answer = 'no'), 0)::int as no,
+        coalesce(sum(count) filter (where answer = 'unsure'), 0)::int as unsure
+      from style_guess_answers where day > current_date - ${days}::int group by style having sum(count) > 0
+      order by sum(count) desc, style limit 30`;
     const shape = list => list.map(({ key, plays, selects, downloads, delivered, refreshes, avg_watch_ms: avgWatchMs }) => ({ key, plays, selects, downloads, delivered, refreshes, avgWatchMs }));
     return reply(200, {
       days,
@@ -45,6 +59,7 @@ export default async function handler(request) {
       vibes: shape(vibes),
       moods: shape(moods),
       pictures: shape(pictures),
+      genre: { prints, unknowns: unknowns.count, answers },
       recent: recent.map(row => ({
         at: row.created_at, event: row.event, row: row.row_id, look: row.look, vibe: row.vibe, lane: row.lane,
         mood: row.attitude, genre: row.genre, watchMs: row.watch_ms, nthDownload: row.nth_download,
