@@ -9,6 +9,7 @@ const styles = JSON.parse(readFileSync(new URL('../src/styles.json', import.meta
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
 const { GENRES, styleKey } = await server.ssrLoadModule('/src/genres.ts');
 const { BY_STYLE } = await server.ssrLoadModule('/src/genre-guide.ts');
+const { searchStyles } = await server.ssrLoadModule('/src/style-search.ts');
 await server.close();
 
 /** A style by its own name first, else by another of its names. */
@@ -67,4 +68,19 @@ test('the styles people make now land where their looks are', () => {
 
 test('every style given its own looks is a style of the directory, by its own name', () => {
   for (const name of Object.keys(BY_STYLE)) assert.ok(styles.some(style => style.name === name), name);
+});
+
+test('the search box finds a style in what creators type: mixes, a kind before the style, words it has no name for', () => {
+  const first = typed => searchStyles(typed).map(match => match.label);
+  assert.equal(first('Bedroom R&B')[0], 'R&B', 'the last word is the style');
+  assert.equal(first('Electronic Downtempo')[0], 'Downtempo');
+  assert.equal(first('Funk Phonk')[0], 'Phonk');
+  assert.equal(first('Country (outlaw)')[0], 'Outlaw country');
+  assert.deepEqual(first('Industrial Rock x rap').slice(0, 2), ['Industrial rock', 'Rap'], 'each style of a mix is offered');
+  assert.deepEqual(first('Trap feat. drill').slice(0, 2), ['Trap', 'Drill']);
+  assert.equal(first('Phonk Montagem')[0], 'Montagem', 'a style Wikidata lacks, added by hand');
+  assert.equal(searchStyles('montagem')[0].style.genre, 'Latin & Urbano');
+  assert.deepEqual(first('Deep house'), ['Deep house', 'Modern deep house'], 'a name that is found is not split into its words');
+  assert.ok(!first('House x rai').includes('Straight edge'), 'a short word is not looked for inside other words');
+  assert.ok(first('afro house').length > 0 && first('Afro HOUSE')[0] === 'Afro house');
 });

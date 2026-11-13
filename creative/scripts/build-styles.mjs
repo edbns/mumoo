@@ -220,6 +220,11 @@ for (const genre of genres) {
   const note = `${genre.name} → ${places.join(' | ')}  (via ${reach.found.map(entry => entry.name).join(', ')}, ${reach.depth} up${places.length > 1 ? ', TIE' : ''})`;
   byName.set(key, { depth: reach.depth, note, style: { name: genre.name, ...(aliases.length ? { aliases } : {}), genre: ours, subGenre: sub } });
 }
+/** Styles creators type that Wikidata does not have yet, placed by hand. */
+const EXTRA = [
+  { name: 'montagem', aliases: ['funk montagem', 'montagem funk', 'Brazilian montagem'], genre: LATIN, subGenre: 'General Latin' },
+];
+for (const style of EXTRA) if (!byName.has(searchKey(style.name))) byName.set(searchKey(style.name), { depth: 0, note: '', style });
 for (const { depth, note } of byName.values()) if (depth > 0) walked.push(note);
 const styles = [...byName.values()].map(entry => entry.style).sort((a, b) => a.name.localeCompare(b.name));
 writeFileSync(new URL('../src/styles.json', import.meta.url), `${JSON.stringify(styles)}\n`);
