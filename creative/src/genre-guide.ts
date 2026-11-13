@@ -74,6 +74,10 @@ const BY_SUB_GENRE: Record<string, readonly string[]> = {
   'Hardcore Punk': punk,
   'Dance-Pop': ['fashion', 'geometric', 'abstract'],
   'K-Pop / J-Pop': ['futuristic', 'fantasy', 'city', 'luxury', 'surreal'],
+  'Gospel': ['faith', 'stage', 'crowd', 'sunset'],
+  'Worship / Contemporary Christian': ['faith', 'crowd', 'nature', 'sunset', 'mountains'],
+  'Christian Hip-Hop': ['faith', 'street', 'city', 'studio'],
+  'General Gospel & Christian': ['faith', 'nature', 'sunset', 'stage'],
 };
 
 /** By genre, for the groups the guidance describes as a whole. */

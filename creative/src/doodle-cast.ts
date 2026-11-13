@@ -2,7 +2,7 @@ import { findGenre } from './genres';
 import { hashPick, type AdFont } from './ad-fonts';
 import type { LyricAttitude } from './lyric-meaning';
 import {
-  ANIMALS, DOODLE_MOODS, HAIR, HEADS, HAT_IDS, PROP_IDS, BEARDS,
+  ANIMALS, DOODLE_MOODS, HAIR, HAT_IDS, PROP_IDS, BEARDS,
   type BeardId, type BodyId, type DoodleMood, type HairId, type HatId, type HeadKind, type PropId,
 } from './doodle-parts';
 
@@ -109,6 +109,12 @@ const KITS: Record<string, Genre> = {
     f: { hair: 'pomp', hat: ['headphones'], props: ['rays', 'note'] },
     m: { hair: 'afro', hat: ['shadesUp'], props: ['rays'] },
     a: { head: 'frog', hat: ['beanie'], props: ['rays', 'note'] },
+  },
+  'Gospel & Christian': {
+    slug: 'gospel', name: 'Gospel',
+    f: { hair: 'bun', hat: ['hoops'], props: ['rays', 'hearts'] },
+    m: { hair: 'short', hat: [], props: ['bowtie', 'rays'] },
+    a: { head: 'llama', hat: [], props: ['rays', 'hearts'] },
   },
 };
 const DEFAULT_KIT = KITS.Pop;

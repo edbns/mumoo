@@ -14,6 +14,7 @@ export const GENRES: readonly GenreGroup[] = [
   { name: 'Country & Folk', subGenres: ['Americana / Folk', 'Modern Country', 'General Country & Folk'] },
   { name: 'Reggae & Dancehall', subGenres: ['Roots Reggae', 'Dancehall / Afrobeats', 'General Reggae'] },
   { name: 'Experimental & Avant-Garde', subGenres: ['Glitch Hop / IDM', 'Industrial', 'General Experimental'] },
+  { name: 'Gospel & Christian', subGenres: ['Gospel', 'Worship / Contemporary Christian', 'Christian Hip-Hop', 'General Gospel & Christian'] },
 ];
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -31,5 +32,8 @@ const FAMILY: Readonly<Record<string, string>> = {
 
 /** The sub-genre a style belongs to ("Slap House" is House), or the sub-genre itself. */
 export const familyOf = (subGenre: string) => FAMILY[subGenre.trim().toLowerCase()] ?? subGenre;
+
+/** How a typed style is compared: case, accents, spaces, hyphens and "&"/"and"/"'n'" do not matter ("Afro beat", "afrobeat", "AFRO-BEAT"). */
+export const styleKey = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&|\band\b|'n'/g, 'n').replace(/[^a-z0-9]+/g, '');
 
 export const toOptions = (items: readonly string[]) => items.map(item => ({ value: item, label: item }));
