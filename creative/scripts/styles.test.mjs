@@ -73,6 +73,9 @@ test('every style given its own looks is a style of the directory, by its own na
 test('the search box finds a style in what creators type: mixes, a kind before the style, words it has no name for', () => {
   const first = typed => searchStyles(typed).map(match => match.label);
   assert.equal(first('Bedroom R&B')[0], 'R&B', 'the last word is the style');
+  for (const typed of ['R&B', 'RnB', "R'n'B", 'Bedroom R&B']) {
+    assert.equal(searchStyles(typed)[0].style.name, 'contemporary R&B', `${typed} is today's R&B, not British`);
+  }
   assert.equal(first('Electronic Downtempo')[0], 'Downtempo');
   assert.equal(first('Funk Phonk')[0], 'Phonk');
   assert.equal(first('Country (outlaw)')[0], 'Outlaw country');

@@ -225,6 +225,16 @@ const EXTRA = [
   { name: 'montagem', aliases: ['funk montagem', 'montagem funk', 'Brazilian montagem'], genre: LATIN, subGenre: 'General Latin' },
 ];
 for (const style of EXTRA) if (!byName.has(searchKey(style.name))) byName.set(searchKey(style.name), { depth: 0, note: '', style });
+/** A short name several styles share, kept only by the one a creator means by it ("R&B" is today's R&B, not British). */
+const OWNED = { 'R&B': 'contemporary R&B', RnB: 'contemporary R&B', "R'n'B": 'contemporary R&B' };
+for (const [alias, owner] of Object.entries(OWNED)) {
+  if (!byName.has(searchKey(owner))) throw new Error(`OWNED: no style "${owner}"`);
+  for (const { style } of byName.values()) {
+    if (style.name === owner || !style.aliases) continue;
+    style.aliases = style.aliases.filter(other => searchKey(other) !== searchKey(alias));
+    if (!style.aliases.length) delete style.aliases;
+  }
+}
 for (const { depth, note } of byName.values()) if (depth > 0) walked.push(note);
 const styles = [...byName.values()].map(entry => entry.style).sort((a, b) => a.name.localeCompare(b.name));
 writeFileSync(new URL('../src/styles.json', import.meta.url), `${JSON.stringify(styles)}\n`);
