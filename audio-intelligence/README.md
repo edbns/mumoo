@@ -9,6 +9,7 @@ Cloud workers for the Creative Studio. Each runs on Modal (CPU only) and is call
 | Singer voice | `modal_voice_staging.py` (`voice_detection.py`) | Who sings in the selected 15 seconds: female, male, both, or nobody. Demucs separates the voice from the music, pYIN finds where it sings, a wav2vec2 timbre reader (Apache 2.0) votes on each 4 second stretch. Answers `null` rather than guess (instrumental, too little singing, voices that disagree). About 10–30 s of 4 CPU cores per clip; async submit/status like lyrics. Pitch alone was tried and rejected: it called a male pop singer female. The reader was trained on speech, so it is weaker on high operatic voices. |
 | Music analysis | `modal_music_staging.py` | Beats, tempo and energy for a selected 15 seconds (`music_analysis.py`). |
 | Creatives encode | `modal_creatives_encode_staging.py` | Encodes the creatives pack to MP4. |
+| Sound print | `modal_sound_print_staging.py` (`sound_print.py`) | 512 numbers for what LAION's CLAP music model (CC0) hears in the selected 15 seconds, from a 48 kHz clip (at 16 kHz a print moves as far as another part of the song). Songs that sound alike have prints that point the same way: kept with the style creators pick, they teach the genre of a song whose creator does not know it. Matching genre names directly was tried and is too weak (11 of 23 broad genres right on the owner's songs). Cold about 25 s, warm under 2 s. |
 
 Deploy one worker: `python3 -m modal deploy <file>.py -e mumoo-staging`.
 
