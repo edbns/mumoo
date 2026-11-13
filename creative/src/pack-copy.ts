@@ -1,6 +1,6 @@
 import type { LiveLookId } from './live-look-deal';
 import { FPS, type ImpactMusic, type LyricCue } from './composition';
-import { entrance, impactFrame, impactSignals } from './lyric-motion';
+import { cueFrame, entrance, impactFrame, impactSignals } from './lyric-motion';
 import type { Texture } from 'pixi.js';
 import type { AdPunchStyle } from './ad-punch';
 import type { AdFont, AdLayout } from './ad-fonts';
@@ -64,23 +64,23 @@ export type PackSceneInput = {
   doodle?: { id: string; paper: DoodlePaper; mood: DoodleMood };
 };
 
-export function activePackCopy(cues: readonly LyricCue[], frame: number, fallback: string) {
-  const state = impactFrame(cues, frame);
-  const phrase = state.phrase.trim();
-  if (phrase) {
-    return {
-      phrase: phrase.toLocaleUpperCase(),
-      word: (state.word || phrase).toLocaleUpperCase(),
-      wordStartMs: state.wordStartMs,
-      words: state.words as readonly TimedWord[],
-    };
+/**
+ * The lyric on screen at a frame: only ever the song's own words. Between two lines the last one sung stays up, on its
+ * last word, until the next begins; before the first line there are none.
+ */
+export function activePackCopy(cues: readonly LyricCue[], frame: number) {
+  let state = impactFrame(cues, frame);
+  if (!state.phrase.trim()) {
+    const sung = cues.filter(cue => cueFrame(cue.startMs) <= frame).at(-1);
+    if (sung) state = impactFrame(cues, Math.max(cueFrame(sung.startMs), Math.ceil(sung.endMs * FPS / 1000) - 1));
   }
-  const fb = fallback.toLocaleUpperCase();
+  const phrase = state.phrase.trim();
+  if (!phrase) return { phrase: '', word: '', wordStartMs: 0, words: [] as readonly TimedWord[] };
   return {
-    phrase: fb,
-    word: fb,
-    wordStartMs: 0,
-    words: [{ text: fallback || 'NOW', startMs: 0, endMs: 600 }] as readonly TimedWord[],
+    phrase: phrase.toLocaleUpperCase(),
+    word: (state.word || phrase).toLocaleUpperCase(),
+    wordStartMs: state.wordStartMs,
+    words: state.words as readonly TimedWord[],
   };
 }
 

@@ -75,6 +75,7 @@ export function createPuliseWorld(): PuliseWorld {
       clearLyrics();
       // Between two sung words the last one stays up, so a pause never shrinks the whole line onto the screen.
       const word = input.word || input.words.filter(item => item.startMs <= input.ms).at(-1)?.text || input.words[0]?.text || input.phrase;
+      if (!input.lyrics || !word) return;
       // One word on one line: long words shrink to fit the width instead of breaking.
       const fit = fitPackLines(word, input.font, 560, 940, 1);
       const hit = input.beat;

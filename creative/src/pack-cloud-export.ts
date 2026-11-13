@@ -114,7 +114,8 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
     ...(input.libraryId ? { library: input.libraryId } : {}),
     ...(input.ownReel ? { ownReel: true } : {}),
     // A reel goes as the library ids it is edited from, in order; the server swaps in fresh links of its own.
-    opts: { ...scene, ...(reel?.length ? { reel: reel.map(({ id, kind, shots }) => ({ id, kind, ...(shots ? { shots } : {}) })) } : {}), fallbackText: (scene.fallbackText || 'NOW').slice(0, 80) },
+    // The encoder still requires fallbackText; a creative shows only the song's own words, so it is always empty.
+    opts: { ...scene, ...(reel?.length ? { reel: reel.map(({ id, kind, shots }) => ({ id, kind, ...(shots ? { shots } : {}) })) } : {}), fallbackText: '' },
   }));
   const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
   const response = await withAccess(input.token, access => fetch('/.netlify/functions/encode-creative', {

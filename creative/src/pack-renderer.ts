@@ -44,7 +44,6 @@ export type PackRendererOpts = {
   layout: AdLayout;
   cues: readonly LyricCue[];
   music: ImpactMusic | null;
-  fallbackText: string;
   /** Dust, Riso and Window: an approved photo (and its cut-out), found the same way in the browser and in the cloud. */
   plateId?: string;
   /** Our photography and Window: one baked effect on our approved photo, found the same way. */
@@ -384,7 +383,7 @@ export async function createPackRenderer(
           gradeFilter.matrix = gradeMatrix(current.grade) as ColorMatrixFilter['matrix'];
           scene.root.filters = [gradeFilter];
         } else scene.root.filters = [];
-        const copy = activePackCopy(current.cues, frame, current.fallbackText || 'NOW');
+        const copy = activePackCopy(current.cues, frame);
         const wordEnter = packWordEnter(ms, copy.wordStartMs, Boolean(copy.word));
         scene.update({
           style,

@@ -701,14 +701,3 @@ function puliseSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string)
     return { ...slot, layout: { ...slot.layout, cut: index } };
   });
 }
-
-export function adPunchFallbackText(profile: CreativeProfileV1, intent: MusicIntentV1 | null): string {
-  const title = profile.creator.title?.value?.trim();
-  if (title) return title.slice(0, 48);
-  const artist = profile.creator.artist?.value?.trim();
-  if (artist) return artist.slice(0, 48);
-  if (intent?.vibe === 'Aggressive/Industrial') return 'NOW';
-  if (intent?.vibe === 'Dark/Cinematic') return 'WATCH';
-  if (intent?.vibe === 'Ambient/Mellow') return 'STILL';
-  return 'PLAY';
-}

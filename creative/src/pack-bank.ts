@@ -197,7 +197,7 @@ export function createBankWorld(): BankWorld {
         scrim.fill({ color: palette.scrim.color, alpha: palette.scrim.alpha });
       }
 
-      const words: TimedWord[] = !input.lyrics ? [] : input.words.length
+      const words: TimedWord[] = !input.lyrics || !input.phrase ? [] : input.words.length
         ? [...input.words]
         : [{ text: input.phrase, startMs: 0, endMs: 600 }];
       type.paint(style, {

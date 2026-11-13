@@ -3,7 +3,7 @@ import { DURATION_MS, FPS, playheadFrame, type Composition, type ImpactMusic } f
 import { songAccents } from './pack-director';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
-import { adPunchFallbackText, isLookRow, recommendRow, rowsFor, SHELF_ROWS, windowHand, type CreativesPackSlot, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
+import { isLookRow, recommendRow, rowsFor, SHELF_ROWS, windowHand, type CreativesPackSlot, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
 import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
 import { friendlyError } from './friendly-error';
@@ -79,7 +79,6 @@ function packOpts(
   slot: CreativesPackSlot,
   composition: Composition,
   music: ImpactMusic | null,
-  fallbackText: string,
   lyrics: boolean,
   picture?: Picture,
 ): PackRendererOpts {
@@ -103,7 +102,6 @@ function packOpts(
     ...(slot.grade && lyrics ? { grade: slot.grade } : {}),
     cues: lyrics ? composition.cues : [],
     music,
-    fallbackText: lyrics ? fallbackText : '',
     lyrics,
     // Our approved photo (Dust, Riso, Window) or its baked effect (Our photography, Window; a Window may also draw a baked background), unless the person chose their own picture, which replaces it.
     ...drawn,
@@ -170,11 +168,6 @@ export function CreativesPackStudio({
   const lyricKey = JSON.stringify(profile.approvedLyrics?.cues ?? null);
   const creatorKey = JSON.stringify(profile.creator);
   const music = useMemo(() => impactMusic(profile), [profile.musicAnalysis, lyricKey]);
-  const intent = useMemo(
-    () => (profile.musicAnalysis.status === 'ready' ? deriveMusicIntent(profile.musicAnalysis.result) : null),
-    [profile.musicAnalysis],
-  );
-  const fallbackText = useMemo(() => adPunchFallbackText(profile, intent), [profile, intent]);
   const hasLyrics = Boolean(profile.approvedLyrics?.cues.length);
   // A song with no words, or with the Lyrics switch off, shows only the templates that work without them, with no words on any.
   const noLyrics = Boolean(profile.noLyrics);
@@ -280,14 +273,14 @@ export function CreativesPackStudio({
 
   const cueKey = JSON.stringify(composition.cues);
   // What every card depends on besides its own row: the song and its words.
-  const songKey = `${profile.clip.sourceSha256}|${cueKey}|${fallbackText}|${music?.beatsMs.join(',') ?? ''}`;
+  const songKey = `${profile.clip.sourceSha256}|${cueKey}|${music?.beatsMs.join(',') ?? ''}`;
   const cardKey = (slot: CreativesPackSlot) => `${songKey}|${lyricsOn()}|${pictureIds}|${slot.id}:${slot.grade ? Object.values(slot.grade).join(',') : ''}`;
   const cardKeys = cards.map(card => cardKey(card.slot)).join('\n');
 
   const getPositionRef = useRef(getPosition ?? (() => position));
   getPositionRef.current = getPosition ?? (() => position);
-  const latest = useRef({ cards, composition, music, fallbackText, lyricsOn, pictureOf, cardKey, onProgress });
-  latest.current = { cards, composition, music, fallbackText, lyricsOn, pictureOf, cardKey, onProgress };
+  const latest = useRef({ cards, composition, music, lyricsOn, pictureOf, cardKey, onProgress });
+  latest.current = { cards, composition, music, lyricsOn, pictureOf, cardKey, onProgress };
   const painted = useRef(new Map<string, string>());
   const playingSlot = pack.find(item => item.id === playingId) ?? null;
 
@@ -303,12 +296,12 @@ export function CreativesPackStudio({
   useEffect(() => {
     let alive = true;
     setFontReady(false);
-    const sample = composition.cues.map(cue => cue.text).join(' ') || fallbackText;
+    const sample = composition.cues.map(cue => cue.text).join(' ');
     void loadDisplayFonts(sample)
       .then(() => { if (alive) setFontReady(true); })
       .catch(() => { if (alive) setFontReady(true); });
     return () => { alive = false; };
-  }, [cueKey, fallbackText]);
+  }, [cueKey]);
 
   // How long each card's preview is watched: told once, when it stops, another card starts, the shelf goes or the page closes.
   const watchFacts = useRef({ token, profile, controls, ownCard });
@@ -364,10 +357,10 @@ export function CreativesPackStudio({
         await yieldFrame();
         const canvas = canvasRefs.current.get(slot.id);
         if (canvas) {
-          const { composition: base, music: impact, fallbackText: fallback } = latest.current;
+          const { composition: base, music: impact } = latest.current;
           const withLyrics = latest.current.lyricsOn();
           try {
-            await blitPackFrame(canvas, packOpts(slot, base, impact, fallback, withLyrics, latest.current.pictureOf(def.id, slot)), posterAt(base, impact, withLyrics));
+            await blitPackFrame(canvas, packOpts(slot, base, impact, withLyrics, latest.current.pictureOf(def.id, slot)), posterAt(base, impact, withLyrics));
           } catch (cause) {
             if (!cancelled) setError(`${def.title}: ${friendlyError(cause, 'One creative could not be prepared.')}`);
           }
@@ -391,7 +384,7 @@ export function CreativesPackStudio({
     let raf = 0;
     const withLyrics = lyricsOn();
     const picture = pictureOf(playingSlot.row, playingSlot);
-    const opts = packOpts(playingSlot, composition, music, fallbackText, withLyrics, picture);
+    const opts = packOpts(playingSlot, composition, music, withLyrics, picture);
     let painting = false;
     let lastFrame = -1;
 
@@ -418,11 +411,11 @@ export function CreativesPackStudio({
       cancelAnimationFrame(raf);
       // The card goes back to its own poster. Drawing is queued after the last live frame, so a late frame can never land on top of it.
       if (!leaving.current) {
-        void blitPackFrame(canvas, packOpts(playingSlot, composition, music, fallbackText, withLyrics, picture), posterAt(composition, music, withLyrics))
+        void blitPackFrame(canvas, packOpts(playingSlot, composition, music, withLyrics, picture), posterAt(composition, music, withLyrics))
           .catch(cause => setError(friendlyError(cause, 'Preview failed (WebGL).')));
       }
     };
-  }, [allReady, fontReady, playing, playingSlot?.id, cardKeys, composition, music, fallbackText]);
+  }, [allReady, fontReady, playing, playingSlot?.id, cardKeys, composition, music]);
 
   /** Any change to a row stops playback first, so the one shared drawing surface is never used twice at once. */
   function stopPlayback() {
@@ -515,7 +508,7 @@ export function CreativesPackStudio({
         ids.push(await submitCloudJob({
           token,
           wav,
-          opts: packOpts(item.slot, composition, music, fallbackText, item.lyrics, pictureFor(item).picture),
+          opts: packOpts(item.slot, composition, music, item.lyrics, pictureFor(item).picture),
           // Never send both: own upload replaces the library picture on this row.
           ...(item.uploadId ? { uploadId: item.uploadId } : item.ownReel ? { ownReel: true } : item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
         }));
