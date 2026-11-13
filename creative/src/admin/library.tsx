@@ -518,13 +518,14 @@ function Boards({ items, chosen, onChoose }: { items: readonly LibraryItem[]; ch
   return <section aria-label="Mood boards" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-card p-5 shadow-sm">
     <div>
       <h2 className="m-0 text-sm font-medium">Mood boards</h2>
-      <p className="m-0 text-xs text-muted-foreground">Each board is one scene. The brain picks the boards for a song; a board is used once it has {BOARD_MIN} approved, ready items. Keep each board’s light and colours alike.</p>
+      <p className="m-0 text-xs text-muted-foreground">Each board is one scene. The brain picks the boards for a song; a board is used once it has {BOARD_MIN} approved, ready items. Keep each board’s light and colours alike.
+        Below are only the items not on a board yet; click a board to see what is on it.</p>
     </div>
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
       {BOARDS.map(board => {
         const ready = usable(board.id);
         const filed = items.filter(item => item.boards.includes(board.id)).length;
-        return <button key={board.id} type="button" aria-pressed={chosen === board.id} onClick={() => onChoose(chosen === board.id ? '' : board.id)}
+        return <button key={board.id} type="button" aria-pressed={chosen === board.id} onClick={() => onChoose(chosen === board.id ? NO_BOARD : board.id)}
           className={`flex flex-col gap-1 rounded-[var(--radius-control)] p-3 text-left outline-ring transition-colors focus-visible:outline-2 ${chosen === board.id ? 'bg-foreground text-background' : 'bg-muted hover:bg-secondary'}`}>
           <span className="flex items-center justify-between gap-2 text-sm font-medium">{board.name}
             <span className={`rounded-full px-2 py-0.5 text-xs ${ready >= BOARD_MIN ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
@@ -546,7 +547,8 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   const [library, setLibrary] = useState<Library | null>(null);
   const [error, setError] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
-  const [board, setBoard] = useState('');
+  /** What still needs a board is shown first; an item filed on one is found under its board. */
+  const [board, setBoard] = useState(NO_BOARD);
   const [openId, setOpenId] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   /** The ticked cards are being edited (the panel is open); until then only the selection bar shows. */
@@ -597,8 +599,8 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
         {value === 'all' ? 'All' : STATUS_LABEL[value]} {count(value)}</Chip>)}
       <select aria-label="Filter by board" value={board} onChange={event => setBoard(event.target.value)}
         className="ml-auto rounded-[var(--radius-control)] bg-card px-3 py-1.5 text-sm shadow-sm outline-ring focus-visible:outline-2">
-        <option value="">Every board</option>
-        <option value={NO_BOARD}>No board yet ({items.filter(item => item.boards.length === 0).length})</option>
+        <option value={NO_BOARD}>Not on a board yet ({items.filter(item => item.boards.length === 0).length})</option>
+        <option value="">Every item ({items.length})</option>
         {BOARDS.map(entry => <option key={entry.id} value={entry.id}>{entry.name} ({items.filter(item => item.boards.includes(entry.id)).length})</option>)}
       </select>
     </div>
@@ -611,7 +613,8 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
 
     {!library ? <p className="m-0 text-sm text-muted-foreground">Loading…</p>
       : shown.length === 0 ? <p className="m-0 rounded-[var(--radius-panel)] bg-card p-10 text-center text-sm text-muted-foreground">
-        {items.length === 0 ? 'Nothing here yet. Add your first cleared file above.' : 'Nothing matches these filters.'}</p>
+        {items.length === 0 ? 'Nothing here yet. Add your first cleared file above.'
+          : board === NO_BOARD && status === 'all' ? 'Everything is on a board. Click a board above to see its items.' : 'Nothing matches these filters.'}</p>
       : <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         {shown.map(item => <Card key={item.id} item={item} selected={item.id === openId} ticked={picked.includes(item.id)}
           onSelect={() => (picked.length ? tick(item.id, false) : setOpenId(item.id))} onTick={range => tick(item.id, range)} />)}
