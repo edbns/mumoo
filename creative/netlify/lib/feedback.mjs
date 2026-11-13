@@ -1,4 +1,5 @@
 import { db } from './person.mjs';
+import { BOARDS } from './boards.mjs';
 
 /**
  * What people do with the creatives, for the brain to learn from (see migration 011). Only codes are kept, never lyrics.
@@ -46,6 +47,7 @@ export function validFeedback(v) {
   if (s.libraryId !== undefined && s.libraryId !== null && !(typeof s.libraryId === 'string' && UUID.test(s.libraryId))) return false;
   if (s.reelIds !== undefined && !(Array.isArray(s.reelIds) && s.reelIds.length >= 2 && s.reelIds.length <= 8 && s.reelIds.every(id => typeof id === 'string' && UUID.test(id)))) return false;
   if (s.cutSeed !== undefined && !(Number.isInteger(s.cutSeed) && s.cutSeed >= 0 && s.cutSeed < 1_000_000)) return false;
+  if (s.board !== undefined && !BOARDS.includes(s.board)) return false;
   if (v.ownPicture !== undefined && typeof v.ownPicture !== 'boolean') return false;
   if (v.event === 'watch') return Number.isInteger(v.watchMs) && v.watchMs > 0 && v.watchMs <= MOST_WATCH_MS;
   return v.watchMs === undefined;
@@ -63,10 +65,10 @@ export async function storeFeedback(v, userId) {
       await sql`
         insert into brain_feedback (event, user_id, clip_sha256, genre, sub_genre, vibe, lane, language, lyrics_origin, attitude, sadness, intensity,
           row_id, slot_id, style, font, font_secondary, type_style, effect_id, library_id, look, own_picture, generation,
-          reel_ids, cut_seed, lyric_moods, lyric_themes, drive, mode)
+          reel_ids, cut_seed, lyric_moods, lyric_themes, drive, mode, board)
         select distinct on (slot_id) 'delivered', ${userId}, clip_sha256, genre, sub_genre, vibe, lane, language, lyrics_origin, attitude, sadness, intensity,
           row_id, slot_id, style, font, font_secondary, type_style, effect_id, library_id, look, own_picture, generation,
-          reel_ids, cut_seed, lyric_moods, lyric_themes, drive, mode
+          reel_ids, cut_seed, lyric_moods, lyric_themes, drive, mode, board
         from brain_feedback
         where event = 'download' and clip_sha256 = ${v.clipSha256} and slot_id = any(${v.slotIds}::text[]) and created_at > now() - interval '1 day'
         order by slot_id, created_at desc`;
@@ -79,13 +81,13 @@ export async function storeFeedback(v, userId) {
     await sql`
       insert into brain_feedback (event, user_id, nth_download, clip_sha256, genre, sub_genre, vibe, lane, language, lyrics_origin,
         attitude, sadness, intensity, row_id, slot_id, style, font, font_secondary, type_style, effect_id, library_id, look, own_picture, generation,
-        reel_ids, cut_seed, watch_ms, lyric_moods, lyric_themes, drive, mode)
+        reel_ids, cut_seed, watch_ms, lyric_moods, lyric_themes, drive, mode, board)
       values (${v.event}, ${userId}, ${nth},
         ${v.clipSha256}, ${v.primaryGenre.trim()}, ${v.subGenre ?? null}, ${v.vibe}, ${v.lane}, ${v.language}, ${v.lyricsOrigin},
         ${v.lyricAttitude}, ${v.lyricSadness}, ${v.lyricIntensity}, ${v.row ?? null}, ${s.id ?? null}, ${s.style ?? null},
         ${s.font ?? null}, ${s.fontSecondary ?? null}, ${s.typeStyle ?? null}, ${s.effectId ?? null}, ${s.libraryId ?? null}, ${s.look ?? null},
         ${typeof v.ownPicture === 'boolean' ? v.ownPicture : null}, ${v.generation ?? null},
-        ${s.reelIds ?? null}, ${s.cutSeed ?? null}, ${v.watchMs ?? null}, ${v.lyricMoods ?? null}, ${v.lyricThemes ?? null}, ${v.drive ?? null}, ${v.mode ?? null})`;
+        ${s.reelIds ?? null}, ${s.cutSeed ?? null}, ${v.watchMs ?? null}, ${v.lyricMoods ?? null}, ${v.lyricThemes ?? null}, ${v.drive ?? null}, ${v.mode ?? null}, ${s.board ?? null})`;
     return true;
   } catch (cause) {
     console.error('feedback not kept:', cause);

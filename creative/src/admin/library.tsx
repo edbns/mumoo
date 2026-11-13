@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { CheckIcon, EyeOffIcon, FilmIcon, ImageIcon, Trash2Icon, UploadIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GENRES } from '../genres';
+import { BOARDS, BOARD_MIN } from '../boards';
 import { themesFor } from '../genre-guide';
 import {
   changeItem, deleteItem, deleteTag, loadLibrary, uploadFile,
@@ -47,6 +48,8 @@ type Sending = { name: string; state: 'sending' | 'done' | 'failed'; reason?: st
 function Uploader({ onAdded, onDone }: { onAdded: (item: LibraryItem) => void; onDone: (ids: string[]) => void }) {
   const [rights, setRights] = useState(false);
   const [note, setNote] = useState('');
+  /** Files dropped while a board is chosen go straight into it. */
+  const [board, setBoard] = useState('');
   const [sending, setSending] = useState<Sending[]>([]);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -59,7 +62,8 @@ function Uploader({ onAdded, onDone }: { onAdded: (item: LibraryItem) => void; o
     const added: string[] = [];
     for (const [index, file] of files.entries()) {
       try {
-        const item = await uploadFile(file, note);
+        const sent = await uploadFile(file, note);
+        const item = board ? (await changeItem(sent.id, { boards: [board] })).item : sent;
         onAdded(item);
         added.push(item.id);
         set(index, { name: file.name, state: 'done' });
@@ -81,6 +85,14 @@ function Uploader({ onAdded, onDone }: { onAdded: (item: LibraryItem) => void; o
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">Where they came from (optional)
           <input value={note} onChange={event => setNote(event.target.value)} maxLength={500} placeholder="Licence, source or invoice"
             className="rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm font-normal text-foreground outline-ring placeholder:text-muted-foreground/70 focus-visible:outline-2" />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">Mood board (optional)
+          <select value={board} onChange={event => setBoard(event.target.value)}
+            className="rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm font-normal text-foreground outline-ring focus-visible:outline-2">
+            <option value="">No board yet</option>
+            {BOARDS.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+          </select>
+          {board && <span className="font-normal">Look for: {BOARDS.find(entry => entry.id === board)?.hunt}</span>}
         </label>
       </div>
       <div onDragOver={event => { event.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={drop}
@@ -144,6 +156,7 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
   const [tags, setTags] = useState(item.tags);
   const [genre, setGenre] = useState(item.genre ?? '');
   const [subGenre, setSubGenre] = useState(item.subGenre ?? '');
+  const [boards, setBoards] = useState(item.boards);
   const [note, setNote] = useState(item.note);
   const [newTag, setNewTag] = useState('');
   const [busy, setBusy] = useState(false);
@@ -151,11 +164,11 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
 
   // Another item was chosen: start from its values.
   useEffect(() => {
-    setTags(item.tags); setGenre(item.genre ?? ''); setSubGenre(item.subGenre ?? ''); setNote(item.note); setNewTag(''); setError('');
+    setTags(item.tags); setGenre(item.genre ?? ''); setSubGenre(item.subGenre ?? ''); setBoards(item.boards); setNote(item.note); setNewTag(''); setError('');
   }, [item.id]);
 
   const same = (a: string[], b: string[]) => a.length === b.length && a.every(value => b.includes(value));
-  const dirty = !same(tags, item.tags) || genre !== (item.genre ?? '') || subGenre !== (item.subGenre ?? '') || note !== item.note;
+  const dirty = !same(tags, item.tags) || !same(boards, item.boards) || genre !== (item.genre ?? '') || subGenre !== (item.subGenre ?? '') || note !== item.note;
   const toggle = (list: string[], value: string, limit: number) => list.includes(value) ? list.filter(entry => entry !== value) : list.length < limit ? [...list, value] : list;
   const group = GENRES.find(entry => entry.name === genre);
   const poolNames = pool.map(entry => entry.name);
@@ -180,7 +193,7 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
 
   async function save(status?: 'approved' | 'hidden') {
     setBusy(true); setError('');
-    const change: Change = { tags, genre, subGenre: genre ? subGenre : '', note, ...(status && { status }) };
+    const change: Change = { tags, genre, subGenre: genre ? subGenre : '', boards, note, ...(status && { status }) };
     try {
       const saved = await changeItem(item.id, change);
       onSaved(saved.item, saved.tags);
@@ -199,6 +212,14 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
       <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close"><XIcon className="size-4" aria-hidden="true" /></Button>
     </div>
     <div className="aspect-[3/4] max-h-80 self-center overflow-hidden rounded-[var(--radius-panel)] bg-muted"><Media item={item} controls /></div>
+
+    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+      <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Mood boards · the scenes it belongs to</legend>
+      <div className="flex flex-wrap gap-1.5">
+        {BOARDS.map(board => <Chip key={board.id} on={boards.includes(board.id)} title={board.hunt}
+          onClick={() => setBoards(list => list.includes(board.id) ? list.filter(id => id !== board.id) : [...list, board.id])}>{board.name}</Chip>)}
+      </div>
+    </fieldset>
 
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
       <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Tags (up to {MAX_TAGS}) · everything you see in it</legend>
@@ -262,11 +283,11 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
 /** What a bulk edit does to each chosen item: tags to add and to take off. A tag in neither is left as each item has it. */
 type Edit = { add: string[]; drop: string[] };
 const NO_EDIT: Edit = { add: [], drop: [] };
-/** How a tag stands across the selection, once the edit is applied: on all, on some, or on none. */
-function standing(code: string, items: readonly LibraryItem[], edit: Edit): 'all' | 'some' | 'none' {
+/** How a tag (or, with `of`, a board) stands across the selection, once the edit is applied: on all, on some, or on none. */
+function standing(code: string, items: readonly LibraryItem[], edit: Edit, of: (item: LibraryItem) => readonly string[] = item => item.tags): 'all' | 'some' | 'none' {
   if (edit.add.includes(code)) return 'all';
   if (edit.drop.includes(code)) return 'none';
-  const having = items.filter(item => item.tags.includes(code)).length;
+  const having = items.filter(item => of(item).includes(code)).length;
   return having === items.length ? 'all' : having ? 'some' : 'none';
 }
 /** On everywhere: take it off all. Otherwise: put it on all. */
@@ -312,6 +333,7 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
   onSaved: (items: LibraryItem[], tags: TagCount[] | null) => void; onDeleted: (library: Library | null, gone: string[]) => void;
 }) {
   const [tags, setTags] = useState<Edit>(NO_EDIT);
+  const [boards, setBoards] = useState<Edit>(NO_EDIT);
   /** Each item also takes the tags our vision model saw in it (its own, not the others'). */
   const [withSeen, setWithSeen] = useState(false);
   const [genre, setGenre] = useState(LEAVE);
@@ -326,7 +348,7 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
   const group = GENRES.find(entry => entry.name === genre);
   const suggested = suggestionsFor(genre !== LEAVE ? genre : '', subGenre, shownTags);
   const seenCount = items.filter(item => item.seen.length).length;
-  const dirty = tags.add.length + tags.drop.length > 0 || withSeen || genre !== LEAVE;
+  const dirty = tags.add.length + tags.drop.length + boards.add.length + boards.drop.length > 0 || withSeen || genre !== LEAVE;
 
   function addNewTag(raw: string) {
     const tag = raw.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -346,6 +368,8 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
       unfit += nextTags.left;
       const change: Change = {};
       if (!sameList(nextTags.list, item.tags)) change.tags = nextTags.list;
+      const nextBoards = edited(item.boards, boards, BOARDS.length).list;
+      if (!sameList(nextBoards, item.boards)) change.boards = nextBoards;
       if (genre !== LEAVE && (genre !== (item.genre ?? '') || (genre ? subGenre : '') !== (item.subGenre ?? ''))) {
         change.genre = genre;
         change.subGenre = genre ? subGenre : '';
@@ -370,7 +394,7 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
       unfit ? `${unfit} tag${unfit === 1 ? '' : 's'} did not fit (an item holds at most ${MAX_TAGS} tags).` : '',
     ].filter(Boolean).join(' '));
     if (refused.length) setError(`${failed} not saved: ${refused.join(' ')}`);
-    if (!failed) { setTags(NO_EDIT); setWithSeen(false); setGenre(LEAVE); setSubGenre(''); }
+    if (!failed) { setTags(NO_EDIT); setBoards(NO_EDIT); setWithSeen(false); setGenre(LEAVE); setSubGenre(''); }
     setBusy(false);
   }
 
@@ -392,6 +416,16 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
       <Button variant="ghost" size="sm" onClick={onClose} aria-label="Back to the selection"><XIcon className="size-4" aria-hidden="true" /></Button>
     </div>
     <p className="m-0 text-xs text-muted-foreground">Click a tag to put it on all of them; click again to take it off all. Half-filled means some have it; leave it and they keep it as it is.</p>
+
+    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+      <legend className={label}>Mood boards · for all of them</legend>
+      <div className="flex flex-wrap gap-1.5">
+        {BOARDS.map(board => {
+          const state = standing(board.id, items, boards, item => item.boards);
+          return <Chip key={board.id} on={state === 'all'} some={state === 'some'} title={board.hunt} onClick={() => setBoards(edit => flip(edit, board.id, state === 'all'))}>{board.name}</Chip>;
+        })}
+      </div>
+    </fieldset>
 
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
       <legend className={label}>Tags (up to {MAX_TAGS} each) · everything you see in them</legend>
@@ -465,6 +499,37 @@ function Tags({ tags, onChange }: { tags: TagCount[]; onChange: (library: Librar
   </section>;
 }
 
+/**
+ * How full each mood board is. A board reaches the creatives once it has `BOARD_MIN` approved, ready items; until then the
+ * brain picks from the whole library. Clicking a board shows only its items.
+ */
+function Boards({ items, chosen, onChoose }: { items: readonly LibraryItem[]; chosen: string; onChoose: (board: string) => void }) {
+  const usable = (id: string) => items.filter(item => item.boards.includes(id) && item.status === 'approved' && item.ready).length;
+  return <section aria-label="Mood boards" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-card p-5 shadow-sm">
+    <div>
+      <h2 className="m-0 text-sm font-medium">Mood boards</h2>
+      <p className="m-0 text-xs text-muted-foreground">Each board is one scene. The brain picks the boards for a song; a board is used once it has {BOARD_MIN} approved, ready items. Keep each board’s light and colours alike.</p>
+    </div>
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      {BOARDS.map(board => {
+        const ready = usable(board.id);
+        const filed = items.filter(item => item.boards.includes(board.id)).length;
+        return <button key={board.id} type="button" aria-pressed={chosen === board.id} onClick={() => onChoose(chosen === board.id ? '' : board.id)}
+          className={`flex flex-col gap-1 rounded-[var(--radius-control)] p-3 text-left outline-ring transition-colors focus-visible:outline-2 ${chosen === board.id ? 'bg-foreground text-background' : 'bg-muted hover:bg-secondary'}`}>
+          <span className="flex items-center justify-between gap-2 text-sm font-medium">{board.name}
+            <span className={`rounded-full px-2 py-0.5 text-xs ${ready >= BOARD_MIN ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+              {ready >= BOARD_MIN ? `In use · ${ready}` : `${ready} of ${BOARD_MIN}`}</span>
+          </span>
+          <span className={`text-xs ${chosen === board.id ? 'text-background/80' : 'text-muted-foreground'}`}>{board.hunt}</span>
+          {filed > ready && <span className={`text-xs ${chosen === board.id ? 'text-background/80' : 'text-muted-foreground'}`}>{filed - ready} more waiting, hidden or preparing</span>}
+        </button>;
+      })}
+    </div>
+  </section>;
+}
+
+const NO_BOARD = '__none__';
+
 type StatusFilter = 'all' | LibraryStatus;
 
 export function LibraryView({ onChanged }: { onChanged: () => void }) {
@@ -472,6 +537,7 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   const [error, setError] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [tag, setTag] = useState('');
+  const [board, setBoard] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   /** The ticked cards are being edited (the panel is open); until then only the selection bar shows. */
@@ -491,7 +557,8 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   const replace = (next: Library) => { setLibrary(next); onChanged(); };
   const items = library?.items ?? [];
   const tagFits = (item: LibraryItem) => !tag || (tag === NO_TAGS ? item.tags.length === 0 : item.tags.includes(tag));
-  const shown = items.filter(item => (status === 'all' || item.status === status) && tagFits(item));
+  const boardFits = (item: LibraryItem) => !board || (board === NO_BOARD ? item.boards.length === 0 : item.boards.includes(board));
+  const shown = items.filter(item => (status === 'all' || item.status === status) && tagFits(item) && boardFits(item));
   const count = (value: StatusFilter) => value === 'all' ? items.length : items.filter(item => item.status === value).length;
   const open = items.find(item => item.id === openId) ?? null;
   const chosen = items.filter(item => picked.includes(item.id));
@@ -514,14 +581,21 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
       <p className="m-0 mt-1 text-sm text-muted-foreground">Cleared photos, videos and GIFs the templates may use. Only approved items are ever used.</p></header>
     <Uploader onAdded={item => { setLibrary(current => current && { ...current, items: [item, ...current.items] }); onChanged(); }}
       onDone={ids => { if (ids.length === 1) { setPicked([]); setOpenId(ids[0]); } else { setOpenId(null); setPicked(ids); } }} />
+    {library && <Boards items={items} chosen={board} onChoose={setBoard} />}
     {library && <Tags tags={library.tags} onChange={replace} />}
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
 
     <div className="flex flex-wrap items-center gap-2">
       {(['all', 'pending', 'approved', 'hidden'] as const).map(value => <Chip key={value} on={status === value} onClick={() => setStatus(value)}>
         {value === 'all' ? 'All' : STATUS_LABEL[value]} {count(value)}</Chip>)}
-      <select aria-label="Filter by tag" value={tag} onChange={event => setTag(event.target.value)}
+      <select aria-label="Filter by board" value={board} onChange={event => setBoard(event.target.value)}
         className="ml-auto rounded-[var(--radius-control)] bg-card px-3 py-1.5 text-sm shadow-sm outline-ring focus-visible:outline-2">
+        <option value="">Every board</option>
+        <option value={NO_BOARD}>No board yet ({items.filter(item => item.boards.length === 0).length})</option>
+        {BOARDS.map(entry => <option key={entry.id} value={entry.id}>{entry.name} ({items.filter(item => item.boards.includes(entry.id)).length})</option>)}
+      </select>
+      <select aria-label="Filter by tag" value={tag} onChange={event => setTag(event.target.value)}
+        className="rounded-[var(--radius-control)] bg-card px-3 py-1.5 text-sm shadow-sm outline-ring focus-visible:outline-2">
         <option value="">Every tag</option>
         <option value={NO_TAGS}>No tags yet ({items.filter(item => item.tags.length === 0).length})</option>
         {(library?.tags ?? []).map(entry => <option key={entry.name} value={entry.name}>{entry.name} ({items.filter(item => item.tags.includes(entry.name)).length})</option>)}

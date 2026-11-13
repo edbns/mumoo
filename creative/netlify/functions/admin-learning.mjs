@@ -27,6 +27,10 @@ export default async function handler(request) {
     const rows = await sql`select row_id as key, ${tally} from brain_feedback where ${since} and row_id is not null group by row_id order by plays desc, key`;
     const looks = await sql`select coalesce(look, type_style, style) as key, ${tally} from brain_feedback where ${since} and event <> 'refresh' group by 1 order by plays desc, key limit 30`;
     const vibes = await sql`select coalesce(vibe, 'unread') || ' · ' || lane as key, ${tally} from brain_feedback where ${since} group by 1 order by plays desc, key limit 30`;
+    const boards = await sql`select board as key, ${tally} from brain_feedback where ${since} and board is not null group by board order by plays desc, key`;
+    const boardGenres = await sql`
+      select board || ' · ' || genre as key, ${tally} from brain_feedback where ${since} and board is not null
+      group by 1 order by plays desc, key limit 40`;
     const moods = await sql`select coalesce(attitude, 'unread') as key, ${tally} from brain_feedback where ${since} group by 1 order by plays desc, key`;
     const pictures = await sql`
       select id as key, ${tally} from (
@@ -59,6 +63,8 @@ export default async function handler(request) {
       vibes: shape(vibes),
       moods: shape(moods),
       pictures: shape(pictures),
+      boards: shape(boards),
+      boardGenres: shape(boardGenres),
       genre: { prints, unknowns: unknowns.count, answers },
       recent: recent.map(row => ({
         at: row.created_at, event: row.event, row: row.row_id, look: row.look, vibe: row.vibe, lane: row.lane,

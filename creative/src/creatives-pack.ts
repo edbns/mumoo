@@ -25,6 +25,7 @@ import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look
 import type { CoverRead } from './cover-palette';
 import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
 import { libraryFit, pickLibrary, showing, type LibraryPicture, type LibraryWanted } from './library-pick';
+import { boardForRow } from './boards';
 import { dealDoodle, doodleMood, type DoodlePaper } from './doodle-cast';
 import type { DoodleMood } from './doodle-parts';
 
@@ -121,6 +122,8 @@ export type CreativesPackSlot = {
   typeStyle?: TypeStyleId;
   /** What the lyrics do to the colours and the beat. Absent when the words change nothing. */
   grade?: MoodGrade;
+  /** The mood board (`boards.ts`) the row's library pictures were dealt from. Absent while the song has no filled board. */
+  board?: string;
 };
 
 function hashPick(seed: string, salt: string, modulo: number) {
@@ -345,7 +348,26 @@ const risoCapable = (item: LibraryPicture) => (item.kind === 'photo' ? Boolean(i
 export function windowHand(profile: CreativeProfileV1, generation: number, library: readonly LibraryPicture[]): LibraryPicture[] {
   const { intent, meaning, genre } = readSong(profile);
   const wanted = libraryWanted(profile, meaning, genre, intent);
-  return pickLibrary(library.filter(windowCapable), wanted, profile.clip.sourceSha256, generation, ROW_SIZE);
+  const { from } = rowLibrary('window', profile, wanted, library, generation);
+  return pickLibrary(from(windowCapable), wanted, profile.clip.sourceSha256, generation, ROW_SIZE);
+}
+
+/** A board stands in for the whole library only when it has at least this many pictures a row can draw: a reel needs two. */
+const BOARD_ENOUGH = 2;
+
+/**
+ * Where one row's library pictures come from: the mood board the brain chose for this row (`boardForRow`), or the whole library
+ * while the song has no filled board. `from(capable)` gives the pictures the row can draw; when its board has too few of them
+ * (Depth wants cut-out photos, Riso clips) the row falls back to the whole library, so a thin board never empties a row.
+ */
+function rowLibrary(row: ShelfRow, profile: CreativeProfileV1, wanted: LibraryWanted, library: readonly LibraryPicture[], generation: number) {
+  const board = boardForRow(row, wanted, library, profile.clip.sourceSha256, generation);
+  const from = (capable: (item: LibraryPicture) => boolean = () => true) => {
+    const all = library.filter(capable);
+    const onBoard = board ? all.filter(item => item.boards?.includes(board.id)) : [];
+    return onBoard.length >= BOARD_ENOUGH ? onBoard : all;
+  };
+  return { board, from };
 }
 
 /** How many library pictures a Director's reel is edited from, and how many of them are clips when the library has that many (video sells). */
@@ -425,17 +447,19 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
   // Dust draws library photos that have a cut-out; Riso those, or library videos/GIFs; with none, our approved photos.
   const wanted = libraryWanted(profile, meaning, genre, intent);
-  const cutOutLibrary = pickLibrary(library.filter(item => item.kind === 'photo' && item.cutoutUrl), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
-  const risoLibrary = pickLibrary(library.filter(risoCapable), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
+  const { board, from } = rowLibrary(row, profile, wanted, library, generation);
+  const cutOut = (item: LibraryPicture) => item.kind === 'photo' && Boolean(item.cutoutUrl);
+  const cutOutLibrary = pickLibrary(from(cutOut), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
+  const risoLibrary = pickLibrary(from(risoCapable), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
   const photos: PhotoSources = { plateIds: cutOutPlates, libraryIds: cutOutLibrary };
   const risoPhotos: PhotoSources = { plateIds: cutOutPlates, libraryIds: risoLibrary };
   /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
-  const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, pickLibrary(library, wanted, `${profile.clip.sourceSha256}:${family}`, generation, ROW_SIZE), ownPicture);
+  const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, pickLibrary(from(), wanted, `${profile.clip.sourceSha256}:${family}`, generation, ROW_SIZE), ownPicture);
   const slots = {
     photography: () => photographySlots(
       lane, intent, seed,
       dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation),
-      pickLibrary(library, wanted, profile.clip.sourceSha256, generation, ROW_SIZE),
+      pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE),
     ),
     thermal: () => effectRow('thermal'),
     halftone: () => effectRow('halftone'),
@@ -443,7 +467,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     glow: () => effectRow('glow'),
     streaks: () => effectRow('streaks'),
     ascii: () => effectRow('ascii'),
-    depth: () => depthSlots(lane, intent, seed, photos, pickLibrary(library.filter(item => item.kind === 'photo' && item.cutoutUrl), wanted, `${profile.clip.sourceSha256}:depth`, generation, ROW_SIZE), ownPicture),
+    depth: () => depthSlots(lane, intent, seed, photos, pickLibrary(from(cutOut), wanted, `${profile.clip.sourceSha256}:depth`, generation, ROW_SIZE), ownPicture),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, risoPhotos),
     spray: () => spraySlots(lane, intent, seed),
@@ -457,14 +481,17 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   }[row]();
   // Our photography, its live looks (Depth too, from photos that have a cut-out) and Riso (whole-frame, from clips) are edited by the Director from a pool, once there are two or more pictures to edit.
   const directed = (items: readonly LibraryPicture[] | null, song: string) => (items && !ownPicture && !own ? reelPool(items, wanted, song, generation) : []);
-  const pool = row === 'photography' ? directed(library, profile.clip.sourceSha256)
-    : row === 'depth' ? directed(library.filter(item => item.kind === 'photo' && item.cutoutUrl), `${profile.clip.sourceSha256}:depth`)
-      : isLookRow(row) ? directed(library, `${profile.clip.sourceSha256}:${row}`)
-      : row === 'riso' ? directed(library.filter(isClip), `${profile.clip.sourceSha256}:riso`)
+  const pool = row === 'photography' ? directed(from(), profile.clip.sourceSha256)
+    : row === 'depth' ? directed(from(cutOut), `${profile.clip.sourceSha256}:depth`)
+      : isLookRow(row) ? directed(from(), `${profile.clip.sourceSha256}:${row}`)
+      : row === 'riso' ? directed(from(isClip), `${profile.clip.sourceSha256}:riso`)
         : [];
   const edited = pool.length < 2 ? slots : slots.map((slot, index) => reeled(slot, pool, index));
+  // A card tells its board only when it really draws a library picture from it.
+  const filed = (slot: CreativesPackSlot) => board && [slot.libraryId, ...(slot.reelIds ?? [])].some(id => id && library.find(item => item.id === id)?.boards?.includes(board.id));
+  const boarded = board ? edited.map(slot => (filed(slot) ? { ...slot, board: board.id } : slot)) : edited;
   const grade = moodGrade(meaning);
-  return grade && !UNGRADED.includes(row) ? edited.map(slot => ({ ...slot, grade })) : edited;
+  return grade && !UNGRADED.includes(row) ? boarded.map(slot => ({ ...slot, grade })) : boarded;
 }
 
 /** Colours for card `index` of a Dust row; when the cover has a colour, the first two cards grow from it. */

@@ -25,6 +25,8 @@ export type LibraryPicture = {
   tags: string[];
   genre: string | null;
   subGenre: string | null;
+  /** The mood boards the admin filed it in (`boards.ts`). */
+  boards?: string[];
   /** A photo, or the poster of a video or GIF. */
   url: string;
   /** A photo's subject cut out of it, once our worker has made it: Dust (and Riso photos) draw only photos that have one. */

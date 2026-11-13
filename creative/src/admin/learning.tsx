@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { loadLearning, loadLibrary, type Learning, type LibraryItem, type Tally } from './api';
+import { BOARDS } from '../boards';
 
 const PERIODS = [7, 30, 90] as const;
+const boardName = (id: string) => BOARDS.find(board => board.id === id)?.name ?? id;
 const EVENT: Record<string, string> = { play: 'Played', watch: 'Watched', select: 'Into cart', download: 'Download pressed', delivered: 'Delivered', refresh: 'Refreshed' };
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 const seconds = (ms: number) => (ms ? `${(ms / 1000).toFixed(1)} s` : '–');
@@ -122,6 +124,9 @@ export function LearningView() {
       </div>
       <Table title="Rows" note="Which rows of the shelf people use." tallies={learning.rows} />
       <Table title="Library pictures" note="Every picture of a reel counts. Cards on the person's own picture are left out." tallies={learning.pictures} label={picture} />
+      <Table title="Mood boards" note="Cards dealt from each board. A board people often refresh past is a weak fit for those songs." tallies={learning.boards} label={boardName} />
+      <Table title="Mood boards by genre" note="The same, for each genre the creator gave (unknown when they did not know)." tallies={learning.boardGenres}
+        label={key => { const [board, genre] = key.split(' · '); return <>{boardName(board)} <span className="text-muted-foreground">· {genre}</span></>; }} />
       <Table title="Looks" note="The live look, else the lyric type, else the style." tallies={learning.looks} />
       <Table title="Vibe and lane" note="How the song was heard, and the lane the brain chose." tallies={learning.vibes} />
       <Table title="Moods of the words" note="The main mood the lyric reader found." tallies={learning.moods} />

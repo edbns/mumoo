@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { db } from './person.mjs';
 import { askPrepare, startPrepare } from './prepare.mjs';
+import { BOARDS } from './boards.mjs';
 import { deleteObject, getObject, objectSize, signedDownload, signedUpload } from './storage.mjs';
 
 /**
@@ -88,6 +89,7 @@ const asItem = async (row) => ({
   tags: row.tags,
   genre: row.genre,
   subGenre: row.sub_genre,
+  boards: row.boards ?? [],
   note: row.source_note,
   clearedBy: row.cleared_by,
   clearedAt: row.cleared_at,
@@ -292,14 +294,19 @@ function readTags(value) {
 }
 
 /**
- * Changes an item: any of status, attitudes, tags, genre, subGenre, note. Returns the item, null when it is not
+ * Changes an item: any of status, attitudes, tags, genre, subGenre, boards, note. Returns the item, null when it is not
  * there, or { refused } with a reason in words.
  */
 export async function changeItem(id, change) {
   const sql = db();
   const [row] = await sql`select * from library_items where id = ${id} and arrived`;
   if (!row) return null;
-  const next = { status: row.status, attitudes: row.attitudes, tags: row.tags, genre: row.genre, subGenre: row.sub_genre, note: row.source_note };
+  const next = { status: row.status, attitudes: row.attitudes, tags: row.tags, genre: row.genre, subGenre: row.sub_genre, boards: row.boards ?? [], note: row.source_note };
+  if ('boards' in change) {
+    const list = Array.isArray(change.boards) ? [...new Set(change.boards)] : null;
+    if (!list || list.some(board => !BOARDS.includes(board))) return { refused: 'Choose boards from the list.' };
+    next.boards = list;
+  }
   if ('status' in change) {
     if (!STATUSES.includes(change.status) || change.status === 'pending') return { refused: 'Choose approved or hidden.' };
     next.status = change.status;
@@ -326,7 +333,7 @@ export async function changeItem(id, change) {
   for (const tag of next.tags) await sql`insert into library_tags (name) values (${tag}) on conflict do nothing`;
   const [item] = await sql`
     update library_items set status = ${next.status}, attitudes = ${next.attitudes}, tags = ${next.tags},
-      genre = ${next.genre}, sub_genre = ${next.subGenre}, source_note = ${next.note}
+      genre = ${next.genre}, sub_genre = ${next.subGenre}, boards = ${next.boards}, source_note = ${next.note}
     where id = ${id} returning *`;
   return asItem(item);
 }
@@ -354,6 +361,7 @@ export async function listApproved() {
     tags: row.tags,
     genre: row.genre,
     subGenre: row.sub_genre,
+    ...(row.boards?.length ? { boards: row.boards } : {}),
     ...(row.looks && Object.keys(row.looks).length ? { looks: row.looks } : {}),
     ...(learned.has(row.id) ? { learned: learned.get(row.id) } : {}),
     url: await signedDownload(row.kind === 'photo' ? keyOf(row.id) : posterKey(row.id), null),
