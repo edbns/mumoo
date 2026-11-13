@@ -26,6 +26,7 @@ import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 import { LyricsStudio } from './lyrics-studio';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { FileDropzone } from '@/components/ui/file-dropzone';
 import { AnalyzingScreen, type PaintProgress } from './analyzing-screen';
 import { StepNav, type StepNumber } from './step-nav';
@@ -146,7 +147,9 @@ function App() {
     ...(noLyrics && { noLyrics: true as const }),
     ...(inCreatives && !noLyrics && { approvedLyrics: { cues: composition.cues, source: 'creator_reviewed' as const, ...lyricsInfo } }),
   } : null;
-  const analysisSettled = profile !== null && profile.musicAnalysis.status !== 'pending' && profile.lyricMeaning?.status !== 'pending';
+  // A guess still being made or asked holds the posters too: a yes changes the genre they are painted for.
+  const analysisSettled = profile !== null && profile.musicAnalysis.status !== 'pending' && profile.lyricMeaning?.status !== 'pending'
+    && styleGuess.status !== 'listening' && styleGuess.status !== 'asking';
   const valid = (() => {
     if (!buffer) return false;
     try {
@@ -366,6 +369,16 @@ function App() {
         <Suspense fallback={null}><AccountBar page={page} onNavigate={setPage} /></Suspense>
       </div>
     </header>
+    {/* Asked wherever the creator is when the guess arrives, until the creatives are shown; closing it is "not sure". */}
+    <Modal open={page === 'create' && styleGuess.status === 'asking' && stage !== 'revealed'} onClose={() => answerGuess('unsure')}
+      title={styleGuess.status === 'asking' ? <>We think it sounds like {capitalised(styleGuess.style.name)}</> : ''}
+      description="Is that right? Your answer helps MUMOO learn your music." closeLabel="Not sure">
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button variant="secondary" onClick={() => answerGuess('unsure')}>Not sure</Button>
+        <Button variant="secondary" onClick={() => answerGuess('no')}>No</Button>
+        <Button onClick={() => answerGuess('yes')}>Yes</Button>
+      </div>
+    </Modal>
     {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
     {download.message && <DownloadNotice message={download.message} onDismiss={download.dismiss} />}
     {IS_ALIGNMENT_STAGING && !accessToken && <StagingAccess onAccess={setAccessToken} />}
@@ -413,15 +426,6 @@ function App() {
             onSeek={ms => { stop(); seekTo(ms); }}
             onLyrics={({ words, ...info }) => { setLyricsInfo(info); setLyricWords(words); setComposition(current => ({ ...current, cues: cuesOf(words) })); }}
             onState={setLyricsState} />}
-          {styleGuess.status === 'asking' && <div role="group" aria-label="Genre guess" className="mt-6 flex flex-wrap items-center gap-3 rounded-[var(--radius-panel)] bg-background p-5">
-            <p className="m-0 flex-1">We think it sounds like <strong>{capitalised(styleGuess.style.name)}</strong>.</p>
-            <Button onClick={() => answerGuess('yes')}>Yes</Button>
-            <Button variant="secondary" onClick={() => answerGuess('no')}>No</Button>
-            <Button variant="secondary" onClick={() => answerGuess('unsure')}>Not sure</Button>
-          </div>}
-          {styleGuess.status === 'answered' && <p role="status" className="hint mt-6 mb-0">
-            {styleGuess.answer === 'yes' ? `${capitalised(styleGuess.style.name)} it is. Thanks, that helps MUMOO learn.` : 'No problem. We’ll go by the sound and the lyrics.'}
-          </p>}
           <div className="step-actions mt-6 flex items-center gap-3">
             <Button variant="secondary" onClick={() => { stop(); setStep(1); }}>Back</Button>
             {lyricsState.dirty && <span className="hint">Sync your edits first.</span>}

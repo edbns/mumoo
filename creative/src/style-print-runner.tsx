@@ -94,6 +94,9 @@ export type StyleGuess =
 
 /** Each clip is guessed and answered once in a session. */
 const guesses = new Map<string, { state: StyleGuess; id?: string }>();
+/** `?preview-guess` on the page: a made-up guess, to see the question before the brain is sure of any; nothing is sent. */
+const PREVIEW = new URLSearchParams(location.search).has('preview-guess');
+const PREVIEW_STYLE: Style = { name: 'Afrobeats', genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats' };
 
 /**
  * The brain's guess of the style of the selected 15 s, asked once `enabled`, and how to answer it. Only "yes" teaches
@@ -108,6 +111,10 @@ export function useStyleGuess(accessToken: string, audio: AudioBuffer | undefine
     if (!enabled || !accessToken || !audio || !sourceSha256 || guesses.has(key)) return;
     const set = (state: StyleGuess, id?: string) => { guesses.set(key, { state, id }); rerender(count => count + 1); };
     set({ status: 'listening' });
+    if (PREVIEW) {
+      const timer = setTimeout(() => set({ status: 'asking', style: PREVIEW_STYLE }), 3000);
+      return () => { clearTimeout(timer); if (guesses.get(key)?.state.status === 'listening') guesses.delete(key); };
+    }
     const controller = new AbortController();
     const { signal } = controller;
     void (async () => {
@@ -133,10 +140,11 @@ export function useStyleGuess(accessToken: string, audio: AudioBuffer | undefine
 
   function answer(given: GuessAnswer) {
     const current = guesses.get(key);
-    if (current?.state.status !== 'asking' || !current.id) return;
+    if (current?.state.status !== 'asking') return;
     const { style } = current.state;
     guesses.set(key, { ...current, state: { status: 'answered', style, answer: given } });
     rerender(count => count + 1);
+    if (!current.id) return;
     const body = { version: 1, id: current.id, answer: given, style: style.name, clip: { sourceSha256, offsetMs } };
     void post(accessToken, new AbortController().signal, '/.netlify/functions/style-print-status', 'application/json', JSON.stringify(body))
       .then(response => trace('style_guess', { category: response.ok ? `answered_${given}` : `http_${response.status}` }),
