@@ -95,8 +95,9 @@ const rnb = ['candlelight', 'bedroom', 'couple', 'city night', 'silk'];
 /**
  * By style, as the creator picked it in the song step (`style-search.ts`): what its videos are known for, preferred on top
  * of its sub-genre's themes. Free words, matched against the admin's tags; a style left out has only its sub-genre's.
- * Keyed by the style's own name in `styles.json` ("trap music", not "Trap"), so every name it is found by gets them.
- * Given by the owner on 13 Nov 2026 ("romantic" in Bachata became "roses": a feeling is not seen, the song's mood has it).
+ * Written for the tags the admin will add, not only those there now. A look that is a song theme ("romance", "money")
+ * counts every tag that pictures it (couple, kiss, romantic...). Keyed by the style's own name in `styles.json`
+ * ("trap music", not "Trap"), so every name it is found by gets them. Given by the owner on 13 Nov 2026.
  */
 export const BY_STYLE: Readonly<Record<string, readonly string[]>> = {
   'Afrobeats': afrobeats,
@@ -110,7 +111,7 @@ export const BY_STYLE: Readonly<Record<string, readonly string[]>> = {
   'Brazilian funk': ['favela', 'street party', 'dancers', 'motorcycles', 'sunglasses'],
   'Latin trap': ['luxury cars', 'gold chains', 'neon lights', 'mansion', 'money'],
   'salsa': ['couple dancing', 'nightclub', 'dresses', 'suits', 'city night'],
-  'bachata': ['couple dancing', 'beach', 'sunset', 'roses', 'evening wear'],
+  'bachata': ['couple dancing', 'beach', 'sunset', 'romance', 'evening wear'],
   'trap music': ['luxury cars', 'gold chains', 'money', 'smoke', 'hoodies'],
   'drill': ['hoodies', 'ski masks', 'city street', 'night', 'sports cars'],
   'UK drill': ['London street', 'hoodies', 'puffer jackets', 'night', 'subway'],

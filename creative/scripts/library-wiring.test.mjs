@@ -79,6 +79,8 @@ test('a style adds what it is known for to its sub-genre\'s looks: Afro house wa
     const dancehall = { attitude: null, genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'dancehall' };
     assert.ok(pick.libraryFit(item('night', { tags: ['night life'] }), dancehall) > 0, 'nightlife, written as two words');
     assert.equal(pick.libraryFit(item('ring', { tags: ['ring'] }), { ...dancehall, style: 'Brazilian funk' }), 0);
+    const bachata = { attitude: null, genre: 'Latin & Urbano', subGenre: 'Traditional Latin (Salsa, Bachata)', style: 'bachata' };
+    for (const tag of ['romantic', 'couple kissing']) assert.ok(pick.libraryFit(item(tag, { tags: [tag] }), bachata) > 0, `${tag} pictures romance`);
   } finally { await server.close(); }
 });
 

@@ -95,7 +95,7 @@ test('the lyric reader and the app share one list of themes, and a freely typed 
     const listed = [...reader.match(/^THEMES = \[([^\]]*)\]/m)[1].matchAll(/"([^"]+)"/g)].map(match => match[1]);
     assert.deepEqual(listed, THEMES);
     for (const [tag, theme] of [['beautiful woman', 'seduction'], ['breakdancing', 'dancing'], ['street dance', 'street'], ['neon red', 'nightlife'],
-      ['beach', 'summer'], ['sunset', 'summer'], ['couple', 'romance'], ['group of girls', 'friends'], ['sports cars', 'cars'], ['spiritual', 'faith'],
+      ['beach', 'summer'], ['sunset', 'summer'], ['couple', 'romance'], ['romantic', 'romance'], ['group of girls', 'friends'], ['sports cars', 'cars'], ['spiritual', 'faith'],
       ['female', 'seduction'], ['woman', 'seduction'], ['guys', 'friends'], ['dj', 'fame']]) {
       assert.ok(tagShows(tag, theme), `${tag} shows ${theme}`);
     }

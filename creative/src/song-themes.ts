@@ -9,7 +9,7 @@ export const SONG_THEMES = {
   dancing: ['danc', 'twerk', 'moves', 'choreo'],
   nightlife: ['night', 'neon', 'club', 'bar', 'lights'],
   seduction: ['sexy', 'seduct', 'sensual', 'close up', 'lips', 'body', 'silhouette', 'beautiful', 'pole', 'poll', 'girl', 'female', 'woman', 'women', 'model', 'heels', 'legs'],
-  romance: ['couple', 'love', 'romanc', 'kiss', 'hug', 'wedding', 'holding hands'],
+  romance: ['couple', 'love', 'romanc', 'romant', 'kiss', 'hug', 'wedding', 'holding hands'],
   heartbreak: ['alone', 'rain', 'tears', 'cry', 'crying', 'empty', 'lonely', 'black and white'],
   money: ['money', 'luxury', 'gold', 'jewel', 'cash', 'rich', 'champagne', 'designer'],
   cars: ['car', 'drive', 'driving', 'motorbike', 'motorcycle'],
