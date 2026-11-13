@@ -12,6 +12,8 @@ import {
 /** The most the server allows; the page stops short of them so a person is never told off after the fact. */
 const MAX_TAGS = 15;
 const MAX_TAGS_IN_POOL = 200;
+/** Tags are optional now (the boards and the vision model do their job), so they stay folded away until opened. */
+const TAGS_SUMMARY = 'cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-muted-foreground';
 /** Words for what is often in the picture, offered on every item so the same thing is always called the same (car, not cars or lambo). */
 const COMMON_TAGS = [
   'car', 'girls', 'guys', 'couple', 'club', 'party', 'dancing', 'crowd', 'champagne', 'money', 'jewelry', 'luxury',
@@ -44,7 +46,7 @@ function Media({ item, controls = false }: { item: LibraryItem; controls?: boole
 
 type Sending = { name: string; state: 'sending' | 'done' | 'failed'; reason?: string };
 
-/** Drop files in, say once that you cleared them, and they join the library as "Waiting" until you tag and approve them. `onDone` gets the ids of a batch once it has all been sent. */
+/** Drop files in, say once that you cleared them, and they join the library as "Waiting" until you file them on a board and approve them. `onDone` gets the ids of a batch once it has all been sent. */
 function Uploader({ onAdded, onDone }: { onAdded: (item: LibraryItem) => void; onDone: (ids: string[]) => void }) {
   const [rights, setRights] = useState(false);
   const [note, setNote] = useState('');
@@ -120,8 +122,9 @@ function Uploader({ onAdded, onDone }: { onAdded: (item: LibraryItem) => void; o
 
 /** A card opens its item; its tick puts it in the selection (shift-click ticks every card between this one and the last ticked). */
 function Card({ item, selected, ticked, onSelect, onTick }: { item: LibraryItem; selected: boolean; ticked: boolean; onSelect: () => void; onTick: (range: boolean) => void }) {
+  const boards = BOARDS.filter(board => item.boards.includes(board.id)).map(board => board.name);
   return <div className="relative">
-  <button type="button" onClick={onSelect} aria-pressed={selected} aria-label={`${item.kind}, ${STATUS_LABEL[item.status]}${item.tags.length ? `, ${item.tags.join(', ')}` : ', no tags yet'}`}
+  <button type="button" onClick={onSelect} aria-pressed={selected} aria-label={`${item.kind}, ${STATUS_LABEL[item.status]}${boards.length ? `, ${boards.join(', ')}` : ', no board yet'}`}
     className={`group flex w-full flex-col overflow-hidden rounded-[var(--radius-panel)] bg-card p-0 text-left shadow-sm outline-ring transition-shadow focus-visible:outline-2 ${selected || ticked ? 'ring-2 ring-foreground' : 'hover:shadow-md'}`}>
     <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
       <Media item={item} />
@@ -133,8 +136,8 @@ function Card({ item, selected, ticked, onSelect, onTick }: { item: LibraryItem;
       </span>
     </div>
     <div className="flex min-h-14 flex-wrap content-start gap-1 p-3">
-      {item.tags.length === 0 && <span className="text-xs text-destructive">No tags yet</span>}
-      {item.tags.map(tag => <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{tag}</span>)}
+      {boards.length === 0 && <span className="text-xs text-amber-700">No board yet</span>}
+      {boards.map(name => <span key={name} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{name}</span>)}
     </div>
   </button>
   <button type="button" role="checkbox" aria-checked={ticked} aria-label={ticked ? 'Unselect' : 'Select'} onClick={event => onTick(event.shiftKey)}
@@ -221,8 +224,10 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
       </div>
     </fieldset>
 
-    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-      <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Tags (up to {MAX_TAGS}) · everything you see in it</legend>
+    <details className="group">
+    <summary className={TAGS_SUMMARY}>Tags (optional) · our vision model already sees what is in it</summary>
+    <fieldset className="m-0 mt-2 flex flex-col gap-2 border-0 p-0">
+      <legend className="sr-only">Tags (up to {MAX_TAGS})</legend>
       <div className="flex flex-wrap gap-1.5">
         {shownTags.map(tag => <Chip key={tag} on={tags.includes(tag)} disabled={!tags.includes(tag) && tags.length >= MAX_TAGS}
           onClick={() => setTags(list => toggle(list, tag, MAX_TAGS))}>{tag}{!poolNames.includes(tag) && ' (new)'}</Chip>)}
@@ -242,6 +247,7 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
         <Button variant="secondary" type="submit" disabled={!newTag.trim()}>Add</Button>
       </form>
     </fieldset>
+    </details>
 
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
       <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Genre (optional) · preferred for it when set</legend>
@@ -315,7 +321,6 @@ async function inTurns<T>(jobs: readonly (() => Promise<T>)[], width = 4): Promi
   return results;
 }
 const LEAVE = '__leave__';
-const NO_TAGS = '__none__';
 
 /** The selection, while cards are being ticked: how many, and the way to edit them (the panel would hide half the cards). */
 function SelectionBar({ count, shown, onClear, onEdit }: { count: number; shown: boolean; onClear: () => void; onEdit: () => void }) {
@@ -415,7 +420,7 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
       <h2 className="m-0 text-base font-semibold">{items.length} selected</h2>
       <Button variant="ghost" size="sm" onClick={onClose} aria-label="Back to the selection"><XIcon className="size-4" aria-hidden="true" /></Button>
     </div>
-    <p className="m-0 text-xs text-muted-foreground">Click a tag to put it on all of them; click again to take it off all. Half-filled means some have it; leave it and they keep it as it is.</p>
+    <p className="m-0 text-xs text-muted-foreground">Click a board to put all of them on it; click again to take them all off. Half-filled means some are on it; leave it and each stays as it is.</p>
 
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
       <legend className={label}>Mood boards · for all of them</legend>
@@ -427,8 +432,10 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
       </div>
     </fieldset>
 
-    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-      <legend className={label}>Tags (up to {MAX_TAGS} each) · everything you see in them</legend>
+    <details className="group">
+    <summary className={TAGS_SUMMARY}>Tags (optional) · our vision model already sees what is in them</summary>
+    <fieldset className="m-0 mt-2 flex flex-col gap-2 border-0 p-0">
+      <legend className="sr-only">Tags (up to {MAX_TAGS} each)</legend>
       <div className="flex flex-wrap gap-1.5">
         {shownTags.map(tag => {
           const state = standing(tag, items, tags);
@@ -450,6 +457,7 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
         <Button variant="secondary" type="submit" disabled={!newTag.trim()}>Add</Button>
       </form>
     </fieldset>
+    </details>
 
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
       <legend className={label}>Genre · for all of them</legend>
@@ -486,8 +494,9 @@ function Tags({ tags, onChange }: { tags: TagCount[]; onChange: (library: Librar
     if (tag.items > 0 && !window.confirm(`Remove "${tag.name}"? It is taken off the ${tag.items} item${tag.items === 1 ? '' : 's'} that use it.`)) return;
     try { onChange(await deleteTag(tag.name)); setError(''); } catch (cause) { setError((cause as Error).message); }
   }
-  return <section aria-label="Tags" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-card p-5 shadow-sm">
-    <h2 className="m-0 text-sm font-medium">Tags <span className="text-muted-foreground">({tags.length} of {MAX_TAGS_IN_POOL}). Fewer tags help the choice stay fast.</span></h2>
+  return <details aria-label="Tags" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-card p-5 shadow-sm">
+    <summary className={TAGS_SUMMARY}>Tag list (optional) · {tags.length} of {MAX_TAGS_IN_POOL}. Boards and our vision model do this job now.</summary>
+    <div className="mt-3 flex flex-col gap-3">
     <div className="flex flex-wrap gap-1.5">
       {tags.length === 0 && <span className="text-xs text-muted-foreground">None yet.</span>}
       {tags.map(tag => <span key={tag.name} className="inline-flex items-center gap-1 rounded-full bg-muted py-1 pl-3 pr-1 text-xs">
@@ -496,7 +505,8 @@ function Tags({ tags, onChange }: { tags: TagCount[]; onChange: (library: Librar
       </span>)}
     </div>
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
-  </section>;
+    </div>
+  </details>;
 }
 
 /**
@@ -536,7 +546,6 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   const [library, setLibrary] = useState<Library | null>(null);
   const [error, setError] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
-  const [tag, setTag] = useState('');
   const [board, setBoard] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
@@ -556,9 +565,8 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
 
   const replace = (next: Library) => { setLibrary(next); onChanged(); };
   const items = library?.items ?? [];
-  const tagFits = (item: LibraryItem) => !tag || (tag === NO_TAGS ? item.tags.length === 0 : item.tags.includes(tag));
   const boardFits = (item: LibraryItem) => !board || (board === NO_BOARD ? item.boards.length === 0 : item.boards.includes(board));
-  const shown = items.filter(item => (status === 'all' || item.status === status) && tagFits(item) && boardFits(item));
+  const shown = items.filter(item => (status === 'all' || item.status === status) && boardFits(item));
   const count = (value: StatusFilter) => value === 'all' ? items.length : items.filter(item => item.status === value).length;
   const open = items.find(item => item.id === openId) ?? null;
   const chosen = items.filter(item => picked.includes(item.id));
@@ -582,7 +590,6 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
     <Uploader onAdded={item => { setLibrary(current => current && { ...current, items: [item, ...current.items] }); onChanged(); }}
       onDone={ids => { if (ids.length === 1) { setPicked([]); setOpenId(ids[0]); } else { setOpenId(null); setPicked(ids); } }} />
     {library && <Boards items={items} chosen={board} onChoose={setBoard} />}
-    {library && <Tags tags={library.tags} onChange={replace} />}
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
 
     <div className="flex flex-wrap items-center gap-2">
@@ -593,12 +600,6 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
         <option value="">Every board</option>
         <option value={NO_BOARD}>No board yet ({items.filter(item => item.boards.length === 0).length})</option>
         {BOARDS.map(entry => <option key={entry.id} value={entry.id}>{entry.name} ({items.filter(item => item.boards.includes(entry.id)).length})</option>)}
-      </select>
-      <select aria-label="Filter by tag" value={tag} onChange={event => setTag(event.target.value)}
-        className="rounded-[var(--radius-control)] bg-card px-3 py-1.5 text-sm shadow-sm outline-ring focus-visible:outline-2">
-        <option value="">Every tag</option>
-        <option value={NO_TAGS}>No tags yet ({items.filter(item => item.tags.length === 0).length})</option>
-        {(library?.tags ?? []).map(entry => <option key={entry.name} value={entry.name}>{entry.name} ({items.filter(item => item.tags.includes(entry.name)).length})</option>)}
       </select>
     </div>
     {shown.length > 0 && <div className="-mt-3 flex flex-wrap items-center gap-2 text-sm">
@@ -615,6 +616,7 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
         {shown.map(item => <Card key={item.id} item={item} selected={item.id === openId} ticked={picked.includes(item.id)}
           onSelect={() => (picked.length ? tick(item.id, false) : setOpenId(item.id))} onTick={range => tick(item.id, range)} />)}
       </div>}
+    {library && <Tags tags={library.tags} onChange={replace} />}
 
     <SelectionBar count={chosen.length} shown={chosen.length > 0 && !editing} onClear={() => setPicked([])} onEdit={() => setEditing(true)} />
     {chosen.length > 0 && editing && library && <BulkPanel items={chosen} pool={library.tags} onClose={() => setEditing(false)}
