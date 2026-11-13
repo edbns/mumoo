@@ -20,8 +20,10 @@ function titleCase(text: string) {
 
 /** Everything we know about the song so far. New facts join the loop the moment the analysis or the lyric reading delivers them. */
 function factsOf(profile: CreativeProfileV1): Fact[] {
-  const facts: Fact[] = [{ label: 'Genre', value: profile.creator.primaryGenre.value }];
-  if (profile.creator.subGenre) facts.push({ label: 'Sub-genre', value: profile.creator.subGenre.value });
+  const { style, subGenre } = profile.creator;
+  const facts: Fact[] = [{ label: 'Genre', value: profile.creator.primaryGenre.value || 'Not sure' }];
+  if (subGenre) facts.push({ label: 'Sub-genre', value: subGenre.value });
+  if (style && style.value.toLowerCase() !== subGenre?.value.toLowerCase()) facts.push({ label: 'Style', value: titleCase(style.value) });
   const { approvedLyrics, musicAnalysis, lyricMeaning } = profile;
   if (profile.noLyrics) facts.push({ label: 'Lyrics', value: 'None' });
   if (approvedLyrics) {

@@ -6,7 +6,7 @@ import { decodeAudio, hashAudio, probeDurationMs } from './audio';
 import { ACCEPTED_AUDIO, ACCEPTED_LABEL, readSongCover, readSongTags, sniffAudioFormat, type SongTags } from './audio-format';
 import { describeCover, type CoverRead } from './cover-palette';
 import { DURATION_MS, validate, type Composition } from './composition';
-import { findGenre, findSubGenre, GENRES, toOptions } from './genres';
+import type { StyleMatch } from './style-search';
 import { PhoneUpload } from './phone-upload';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { MusicAnalysisRunner } from './music-analysis-runner';
@@ -23,12 +23,12 @@ import type { LyricWord } from './lyrics-cloud';
 import { StagingAccess } from './staging-access';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 import { LyricsStudio } from './lyrics-studio';
-import { Combobox } from '@/components/ui/combobox';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
 import { FileDropzone } from '@/components/ui/file-dropzone';
 import { AnalyzingScreen, type PaintProgress } from './analyzing-screen';
 import { StepNav, type StepNumber } from './step-nav';
-import { ArrowLeftIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon } from 'lucide-react';
 import type { AccountPage } from './account-pages';
 import { ProfileNav, type ProfileTab } from './profile-nav';
 import { ClipPicker } from './clip-picker';
@@ -44,7 +44,7 @@ const AUDITION_PAUSE_MS = 200;
 const INITIAL: Composition = { sourceSha256: '', clipStartMs: 0, cues: [] };
 
 
-const GENRE_OPTIONS = toOptions(GENRES.map(group => group.name));
+const styleOption = ({ label }: StyleMatch): ComboboxOption => ({ value: label, label });
 const cuesOf = (words: readonly LyricWord[]) => words.map(({ text, startMs, endMs }) => ({ text, startMs, endMs }));
 
 function App() {
@@ -64,15 +64,19 @@ function App() {
   const [songName, setSongName] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const downloadRef = useRef<(() => boolean) | null>(null);
-  const [genre, setGenre] = useState('');
-  const [subGenre, setSubGenre] = useState('');
+  /** What kind of music it is: a style of the directory by the name it was picked as, or (`genreUnknown`) the creator does not know. */
+  const [picked, setPicked] = useState<StyleMatch | null>(null);
+  const style = picked?.style;
+  const [genreUnknown, setGenreUnknown] = useState(false);
+  // The directory is large: it loads beside the page, and the box searches once it is here.
+  const [searchStyles, setSearchStyles] = useState<((typed: string) => StyleMatch[]) | null>(null);
+  useEffect(() => { void import('./style-search').then(module => setSearchStyles(() => module.searchStyles)); }, []);
+  const found = useRef<StyleMatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
   const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
   const currentClip = useRef<ClipIdentity | null>(null);
-  const selectedGenre = findGenre(genre);
-  const selectedSubGenre = findSubGenre(selectedGenre, subGenre);
-  const genreValid = Boolean(selectedSubGenre);
+  const genreValid = Boolean(picked) || genreUnknown;
   const [songTags, setSongTags] = useState<SongTags>();
   const [songCover, setSongCover] = useState<CoverRead | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer>();
@@ -121,8 +125,9 @@ function App() {
     version: 1,
     clip,
     creator: {
-      primaryGenre: { value: selectedGenre!.name, source: 'creator' },
-      subGenre: { value: selectedSubGenre!, source: 'creator' },
+      // Not known: no genre, and the brain goes by the sound and the words.
+      primaryGenre: { value: style?.genre ?? '', source: 'creator' },
+      ...(style && { subGenre: { value: style.subGenre, source: 'creator' as const }, style: { value: picked!.label, source: 'creator' as const } }),
       ...(songTags?.title && { title: { value: songTags.title, source: 'embedded_metadata' as const } }),
       ...(songTags?.artist && { artist: { value: songTags.artist, source: 'embedded_metadata' as const } }),
       ...(songCover && { cover: { value: songCover, source: 'embedded_metadata' as const } }),
@@ -206,10 +211,14 @@ function App() {
     }
   }
 
-  /** A sub-genre belongs to one genre, so changing the genre clears it. */
-  function chooseGenre(value: string) {
-    if (findGenre(value)?.name !== selectedGenre?.name) setSubGenre('');
-    setGenre(value);
+  /** The style picked from what the search last found (an empty value clears it). */
+  function chooseStyle(value: string) {
+    setPicked(found.current.find(match => match.label === value) ?? null);
+  }
+
+  function searchOptions(typed: string): ComboboxOption[] {
+    found.current = searchStyles?.(typed) ?? [];
+    return found.current.map(styleOption);
   }
 
   /** The song has no words: any lyrics work (even a transcription in progress) is dropped. Turned off, the lyrics step starts again. */
@@ -228,8 +237,8 @@ function App() {
     if (!window.confirm('Start over with another song? Your song, lyrics and pictures are cleared. Your cart is kept.')) return;
     void choose(undefined);
     void uploads.clear();
-    setGenre('');
-    setSubGenre('');
+    setPicked(null);
+    setGenreUnknown(false);
     setComposition(INITIAL);
     setLyricWords([]);
     setCartOpen(false);
@@ -322,7 +331,7 @@ function App() {
       if (canContinue) return { kind: 'go', run: () => { setCartOpen(false); openCreatives(true); } };
       return {
         kind: 'blocked',
-        reason: !genreValid ? 'Choose your genre and sub-genre to reach your creatives.'
+        reason: !genreValid ? 'Say what kind of music it is to reach your creatives.'
           : !noLyrics && composition.cues.length === 0 ? 'Add and sync your lyrics, or say the song has no lyrics, to reach your creatives.'
           : 'Finish syncing your lyrics to reach your creatives.',
       };
@@ -369,9 +378,14 @@ function App() {
             {IS_ALIGNMENT_STAGING && accessToken && !loading && !buffer && <PhoneUpload token={accessToken} kind="song" onFiles={([file]) => void choose(file)} />}
           </div>
           <div className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-background p-5">
-            <Combobox label="Genre" placeholder="Search genres" options={GENRE_OPTIONS} value={genre} onValueChange={chooseGenre} />
-            <Combobox label="Sub-genre" placeholder={selectedGenre ? 'Search sub-genres' : 'Choose a genre first'} disabled={!selectedGenre}
-              options={toOptions(selectedGenre?.subGenres ?? [])} value={subGenre} onValueChange={setSubGenre} />
+            <Combobox label="What kind of music is it?" placeholder={genreUnknown ? 'Not sure' : 'Type a style: afrobeats, slap house, drill…'}
+              disabled={genreUnknown} search={searchOptions} emptyMessage={searchStyles ? 'Type a style, or say you don’t know.' : 'Loading styles…'}
+              options={picked ? [styleOption(picked)] : []} value={picked?.label ?? ''} onValueChange={chooseStyle} />
+            <Button variant={genreUnknown ? 'default' : 'secondary'} aria-pressed={genreUnknown} className="h-[var(--control-height-md)] w-full"
+              onClick={() => { setGenreUnknown(unknown => !unknown); setPicked(null); }}>
+              {genreUnknown && <CheckIcon aria-hidden />}I don’t know
+            </Button>
+            {genreUnknown && <p className="hint m-0">We’ll go by the sound and the lyrics.</p>}
           </div>
         </div>
         <div className="mt-6 flex justify-end">

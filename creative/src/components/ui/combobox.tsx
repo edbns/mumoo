@@ -47,6 +47,8 @@ export interface ComboboxProps extends Omit<
   placeholder?: string;
   emptyMessage?: string;
   className?: string;
+  /** Finds the options for what was typed, instead of filtering `options` (then only the chosen one need be in `options`). */
+  search?: (query: string) => ComboboxOption[];
 }
 
 /** Follows the listbox height with a critically damped spring, so filtering never snaps the menu. */
@@ -94,6 +96,7 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
       className,
       disabled,
       onFocus,
+      search,
       ...inputProps
     },
     forwardedRef,
@@ -153,6 +156,7 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
     }, [selectedValue, reduceMotion, open]);
 
     const filteredOptions = useMemo(() => {
+      if (search) return search(query);
       const normalizedQuery = query.trim().toLocaleLowerCase();
       if (!normalizedQuery) return options;
       return options.filter((option) =>
@@ -160,7 +164,7 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
           term.toLocaleLowerCase().includes(normalizedQuery),
         ),
       );
-    }, [options, query]);
+    }, [options, query, search]);
 
     const enabledIndices = filteredOptions.reduce<number[]>(
       (indices, option, index) => {

@@ -14,7 +14,8 @@ function songFacts(profile: CreativeProfileV1) {
   return {
     version: 1,
     clipSha256: profile.clip.sourceSha256,
-    primaryGenre: genre,
+    // The creator did not know the genre.
+    primaryGenre: genre || 'unknown',
     subGenre: profile.creator.subGenre?.value ?? null,
     vibe: intent?.vibe ?? null,
     lane,
