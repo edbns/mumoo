@@ -58,6 +58,8 @@ export async function adminFetch<T>(path: string, init: RequestInit = {}): Promi
   if (!token) throw new AdminError('Sign in to continue.', 401);
   const response = await fetch(`/api/admin/${path}`, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token}` } });
   const body = await response.json().catch(() => null) as (T & { error?: string }) | null;
+  // A reply that is not ours (Netlify's own login page while the site is private) never reached the admin API.
+  if (!response.ok && !body && response.status === 401) throw new AdminError('This page lost its access to the site. Reload the page and try again.', 401);
   if (!response.ok) throw new AdminError(body?.error || 'That did not work. Try again in a moment.', response.status);
   return body as T;
 }

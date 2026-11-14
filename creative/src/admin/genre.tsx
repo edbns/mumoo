@@ -80,7 +80,7 @@ export function GenreView() {
   useEffect(() => { loadGenre().then(setTraining, (cause: Error) => setError(cause.message)); }, []);
 
   const update = (key: string, change: Partial<Item>) => setItems(list => list.map(item => item.key === key ? { ...item, ...change } : item));
-  const ready = items.filter(item => item.status === 'waiting' && item.match);
+  const ready = items.filter(item => (item.status === 'waiting' || item.status === 'failed') && item.match);
 
   function add(files: File[]) {
     setItems(list => [...list, ...files.map(file => ({ key: `${file.name}:${file.size}:${Math.random()}`, file, match: styleOf(file, search), status: 'waiting' as const }))]);
@@ -129,7 +129,7 @@ export function GenreView() {
             <span className="truncate">{item.file.name}</span>
             {item.note && <span className={`text-xs ${item.status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}`}>{item.note}</span>}
           </span>
-          {item.status === 'waiting' ? <StylePicker value={item.match} search={search} onChange={match => update(item.key, { match })} />
+          {item.status === 'waiting' || item.status === 'failed' ? <StylePicker value={item.match} search={search} onChange={match => update(item.key, { match })} />
             : <span className="text-muted-foreground">{item.match?.label}</span>}
           {item.status === 'waiting' || item.status === 'failed'
             ? <Button size="sm" variant="secondary" disabled={running} onClick={() => setItems(list => list.filter(other => other.key !== item.key))}>Remove</Button>
