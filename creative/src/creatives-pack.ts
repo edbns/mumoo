@@ -388,6 +388,12 @@ export const REEL_POOL = 8;
 const REEL_CLIPS = 3;
 /** A picture brings something new to a reel only while it fits the song at least this share as well as the best one: variety never pulls in a weak fit. */
 const REEL_CLOSE = 0.6;
+/**
+ * A reel is drawn from the close fits when there are at least `REEL_ENOUGH`, else from the good fits (at least `REEL_GOOD` as well as the
+ * best). From a mood board chosen for the song, every picture on it is fit enough: with few close fits the whole board is walked.
+ */
+const REEL_ENOUGH = 16;
+const REEL_GOOD = 0.35;
 const isClip = (item: LibraryPicture) => item.kind !== 'photo' && Boolean(item.motionUrl);
 
 /** One thing an item shows, the same in the singular and the plural ("car" and "cars"). */
@@ -412,25 +418,32 @@ export function mixed(ranked: readonly LibraryPicture[], count: number): Library
 }
 
 /**
- * The pictures a reel is edited from: the best fits for the song that show different things, chosen among all that fit it closely (so
- * a library of many look-alike car clips still gives the girls and the club their turn), with up to three clips among them when the
- * library has them (video sells; a reel of stills does not, and two pictures rotating look like a loop). Refresh starts the mix further
- * along the close fits, so every reel stays a close fit; with too few of them, the next best fill it.
+ * The pictures a reel is edited from: fits for the song that show different things (so a library of many look-alike car clips still
+ * gives the girls and the club their turn), with up to three clips among them when the library has them (video sells; a reel of stills
+ * does not, and two pictures rotating look like a loop), from enough fits (`REEL_ENOUGH`; all of `board`, a mood board chosen for the
+ * song, when it has few close fits) that a board of hundreds of clips is not one reel. Each card of a row (`card`) and each Refresh takes the next eight of a
+ * seeded order of them, so nothing repeats until the board has been walked, and the next walk is in another order.
  */
-export function reelPool(items: readonly LibraryPicture[], wanted: LibraryWanted, song: string, generation: number): LibraryPicture[] {
+export function reelPool(items: readonly LibraryPicture[], wanted: LibraryWanted, song: string, generation: number, card = 0, board = false): LibraryPicture[] {
   const ranked = pickLibrary(items, wanted, song, 0, items.length);
   const fits = new Map(ranked.map(item => [item.id, libraryFit(item, wanted) ?? 0]));
   const best = Math.max(0, ...fits.values());
   // When nothing shows what the song wants, every picture fits as well as the best: Refresh walks the whole library.
   const close = ranked.filter(item => (fits.get(item.id) ?? 0) >= REEL_CLOSE * best);
-  const start = close.length ? (generation * REEL_POOL) % close.length : 0;
-  const mix = mixed([...close.slice(start), ...close.slice(0, start)], REEL_POOL);
+  const good = close.length >= REEL_ENOUGH ? close : ranked.filter(item => (fits.get(item.id) ?? 0) >= REEL_GOOD * best);
+  const choice = good.length >= REEL_ENOUGH || !board ? good : ranked;
+  const turn = (generation * ROW_SIZE + card) * REEL_POOL;
+  const walk = choice.length ? Math.floor(turn / choice.length) : 0;
+  const order = seededOrder(choice, `${song}:reel:${walk}`, item => item.id);
+  const start = order.length ? turn % order.length : 0;
+  // Variety is looked for among the next few only: across the whole board the same few tagged pictures would win every time.
+  const mix = mixed([...order.slice(start), ...order.slice(0, start)].slice(0, REEL_ENOUGH * 2), REEL_POOL);
   const pool = [...mix, ...ranked.filter(item => !mix.includes(item))].slice(0, REEL_POOL);
   if (pool.length < 2) return pool;
-  // Not enough clips among the best fits: the best-fitting clips take the places of the last stills.
+  // Not enough clips among the fits: clips from further along the same order take the places of the last stills.
   const edited = [...pool];
   let clips = edited.filter(isClip).length;
-  for (const clip of ranked.filter(isClip)) {
+  for (const clip of [...order.slice(start), ...order.slice(0, start), ...ranked].filter(isClip)) {
     if (clips >= REEL_CLIPS) break;
     if (edited.some(item => item.id === clip.id)) continue;
     const still = edited.map(isClip).lastIndexOf(false);
@@ -504,13 +517,22 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     dust: () => dustSlots(lane, intent, seed, cover?.hue, photos),
   }[row]();
   // Our photography, its live looks (Depth too, from photos that have a cut-out), treatments and Riso (whole-frame, from clips) are edited by the Director from a pool, once there are two or more pictures to edit.
-  const directed = (items: readonly LibraryPicture[] | null, song: string) => (items && !ownPicture && !own ? reelPool(items, wanted, song, generation) : []);
-  const pool = reelRow === 'photography' ? directed(from(), profile.clip.sourceSha256)
+  const onBoard = (items: readonly LibraryPicture[]) => Boolean(board) && items.every(item => item.boards?.includes(board!.id));
+  const directed = (items: readonly LibraryPicture[] | null, song: string) => (card: number) => (items && !ownPicture && !own ? reelPool(items, wanted, song, generation, card, onBoard(items)) : []);
+  const poolOf = reelRow === 'photography' ? directed(from(), profile.clip.sourceSha256)
     : row === 'depth' ? directed(from(cutOut), `${profile.clip.sourceSha256}:depth`)
       : isLookRow(row) ? directed(from(), `${profile.clip.sourceSha256}:${row}`)
       : row === 'riso' ? directed(from(isClip), `${profile.clip.sourceSha256}:riso`)
-        : [];
-  const edited = pool.length < 2 ? slots : slots.map((slot, index) => reeled(slot, pool, index));
+        : () => [];
+  // Each card is edited from its own pictures, and opens on one no card before it opened on.
+  const opened = new Set<string>();
+  const edited = slots.map((slot, index) => {
+    const pool = poolOf(index);
+    if (pool.length < 2) return slot;
+    const turn = Array.from({ length: pool.length }, (_, step) => index + step).find(at => !opened.has(pool[at % pool.length].id)) ?? index;
+    opened.add(pool[turn % pool.length].id);
+    return reeled(slot, pool, turn);
+  });
   // A card tells its board only when it really draws a library picture from it.
   const filed = (slot: CreativesPackSlot) => board && [slot.libraryId, ...(slot.reelIds ?? [])].some(id => id && library.find(item => item.id === id)?.boards?.includes(board.id));
   const boarded = board ? edited.map(slot => (filed(slot) ? { ...slot, board: board.id } : slot)) : edited;

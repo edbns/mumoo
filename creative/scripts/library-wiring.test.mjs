@@ -386,6 +386,20 @@ test('a library of look-alike clips still gives the others their turn, and every
   } finally { await server.close(); }
 });
 
+test('a big mood board is walked: every card and every Refresh is edited from new clips, even when one clip fits far better', async () => {
+  const { server, pack } = await load();
+  try {
+    const wanted = { attitude: 'confident', genre: 'Pop', subGenre: '', themes: ['money'] };
+    const clip = (id, tags) => item(id, { kind: 'video', attitudes: [], tags, motionUrl: `https://x/${id}.mp4`, shots: [[0, 2000]], boards: ['main-stage'] });
+    const board = [clip('star', ['money', 'confident']), ...Array.from({ length: 120 }, (_, i) => clip(`c${i}`, i % 10 ? [] : ['money']))];
+    const reels = [0, 1, 2].flatMap(generation => [0, 1, 2, 3].map(card => ids(pack.reelPool(board, wanted, 'song', generation, card, true))));
+    assert.ok(new Set(reels.flat()).size >= 80, `12 reels draw ${new Set(reels.flat()).size} clips`);
+    assert.deepEqual(reels[0], ids(pack.reelPool(board, wanted, 'song', 0, 0, true)), 'seeded: the same Refresh deals the same reel');
+    assert.notDeepEqual(reels[0], reels[4], 'Refresh deals new clips');
+    assert.notDeepEqual(reels[0], reels[1], 'each card has its own clips');
+  } finally { await server.close(); }
+});
+
 test('what people kept nudges the order a little: never past a better fit, the same for the same song, and new pictures still get turns', async () => {
   const { server, pick } = await load();
   try {
