@@ -537,12 +537,21 @@ function Boards({ items, chosen, onChoose }: { items: readonly LibraryItem[]; ch
               {ready >= BOARD_MIN ? `In use · ${ready}` : `${ready} of ${BOARD_MIN}`}</span>
           </span>
           <span className={`text-xs ${chosen === board.id ? 'text-background/80' : 'text-muted-foreground'}`}>{board.hunt}</span>
+          <BoardGenres board={board} className={chosen === board.id ? 'text-background' : 'text-foreground'} />
           {filed > ready && <span className={`text-xs ${chosen === board.id ? 'text-background/80' : 'text-muted-foreground'}`}>{filed - ready} more waiting, hidden or preparing</span>}
           {could > 0 && <span className={`text-xs font-medium ${chosen === board.id ? 'text-background' : 'text-foreground'}`}>+{could} from other boards would fit</span>}
         </button>;
       })}
     </div>
   </section>;
+}
+
+/** The songs a board serves (the genre map in `boards.ts`): the brain sends songs of these genres to it. */
+function BoardGenres({ board, className = 'text-foreground' }: { board: (typeof BOARDS)[number]; className?: string }) {
+  return <span className={`flex flex-col text-xs ${className}`}>
+    <span><span className="font-medium">Genres:</span> {board.primary.join(', ')}</span>
+    <span className="opacity-75"><span className="font-medium">When the words fit:</span> {board.secondary.join(', ')}</span>
+  </span>;
 }
 
 /** A small card in the tray: opens the item; its × (when given) takes it out of a group our models were sure of. */
@@ -590,6 +599,7 @@ function SortTray({ items, filed, onFiled, onOpen }: { items: LibraryItem[]; fil
         <div>
           <h3 className="m-0 text-sm font-medium">{board.name} <span className="text-muted-foreground">· {group.length}</span></h3>
           <p className="m-0 text-xs text-muted-foreground">{board.hunt}</p>
+          <BoardGenres board={board} />
         </div>
         <Button size="sm" disabled={Boolean(busy)} onClick={() => void file(group, item => item.suggestion?.boards ?? [board.id], board.id)}>
           <CheckIcon className="size-4" aria-hidden="true" />{busy === board.id ? 'Filing…' : `File ${group.length} on ${board.name}`}</Button>
@@ -680,6 +690,7 @@ function AlsoTray({ items, only, onSaved, onOpen }: { items: LibraryItem[]; only
         <div>
           <h3 className="m-0 text-sm font-medium">{board.name} <span className="text-muted-foreground">· {group.length}</span></h3>
           <p className="m-0 text-xs text-muted-foreground">{board.hunt}</p>
+          <BoardGenres board={board} />
         </div>
         <Button size="sm" onClick={() => answer(group, board.id, true)}>
           <CheckIcon className="size-4" aria-hidden="true" />Add {group.length} to {board.name}</Button>

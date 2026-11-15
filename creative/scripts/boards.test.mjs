@@ -48,6 +48,23 @@ test('the style chooses the board first, and the words choose between the boards
   } finally { await server.close(); }
 });
 
+test('the admin\'s genre map routes too: its genres always, its "when the words fit" genres only when they do', async () => {
+  const { server, boards } = await load();
+  try {
+    const board = id => boards.BOARDS.find(entry => entry.id === id);
+    const fit = (id, wanted) => boards.boardFit(board(id), { genre: '', subGenre: '', attitude: null, ...wanted });
+    for (const entry of boards.BOARDS) assert.ok(entry.primary.length && entry.secondary.length, `${entry.name} shows its genres`);
+    const rnb = { genre: 'Jazz, Soul & Blues', subGenre: 'Smooth Jazz / Soul', style: 'contemporary R&B' };
+    assert.equal(fit('night-drive', rnb) - fit('night-drive', { ...rnb, style: 'soul' }), 2, 'R&B (its style) is on Night Drive\'s map');
+    const pop = { genre: 'Pop', subGenre: 'General Pop', style: 'pop music' };
+    assert.equal(fit('sunset-coast', pop), 0, 'pop is only on Sunset & Coast when the words fit');
+    assert.equal(fit('sunset-coast', { ...pop, attitude: 'happy', themes: ['summer'] }), 3, 'a happy summer pop song: its words, and pop counts');
+    assert.equal(fit('main-stage', { genre: 'Electronic & Dance (EDM)', subGenre: 'Trance' }), 1 + 2, 'EDM, named in the genre\'s own name');
+    assert.equal(fit('luxury-flex', { genre: 'Pop', subGenre: 'K-Pop / J-Pop', style: 'K-pop', attitude: 'confident', themes: ['fame'] }), 2 + 1,
+      'K-pop is not "pop": only Luxury & Flex\'s words count');
+  } finally { await server.close(); }
+});
+
 const filed = (prefix, board, count, over = {}) => Array.from({ length: count }, (_, i) => ({
   id: `${prefix}${i}`, kind: 'video', attitudes: [], tags: [], genre: null, subGenre: null, boards: [board], url: `https://x/${prefix}${i}`, motionUrl: `https://x/${prefix}${i}.mp4`, ...over,
 }));

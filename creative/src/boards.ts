@@ -10,6 +10,9 @@ import type { SongTheme } from './song-themes';
  *               share a sub-genre but not a board).
  *   subGenres   and `genres`: where the song sits when its style says nothing of the board.
  *   themes      what the words are about (`song-themes.ts`), and `moods` their main feeling: they choose between the boards of one genre.
+ *   primary     the admin's genre map, in their words (shown on the board in the admin): genres the board serves. A song whose style,
+ *               sub-genre or genre names one of them fits it too.
+ *   secondary   genres it serves only when the words fit (the board's themes or moods): "pop (summer/happy)" on Sunset & Coast.
  * `hunt` is what to look for when filling the board.
  */
 export type Board = {
@@ -20,6 +23,8 @@ export type Board = {
   genres: readonly string[];
   themes: readonly SongTheme[];
   moods: readonly LyricAttitude[];
+  primary: readonly string[];
+  secondary: readonly string[];
   hunt: string;
 };
 
@@ -29,6 +34,8 @@ export const BOARDS: readonly Board[] = [
     styles: ['techno', 'tech house', 'slap house', 'dubstep', 'drum and bass', 'electronic dance music', 'house music', 'hard dance', 'bass music (EDM)'],
     subGenres: ['Techno', 'Tech House', 'Slap House', 'House', 'Dubstep / Riddim', 'G-House'], genres: ['Electronic & Dance (EDM)'],
     themes: ['party', 'dancing', 'nightlife'], moods: ['fun', 'confident', 'happy'],
+    primary: ['Tech house', 'slap house', 'dubstep', 'drum and bass', 'EDM', 'big room'],
+    secondary: ['Pop (upbeat/dance)', 'hip-hop (festival anthems)'],
     hunt: 'Festival crowd, DJ booth, laser lights, stage smoke, strobe lights, rave',
   },
   {
@@ -36,6 +43,8 @@ export const BOARDS: readonly Board[] = [
     styles: ['techno', 'gqom', 'industrial techno', 'industrial dance', 'electronic body music', 'dark ambient'],
     subGenres: ['Techno', 'Industrial'], genres: ['Experimental & Avant-Garde'],
     themes: ['nightlife', 'city'], moods: ['angry', 'confident', 'thoughtful'],
+    primary: ['Techno', 'gqom', 'minimal', 'industrial', 'dark electronic'],
+    secondary: ['Drill', 'UK drill', 'phonk (aggressive/dark tracks)'],
     hunt: 'Concrete warehouse, silhouette dancing, red neon, dark club, shadows',
   },
   {
@@ -43,6 +52,8 @@ export const BOARDS: readonly Board[] = [
     styles: ['Afro house', 'deep house', 'Afrobeats', 'tropical house', 'chill-out music', 'Balearic beat', 'lo-fi house'],
     subGenres: ['Afro House', 'Deep House', 'Dancehall / Afrobeats'], genres: [],
     themes: ['summer', 'freedom', 'romance'], moods: ['love', 'happy', 'thoughtful'],
+    primary: ['Afro house', 'deep house', 'afrobeats', 'tropical house', 'reggae'],
+    secondary: ['Pop (summer/happy)', 'R&B (chill)', 'reggaeton (beach vibe)'],
     hunt: 'Beach sunset, palm trees, ocean waves, rooftop party, golden hour, bonfire',
   },
   {
@@ -50,6 +61,8 @@ export const BOARDS: readonly Board[] = [
     styles: ['hip-hop', 'trap music', 'drill', 'UK drill', 'boom bap', 'grime', 'road rap'],
     subGenres: ['Trap', 'Boom Bap / Lo-Fi', 'General Hip-Hop'], genres: ['Hip-Hop & Rap'],
     themes: ['street', 'city'], moods: ['angry', 'confident'],
+    primary: ['Hip-hop', 'trap', 'drill', 'UK drill', 'boom bap', 'grime'],
+    secondary: ['Phonk', 'punk (urban/gritty tracks)'],
     hunt: 'City night street, hoodies, graffiti wall, subway station, basketball court, smoke',
   },
   {
@@ -57,6 +70,8 @@ export const BOARDS: readonly Board[] = [
     styles: ['Afrobeats', 'Amapiano', 'dancehall', 'funk carioca', 'Brazilian funk', 'reggaeton', 'soca music', 'gqom'],
     subGenres: ['Dancehall / Afrobeats', 'Reggaeton'], genres: ['Reggae & Dancehall', 'Latin & Urbano'],
     themes: ['party', 'dancing', 'friends', 'summer'], moods: ['fun', 'happy', 'flirty'],
+    primary: ['Afrobeats', 'amapiano', 'dancehall', 'baile funk', 'reggaeton'],
+    secondary: ['Hip-hop (party/fun)', 'pop (summer/upbeat)'],
     hunt: 'Street dancing, colourful outfits, outdoor crowd, summer party, sunglasses',
   },
   {
@@ -64,6 +79,8 @@ export const BOARDS: readonly Board[] = [
     styles: ['trap music', 'Latin trap', 'hip-hop', 'contemporary R&B', 'slap house'],
     subGenres: ['Trap', 'Latin Trap'], genres: [],
     themes: ['money', 'cars', 'fame'], moods: ['confident'],
+    primary: ['Trap', 'Latin trap', 'hip-hop', 'slap house'],
+    secondary: ['R&B (confident/flirty)', 'reggaeton', 'pop'],
     hunt: 'Sports car, champagne, gold chains, mansion pool, private jet, cash',
   },
   {
@@ -71,6 +88,8 @@ export const BOARDS: readonly Board[] = [
     styles: ['synthwave', 'phonk', 'lo-fi music', 'lofi hip-hop', 'vaporwave', 'chillwave', 'late night lo-fi', 'chillsynth'],
     subGenres: ['Synthwave / Vaporwave', 'Boom Bap / Lo-Fi', 'Indie Pop', 'Alternative / Indie Rock', 'General Electronic'], genres: [],
     themes: ['cars', 'city', 'nightlife'], moods: ['thoughtful', 'sad', 'fun'],
+    primary: ['Synthwave', 'phonk', 'lo-fi', 'vaporwave', 'indie'],
+    secondary: ['Boom bap (90s nostalgia)', 'pop (retro)', 'R&B'],
     hunt: 'Retro 80s car, neon grid, cassette tape, night driving, rainy window, arcade',
   },
   {
@@ -78,6 +97,8 @@ export const BOARDS: readonly Board[] = [
     styles: ['phonk', 'drift phonk', 'drill', 'UK drill', 'synthwave', 'trap music'],
     subGenres: ['Trap', 'Synthwave / Vaporwave'], genres: [],
     themes: ['cars', 'nightlife', 'city'], moods: ['confident', 'angry', 'thoughtful'],
+    primary: ['Phonk', 'synthwave', 'R&B', 'deep house', 'trap (melodic)'],
+    secondary: ['Hip-hop', 'lo-fi', 'pop (late-night/thoughtful moods)'],
     hunt: 'Car interior at night, highway lights, tunnel, rain on windscreen, city from the road, headlights',
   },
   {
@@ -85,6 +106,8 @@ export const BOARDS: readonly Board[] = [
     styles: ['contemporary R&B', 'alternative R&B', 'bachata', 'salsa', 'soul', 'pop soul'],
     subGenres: ['Traditional Latin (Salsa, Bachata)', 'Smooth Jazz / Soul'], genres: [],
     themes: ['romance', 'seduction'], moods: ['love', 'flirty'],
+    primary: ['R&B', 'bachata', 'salsa', 'soul'],
+    secondary: ['Pop (romance/seduction)', 'afrobeats (slow/romantic)'],
     hunt: 'Candlelight, silk sheets, couple dancing, dim lounge, city skyline at night',
   },
   {
@@ -92,6 +115,8 @@ export const BOARDS: readonly Board[] = [
     styles: ['contemporary R&B', 'alternative R&B', 'lo-fi music', 'late night lo-fi', 'emo rap'],
     subGenres: [], genres: [],
     themes: ['heartbreak'], moods: ['sad', 'thoughtful'],
+    primary: ['Lo-fi', 'R&B (heartbreak/sad)', 'sad trap', 'indie'],
+    secondary: ['Pop (ballads)', 'UK drill (moody/introspective)'],
     hunt: 'Rain on glass, empty street, someone alone, grey sky, blue hour, wet pavement',
   },
   {
@@ -100,6 +125,8 @@ export const BOARDS: readonly Board[] = [
     subGenres: ['Alternative / Indie Rock', 'Psychedelic Rock', 'General Rock', 'Heavy Metal / Hard Rock', 'Extreme Metal (Thrasher, Death)', 'General Metal', 'Pop-Punk', 'Hardcore Punk', 'General Punk'],
     genres: ['Rock', 'Metal', 'Punk'],
     themes: ['freedom', 'friends'], moods: ['angry', 'confident'],
+    primary: ['Rock', 'metal', 'punk', 'alternative'],
+    secondary: ['Trap-metal', 'hip-hop (high-energy/angry)'],
     hunt: 'Electric guitar, leather jacket, stage fire, skatepark, live band, mosh pit',
   },
   {
@@ -107,6 +134,8 @@ export const BOARDS: readonly Board[] = [
     styles: [],
     subGenres: ['Americana / Folk', 'Modern Country', 'General Country & Folk'], genres: ['Country & Folk'],
     themes: ['nature', 'freedom'], moods: ['thoughtful', 'happy', 'sad'],
+    primary: ['Country', 'folk', 'Americana'],
+    secondary: ['Acoustic pop', 'rock (southern/classic)'],
     hunt: 'Pickup truck, dirt road, cowboy boots, open field, barn, campfire',
   },
   {
@@ -114,6 +143,8 @@ export const BOARDS: readonly Board[] = [
     styles: ['pop music', 'hyperpop', 'K-pop', 'dance-pop'],
     subGenres: ['Dance-Pop', 'K-Pop / J-Pop', 'General Pop', 'Indie Pop'], genres: ['Pop'],
     themes: ['fame', 'party', 'dancing'], moods: ['fun', 'happy', 'confident', 'flirty'],
+    primary: ['Pop', 'K-pop', 'dance-pop', 'hyperpop'],
+    secondary: ['R&B (upbeat)', 'hip-hop (mainstream/colorful)'],
     hunt: 'Confetti, colourful studio backdrop, synchronised dancers, fashion editorial, glitter',
   },
   {
@@ -122,6 +153,8 @@ export const BOARDS: readonly Board[] = [
     subGenres: ['Gospel', 'Worship / Contemporary Christian', 'Christian Hip-Hop', 'General Gospel & Christian', 'General Jazz & Blues', 'Smooth Jazz / Soul'],
     genres: ['Gospel & Christian', 'Jazz, Soul & Blues'],
     themes: ['faith'], moods: ['spiritual'],
+    primary: ['Gospel', 'worship', 'jazz', 'soul'],
+    secondary: ['Hip-hop (spiritual/thoughtful)', 'R&B'],
     hunt: 'Choir singing, church stained glass, raised hands, saxophone, grand piano',
   },
   {
@@ -129,6 +162,8 @@ export const BOARDS: readonly Board[] = [
     styles: ['ambient music', 'chill-out music'],
     subGenres: ['Ambient / Downtempo', 'Neoclassical', 'Dark Academia / Gothic Classical', 'General Classical'], genres: ['Classical & Cinematic'],
     themes: ['nature'], moods: ['thoughtful', 'spiritual'],
+    primary: ['Ambient', 'chill', 'lo-fi', 'acoustic', 'instrumental'],
+    secondary: ['Deep house', 'indie', 'worship (restrained/thoughtful)'],
     hunt: 'Fog, mountains, slow time-lapse, the sea from above, empty landscape, soft light',
   },
 ];
@@ -148,6 +183,8 @@ export type BoardWanted = { genre: string; subGenre: string; style?: string; att
 const STYLE = 4;
 const SUB_GENRE = 2;
 const GENRE = 1;
+const PRIMARY = 2;
+const SECONDARY = 1;
 const THEME = 1;
 const MOOD = 1;
 const OTHER_MOOD = 0.5;
@@ -155,19 +192,34 @@ const OTHER_MOOD = 0.5;
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 const KEYED = new Map(BOARDS.map(board => [board.id, new Set(board.styles.map(styleKey))]));
 
+/** Genre names as plain words: accents, case and hyphens ("lo-fi", "hip-hop") do not matter; R&B is one word. */
+const words = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  .replace(/r\s*&\s*b/g, 'rnb').replace(/-/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+/** A genre of the admin's map without its note ("pop (summer/happy)" is "pop"). */
+const named = (genre: string) => words(genre.replace(/\(.*?\)/g, ' '));
+/** Whether `genre` (from the admin's map) is named in what the brain knows of the song, as whole words: "trap" in "Latin trap", not "pop" in "K-pop". */
+// The song's names keep their brackets: "Electronic & Dance (EDM)" names EDM.
+const names = (song: string, genre: string) => ` ${song} `.includes(` ${genre} `);
+const MAPPED = new Map(BOARDS.map(board => [board.id, { primary: board.primary.map(named), secondary: board.secondary.map(named) }]));
+
 /** How well a board fits the song: its style counts most, then where the song sits, then what the words are about and feel. */
 export function boardFit(board: Board, wanted: BoardWanted): number {
   let fit = 0;
   if (wanted.style && KEYED.get(board.id)?.has(styleKey(wanted.style))) fit += STYLE;
   if (wanted.subGenre && board.subGenres.some(sub => same(sub, wanted.subGenre) || same(sub, familyOf(wanted.subGenre)))) fit += SUB_GENRE;
   if (wanted.genre && board.genres.some(genre => same(genre, wanted.genre))) fit += GENRE;
-  for (const theme of wanted.themes ?? []) if (board.themes.includes(theme)) fit += THEME;
+  const song = [wanted.style ?? '', wanted.subGenre, wanted.genre].map(words).join(' | ');
+  const mapped = MAPPED.get(board.id);
+  if (mapped?.primary.some(genre => names(song, genre))) fit += PRIMARY;
+  let wordsFit = false;
+  for (const theme of wanted.themes ?? []) if (board.themes.includes(theme)) { fit += THEME; wordsFit = true; }
   const main = attitudeOf(wanted.attitude);
-  if (main && board.moods.includes(main)) fit += MOOD;
+  if (main && board.moods.includes(main)) { fit += MOOD; wordsFit = true; }
   for (const other of wanted.moods ?? []) {
     const mood = attitudeOf(other);
     if (mood && mood !== main && board.moods.includes(mood)) fit += OTHER_MOOD;
   }
+  if (wordsFit && mapped?.secondary.some(genre => names(song, genre))) fit += SECONDARY;
   return fit;
 }
 
