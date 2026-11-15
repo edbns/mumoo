@@ -13,7 +13,6 @@ const server = await createServer({ server: { middlewareMode: true, hmr: false }
 const pack = await server.ssrLoadModule('/src/creatives-pack.ts');
 const deal = await server.ssrLoadModule('/src/treatment-deal.ts');
 const director = await server.ssrLoadModule('/src/pack-director.ts');
-const reelMod = await server.ssrLoadModule('/src/pack-reel.ts');
 await server.close();
 
 const uuid = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -45,8 +44,10 @@ const music = {
   pace: 'balanced',
 };
 
-test('all eight treatments are on the shelf as their own templates', () => {
+test('the seven treatments are on the shelf as their own templates, and Kaleidoscope is gone', () => {
   const ids = pack.SHELF_ROWS.map(row => row.id);
+  assert.equal(deal.TREATMENT_IDS.length, 7);
+  assert.ok(!ids.includes('kaleidoscope'));
   for (const id of deal.TREATMENT_IDS) {
     assert.ok(ids.includes(id), id);
     assert.equal(pack.SHELF_ROWS.find(row => row.id === id).picture, 'any');
@@ -108,28 +109,10 @@ test('treatment card N finishes Directed card N: the same pictures, reel order a
   }
 });
 
-test('Double Exposure\'s later frame comes from a later cut of the same plan', () => {
-  const assets = [
-    { kind: 'clip', shots: [[0, 4000]] },
-    { kind: 'photo' },
-    { kind: 'clip', shots: [[0, 5000]] },
-    { kind: 'photo' },
-  ];
-  const segments = director.planReel(assets, music, 7, 15_000);
-  assert.ok(segments.length >= 3, 'enough cuts to step ahead');
-  // Mirror pack-reel.cutAheadMs without loading pictures.
-  const cutAheadMs = (ms, ahead) => {
-    if (ahead <= 0) return ms;
-    let index = 0;
-    for (let i = 0; i < segments.length; i++) if (segments[i].atMs <= ms) index = i;
-    return segments[(index + ahead) % segments.length].atMs;
-  };
-  const now = segments[1].atMs + 50;
-  assert.equal(cutAheadMs(now, 0), now);
-  assert.equal(cutAheadMs(now, 1), segments[(1 + 1) % segments.length].atMs);
-  assert.equal(cutAheadMs(now, 2), segments[(1 + 2) % segments.length].atMs);
-  assert.ok(typeof reelMod.reelKey === 'function');
-  assert.ok(readFileSync(new URL('../src/pack-reel.ts', import.meta.url), 'utf8').includes('cutAheadMs'));
+test('Double Exposure never seeks the reel away from the moment it shows (that flickered)', () => {
+  const renderer = readFileSync(new URL('../src/pack-renderer.ts', import.meta.url), 'utf8');
+  assert.ok(!renderer.includes('cutAheadMs') && !renderer.includes('treatmentSecond'));
+  assert.ok(!readFileSync(new URL('../src/pack-reel.ts', import.meta.url), 'utf8').includes('cutAheadMs'));
 });
 
 test('preview and render carry the same treatment options', () => {

@@ -29,11 +29,6 @@ export type Reel = Motion & {
   subject: Texture | null;
   /** Edits the reel to this music (once per music and seed). Call before `seek`; the milliseconds of `seek` are then those of the song. */
   direct(music: ImpactMusic | null, seed: number, durationMs: number): void;
-  /**
-   * The song time of a later Director cut relative to `ms` (`ahead` cuts forward, wrapping the plan).
-   * Treatments that need a second frame (Double Exposure) stay on the Director's own plan this way.
-   */
-  cutAheadMs(ms: number, ahead: number): number;
 };
 
 /** How much to brighten (or dim) a picture so a dark one is not lost to the looks and a blown-out one is not burnt. */
@@ -236,12 +231,6 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
       if (key === plannedFor) return;
       segments = planReel(assets, music ? { beatsMs: music.beatsMs, downbeatsMs: music.downbeatsMs, energy: music.energy, accentsMs: music.accentsMs, pace: music.pace } : null, seed, durationMs);
       plannedFor = key;
-    },
-    cutAheadMs(ms, ahead) {
-      if (!segments.length || ahead <= 0) return ms;
-      let index = 0;
-      for (let i = 0; i < segments.length; i++) if (segments[i].atMs <= ms) index = i;
-      return segments[(index + ahead) % segments.length].atMs;
     },
     async seek(ms) {
       const segment = segmentAt(segments, ms);

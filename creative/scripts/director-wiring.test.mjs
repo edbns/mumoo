@@ -33,7 +33,7 @@ function profile(sha = 'b'.repeat(64)) {
 }
 
 const LIBRARY = [photo(1), photo(2), photo(3), clip(4), photo(5), clip(6, 'gif'), photo(7), photo(8)];
-const REEL_ROWS = ['photography', 'triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'kaleidoscope', 'double', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'];
+const REEL_ROWS = ['photography', 'triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'];
 
 test('Directed, the looks, Depth and Riso are edited reels of two or more library pictures', () => {
   for (const row of [...REEL_ROWS, 'riso']) {

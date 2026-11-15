@@ -36,7 +36,7 @@ export function validFeedback(v) {
   if (!optional(v.subGenre, 80)) return false;
   if (v.vibe !== null && typeof v.vibe !== 'string') return false;
   if (typeof v.lane !== 'string' || v.lane.length > 24) return false;
-  // Row ids are short codes (Directed looks, treatments such as kaleidoscope / double-exposure stay within 16).
+  // Row ids are short codes (Directed looks, treatments such as double-exposure stay within 16).
   if (!optional(v.row, 16)) return false;
   if (v.generation !== undefined && !(Number.isInteger(v.generation) && v.generation >= 0 && v.generation < 100_000)) return false;
   if (v.event === 'refresh') return word(v.row, 16);

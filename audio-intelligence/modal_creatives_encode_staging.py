@@ -70,7 +70,6 @@ TREATMENTS = {
     "frame": {"slim", "bold", "accent", "ink"},
     "bento": {"hero-left", "hero-top", "mosaic", "strip"},
     "grain": {"fine", "classic", "heavy", "halation"},
-    "kaleidoscope": {"four", "six", "eight", "twelve"},
     "double": {"blend", "screen", "offset-cut", "offset-far"},
 }
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}

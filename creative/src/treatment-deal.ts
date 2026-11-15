@@ -12,7 +12,6 @@ export const TREATMENT_IDS = [
   'frame',
   'bento',
   'grain',
-  'kaleidoscope',
   'double',
 ] as const;
 export type TreatmentId = (typeof TREATMENT_IDS)[number];
@@ -34,17 +33,17 @@ export const TREATMENTS: readonly TreatmentDef[] = [
     id: 'triptych',
     title: 'Triptych',
     variants: [
-      { id: 'narrow', title: 'Three strips' },
-      { id: 'medium', title: 'Three bands' },
-      { id: 'wide', title: 'Staggered' },
-      { id: 'breathing', title: 'Breathing gaps' },
+      { id: 'narrow', title: 'Slim gap' },
+      { id: 'medium', title: 'Clear gap' },
+      { id: 'wide', title: 'Wide gap' },
+      { id: 'breathing', title: 'Even gap' },
     ],
   },
   {
     id: 'fisheye',
     title: 'Fisheye',
     variants: [
-      { id: 'subtle', title: 'Wide lens' },
+      { id: 'subtle', title: 'Gentle lens' },
       { id: 'medium', title: 'Round lens' },
       { id: 'strong', title: 'Strong lens' },
       { id: 'extreme', title: 'Peephole' },
@@ -55,7 +54,7 @@ export const TREATMENTS: readonly TreatmentDef[] = [
     title: 'Collage',
     variants: [
       { id: 'editorial', title: 'Editorial' },
-      { id: 'scatter', title: 'Polaroids' },
+      { id: 'scatter', title: 'Scattered' },
       { id: 'stack', title: 'Stacked prints' },
       { id: 'offset', title: 'Cut-outs' },
     ],
@@ -64,10 +63,10 @@ export const TREATMENTS: readonly TreatmentDef[] = [
     id: 'frame',
     title: 'Colored Frame',
     variants: [
-      { id: 'slim', title: 'Slim matte' },
-      { id: 'bold', title: 'Bold matte' },
-      { id: 'accent', title: 'Accent matte' },
-      { id: 'ink', title: 'Ink matte' },
+      { id: 'slim', title: 'Charcoal' },
+      { id: 'bold', title: 'Oxblood' },
+      { id: 'accent', title: 'Midnight' },
+      { id: 'ink', title: 'Forest' },
     ],
   },
   {
@@ -84,20 +83,10 @@ export const TREATMENTS: readonly TreatmentDef[] = [
     id: 'grain',
     title: 'Film Grain',
     variants: [
-      { id: 'fine', title: 'Fine grain' },
-      { id: 'classic', title: 'Classic stock' },
-      { id: 'heavy', title: 'Heavy, scratched' },
-      { id: 'halation', title: 'Halation' },
-    ],
-  },
-  {
-    id: 'kaleidoscope',
-    title: 'Kaleidoscope',
-    variants: [
-      { id: 'four', title: 'Fourfold' },
-      { id: 'six', title: 'Sixfold' },
-      { id: 'eight', title: 'Eightfold' },
-      { id: 'twelve', title: 'Twelvefold' },
+      { id: 'fine', title: 'Faded' },
+      { id: 'classic', title: 'Home movie' },
+      { id: 'heavy', title: 'Old reel' },
+      { id: 'halation', title: 'Warm glow' },
     ],
   },
   {
@@ -106,8 +95,8 @@ export const TREATMENTS: readonly TreatmentDef[] = [
     variants: [
       { id: 'blend', title: 'Soft blend' },
       { id: 'screen', title: 'Mirrored' },
-      { id: 'offset-cut', title: 'Later cut' },
-      { id: 'offset-far', title: 'Far cut' },
+      { id: 'offset-cut', title: 'Shifted' },
+      { id: 'offset-far', title: 'Close-up' },
     ],
   },
 ];

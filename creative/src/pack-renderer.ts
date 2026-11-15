@@ -32,7 +32,6 @@ import type { WindowMode } from './window-deal';
 import type { WindowPicture } from './pack-window';
 import type { DoodlePaper } from './doodle-cast';
 import type { DoodleMood } from './doodle-parts';
-import { DOUBLE_CUT_AHEAD } from './pack-treatment';
 import { isTreatmentId, isTreatmentVariant, type TreatmentId } from './treatment-deal';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
@@ -170,7 +169,6 @@ export async function createPackRenderer(
   let risoPhoto: RisoPhoto | null = null;
   let risoKey = '';
   /** Double Exposure: a second Directed frame, held while the treatment blends it with the current one. */
-  let treatmentSecond: Texture | null = null;
   let contextLost = false;
   let gl: WebGL2RenderingContext | WebGLRenderingContext | null = null;
 
@@ -193,8 +191,6 @@ export async function createPackRenderer(
     dustKey = '';
     risoPhoto = null;
     risoKey = '';
-    treatmentSecond?.destroy(true);
-    treatmentSecond = null;
     if (initialized) {
       try { app.destroy(false, { children: true }); } catch { /* a lost surface cannot be torn down cleanly */ }
     }
@@ -330,31 +326,11 @@ export async function createPackRenderer(
         const reaction = packReaction(current.music, frame);
         const { ms, energy, beatIndex, beatGapMs } = reaction;
         // A video or GIF shows the clip's frame for this moment.
-        treatmentSecond?.destroy(true);
-        treatmentSecond = null;
         if (motion) {
           if (reel) {
             // The Director's edit of several pictures, to this music; `seek` takes the moment of the song.
             reel.direct(current.music, current.cutSeed ?? 0, DURATION_MS);
             await motion.seek(ms);
-            // Double Exposure may blend a later cut of the same plan: seek there, copy the frame, then restore.
-            if (style === 'treatment' && current.treatment === 'double' && current.treatmentVariant) {
-              const ahead = DOUBLE_CUT_AHEAD[current.treatmentVariant] ?? 0;
-              if (ahead > 0) {
-                const later = reel.cutAheadMs(ms, ahead);
-                await motion.seek(later);
-                const canvas = document.createElement('canvas');
-                canvas.width = WIDTH;
-                canvas.height = HEIGHT;
-                const ctx = canvas.getContext('2d');
-                const frame = motion.texture.source.resource as CanvasImageSource | undefined;
-                if (ctx && frame) {
-                  ctx.drawImage(frame, 0, 0, WIDTH, HEIGHT);
-                  treatmentSecond = Texture.from(canvas);
-                }
-                await motion.seek(ms);
-              }
-            }
           } else if (current.look) {
             // A card with a live look plays its video straight through, as one piece (looping if it is shorter than the clip), not cut up.
             cuts = [];
@@ -460,7 +436,6 @@ export async function createPackRenderer(
           doodle: style === 'doodle' ? { id: current.doodleId!, paper: current.doodlePaper!, mood: current.doodleMood! } : undefined,
           treatment: style === 'treatment' ? current.treatment : undefined,
           treatmentVariant: style === 'treatment' ? current.treatmentVariant : undefined,
-          treatmentSecond: style === 'treatment' ? treatmentSecond : null,
         }, app.renderer);
         app.render();
       },

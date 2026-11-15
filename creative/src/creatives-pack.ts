@@ -484,7 +484,6 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     frame: () => treatmentRow('frame'),
     bento: () => treatmentRow('bento'),
     grain: () => treatmentRow('grain'),
-    kaleidoscope: () => treatmentRow('kaleidoscope'),
     double: () => treatmentRow('double'),
     thermal: () => effectRow('thermal'),
     halftone: () => effectRow('halftone'),

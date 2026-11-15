@@ -66,8 +66,6 @@ export type PackSceneInput = {
   /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
   treatment?: TreatmentId;
   treatmentVariant?: string;
-  /** Double Exposure: a second Directed frame (often from a later cut of the same plan). */
-  treatmentSecond?: Texture | null;
 };
 
 /**
