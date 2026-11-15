@@ -636,19 +636,35 @@ function SortTray({ items, filed, onFiled, onOpen }: { items: LibraryItem[]; fil
  * its look-alikes less.
  */
 function AlsoTray({ items, only, onSaved, onOpen }: { items: LibraryItem[]; only?: string; onSaved: (saved: LibraryItem[]) => void; onOpen: (id: string) => void }) {
-  const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  /** `board:id` of the answers already given: they leave the tray at once, while they are saved. */
+  const [gone, setGone] = useState<string[]>([]);
+  // Saves go one after another, each from the item as last saved: two answers on one item never overwrite each other's boards.
+  const queue = useRef(Promise.resolve());
+  const latest = useRef(new Map<string, LibraryItem>());
   const groups = BOARDS.filter(board => !only || board.id === only)
-    .map(board => ({ board, group: items.filter(item => item.also.includes(board.id)) })).filter(entry => entry.group.length);
+    .map(board => ({ board, group: items.filter(item => item.also.includes(board.id) && !gone.includes(`${board.id}:${item.id}`)) }))
+    .filter(entry => entry.group.length);
   if (!groups.length) return null;
 
-  async function save(list: LibraryItem[], change: (item: LibraryItem) => Change, key: string) {
-    setBusy(key); setError('');
-    const results = await inTurns(list.map(item => () => changeItem(item.id, change(item))));
-    const saved = results.flatMap(result => (result.status === 'fulfilled' ? [result.value.item] : []));
-    if (saved.length < list.length) setError(`${list.length - saved.length} could not be saved. Try again.`);
-    onSaved(saved);
-    setBusy('');
+  function answer(list: LibraryItem[], board: string, fits: boolean) {
+    const keys = list.map(item => `${board}:${item.id}`);
+    setGone(current => [...current, ...keys]);
+    setError('');
+    queue.current = queue.current.then(async () => {
+      const results = await inTurns(list.map(item => () => {
+        const now = latest.current.get(item.id) ?? item;
+        return changeItem(item.id, fits ? { boards: [...new Set([...now.boards, board])] } : { notBoards: [...new Set([...now.notBoards, board])] });
+      }));
+      const saved = results.flatMap(result => (result.status === 'fulfilled' ? [result.value.item] : []));
+      for (const item of saved) latest.current.set(item.id, item);
+      const failed = keys.filter((_, at) => results[at].status === 'rejected');
+      if (failed.length) {
+        setGone(current => current.filter(key => !failed.includes(key)));
+        setError(`${failed.length} could not be saved. Try again.`);
+      }
+      onSaved(saved);
+    });
   }
 
   const panel = 'flex flex-col gap-3 rounded-[var(--radius-panel)] bg-card p-4 shadow-sm';
@@ -665,18 +681,30 @@ function AlsoTray({ items, only, onSaved, onOpen }: { items: LibraryItem[]; only
           <h3 className="m-0 text-sm font-medium">{board.name} <span className="text-muted-foreground">· {group.length}</span></h3>
           <p className="m-0 text-xs text-muted-foreground">{board.hunt}</p>
         </div>
-        <Button size="sm" disabled={Boolean(busy)} onClick={() => void save(group, item => ({ boards: [...item.boards, board.id] }), board.id)}>
-          <CheckIcon className="size-4" aria-hidden="true" />{busy === board.id ? 'Adding…' : `Add ${group.length} to ${board.name}`}</Button>
+        <Button size="sm" onClick={() => answer(group, board.id, true)}>
+          <CheckIcon className="size-4" aria-hidden="true" />Add {group.length} to {board.name}</Button>
       </div>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-        {group.map(item => <Thumb key={item.id} item={item} onOpen={() => onOpen(item.id)}
-          onDoubt={busy ? undefined : () => void save([item], () => ({ notBoards: [...item.notBoards, board.id] }), `${board.id}:${item.id}`)} />)}
+        {group.map(item => <Thumb key={item.id} item={item} onOpen={() => onOpen(item.id)} onDoubt={() => answer([item], board.id, false)} />)}
       </div>
     </div>)}
   </section>;
 }
 
 const NO_BOARD = '__none__';
+
+/** An item's link works for 15 minutes: within this, a card keeps the one it shows, so asking the library again does not reload every picture. */
+const KEEP_LINKS_MS = 10 * 60 * 1000;
+/** The library is asked again this long after the last change (what our models offer depends on every answer), once. */
+const SETTLE_MS = 2500;
+
+/** What the server answered for a change, on the card: it keeps its link, and our models' suggestions until the library is asked again. */
+const withSaved = (item: LibraryItem, saved: LibraryItem): LibraryItem => ({
+  ...saved,
+  url: item.url,
+  also: item.also.filter(board => !saved.boards.includes(board) && !saved.notBoards.includes(board)),
+  suggestion: saved.boards.length ? null : item.suggestion,
+});
 
 type StatusFilter = 'all' | LibraryStatus;
 
@@ -693,12 +721,31 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   useEffect(() => { if (!picked.length) setEditing(false); }, [picked.length]);
   const anchor = useRef<string | null>(null);
 
-  useEffect(() => { loadLibrary().then(setLibrary, (cause: Error) => setError(cause.message)); }, []);
+  const linksAt = useRef(0);
+  /** The library as the server sent it, with the links the cards already show while those still work. */
+  function take(next: Library) {
+    const fresh = Date.now() - linksAt.current > KEEP_LINKS_MS;
+    if (fresh) linksAt.current = Date.now();
+    setLibrary(current => {
+      if (!current || fresh) return next;
+      const links = new Map(current.items.map(item => [item.id, item.url]));
+      return { ...next, items: next.items.map(item => ({ ...item, url: links.get(item.id) ?? item.url })) };
+    });
+  }
+  const refresh = () => loadLibrary().then(take, () => undefined);
+  const settle = useRef<number | undefined>(undefined);
+  function refreshSoon() {
+    window.clearTimeout(settle.current);
+    settle.current = window.setTimeout(() => void refresh(), SETTLE_MS);
+  }
+  useEffect(() => () => window.clearTimeout(settle.current), []);
+
+  useEffect(() => { loadLibrary().then(take, (cause: Error) => setError(cause.message)); }, []);
   // Our worker is preparing or our models are looking at something: look again until they are done (or have said why they cannot be).
   const waiting = Boolean(library?.items.some(item => item.looking));
   useEffect(() => {
     if (!waiting) return;
-    const timer = setInterval(() => { loadLibrary().then(setLibrary, () => undefined); }, 6000);
+    const timer = setInterval(() => void refresh(), 6000);
     return () => clearInterval(timer);
   }, [waiting]);
 
@@ -724,12 +771,14 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
     setPicked(list => (on ? [...new Set([...list, ...ids])] : list.filter(entry => !ids.includes(entry))));
     anchor.current = id;
   }
-  const refresh = () => loadLibrary().then(setLibrary, () => undefined);
-  /** Items saved from a tray; the library is then asked again, since one answer changes what our models offer for the others. */
-  function merge(saved: LibraryItem[]) {
-    setLibrary(current => current && { ...current, items: current.items.map(item => saved.find(entry => entry.id === item.id) ?? item) });
+  /** Saved items on their cards; the library is asked again once the admin pauses, since one answer changes what our models offer for others. */
+  function merge(saved: LibraryItem[], tags?: TagCount[]) {
+    setLibrary(current => current && {
+      items: current.items.map(item => { const entry = saved.find(one => one.id === item.id); return entry ? withSaved(item, entry) : item; }),
+      tags: tags ?? current.tags,
+    });
     onChanged();
-    void refresh();
+    refreshSoon();
   }
 
   return <div className={`mx-auto flex max-w-6xl flex-col gap-6 ${chosen.length ? 'pb-24' : ''}`}>
@@ -775,13 +824,10 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
 
     <SelectionBar count={chosen.length} shown={chosen.length > 0 && !editing} onClear={() => setPicked([])} onEdit={() => setEditing(true)} />
     {chosen.length > 0 && editing && library && <BulkPanel items={chosen} pool={library.tags} onClose={() => setEditing(false)}
-      onSaved={(saved, tags) => {
-        setLibrary(current => current && { items: current.items.map(item => saved.find(entry => entry.id === item.id) ?? item), tags: tags ?? current.tags });
-        onChanged(); void refresh();
-      }}
+      onSaved={(saved, tags) => merge(saved, tags ?? undefined)}
       onDeleted={(next, gone) => { setPicked(list => list.filter(id => !gone.includes(id))); if (next) replace(next); else void refresh(); }} />}
     {!chosen.length && open && library && <Panel item={open} pool={library.tags} onClose={() => setOpenId(null)}
-      onSaved={(saved, tags) => { setLibrary(current => current && { items: current.items.map(item => item.id === saved.id ? saved : item), tags }); onChanged(); }}
+      onSaved={(saved, tags) => merge([saved], tags)}
       onDeleted={next => { setOpenId(null); replace(next); }} />}
   </div>;
 }
