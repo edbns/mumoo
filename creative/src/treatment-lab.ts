@@ -29,6 +29,22 @@ const PLACEHOLDER = (() => {
   return canvas;
 })();
 
+/** A real picture to judge the treatments on (`?photo=` a path the dev server serves), cover-fit to the frame. */
+async function photo(): Promise<HTMLCanvasElement | null> {
+  const src = new URLSearchParams(location.search).get('photo') ?? '/punch-plates/masters/burnnet-woman-1547507_1920.jpg';
+  const image = new Image();
+  image.src = src;
+  try { await image.decode(); } catch { return null; }
+  const canvas = document.createElement('canvas');
+  canvas.width = WIDTH;
+  canvas.height = HEIGHT;
+  const scale = Math.max(WIDTH / image.naturalWidth, HEIGHT / image.naturalHeight);
+  const w = image.naturalWidth * scale;
+  const h = image.naturalHeight * scale;
+  canvas.getContext('2d')!.drawImage(image, (WIDTH - w) / 2, (HEIGHT - h) / 2, w, h);
+  return canvas;
+}
+
 let app: Application | null = null;
 let world: ReturnType<typeof createTreatmentWorld> | null = null;
 let texture: Texture | null = null;
@@ -45,7 +61,7 @@ async function ensure() {
   app.ticker.stop();
   world = createTreatmentWorld();
   app.stage.addChild(world.root);
-  texture = new Texture({ source: new ImageSource({ resource: PLACEHOLDER }) });
+  texture = new Texture({ source: new ImageSource({ resource: await photo() ?? PLACEHOLDER }) });
   await ensureFonts(['Anton']);
 }
 

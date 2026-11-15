@@ -34,9 +34,9 @@ export const TREATMENTS: readonly TreatmentDef[] = [
     id: 'triptych',
     title: 'Triptych',
     variants: [
-      { id: 'narrow', title: 'Narrow gaps' },
-      { id: 'medium', title: 'Medium gaps' },
-      { id: 'wide', title: 'Wide gaps' },
+      { id: 'narrow', title: 'Three strips' },
+      { id: 'medium', title: 'Three bands' },
+      { id: 'wide', title: 'Staggered' },
       { id: 'breathing', title: 'Breathing gaps' },
     ],
   },
@@ -44,10 +44,10 @@ export const TREATMENTS: readonly TreatmentDef[] = [
     id: 'fisheye',
     title: 'Fisheye',
     variants: [
-      { id: 'subtle', title: 'Subtle lens' },
-      { id: 'medium', title: 'Medium lens' },
+      { id: 'subtle', title: 'Wide lens' },
+      { id: 'medium', title: 'Round lens' },
       { id: 'strong', title: 'Strong lens' },
-      { id: 'extreme', title: 'Extreme lens' },
+      { id: 'extreme', title: 'Peephole' },
     ],
   },
   {
@@ -55,9 +55,9 @@ export const TREATMENTS: readonly TreatmentDef[] = [
     title: 'Collage',
     variants: [
       { id: 'editorial', title: 'Editorial' },
-      { id: 'scatter', title: 'Scatter' },
-      { id: 'stack', title: 'Stack' },
-      { id: 'offset', title: 'Offset crop' },
+      { id: 'scatter', title: 'Polaroids' },
+      { id: 'stack', title: 'Stacked prints' },
+      { id: 'offset', title: 'Cut-outs' },
     ],
   },
   {
@@ -86,7 +86,7 @@ export const TREATMENTS: readonly TreatmentDef[] = [
     variants: [
       { id: 'fine', title: 'Fine grain' },
       { id: 'classic', title: 'Classic stock' },
-      { id: 'heavy', title: 'Heavy grain' },
+      { id: 'heavy', title: 'Heavy, scratched' },
       { id: 'halation', title: 'Halation' },
     ],
   },
@@ -105,7 +105,7 @@ export const TREATMENTS: readonly TreatmentDef[] = [
     title: 'Double Exposure',
     variants: [
       { id: 'blend', title: 'Soft blend' },
-      { id: 'screen', title: 'Screen blend' },
+      { id: 'screen', title: 'Mirrored' },
       { id: 'offset-cut', title: 'Later cut' },
       { id: 'offset-far', title: 'Far cut' },
     ],
