@@ -2,7 +2,7 @@
  * Pixi pack scenes — WebGL design surface for Creatives Pack.
  * Canvas is only the blit/encode buffer (via Application canvas).
  */
-import { Container } from 'pixi.js';
+import { Container, type Renderer } from 'pixi.js';
 import type { PackSceneInput } from './pack-copy';
 import { createBankWorld } from './pack-bank';
 import { createPuliseWorld } from './pack-pulise';
@@ -11,13 +11,14 @@ import { createRisoWorld, type RisoWorld } from './pack-riso';
 import { createSprayWorld, type SprayWorld } from './pack-spray';
 import { createWindowWorld, type WindowWorld } from './pack-window';
 import { createDoodleWorld, type DoodleWorld } from './pack-doodle';
+import { createTreatmentWorld } from './pack-treatment';
 import type { RisoPhoto } from './riso-photo';
 
 export type { PackSceneInput } from './pack-copy';
 
 export type PackScene = {
   root: Container;
-  update(input: PackSceneInput): void;
+  update(input: PackSceneInput, renderer?: Renderer): void;
   destroy(): void;
 };
 
@@ -36,8 +37,9 @@ export function createPackScene(): PackScene {
   let spray: { seed: number; world: SprayWorld } | null = null;
   let knockout: { seed: number; world: WindowWorld } | null = null;
   let doodle: { seed: number; world: DoodleWorld } | null = null;
+  const treatment = createTreatmentWorld();
   const printLayer = new Container();
-  root.addChild(picture.root, pulise.root, dustLayer, printLayer);
+  root.addChild(picture.root, pulise.root, dustLayer, printLayer, treatment.root);
 
   function updateDust(input: PackSceneInput) {
     if (!input.dustPoints || !input.colors) throw new Error('Dust needs a photo and its two colours.');
@@ -111,7 +113,7 @@ export function createPackScene(): PackScene {
 
   return {
     root,
-    update(input) {
+    update(input, renderer) {
       if (input.style !== 'riso') { riso?.world.destroy(); riso = null; }
       if (input.style !== 'spray') { spray?.world.destroy(); spray = null; }
       if (input.style !== 'window') { knockout?.world.destroy(); knockout = null; }
@@ -119,12 +121,17 @@ export function createPackScene(): PackScene {
       picture.root.visible = input.style === 'bank' || input.style === 'filter';
       pulise.root.visible = input.style === 'pulise';
       dustLayer.visible = input.style === 'dust';
+      treatment.root.visible = input.style === 'treatment';
       if (input.style === 'dust') updateDust(input);
       else if (input.style === 'riso') updateRiso(input);
       else if (input.style === 'spray') updateSpray(input);
       else if (input.style === 'window') updateWindow(input);
       else if (input.style === 'doodle') updateDoodle(input);
       else if (input.style === 'pulise') pulise.update(input);
+      else if (input.style === 'treatment') {
+        if (!renderer) throw new Error('A treatment needs the renderer to draw its Directed pass.');
+        treatment.update(input, renderer);
+      }
       else picture.update(input);
     },
     destroy() {
@@ -135,6 +142,7 @@ export function createPackScene(): PackScene {
       spray?.world.destroy();
       knockout?.world.destroy();
       doodle?.world.destroy();
+      treatment.destroy();
       root.destroy({ children: true });
     },
   };

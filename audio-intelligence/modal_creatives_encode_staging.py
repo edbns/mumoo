@@ -52,7 +52,7 @@ OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
     "motionShots", "reel", "cutSeed", "look", "inkSet", "sprayPalette", "windowMode", "windowPalette", "windowAllowed",
-    "doodleId", "doodlePaper", "doodleMood",
+    "doodleId", "doodlePaper", "doodleMood", "treatment", "treatmentVariant",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
 # A Director's reel: two to six library pictures or clips the page fetches itself, from links the site made for them (private bucket, signed, short-lived).
@@ -61,7 +61,18 @@ REEL_HOST_SUFFIX = ".r2.cloudflarestorage.com"
 # The kinds of creative the page draws, the Riso ink sets, the Spray walls and the Window screens and faces it knows (creative/src/ad-punch.ts, riso-look.ts, spray-look.ts, window-look.ts, window-deal.ts; a test keeps these in step).
 # The live looks drawn on a picture of Our photography (creative/src/live-look-deal.ts; a test keeps these in step).
 LIVE_LOOKS = {"thermal", "arctic", "night", "whitehot", "blackhot", "rainbow", "lava", "crimson", "amber", "gold", "ultraviolet", "acid", "vapor", "candy", "dusk", "lagoon", "aurora", "cyanotype", "halftone", "halftonebw", "halftonenews", "halftoneblue", "halftonered", "halftonepink", "halftoneteal", "halftonepop", "halftoneneon", "halftoneinvert", "halftonegold", "halftonecmyk", "halftoneriso", "halftoneblueprint", "halftonesepia", "halftonemanga", "halftonesubway", "halftonesunset", "halftonematcha", "halftonecandy", "halftonetarot", "halftoneacid", "halftonesilver", "halftonephosphor", "halftoneuv", "halftonecopper", "halftoneengrave", "halftonehatch", "halftoneled", "halftonebenday", "dithermac", "ditherinvert", "dithergameboy", "dithercga", "dithercgagreen", "ditherega", "ditherc64", "ditherapple2", "ditherpico8", "ditheramiga", "ditherreceipt", "ditherblueprint", "ditheramber", "dithersunset", "dithervapor", "ditherforest", "dithernews", "ditherneon", "dithergold", "ditherown", "glowbloom", "glowpink", "glowcyan", "glowsplit", "glowamber", "glowgold", "glowuv", "glowtoxic", "glowred", "glowpeach", "glowice", "glowprism", "glowdream", "glownoir", "glowclub", "glowmist", "glowlilac", "glowrose", "streakblue", "streakamber", "streakteal", "streakmagenta", "streakwhite", "streakred", "streakgreen", "streakgold", "streakcyan", "streakviolet", "streakprism", "streaksunset", "streakice", "streakburn", "streakrain", "streakzoom", "streakspeed", "asciigreen", "asciiamber", "asciiwhite", "asciitype", "asciicolour", "asciicyan", "asciipink", "asciiblueprint", "asciimatrix", "asciired", "asciigold", "asciiice", "asciinews", "asciisunset", "asciibinary", "asciiblocks", "asciislash", "asciimumoo", "depthfog", "depthtilt", "depthwarm", "depthsilhouette", "depthneon", "depthecho", "depthzoom", "depthdream", "depthgold", "depthnoir", "depthspot", "depthdouble", "depthice", "depthember"}
-STYLES = {"bank", "pulise", "dust", "filter", "riso", "spray", "window", "doodle"}
+STYLES = {"bank", "pulise", "dust", "filter", "riso", "spray", "window", "doodle", "treatment"}
+# Video treatments over the Director's reel (creative/src/treatment-deal.ts; a test keeps these in step).
+TREATMENTS = {
+    "triptych": {"narrow", "medium", "wide", "breathing"},
+    "fisheye": {"subtle", "medium", "strong", "extreme"},
+    "collage": {"editorial", "scatter", "stack", "offset"},
+    "frame": {"slim", "bold", "accent", "ink"},
+    "bento": {"hero-left", "hero-top", "mosaic", "strip"},
+    "grain": {"fine", "classic", "heavy", "halation"},
+    "kaleidoscope": {"four", "six", "eight", "twelve"},
+    "double": {"blend", "screen", "offset-cut", "offset-far"},
+}
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
 SPRAY_PALETTES = {"neon-night", "neon-plum", "neon-navy", "bold-offwhite", "bold-grey", "bold-pastel"}
 WINDOW_PALETTES = {
@@ -300,6 +311,16 @@ def parse_meta(raw: str) -> dict:
             raise ValueError("font")
     elif any(key in opts for key in DOODLE_KEYS):
         raise ValueError("doodle")
+    # A video treatment finishes the Director's reel with one known pass and variant; preview and encode share the same options.
+    if opts["style"] == "treatment":
+        treatment = opts.get("treatment")
+        variant = opts.get("treatmentVariant")
+        if treatment not in TREATMENTS or not isinstance(variant, str) or variant not in TREATMENTS[treatment]:
+            raise ValueError("treatment")
+        if any(key in opts for key in ("look", "effectId", "inkSet", "sprayPalette", *WINDOW_KEYS, *DOODLE_KEYS)):
+            raise ValueError("treatment")
+    elif "treatment" in opts or "treatmentVariant" in opts:
+        raise ValueError("treatment")
     if "bankId" in opts and (not isinstance(opts["bankId"], str) or not ID_RE.match(opts["bankId"])):
         raise ValueError("bankId")
     for key in ("plateId", "effectId"):
@@ -320,8 +341,8 @@ def parse_meta(raw: str) -> dict:
                 raise ValueError("motionShots")
     if "reel" in opts:
         reel = opts["reel"]
-        # Our photography (with a live look; Depth takes photos with cut-outs) and Riso draw a reel, alone: it is the card's only picture.
-        if opts["style"] not in ("filter", "riso") or any(key in opts for key in ("plateId", "effectId")):
+        # Our photography (with a live look; Depth takes photos with cut-outs), treatments and Riso draw a reel, alone: it is the card's only picture.
+        if opts["style"] not in ("filter", "riso", "treatment") or any(key in opts for key in ("plateId", "effectId")):
             raise ValueError("reel")
         depth = isinstance(opts.get("look"), str) and opts["look"].startswith("depth")
         if not isinstance(reel, list) or not 2 <= len(reel) <= REEL_MAX:
@@ -404,10 +425,12 @@ def check_media(opts: dict, media: dict[str, bytes]) -> None:
     else:
         named = {key for key in ("plateId", "effectId") if key in opts}
         wanted = set()
-        if opts["style"] == "filter":
+        if opts["style"] in ("filter", "treatment"):
             # One of our own pictures (our photo, or one baked effect on it), or the person's or the library's photo or clip.
-            # Depth looks need the cut-out as a near layer.
-            depth = isinstance(opts.get("look"), str) and opts["look"].startswith("depth")
+            # Depth looks need the cut-out as a near layer. Treatments never take a baked effect or a cut-out.
+            depth = opts["style"] == "filter" and isinstance(opts.get("look"), str) and opts["look"].startswith("depth")
+            if opts["style"] == "treatment" and named:
+                raise ValueError("media")
             if len(named) > 1:
                 raise ValueError("media")
             if not named:

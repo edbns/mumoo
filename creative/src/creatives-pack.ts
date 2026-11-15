@@ -28,6 +28,14 @@ import { libraryFit, pickLibrary, showing, type LibraryPicture, type LibraryWant
 import { boardForRow } from './boards';
 import { dealDoodle, doodleMood, type DoodlePaper } from './doodle-cast';
 import type { DoodleMood } from './doodle-parts';
+import {
+  dealTreatments,
+  isTreatmentId,
+  TREATMENT_IDS,
+  treatmentTitle,
+  treatmentVariants,
+  type TreatmentId,
+} from './treatment-deal';
 
 type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[]; read: LookRead };
 const BANK_LOOKS = bankData as BankLook[];
@@ -39,7 +47,7 @@ const PHOTO_EFFECTS = effectsData as PhotoEffect[];
 export type PackFamily = 'ad_punch';
 
 /** Every row that can be dealt. 'looks' (Moving backgrounds) is dealt but not on the shelf: see SHELF_ROWS. */
-export type ShelfRow = 'photography' | LookFamily | 'looks' | 'riso' | 'spray' | 'window' | 'doodle' | 'pulise' | 'dust';
+export type ShelfRow = 'photography' | LookFamily | TreatmentId | 'looks' | 'riso' | 'spray' | 'window' | 'doodle' | 'pulise' | 'dust';
 
 /**
  * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
@@ -53,6 +61,8 @@ export type ShelfRow = 'photography' | LookFamily | 'looks' | 'riso' | 'spray' |
 export type ShelfRowDef = { id: ShelfRow; title: string; lyrics: 'switch' | 'always'; picture?: 'photo' | 'any' };
 export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'photography', title: 'Directed', lyrics: 'switch', picture: 'any' },
+  // Video treatments: each finishes the Directed reel with one creative pass (gaps, lens, collage, grain…).
+  ...TREATMENT_IDS.map(id => ({ id, title: treatmentTitle(id), lyrics: 'switch' as const, picture: 'any' as const })),
   // One effect per row, each dealt in its different colourings, on pictures of our library or the person's own (a row has no picture to draw until the library has one or they upload theirs).
   { id: 'thermal', title: 'Thermal', lyrics: 'switch', picture: 'any' },
   { id: 'halftone', title: 'Halftone', lyrics: 'switch', picture: 'any' },
@@ -117,6 +127,9 @@ export type CreativesPackSlot = {
   effectId?: string;
   /** Our photography: a live look drawn on the picture (ours from the library, or the person's own), never on a baked effect. */
   look?: LiveLookId;
+  /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
+  treatment?: TreatmentId;
+  treatmentVariant?: string;
   /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
   bankId?: string;
   typeStyle?: TypeStyleId;
@@ -455,12 +468,21 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const risoPhotos: PhotoSources = { plateIds: cutOutPlates, libraryIds: risoLibrary };
   /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
   const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, pickLibrary(from(), wanted, `${profile.clip.sourceSha256}:${family}`, generation, ROW_SIZE), ownPicture);
+  const treatmentRow = (kind: TreatmentId) => treatmentSlots(kind, lane, intent, seed, pickLibrary(from(), wanted, `${profile.clip.sourceSha256}:${kind}`, generation, ROW_SIZE), ownPicture);
   const slots = {
     photography: () => photographySlots(
       lane, intent, seed,
       dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation),
       pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE),
     ),
+    triptych: () => treatmentRow('triptych'),
+    fisheye: () => treatmentRow('fisheye'),
+    collage: () => treatmentRow('collage'),
+    frame: () => treatmentRow('frame'),
+    bento: () => treatmentRow('bento'),
+    grain: () => treatmentRow('grain'),
+    kaleidoscope: () => treatmentRow('kaleidoscope'),
+    double: () => treatmentRow('double'),
     thermal: () => effectRow('thermal'),
     halftone: () => effectRow('halftone'),
     dither: () => effectRow('dither'),
@@ -479,9 +501,9 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     pulise: () => puliseSlots(lane, intent, seed),
     dust: () => dustSlots(lane, intent, seed, cover?.hue, photos),
   }[row]();
-  // Our photography, its live looks (Depth too, from photos that have a cut-out) and Riso (whole-frame, from clips) are edited by the Director from a pool, once there are two or more pictures to edit.
+  // Our photography, its live looks (Depth too, from photos that have a cut-out), treatments and Riso (whole-frame, from clips) are edited by the Director from a pool, once there are two or more pictures to edit.
   const directed = (items: readonly LibraryPicture[] | null, song: string) => (items && !ownPicture && !own ? reelPool(items, wanted, song, generation) : []);
-  const pool = row === 'photography' ? directed(from(), profile.clip.sourceSha256)
+  const pool = row === 'photography' || isTreatmentId(row) ? directed(from(), profile.clip.sourceSha256 + (isTreatmentId(row) ? `:${row}` : ''))
     : row === 'depth' ? directed(from(cutOut), `${profile.clip.sourceSha256}:depth`)
       : isLookRow(row) ? directed(from(), `${profile.clip.sourceSha256}:${row}`)
       : row === 'riso' ? directed(from(isClip), `${profile.clip.sourceSha256}:riso`)
@@ -677,6 +699,40 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
  */
 /** Whether a shelf row is one effect's row (Thermal, Halftone, ...): dealt in colourings of one live look, on library pictures or the person's own. */
 export const isLookRow = (row: ShelfRow): row is LookFamily => isLookFamily(row);
+
+/** Whether a shelf row is a video treatment over the Directed reel. */
+export const isTreatmentRow = (row: ShelfRow): row is TreatmentId => isTreatmentId(row);
+
+/**
+ * Four cards of one treatment: each a library picture (or the person's own) finished with a different variant, each with its
+ * own lyric type. With no library picture and no own picture the row is empty. Once two or more pictures are available the
+ * Director edits a reel of them (same as Directed); the treatment never changes that plan.
+ */
+function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
+  const cards: (LibraryPicture | null)[] = ownPicture ? Array.from({ length: ROW_SIZE }, () => null) : picks.slice(0, ROW_SIZE);
+  const variants = dealTreatments(lane, seed, cards.length, kind);
+  if (!cards.length || variants.length !== cards.length) return [];
+  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:treatment`, id => id);
+  const typeOf = (index: number) => types[index % types.length];
+  const faces = dealFaces(lane, intent, seed, kind, cards.map((_, index) => typeNeeds(typeOf(index))));
+  const hand = hashPick(seed, 'gen', 997).toString(36);
+  const titles = treatmentVariants(kind);
+  return cards.map((pick, index) => {
+    const variant = variants[index];
+    const label = titles.find(entry => entry.id === variant)?.title ?? variant;
+    return {
+      ...adPunchSlot('treatment', index, intent, seed, lane, kind, faces[index]),
+      id: `ad-${kind}-${pick?.id ?? `own${index}`}-${variant}-${hand}`,
+      label: pick ? [pick.tags[0] ?? pick.attitudes[0] ?? 'Our library', label].join(' · ') : label,
+      reason: pick ? `${lane} · library · ${pick.attitudes.join('+')} · ${typeOf(index)} · ${kind}:${variant}` : `${lane} · own picture · ${typeOf(index)} · ${kind}:${variant}`,
+      ...(pick ? { libraryId: pick.id } : {}),
+      typeStyle: typeOf(index),
+      treatment: kind,
+      treatmentVariant: variant,
+      cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
+    };
+  });
+}
 
 /** Depth: library photos with a cut-out, else approved plates with a cut-out, else the person's own cut-out photo. */
 function depthSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, photos: PhotoSources, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {

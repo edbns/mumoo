@@ -3,7 +3,7 @@ import { DURATION_MS, FPS, playheadFrame, type Composition, type ImpactMusic } f
 import { songAccents } from './pack-director';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
-import { isLookRow, recommendRow, rowsFor, SHELF_ROWS, windowHand, type CreativesPackSlot, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
+import { isLookRow, isTreatmentRow, recommendRow, rowsFor, SHELF_ROWS, windowHand, type CreativesPackSlot, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
 import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
 import { friendlyError } from './friendly-error';
@@ -97,6 +97,7 @@ function packOpts(
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
     // A live look goes on a picture (the library's or the person's own), never on a baked effect.
     ...(slot.look && !('effectId' in drawn) ? { look: slot.look } : {}),
+    ...(slot.treatment ? { treatment: slot.treatment, treatmentVariant: slot.treatmentVariant } : {}),
     ...(slot.cutSeed != null ? { cutSeed: slot.cutSeed } : {}),
     // With lyrics off nothing about the words is used or sent anywhere, not even what they mean.
     ...(slot.grade && lyrics ? { grade: slot.grade } : {}),
@@ -205,8 +206,8 @@ export function CreativesPackStudio({
   const dealt = ownPool ?? library;
   // Riso draws library cut-out photos or clips; Dust only cut-out photos; Window photos with cut-out or clips.
   const libraryFor = (row: ShelfRow) => {
-    // Live-look rows deal from our library; a picture of the person's own is drawn on all four cards instead (see `recommendRow`).
-    if (isLookRow(row)) return dealt ?? [];
+    // Live-look and treatment rows deal from our library; a picture of the person's own is drawn on all four cards instead (see `recommendRow`).
+    if (isLookRow(row) || isTreatmentRow(row)) return dealt ?? [];
     return (row === 'photography' || row === 'riso' || row === 'dust' || row === 'window') && !own ? dealt ?? [] : [];
   };
   /** Our approved photos, which the person's own pictures replace. */
@@ -251,14 +252,14 @@ export function CreativesPackStudio({
     }
     // Our photography is dealt once it knows what our library holds and which approved photo it may draw a look on.
     if (def.id === 'photography' && (library === null || plates === null)) return [def.id, { slots: [], note: '' }];
-    // The looks are dealt once it knows what our library holds.
-    if (isLookRow(def.id) && dealt === null && !own) return [def.id, { slots: [], note: '' }];
+    // The looks and treatments are dealt once it knows what our library holds.
+    if ((isLookRow(def.id) || isTreatmentRow(def.id)) && dealt === null && !own) return [def.id, { slots: [], note: '' }];
     // Window is dealt once it knows its pictures: the person's own, once it has been read (what shows in the letters decides the colours), or our approved photos.
     if (def.id === 'window' && (own ? !windowOwn.own : plates === null || dealt === null || windowReads.pending)) return [def.id, { slots: [], note: windowOwn.problem }];
     if (!textless && !hasLyrics) return [def.id, { slots: [], note: '' }];
-    const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, def.id === 'window' ? windowOwn.own : null, libraryFor(def.id), windowReads.readings, isLookRow(def.id) && Boolean(ownFor(def.id)));
-    // The looks are drawn on our library pictures, so with none for this song they say so instead of vanishing.
-    const note = !slots.length && isLookRow(def.id) && !ownPool ? `${def.title} is drawn on pictures from our library, and none fits this song yet. Upload your own picture to see it here.` : '';
+    const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, def.id === 'window' ? windowOwn.own : null, libraryFor(def.id), windowReads.readings, (isLookRow(def.id) || isTreatmentRow(def.id)) && Boolean(ownFor(def.id)));
+    // The looks and treatments are drawn on our library pictures, so with none for this song they say so instead of vanishing.
+    const note = !slots.length && (isLookRow(def.id) || isTreatmentRow(def.id)) && !ownPool ? `${def.title} is drawn on pictures from our library, and none fits this song yet. Upload your own picture to see it here.` : '';
     return [def.id, { slots, note }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, creatorKey, lyricKey,

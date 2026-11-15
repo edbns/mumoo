@@ -33,7 +33,7 @@ function profile(sha = 'b'.repeat(64)) {
 }
 
 const LIBRARY = [photo(1), photo(2), photo(3), clip(4), photo(5), clip(6, 'gif'), photo(7), photo(8)];
-const REEL_ROWS = ['photography', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'];
+const REEL_ROWS = ['photography', 'triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'kaleidoscope', 'double', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'];
 
 test('Directed, the looks, Depth and Riso are edited reels of two or more library pictures', () => {
   for (const row of [...REEL_ROWS, 'riso']) {
@@ -118,10 +118,11 @@ test('the cloud’s links carry no id, so each picture is still told apart (by i
 
 /* ---------- the server ---------- */
 
-test('the server takes a reel of two to eight library ids for Our photography and Riso only', () => {
+test('the server takes a reel of two to eight library ids for Our photography, treatments and Riso only', () => {
   const ids = [uuid(1), uuid(2), uuid(3)];
   const reel = ids.map(id => ({ id, kind: 'photo' }));
   assert.deepEqual(reelIds({ style: 'filter', reel }), { ids, depth: false });
+  assert.deepEqual(reelIds({ style: 'treatment', reel }), { ids, depth: false });
   assert.deepEqual(reelIds({ style: 'riso', reel }), { ids, depth: false });
   assert.deepEqual(reelIds({ style: 'filter', look: 'depthfog', reel }), { ids, depth: true }, 'Depth is a reel too: of photos with their cut-outs');
   assert.ok(reelIds({ style: 'dust', reel }).refused);

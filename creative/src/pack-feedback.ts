@@ -74,6 +74,8 @@ export function reportPackFeedback(
       ...(libraryId ? { libraryId } : {}),
       // Only when the look was really drawn: on a library picture or the person's own, never on a baked effect.
       ...(slot.look && (libraryId || extras?.ownPicture) ? { look: slot.look } : {}),
+      // A treatment's variant, so Admin → Learning can tell the four finishes of one row apart (the row is already the treatment).
+      ...(slot.treatmentVariant ? { look: slot.treatmentVariant } : {}),
       ...reel,
       // The mood board its pictures came from, unless the person's own picture took their place.
       ...(slot.board && !extras?.ownPicture ? { board: slot.board } : {}),

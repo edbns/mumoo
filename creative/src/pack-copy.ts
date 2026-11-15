@@ -13,6 +13,7 @@ import type { SprayPalette } from './spray-look';
 import type { WindowPicture } from './pack-window';
 import type { DoodlePaper } from './doodle-cast';
 import type { DoodleMood } from './doodle-parts';
+import type { TreatmentId } from './treatment-deal';
 
 export type PackSceneInput = {
   style: AdPunchStyle;
@@ -62,6 +63,11 @@ export type PackSceneInput = {
   windowAllowed?: readonly string[];
   /** Doodle: who sings (a card's singers), the paper, and the mood of the song. */
   doodle?: { id: string; paper: DoodlePaper; mood: DoodleMood };
+  /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
+  treatment?: TreatmentId;
+  treatmentVariant?: string;
+  /** Double Exposure: a second Directed frame (often from a later cut of the same plan). */
+  treatmentSecond?: Texture | null;
 };
 
 /**

@@ -32,6 +32,8 @@ import type { WindowMode } from './window-deal';
 import type { WindowPicture } from './pack-window';
 import type { DoodlePaper } from './doodle-cast';
 import type { DoodleMood } from './doodle-parts';
+import { DOUBLE_CUT_AHEAD } from './pack-treatment';
+import { isTreatmentId, isTreatmentVariant, type TreatmentId } from './treatment-deal';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
 export const PREVIEW_WIDTH = 360;
@@ -82,12 +84,16 @@ export type PackRendererOpts = {
   doodleId?: string;
   doodlePaper?: DoodlePaper;
   doodleMood?: DoodleMood;
+  /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
+  treatment?: TreatmentId;
+  treatmentVariant?: string;
 };
 
 /** The font families a card draws with, so each is fetched (from this site) the first time a card needs it, not before. */
 function familiesFor(opts: PackRendererOpts): string[] {
   if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'spray' || opts.style === 'window' || opts.style === 'doodle') return [opts.font];
   if (opts.style === 'pulise') return [opts.font, opts.fontSecondary];
+  if (opts.style === 'treatment') return opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [opts.font, opts.fontSecondary];
   return opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [];
 }
 
@@ -163,6 +169,8 @@ export async function createPackRenderer(
   let dustKey = '';
   let risoPhoto: RisoPhoto | null = null;
   let risoKey = '';
+  /** Double Exposure: a second Directed frame, held while the treatment blends it with the current one. */
+  let treatmentSecond: Texture | null = null;
   let contextLost = false;
   let gl: WebGL2RenderingContext | WebGLRenderingContext | null = null;
 
@@ -185,6 +193,8 @@ export async function createPackRenderer(
     dustKey = '';
     risoPhoto = null;
     risoKey = '';
+    treatmentSecond?.destroy(true);
+    treatmentSecond = null;
     if (initialized) {
       try { app.destroy(false, { children: true }); } catch { /* a lost surface cannot be torn down cleanly */ }
     }
@@ -267,11 +277,19 @@ export async function createPackRenderer(
         await ensureFonts(familiesFor(current));
         // Our photography draws one baked effect, or (replacing it) the person's own picture, never both.
         const reelled = Boolean(current.reel?.length);
-        if (reelled && (!(style === 'filter' || style === 'riso') || current.effectId || current.plateId || current.photoUrl || current.motionUrl || current.cutoutUrl)) throw new Error('A reel is drawn by Our photography or Riso, alone, not with another picture.');
+        if (reelled && (!(style === 'filter' || style === 'riso' || style === 'treatment') || current.effectId || current.plateId || current.photoUrl || current.motionUrl || current.cutoutUrl)) throw new Error('A reel is drawn by Our photography, a treatment or Riso, alone, not with another picture.');
         if (style === 'filter' && current.effectId && (current.photoUrl || current.motionUrl)) throw new Error('Our photography draws an effect or the person’s own picture, not both.');
-        const ownBackdrop = style === 'filter' && !current.effectId;
+        const ownBackdrop = (style === 'filter' && !current.effectId) || style === 'treatment';
         if (style === 'filter' && current.plateId && (current.effectId || current.photoUrl || current.motionUrl)) throw new Error('Our photography draws one picture: our photo, an effect, or the person’s own.');
         if (current.look && (!isLiveLook(current.look) || style !== 'filter' || current.effectId)) throw new Error('A live look is drawn only on a picture of Our photography, not on a baked effect.');
+        if (style === 'treatment') {
+          if (!current.treatment || !isTreatmentId(current.treatment) || !current.treatmentVariant || !isTreatmentVariant(current.treatment, current.treatmentVariant)) {
+            throw new Error('A treatment needs a known finish and variant.');
+          }
+          if (current.look || current.effectId) throw new Error('A treatment finishes the Directed reel alone, not with a live look or baked effect.');
+        } else if (current.treatment || current.treatmentVariant) {
+          throw new Error('Only a treatment card carries a treatment.');
+        }
         const windowMode = style === 'window' ? checkWindow(current) : null;
         const windowOwn = windowMode === 'person' || windowMode === 'plain';
         if (style === 'riso' && !current.inkSet) throw new Error('Riso needs an ink set.');
@@ -284,7 +302,7 @@ export async function createPackRenderer(
         const risoMotion = style === 'riso' && Boolean(current.motionUrl || reelled);
         const cutOut = style === 'dust' || (style === 'riso' && !risoMotion) || windowMode === 'person' || (ownBackdrop && depthLook);
         const ownPicture = cutOut || ownBackdrop || windowOwn || risoMotion;
-        // Our photography can also draw our approved photo itself (with a live look on it).
+        // Our photography can also draw our approved photo itself (with a live look on it). Treatments never use a plate.
         const photoUrl = (cutOut || windowOwn || style === 'filter') && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
         const cutoutUrl = cutOut ? (current.plateId ? plateCutoutUrl(current.plateId) : current.cutoutUrl) : undefined;
         if (ownPicture) await ensurePicture(photoUrl, cutoutUrl, current.motionUrl, current.reel);
@@ -312,11 +330,31 @@ export async function createPackRenderer(
         const reaction = packReaction(current.music, frame);
         const { ms, energy, beatIndex, beatGapMs } = reaction;
         // A video or GIF shows the clip's frame for this moment.
+        treatmentSecond?.destroy(true);
+        treatmentSecond = null;
         if (motion) {
           if (reel) {
             // The Director's edit of several pictures, to this music; `seek` takes the moment of the song.
             reel.direct(current.music, current.cutSeed ?? 0, DURATION_MS);
             await motion.seek(ms);
+            // Double Exposure may blend a later cut of the same plan: seek there, copy the frame, then restore.
+            if (style === 'treatment' && current.treatment === 'double' && current.treatmentVariant) {
+              const ahead = DOUBLE_CUT_AHEAD[current.treatmentVariant] ?? 0;
+              if (ahead > 0) {
+                const later = reel.cutAheadMs(ms, ahead);
+                await motion.seek(later);
+                const canvas = document.createElement('canvas');
+                canvas.width = WIDTH;
+                canvas.height = HEIGHT;
+                const ctx = canvas.getContext('2d');
+                const frame = motion.texture.source.resource as CanvasImageSource | undefined;
+                if (ctx && frame) {
+                  ctx.drawImage(frame, 0, 0, WIDTH, HEIGHT);
+                  treatmentSecond = Texture.from(canvas);
+                }
+                await motion.seek(ms);
+              }
+            }
           } else if (current.look) {
             // A card with a live look plays its video straight through, as one piece (looping if it is shorter than the clip), not cut up.
             cuts = [];
@@ -367,7 +405,7 @@ export async function createPackRenderer(
             }
           }
         }
-        if (ownBackdrop && !photoTexture && !motion) throw new Error('Our photography needs an effect or a picture.');
+        if (ownBackdrop && !photoTexture && !motion) throw new Error(style === 'treatment' ? 'A treatment needs a Directed picture.' : 'Our photography needs an effect or a picture.');
         if (depthLook && !cutoutTexture && !reel?.subject) throw new Error('Depth needs a photo and its cut-out.');
         // Window: the picture behind the word is the clip's frame, the photo, or the baked still; her cut-out stands in front when the card says so.
         let windowPicture: WindowPicture | undefined;
@@ -420,7 +458,10 @@ export async function createPackRenderer(
           windowPalette: current.windowPalette,
           windowAllowed: current.windowAllowed,
           doodle: style === 'doodle' ? { id: current.doodleId!, paper: current.doodlePaper!, mood: current.doodleMood! } : undefined,
-        });
+          treatment: style === 'treatment' ? current.treatment : undefined,
+          treatmentVariant: style === 'treatment' ? current.treatmentVariant : undefined,
+          treatmentSecond: style === 'treatment' ? treatmentSecond : null,
+        }, app.renderer);
         app.render();
       },
       extractCanvas(resolution = 1) {

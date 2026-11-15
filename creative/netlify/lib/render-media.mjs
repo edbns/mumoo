@@ -20,6 +20,7 @@ export function ownMedia(style, look, picture) {
       return { parts: { motion: picture.motion } };
     }
     const withCutout = style === 'dust' || style === 'riso' || style === 'window' || (style === 'filter' && depth);
+    // Treatments finish the Directed picture alone: a photo with no cut-out, or a clip.
     if (withCutout && !picture.cutout) return { refused: 'That picture has no cut-out yet.' };
     return { parts: { photo: picture.photo, ...(withCutout ? { cutout: picture.cutout } : {}) } };
   }

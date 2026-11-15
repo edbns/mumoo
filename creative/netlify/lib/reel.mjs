@@ -7,11 +7,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const REEL_MIN = 2;
 export const REEL_MAX = 8;
 
-/** Our photography (with a live look) and Riso (whole-frame) draw a reel; it replaces every other picture of the card. */
+/** Our photography (with a live look), a video treatment and Riso (whole-frame) draw a reel; it replaces every other picture of the card. */
 export function reelIds(opts) {
   const reel = opts?.reel;
   if (!Array.isArray(reel) || reel.length < REEL_MIN || reel.length > REEL_MAX) return { refused: 'A reel needs between two and eight pictures.' };
-  if (!['filter', 'riso'].includes(opts.style)) return { refused: 'A reel is kept for a different style.' };
+  if (!['filter', 'riso', 'treatment'].includes(opts.style)) return { refused: 'A reel is kept for a different style.' };
   if (['plateId', 'effectId', 'photoUrl', 'cutoutUrl', 'motionUrl'].some((key) => opts[key] !== undefined)) return { refused: 'A reel is the card’s only picture.' };
   const ids = reel.map((entry) => entry?.id);
   if (!ids.every((id) => typeof id === 'string' && UUID.test(id)) || new Set(ids).size !== ids.length) return { refused: 'Invalid picture.' };
