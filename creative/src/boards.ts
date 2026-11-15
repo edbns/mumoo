@@ -247,10 +247,13 @@ export function rankBoards(wanted: BoardWanted, filled: ReadonlyMap<string, numb
 /**
  * The board one row of the shelf is dealt from, or null while no board is filled. Each row takes one board, so its reels hold
  * together; the rows share the song's best boards, the best getting about half of them. A row's Refreshes walk its own deals
- * first, and every `REFRESHES_PER_STEP` its boards move one along the ranking.
+ * first, and every `REFRESHES_PER_STEP` its boards move one along the ranking. Only boards that fit the song are walked (a song
+ * only one board fits stays on it); a song no board fits walks them all.
  */
 export function boardForRow(row: string, wanted: BoardWanted, items: readonly { boards?: readonly string[] }[], song: string, generation: number): Board | null {
-  const ranked = rankBoards(wanted, filledBoards(items), song);
+  const all = rankBoards(wanted, filledBoards(items), song);
+  const fitting = all.filter(board => boardFit(board, wanted) > 0);
+  const ranked = fitting.length ? fitting : all;
   if (!ranked.length) return null;
   const step = Math.floor(generation / REFRESHES_PER_STEP);
   const spread = Math.min(SPREAD, ranked.length);

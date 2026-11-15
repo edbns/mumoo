@@ -89,6 +89,17 @@ test('a row is dealt from one of the song\'s best filled boards; refreshing agai
   } finally { await server.close(); }
 });
 
+test('a song only one board fits stays on it through every Refresh; a song no board fits walks them all', async () => {
+  const { server, boards } = await load();
+  try {
+    const items = [...filed('b', 'block-party', 8), ...filed('n', 'night-drive', 8), ...filed('m', 'main-stage', 8), ...filed('d', 'dark-warehouse', 8)];
+    const carioca = { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk carioca', attitude: null };
+    const dealt = wanted => Array.from({ length: 12 }, (_, generation) => boards.boardForRow('photography', wanted, items, 'song', generation).id);
+    assert.deepEqual([...new Set(dealt(carioca))], ['block-party'], 'Funk Carioca is never moved to a board that does not fit it');
+    assert.ok(new Set(dealt({ genre: '', subGenre: '', attitude: null })).size > 1, 'a song the boards know nothing of still moves along');
+  } finally { await server.close(); }
+});
+
 function profile(sha = 'c'.repeat(64)) {
   const frames = Array.from({ length: 20 }, (_, i) => ({ timeMs: i * 100, rms: 0.2, onsetStrength: 1, centroidHz: 2200, bandwidthHz: 1600, rolloffHz: 3000 }));
   return {
