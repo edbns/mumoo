@@ -96,6 +96,18 @@ test('treatments never change the Director\'s plan: same assets, music and cut s
   assert.ok(directed.every(segment => Number.isFinite(segment.atMs) && segment.endMs > segment.atMs));
 });
 
+test('treatment card N finishes Directed card N: the same pictures, reel order and cut', () => {
+  for (const generation of [0, 1, 5]) {
+    const directed = pack.recommendRow('photography', profile(), generation, [], null, LIBRARY, {}, false);
+    for (const kind of deal.TREATMENT_IDS) {
+      const treated = pack.recommendRow(kind, profile(), generation, [], null, LIBRARY, {}, false);
+      assert.deepEqual(treated.map(slot => slot.reelIds), directed.map(slot => slot.reelIds), `${kind} reel @${generation}`);
+      assert.deepEqual(treated.map(slot => slot.cutSeed), directed.map(slot => slot.cutSeed), `${kind} cut @${generation}`);
+      assert.deepEqual(treated.map(slot => slot.board), directed.map(slot => slot.board), `${kind} board @${generation}`);
+    }
+  }
+});
+
 test('Double Exposure\'s later frame comes from a later cut of the same plan', () => {
   const assets = [
     { kind: 'clip', shots: [[0, 4000]] },

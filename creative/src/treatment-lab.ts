@@ -71,7 +71,7 @@ function inputOf(treatment: TreatmentId, variant: string, ms = 2400): PackSceneI
     beatsMs: [0, 480, 960, 1440, 1920, 2400],
     downbeatsMs: [0, 1920],
     dustWord: null,
-    cues: [{ text: 'hello world', startMs: 0, endMs: 900, words: [{ text: 'hello', startMs: 0, endMs: 400 }, { text: 'world', startMs: 400, endMs: 900 }] }],
+    cues: [{ text: 'hello world', startMs: 0, endMs: 900 }],
     seed: 42,
     treatment,
     treatmentVariant: variant,

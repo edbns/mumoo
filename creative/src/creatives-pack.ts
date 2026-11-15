@@ -460,7 +460,10 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
   // Dust draws library photos that have a cut-out; Riso those, or library videos/GIFs; with none, our approved photos.
   const wanted = libraryWanted(profile, meaning, genre, intent);
-  const { board, from } = rowLibrary(row, profile, wanted, library, generation);
+  // A treatment finishes the Directed card in its place: the same board, pictures, reel and cut, never its own.
+  const reelRow: ShelfRow = isTreatmentId(row) ? 'photography' : row;
+  const directedSeed = `${profile.clip.sourceSha256}:${generation}:${lane}:photography`;
+  const { board, from } = rowLibrary(reelRow, profile, wanted, library, generation);
   const cutOut = (item: LibraryPicture) => item.kind === 'photo' && Boolean(item.cutoutUrl);
   const cutOutLibrary = pickLibrary(from(cutOut), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
   const risoLibrary = pickLibrary(from(risoCapable), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
@@ -468,7 +471,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const risoPhotos: PhotoSources = { plateIds: cutOutPlates, libraryIds: risoLibrary };
   /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
   const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, pickLibrary(from(), wanted, `${profile.clip.sourceSha256}:${family}`, generation, ROW_SIZE), ownPicture);
-  const treatmentRow = (kind: TreatmentId) => treatmentSlots(kind, lane, intent, seed, pickLibrary(from(), wanted, `${profile.clip.sourceSha256}:${kind}`, generation, ROW_SIZE), ownPicture);
+  const treatmentRow = (kind: TreatmentId) => treatmentSlots(kind, lane, intent, seed, directedSeed, pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE), ownPicture);
   const slots = {
     photography: () => photographySlots(
       lane, intent, seed,
@@ -503,7 +506,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   }[row]();
   // Our photography, its live looks (Depth too, from photos that have a cut-out), treatments and Riso (whole-frame, from clips) are edited by the Director from a pool, once there are two or more pictures to edit.
   const directed = (items: readonly LibraryPicture[] | null, song: string) => (items && !ownPicture && !own ? reelPool(items, wanted, song, generation) : []);
-  const pool = row === 'photography' || isTreatmentId(row) ? directed(from(), profile.clip.sourceSha256 + (isTreatmentId(row) ? `:${row}` : ''))
+  const pool = reelRow === 'photography' ? directed(from(), profile.clip.sourceSha256)
     : row === 'depth' ? directed(from(cutOut), `${profile.clip.sourceSha256}:depth`)
       : isLookRow(row) ? directed(from(), `${profile.clip.sourceSha256}:${row}`)
       : row === 'riso' ? directed(from(isClip), `${profile.clip.sourceSha256}:riso`)
@@ -704,11 +707,10 @@ export const isLookRow = (row: ShelfRow): row is LookFamily => isLookFamily(row)
 export const isTreatmentRow = (row: ShelfRow): row is TreatmentId => isTreatmentId(row);
 
 /**
- * Four cards of one treatment: each a library picture (or the person's own) finished with a different variant, each with its
- * own lyric type. With no library picture and no own picture the row is empty. Once two or more pictures are available the
- * Director edits a reel of them (same as Directed); the treatment never changes that plan.
+ * Four cards of one treatment: card N is Directed card N (the same pictures, reel and cut, from `directedSeed`) finished with a
+ * different variant, each with its own lyric type. With no library picture and no own picture the row is empty.
  */
-function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
+function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, directedSeed: string, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
   const cards: (LibraryPicture | null)[] = ownPicture ? Array.from({ length: ROW_SIZE }, () => null) : picks.slice(0, ROW_SIZE);
   const variants = dealTreatments(lane, seed, cards.length, kind);
   if (!cards.length || variants.length !== cards.length) return [];
@@ -729,7 +731,7 @@ function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1
       typeStyle: typeOf(index),
       treatment: kind,
       treatmentVariant: variant,
-      cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
+      cutSeed: hashPick(directedSeed, 'cut', 250_000) * 4 + index,
     };
   });
 }
