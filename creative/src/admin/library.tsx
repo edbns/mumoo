@@ -27,6 +27,7 @@ const STATUS_STYLE: Record<LibraryStatus, string> = {
   hidden: 'bg-muted text-muted-foreground',
 };
 const cap = (word: string) => word[0].toUpperCase() + word.slice(1);
+const boardName = (id: string) => BOARDS.find(board => board.id === id)?.name ?? id;
 const megabytes = (bytes: number) => `${(bytes / 1_000_000).toFixed(bytes < 10_000_000 ? 1 : 0)} MB`;
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -46,8 +47,8 @@ function Media({ item, controls = false }: { item: LibraryItem; controls?: boole
 
 type Sending = { name: string; state: 'sending' | 'done' | 'failed'; reason?: string };
 
-/** Drop files in, say once that you cleared them, and they join the library as "Waiting" until you file them on a board and approve them. `onDone` gets the ids of a batch once it has all been sent. */
-function Uploader({ onAdded, onDone }: { onAdded: (item: LibraryItem) => void; onDone: (ids: string[]) => void }) {
+/** Drop files in, say once that you cleared them, and they join the library as "Waiting", in the tray, until they are filed on a board (which approves them). */
+function Uploader({ onAdded }: { onAdded: (item: LibraryItem) => void }) {
   const [rights, setRights] = useState(false);
   const [note, setNote] = useState('');
   /** Files dropped while a board is chosen go straight into it. */
@@ -61,19 +62,15 @@ function Uploader({ onAdded, onDone }: { onAdded: (item: LibraryItem) => void; o
     if (!rights || files.length === 0) return;
     const set = (index: number, entry: Sending) => setSending(list => list.map((old, at) => at === index ? entry : old));
     setSending(files.map(file => ({ name: file.name, state: 'sending' })));
-    const added: string[] = [];
     for (const [index, file] of files.entries()) {
       try {
         const sent = await uploadFile(file, note);
-        const item = board ? (await changeItem(sent.id, { boards: [board] })).item : sent;
-        onAdded(item);
-        added.push(item.id);
+        onAdded(board ? (await changeItem(sent.id, { boards: [board] })).item : sent);
         set(index, { name: file.name, state: 'done' });
       } catch (cause) {
         set(index, { name: file.name, state: 'failed', reason: (cause as Error).message });
       }
     }
-    if (added.length) onDone(added);
   }
   const drop = (event: DragEvent) => { event.preventDefault(); setOver(false); void send([...event.dataTransfer.files]); };
 
@@ -91,7 +88,7 @@ function Uploader({ onAdded, onDone }: { onAdded: (item: LibraryItem) => void; o
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">Mood board (optional)
           <select value={board} onChange={event => setBoard(event.target.value)}
             className="rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm font-normal text-foreground outline-ring focus-visible:outline-2">
-            <option value="">No board yet</option>
+            <option value="">Let our models suggest one</option>
             {BOARDS.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
           </select>
           {board && <span className="font-normal">Look for: {BOARDS.find(entry => entry.id === board)?.hunt}</span>}
@@ -215,12 +212,18 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
       <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close"><XIcon className="size-4" aria-hidden="true" /></Button>
     </div>
     <div className="aspect-[3/4] max-h-80 self-center overflow-hidden rounded-[var(--radius-panel)] bg-muted"><Media item={item} controls /></div>
+    {(item.seenAs || item.suggestion) && <div className="flex flex-col gap-1 rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm">
+      {item.seenAs && <span>{item.seenAs}</span>}
+      {item.suggestion && <span className="text-xs text-muted-foreground">
+        Suggested: {item.suggestion.boards.map(boardName).join(' or ')}{item.suggestion.sure ? '' : ' (not sure)'}</span>}
+    </div>}
 
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
       <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Mood boards · the scenes it belongs to</legend>
       <div className="flex flex-wrap gap-1.5">
         {BOARDS.map(board => <Chip key={board.id} on={boards.includes(board.id)} title={board.hunt}
-          onClick={() => setBoards(list => list.includes(board.id) ? list.filter(id => id !== board.id) : [...list, board.id])}>{board.name}</Chip>)}
+          onClick={() => setBoards(list => list.includes(board.id) ? list.filter(id => id !== board.id) : [...list, board.id])}>
+          {board.name}{!boards.length && item.suggestion?.boards.includes(board.id) ? ' · suggested' : ''}</Chip>)}
       </div>
     </fieldset>
 
@@ -539,6 +542,91 @@ function Boards({ items, chosen, onChoose }: { items: readonly LibraryItem[]; ch
   </section>;
 }
 
+/** A small card in the tray: opens the item; its × (when given) takes it out of a group our models were sure of. */
+function Thumb({ item, onOpen, onDoubt }: { item: LibraryItem; onOpen: () => void; onDoubt?: () => void }) {
+  return <div className="relative aspect-[3/4] overflow-hidden rounded-[var(--radius-control)] bg-muted" title={item.seenAs ?? undefined}>
+    <button type="button" onClick={onOpen} aria-label={item.seenAs ?? `Open this ${item.kind}`} className="size-full bg-transparent p-0"><Media item={item} /></button>
+    {onDoubt && <button type="button" aria-label="Not this board" onClick={onDoubt}
+      className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/60 p-0 text-white hover:bg-black/80"><XIcon className="size-3.5" aria-hidden="true" /></button>}
+  </div>;
+}
+
+/**
+ * What still needs a board, as our models sorted it: the groups they are sure of, each filed (and approved) with one click; the ones they
+ * are not sure of, each with its suggested boards as buttons; and what they are still looking at. Every board the admin chooses teaches them.
+ */
+function SortTray({ items, filed, onFiled, onOpen }: { items: LibraryItem[]; filed: number; onFiled: (saved: LibraryItem[]) => void; onOpen: (id: string) => void }) {
+  const [doubted, setDoubted] = useState<string[]>([]);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const waiting = items.filter(item => item.looking && !item.suggestion);
+  const sure = items.filter(item => !waiting.includes(item) && item.suggestion?.sure && !doubted.includes(item.id));
+  const check = items.filter(item => !waiting.includes(item) && !sure.includes(item));
+  const groups = BOARDS.map(board => ({ board, group: sure.filter(item => item.suggestion?.boards[0] === board.id) })).filter(entry => entry.group.length);
+
+  async function file(list: LibraryItem[], boardsOf: (item: LibraryItem) => string[], key: string) {
+    setBusy(key); setError('');
+    const results = await inTurns(list.map(item => () => changeItem(item.id, { boards: boardsOf(item), ...(item.status === 'approved' ? {} : { status: 'approved' as const }) })));
+    const saved = results.flatMap(result => (result.status === 'fulfilled' ? [result.value.item] : []));
+    if (saved.length < list.length) setError(`${list.length - saved.length} could not be filed. Try again.`);
+    onFiled(saved);
+    setBusy('');
+  }
+
+  if (!items.length) return <p className="m-0 rounded-[var(--radius-panel)] bg-card p-10 text-center text-sm text-muted-foreground">Everything is on a board. Click a board above to see its items.</p>;
+  const panel = 'flex flex-col gap-3 rounded-[var(--radius-panel)] bg-card p-4 shadow-sm';
+  return <section aria-label="To sort" className="flex flex-col gap-4">
+    <div>
+      <h2 className="m-0 text-base font-semibold">To sort <span className="font-normal text-muted-foreground">· {items.length}</span></h2>
+      <p className="m-0 text-xs text-muted-foreground">Our models suggest a board for every new item and learn from the {filed} you have filed. Filing approves it too. Take out (×) any that do not belong: they move to “Check these”.</p>
+    </div>
+    {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
+
+    {groups.map(({ board, group }) => <div key={board.id} className={panel}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="m-0 text-sm font-medium">{board.name} <span className="text-muted-foreground">· {group.length}</span></h3>
+          <p className="m-0 text-xs text-muted-foreground">{board.hunt}</p>
+        </div>
+        <Button size="sm" disabled={Boolean(busy)} onClick={() => void file(group, item => item.suggestion?.boards ?? [board.id], board.id)}>
+          <CheckIcon className="size-4" aria-hidden="true" />{busy === board.id ? 'Filing…' : `File ${group.length} on ${board.name}`}</Button>
+      </div>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+        {group.map(item => <Thumb key={item.id} item={item} onOpen={() => onOpen(item.id)} onDoubt={() => setDoubted(list => [...list, item.id])} />)}
+      </div>
+    </div>)}
+
+    {check.length > 0 && <div className={panel}>
+      <div>
+        <h3 className="m-0 text-sm font-medium">Check these <span className="text-muted-foreground">· {check.length}</span></h3>
+        <p className="m-0 text-xs text-muted-foreground">Our models are not sure about these. Click the board it belongs on, or open it to choose another.</p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {check.map(item => <div key={item.id} className="flex gap-3 rounded-[var(--radius-control)] bg-muted p-2">
+          <div className="w-20 shrink-0"><Thumb item={item} onOpen={() => onOpen(item.id)} /></div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <p className={`m-0 line-clamp-3 text-xs ${item.problem ? 'text-destructive' : ''}`}>{item.problem ?? item.seenAs ?? 'Our models could not describe this one.'}</p>
+            <div className="flex flex-wrap gap-1">
+              {(item.suggestion?.boards ?? []).map(id => <Chip key={id} on={false} disabled={Boolean(busy)} onClick={() => void file([item], () => [id], item.id)}>{boardName(id)}</Chip>)}
+              <Chip on={false} onClick={() => onOpen(item.id)}>Other…</Chip>
+            </div>
+          </div>
+        </div>)}
+      </div>
+    </div>}
+
+    {waiting.length > 0 && <div className={panel}>
+      <div>
+        <h3 className="m-0 text-sm font-medium">Looking <span className="text-muted-foreground">· {waiting.length}</span></h3>
+        <p className="m-0 text-xs text-muted-foreground">Our models are looking at these. Their suggestions come in a minute or two; this page updates by itself.</p>
+      </div>
+      <div className="grid grid-cols-4 gap-2 opacity-60 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
+        {waiting.map(item => <Thumb key={item.id} item={item} onOpen={() => onOpen(item.id)} />)}
+      </div>
+    </div>}
+  </section>;
+}
+
 const NO_BOARD = '__none__';
 
 type StatusFilter = 'all' | LibraryStatus;
@@ -557,8 +645,8 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   const anchor = useRef<string | null>(null);
 
   useEffect(() => { loadLibrary().then(setLibrary, (cause: Error) => setError(cause.message)); }, []);
-  // A video or GIF is being prepared by our worker: look again until it is ready (or has said why it cannot be).
-  const waiting = Boolean(library?.items.some(item => !item.ready && !item.problem));
+  // Our worker is preparing or our models are looking at something: look again until they are done (or have said why they cannot be).
+  const waiting = Boolean(library?.items.some(item => item.looking));
   useEffect(() => {
     if (!waiting) return;
     const timer = setInterval(() => { loadLibrary().then(setLibrary, () => undefined); }, 6000);
@@ -567,7 +655,10 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
 
   const replace = (next: Library) => { setLibrary(next); onChanged(); };
   const items = library?.items ?? [];
-  const boardFits = (item: LibraryItem) => !board || (board === NO_BOARD ? item.boards.length === 0 : item.boards.includes(board));
+  /** Not on a board and not hidden: what the tray sorts. A hidden item without a board is found under "Every item". */
+  const unsorted = items.filter(item => !item.boards.length && item.status !== 'hidden');
+  const sorting = board === NO_BOARD;
+  const boardFits = (item: LibraryItem) => !board || item.boards.includes(board);
   const shown = items.filter(item => (status === 'all' || item.status === status) && boardFits(item));
   const count = (value: StatusFilter) => value === 'all' ? items.length : items.filter(item => item.status === value).length;
   const open = items.find(item => item.id === openId) ?? null;
@@ -589,21 +680,24 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   return <div className={`mx-auto flex max-w-6xl flex-col gap-6 ${chosen.length ? 'pb-24' : ''}`}>
     <header><h1 className="m-0 text-2xl font-semibold">Library</h1>
       <p className="m-0 mt-1 text-sm text-muted-foreground">Cleared photos, videos and GIFs the templates may use. Only approved items are ever used.</p></header>
-    <Uploader onAdded={item => { setLibrary(current => current && { ...current, items: [item, ...current.items] }); onChanged(); }}
-      onDone={ids => { if (ids.length === 1) { setPicked([]); setOpenId(ids[0]); } else { setOpenId(null); setPicked(ids); } }} />
+    <Uploader onAdded={item => { setLibrary(current => current && { ...current, items: [item, ...current.items] }); onChanged(); }} />
     {library && <Boards items={items} chosen={board} onChoose={setBoard} />}
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
 
     <div className="flex flex-wrap items-center gap-2">
-      {(['all', 'pending', 'approved', 'hidden'] as const).map(value => <Chip key={value} on={status === value} onClick={() => setStatus(value)}>
-        {value === 'all' ? 'All' : STATUS_LABEL[value]} {count(value)}</Chip>)}
+      {sorting ? <span className="text-sm text-muted-foreground">New items, sorted by our models. Click a board above to see what is on it.</span>
+        : (['all', 'pending', 'approved', 'hidden'] as const).map(value => <Chip key={value} on={status === value} onClick={() => setStatus(value)}>
+          {value === 'all' ? 'All' : STATUS_LABEL[value]} {count(value)}</Chip>)}
       <select aria-label="Filter by board" value={board} onChange={event => setBoard(event.target.value)}
         className="ml-auto rounded-[var(--radius-control)] bg-card px-3 py-1.5 text-sm shadow-sm outline-ring focus-visible:outline-2">
-        <option value={NO_BOARD}>Not on a board yet ({items.filter(item => item.boards.length === 0).length})</option>
+        <option value={NO_BOARD}>To sort ({unsorted.length})</option>
         <option value="">Every item ({items.length})</option>
         {BOARDS.map(entry => <option key={entry.id} value={entry.id}>{entry.name} ({items.filter(item => item.boards.includes(entry.id)).length})</option>)}
       </select>
     </div>
+    {sorting && library ? <SortTray items={unsorted} filed={items.length - items.filter(item => !item.boards.length).length} onOpen={setOpenId}
+      onFiled={saved => { setLibrary(current => current && { ...current, items: current.items.map(item => saved.find(entry => entry.id === item.id) ?? item) }); onChanged(); void refresh(); }} />
+    : <>
     {shown.length > 0 && <div className="-mt-3 flex flex-wrap items-center gap-2 text-sm">
       <Button variant="secondary" size="sm" onClick={() => { setOpenId(null); setPicked(list => (allShownPicked ? list.filter(id => !shown.some(item => item.id === id)) : [...new Set([...list, ...shown.map(item => item.id)])])); }}>
         {allShownPicked ? 'Unselect these' : `Select all shown (${shown.length})`}</Button>
@@ -613,12 +707,12 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
 
     {!library ? <p className="m-0 text-sm text-muted-foreground">Loading…</p>
       : shown.length === 0 ? <p className="m-0 rounded-[var(--radius-panel)] bg-card p-10 text-center text-sm text-muted-foreground">
-        {items.length === 0 ? 'Nothing here yet. Add your first cleared file above.'
-          : board === NO_BOARD && status === 'all' ? 'Everything is on a board. Click a board above to see its items.' : 'Nothing matches these filters.'}</p>
+        {items.length === 0 ? 'Nothing here yet. Add your first cleared file above.' : 'Nothing matches these filters.'}</p>
       : <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         {shown.map(item => <Card key={item.id} item={item} selected={item.id === openId} ticked={picked.includes(item.id)}
           onSelect={() => (picked.length ? tick(item.id, false) : setOpenId(item.id))} onTick={range => tick(item.id, range)} />)}
       </div>}
+    </>}
     {library && <Tags tags={library.tags} onChange={replace} />}
 
     <SelectionBar count={chosen.length} shown={chosen.length > 0 && !editing} onClear={() => setPicked([])} onEdit={() => setEditing(true)} />

@@ -4,8 +4,10 @@
           on onnxruntime: the rembg package alone took over a minute to import on a cold container)
   motion  a video or GIF  ->  a small H.264 copy (the whole video, muted, at most 720x1280), a poster still and
           the list of its shots, so a creative can cut and arrange them on the beat
-  describe  a library photo or prepared clip  ->  what it is seen to show (`LOOKS`, each 0..1) and tags to suggest
-          (`SEEN_WORDS`), by a self-hosted SigLIP 2 model (Apache 2.0). Nothing is generated; it only describes.
+  describe  a library photo or prepared clip  ->  what it is seen to show (`LOOKS`, each 0..1), tags to suggest
+          (`SEEN_WORDS`), how much it looks like each mood board and its likeness (an embedding the admin's own
+          filing is compared by), by a self-hosted SigLIP 2 model (Apache 2.0); and the reader's sentence and board
+          choice, by a self-hosted Qwen2.5-VL model (Apache 2.0) on a GPU. Nothing is generated but those words.
 
   submit  POST  JSON {kind, source, puts}  ->  {"id": "fc-..."}   (instant)
   status  GET   ?id=fc-...                 ->  202 running | 200 JSON result | 4xx/5xx
@@ -111,12 +113,62 @@ SEEN_WORDS = [
     "flowers", "close up", "face", "hands", "legs", "silhouette", "black and white", "selfie", "walking", "kiss",
     "microphone", "turntables", "guitar", "piano", "phone", "graffiti", "skating", "surfing", "gym", "hotel",
 ]
+# The mood boards (BOARDS in creative/src/boards.ts; a test keeps the ids the same). Each is one scene with its own light and colour:
+# `scene` is what the reader is told, `phrases` what SigLIP is asked (a board scores the best of them).
+BOARD_SCENES = {
+    "main-stage": ("a festival or rave: a big crowd, a DJ booth, laser lights, stage smoke, strobes",
+                   ["a festival crowd with laser lights", "a DJ on stage at a rave", "stage smoke and strobe lights"]),
+    "dark-warehouse": ("a dark warehouse club: concrete, silhouettes dancing, red neon, deep shadows",
+                       ["a dark warehouse rave", "silhouettes dancing in red light", "a dark concrete club"]),
+    "sunset-coast": ("the coast in warm light: a beach at sunset, palm trees, waves, a rooftop at golden hour, a bonfire",
+                     ["a beach at sunset", "palm trees at golden hour", "ocean waves in warm light"]),
+    "street-concrete": ("the city street: streets at night, hoodies, graffiti, a subway, a basketball court, smoke",
+                        ["a city street at night", "a graffiti wall", "people in hoodies on the street"]),
+    "block-party": ("an outdoor party by day: street dancing, colourful outfits, a crowd outside, summer, sunglasses",
+                    ["people dancing in the street", "a colourful outdoor summer party"]),
+    "luxury-flex": ("wealth on show: sports cars, champagne, gold chains, a mansion pool, a private jet, cash",
+                    ["a sports car", "champagne and gold jewelry", "a mansion with a pool", "stacks of cash"]),
+    "vhs-retro": ("an 80s or 90s retro look: old cars, a neon grid, cassette tapes, an arcade, VHS grain",
+                  ["a retro 80s scene", "a VHS tape look with grain", "a neon arcade"]),
+    "night-drive": ("driving at night: a car interior, highway lights, a tunnel, rain on the windscreen, headlights",
+                    ["driving a car at night", "highway lights at night", "rain on a car windscreen at night"]),
+    "intimate-velvet": ("intimate and dim, indoors: candlelight, silk, a couple dancing close, a dim lounge, a sensual dancer",
+                        ["a candlelit room", "a couple dancing close in dim light", "a sensual dancer in dim red light"]),
+    "rain-blue": ("lonely and blue: rain on glass, an empty street, someone alone, a grey sky, blue hour, often black and white",
+                  ["rain on a window", "a lonely person in the rain", "a grey, blue evening"]),
+    "live-raw": ("live rock: an electric guitar, a leather jacket, stage fire, a skatepark, a live band, a mosh pit",
+                 ["a rock band playing live", "an electric guitar on stage", "a mosh pit"]),
+    "heartland-dust": ("the countryside: a pickup truck, a dirt road, cowboy boots, an open field, a barn, a campfire",
+                       ["a pickup truck on a dirt road", "an open field in the countryside", "cowboy boots"]),
+    "pop-studio": ("bright pop: confetti, a colourful studio backdrop, synchronised dancers, a fashion shoot, glitter",
+                   ["dancers in a colourful studio", "confetti and glitter", "a fashion photo shoot"]),
+    "sanctuary-soul": ("soulful and sacred: a choir, stained glass, raised hands, a saxophone, a grand piano, hands playing",
+                       ["a church choir", "hands playing a piano", "a saxophone player"]),
+    "still-open": ("still and wide: fog, mountains, a slow time-lapse, the sea from above, an empty landscape, soft light",
+                   ["fog over mountains", "the sea seen from above", "an empty landscape in soft light"]),
+}
 # SigLIP's own odds are small and spread: a clear look scores about 0.2 to 0.7, a faint one 0.01. Strength is read on a log scale between these.
 FAINT = 0.003
 CLEAR = 0.3
 SEEN_AT = 0.02
 MOST_SEEN = 8
 FRAMES = 6
+
+READER = "Qwen/Qwen2.5-VL-7B-Instruct"
+# Stills of a clip the reader looks at, and the most pixels of each: enough to read a scene and its light, few enough to stay quick.
+READER_STILLS = 4
+READER_PIXELS = 448 * 448
+# The longest an item waits for the reader (a cold GPU loads the model in about a minute); past it, the item is described without.
+READER_WAIT = 300
+READER_ASK = (
+    "You sort pictures for a library of music video backgrounds onto mood boards. Each board is one scene with one kind of "
+    "light and colour, so the pictures on a board look right one after another.\n\nThe boards:\n"
+    + "\n".join(f"- {board}: {scene}" for board, (scene, _) in BOARD_SCENES.items())
+    + "\n\nChoose the board this picture belongs on (several pictures are stills from one video). The place and the light decide, "
+    "not who is in it. Name a second board only if it truly fits as well. Answer with JSON only:\n"
+    '{"description": "one short sentence: what is in it, where, and the light", "boards": ["best-board-id"], "sure": true}\n'
+    'Set "sure" to false when it could belong on several boards, or on none.'
+)
 
 # One image for the whole app (the module imports fastapi at top level). The model is baked in,
 # so a job never waits on a download.
@@ -133,6 +185,13 @@ image = (
         f"for try in 1 2 3 4 5; do python -c \"import urllib.request; urllib.request.urlretrieve('{MODEL_URL}', '{MODEL_PATH}')\" && break; sleep 5; done",
         f"echo '{MODEL_MD5}  {MODEL_PATH}' | md5sum -c -",
     )
+)
+# The reader's own image, for a GPU: the model is baked in too.
+reader_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .pip_install("fastapi==0.115.12", "pillow==11.1.0", "numpy==2.2.6", "torch==2.6.0", "torchvision==0.21.0")
+    .pip_install("transformers==4.56.2", "accelerate==1.10.1")
+    .run_commands(f"python -c \"from huggingface_hub import snapshot_download; snapshot_download('{READER}')\"")
 )
 app = modal.App(APP)
 secret = modal.Secret.from_name("mumoo-music-bridge")
@@ -232,6 +291,37 @@ def seen_from(odds: dict[str, float]) -> list[str]:
     return [word for _, word in ranked[:MOST_SEEN]]
 
 
+def boards_from(odds: dict[str, float]) -> dict[str, float]:
+    """How much the picture looks like each board, from the best odds of its phrases; boards it does not look like are left out."""
+    found = {board: strength(max(odds[phrase] for phrase in phrases)) for board, (_, phrases) in BOARD_SCENES.items()}
+    return {board: value for board, value in found.items() if value > 0}
+
+
+def reading_from(answer: str) -> dict | None:
+    """The reader's answer as {description, boards (known ids, best first, at most two), sure}, or None when it said nothing usable."""
+    found = re.search(r"\{.*\}", answer, re.S)
+    try:
+        data = json.loads(found[0]) if found else None
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    named = data.get("boards") if isinstance(data.get("boards"), list) else []
+    boards = [board for board in dict.fromkeys(named) if isinstance(board, str) and board in BOARD_SCENES][:2]
+    description = " ".join(data["description"].split())[:200] if isinstance(data.get("description"), str) else ""
+    if not boards and not description:
+        return None
+    return {"description": description, "boards": boards, "sure": data.get("sure") is True}
+
+
+def asked() -> dict[str, str]:
+    """Every phrase SigLIP is asked about, by its key: a look's phrasing, "__" and a tag, or "__board:" and a board's phrase."""
+    keys = {phrase: phrase for phrases in LOOKS.values() for phrase in phrases}
+    keys |= {f"__{word}": word for word in SEEN_WORDS}
+    keys |= {f"__board:{phrase}": phrase for _, phrases in BOARD_SCENES.values() for phrase in phrases}
+    return keys
+
+
 @functools.lru_cache(maxsize=1)
 def seer():
     """The model and every phrase it is asked about, read once per container."""
@@ -240,12 +330,58 @@ def seer():
 
     model = AutoModel.from_pretrained(SEER).eval()
     processor = AutoProcessor.from_pretrained(SEER)
-    phrases = sorted({phrase for phrases in LOOKS.values() for phrase in phrases} | {f"__{word}" for word in SEEN_WORDS})
-    texts = [f"This is a photo of {phrase.removeprefix('__')}." for phrase in phrases]
+    keys = asked()
+    phrases = sorted(keys)
+    texts = [f"This is a photo of {keys[phrase]}." for phrase in phrases]
     with torch.no_grad():
         encoded = processor(text=texts, padding="max_length", max_length=64, return_tensors="pt")
         text = model.get_text_features(**encoded)
     return model, processor, phrases, text / text.norm(dim=-1, keepdim=True)
+
+
+# Any of these GPUs holds the model; L4s are sometimes all taken, and then an item would wait for one.
+@app.cls(image=reader_image, gpu=["L4", "A10G", "L40S"], min_containers=0, max_containers=2, scaledown_window=120, timeout=600)
+class Reader:
+    """Qwen2.5-VL, which says in a sentence what a picture shows and which board it belongs on. Only woken by uploads."""
+
+    @modal.enter()
+    def load(self) -> None:
+        import torch
+        from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+
+        self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(READER, torch_dtype=torch.bfloat16, device_map="cuda").eval()
+        self.processor = AutoProcessor.from_pretrained(READER, max_pixels=READER_PIXELS)
+
+    @modal.method()
+    def read(self, stills: list[bytes]) -> dict | None:
+        import torch
+        from PIL import Image
+
+        images = [Image.open(io.BytesIO(still)).convert("RGB") for still in stills]
+        messages = [{"role": "user", "content": [*({"type": "image"} for _ in images), {"type": "text", "text": READER_ASK}]}]
+        prompt = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = self.processor(text=[prompt], images=images, return_tensors="pt").to("cuda")
+        with torch.no_grad():
+            out = self.model.generate(**inputs, max_new_tokens=160, do_sample=False)
+        return reading_from(self.processor.batch_decode(out[:, inputs.input_ids.shape[1]:], skip_special_tokens=True)[0])
+
+
+def read(frames: list) -> dict | None:
+    """The reader's answer for these frames (a few spread across a clip), or None when it could not answer: the item is still described."""
+    step = max(1, len(frames) // READER_STILLS)
+    stills = []
+    for frame in frames[::step][:READER_STILLS]:
+        small = frame.copy()
+        small.thumbnail((640, 640))
+        out = io.BytesIO()
+        small.save(out, format="JPEG", quality=88)
+        stills.append(out.getvalue())
+    call = Reader().read.spawn(stills)
+    try:
+        return call.get(timeout=READER_WAIT)
+    except Exception:  # noqa: BLE001 - the reader is a help, never a reason to fail the item (the server asks again later)
+        call.cancel()
+        return None
 
 
 def frames_of(file: Path, directory: Path) -> list:
@@ -273,13 +409,22 @@ def describe(file: Path, directory: Path) -> dict:
     import torch
 
     model, processor, phrases, text = seer()
+    frames = frames_of(file, directory)
     with torch.no_grad():
-        pixels = processor(images=frames_of(file, directory), return_tensors="pt")
+        pixels = processor(images=frames, return_tensors="pt")
         image = model.get_image_features(**pixels)
         image = image / image.norm(dim=-1, keepdim=True)
         odds = torch.sigmoid(image @ text.T * model.logit_scale.exp() + model.logit_bias).max(dim=0).values.tolist()
+        likeness = image.mean(dim=0)
+        likeness = likeness / likeness.norm()
     by_phrase = dict(zip(phrases, odds))
-    return {"looks": looks_from(by_phrase), "seen": seen_from({word: by_phrase[f"__{word}"] for word in SEEN_WORDS})}
+    return {
+        "looks": looks_from(by_phrase),
+        "seen": seen_from({word: by_phrase[f"__{word}"] for word in SEEN_WORDS}),
+        "boards": boards_from({phrase: by_phrase[f"__board:{phrase}"] for _, phrases in BOARD_SCENES.values() for phrase in phrases}),
+        "embedding": [round(value, 4) for value in likeness.tolist()],
+        "reading": read(frames),
+    }
 
 
 def shots_from(log: str, milliseconds: int, dark_ms: int = 0) -> list[list[int]]:
@@ -417,7 +562,8 @@ def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]]
 @app.function(image=image, cpu=4, memory=4096, min_containers=0, max_containers=6, scaledown_window=60, timeout=600)
 def prepare(kind: str, source: str, puts: dict[str, str]) -> dict:
     """Returns {"ok": True, "bytes": {output: size}, "shots": [[start_ms, end_ms], ...], "width", "height" (video or GIF only)},
-    for `describe` {"ok": True, "looks": {look: 0..1}, "seen": [tag, ...]}, or {"ok": False, "error": words for the person}."""
+    for `describe` {"ok": True, "looks": {look: 0..1}, "seen": [tag, ...], "boards": {board: 0..1}, "embedding": [768 numbers],
+    "reading": {description, boards, sure} or None}, or {"ok": False, "error": words for the person}."""
     with tempfile.TemporaryDirectory(prefix="mumoo-prepare-") as name:
         directory = Path(name)
         file = directory / "source"

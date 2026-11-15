@@ -20,6 +20,11 @@ export type LibraryItem = {
   width: number | null; height: number | null; warning: string | null;
   /** Tags our vision model saw in it that it does not have yet: offered, never added by themselves. */
   seen: string[];
+  /** Our models are still looking at it; its suggestion comes when they are done. */
+  looking: boolean;
+  /** The reader's sentence about it, and the board(s) suggested while it is on none: sure ones can be filed as a group. */
+  seenAs: string | null;
+  suggestion: { boards: string[]; sure: boolean } | null;
 };
 export type TagCount = { name: string; items: number };
 export type Library = { items: LibraryItem[]; tags: TagCount[] };

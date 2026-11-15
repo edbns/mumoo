@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { db } from './person.mjs';
 import { askPrepare, startPrepare } from './prepare.mjs';
 import { BOARDS } from './boards.mjs';
+import { suggestBoards } from './board-suggest.mjs';
 import { deleteObject, getObject, objectSize, signedDownload, signedUpload } from './storage.mjs';
 
 /**
@@ -79,7 +80,12 @@ const LOOK_TRIES = 3;
 /** A file whose upload never finished is of no use after this long. */
 const STALE_MS = 60 * 60 * 1000;
 
-const asItem = async (row) => ({
+/** Still to be looked at by our models (for its looks, likeness and the reader's board), so the admin page asks again soon. */
+const looking = (row) => row.arrived && !row.problem && (!row.ready || (unread(row) && row.look_tries < LOOK_TRIES));
+/** Not yet fully looked at: no looks, no likeness, or no word from the reader (which may have been too busy: it is asked again). */
+const unread = (row) => row.looks === null || row.embedding === null || row.reading === null;
+
+const asItem = async (row, suggestion = null) => ({
   id: row.id,
   kind: row.kind,
   contentType: row.content_type,
@@ -103,6 +109,10 @@ const asItem = async (row) => ({
   warning: resolutionWarning(row.width, row.height),
   /** Tags our vision model suggests (the admin decides); those the item already has are left out. */
   seen: (row.seen ?? []).filter(tag => !row.tags.includes(tag)),
+  looking: looking(row),
+  /** The reader's sentence about it, and the board our models suggest while it is on none (`board-suggest.mjs`). */
+  seenAs: row.reading?.description || null,
+  suggestion,
   url: await signedDownload(keyOf(row.id), null),
 });
 
@@ -195,9 +205,26 @@ async function cutOut(row) {
   }
 }
 
+/** What the worker said of an item, kept only as far as it is what we asked for. */
+export function described(done) {
+  const looks = done.looks && typeof done.looks === 'object' ? done.looks : {};
+  const seen = Array.isArray(done.seen) ? done.seen.filter(tag => typeof tag === 'string' && TAG.test(tag)) : [];
+  const odds = done.boards && typeof done.boards === 'object' ? done.boards : {};
+  const boardOdds = Object.fromEntries(BOARDS.flatMap(board => (Number.isFinite(odds[board]) ? [[board, Math.min(1, Math.max(0, odds[board]))]] : [])));
+  const embedding = Array.isArray(done.embedding) && done.embedding.length >= 64 && done.embedding.length <= 4096 && done.embedding.every(Number.isFinite) ? done.embedding : null;
+  const said = done.reading && typeof done.reading === 'object' ? done.reading : null;
+  const reading = said && {
+    description: typeof said.description === 'string' ? said.description.trim().slice(0, 200) : '',
+    boards: Array.isArray(said.boards) ? [...new Set(said.boards)].filter(board => BOARDS.includes(board)).slice(0, 2) : [],
+    sure: said.sure === true,
+  };
+  return { looks, seen, boardOdds, embedding, reading: reading && (reading.description || reading.boards.length) ? reading : null };
+}
+
 /**
- * A ready item (a photo after its cut-out) is looked at once by our vision model: how strongly it shows each look the brain asks for,
- * and tags to suggest. A clip is looked at in its prepared copy. An item it cannot read is tried three times and then left to its tags. Never throws.
+ * A ready item (a photo after its cut-out) is looked at once by our models: how strongly it shows each look the brain asks for, tags to
+ * suggest, its likeness and how much it looks like each board, and the reader's sentence and board. A clip is looked at in its prepared copy.
+ * An item they cannot read is tried three times and then left as it is. Never throws.
  */
 async function lookAt(row) {
   const sql = db();
@@ -206,15 +233,17 @@ async function lookAt(row) {
       const answer = await askPrepare(row.prepare_job);
       if (answer.failed) await sql`update library_items set prepare_job = null where id = ${row.id}`;
       else if (answer.done) {
-        const looks = answer.done.looks && typeof answer.done.looks === 'object' ? answer.done.looks : {};
-        const seen = Array.isArray(answer.done.seen) ? answer.done.seen.filter(tag => typeof tag === 'string' && TAG.test(tag)) : [];
-        await sql`update library_items set looks = ${JSON.stringify(looks)}::jsonb, seen = ${seen}, prepare_job = null where id = ${row.id}`;
+        const { looks, seen, boardOdds, embedding, reading } = described(answer.done);
+        await sql`
+          update library_items set looks = ${JSON.stringify(looks)}::jsonb, seen = ${seen}, board_odds = ${JSON.stringify(boardOdds)}::jsonb,
+            embedding = ${embedding}, reading = ${reading && JSON.stringify(reading)}::jsonb, prepare_job = null
+          where id = ${row.id}`;
       }
       return;
     }
     const [claimed] = await sql`
       update library_items set prepare_job = 'starting', prepare_at = now(), look_tries = look_tries + 1
-      where id = ${row.id} and ready and looks is null and look_tries < ${LOOK_TRIES}
+      where id = ${row.id} and ready and (looks is null or embedding is null or reading is null) and look_tries < ${LOOK_TRIES}
         and (prepare_job is null or (prepare_job = 'starting' and prepare_at < now() - ${`${STARTING_MS} milliseconds`}::interval))
       returning id`;
     if (!claimed) return;
@@ -233,7 +262,7 @@ async function lookAt(row) {
 
 /** Looks at every arrived item that is not ready, still needs its cut-out or has not been looked at, and has no stated problem, so the library moves on whenever anyone looks at it. */
 async function prepareWaiting() {
-  const rows = await db()`select * from library_items where arrived and problem is null and (not ready or (kind = 'photo' and not cutout and cutout_tries < ${CUTOUT_TRIES}) or (looks is null and look_tries < ${LOOK_TRIES})) order by ready, created_at desc limit 20`;
+  const rows = await db()`select * from library_items where arrived and problem is null and (not ready or (kind = 'photo' and not cutout and cutout_tries < ${CUTOUT_TRIES}) or ((looks is null or embedding is null or reading is null) and look_tries < ${LOOK_TRIES})) order by ready, cardinality(boards) > 0, created_at desc limit 20`;
   await Promise.all(rows.map(prepareItem));
 }
 
@@ -244,7 +273,9 @@ export async function listLibrary() {
   await Promise.all(stale.map(row => deleteObject(keyOf(row.id)).catch(() => undefined)));
   await prepareWaiting();
   const rows = await sql`select * from library_items where arrived order by created_at desc limit 500`;
-  return { items: await Promise.all(rows.map(asItem)), tags: await listTagPool() };
+  const filed = rows.filter(row => row.boards?.length && row.embedding).map(row => ({ id: row.id, embedding: row.embedding, boards: row.boards }));
+  const suggested = (row) => (row.boards?.length || row.status === 'hidden' ? null : suggestBoards(row, filed));
+  return { items: await Promise.all(rows.map(row => asItem(row, suggested(row)))), tags: await listTagPool() };
 }
 
 /** The tag list, each with how many items use it. */

@@ -1,6 +1,9 @@
 import unittest
 
-from modal_prepare_media_staging import LOOKS, SEEN_WORDS, looks_from, opening_dark_ms, seen_from, shots_from, size_from, strength
+from modal_prepare_media_staging import (
+    BOARD_SCENES, LOOKS, READER_ASK, SEEN_WORDS, asked, boards_from, looks_from, opening_dark_ms, reading_from, seen_from, shots_from,
+    size_from, strength,
+)
 
 
 def luma_log(levels, step_ms=100):
@@ -67,6 +70,36 @@ class Seeing(unittest.TestCase):
         odds = {word: 0.001 for word in SEEN_WORDS}
         odds.update({"heels": 0.5, "designer bag": 0.05, "car": 0.019})
         self.assertEqual(seen_from(odds), ["heels", "designer bag"])
+
+    def test_a_board_is_its_best_phrase_and_unlike_boards_are_left_out(self):
+        odds = {phrase: 0.001 for _, phrases in BOARD_SCENES.values() for phrase in phrases}
+        odds["a beach at sunset"] = 0.3
+        self.assertEqual(boards_from(odds), {"sunset-coast": 1.0})
+
+    def test_every_phrase_is_asked_once_by_its_own_key(self):
+        keys = asked()
+        self.assertEqual(keys["__board:a beach at sunset"], "a beach at sunset")
+        self.assertEqual(keys["__car"], "car")
+        self.assertEqual(keys["a sports car"], "a sports car")
+
+
+class Reading(unittest.TestCase):
+    def test_the_answer_is_read_from_its_json_even_with_words_around_it(self):
+        answer = 'Sure! {"description": "A woman  dancing under a bridge on a beach at sunset.", "boards": ["sunset-coast"], "sure": true}'
+        self.assertEqual(reading_from(answer), {"description": "A woman dancing under a bridge on a beach at sunset.", "boards": ["sunset-coast"], "sure": True})
+
+    def test_only_known_boards_at_most_two_and_sure_only_when_said(self):
+        answer = '{"description": "A pole dancer in red light.", "boards": ["intimate-velvet", "nightclub", "intimate-velvet", "dark-warehouse", "luxury-flex"]}'
+        self.assertEqual(reading_from(answer), {"description": "A pole dancer in red light.", "boards": ["intimate-velvet", "dark-warehouse"], "sure": False})
+
+    def test_nothing_usable_is_none(self):
+        self.assertIsNone(reading_from("I cannot tell."))
+        self.assertIsNone(reading_from('{"boards": "main-stage"'))
+        self.assertIsNone(reading_from('{"boards": ["nightclub"]}'))
+
+    def test_the_reader_is_told_every_board(self):
+        for board, (scene, _) in BOARD_SCENES.items():
+            self.assertIn(f"- {board}: {scene}", READER_ASK)
 
 
 if __name__ == "__main__":
