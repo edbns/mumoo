@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { BOARDS } from '../netlify/lib/boards.mjs';
-import { SUGGEST, learnedShares, suggestBoards } from '../netlify/lib/board-suggest.mjs';
+import { ALSO, SUGGEST, alsoFits, learnedShares, suggestBoards } from '../netlify/lib/board-suggest.mjs';
 import { described } from '../netlify/lib/library.mjs';
 
 /** A unit-length likeness pointing mostly along `axis` (with a little of `lean`), in 8 numbers. */
@@ -61,11 +61,33 @@ test('a second board only when it is nearly as strong and named too; nothing to 
   assert.ok(SUGGEST.fullyLearned > 0);
 });
 
+test('a filed item also fits the boards the reader names and SigLIP sees, best seen first, never its own or one turned down', () => {
+  const item = {
+    id: 'n', embedding: like(1), boards: ['main-stage'], not_boards: ['pop-studio'],
+    board_odds: { 'main-stage': 1, 'dark-warehouse': 0.6, 'live-raw': 0.9, 'night-drive': ALSO.seen - 0.01, 'pop-studio': 0.8 },
+    reading: { description: 'A concert crowd under red lights.', boards: ['main-stage', 'dark-warehouse'], also: ['live-raw', 'night-drive', 'pop-studio', 'still-open'], sure: true },
+  };
+  assert.deepEqual(alsoFits(item, []), ['live-raw', 'dark-warehouse'], 'not Night Drive (SigLIP barely sees it), Pop & Studio (turned down) or Still & Open (not seen)');
+  assert.deepEqual(alsoFits({ ...item, reading: null }, []), []);
+});
+
+test('turning a board down for an item stops it being offered for close look-alikes, not for different ones', () => {
+  const item = { id: 'n', embedding: like(1), boards: ['main-stage'], board_odds: { 'dark-warehouse': 0.9 }, reading: { boards: ['main-stage'], also: ['dark-warehouse'] } };
+  const twin = { id: 't', embedding: like(1, 2, 0.05), boards: ['main-stage'], notBoards: ['dark-warehouse'] };
+  const far = { id: 'f', embedding: like(4), boards: ['main-stage'], notBoards: ['dark-warehouse'] };
+  assert.deepEqual(alsoFits(item, [twin]), []);
+  assert.deepEqual(alsoFits(item, [far]), ['dark-warehouse']);
+  assert.deepEqual(alsoFits(item, [twin, { id: 'y1', embedding: like(1), boards: ['dark-warehouse'], notBoards: [] }]), ['dark-warehouse'], 'a closer look-alike put on the board outweighs it');
+});
+
 test('only what we asked the worker for is kept', () => {
   const kept = described({
     looks: { cars: 1 }, seen: ['car', 'Not A Tag!'], boards: { 'night-drive': 0.7, nightclub: 1, 'main-stage': 3 },
-    embedding: like(2).concat(Array(120).fill(0)), reading: { description: `  ${'a'.repeat(300)}`, boards: ['night-drive', 'nightclub', 'night-drive', 'vhs-retro', 'main-stage'], sure: 'yes' },
+    embedding: like(2).concat(Array(120).fill(0)),
+    reading: { description: `  ${'a'.repeat(300)}`, boards: ['night-drive', 'nightclub', 'night-drive', 'vhs-retro', 'main-stage'], also: ['vhs-retro', 'disco', 'rain-blue', 'rain-blue', 'pop-studio', 'live-raw', 'still-open'], sure: 'yes' },
   });
+  assert.deepEqual(kept.reading.also, ['rain-blue', 'pop-studio', 'live-raw'], 'other known boards only, at most three');
+  assert.deepEqual(described({ reading: { description: 'A car.', boards: ['night-drive'] } }).reading.also, []);
   assert.deepEqual(kept.seen, ['car']);
   assert.deepEqual(kept.boardOdds, { 'night-drive': 0.7, 'main-stage': 1 });
   assert.equal(kept.embedding.length, 128);

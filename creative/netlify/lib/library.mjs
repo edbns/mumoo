@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { db } from './person.mjs';
 import { askPrepare, startPrepare } from './prepare.mjs';
 import { BOARDS } from './boards.mjs';
-import { suggestBoards } from './board-suggest.mjs';
+import { alsoFits, suggestBoards } from './board-suggest.mjs';
 import { deleteObject, getObject, objectSize, signedDownload, signedUpload } from './storage.mjs';
 
 /**
@@ -85,7 +85,7 @@ const looking = (row) => row.arrived && !row.problem && (!row.ready || (unread(r
 /** Not yet fully looked at: no looks, no likeness, or no word from the reader (which may have been too busy: it is asked again). */
 const unread = (row) => row.looks === null || row.embedding === null || row.reading === null;
 
-const asItem = async (row, suggestion = null) => ({
+const asItem = async (row, suggestion = null, also = []) => ({
   id: row.id,
   kind: row.kind,
   contentType: row.content_type,
@@ -96,6 +96,8 @@ const asItem = async (row, suggestion = null) => ({
   genre: row.genre,
   subGenre: row.sub_genre,
   boards: row.boards ?? [],
+  /** Boards the admin said it does not fit: never offered again, and look-alikes are offered less. */
+  notBoards: row.not_boards ?? [],
   note: row.source_note,
   clearedBy: row.cleared_by,
   clearedAt: row.cleared_at,
@@ -113,6 +115,8 @@ const asItem = async (row, suggestion = null) => ({
   /** The reader's sentence about it, and the board our models suggest while it is on none (`board-suggest.mjs`). */
   seenAs: row.reading?.description || null,
   suggestion,
+  /** Once it is on a board, the other boards our models say it would also fit (`alsoFits`): one picture can serve several. */
+  also,
   url: await signedDownload(keyOf(row.id), null),
 });
 
@@ -213,9 +217,12 @@ export function described(done) {
   const boardOdds = Object.fromEntries(BOARDS.flatMap(board => (Number.isFinite(odds[board]) ? [[board, Math.min(1, Math.max(0, odds[board]))]] : [])));
   const embedding = Array.isArray(done.embedding) && done.embedding.length >= 64 && done.embedding.length <= 4096 && done.embedding.every(Number.isFinite) ? done.embedding : null;
   const said = done.reading && typeof done.reading === 'object' ? done.reading : null;
+  const known = (list, most, not = []) => (Array.isArray(list) ? [...new Set(list)].filter(board => BOARDS.includes(board) && !not.includes(board)).slice(0, most) : []);
+  const boards = known(said?.boards, 2);
   const reading = said && {
     description: typeof said.description === 'string' ? said.description.trim().slice(0, 200) : '',
-    boards: Array.isArray(said.boards) ? [...new Set(said.boards)].filter(board => BOARDS.includes(board)).slice(0, 2) : [],
+    boards,
+    also: known(said.also, 3, boards),
     sure: said.sure === true,
   };
   return { looks, seen, boardOdds, embedding, reading: reading && (reading.description || reading.boards.length) ? reading : null };
@@ -274,8 +281,10 @@ export async function listLibrary() {
   await prepareWaiting();
   const rows = await sql`select * from library_items where arrived order by created_at desc limit 500`;
   const filed = rows.filter(row => row.boards?.length && row.embedding).map(row => ({ id: row.id, embedding: row.embedding, boards: row.boards }));
+  const answered = rows.filter(row => row.embedding && (row.boards?.length || row.not_boards?.length)).map(row => ({ id: row.id, embedding: row.embedding, boards: row.boards ?? [], notBoards: row.not_boards ?? [] }));
   const suggested = (row) => (row.boards?.length || row.status === 'hidden' ? null : suggestBoards(row, filed));
-  return { items: await Promise.all(rows.map(row => asItem(row, suggested(row)))), tags: await listTagPool() };
+  const also = (row) => (row.boards?.length && row.status !== 'hidden' ? alsoFits(row, answered) : []);
+  return { items: await Promise.all(rows.map(row => asItem(row, suggested(row), also(row)))), tags: await listTagPool() };
 }
 
 /** The tag list, each with how many items use it. */
@@ -325,19 +334,22 @@ function readTags(value) {
 }
 
 /**
- * Changes an item: any of status, attitudes, tags, genre, subGenre, boards, note. Returns the item, null when it is not
+ * Changes an item: any of status, attitudes, tags, genre, subGenre, boards, notBoards, note. Returns the item, null when it is not
  * there, or { refused } with a reason in words.
  */
 export async function changeItem(id, change) {
   const sql = db();
   const [row] = await sql`select * from library_items where id = ${id} and arrived`;
   if (!row) return null;
-  const next = { status: row.status, attitudes: row.attitudes, tags: row.tags, genre: row.genre, subGenre: row.sub_genre, boards: row.boards ?? [], note: row.source_note };
-  if ('boards' in change) {
-    const list = Array.isArray(change.boards) ? [...new Set(change.boards)] : null;
+  const next = { status: row.status, attitudes: row.attitudes, tags: row.tags, genre: row.genre, subGenre: row.sub_genre, boards: row.boards ?? [], notBoards: row.not_boards ?? [], note: row.source_note };
+  for (const field of ['boards', 'notBoards']) {
+    if (!(field in change)) continue;
+    const list = Array.isArray(change[field]) ? [...new Set(change[field])] : null;
     if (!list || list.some(board => !BOARDS.includes(board))) return { refused: 'Choose boards from the list.' };
-    next.boards = list;
+    next[field] = list;
   }
+  // A board it is put on is no longer one it does not fit.
+  next.notBoards = next.notBoards.filter(board => !next.boards.includes(board));
   if ('status' in change) {
     if (!STATUSES.includes(change.status) || change.status === 'pending') return { refused: 'Choose approved or hidden.' };
     next.status = change.status;
@@ -364,7 +376,7 @@ export async function changeItem(id, change) {
   for (const tag of next.tags) await sql`insert into library_tags (name) values (${tag}) on conflict do nothing`;
   const [item] = await sql`
     update library_items set status = ${next.status}, attitudes = ${next.attitudes}, tags = ${next.tags},
-      genre = ${next.genre}, sub_genre = ${next.subGenre}, boards = ${next.boards}, source_note = ${next.note}
+      genre = ${next.genre}, sub_genre = ${next.subGenre}, boards = ${next.boards}, not_boards = ${next.notBoards}, source_note = ${next.note}
     where id = ${id} returning *`;
   return asItem(item);
 }

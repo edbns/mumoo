@@ -11,8 +11,8 @@ export type LibraryStatus = 'pending' | 'approved' | 'hidden';
 export type LibraryItem = {
   id: string; kind: LibraryKind; contentType: string; bytes: number; status: LibraryStatus;
   attitudes: string[]; tags: string[]; genre: string | null; subGenre: string | null; note: string;
-  /** The mood boards it is filed in (`boards.ts`). */
-  boards: string[];
+  /** The mood boards it is filed in (`boards.ts`), and those the admin said it does not fit (never offered again). */
+  boards: string[]; notBoards: string[];
   clearedBy: string; clearedAt: string; createdAt: string; url: string;
   /** Ready to be drawn by the templates. A video or GIF is first made a small clip by our worker; `problem` says why one cannot be used. */
   ready: boolean; problem: string | null;
@@ -25,6 +25,8 @@ export type LibraryItem = {
   /** The reader's sentence about it, and the board(s) suggested while it is on none: sure ones can be filed as a group. */
   seenAs: string | null;
   suggestion: { boards: string[]; sure: boolean } | null;
+  /** Once it is on a board: the other boards our models say it would also fit, best first. */
+  also: string[];
 };
 export type TagCount = { name: string; items: number };
 export type Library = { items: LibraryItem[]; tags: TagCount[] };
@@ -79,7 +81,7 @@ export const loadProblems = () => adminFetch<{ problems: Problem[]; unseen: numb
 export const markProblemSeen = (problem: number) => adminFetch<{ problems: Problem[]; unseen: number }>(`problems?id=${problem}`, { method: 'PATCH' });
 export const markAllSeen = () => adminFetch<{ problems: Problem[]; unseen: number }>('problems?all=1', { method: 'PATCH' });
 
-export type Change = Partial<{ status: 'approved' | 'hidden'; attitudes: string[]; tags: string[]; genre: string; subGenre: string; boards: string[]; note: string }>;
+export type Change = Partial<{ status: 'approved' | 'hidden'; attitudes: string[]; tags: string[]; genre: string; subGenre: string; boards: string[]; notBoards: string[]; note: string }>;
 export const changeItem = (item: string, change: Change) => adminFetch<{ item: LibraryItem; tags: TagCount[] }>(`library?${id(item)}`, json('PATCH', change));
 export const deleteItem = (item: string) => adminFetch<Library>(`library?${id(item)}`, { method: 'DELETE' });
 export const addTag = (name: string) => adminFetch<Library>(`library?tag=${encodeURIComponent(name)}`, { method: 'POST' });

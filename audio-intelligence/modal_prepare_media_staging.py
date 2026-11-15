@@ -165,8 +165,11 @@ READER_ASK = (
     "light and colour, so the pictures on a board look right one after another.\n\nThe boards:\n"
     + "\n".join(f"- {board}: {scene}" for board, (scene, _) in BOARD_SCENES.items())
     + "\n\nChoose the board this picture belongs on (several pictures are stills from one video). The place and the light decide, "
-    "not who is in it. Name a second board only if it truly fits as well. Answer with JSON only:\n"
-    '{"description": "one short sentence: what is in it, where, and the light", "boards": ["best-board-id"], "sure": true}\n'
+    "not who is in it. Name a second board only if it truly fits as well. Then list every other board it would also look right "
+    "on, among that board's pictures (a picture used on more boards is more useful; leave the list empty when none). "
+    "Answer with JSON only:\n"
+    '{"description": "one short sentence: what is in it, where, and the light", "boards": ["best-board-id"], '
+    '"also": ["other-board-id"], "sure": true}\n'
     'Set "sure" to false when it could belong on several boards, or on none.'
 )
 
@@ -298,7 +301,8 @@ def boards_from(odds: dict[str, float]) -> dict[str, float]:
 
 
 def reading_from(answer: str) -> dict | None:
-    """The reader's answer as {description, boards (known ids, best first, at most two), sure}, or None when it said nothing usable."""
+    """The reader's answer as {description, boards (known ids, best first, at most two), also (other boards it would also fit, at most
+    three), sure}, or None when it said nothing usable."""
     found = re.search(r"\{.*\}", answer, re.S)
     try:
         data = json.loads(found[0]) if found else None
@@ -311,7 +315,9 @@ def reading_from(answer: str) -> dict | None:
     description = " ".join(data["description"].split())[:200] if isinstance(data.get("description"), str) else ""
     if not boards and not description:
         return None
-    return {"description": description, "boards": boards, "sure": data.get("sure") is True}
+    named_also = data.get("also") if isinstance(data.get("also"), list) else []
+    also = [board for board in dict.fromkeys(named_also) if isinstance(board, str) and board in BOARD_SCENES and board not in boards][:3]
+    return {"description": description, "boards": boards, "also": also, "sure": data.get("sure") is True}
 
 
 def asked() -> dict[str, str]:
@@ -362,7 +368,7 @@ class Reader:
         prompt = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = self.processor(text=[prompt], images=images, return_tensors="pt").to("cuda")
         with torch.no_grad():
-            out = self.model.generate(**inputs, max_new_tokens=160, do_sample=False)
+            out = self.model.generate(**inputs, max_new_tokens=200, do_sample=False)
         return reading_from(self.processor.batch_decode(out[:, inputs.input_ids.shape[1]:], skip_special_tokens=True)[0])
 
 

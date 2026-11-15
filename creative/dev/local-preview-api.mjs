@@ -159,13 +159,16 @@ export function localPreviewApi() {
       };
       const files = new Map();
       const sample = (id, colours, over) => ({
-        id, kind: 'photo', contentType: 'image/jpeg', bytes: 2_000_000, status: 'pending', attitudes: [], tags: [], genre: null, subGenre: null, note: '', boards: [],
-        clearedBy: ADMIN, clearedAt: '2026-11-09T12:30:00Z', createdAt: '2026-11-09T12:30:00Z', ready: true, problem: null, seen: [], looking: false, seenAs: null, suggestion: null,
+        id, kind: 'photo', contentType: 'image/jpeg', bytes: 2_000_000, status: 'pending', attitudes: [], tags: [], genre: null, subGenre: null, note: '', boards: [], notBoards: [],
+        clearedBy: ADMIN, clearedAt: '2026-11-09T12:30:00Z', createdAt: '2026-11-09T12:30:00Z', ready: true, problem: null, seen: [], looking: false, seenAs: null, suggestion: null, also: [],
         url: samplePicture(...colours), ...over,
       });
-      // Filed, sure (filed as a group), not sure (checked one by one) and still being looked at: every part of the sorting tray.
+      // Filed (some would also fit other boards), sure (filed as a group), not sure (checked one by one) and still being looked at: every part of the trays.
       let library = [
-        sample('preview-lib-1', ['#ff9821', '#2b231a'], { status: 'approved', tags: ['sunset', 'beach'], boards: ['sunset-coast'], note: 'Licence 118, Studio Ray', seen: ['couple', 'sea'], seenAs: 'A couple on a beach at sunset, warm golden light.' }),
+        sample('preview-lib-1', ['#ff9821', '#2b231a'], { status: 'approved', tags: ['sunset', 'beach'], boards: ['sunset-coast'], note: 'Licence 118, Studio Ray', seen: ['couple', 'sea'], seenAs: 'A couple on a beach at sunset, warm golden light.', also: ['intimate-velvet'] }),
+        sample('preview-lib-9', ['#c1121f', '#0b0204'], { status: 'approved', boards: ['main-stage'], seenAs: 'A concert crowd under red stage lights and smoke.', also: ['dark-warehouse', 'live-raw'] }),
+        sample('preview-lib-10', ['#1d3557', '#05070d'], { status: 'approved', boards: ['luxury-flex'], seenAs: 'A car interior at night, city lights through the windscreen.', also: ['night-drive'] }),
+        sample('preview-lib-11', ['#e63946', '#14050a'], { status: 'approved', boards: ['main-stage'], seenAs: 'A red-lit stage with a crowd below.', also: ['dark-warehouse'] }),
         sample('preview-lib-2', ['#ffb347', '#3a2a1a'], { seenAs: 'Palm trees against an orange sky at golden hour.', suggestion: { boards: ['sunset-coast'], sure: true } }),
         sample('preview-lib-4', ['#ff7f50', '#20160f'], { seenAs: 'A woman dancing under a bridge on the beach at sunset.', suggestion: { boards: ['sunset-coast'], sure: true } }),
         sample('preview-lib-5', ['#7b2ff7', '#0a0a1a'], { seenAs: 'A festival crowd with laser lights and smoke.', suggestion: { boards: ['main-stage'], sure: true } }),
@@ -218,6 +221,8 @@ export function localPreviewApi() {
         const change = await body(request);
         Object.assign(item, { ...change, genre: change.genre === '' ? null : (change.genre ?? item.genre), subGenre: change.subGenre === '' ? null : (change.subGenre ?? item.subGenre) });
         pool = [...new Set([...pool, ...item.tags])];
+        item.notBoards = item.notBoards.filter(board => !item.boards.includes(board));
+        item.also = item.also.filter(board => !item.boards.includes(board) && !item.notBoards.includes(board));
         send(response, 200, { item, tags: tagsNow() });
       }));
       route('/api/admin/library', 'DELETE', adminOnly(async (request, response) => {

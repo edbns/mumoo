@@ -86,11 +86,15 @@ class Seeing(unittest.TestCase):
 class Reading(unittest.TestCase):
     def test_the_answer_is_read_from_its_json_even_with_words_around_it(self):
         answer = 'Sure! {"description": "A woman  dancing under a bridge on a beach at sunset.", "boards": ["sunset-coast"], "sure": true}'
-        self.assertEqual(reading_from(answer), {"description": "A woman dancing under a bridge on a beach at sunset.", "boards": ["sunset-coast"], "sure": True})
+        self.assertEqual(reading_from(answer), {"description": "A woman dancing under a bridge on a beach at sunset.", "boards": ["sunset-coast"], "also": [], "sure": True})
 
     def test_only_known_boards_at_most_two_and_sure_only_when_said(self):
         answer = '{"description": "A pole dancer in red light.", "boards": ["intimate-velvet", "nightclub", "intimate-velvet", "dark-warehouse", "luxury-flex"]}'
-        self.assertEqual(reading_from(answer), {"description": "A pole dancer in red light.", "boards": ["intimate-velvet", "dark-warehouse"], "sure": False})
+        self.assertEqual(reading_from(answer), {"description": "A pole dancer in red light.", "boards": ["intimate-velvet", "dark-warehouse"], "also": [], "sure": False})
+
+    def test_also_is_other_known_boards_at_most_three(self):
+        answer = '{"description": "A neon arcade.", "boards": ["vhs-retro"], "also": ["vhs-retro", "night-drive", "disco", "night-drive", "dark-warehouse", "main-stage", "pop-studio"]}'
+        self.assertEqual(reading_from(answer)["also"], ["night-drive", "dark-warehouse", "main-stage"])
 
     def test_nothing_usable_is_none(self):
         self.assertIsNone(reading_from("I cannot tell."))

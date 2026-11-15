@@ -216,6 +216,7 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
       {item.seenAs && <span>{item.seenAs}</span>}
       {item.suggestion && <span className="text-xs text-muted-foreground">
         Suggested: {item.suggestion.boards.map(boardName).join(' or ')}{item.suggestion.sure ? '' : ' (not sure)'}</span>}
+      {item.also.length > 0 && <span className="text-xs text-muted-foreground">Would also fit: {item.also.map(boardName).join(', ')}</span>}
     </div>}
 
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
@@ -223,7 +224,7 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
       <div className="flex flex-wrap gap-1.5">
         {BOARDS.map(board => <Chip key={board.id} on={boards.includes(board.id)} title={board.hunt}
           onClick={() => setBoards(list => list.includes(board.id) ? list.filter(id => id !== board.id) : [...list, board.id])}>
-          {board.name}{!boards.length && item.suggestion?.boards.includes(board.id) ? ' · suggested' : ''}</Chip>)}
+          {board.name}{!boards.includes(board.id) && (boards.length ? item.also : item.suggestion?.boards ?? []).includes(board.id) ? ' · suggested' : ''}</Chip>)}
       </div>
     </fieldset>
 
@@ -528,6 +529,7 @@ function Boards({ items, chosen, onChoose }: { items: readonly LibraryItem[]; ch
       {BOARDS.map(board => {
         const ready = usable(board.id);
         const filed = items.filter(item => item.boards.includes(board.id)).length;
+        const could = items.filter(item => item.also.includes(board.id)).length;
         return <button key={board.id} type="button" aria-pressed={chosen === board.id} onClick={() => onChoose(chosen === board.id ? NO_BOARD : board.id)}
           className={`flex flex-col gap-1 rounded-[var(--radius-control)] p-3 text-left outline-ring transition-colors focus-visible:outline-2 ${chosen === board.id ? 'bg-foreground text-background' : 'bg-muted hover:bg-secondary'}`}>
           <span className="flex items-center justify-between gap-2 text-sm font-medium">{board.name}
@@ -536,6 +538,7 @@ function Boards({ items, chosen, onChoose }: { items: readonly LibraryItem[]; ch
           </span>
           <span className={`text-xs ${chosen === board.id ? 'text-background/80' : 'text-muted-foreground'}`}>{board.hunt}</span>
           {filed > ready && <span className={`text-xs ${chosen === board.id ? 'text-background/80' : 'text-muted-foreground'}`}>{filed - ready} more waiting, hidden or preparing</span>}
+          {could > 0 && <span className={`text-xs font-medium ${chosen === board.id ? 'text-background' : 'text-foreground'}`}>+{could} from other boards would fit</span>}
         </button>;
       })}
     </div>
@@ -627,6 +630,52 @@ function SortTray({ items, filed, onFiled, onOpen }: { items: LibraryItem[]; fil
   </section>;
 }
 
+/**
+ * Filed items our models say would also fit another board, grouped by that board (or only `only`'s group): a picture on several boards
+ * serves more songs, and fills the empty boards. Adding puts the group on the board too; × says one does not fit, and our models offer
+ * its look-alikes less.
+ */
+function AlsoTray({ items, only, onSaved, onOpen }: { items: LibraryItem[]; only?: string; onSaved: (saved: LibraryItem[]) => void; onOpen: (id: string) => void }) {
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const groups = BOARDS.filter(board => !only || board.id === only)
+    .map(board => ({ board, group: items.filter(item => item.also.includes(board.id)) })).filter(entry => entry.group.length);
+  if (!groups.length) return null;
+
+  async function save(list: LibraryItem[], change: (item: LibraryItem) => Change, key: string) {
+    setBusy(key); setError('');
+    const results = await inTurns(list.map(item => () => changeItem(item.id, change(item))));
+    const saved = results.flatMap(result => (result.status === 'fulfilled' ? [result.value.item] : []));
+    if (saved.length < list.length) setError(`${list.length - saved.length} could not be saved. Try again.`);
+    onSaved(saved);
+    setBusy('');
+  }
+
+  const panel = 'flex flex-col gap-3 rounded-[var(--radius-panel)] bg-card p-4 shadow-sm';
+  return <section aria-label="Also fits" className="flex flex-col gap-4">
+    <div>
+      <h2 className="m-0 text-base font-semibold">Also fits <span className="font-normal text-muted-foreground">· {groups.reduce((sum, entry) => sum + entry.group.length, 0)}</span></h2>
+      <p className="m-0 text-xs text-muted-foreground">Items already on a board that our models say would also fit another one. One picture on more boards serves more songs.
+        Take out (×) any that do not fit: they are not offered for that board again, and our models offer their look-alikes less.</p>
+    </div>
+    {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
+    {groups.map(({ board, group }) => <div key={board.id} className={panel}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="m-0 text-sm font-medium">{board.name} <span className="text-muted-foreground">· {group.length}</span></h3>
+          <p className="m-0 text-xs text-muted-foreground">{board.hunt}</p>
+        </div>
+        <Button size="sm" disabled={Boolean(busy)} onClick={() => void save(group, item => ({ boards: [...item.boards, board.id] }), board.id)}>
+          <CheckIcon className="size-4" aria-hidden="true" />{busy === board.id ? 'Adding…' : `Add ${group.length} to ${board.name}`}</Button>
+      </div>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+        {group.map(item => <Thumb key={item.id} item={item} onOpen={() => onOpen(item.id)}
+          onDoubt={busy ? undefined : () => void save([item], () => ({ notBoards: [...item.notBoards, board.id] }), `${board.id}:${item.id}`)} />)}
+      </div>
+    </div>)}
+  </section>;
+}
+
 const NO_BOARD = '__none__';
 
 type StatusFilter = 'all' | LibraryStatus;
@@ -676,6 +725,12 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
     anchor.current = id;
   }
   const refresh = () => loadLibrary().then(setLibrary, () => undefined);
+  /** Items saved from a tray; the library is then asked again, since one answer changes what our models offer for the others. */
+  function merge(saved: LibraryItem[]) {
+    setLibrary(current => current && { ...current, items: current.items.map(item => saved.find(entry => entry.id === item.id) ?? item) });
+    onChanged();
+    void refresh();
+  }
 
   return <div className={`mx-auto flex max-w-6xl flex-col gap-6 ${chosen.length ? 'pb-24' : ''}`}>
     <header><h1 className="m-0 text-2xl font-semibold">Library</h1>
@@ -695,8 +750,11 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
         {BOARDS.map(entry => <option key={entry.id} value={entry.id}>{entry.name} ({items.filter(item => item.boards.includes(entry.id)).length})</option>)}
       </select>
     </div>
-    {sorting && library ? <SortTray items={unsorted} filed={items.length - items.filter(item => !item.boards.length).length} onOpen={setOpenId}
-      onFiled={saved => { setLibrary(current => current && { ...current, items: current.items.map(item => saved.find(entry => entry.id === item.id) ?? item) }); onChanged(); void refresh(); }} />
+    {library && board && board !== NO_BOARD && <AlsoTray items={items} only={board} onOpen={setOpenId} onSaved={merge} />}
+    {sorting && library ? <>
+      <SortTray items={unsorted} filed={items.length - items.filter(item => !item.boards.length).length} onOpen={setOpenId} onFiled={merge} />
+      <AlsoTray items={items} onOpen={setOpenId} onSaved={merge} />
+    </>
     : <>
     {shown.length > 0 && <div className="-mt-3 flex flex-wrap items-center gap-2 text-sm">
       <Button variant="secondary" size="sm" onClick={() => { setOpenId(null); setPicked(list => (allShownPicked ? list.filter(id => !shown.some(item => item.id === id)) : [...new Set([...list, ...shown.map(item => item.id)])])); }}>

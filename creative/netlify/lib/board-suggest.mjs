@@ -56,3 +56,40 @@ export function suggestBoards(item, filed) {
   const othersAgree = learned >= SUGGEST.learnedWeight / 2 ? (shares[best.board] ?? 0) >= SUGGEST.sureShare : mostSeen === best.board;
   return { boards: second ? [best.board, next.board] : [best.board], sure: readerSure && othersAgree };
 }
+
+/**
+ * The reader alone names too many boards (it leans to Dark Warehouse); SigLIP must see the board's scene too, at `seen` or more. The admin's
+ * answers on look-alikes then decide: of the `nearest` items at least `alike` like it that were put on that board or turned down for it,
+ * the turned-down ones' share of their likeness must stay under `refused` (the same sharpness as the suggestions).
+ */
+// On the admin's first 197 filed items the reader named 262 other boards; SigLIP saw 129 of them. Three in four items have a look-alike at 0.85.
+export const ALSO = { seen: 0.4, nearest: 3, alike: 0.85, refused: 0.5 };
+
+/**
+ * The boards a filed item would also fit, best seen first: named by the reader (as its board or among those it would also look right
+ * on), seen by SigLIP, and neither on the item nor turned down for it. `answered` is `{ id, embedding, boards, notBoards }` of the
+ * items, so look-alikes the admin turned down for a board stop it being offered.
+ */
+export function alsoFits(item, answered) {
+  const reading = item.reading ?? null;
+  if (!reading) return [];
+  const on = new Set([...(item.boards ?? []), ...(item.not_boards ?? [])]);
+  const seen = item.board_odds ?? {};
+  return [...new Set([...(reading.boards ?? []), ...(reading.also ?? [])])]
+    .filter(board => !on.has(board) && (seen[board] ?? 0) >= ALSO.seen && refusedShare(item, board, answered) < ALSO.refused)
+    .sort((a, b) => (seen[b] ?? 0) - (seen[a] ?? 0));
+}
+
+/** Of the look-alikes the admin put on `board` or turned down for it, the turned-down ones' share of their likeness. */
+function refusedShare(item, board, answered) {
+  if (!item.embedding?.length) return 0;
+  const near = answered
+    .filter(other => other.id !== item.id && other.embedding?.length === item.embedding.length && (other.boards.includes(board) || other.notBoards.includes(board)))
+    .map(other => ({ refused: other.notBoards.includes(board), like: dot(item.embedding, other.embedding) }))
+    .filter(entry => entry.like >= ALSO.alike)
+    .sort((a, b) => b.like - a.like).slice(0, ALSO.nearest);
+  if (!near.length) return 0;
+  const weights = near.map(entry => Math.exp((entry.like - near[0].like) / SUGGEST.sharpness));
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  return near.reduce((sum, entry, at) => sum + (entry.refused ? weights[at] : 0), 0) / total;
+}
