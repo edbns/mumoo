@@ -23,6 +23,7 @@ import json
 import re
 import subprocess
 import tempfile
+import traceback
 import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
@@ -486,18 +487,22 @@ def seconds_of(path: Path) -> float:
     return float(run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(path)], 60).strip() or 0)
 
 
-def encode(source: Path, clip: Path) -> str:
-    """The small H.264 copy and the scene detector's log, from one pass over `source`."""
+# How a clip is made smaller when the first copy is over CLIP_MAX_BYTES (busy footage: crowds, lights, smoke): lighter, then lighter and shorter.
+LIGHTER = [(22, "8M", MAX_SECONDS), (27, "4M", MAX_SECONDS), (30, "3M", 30)]
+
+
+def encode(source: Path, clip: Path, crf: int = 22, rate: str = "8M", seconds: int = MAX_SECONDS) -> str:
+    """The small H.264 copy (at most `seconds` long) and the scene detector's log, from one pass over `source`."""
     # One pass over the source: the picture is decoded once and goes to the small H.264 copy and, scaled down, to the scene detector.
     return run([
-        "ffmpeg", "-y", "-hide_banner", "-i", str(source), "-t", str(MAX_SECONDS), "-an",
+        "ffmpeg", "-y", "-hide_banner", "-i", str(source), "-t", str(seconds), "-an",
         "-filter_complex",
         "[0:v]fps=30,split=2[full][look];"
         # Full HD at most (never enlarged): the cloud render is 1080x1920, and a clip kept at 720 wide came out soft.
         "[full]scale='min(1080,iw)':'min(1920,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p[small];"
         # The first frame is always kept (it is at 0, which is no cut): a video of one shot has no scene change, and an output that receives no frame makes ffmpeg fail.
         f"[look]scale=-2:160,select='gt(scene,{SCENE_THRESHOLD})+eq(n,0)',showinfo[scenes]",
-        "-map", "[small]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-maxrate", "8M", "-bufsize", "16M",
+        "-map", "[small]", "-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf), "-maxrate", rate, "-bufsize", f"{int(rate[:-1]) * 2}M",
         "-g", "10", "-bf", "0", "-movflags", "+faststart", str(clip),
         "-map", "[scenes]", "-f", "null", "-",
     ], 300, stream="stderr")
@@ -536,22 +541,26 @@ def size_of(path: Path) -> list[int]:
 
 
 def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]], list[int]]:
-    seconds = seconds_of(source)
-    # GIFs sometimes report no duration; only a clearly long clip is refused.
-    if seconds > MAX_SECONDS:
-        raise PrepareError(f"Videos can be up to {MAX_SECONDS} seconds long.")
+    # A longer video keeps its first MAX_SECONDS (an ad uses a few seconds of it); GIFs sometimes report no duration.
+    seconds = min(seconds_of(source), MAX_SECONDS)
     clip = directory / "clip.mp4"
-    try:
-        log = encode(source, clip)
-    except PrepareError:
-        fixed = with_colours(source, directory)
-        if fixed is None:
-            raise
-        log = encode(fixed, clip)
-    if not clip.exists() or clip.stat().st_size < 1000:
-        raise PrepareError("That video has nothing to show.")
-    if clip.stat().st_size > CLIP_MAX_BYTES:
+    readable = source
+    for crf, rate, most in LIGHTER:
+        try:
+            log = encode(readable, clip, crf, rate, most)
+        except PrepareError:
+            fixed = with_colours(source, directory)
+            if fixed is None or readable == fixed:
+                raise
+            readable = fixed
+            log = encode(readable, clip, crf, rate, most)
+        if not clip.exists() or clip.stat().st_size < 1000:
+            raise PrepareError("That video has nothing to show.")
+        if clip.stat().st_size <= CLIP_MAX_BYTES:
+            break
+    else:
         raise PrepareError("That video is too detailed to prepare. Try a shorter one.")
+    seconds = min(seconds, seconds_of(clip))
     milliseconds = round(seconds_of(clip) * 1000)
     if milliseconds < 500:
         raise PrepareError("That video is too short to use.")
@@ -588,6 +597,7 @@ def prepare(kind: str, source: str, puts: dict[str, str]) -> dict:
         except PrepareError as problem:
             return {"ok": False, "error": str(problem)}
         except Exception:  # noqa: BLE001 - anything else is ours, not the person's
+            traceback.print_exc()
             return {"ok": False, "error": "We could not prepare that file. Try another."}
 
 
