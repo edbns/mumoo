@@ -53,10 +53,10 @@ test('the shelf is twelve rows of four, in order, each card distinct', async () 
       const thermal = genre === 'Gospel' ? 0 : 4;
       const ascii = genre === 'Gospel' ? 0 : 4;
       const treatments = ['triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double'];
-      assert.equal(slots.length, 36 + 28 + thermal + ascii, genre);
-      assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', ...treatments, ...(thermal ? ['thermal'] : []), 'halftone', 'dither', ...(ascii ? ['ascii'] : []), 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust'], 'rows come in order');
-      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Directed', 'Triptych', 'Fisheye', 'Collage', 'Colored Frame', 'Bento Grid', 'Film Grain', 'Double Exposure', 'Thermal', 'Halftone', 'Dither', 'ASCII', 'Riso', 'Spray', 'Window', 'Doodle', 'Pulise', 'Dust']);
-      for (const row of ['photography', ...treatments, 'halftone', 'dither', 'riso', 'spray', 'window', 'doodle', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
+      assert.equal(slots.length, 28 + 28 + thermal + ascii, genre);
+      assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', ...treatments, ...(thermal ? ['thermal'] : []), 'halftone', 'dither', ...(ascii ? ['ascii'] : []), 'riso', 'window', 'pulise', 'dust'], 'rows come in order');
+      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Directed', 'Triptych', 'Fisheye', 'Collage', 'Colored Frame', 'Bento Grid', 'Film Grain', 'Double Exposure', 'Thermal', 'Halftone', 'Dither', 'ASCII', 'Riso', 'Window', 'Pulise', 'Dust']);
+      for (const row of ['photography', ...treatments, 'halftone', 'dither', 'riso', 'window', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
       assert.equal(slots.filter(slot => slot.row === 'thermal').length, thermal, `${genre} thermal`);
       assert.equal(slots.filter(slot => slot.row === 'ascii').length, ascii, `${genre} ascii`);
       const photography = slots.filter(slot => slot.row === 'photography');
@@ -128,7 +128,7 @@ test('a refresh deals four effects the earlier ones did not, and the deal is see
     assert.equal(new Set(first).size, 20, 'five refreshes in a row never repeat an effect');
     assert.deepEqual(row(person, 3).map(slot => slot.id), row(person, 3).map(slot => slot.id), 'the same song and refresh deal the same cards, with the same ids');
     assert.notDeepEqual(row(person, 0).map(slot => slot.effectId), row(profile('Pop', 'hello', 'b'.repeat(64)), 0).map(slot => slot.effectId), 'another song is dealt other effects');
-    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 72);
+    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 64);
   } finally { await server.close(); }
 });
 
@@ -211,8 +211,7 @@ test('club songs keep club fonts', async () => {
   try {
     const { DISPLAY_FACES } = await server.ssrLoadModule('/src/font-catalog.ts');
     const clubMoods = ['brutal', 'techno', 'pixel', 'graffiti'];
-    // Doodle writes in its own hand (a marker), whatever the song is.
-    for (const slot of shelf(pack, profile('Slap House')).filter(item => item.row !== 'doodle')) {
+    for (const slot of shelf(pack, profile('Slap House'))) {
       for (const font of [slot.font, slot.fontSecondary]) assert.ok(DISPLAY_FACES[font].moods.some(mood => clubMoods.includes(mood)), font);
     }
   } finally { await server.close(); }
@@ -246,7 +245,7 @@ test('the cover decides which backgrounds lead: warm cover → warm looks, cool 
     assert.ok(cool.every(look => look.warmth < 0.4), 'cool cover leads with cool backgrounds');
 
     // No cover: nothing changes, still a full pack.
-    assert.equal(shelf(pack, profile('Pop')).length, 72, 'still a full shelf');
+    assert.equal(shelf(pack, profile('Pop')).length, 64, 'still a full shelf');
   } finally { await server.close(); }
 });
 
@@ -282,15 +281,15 @@ test('the lyrics grade the colours and calm the beat without changing the look',
     assert.deepEqual(neutral.map(slot => slot.id), plain.map(slot => slot.id));
     assert.ok(neutral.every(slot => !slot.grade));
 
-    // Sad words on a club song: same lane and looks, sadder colours, calmer hits. Riso inks, Spray paints, Window screens and the Doodle paper are the design, so they are not graded.
+    // Sad words on a club song: same lane and looks, sadder colours, calmer hits. Riso inks and Window screens are the design, so they are not graded.
     const sad = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'sad', sadness: 3, intensity: 2 }));
     assert.ok(sad.every(slot => slot.reason.startsWith('techno')));
-    const graded = sad.filter(slot => !['riso', 'spray', 'window', 'doodle'].includes(slot.row));
+    const graded = sad.filter(slot => !['riso', 'window'].includes(slot.row));
     assert.equal(graded.length, 56);
     const grade = graded[0].grade;
     assert.ok(grade.saturation < 1 && grade.warmth < 0 && grade.brightness < 1 && grade.calm > 0.5, JSON.stringify(grade));
     assert.ok(graded.every(slot => JSON.stringify(slot.grade) === JSON.stringify(grade)));
-    assert.ok(sad.filter(slot => ['riso', 'spray', 'window', 'doodle'].includes(slot.row)).every(slot => slot.grade === undefined), 'Riso, Spray, Window and Doodle keep their own colours');
+    assert.ok(sad.filter(slot => ['riso', 'window'].includes(slot.row)).every(slot => slot.grade === undefined), 'Riso and Window keep their own colours');
 
     // Defiant and forceful: warmer, punchier, no calming.
     const defiant = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'confident', sadness: 0, intensity: 4 }))[0].grade;
@@ -343,15 +342,14 @@ test('every row is recommended on its own, so refreshing one never changes anoth
   } finally { await server.close(); }
 });
 
-test('rows say what they own: lyrics switch, which picture they take, and Pulise and Spray take none', async () => {
+test('rows say what they own: lyrics switch, which picture they take, and Pulise takes none', async () => {
   const { server, pack } = await load();
   try {
     const rows = Object.fromEntries(pack.SHELF_ROWS.map(def => [def.id, def]));
     assert.equal(rows.looks, undefined, 'Moving backgrounds is off the shelf');
-    for (const row of ['pulise', 'spray']) {
-      assert.equal(rows[row].lyrics, 'always', row);
-      assert.equal(rows[row].picture, undefined, `${row} takes no picture`);
-    }
+    assert.equal(rows.pulise.lyrics, 'always');
+    assert.equal(rows.pulise.picture, undefined, 'Pulise takes no picture');
+    for (const row of ['spray', 'doodle']) assert.equal(rows[row], undefined, `${row} is off the shelf`);
     assert.equal(rows.dust.picture, 'photo', 'Dust needs a photo');
     const treatments = ['triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double'];
     for (const row of ['photography', ...treatments, 'riso', 'window', 'thermal', 'halftone', 'dither', 'ascii']) assert.equal(rows[row].picture, 'any', `${row} takes a photo, video or GIF`);
@@ -383,26 +381,6 @@ test('Riso deals four ink sets and four heavy faces, the same photo as Dust, and
   } finally { await server.close(); }
 });
 
-test('Spray deals four of its six walls and four heavy faces, and every refresh deals them again', async () => {
-  const { server, pack } = await load();
-  try {
-    const { SPRAY_PALETTES } = await server.ssrLoadModule('/src/spray-look.ts');
-    const ids = SPRAY_PALETTES.map(palette => palette.id);
-    for (const genre of ['Gospel', 'Slap House', 'Pop', 'Ambient']) {
-      const seen = new Set();
-      for (let generation = 0; generation < 12; generation++) {
-        const row = pack.recommendRow('spray', profile(genre), generation, PLATES);
-        assert.equal(new Set(row.map(slot => slot.sprayPalette)).size, 4, `${genre} #${generation} repeats a wall`);
-        assert.ok(row.every(slot => ids.includes(slot.sprayPalette) && slot.style === 'spray' && slot.row === 'spray'));
-        assert.equal(new Set(row.map(slot => slot.layout.seed)).size, 4, `${genre} #${generation} repeats a layout seed`);
-        assert.ok(row.every(slot => slot.plateId === undefined && slot.effectId === undefined && slot.typeStyle === undefined));
-        row.forEach(slot => seen.add(slot.sprayPalette));
-      }
-      assert.equal(seen.size, 6, `${genre}: over twelve refreshes every wall is dealt`);
-    }
-  } finally { await server.close(); }
-});
-
 const WOMAN = 'burnnet-woman-1547507-1920';
 const MODES = ['person', 'plain', 'effect', 'bank'];
 /** The one picture a Window card is drawn from, as a key: its kind and which. */
@@ -426,7 +404,7 @@ function* windowRows(pack, plates, generations = 24) {
   }
 }
 
-test('Window deals four distinct cards: no picture, screen, face or layout repeated, every screen one that reads against its picture', async () => {
+test('Window deals four distinct cards: no picture, face or layout repeated, each card on one black or off-white screen that reads against its picture', async () => {
   const { server, pack, look, readings } = await loadWindow();
   try {
     for (const { genre, generation, row } of windowRows(pack, PLATES)) {
@@ -434,18 +412,20 @@ test('Window deals four distinct cards: no picture, screen, face or layout repea
       assert.equal(row.length, 4, name);
       assert.ok(row.every(slot => slot.style === 'window' && slot.row === 'window' && slot.family === 'ad_punch'), name);
       assert.equal(new Set(row.map(slot => sourceOf(slot))).size, 4, `${name} repeats a picture`);
-      assert.equal(new Set(row.map(slot => slot.windowPalette)).size, 4, `${name} repeats a screen`);
+      assert.equal(new Set(row.map(slot => slot.windowPalette)).size, 2, `${name}: black and off-white take turns`);
       assert.equal(new Set(row.map(slot => slot.font)).size, 4, `${name} repeats a face`);
       assert.equal(new Set(row.map(slot => slot.layout.seed)).size, 4, `${name} repeats a layout seed`);
       assert.equal(new Set(row.map(slot => slot.id)).size, 4, `${name} repeats an id`);
       for (const slot of row) {
         assert.ok(look.WINDOW_FACES.includes(slot.font) && slot.fontSecondary === slot.font, `${name}: ${slot.font} is not one of the condensed faces`);
-        assert.ok(slot.windowAllowed.every(id => look.WINDOW_PALETTE_IDS.includes(id)) && slot.windowAllowed.includes(slot.windowPalette), name);
+        assert.deepEqual(slot.windowAllowed, [slot.windowPalette], `${name}: one screen for the whole video`);
+        assert.ok(['black', 'off-white'].includes(slot.windowPalette), `${name}: ${slot.windowPalette}`);
         assert.equal(slot.label, `${slot.windowPalette[0].toUpperCase()}${slot.windowPalette.slice(1).replace('-', ' ')}`, 'the label names the screen colour');
         assert.ok(slot.typeStyle === undefined && slot.colors === undefined && slot.grade === undefined && slot.inkSet === undefined && slot.cutSeed === undefined, `${name}: nothing but Window's own fields`);
         const key = slot.windowMode === 'effect' ? `effect:${slot.effectId}` : slot.windowMode === 'bank' ? `bank:${slot.bankId}` : `plate:${slot.plateId}`;
         const reading = readings[key];
-        assert.deepEqual(slot.windowAllowed, slot.windowMode === 'person' ? reading.person : reading.plain, `${name}: ${key} is dealt the screens that read against it`);
+        const reads = (slot.windowMode === 'person' ? reading.person : reading.plain).filter(id => ['black', 'off-white'].includes(id));
+        assert.ok(reads.length ? reads.includes(slot.windowPalette) : slot.windowPalette === 'black', `${name}: ${key} is dealt a screen that reads against it`);
       }
     }
   } finally { await server.close(); }
@@ -546,8 +526,7 @@ test('with the person\'s own picture all four Window cards use it: a photo alter
           assert.equal(row.length, 4, name);
           assert.ok(row.every(slot => slot.plateId === undefined && slot.effectId === undefined && slot.bankId === undefined), `${name}: the person's picture replaces ours`);
           assert.equal(new Set(row.map(slot => slot.font)).size, 4, `${name} repeats a face`);
-          assert.equal(new Set(row.map(slot => slot.windowPalette)).size, 4, `${name} repeats a screen`);
-          for (const slot of row) assert.ok((slot.windowMode === 'person' ? person : plain).includes(slot.windowPalette) && slot.windowAllowed.every(id => (slot.windowMode === 'person' ? person : plain).includes(id)), `${name}: a screen that does not read`);
+          for (const slot of row) assert.ok((slot.windowMode === 'person' ? person : plain).includes(slot.windowPalette) && slot.windowAllowed.length === 1 && slot.windowAllowed[0] === slot.windowPalette, `${name}: a screen that does not read, or more than one`);
           if (kind === 'photo') {
             const modes = row.map(slot => slot.windowMode);
             assert.ok(modes[0] !== modes[1] && modes[0] === modes[2] && modes[1] === modes[3] && modes.every(mode => ['person', 'plain'].includes(mode)), `${name}: ${modes}`);
@@ -563,18 +542,16 @@ test('with the person\'s own picture all four Window cards use it: a photo alter
   } finally { await server.close(); }
 });
 
-test('the cloud worker knows exactly the kinds of creative, ink sets, walls and Window screens the page deals', async () => {
+test('the cloud worker knows exactly the kinds of creative, ink sets and Window screens the page deals', async () => {
   const { server } = await load();
   try {
     const { AD_PUNCH_STYLES } = await server.ssrLoadModule('/src/ad-punch.ts');
     const { RISO_INK_SETS } = await server.ssrLoadModule('/src/riso-look.ts');
-    const { SPRAY_PALETTES } = await server.ssrLoadModule('/src/spray-look.ts');
     const { WINDOW_PALETTE_IDS, WINDOW_FACES } = await server.ssrLoadModule('/src/window-look.ts');
     assert.deepEqual(workerSet('STYLES').sort(), [...AD_PUNCH_STYLES].sort());
     assert.deepEqual(workerSet('WINDOW_PALETTES').sort(), [...WINDOW_PALETTE_IDS].sort());
     assert.deepEqual(workerSet('WINDOW_FACES').sort(), [...WINDOW_FACES].sort());
     assert.deepEqual(workerSet('WINDOW_MODES').sort(), ['bank', 'effect', 'person', 'plain']);
     assert.deepEqual(workerSet('RISO_INK_SETS').sort(), RISO_INK_SETS.map(set => set.id).sort());
-    assert.deepEqual(workerSet('SPRAY_PALETTES').sort(), SPRAY_PALETTES.map(palette => palette.id).sort());
   } finally { await server.close(); }
 });

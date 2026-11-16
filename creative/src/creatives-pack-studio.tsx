@@ -102,8 +102,6 @@ function packOpts(
     layout: slot.layout,
     ...(slot.colors ? { colors: slot.colors } : {}),
     ...(slot.inkSet ? { inkSet: slot.inkSet } : {}),
-    ...(slot.sprayPalette ? { sprayPalette: slot.sprayPalette } : {}),
-    ...(slot.doodleId ? { doodleId: slot.doodleId, doodlePaper: slot.doodlePaper, doodleMood: slot.doodleMood } : {}),
     ...(slot.windowMode ? { windowMode: slot.windowMode, windowPalette: slot.windowPalette, windowAllowed: slot.windowAllowed } : {}),
     ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),

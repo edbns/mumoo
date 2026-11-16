@@ -247,7 +247,7 @@ test('Directed and every treatment carry the song\'s preset, each card its own t
 });
 
 test('the other templates carry no preset', () => {
-  for (const row of ['thermal', 'riso', 'spray', 'pulise']) {
+  for (const row of ['thermal', 'riso', 'pulise']) {
     for (const slot of pack.recommendRow(row, profile('Trap'), 0, [{ id: 'p1', cutout: true }], null, LIBRARY)) assert.equal(slot.preset, undefined, row);
   }
 });

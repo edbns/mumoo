@@ -9,10 +9,7 @@ import type { DustColors } from './dust-colors';
 import type { DustPoints, DustWord } from './pack-dust';
 import type { RisoInkSet } from './riso-look';
 import type { RisoPhoto } from './riso-photo';
-import type { SprayPalette } from './spray-look';
 import type { WindowPicture } from './pack-window';
-import type { DoodlePaper } from './doodle-cast';
-import type { DoodleMood } from './doodle-parts';
 import type { TreatmentId } from './treatment-deal';
 import type { PresetId } from './edit-presets';
 
@@ -47,19 +44,16 @@ export type PackSceneInput = {
   beatsMs: readonly number[];
   downbeatsMs: readonly number[];
   dustWord: DustWord | null;
-  /** Riso and Spray: the lyric words with their times (none when lyrics are off), and the card's own seed (where each word falls, how the paper is stained). */
+  /** Riso and Window: the lyric words with their times (none when lyrics are off), and the card's own seed (where each word falls, how the paper is stained). */
   cues: readonly LyricCue[];
   seed: number;
-  /** Riso: the card's inks, and the person's photo read for the halftone. Spray: the card's wall and paints. */
+  /** Riso: the card's inks, and the person's photo read for the halftone. */
   inks?: RisoInkSet['inks'];
   risoPhoto?: RisoPhoto | null;
-  palette?: SprayPalette;
-  /** Window: the picture seen through the word (with the cut-out of a person to stand in front), the screen colour the card opens on, and the colours it may flip to. */
+  /** Window: the picture seen through the word (with the cut-out of a person to stand in front), the screen colour it opens on, and the colours it may flip to (only its own, on the cards dealt now). */
   windowPicture?: WindowPicture;
   windowPalette?: string;
   windowAllowed?: readonly string[];
-  /** Doodle: who sings (a card's singers), the paper, and the mood of the song. */
-  doodle?: { id: string; paper: DoodlePaper; mood: DoodleMood };
   /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
   treatment?: TreatmentId;
   treatmentVariant?: string;

@@ -13,7 +13,6 @@ import {
 import { STYLE_NAMES, type AdPunchStyle } from './ad-punch';
 import { dustColors, type DustColors } from './dust-colors';
 import { RISO_INK_SETS } from './riso-look';
-import { SPRAY_PALETTES } from './spray-look';
 import { dealWindow, dealWindowLibrary, type WindowLibraryItem, type WindowMode, type WindowOwn } from './window-deal';
 import type { WindowReading } from './pack-window';
 import bankData from './look-lab/bank.json';
@@ -26,8 +25,6 @@ import type { CoverRead } from './cover-palette';
 import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
 import { libraryFit, pickLibrary, showing, type LibraryPicture, type LibraryWanted } from './library-pick';
 import { boardForRow } from './boards';
-import { dealDoodle, doodleMood, type DoodlePaper } from './doodle-cast';
-import type { DoodleMood } from './doodle-parts';
 import {
   dealTreatments,
   isTreatmentId,
@@ -48,7 +45,7 @@ const PHOTO_EFFECTS = effectsData as PhotoEffect[];
 export type PackFamily = 'ad_punch';
 
 /** Every row that can be dealt. 'looks' (Moving backgrounds) is dealt but not on the shelf: see SHELF_ROWS. */
-export type ShelfRow = 'photography' | LookFamily | TreatmentId | 'looks' | 'riso' | 'spray' | 'window' | 'doodle' | 'pulise' | 'dust';
+export type ShelfRow = 'photography' | LookFamily | TreatmentId | 'looks' | 'riso' | 'window' | 'pulise' | 'dust';
 
 /**
  * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
@@ -70,9 +67,7 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'dither', title: 'Dither', lyrics: 'switch', picture: 'any' },
   { id: 'ascii', title: 'ASCII', lyrics: 'switch', picture: 'any' },
   { id: 'riso', title: 'Riso', lyrics: 'switch', picture: 'any' },
-  { id: 'spray', title: 'Spray', lyrics: 'always' },
   { id: 'window', title: 'Window', lyrics: 'always', picture: 'any' },
-  { id: 'doodle', title: 'Doodle', lyrics: 'always' },
   // "Moving backgrounds" (id 'looks', the Shaders backgrounds under lyric type) is off the shelf until its backgrounds are good enough.
   // To bring it back, add { id: 'looks', title: 'Moving backgrounds', lyrics: 'switch' } here.
   { id: 'pulise', title: 'Pulise', lyrics: 'always' },
@@ -82,8 +77,8 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
 export type OwnKind = 'photo' | 'motion';
 /**
  * The rows of the shelf for a song and the person's own picture. With no words, only the rows that work without them
- * (Spray, Window, Doodle and Pulise are made of the lyrics). With any picture of their own, only the rows that draw a picture
- * (Spray, Doodle and Pulise take none, so they leave). With a video or GIF, only the rows that can use one (Dust needs a photo).
+ * (Window and Pulise are made of the lyrics). With any picture of their own, only the rows that draw a picture
+ * (Pulise takes none, so it leaves). With a video or GIF, only the rows that can use one (Dust needs a photo).
  */
 export const rowsFor = (noLyrics: boolean, own: OwnKind | null = null): readonly ShelfRowDef[] =>
   SHELF_ROWS.filter(def => !(noLyrics && def.lyrics === 'always') && !(own && !def.picture) && !(own === 'motion' && def.picture === 'photo'));
@@ -105,16 +100,10 @@ export type CreativesPackSlot = {
   plateId?: string;
   /** Riso: the ink set of this card (`RISO_INK_SETS` id). */
   inkSet?: string;
-  /** Spray: the wall and paints of this card (`SPRAY_PALETTES` id). */
-  sprayPalette?: string;
   /** Window: the kind of picture seen through the word, the screen colour the card opens on, and the colours its screen may flip to (all of which read against the picture). */
   windowMode?: WindowMode;
   windowPalette?: string;
   windowAllowed?: string[];
-  /** Doodle: who sings (`doodle-cast.ts`: one singer or a duet), the paper they are drawn on, and the mood of the song's words. */
-  doodleId?: string;
-  doodlePaper?: DoodlePaper;
-  doodleMood?: DoodleMood;
   /** Our photography and Window: which arrangement of the person's video or GIF this card plays (its cut speed follows the card's place). */
   cutSeed?: number;
   /** Our photography: the approved library picture (a photo, video or GIF) this card is drawn from, until the person uses their own. */
@@ -184,8 +173,6 @@ export const TYPE_ALLOW: Record<MoodLane, readonly TypeStyleId[]> = {
 
 /** Dust, Pulise and Riso draw capitals from thick strokes, so their faces must be heavy and set in caps. */
 const HEAVY_CAPS_ROW: readonly (readonly FontNeed[])[] = Array.from({ length: ROW_SIZE }, () => ['heavy', 'caps']);
-/** Spray fills the letters with paint, so a face must be heavy; it reads in either case, which lets the graffiti marker faces in. */
-const HEAVY_ROW: readonly (readonly FontNeed[])[] = Array.from({ length: ROW_SIZE }, () => ['heavy']);
 
 type Faces = { font: AdFont; fontSecondary: AdFont };
 
@@ -342,8 +329,8 @@ function libraryWanted(profile: CreativeProfileV1, meaning: LyricMeaning | null,
 /** An approved photo; `cutout` says it also has the mask Dust needs. */
 export type PlateRef = { id: string; cutout: boolean };
 
-/** Riso, Spray and Window are drawn in the inks, paints and screen colours they were dealt: a mood grade over them would recolour the design. */
-const UNGRADED: readonly ShelfRow[] = ['riso', 'spray', 'window', 'doodle'];
+/** Riso and Window are drawn in the inks and screen colours they were dealt: a mood grade over them would recolour the design. */
+const UNGRADED: readonly ShelfRow[] = ['riso', 'window'];
 
 /**
  * One row of the shelf for this song. `generation` is that row's own Refresh count. `plates` are the approved
@@ -518,12 +505,10 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     ascii: () => effectRow('ascii'),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, risoPhotos),
-    spray: () => spraySlots(lane, intent, seed),
     window: () => {
       const read: WindowLibraryItem[] = own ? [] : windowHand(profile, generation, library).flatMap(item => (readings[item.id] ? [{ id: item.id, reading: readings[item.id], clip: item.kind !== 'photo' }] : []));
       return windowSlots(lane, intent, seed, plates, own, read);
     },
-    doodle: () => doodleSlots(lane, intent, seed, genre, profile.creator.voice?.value ?? null, doodleMood(meaning?.attitude)),
     pulise: () => puliseSlots(lane, intent, seed),
     dust: () => dustSlots(lane, intent, seed, cover?.hue, photos),
   }[row]();
@@ -590,30 +575,6 @@ function risoSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, p
     inkSet: sets[index].id,
     cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
     ...dealt(photos, seed, index),
-  }));
-}
-
-/** Four Spray walls: each its own palette (four of the six, a seeded draw), its own heavy face and its own layout of the words. */
-function spraySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string): CreativesPackSlot[] {
-  const faces = dealFaces(lane, intent, seed, 'spray', HEAVY_ROW);
-  const walls = seededOrder(SPRAY_PALETTES, seed, palette => palette.id);
-  return faces.map((face, index) => ({
-    ...adPunchSlot('spray', index, intent, seed, lane, 'spray', face),
-    label: sentence(walls[index].name),
-    sprayPalette: walls[index].id,
-  }));
-}
-
-/** Four Doodle cards: the singer the genre and the voice ask for, the same kit on an animal and on a second person, each on its own paper, every face feeling what the words feel. */
-function doodleSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, genre: string, voice: 'female' | 'male' | 'both' | null, mood: DoodleMood): CreativesPackSlot[] {
-  return dealDoodle(genre, voice, mood, seed).map((card, index) => ({
-    // Doodle writes in one hand: the second face is the same, so nothing else is asked of the worker.
-    ...adPunchSlot('doodle', index, intent, seed, lane, 'doodle', { font: card.font, fontSecondary: card.font }),
-    label: card.label,
-    reason: `${lane} · ${card.id} · ${card.mood} · ${card.paper}`,
-    doodleId: card.id,
-    doodlePaper: card.paper,
-    doodleMood: card.mood,
   }));
 }
 

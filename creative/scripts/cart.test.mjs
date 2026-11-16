@@ -11,7 +11,7 @@ const item = (id, row = 'pulise') => ({ id, row, slot: { id, row, label: 'x' }, 
 const cartOf = (carts, key) => cartFor(carts, key).map(held => held.id);
 
 test('a saved cart comes back with its pictures', () => {
-  const carts = [{ songKey: 'song:0', items: [item('a'), item('b', 'dust'), item('c', 'riso'), item('d', 'spray'), item('e', 'window')] }];
+  const carts = [{ songKey: 'song:0', items: [item('a'), item('b', 'dust'), item('c', 'riso'), item('d', 'photography'), item('e', 'window')] }];
   assert.deepEqual(readCarts(writeCarts(carts)), carts);
 });
 

@@ -90,6 +90,9 @@ test('the screen starts on its palette and flips to one of its flip colours on e
     }
     assert.throws(() => look.screenAt(4, 'teal', 0, [], only), /not allowed/);
     assert.equal(look.screenAt(4, 'black', 5000, downbeats, ['black', 'cobalt']).id, 'black', 'a palette none of whose flips is allowed holds its colour');
+    for (const screen of ['black', 'off-white']) {
+      for (let ms = 0; ms < 15000; ms += 250) assert.equal(look.screenAt(7, screen, ms, downbeats, [screen]).id, screen, `${screen} stays ${screen} the whole video`);
+    }
     assert.throws(() => look.screenAt(4, 'beige', 0, []), /not allowed|no window palette/);
   } finally { await server.close(); }
 });
@@ -167,7 +170,7 @@ test('words are set as big as the safe area allows, a line as wide as it, and pu
   const { server, look } = await load();
   try {
     const { SAFE_BOX, REST_BOX } = look;
-    assert.equal(SAFE_BOX.x, 54, 'the same sides as Spray');
+    assert.equal(SAFE_BOX.x, 54, 'safe from the platform buttons');
     assert.ok(SAFE_BOX.y + SAFE_BOX.height <= 1574, 'above the platform buttons');
     const one = look.layoutWords('GO', measure);
     assert.equal(one.lines.length, 1);

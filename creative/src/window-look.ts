@@ -8,7 +8,21 @@ import { HEIGHT, WIDTH, type LyricCue } from './composition';
 import { META_SAFE_BOTTOM } from './ad-punch';
 import type { AdFont } from './ad-fonts';
 import { luminance } from './dust-colors';
-import { PLACE_TOP, SAFE_X, hash } from './spray-look';
+
+/** An integer hash of three numbers: the single source of every random choice in this look. */
+export function hash(a: number, b: number, c: number): number {
+  let h = Math.imul(a | 0, 0x9e3779b1) ^ Math.imul(b | 0, 0x85ebca6b) ^ Math.imul(c | 0, 0xc2b2ae35);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x2c1b3c6d);
+  h ^= h >>> 12;
+  h = Math.imul(h, 0x297a2d39);
+  h ^= h >>> 15;
+  return h >>> 0;
+}
+/** Words keep this far from the sides of the frame, in px. */
+const SAFE_X = 54;
+/** The highest a word's box may sit: clear of the top bar. */
+const PLACE_TOP = Math.round(HEIGHT * 0.1);
 
 // ---------------------------------------------------------------------------------------------------------------
 // Screens

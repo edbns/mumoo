@@ -8,9 +8,7 @@ import { createBankWorld } from './pack-bank';
 import { createPuliseWorld } from './pack-pulise';
 import { createDustWorld, type DustPoints, type DustWorld } from './pack-dust';
 import { createRisoWorld, type RisoWorld } from './pack-riso';
-import { createSprayWorld, type SprayWorld } from './pack-spray';
 import { createWindowWorld, type WindowWorld } from './pack-window';
-import { createDoodleWorld, type DoodleWorld } from './pack-doodle';
 import { createTreatmentWorld } from './pack-treatment';
 import type { RisoPhoto } from './riso-photo';
 
@@ -31,12 +29,10 @@ export function createPackScene(): PackScene {
   // The dust world is built from the photo's grains, so it exists once a photo has been read.
   let dust: { points: DustPoints; world: DustWorld } | null = null;
   const dustLayer = new Container();
-  // Riso, Spray and Window are built for one card (its seed, and Riso its photo) and given back as soon as another style or card is drawn:
-  // a Spray wall alone is tens of MB of vertex data, and the shelf draws one poster after another on this one scene.
+  // Riso and Window are built for one card (its seed, and Riso its photo) and given back as soon as another style or card is drawn:
+  // the shelf draws one poster after another on this one scene.
   let riso: { photo: RisoPhoto; seed: number; world: RisoWorld } | null = null;
-  let spray: { seed: number; world: SprayWorld } | null = null;
   let knockout: { seed: number; world: WindowWorld } | null = null;
-  let doodle: { seed: number; world: DoodleWorld } | null = null;
   const treatment = createTreatmentWorld();
   const printLayer = new Container();
   root.addChild(picture.root, pulise.root, dustLayer, printLayer, treatment.root);
@@ -69,16 +65,6 @@ export function createPackScene(): PackScene {
     riso.world.update({ ms: input.ms, beatsMs: input.beatsMs, downbeatsMs: input.downbeatsMs, cues: input.cues, inks: input.inks, font: input.font });
   }
 
-  function updateSpray(input: PackSceneInput) {
-    if (!input.palette) throw new Error('Spray needs its wall and paints.');
-    if (spray?.seed !== input.seed) {
-      spray?.world.destroy();
-      spray = { seed: input.seed, world: createSprayWorld(input.seed) };
-      printLayer.addChild(spray.world.root);
-    }
-    spray.world.update({ ms: input.ms, beatsMs: input.beatsMs, downbeatsMs: input.downbeatsMs, cues: input.cues, palette: input.palette, font: input.font });
-  }
-
   function updateWindow(input: PackSceneInput) {
     if (!input.windowPicture || !input.windowPalette) throw new Error('Window needs a picture and a screen colour.');
     if (knockout?.seed !== input.seed) {
@@ -92,41 +78,18 @@ export function createPackScene(): PackScene {
     });
   }
 
-  function updateDoodle(input: PackSceneInput) {
-    if (!input.doodle) throw new Error('Doodle needs a singer, a paper and a mood.');
-    if (doodle?.seed !== input.seed) {
-      doodle?.world.destroy();
-      doodle = { seed: input.seed, world: createDoodleWorld(input.seed) };
-      printLayer.addChild(doodle.world.root);
-    }
-    doodle.world.update({
-      ...input.doodle,
-      font: input.font,
-      ms: input.ms,
-      beat: input.beat,
-      beatIndex: input.beatIndex,
-      phrase: input.lyrics ? input.phrase : '',
-      phraseStartMs: input.words[0]?.startMs ?? 0,
-      singing: input.lyrics && Boolean(input.word),
-    });
-  }
-
   return {
     root,
     update(input, renderer) {
       if (input.style !== 'riso') { riso?.world.destroy(); riso = null; }
-      if (input.style !== 'spray') { spray?.world.destroy(); spray = null; }
       if (input.style !== 'window') { knockout?.world.destroy(); knockout = null; }
-      if (input.style !== 'doodle') { doodle?.world.destroy(); doodle = null; }
       picture.root.visible = input.style === 'bank' || input.style === 'filter';
       pulise.root.visible = input.style === 'pulise';
       dustLayer.visible = input.style === 'dust';
       treatment.root.visible = input.style === 'treatment';
       if (input.style === 'dust') updateDust(input);
       else if (input.style === 'riso') updateRiso(input);
-      else if (input.style === 'spray') updateSpray(input);
       else if (input.style === 'window') updateWindow(input);
-      else if (input.style === 'doodle') updateDoodle(input);
       else if (input.style === 'pulise') pulise.update(input);
       else if (input.style === 'treatment') {
         if (!renderer) throw new Error('A treatment needs the renderer to draw its Directed pass.');
@@ -139,9 +102,7 @@ export function createPackScene(): PackScene {
       pulise.destroy();
       dust?.world.destroy();
       riso?.world.destroy();
-      spray?.world.destroy();
       knockout?.world.destroy();
-      doodle?.world.destroy();
       treatment.destroy();
       root.destroy({ children: true });
     },

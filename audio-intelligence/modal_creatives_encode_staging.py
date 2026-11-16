@@ -51,17 +51,17 @@ CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
-    "motionShots", "reel", "cutSeed", "look", "inkSet", "sprayPalette", "windowMode", "windowPalette", "windowAllowed",
-    "doodleId", "doodlePaper", "doodleMood", "treatment", "treatmentVariant", "preset", "presetTake",
+    "motionShots", "reel", "cutSeed", "look", "inkSet", "windowMode", "windowPalette", "windowAllowed",
+    "treatment", "treatmentVariant", "preset", "presetTake",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
 # A Director's reel: two to six library pictures or clips the page fetches itself, from links the site made for them (private bucket, signed, short-lived).
 REEL_MAX = 8
 REEL_HOST_SUFFIX = ".r2.cloudflarestorage.com"
-# The kinds of creative the page draws, the Riso ink sets, the Spray walls and the Window screens and faces it knows (creative/src/ad-punch.ts, riso-look.ts, spray-look.ts, window-look.ts, window-deal.ts; a test keeps these in step).
+# The kinds of creative the page draws, the Riso ink sets and the Window screens and faces it knows (creative/src/ad-punch.ts, riso-look.ts, window-look.ts, window-deal.ts; a test keeps these in step).
 # The live looks drawn on a picture of Our photography (creative/src/live-look-deal.ts; a test keeps these in step).
 LIVE_LOOKS = {"thermal", "arctic", "night", "whitehot", "blackhot", "rainbow", "lava", "crimson", "amber", "gold", "ultraviolet", "acid", "vapor", "candy", "dusk", "lagoon", "aurora", "cyanotype", "halftone", "halftonebw", "halftonenews", "halftoneblue", "halftonered", "halftonepink", "halftoneteal", "halftonepop", "halftoneneon", "halftoneinvert", "halftonegold", "halftonecmyk", "halftoneriso", "halftoneblueprint", "halftonesepia", "halftonemanga", "halftonesubway", "halftonesunset", "halftonematcha", "halftonecandy", "halftonetarot", "halftoneacid", "halftonesilver", "halftonephosphor", "halftoneuv", "halftonecopper", "halftoneengrave", "halftonehatch", "halftoneled", "halftonebenday", "dithermac", "ditherinvert", "dithergameboy", "dithercga", "dithercgagreen", "ditherega", "ditherc64", "ditherapple2", "ditherpico8", "ditheramiga", "ditherreceipt", "ditherblueprint", "ditheramber", "dithersunset", "dithervapor", "ditherforest", "dithernews", "ditherneon", "dithergold", "ditherown", "asciigreen", "asciiamber", "asciiwhite", "asciitype", "asciicolour", "asciicyan", "asciipink", "asciiblueprint", "asciimatrix", "asciired", "asciigold", "asciiice", "asciinews", "asciisunset", "asciibinary", "asciiblocks", "asciislash", "asciimumoo"}
-STYLES = {"bank", "pulise", "dust", "filter", "riso", "spray", "window", "doodle", "treatment"}
+STYLES = {"bank", "pulise", "dust", "filter", "riso", "window", "treatment"}
 # Video treatments over the Director's reel (creative/src/treatment-deal.ts; a test keeps these in step).
 TREATMENTS = {
     "triptych": {"narrow", "medium", "wide", "breathing"},
@@ -82,7 +82,6 @@ PRESETS = {
     "mono": {"grit"},
 }
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
-SPRAY_PALETTES = {"neon-night", "neon-plum", "neon-navy", "bold-offwhite", "bold-grey", "bold-pastel"}
 WINDOW_PALETTES = {
     "black", "off-white", "sand", "hot-red", "orange", "sun-yellow", "acid-yellow", "lime",
     "green", "deep-green", "teal", "cyan", "cobalt", "violet", "magenta", "hot-pink",
@@ -90,12 +89,6 @@ WINDOW_PALETTES = {
 WINDOW_FACES = {"Anton", "Big Shoulders Display", "Staatliches", "Bangers", "Barlow Condensed"}
 # What a Window card shows through its word: our approved photo (a person stands in front of the word, or not), one baked effect, one baked background, or the person's own photo or clip.
 WINDOW_MODES = {"person", "plain", "effect", "bank"}
-# Doodle draws a singer (named by an id of one or two singers: creative/src/doodle-cast.ts), on a paper, feeling a mood, writing in one of two hands (a test keeps these in step).
-DOODLE_ID_RE = re.compile(r"^[a-z0-9]+(\.[a-z0-9]+){2,3}(\+[a-z0-9]+(\.[a-z0-9]+){2,3})?$")
-DOODLE_PAPERS = {"white", "ruled", "graph", "kraft"}
-DOODLE_MOODS = {"joyful", "flirty", "angry", "sad", "boastful"}
-DOODLE_FACES = {"Caveat Brush", "Permanent Marker"}
-DOODLE_KEYS = ("doodleId", "doodlePaper", "doodleMood")
 WINDOW_KEYS = ("windowMode", "windowPalette", "windowAllowed")
 # Styles drawn from a person cut out of a photo: an approved plate (`plateId`) or the person's own photo and cut-out mask.
 CUT_OUT_STYLES = {"dust", "riso"}
@@ -288,8 +281,8 @@ def parse_meta(raw: str) -> dict:
         raise ValueError("layout")
     if not all(type(layout[key]) in (int, float) for key in ("rotate", "scaleBias", "cut")) or ("seed" in layout and type(layout["seed"]) is not int):
         raise ValueError("layout")
-    # Riso and Spray are drawn from a seed (where the words fall, how the paper is stained), their inks or wall by id, and nothing else.
-    for style, key, known in (("riso", "inkSet", RISO_INK_SETS), ("spray", "sprayPalette", SPRAY_PALETTES)):
+    # Riso is drawn from a seed (where the words fall, how the paper is stained), its inks by id, and nothing else.
+    for style, key, known in (("riso", "inkSet", RISO_INK_SETS),):
         if (opts["style"] == style) != (key in opts) or (key in opts and opts[key] not in known):
             raise ValueError(key)
         if opts["style"] == style and "seed" not in layout:
@@ -307,25 +300,13 @@ def parse_meta(raw: str) -> dict:
             raise ValueError("font")
     elif any(key in opts for key in WINDOW_KEYS):
         raise ValueError("window")
-    # Doodle is drawn from a seed (where the strokes wander), a singer, a paper and a mood, in its own hands, and nothing else.
-    if opts["style"] == "doodle":
-        if not all(key in opts for key in DOODLE_KEYS) or "seed" not in layout:
-            raise ValueError("doodle")
-        if not isinstance(opts["doodleId"], str) or len(opts["doodleId"]) > 120 or not DOODLE_ID_RE.match(opts["doodleId"]):
-            raise ValueError("doodleId")
-        if opts["doodlePaper"] not in DOODLE_PAPERS or opts["doodleMood"] not in DOODLE_MOODS:
-            raise ValueError("doodle")
-        if opts["font"] not in DOODLE_FACES:
-            raise ValueError("font")
-    elif any(key in opts for key in DOODLE_KEYS):
-        raise ValueError("doodle")
     # A video treatment finishes the Director's reel with one known pass and variant; preview and encode share the same options.
     if opts["style"] == "treatment":
         treatment = opts.get("treatment")
         variant = opts.get("treatmentVariant")
         if treatment not in TREATMENTS or not isinstance(variant, str) or variant not in TREATMENTS[treatment]:
             raise ValueError("treatment")
-        if any(key in opts for key in ("look", "effectId", "inkSet", "sprayPalette", *WINDOW_KEYS, *DOODLE_KEYS)):
+        if any(key in opts for key in ("look", "effectId", "inkSet", *WINDOW_KEYS)):
             raise ValueError("treatment")
     elif "treatment" in opts or "treatmentVariant" in opts:
         raise ValueError("treatment")
@@ -423,7 +404,7 @@ def check_media(opts: dict, media: dict[str, bytes]) -> None:
     """Dust and Riso are drawn from an approved photo (`plateId`) and Our photography (style "filter") from that photo (`plateId`, with a live look) or one baked effect on it
     (`effectId`); the page loads either from the site itself. All three can instead be drawn from the person's own picture:
     Dust a photo with its cut-out mask, Riso a photo with its cut-out or a clip (whole-frame print), Our photography a photo or a clip.
-    Window has its own rules (`window_media`). Nothing else takes a picture (Spray takes none). A reel takes no media at all:
+    Window has its own rules (`window_media`). Nothing else takes a picture. A reel takes no media at all:
     the page fetches its pictures itself. Raises ValueError when the media sent is not exactly what the card needs."""
     if "reel" in opts:
         if media:

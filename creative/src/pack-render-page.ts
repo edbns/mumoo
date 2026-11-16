@@ -9,8 +9,8 @@ import { createPackRenderer, type PackRenderer, type PackRendererOpts } from './
 import { setReelPrefetch } from './pack-reel';
 
 const FRAMES = Math.round((DURATION_MS / 1000) * FPS);
-/** Dust grains, Riso dot screens, Spray grains and the Window's one full-frame shader are soft or drawn by shader already: edge smoothing only costs time here (6× under software GL). */
-const SMOOTH_ALREADY: readonly AdPunchStyle[] = ['dust', 'riso', 'spray', 'window', 'doodle'];
+/** Dust grains, Riso dot screens and the Window's one full-frame shader are soft or drawn by shader already: edge smoothing only costs time here (6× under software GL). */
+const SMOOTH_ALREADY: readonly AdPunchStyle[] = ['dust', 'riso', 'window'];
 let renderer: PackRenderer | null = null;
 /** A page renders one short chunk of one card: it fetches only the pictures of the reel that chunk plays. */
 setReelPrefetch(false);

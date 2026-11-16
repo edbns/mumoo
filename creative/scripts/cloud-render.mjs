@@ -5,9 +5,7 @@
  *   node scripts/cloud-render.mjs dust reggaeton        Dust from a photo, lyrics on
  *   EFFECT=glass-facets-1 node scripts/cloud-render.mjs filter techno   Our photography: one baked effect (an id from punch-plates/effects/effects.json)
  *   INKSET=orange-teal node scripts/cloud-render.mjs riso reggaeton   Riso from the approved photo (INKSET: pink-blue, orange-teal, violet-coral, red-green)
- *   PALETTE=bold-offwhite node scripts/cloud-render.mjs spray reggaeton   Spray, always with lyrics (PALETTE: neon-night, neon-plum, neon-navy, bold-offwhite, bold-grey, bold-pastel)
- *   PALETTE=cobalt MODE=person node scripts/cloud-render.mjs window reggaeton   Window (always lyrics). MODE: person (her in front of the word, default), plain (the photo as it is), effect (EFFECT: a baked effect id), bank (BANK: a baked background id); PALETTE: the screen it opens on (default: the first that reads)
- *   DOODLE=latin.f.long PAPER=ruled MOOD=flirty node scripts/cloud-render.mjs doodle reggaeton   Doodle (always lyrics): a singer id (see src/doodle-cast.ts; join two with +), the paper (white, ruled, graph, kraft) and the mood (joyful, flirty, boastful, angry, sad)
+ *   PALETTE=off-white MODE=person node scripts/cloud-render.mjs window reggaeton   Window (always lyrics). MODE: person (her in front of the word, default), plain (the photo as it is), effect (EFFECT: a baked effect id), bank (BANK: a baked background id); PALETTE: black or off-white, the one screen it stays on (default: the first that reads)
  *   LYRICS=0 node scripts/cloud-render.mjs dust techno  lyrics off
  *   SEED=4 node scripts/cloud-render.mjs dust slaphouse pick the colour pair
  *   node scripts/cloud-render.mjs pulise reggaeton      a library style, through the deployed staging site
@@ -15,7 +13,7 @@
  *   TYPE=bounce FONT="Bowlby One" node scripts/cloud-render.mjs bank techno   try a lyric motion (bank and photography) and a face
  *
  * Dust and Riso are drawn from an approved photo (PLATE, default: our cleared library photo) and Our photography ("filter") from
- * a baked effect on it (EFFECT), through the deployed site like every other style. Spray has no picture. To try a person's own media instead,
+ * a baked effect on it (EFFECT), through the deployed site like every other style. To try a person's own media instead,
  * set PHOTO (Dust, Riso and Window also need CUTOUT, default: the library photo's) or MOTION (Our photography, and Window in plain mode); cut-outs and clips
  * are made by scripts/prepare-sample.mjs. That goes to the worker directly with your Modal login, because the public
  * endpoint only hands the worker a picture for a signed-in person. The deployed site must carry the code you want drawn.
@@ -31,7 +29,7 @@ const SITE = 'https://mumoo-staging.netlify.app';
 const [style = 'dust', clip = 'reggaeton'] = process.argv.slice(2);
 const analysis = JSON.parse(readFileSync(`scripts/fixtures/analysis/${clip}.json`, 'utf8'));
 const lyrics = process.env.LYRICS !== '0';
-if ((style === 'spray' || style === 'window' || style === 'doodle') && !lyrics) throw new Error(`${style} is made of the lyrics: it has no lyrics-off version.`);
+if (style === 'window' && !lyrics) throw new Error(`${style} is made of the lyrics: it has no lyrics-off version.`);
 const cues = JSON.parse(readFileSync(`scripts/fixtures/analysis/${clip}-lyrics.json`, 'utf8')).heard.words
   .map(({ text, startMs, endMs }) => ({ text, startMs, endMs }));
 
@@ -69,12 +67,12 @@ function windowScreens() {
   if (!reading) throw new Error('Window has no reading of that picture (npm run bake:window-readings).');
   return windowMode === 'person' ? reading.person : reading.plain;
 }
-const screens = style === 'window' ? windowScreens() : [];
-const screen = process.env.PALETTE || screens[0];
-if (style === 'window' && !screens.includes(screen)) throw new Error(`${screen} does not read against this picture; these do: ${screens.join(', ')}.`);
+const screens = style === 'window' ? windowScreens().filter(id => id === 'black' || id === 'off-white') : [];
+const screen = process.env.PALETTE || screens[0] || 'black';
+if (style === 'window' && screens.length && !screens.includes(screen)) throw new Error(`${screen} does not read against this picture; these do: ${screens.join(', ')}.`);
 const opts = {
   style,
-  font: process.env.FONT || (style === 'doodle' ? 'Permanent Marker' : 'Anton'),
+  font: process.env.FONT || 'Anton',
   fontSecondary: 'Oswald',
   layout: { rotate: 0, scaleBias: 1, cut: 0, seed: Number(process.env.SEED || 7) },
   cues: lyrics ? cues : [],
@@ -84,9 +82,7 @@ const opts = {
   ...(style === 'dust' ? { colors: dustColors(Number(process.env.SEED || 7)) } : {}),
   ...((cutOut || windowMode === 'plain') && !ownMedia ? { plateId } : {}),
   ...(style === 'riso' ? { inkSet: process.env.INKSET || 'pink-blue' } : {}),
-  ...(style === 'spray' ? { sprayPalette: process.env.PALETTE || 'neon-night' } : {}),
-  ...(style === 'window' ? { windowMode, windowPalette: screen, windowAllowed: screens, ...(windowMode === 'bank' ? { bankId } : {}), ...(windowMode === 'effect' ? { effectId } : {}), ...(process.env.MOTION ? { cutSeed: Number(process.env.CUTSEED || 0) } : {}) } : {}),
-  ...(style === 'doodle' ? { doodleId: process.env.DOODLE || 'latin.f.long', doodlePaper: process.env.PAPER || 'ruled', doodleMood: process.env.MOOD || 'joyful' } : {}),
+  ...(style === 'window' ? { windowMode, windowPalette: screen, windowAllowed: [screen], ...(windowMode === 'bank' ? { bankId } : {}), ...(windowMode === 'effect' ? { effectId } : {}), ...(process.env.MOTION ? { cutSeed: Number(process.env.CUTSEED || 0) } : {}) } : {}),
   ...(style === 'bank' ? { bankId, typeStyle: process.env.TYPE || 'karaoke' } : {}),
   ...(style === 'filter' ? { ...(ownMedia ? {} : { effectId }), typeStyle: process.env.TYPE || 'stack', cutSeed: Number(process.env.CUTSEED || 0) } : {}),
   ...(process.env.SHOTS ? { motionShots: JSON.parse(process.env.SHOTS) } : {}),

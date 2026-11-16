@@ -25,12 +25,9 @@ import { planCuts, sourceMsAt, type Cut, type Shot } from './pack-cuts';
 import { plateCutoutUrl, plateUrl } from './punch-plates';
 import { risoInkSetById } from './riso-look';
 import { prepareRisoFrame, prepareRisoPhoto, type RisoPhoto } from './riso-photo';
-import { sprayPaletteById } from './spray-look';
 import { WINDOW_PALETTE_IDS } from './window-look';
 import type { WindowMode } from './window-deal';
 import type { WindowPicture } from './pack-window';
-import type { DoodlePaper } from './doodle-cast';
-import type { DoodleMood } from './doodle-parts';
 import { isTreatmentId, isTreatmentVariant, type TreatmentId } from './treatment-deal';
 import { DISSOLVE_MS, TRANSITION, isPresetId, isPresetTake, presetDef, type PresetId } from './edit-presets';
 import { presetFrame } from './preset-motion';
@@ -74,17 +71,12 @@ export type PackRendererOpts = {
   lyrics?: boolean;
   /** Dust: the two colours of the template. */
   colors?: DustColors;
-  /** Riso: the id of the card's ink set (riso-look.ts). Spray: the id of its wall and paints (spray-look.ts). */
+  /** Riso: the id of the card's ink set (riso-look.ts). */
   inkSet?: string;
-  sprayPalette?: string;
   /** Window: what is seen through the word (`windowMode`), the screen colour the card opens on, and the colours it may flip to. */
   windowMode?: WindowMode;
   windowPalette?: string;
   windowAllowed?: readonly string[];
-  /** Doodle: who sings (`doodle-cast.ts`), the paper it is drawn on, and the mood of the song's words. */
-  doodleId?: string;
-  doodlePaper?: DoodlePaper;
-  doodleMood?: DoodleMood;
   /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
   treatment?: TreatmentId;
   treatmentVariant?: string;
@@ -95,7 +87,7 @@ export type PackRendererOpts = {
 
 /** The font families a card draws with, so each is fetched (from this site) the first time a card needs it, not before. */
 function familiesFor(opts: PackRendererOpts): string[] {
-  if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'spray' || opts.style === 'window' || opts.style === 'doodle') return [opts.font];
+  if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'window') return [opts.font];
   if (opts.style === 'pulise') return [opts.font, opts.fontSecondary];
   const recording = opts.preset === 'vhs' && opts.presetTake === 'rec' ? [REC_FONT] : [];
   if (opts.style === 'treatment') return [...(opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [opts.font, opts.fontSecondary]), ...recording];
@@ -304,8 +296,6 @@ export async function createPackRenderer(
         const windowMode = style === 'window' ? checkWindow(current) : null;
         const windowOwn = windowMode === 'person' || windowMode === 'plain';
         if (style === 'riso' && !current.inkSet) throw new Error('Riso needs an ink set.');
-        if (style === 'spray' && !current.sprayPalette) throw new Error('Spray needs a wall and paints.');
-        if (style === 'doodle' && !(current.doodleId && current.doodlePaper && current.doodleMood)) throw new Error('Doodle needs a singer, a paper and a mood.');
         // Window brings her cut-out only for a card with her in front; a plain card of the same photo does not read it.
         // Riso on a clip is whole-frame: no cut-out.
         const risoMotion = style === 'riso' && Boolean(current.motionUrl || reelled);
@@ -449,11 +439,9 @@ export async function createPackRenderer(
           seed: current.layout.seed,
           inks: style === 'riso' && current.inkSet ? risoInkSetById(current.inkSet).inks : undefined,
           risoPhoto: style === 'riso' ? risoPhoto : null,
-          palette: style === 'spray' && current.sprayPalette ? sprayPaletteById(current.sprayPalette) : undefined,
           windowPicture,
           windowPalette: current.windowPalette,
           windowAllowed: current.windowAllowed,
-          doodle: style === 'doodle' ? { id: current.doodleId!, paper: current.doodlePaper!, mood: current.doodleMood! } : undefined,
           treatment: style === 'treatment' ? current.treatment : undefined,
           treatmentVariant: style === 'treatment' ? current.treatmentVariant : undefined,
         }, app.renderer);

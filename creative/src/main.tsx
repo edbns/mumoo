@@ -12,7 +12,6 @@ import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdent
 import { MusicAnalysisRunner } from './music-analysis-runner';
 import { StylePrintRunner, useStyleGuess } from './style-print-runner';
 import { useLyricMeaning } from './lyric-meaning-cloud';
-import { useSingerVoice } from './singer-voice-cloud';
 import { CreativesPackStudio } from './creatives-pack-studio';
 import { SHELF_ROWS } from './creatives-pack';
 import { ownIdsOf, useCart, songKeyOf } from './cart';
@@ -121,9 +120,6 @@ function App() {
   // The words are read the moment they are final (synced and not being edited), so the answer is ready by the creatives screen.
   const lyricMeaning = useLyricMeaning(accessToken, composition.cues, lyricsInfo.language,
     IS_ALIGNMENT_STAGING && clipValid && !lyricsState.busy && !lyricsState.dirty);
-  // Who sings is heard once the window is settled (the same moment the music is read), and only ever refines the Doodle row.
-  const singerVoice = useSingerVoice(accessToken, buffer, composition.clipStartMs, `${composition.sourceSha256}:${composition.clipStartMs}`,
-    IS_ALIGNMENT_STAGING && clipValid && (composition.cues.length > 0 || noLyrics || inCreatives));
   // "I don't know": once the window is settled, the brain guesses the style from how it sounds and asks.
   const [styleGuess, answerGuess] = useStyleGuess(accessToken, buffer, clip,
     IS_ALIGNMENT_STAGING && genreUnknown && clipValid && (composition.cues.length > 0 || noLyrics || inCreatives));
@@ -140,7 +136,6 @@ function App() {
       ...(songTags?.title && { title: { value: songTags.title, source: 'embedded_metadata' as const } }),
       ...(songTags?.artist && { artist: { value: songTags.artist, source: 'embedded_metadata' as const } }),
       ...(songCover && { cover: { value: songCover, source: 'embedded_metadata' as const } }),
-      ...(singerVoice?.status === 'ready' && singerVoice.value && { voice: { value: singerVoice.value, source: 'detected' as const } }),
     },
     musicAnalysis: analysisForClip(musicAnalysis, clip),
     ...(lyricMeaning && { lyricMeaning }),

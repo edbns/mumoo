@@ -208,7 +208,7 @@ test('Our photography is dealt from the library only; baked effects stand in jus
     assert.notDeepEqual(full.map(slot => slot.id), again.map(slot => slot.id), 'Refresh brings other cards');
     assert.notDeepEqual(full.map(slot => slot.cutSeed), again.map(slot => slot.cutSeed), 'Refresh edits them another way');
 
-    for (const row of ['spray', 'pulise']) {
+    for (const row of ['pulise']) {
       assert.deepEqual(pack.recommendRow(row, person, 0, [{ id: 'burnnet-woman-1547507-1920', cutout: true }], null, library), pack.recommendRow(row, person, 0, [{ id: 'burnnet-woman-1547507-1920', cutout: true }]), `${row} does not use the library`);
     }
     // Plain library photos without a cut-out (and no clips) do not change Riso or Dust: they still use plates.

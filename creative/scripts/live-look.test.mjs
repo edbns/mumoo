@@ -242,7 +242,7 @@ test('Thermal, Halftone, Dither and ASCII are rows of their own, drawn on librar
   assert.deepEqual(pack.recommendRow('ascii', profile('Gospel'), 0, [], null, library), [], 'no ASCII on a gospel song');
   assert.equal(pack.recommendRow('halftone', profile('Gospel'), 0, [], null, library).length, 4, 'Halftone suits a gospel song');
   assert.equal(pack.recommendRow('dither', profile('Gospel'), 0, [], null, library).length, 4, 'Dither suits a gospel song');
-  for (const row of ['photography', 'looks', 'riso', 'spray', 'pulise', 'dust']) {
+  for (const row of ['photography', 'looks', 'riso', 'pulise', 'dust']) {
     assert.ok(pack.recommendRow(row, profile('Techno'), 0, [], null, library).every(slot => !slot.look), `${row} has no look`);
   }
 });

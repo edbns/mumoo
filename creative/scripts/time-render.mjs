@@ -2,10 +2,10 @@
  * Times what one cloud chunk costs: loads the same page the Modal worker loads (render.html) in headless Chromium with
  * software WebGL, starts the scene the way the worker does, then draws consecutive frames and reports the time of each.
  *
- *   node scripts/time-render.mjs spray reggaeton 90 45     style (spray, riso, dust), clip, first frame, how many (defaults 0 and 45, one chunk)
+ *   node scripts/time-render.mjs riso reggaeton 90 45     style (riso, dust), clip, first frame, how many (defaults 0 and 45, one chunk)
  *   INKSET=orange-teal node scripts/time-render.mjs riso reggaeton
  *
- * Env: FONT, SEED, INKSET (riso), PALETTE (spray), LYRICS=0, PLATE. Writes the last frame to /tmp/time-render-<style>.jpg.
+ * Env: FONT, SEED, INKSET (riso), LYRICS=0, PLATE. Writes the last frame to /tmp/time-render-<style>.jpg.
  * Nothing is deployed or sent anywhere: a throwaway local dev server serves the page and is closed at the end.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -15,7 +15,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const [style = 'spray', clip = 'reggaeton', first = '0', count = '45'] = process.argv.slice(2);
+const [style = 'riso', clip = 'reggaeton', first = '0', count = '45'] = process.argv.slice(2);
 const analysis = JSON.parse(readFileSync(`${root}scripts/fixtures/analysis/${clip}.json`, 'utf8'));
 const lyrics = process.env.LYRICS !== '0';
 const cues = JSON.parse(readFileSync(`${root}scripts/fixtures/analysis/${clip}-lyrics.json`, 'utf8')).heard.words
@@ -33,7 +33,6 @@ const opts = {
   ...(style === 'riso' || style === 'dust' ? { plateId: process.env.PLATE || 'burnnet-woman-1547507-1920' } : {}),
   ...(style === 'riso' ? { inkSet: process.env.INKSET || 'pink-blue' } : {}),
   ...(style === 'dust' ? { colors: { ground: '#101820', dust: '#ffb000' } } : {}),
-  ...(style === 'spray' ? { sprayPalette: process.env.PALETTE || 'neon-night' } : {}),
 };
 
 const server = await createServer({ root, server: { port: 5196, strictPort: false }, logLevel: 'error' });

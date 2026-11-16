@@ -9,7 +9,7 @@
  *   bank    one of our baked Shaders backgrounds
  * Only a photo that has a cut-out can stand in front of the word. A still of her with an effect on it is never
  * dealt in `person` mode: most of them move her body, and a cut-out taken from the plain photo would no longer fit.
- * Every card opens on a screen colour that reads against its picture (the readings in window-readings.json).
+ * Every card is black or white, whichever reads against its picture (the readings in window-readings.json), and holds it: the screen never flips colour.
  */
 import { hashPick, type AdFont } from './ad-fonts';
 import effectsData from '../punch-plates/effects/effects.json';
@@ -26,7 +26,7 @@ export type WindowOwn = { reading: WindowReading; clip: boolean };
 /** A library picture that Window can draw, with how its screens read: a photo has its cut-out (so a person may stand in front), a video or GIF is judged by its poster and only seen plain. */
 export type WindowLibraryItem = { id: string; reading: WindowReading; clip: boolean };
 
-/** One card: its picture (`libraryId` for a library picture, else `plateId`, `effectId` or `bankId`; none for the person's own), the screen it opens on, the screens it may flip to, and its face. */
+/** One card: its picture (`libraryId` for a library picture, else `plateId`, `effectId` or `bankId`; none for the person's own), its screen (black or white, the only one it is allowed, so it never flips), and its face. */
 export type WindowCard = { mode: WindowMode; libraryId?: string; clip?: boolean; plateId?: string; effectId?: string; bankId?: string; palette: string; allowed: string[]; font: AdFont };
 
 const CARDS = 4;
@@ -53,6 +53,21 @@ function readingOf(key: string): WindowReading {
 }
 
 const order = <T>(items: readonly T[], seed: string, key: (item: T) => string) => [...items].sort((a, b) => hashPick(seed, key(a), 99991) - hashPick(seed, key(b), 99991));
+
+/** The only screens Window is dealt in. */
+export const WINDOW_SCREENS = ['black', 'off-white'] as const;
+
+/**
+ * The screen of one card: black or white, whichever reads against its picture (the seed's pick when both do, a different one from the card
+ * before where it can be), else black. The card is allowed that screen alone, so it holds it the whole video.
+ */
+function screenOf(reading: readonly string[], seed: string, index: number, opened: Set<string>) {
+  const reads = order(WINDOW_SCREENS.filter(id => reading.includes(id)), `${seed}:screen:${index}`, id => id);
+  const palette = reads.find(id => !opened.has(id)) ?? reads[0] ?? 'black';
+  opened.add(palette);
+  if (opened.size === WINDOW_SCREENS.length) opened.clear();
+  return { palette, allowed: [palette] };
+}
 
 /**
  * The modes of the four cards. A deck holds one person and one plain card, and two each of effect and bank, in the
@@ -107,18 +122,14 @@ export function dealWindow(seed: string, allPlates: readonly { id: string; cutou
       ? { reading: mode === 'person' ? own.reading.person : own.reading.plain }
       : ourPicture(mode, nth, seed, plates);
     if (!reading?.length) throw new Error('Window has no screens that read against this picture.');
-    // Each card opens on a screen of its own where the picture allows it.
-    const choices = order(reading, `${seed}:screen:${index}`, id => id);
-    const palette = choices.find(id => !opened.has(id)) ?? choices[0];
-    opened.add(palette);
-    return { mode, ...picture, palette, allowed: [...reading], font: faces[index] };
+    return { mode, ...picture, ...screenOf(reading, seed, index, opened), font: faces[index] };
   });
 }
 
 /**
  * Four cards from library pictures: the seed's order of them, one picture for each card (the same one again when the library has fewer than four, never
  * on neighbouring cards when it has two). A photo where a person stands alternates her in front of the word and plain; a photo with nobody in it and a clip
- * are seen plain. Each card opens on a screen of its own where the picture allows it.
+ * are seen plain. Each card is black or white (`screenOf`).
  */
 export function dealWindowLibrary(seed: string, items: readonly WindowLibraryItem[]): WindowCard[] {
   if (!items.length) throw new Error('Window has no library pictures to deal.');
@@ -131,9 +142,6 @@ export function dealWindowLibrary(seed: string, items: readonly WindowLibraryIte
     const person = !item.clip && Boolean(item.reading.person?.length) && (index + first) % 2 === 0;
     const reading = person ? item.reading.person : item.reading.plain;
     if (!reading?.length) throw new Error('Window has no screens that read against this picture.');
-    const choices = order(reading, `${seed}:screen:${index}`, id => id);
-    const palette = choices.find(id => !opened.has(id)) ?? choices[0];
-    opened.add(palette);
-    return { mode: person ? 'person' : 'plain', libraryId: item.id, clip: item.clip, palette, allowed: [...reading], font: faces[index] };
+    return { mode: person ? 'person' : 'plain', libraryId: item.id, clip: item.clip, ...screenOf(reading, seed, index, opened), font: faces[index] };
   });
 }
