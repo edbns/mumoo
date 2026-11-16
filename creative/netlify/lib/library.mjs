@@ -273,13 +273,16 @@ async function prepareWaiting() {
   await Promise.all(rows.map(prepareItem));
 }
 
+/** A safety cap on one listing, far above the library: a smaller one silently hid the oldest items (and their boards) once the library outgrew it. */
+const LIBRARY_MAX = 10_000;
+
 /** Every item that has arrived (newest first) and the tag pool with how many items use each tag. */
 export async function listLibrary() {
   const sql = db();
   const stale = await sql`delete from library_items where arrived = false and created_at < now() - ${`${STALE_MS} milliseconds`}::interval returning id`;
   await Promise.all(stale.map(row => deleteObject(keyOf(row.id)).catch(() => undefined)));
   await prepareWaiting();
-  const rows = await sql`select * from library_items where arrived order by created_at desc limit 500`;
+  const rows = await sql`select * from library_items where arrived order by created_at desc limit ${LIBRARY_MAX}`;
   const filed = rows.filter(row => row.boards?.length && row.embedding).map(row => ({ id: row.id, embedding: row.embedding, boards: row.boards }));
   const answered = rows.filter(row => row.embedding && (row.boards?.length || row.not_boards?.length)).map(row => ({ id: row.id, embedding: row.embedding, boards: row.boards ?? [], notBoards: row.not_boards ?? [] }));
   const suggested = (row) => (row.boards?.length || row.status === 'hidden' ? null : suggestBoards(row, filed));
@@ -395,7 +398,7 @@ export async function removeItem(id) {
  */
 export async function listApproved() {
   await prepareWaiting();
-  const rows = await db()`select * from library_items where arrived and ready and status = 'approved' order by created_at desc limit 500`;
+  const rows = await db()`select id, kind, attitudes, tags, genre, sub_genre, boards, looks, cutout, shots from library_items where arrived and ready and status = 'approved' order by created_at desc limit ${LIBRARY_MAX}`;
   const learned = await learnedCounts();
   return Promise.all(rows.map(async (row) => ({
     id: row.id,
