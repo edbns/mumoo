@@ -213,37 +213,37 @@ test('ascii mixes paper toward ink by brightness, without blowing past 255', () 
 test('Thermal, Halftone, Dither and ASCII are rows of their own, drawn on library pictures only, and Our photography carries no look', () => {
   const library = [picture('a'), picture('b'), picture('c'), picture('d')];
   for (const family of FAMILIES) {
-    const row = pack.recommendRow(family, profile('Techno'), 0, [], null, library);
+    const row = pack.recommendRow(family, profile('Techno'), 0, [], library);
     assert.equal(row.length, 4, `${family}: four library pictures, four cards`);
     // Every look is drawn on a reel the Director edits from the library's pictures.
     assert.ok(row.every(slot => slot.row === family && slot.style === 'filter' && slot.reelIds?.length >= 2 && !slot.libraryId && !slot.effectId && !slot.plateId), `${family} is drawn on library pictures`);
     assert.ok(row.every(slot => slot.look === deal.CLASSIC[family]), `${family} deals its classic colours on every card`);
     assert.ok(row.every(slot => slot.label.includes(deal.liveLookTitle(slot.look))), 'the card says which look it is');
     assert.equal(new Set(row.map(slot => slot.id)).size, 4);
-    assert.ok([1, 2, 3].every(generation => pack.recommendRow(family, profile('Techno'), generation, [], null, library).every(slot => slot.look === deal.CLASSIC[family])), `${family}: Refresh keeps the classic colours`);
+    assert.ok([1, 2, 3].every(generation => pack.recommendRow(family, profile('Techno'), generation, [], library).every(slot => slot.look === deal.CLASSIC[family])), `${family}: Refresh keeps the classic colours`);
     assert.deepEqual(pack.recommendRow(family, profile('Techno'), 0), [], `${family} has no picture to draw on without the library, so the row is empty`);
-    const sad = pack.recommendRow(family, profile('Pop', 3, 'sad'), 0, [], null, ['a', 'b', 'c', 'd'].map(id => picture(id, 'sad')));
+    const sad = pack.recommendRow(family, profile('Pop', 3, 'sad'), 0, [], ['a', 'b', 'c', 'd'].map(id => picture(id, 'sad')));
     assert.ok(sad.length === 4 && sad.every(slot => slot.look), `${family}: a calm song gets looks too`);
   }
   // A picture of the person's own is drawn on all four cards, in the classic colours, with no library picture needed or named.
   for (const family of FAMILIES) {
-    const own = pack.recommendRow(family, profile('Techno'), 0, [], null, [], {}, true);
+    const own = pack.recommendRow(family, profile('Techno'), 0, [], [], true);
     assert.equal(own.length, 4, `${family}: four cards from one picture of their own`);
     assert.ok(own.every(slot => slot.row === family && slot.style === 'filter' && !slot.libraryId && !slot.effectId && !slot.plateId && slot.look === deal.CLASSIC[family]), `${family} names no picture of ours`);
     assert.equal(new Set(own.map(slot => slot.id)).size, 4);
-    assert.deepEqual(pack.recommendRow(family, profile('Techno'), 0, [], null, library, {}, true).map(slot => slot.id), own.map(slot => slot.id), 'their picture replaces the library cards');
+    assert.deepEqual(pack.recommendRow(family, profile('Techno'), 0, [], library, true).map(slot => slot.id), own.map(slot => slot.id), 'their picture replaces the library cards');
   }
   assert.deepEqual(pack.SHELF_ROWS.filter(row => FAMILIES.includes(row.id)).map(row => row.picture), ['any', 'any', 'any', 'any'], 'each look takes the shelf picture');
-  const thermalIds = new Set(pack.recommendRow('thermal', profile('Techno'), 0, [], null, library).map(slot => slot.id));
-  assert.ok(pack.recommendRow('halftone', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'the rows never share a card');
-  assert.ok(pack.recommendRow('dither', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'Dither does not share cards with Thermal');
-  assert.ok(pack.recommendRow('ascii', profile('Techno'), 0, [], null, library).every(slot => !thermalIds.has(slot.id)), 'ASCII does not share cards with Thermal');
-  assert.deepEqual(pack.recommendRow('thermal', profile('Gospel'), 0, [], null, library), [], 'no Thermal on a gospel song');
-  assert.deepEqual(pack.recommendRow('ascii', profile('Gospel'), 0, [], null, library), [], 'no ASCII on a gospel song');
-  assert.equal(pack.recommendRow('halftone', profile('Gospel'), 0, [], null, library).length, 4, 'Halftone suits a gospel song');
-  assert.equal(pack.recommendRow('dither', profile('Gospel'), 0, [], null, library).length, 4, 'Dither suits a gospel song');
+  const thermalIds = new Set(pack.recommendRow('thermal', profile('Techno'), 0, [], library).map(slot => slot.id));
+  assert.ok(pack.recommendRow('halftone', profile('Techno'), 0, [], library).every(slot => !thermalIds.has(slot.id)), 'the rows never share a card');
+  assert.ok(pack.recommendRow('dither', profile('Techno'), 0, [], library).every(slot => !thermalIds.has(slot.id)), 'Dither does not share cards with Thermal');
+  assert.ok(pack.recommendRow('ascii', profile('Techno'), 0, [], library).every(slot => !thermalIds.has(slot.id)), 'ASCII does not share cards with Thermal');
+  assert.deepEqual(pack.recommendRow('thermal', profile('Gospel'), 0, [], library), [], 'no Thermal on a gospel song');
+  assert.deepEqual(pack.recommendRow('ascii', profile('Gospel'), 0, [], library), [], 'no ASCII on a gospel song');
+  assert.equal(pack.recommendRow('halftone', profile('Gospel'), 0, [], library).length, 4, 'Halftone suits a gospel song');
+  assert.equal(pack.recommendRow('dither', profile('Gospel'), 0, [], library).length, 4, 'Dither suits a gospel song');
   for (const row of ['photography', 'looks', 'riso', 'pulise', 'dust']) {
-    assert.ok(pack.recommendRow(row, profile('Techno'), 0, [], null, library).every(slot => !slot.look), `${row} has no look`);
+    assert.ok(pack.recommendRow(row, profile('Techno'), 0, [], library).every(slot => !slot.look), `${row} has no look`);
   }
 });
 

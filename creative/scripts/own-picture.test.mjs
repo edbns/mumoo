@@ -175,46 +175,34 @@ test('a Riso card draws a person\'s own photo and its cut-out from storage, and 
   }
 });
 
-test('a Window card draws our photo, a person\'s own photo with and without her in front, our effect and our background, and refuses every other combination', { timeout: 240000 }, async (t) => {
+test('a Window card draws our photo or a person\'s own photo as it is, on black or white, and refuses every other combination', { timeout: 240000 }, async (t) => {
   const chrome = await browser();
   if (!chrome) return t.skip('no Chromium installed');
   const files = await storage();
   const site = await createServer({ server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
   await site.listen();
   try {
-    const { WINDOW_PALETTES } = await site.ssrLoadModule('/src/window-look.ts');
-    const { default: bank } = await site.ssrLoadModule('/src/look-lab/bank.json');
-    const ids = WINDOW_PALETTES.map(palette => palette.id);
+    const { WINDOW_PALETTE_IDS: ids } = await site.ssrLoadModule('/src/window-look.ts');
     const page = await chrome.newPage();
-    // The site serves the baked effects and backgrounds from public/ once they are published; here they are read from where they are committed.
-    await page.route('**/punch-plates/effects/*.jpg', route => route.fulfill({ path: `punch-plates/effects/${new URL(route.request().url()).pathname.split('/').pop()}` }));
-    await page.route('**/punch-plates/looks/*.jpg', route => route.fulfill({ path: `punch-plates/looks/${new URL(route.request().url()).pathname.split('/').pop()}` }));
     await page.goto(`${site.resolvedUrls.local[0]}render.html`);
     await page.waitForFunction(() => 'mumooPack' in window, null, { timeout: 60000 });
     const card = (extra) => ({ ...opts(undefined), style: 'window', typeStyle: undefined, fallbackText: 'HELLO', lyrics: true, font: 'Anton', fontSecondary: 'Anton', windowMode: 'plain', windowPalette: 'black', windowAllowed: ids, ...extra });
-    const own = { photoUrl: `${files.url}/own.jpg?signature=1`, cutoutUrl: `${files.url}/cutout.png?signature=1` };
+    const own = `${files.url}/own.jpg?signature=1`;
     const woman = 'burnnet-woman-1547507-1920';
-    const brightness = palette => [1, 3, 5].reduce((sum, at) => sum + parseInt(palette.screen.slice(at, at + 2), 16), 0);
-    const light = WINDOW_PALETTES.reduce((best, palette) => (brightness(palette) > brightness(best) ? palette : best)).id;
 
     const black = await frameBrightness(page, card({ plateId: woman }));
     assert.ok(black > 2, `our photo shows through the word, not black (${black})`);
-    assert.ok(await frameBrightness(page, card({ plateId: woman, windowPalette: light })) > black + 40, 'the screen colour is what is drawn around the word');
-    assert.ok(await frameBrightness(page, card({ windowMode: 'plain', photoUrl: own.photoUrl, cutoutUrl: undefined })) > 2, 'a person\'s own photo, plain');
-    assert.ok(await frameBrightness(page, card({ windowMode: 'person', ...own })) > 2, 'a person\'s own photo with her in front');
-    assert.ok(await frameBrightness(page, card({ windowMode: 'person', plateId: woman })) > 2, 'our woman in front of the word');
-    assert.ok(await frameBrightness(page, card({ windowMode: 'effect', effectId: 'tropical-ascii-cam-1' })) > 2, 'one of our effects in the letters');
-    assert.ok(await frameBrightness(page, card({ windowMode: 'bank', bankId: bank[0].slug })) > 2, 'one of our backgrounds in the letters');
+    assert.ok(await frameBrightness(page, card({ plateId: woman, windowPalette: 'off-white' })) > black + 40, 'the screen colour is what is drawn around the word');
+    assert.ok(await frameBrightness(page, card({ photoUrl: own })) > 2, 'a person\'s own photo');
+    assert.ok(await frameBrightness(page, card({ photoUrl: own, cutoutUrl: `${files.url}/cutout.png?signature=1` })) > 2, 'a photo kept with a cut-out is shown as it is');
 
     // A mistake in a card is an error, never a picture drawn around it.
-    await assert.rejects(frameBrightness(page, card({ windowMode: 'person', photoUrl: own.photoUrl })), /cut-out/, 'her in front needs her cut-out');
-    await assert.rejects(frameBrightness(page, card({ windowMode: 'person', motionUrl: `${files.url}/own.mp4` })), /not a video/, 'nobody stands in front of a video');
-    await assert.rejects(frameBrightness(page, card({ windowMode: 'effect', effectId: 'tropical-ascii-cam-1', photoUrl: own.photoUrl })), /exactly one picture/, 'an effect is never mixed with the person\'s own photo');
-    await assert.rejects(frameBrightness(page, card({ windowMode: 'effect', plateId: woman })), /exactly one picture/, 'an effect card must name an effect');
-    await assert.rejects(frameBrightness(page, card({ windowMode: 'plain', plateId: woman, bankId: bank[0].slug })), /exactly one picture/);
-    await assert.rejects(frameBrightness(page, card({ windowMode: 'plain' })), /exactly one picture/, 'no picture at all');
+    for (const mode of ['person', 'effect', 'bank']) await assert.rejects(frameBrightness(page, card({ windowMode: mode, plateId: woman })), /picture as it is/, `${mode} is gone`);
+    await assert.rejects(frameBrightness(page, card({ effectId: 'tropical-ascii-cam-1' })), /only a picture/, 'no baked effect');
+    await assert.rejects(frameBrightness(page, card({ plateId: woman, photoUrl: own })), /exactly one picture/, 'ours or theirs, never both');
+    await assert.rejects(frameBrightness(page, card({})), /exactly one picture/, 'no picture at all');
     await assert.rejects(frameBrightness(page, card({ plateId: woman, windowPalette: undefined })), /screen colour/);
-    await assert.rejects(frameBrightness(page, card({ plateId: woman, windowPalette: 'chartreuse-ish' })), /no such screen colour/);
+    await assert.rejects(frameBrightness(page, card({ plateId: woman, windowPalette: 'cobalt', windowAllowed: ['cobalt'] })), /no such screen colour/);
     await assert.rejects(frameBrightness(page, card({ plateId: woman, windowAllowed: undefined })), /screen colour/);
   } finally {
     await chrome.close();

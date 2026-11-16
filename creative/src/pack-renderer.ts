@@ -27,7 +27,6 @@ import { risoInkSetById } from './riso-look';
 import { prepareRisoFrame, prepareRisoPhoto, type RisoPhoto } from './riso-photo';
 import { WINDOW_PALETTE_IDS } from './window-look';
 import type { WindowMode } from './window-deal';
-import type { WindowPicture } from './pack-window';
 import { isTreatmentId, isTreatmentVariant, type TreatmentId } from './treatment-deal';
 import { DISSOLVE_MS, TRANSITION, isPresetId, isPresetTake, presetDef, type PresetId } from './edit-presets';
 import { presetFrame } from './preset-motion';
@@ -121,21 +120,16 @@ export async function loadTexture(url: string, what: string): Promise<Texture> {
 }
 
 /**
- * Where a Window card's picture comes from: its mode says which of our pictures (an approved photo for `person` and `plain`,
- * an effect for `effect`, a background for `bank`), or `person` and `plain` can be the person's own photo or clip. Exactly one.
- * Anything else is a mistake in the card, and is not drawn around.
+ * Where a Window card's picture comes from: the Director's reel, an approved photo, or a photo or clip (ours or the person's). Exactly one.
+ * Its screen is black or white and holds that colour. Anything else is a mistake in the card, and is not drawn around.
  */
 function checkWindow(opts: PackRendererOpts): WindowMode {
   const { windowMode: mode, windowPalette: palette, windowAllowed: allowed } = opts;
-  if (!mode || !palette || !allowed) throw new Error('Window needs a kind of picture, a screen colour and the colours it may flip to.');
+  if (mode !== 'plain' || !palette || !allowed) throw new Error('Window needs its picture as it is, a screen colour and the colours it may flip to.');
   if (![palette, ...allowed].every(id => WINDOW_PALETTE_IDS.includes(id))) throw new Error('Window has no such screen colour.');
-  const ours = { person: opts.plateId, plain: opts.plateId, effect: opts.effectId, bank: opts.bankId }[mode];
-  const named = [opts.plateId, opts.effectId, opts.bankId].filter(Boolean).length;
-  const own = Boolean(opts.photoUrl || opts.motionUrl);
-  const fromOurs = Boolean(ours) && named === 1 && !own;
-  const fromOwn = (mode === 'person' || mode === 'plain') && named === 0 && own;
-  if (fromOurs === fromOwn) throw new Error(`A Window card with ${mode} needs exactly one picture of the right kind.`);
-  if (mode === 'person' && opts.motionUrl) throw new Error('A person can only stand in front of a photo, not a video.');
+  if (opts.effectId || opts.bankId) throw new Error('Window shows only a picture behind the word.');
+  const sources = [Boolean(opts.reel?.length), Boolean(opts.plateId), Boolean(opts.photoUrl || opts.motionUrl)].filter(Boolean).length;
+  if (sources !== 1) throw new Error('A Window card needs exactly one picture.');
   return mode;
 }
 
@@ -271,7 +265,7 @@ export async function createPackRenderer(
         await ensureFonts(familiesFor(current));
         // Our photography draws one baked effect, or (replacing it) the person's own picture, never both.
         const reelled = Boolean(current.reel?.length);
-        if (reelled && (!(style === 'filter' || style === 'riso' || style === 'treatment') || current.effectId || current.plateId || current.photoUrl || current.motionUrl || current.cutoutUrl)) throw new Error('A reel is drawn by Our photography, a treatment or Riso, alone, not with another picture.');
+        if (reelled && (!(style === 'filter' || style === 'riso' || style === 'treatment' || style === 'window') || current.effectId || current.plateId || current.photoUrl || current.motionUrl || current.cutoutUrl)) throw new Error('A reel is drawn by Our photography, a treatment, Riso or Window, alone, not with another picture.');
         if (style === 'filter' && current.effectId && (current.photoUrl || current.motionUrl)) throw new Error('Our photography draws an effect or the person’s own picture, not both.');
         const ownBackdrop = (style === 'filter' && !current.effectId) || style === 'treatment';
         if (style === 'filter' && current.plateId && (current.effectId || current.photoUrl || current.motionUrl)) throw new Error('Our photography draws one picture: our photo, an effect, or the person’s own.');
@@ -292,12 +286,11 @@ export async function createPackRenderer(
         }
         const presetCut = preset ? { rhythm: presetDef(preset).rhythm, dissolveMs: TRANSITION[preset](presetTake) === 'dissolve' ? DISSOLVE_MS : 0 } : undefined;
         const windowMode = style === 'window' ? checkWindow(current) : null;
-        const windowOwn = windowMode === 'person' || windowMode === 'plain';
+        const windowOwn = Boolean(windowMode);
         if (style === 'riso' && !current.inkSet) throw new Error('Riso needs an ink set.');
-        // Window brings her cut-out only for a card with her in front; a plain card of the same photo does not read it.
         // Riso on a clip is whole-frame: no cut-out.
         const risoMotion = style === 'riso' && Boolean(current.motionUrl || reelled);
-        const cutOut = style === 'dust' || (style === 'riso' && !risoMotion) || windowMode === 'person';
+        const cutOut = style === 'dust' || (style === 'riso' && !risoMotion);
         const ownPicture = cutOut || ownBackdrop || windowOwn || risoMotion;
         // Our photography can also draw our approved photo itself (with a live look on it). Treatments never use a plate.
         const photoUrl = (cutOut || windowOwn || style === 'filter') && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
@@ -305,9 +298,9 @@ export async function createPackRenderer(
         if (ownPicture) await ensurePicture(photoUrl, cutoutUrl, current.motionUrl, current.reel);
         else await ensurePicture(undefined, undefined, undefined);
 
-        // A baked still: a Look Bank background, a photography effect, or a Window's effect or background. One that cannot be loaded shows the downtime message (a Window card has none: it throws).
-        const stillUrl = (style === 'bank' || windowMode === 'bank') && current.bankId ? bankBackgroundUrl(current.bankId)
-          : (style === 'filter' || windowMode === 'effect') && current.effectId ? photoEffectUrl(current.effectId)
+        // A baked still: a Look Bank background or a photography effect. One that cannot be loaded shows the downtime message.
+        const stillUrl = style === 'bank' && current.bankId ? bankBackgroundUrl(current.bankId)
+          : style === 'filter' && current.effectId ? photoEffectUrl(current.effectId)
           : null;
         let still: Texture | null = null;
         if (stillUrl) {
@@ -383,13 +376,11 @@ export async function createPackRenderer(
           }
         }
         if (ownBackdrop && !photoTexture && !motion) throw new Error(style === 'treatment' ? 'A treatment needs a Directed picture.' : 'Our photography needs an effect or a picture.');
-        // Window: the picture behind the word is the clip's frame, the photo, or the baked still; her cut-out stands in front when the card says so.
-        let windowPicture: WindowPicture | undefined;
+        // Window: the picture behind the word is the reel's or clip's frame, or the photo.
+        let windowPicture: Texture | undefined;
         if (windowMode) {
-          const texture = motion?.texture ?? photoTexture ?? still;
-          if (!texture) throw new Error('The picture for this Window could not be loaded. Reload the page.');
-          if (windowMode === 'person' && !cutoutTexture) throw new Error('Window needs her cut-out to stand her in front.');
-          windowPicture = { texture, ...(windowMode === 'person' && cutoutTexture ? { cutout: cutoutTexture } : {}) };
+          windowPicture = motion?.texture ?? photoTexture ?? undefined;
+          if (!windowPicture) throw new Error('The picture for this Window could not be loaded. Reload the page.');
         }
 
         // The preset's pass: the picture through its camera, colour and texture, timed to the edit's cuts and the drums.

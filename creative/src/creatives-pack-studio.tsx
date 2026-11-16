@@ -3,7 +3,7 @@ import { DURATION_MS, FPS, playheadFrame, type Composition, type ImpactMusic } f
 import { songAccents } from './pack-director';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
-import { isLookRow, isTreatmentRow, recommendRow, rowsFor, SHELF_ROWS, windowHand, type CreativesPackSlot, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
+import { isLookRow, isTreatmentRow, recommendRow, rowsFor, SHELF_ROWS, type CreativesPackSlot, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
 import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
 import { friendlyError } from './friendly-error';
@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { PictureUpload } from './picture-upload';
 import { SHELF_PICTURE, type Upload } from './uploads';
 import type { Uploads } from './use-uploads';
-import { useWindowOwn } from './use-window-own';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
 import { musicHits } from './music-hits';
@@ -25,12 +24,12 @@ import {
   destroySharedPackRenderer,
   type PackRendererOpts,
 } from './pack-renderer';
-import type { ReelSource } from './pack-reel';
+import { preloadReel, type ReelSource } from './pack-reel';
+import { setMotionLive } from './pack-motion';
 import { clipToMonoWav, submitCloudJob } from './pack-cloud-export';
 import { LoadingMask } from './loading-mask';
 import { loadPunchPlatesManifest } from './punch-plates';
 import { useLibrary } from './use-library';
-import { useWindowReadings } from './use-window-library';
 import type { LibraryPicture } from './library-pick';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 
@@ -62,7 +61,7 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   };
 }
 
-/** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust a photo and its cut-out, Riso a photo with cut-out or a clip, Our photography a photo or a clip, Window either (the cut-out is used by the cards that have her in front). */
+/** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust a photo and its cut-out, Riso a photo with cut-out or a clip, Our photography and Window a photo or a clip. */
 type Picture = Pick<PackRendererOpts, 'photoUrl' | 'cutoutUrl' | 'motionUrl' | 'motionShots' | 'reel'>;
 
 function drawingFrom(upload: Pick<Upload, 'url' | 'cutoutUrl' | 'motionUrl' | 'shots'> | null): Picture | undefined {
@@ -115,7 +114,7 @@ function packOpts(
     cues: lyrics ? composition.cues : [],
     music,
     lyrics,
-    // Our approved photo (Dust, Riso, Window) or its baked effect (Our photography, Window; a Window may also draw a baked background), unless the person chose their own picture, which replaces it.
+    // Our approved photo (Dust, Riso) or its baked effect (Our photography), unless the person chose their own picture, which replaces it.
     ...drawn,
   };
 }
@@ -210,23 +209,19 @@ export function CreativesPackStudio({
   const shelf = rowsFor(textless, ownKind);
   /** The person's own picture, for a template that draws one. */
   const ownFor = (row: ShelfRow) => (SHELF_ROWS.find(def => def.id === row)?.picture ? own : null);
-  const windowOwn = useWindowOwn(own);
   // Our approved library fills the shelf until the person uses their own pictures.
   const library = useLibrary();
   /** What the shelf deals from: the person's own pictures when they have several, else our library. */
   const dealt = ownPool ?? library;
-  // Riso draws library cut-out photos or clips; Dust only cut-out photos; Window photos with cut-out or clips.
+  // Riso and Window show the Directed reel of our library; Dust draws only cut-out photos.
   const libraryFor = (row: ShelfRow) => {
-    // Live-look and treatment rows deal from our library; a picture of the person's own is drawn on all four cards instead (see `recommendRow`).
-    if (isLookRow(row) || isTreatmentRow(row)) return dealt ?? [];
-    return (row === 'photography' || row === 'riso' || row === 'dust' || row === 'window') && !own ? dealt ?? [] : [];
+    // Live-look, treatment and Window rows deal from our library; a picture of the person's own is drawn on all four cards instead (see `recommendRow`).
+    if (isLookRow(row) || isTreatmentRow(row) || row === 'window') return dealt ?? [];
+    return (row === 'photography' || row === 'riso' || row === 'dust') && !own ? dealt ?? [] : [];
   };
   /** Our approved photos, which the person's own pictures replace. */
   const platesFor = ownPool ? [] : plates ?? [];
   const dealtKey = dealt?.map(item => item.id + (item.cutoutUrl ? '+cut' : '') + (item.motionUrl ? '+m' : '')).join(',');
-  // Window deals from library pictures too (or the person's own), once it has read how each looks (the four it is about to deal).
-  const windowPictures = useMemo(() => (own ? [] : windowHand(profile, controls.window.generation, dealt ?? [])), [own?.id, profile.clip.sourceSha256, profile.lyricMeaning, creatorKey, controls.window.generation, dealtKey]);
-  const windowReads = useWindowReadings(windowPictures);
   const libraryCutouts = (library ?? []).some(item => item.kind === 'photo' && item.cutoutUrl);
   const libraryRisoMotion = (library ?? []).some(item => item.kind !== 'photo' && item.motionUrl);
   /** A picture by id: one of the person's own (also one a cart still keeps from an earlier run), or our library's. */
@@ -262,18 +257,16 @@ export function CreativesPackStudio({
     }
     // Our photography is dealt once it knows what our library holds and which approved photo it may draw a look on.
     if (def.id === 'photography' && (library === null || plates === null)) return [def.id, { slots: [], note: '' }];
-    // The looks and treatments are dealt once it knows what our library holds.
-    if ((isLookRow(def.id) || isTreatmentRow(def.id)) && dealt === null && !own) return [def.id, { slots: [], note: '' }];
-    // Window is dealt once it knows its pictures: the person's own, once it has been read (what shows in the letters decides the colours), or our approved photos.
-    if (def.id === 'window' && (own ? !windowOwn.own : plates === null || dealt === null || windowReads.pending)) return [def.id, { slots: [], note: windowOwn.problem }];
+    // The looks, treatments and Window are dealt once it knows what our library holds.
+    if ((isLookRow(def.id) || isTreatmentRow(def.id) || def.id === 'window') && dealt === null && !own) return [def.id, { slots: [], note: '' }];
     if (!textless && !hasLyrics) return [def.id, { slots: [], note: '' }];
-    const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, def.id === 'window' ? windowOwn.own : null, libraryFor(def.id), windowReads.readings, (isLookRow(def.id) || isTreatmentRow(def.id)) && Boolean(ownFor(def.id)));
+    const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, libraryFor(def.id), (isLookRow(def.id) || isTreatmentRow(def.id) || def.id === 'window') && Boolean(ownFor(def.id)));
     // The looks and treatments are drawn on our library pictures, so with none for this song they say so instead of vanishing.
-    const note = !slots.length && (isLookRow(def.id) || isTreatmentRow(def.id)) && !ownPool ? `${def.title} is drawn on pictures from our library, and none fits this song yet. Upload your own picture to see it here.` : '';
+    const note = !slots.length && (isLookRow(def.id) || isTreatmentRow(def.id) || def.id === 'window') && !ownPool ? `${def.title} is drawn on pictures from our library, and none fits this song yet. Upload your own picture to see it here.` : '';
     return [def.id, { slots, note }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, creatorKey, lyricKey,
-    controls, plates, hasLyrics, textless, pictureIds, ownKind, uploads.signedIn, uploads.pending, windowOwn.own, windowOwn.problem, windowReads.pending, Object.keys(windowReads.readings).join(','),
+    controls, plates, hasLyrics, textless, pictureIds, ownKind, uploads.signedIn, uploads.pending,
     // What the library (or the person's own pool) holds, not the links to it (they are renewed all the time).
     dealtKey,
   ]);
@@ -362,6 +355,8 @@ export function CreativesPackStudio({
     void (async () => {
       // Wait a frame so the cards' canvases are mounted.
       await yieldFrame();
+      // Every picture the cards play is fetched at once before any is painted: then they are shown together, and each plays from its first frame.
+      await preloadReel(stale.flatMap(({ def, slot }) => latest.current.pictureOf(def.id, slot)?.reel ?? []));
       for (const { def, slot } of stale) {
         if (cancelled) return;
         setError('');
@@ -398,6 +393,7 @@ export function CreativesPackStudio({
     const opts = packOpts(playingSlot, composition, music, withLyrics, picture);
     let painting = false;
     let lastFrame = -1;
+    setMotionLive(true);
 
     const paint = (frame: number) => {
       if (!alive || painting || frame === lastFrame) return;
@@ -420,6 +416,7 @@ export function CreativesPackStudio({
     return () => {
       alive = false;
       cancelAnimationFrame(raf);
+      setMotionLive(false);
       // The card goes back to its own poster. Drawing is queued after the last live frame, so a late frame can never land on top of it.
       if (!leaving.current) {
         void blitPackFrame(canvas, packOpts(playingSlot, composition, music, withLyrics, picture), posterAt(composition, music, withLyrics))
@@ -556,7 +553,8 @@ export function CreativesPackStudio({
     {SHELF_ROWS.map(def => view[def.id].note ? <p key={def.id} className="hint text-center" role="status">{view[def.id].note}</p> : null)}
     {cards.length > 0 && <div className="creatives-pack-grid" role="list" aria-busy={!allReady}>
       {cards.map(({ def, slot: item }) => {
-        const ready = readyCards.has(item.id);
+        // The cards are shown together, once every one of them is ready.
+        const ready = allReady;
         const inCart = cart.has(item.id);
         const isPlaying = playing && playingId === item.id;
         return (

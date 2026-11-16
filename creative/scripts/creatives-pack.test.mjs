@@ -31,7 +31,7 @@ const PLATES = [{ id: 'burnnet-woman-1547507-1920', cutout: true }];
 const LIBRARY = ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id, kind: 'photo', attitudes: ['neutral'], tags: ['street'], genre: null, subGenre: null, url: `/${id}.jpg` }));
 /** One row, with the library only for the rows that live on it (looks and treatments). */
 const LOOK_ROWS = new Set(['thermal', 'halftone', 'dither', 'ascii', 'triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double']);
-const recommend = (pack, row, person, generation = 0, plates = PLATES) => pack.recommendRow(row, person, generation, plates, null, LOOK_ROWS.has(row) ? LIBRARY : []);
+const recommend = (pack, row, person, generation = 0, plates = PLATES) => pack.recommendRow(row, person, generation, plates, LOOK_ROWS.has(row) ? LIBRARY : []);
 
 /** Every row of the shelf, in order. */
 const shelf = (pack, person, generation = 0, plates = PLATES) => pack.SHELF_ROWS.flatMap(row => recommend(pack, row.id, person, generation, plates));
@@ -381,164 +381,47 @@ test('Riso deals four ink sets and four heavy faces, the same photo as Dust, and
   } finally { await server.close(); }
 });
 
-const WOMAN = 'burnnet-woman-1547507-1920';
-const MODES = ['person', 'plain', 'effect', 'bank'];
-/** The one picture a Window card is drawn from, as a key: its kind and which. */
-const sourceOf = slot => `${slot.windowMode}:${slot.plateId ?? slot.effectId ?? slot.bankId ?? 'own'}`;
-
-async function loadWindow() {
-  const { server, pack } = await load();
-  const deal = await server.ssrLoadModule('/src/window-deal.ts');
-  const look = await server.ssrLoadModule('/src/window-look.ts');
-  const { default: readings } = await server.ssrLoadModule('/src/window-readings.json');
-  const { default: effects } = await server.ssrLoadModule('/punch-plates/effects/effects.json');
-  const { default: bank } = await server.ssrLoadModule('/src/look-lab/bank.json');
-  return { server, pack, deal, look, readings, effects, bank };
-}
-
 const GENRES = ['Gospel', 'Slap House', 'Pop', 'Ambient', 'Reggaeton'];
-/** Every row dealt over several songs and refreshes, with the plates it was dealt from. */
-function* windowRows(pack, plates, generations = 24) {
-  for (const genre of GENRES) {
-    for (let generation = 0; generation < generations; generation++) yield { genre, generation, row: pack.recommendRow('window', profile(genre, 'hello', `${genre.length}${generation % 3}`.padEnd(64, 'c')), generation, plates) };
-  }
-}
 
-test('Window deals four distinct cards: no picture, face or layout repeated, each card on one black or off-white screen that reads against its picture', async () => {
-  const { server, pack, look, readings } = await loadWindow();
-  try {
-    for (const { genre, generation, row } of windowRows(pack, PLATES)) {
-      const name = `${genre} #${generation}`;
-      assert.equal(row.length, 4, name);
-      assert.ok(row.every(slot => slot.style === 'window' && slot.row === 'window' && slot.family === 'ad_punch'), name);
-      assert.equal(new Set(row.map(slot => sourceOf(slot))).size, 4, `${name} repeats a picture`);
-      assert.equal(new Set(row.map(slot => slot.windowPalette)).size, 2, `${name}: black and off-white take turns`);
-      assert.equal(new Set(row.map(slot => slot.font)).size, 4, `${name} repeats a face`);
-      assert.equal(new Set(row.map(slot => slot.layout.seed)).size, 4, `${name} repeats a layout seed`);
-      assert.equal(new Set(row.map(slot => slot.id)).size, 4, `${name} repeats an id`);
-      for (const slot of row) {
-        assert.ok(look.WINDOW_FACES.includes(slot.font) && slot.fontSecondary === slot.font, `${name}: ${slot.font} is not one of the condensed faces`);
-        assert.deepEqual(slot.windowAllowed, [slot.windowPalette], `${name}: one screen for the whole video`);
-        assert.ok(['black', 'off-white'].includes(slot.windowPalette), `${name}: ${slot.windowPalette}`);
-        assert.equal(slot.label, `${slot.windowPalette[0].toUpperCase()}${slot.windowPalette.slice(1).replace('-', ' ')}`, 'the label names the screen colour');
-        assert.ok(slot.typeStyle === undefined && slot.colors === undefined && slot.grade === undefined && slot.inkSet === undefined && slot.cutSeed === undefined, `${name}: nothing but Window's own fields`);
-        const key = slot.windowMode === 'effect' ? `effect:${slot.effectId}` : slot.windowMode === 'bank' ? `bank:${slot.bankId}` : `plate:${slot.plateId}`;
-        const reading = readings[key];
-        const reads = (slot.windowMode === 'person' ? reading.person : reading.plain).filter(id => ['black', 'off-white'].includes(id));
-        assert.ok(reads.length ? reads.includes(slot.windowPalette) : slot.windowPalette === 'black', `${name}: ${key} is dealt a screen that reads against it`);
-      }
-    }
-  } finally { await server.close(); }
-});
-
-test('Window is a pure function of the seed: the same song and refresh deal the same cards, another refresh or song deals others', async () => {
-  const { server, pack } = await loadWindow();
-  try {
-    const dealt = (genre, sha, generation) => JSON.stringify(pack.recommendRow('window', profile(genre, 'hello', sha.repeat(64)), generation, PLATES));
-    assert.equal(dealt('Pop', 'a', 3), dealt('Pop', 'a', 3));
-    assert.equal(dealt('Pop', 'a', 3), JSON.stringify(pack.recommendRow('window', profile('Pop', 'hello', 'a'.repeat(64)), 3, [...PLATES])));
-    const refreshes = new Set(Array.from({ length: 10 }, (_, generation) => dealt('Pop', 'a', generation)));
-    assert.equal(refreshes.size, 10, 'every refresh is a different row');
-    assert.notEqual(dealt('Pop', 'a', 0), dealt('Pop', 'b', 0));
-  } finally { await server.close(); }
-});
-
-test('Window mixes the kinds of picture by the seed: every kind turns up over a few refreshes, in changing mixes, and her photo at most once as person and once plain', async () => {
-  const { server, pack } = await loadWindow();
+test('Window deals four cards of the picture as it is, each on one black or off-white screen, the screens taking turns, no face or layout repeated', async () => {
+  const { server, pack } = await load();
+  const look = await server.ssrLoadModule('/src/window-look.ts');
   try {
     for (const genre of GENRES) {
-      const seen = new Set();
-      const mixes = new Set();
-      for (let generation = 0; generation < 12; generation++) {
-        const row = pack.recommendRow('window', profile(genre), generation, PLATES);
-        const modes = row.map(slot => slot.windowMode);
-        modes.forEach(mode => seen.add(mode));
-        mixes.add([...modes].sort().join());
-        assert.ok(modes.filter(mode => mode === 'person').length <= 1 && modes.filter(mode => mode === 'plain').length <= 1, `${genre} #${generation} shows her photo twice the same way: ${modes}`);
-      }
-      assert.deepEqual([...seen].sort(), [...MODES].sort(), `${genre}: over twelve refreshes every kind is dealt`);
-      assert.ok(mixes.size >= 3, `${genre}: refreshing changes the mix of kinds (${[...mixes].join(' | ')})`);
-    }
-  } finally { await server.close(); }
-});
-
-test('Window never deals an illegal combination: her in front only of her own cut-out photo, effects and backgrounds only plain, only effects that suit a window', async () => {
-  const { server, pack, deal, effects, bank } = await loadWindow();
-  try {
-    const collection = id => effects.find(effect => effect.id === id).collection;
-    const lightness = id => effects.find(effect => effect.id === id).lightness;
-    // Our photos: with a cut-out, without one, none.
-    const sets = [PLATES, [{ id: WOMAN, cutout: false }], []];
-    for (const plates of sets) {
-      for (const { genre, generation, row } of windowRows(pack, plates, 30)) {
-        const name = `${genre} #${generation} with ${plates.length} photos`;
+      for (let generation = 0; generation < 24; generation++) {
+        const row = pack.recommendRow('window', profile(genre, 'hello', `${genre.length}${generation % 3}`.padEnd(64, 'c')), generation, PLATES);
+        const name = `${genre} #${generation}`;
         assert.equal(row.length, 4, name);
+        assert.ok(row.every(slot => slot.style === 'window' && slot.row === 'window' && slot.family === 'ad_punch'), name);
+        assert.deepEqual(row.map(slot => slot.windowPalette).slice(0, 2).sort(), ['black', 'off-white'], `${name}: black and off-white take turns`);
+        assert.equal(row[0].windowPalette, row[2].windowPalette, name);
+        assert.equal(new Set(row.map(slot => slot.font)).size, 4, `${name} repeats a face`);
+        assert.equal(new Set(row.map(slot => slot.layout.seed)).size, 4, `${name} repeats a layout seed`);
+        assert.equal(new Set(row.map(slot => slot.cutSeed)).size, 4, `${name}: the same cut on two cards`);
         for (const slot of row) {
-          const sources = [slot.plateId, slot.effectId, slot.bankId].filter(Boolean);
-          assert.equal(sources.length, 1, `${name}: ${slot.windowMode} card has ${sources.length} pictures`);
-          if (slot.windowMode === 'person') assert.ok(plates.some(plate => plate.id === slot.plateId && plate.cutout), `${name}: person without a cut-out`);
-          if (slot.windowMode === 'plain') assert.ok(slot.plateId && plates.some(plate => plate.id === slot.plateId), name);
-          if (slot.windowMode === 'effect') {
-            assert.ok(slot.effectId && deal.WINDOW_EFFECT_IDS.includes(slot.effectId), name);
-            assert.ok(!['Glass Facets', 'Shuffle Sort', 'Quantized', 'Pixel Reveal'].includes(collection(slot.effectId)), `${name}: ${slot.effectId} moves the picture about`);
-            assert.ok(lightness(slot.effectId) < 0.75, `${name}: ${slot.effectId} is washed out`);
-            assert.ok(!['impression-trail-3', 'impression-trail-7', 'tinted-lenses-2'].includes(slot.effectId), `${name}: ${slot.effectId} is bright green`);
-          }
-          if (slot.windowMode === 'bank') assert.ok(bank.some(look => look.slug === slot.bankId), name);
-          assert.ok(MODES.includes(slot.windowMode), name);
+          assert.equal(slot.windowMode, 'plain', name);
+          assert.ok(look.WINDOW_FACES.includes(slot.font) && slot.fontSecondary === slot.font, `${name}: ${slot.font} is not one of the condensed faces`);
+          assert.deepEqual(slot.windowAllowed, [slot.windowPalette], `${name}: one screen for the whole video`);
+          assert.equal(slot.label, `${slot.windowPalette[0].toUpperCase()}${slot.windowPalette.slice(1).replace('-', ' ')}`, 'the label names the screen colour');
+          assert.ok(slot.effectId === undefined && slot.bankId === undefined && slot.grade === undefined && slot.inkSet === undefined, `${name}: nothing but the picture`);
+          assert.ok(PLATES.some(plate => plate.id === slot.plateId), `${name}: with no library our approved photo stands in`);
         }
-        if (!plates.some(plate => plate.cutout)) assert.ok(row.every(slot => slot.windowMode !== 'person'), `${name}: nobody stands in front without a cut-out`);
-        if (!plates.length) assert.ok(row.every(slot => ['effect', 'bank'].includes(slot.windowMode)), `${name}: with no photos only our effects and backgrounds are dealt`);
       }
     }
-    // The excluded kinds really are the ones named, and there is plenty left to deal.
-    for (const id of ['glass-facets-1', 'glass-facets-2', 'shuffle-sort-1', 'quantized-1', 'pixel-reveal-1', 'pixel-reveal-2', 'impression-trail-9', 'impression-trail-2']) assert.ok(!deal.WINDOW_EFFECT_IDS.includes(id), id);
-    assert.ok(deal.WINDOW_EFFECT_IDS.length >= 20 && deal.WINDOW_BANK_IDS.length === 20, `${deal.WINDOW_EFFECT_IDS.length} effects, ${deal.WINDOW_BANK_IDS.length} backgrounds`);
+    const dealt = (sha, generation) => JSON.stringify(pack.recommendRow('window', profile('Pop', 'hello', sha.repeat(64)), generation, PLATES));
+    assert.equal(dealt('a', 3), dealt('a', 3), 'pure');
+    assert.equal(new Set(Array.from({ length: 10 }, (_, generation) => dealt('a', generation))).size, 10, 'every refresh is a different row');
+    const firsts = new Set(Array.from({ length: 12 }, (_, generation) => pack.recommendRow('window', profile('Pop'), generation, PLATES)[0].windowPalette));
+    assert.equal(firsts.size, 2, 'refreshing sometimes opens on black, sometimes on white');
   } finally { await server.close(); }
 });
 
-test('Window leaves out a picture nobody has read, and refuses a person nobody stands in, and a picture no screen reads against', async () => {
-  const { server, deal } = await loadWindow();
+test('with the person\'s own picture Window cards name none of ours: the picture is theirs', async () => {
+  const { server, pack } = await load();
   try {
-    for (let seed = 0; seed < 30; seed++) {
-      const cards = deal.dealWindow(`s${seed}`, [{ id: 'not-read-yet', cutout: true }], null);
-      assert.equal(cards.length, 4);
-      assert.ok(cards.every(card => card.plateId !== 'not-read-yet'), 'a photo nobody has read is left out of the deal, never a guess and never a crash');
-    }
-    assert.throws(() => deal.dealWindow('s', [], { reading: { plain: [], person: null }, clip: false }), /no screens/);
-    assert.throws(() => deal.dealWindow('s', [], { reading: { plain: ['black'], person: [] }, clip: false }), /no screens/);
-  } finally { await server.close(); }
-});
-
-test('with the person\'s own picture all four Window cards use it: a photo alternates her in front and plain, a photo with nobody in it and a clip are plain, a clip is cut differently for each card', async () => {
-  const { server, pack, look } = await loadWindow();
-  try {
-    const ids = look.WINDOW_PALETTE_IDS;
-    const plain = ids.filter((_, index) => index % 2 === 0);
-    const person = ids.filter((_, index) => index % 3 !== 1);
-    const own = { photo: { reading: { plain, person }, clip: false }, nobody: { reading: { plain, person: null }, clip: false }, clip: { reading: { plain, person: null }, clip: true } };
-    for (const genre of GENRES) {
-      for (let generation = 0; generation < 8; generation++) {
-        const deal = kind => pack.recommendRow('window', profile(genre), generation, PLATES, own[kind]);
-        for (const kind of Object.keys(own)) {
-          const row = deal(kind);
-          const name = `${genre} #${generation} ${kind}`;
-          assert.equal(row.length, 4, name);
-          assert.ok(row.every(slot => slot.plateId === undefined && slot.effectId === undefined && slot.bankId === undefined), `${name}: the person's picture replaces ours`);
-          assert.equal(new Set(row.map(slot => slot.font)).size, 4, `${name} repeats a face`);
-          for (const slot of row) assert.ok((slot.windowMode === 'person' ? person : plain).includes(slot.windowPalette) && slot.windowAllowed.length === 1 && slot.windowAllowed[0] === slot.windowPalette, `${name}: a screen that does not read, or more than one`);
-          if (kind === 'photo') {
-            const modes = row.map(slot => slot.windowMode);
-            assert.ok(modes[0] !== modes[1] && modes[0] === modes[2] && modes[1] === modes[3] && modes.every(mode => ['person', 'plain'].includes(mode)), `${name}: ${modes}`);
-          } else assert.ok(row.every(slot => slot.windowMode === 'plain'), `${name}: no person in front`);
-          if (kind === 'clip') assert.equal(new Set(row.map(slot => slot.cutSeed)).size, 4, `${name}: the same cut on two cards`);
-          else assert.ok(row.every(slot => slot.cutSeed === undefined), name);
-        }
-        assert.deepEqual(deal('photo'), deal('photo'), 'pure');
-      }
-    }
-    const firsts = new Set(Array.from({ length: 12 }, (_, generation) => pack.recommendRow('window', profile('Pop'), generation, PLATES, own.photo)[0].windowMode));
-    assert.equal(firsts.size, 2, 'refreshing sometimes opens on her in front, sometimes plain');
+    const row = pack.recommendRow('window', profile('Pop'), 0, PLATES, [], true);
+    assert.equal(row.length, 4);
+    assert.ok(row.every(slot => slot.plateId === undefined && slot.libraryId === undefined && slot.reelIds === undefined));
   } finally { await server.close(); }
 });
 
@@ -551,7 +434,7 @@ test('the cloud worker knows exactly the kinds of creative, ink sets and Window 
     assert.deepEqual(workerSet('STYLES').sort(), [...AD_PUNCH_STYLES].sort());
     assert.deepEqual(workerSet('WINDOW_PALETTES').sort(), [...WINDOW_PALETTE_IDS].sort());
     assert.deepEqual(workerSet('WINDOW_FACES').sort(), [...WINDOW_FACES].sort());
-    assert.deepEqual(workerSet('WINDOW_MODES').sort(), ['bank', 'effect', 'person', 'plain']);
+    assert.deepEqual(workerSet('WINDOW_MODES'), ['plain']);
     assert.deepEqual(workerSet('RISO_INK_SETS').sort(), RISO_INK_SETS.map(set => set.id).sort());
   } finally { await server.close(); }
 });

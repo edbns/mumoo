@@ -9,7 +9,6 @@ import type { DustColors } from './dust-colors';
 import type { DustPoints, DustWord } from './pack-dust';
 import type { RisoInkSet } from './riso-look';
 import type { RisoPhoto } from './riso-photo';
-import type { WindowPicture } from './pack-window';
 import type { TreatmentId } from './treatment-deal';
 import type { PresetId } from './edit-presets';
 
@@ -51,7 +50,7 @@ export type PackSceneInput = {
   inks?: RisoInkSet['inks'];
   risoPhoto?: RisoPhoto | null;
   /** Window: the picture seen through the word (with the cut-out of a person to stand in front), the screen colour it opens on, and the colours it may flip to (only its own, on the cards dealt now). */
-  windowPicture?: WindowPicture;
+  windowPicture?: Texture;
   windowPalette?: string;
   windowAllowed?: readonly string[];
   /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */

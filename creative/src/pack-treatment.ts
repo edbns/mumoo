@@ -258,11 +258,18 @@ const BENTO_MARGIN = 32;
 const BENTO_GAP = 22;
 const BENTO_RADIUS = 30;
 
-/** Colored Frame: the picture small in a wide dark matte, like a cinema screen; one dark colour per card. */
-const MATTE: Record<string, string> = { slim: '#111113', bold: '#2a0e12', accent: '#0d1424', ink: '#0e1b14' };
-const SCREEN_W = 0.74;
-const SCREEN_ASPECT = 4 / 5;
-const SCREEN_CY = 0.46;
+/**
+ * Colored Frame: the whole picture, smaller and the same shape as the card, centred on black or white, its corners rounded and edged
+ * in a thin line of the other colour. `scale` is its size against the card.
+ */
+const FRAME_LOOK: Record<string, { matte: string; edge: string; scale: number }> = {
+  slim: { matte: '#000000', edge: '#ffffff', scale: 0.8 },
+  bold: { matte: '#ffffff', edge: '#000000', scale: 0.8 },
+  accent: { matte: '#000000', edge: '#ffffff', scale: 0.88 },
+  ink: { matte: '#ffffff', edge: '#000000', scale: 0.88 },
+};
+const FRAME_RADIUS = 36;
+const FRAME_EDGE = 4;
 
 /** Fisheye: one round lens in the black, centred across and a little above the middle; the variants bulge more. */
 const LENS_RADIUS = 0.86;
@@ -405,12 +412,22 @@ export function createTreatmentWorld(): TreatmentWorld {
   }
 
   function buildFrame(variant: string, source: RenderTexture, textures: Texture[]): Look {
-    const w = WIDTH * SCREEN_W;
-    const h = w / SCREEN_ASPECT;
+    const look = FRAME_LOOK[variant] ?? FRAME_LOOK.slim;
+    const w = Math.round(WIDTH * look.scale);
+    const h = Math.round(HEIGHT * look.scale);
+    const x = Math.round((WIDTH - w) / 2);
+    const y = Math.round((HEIGHT - h) / 2);
+    const edge = new Graphics();
+    edge.roundRect(x - FRAME_EDGE, y - FRAME_EDGE, w + 2 * FRAME_EDGE, h + 2 * FRAME_EDGE, FRAME_RADIUS + FRAME_EDGE);
+    edge.fill({ color: look.edge });
     const sprite = piece(source, coverCrop(w, h), w, h, textures);
-    sprite.position.set((WIDTH - w) / 2, HEIGHT * SCREEN_CY - h / 2);
-    panels.addChild(sprite);
-    return { backdrop: MATTE[variant] ?? MATTE.slim };
+    sprite.position.set(x, y);
+    const mask = new Graphics();
+    mask.roundRect(x, y, w, h, FRAME_RADIUS);
+    mask.fill({ color: 0xffffff });
+    sprite.mask = mask;
+    panels.addChild(edge, mask, sprite);
+    return { backdrop: look.matte };
   }
 
   function build(kind: TreatmentId, variant: string, source: RenderTexture) {

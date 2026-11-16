@@ -87,7 +87,7 @@ function referenceOf(shown: CanvasImageSource & { width: number; height: number 
  * Pictures already read, kept by `reelKey`: one card after another on the shelf draws from the same few, and each
  * is fetched once. A card draws only the pieces it plays; the rest are fetched in the background in the browser.
  */
-const MAX_KEPT = 12;
+const MAX_KEPT = 16;
 const LOOK_AHEAD_MS = 2500;
 const kept = new Map<string, Promise<Loaded>>();
 let prefetching = true;
@@ -106,7 +106,13 @@ async function bitmapOf(url: string, what: string): Promise<ImageBitmap> {
 }
 
 async function read(source: ReelSource): Promise<Loaded> {
-  if (source.kind === 'clip') return { kind: 'clip', motion: await loadMotion(source.url) };
+  if (source.kind === 'clip') {
+    const motion = await loadMotion(source.url);
+    await motion.seek(Math.min(PROBE_CLIP_MS, motion.durationMs * 0.3));
+    const probed = motion.texture.source.resource as HTMLCanvasElement;
+    const gain = exposureOf(probed);
+    return { kind: 'clip', motion, gain, reference: referenceOf(probed, gain) };
+  }
   const image = await bitmapOf(source.url, 'A picture of the reel');
   const gain = exposureOf(image);
   const reference = referenceOf(image, gain);
@@ -142,6 +148,11 @@ function keep(source: ReelSource): Promise<Loaded> {
 export function clearReelPictures() {
   for (const loading of kept.values()) void loading.then(release, () => undefined);
   kept.clear();
+}
+
+/** Fetches and reads every picture of these reels at once, so a card plays from the first frame without waiting on one. Settles when all are in (or failed: the card says so when it draws). */
+export async function preloadReel(sources: readonly ReelSource[]): Promise<void> {
+  await Promise.all(sources.map(source => keep(source).catch(() => undefined)));
 }
 
 export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
@@ -195,14 +206,8 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
       const [from, to] = segment.zoom;
       cover(loaded.image, from + (to - from) * along, loaded.gain ?? 1, alpha);
     } else {
-      if (loaded.gain === undefined) {
-        await loaded.motion.seek(Math.min(PROBE_CLIP_MS, loaded.motion.durationMs * 0.3));
-        const probed = loaded.motion.texture.source.resource as HTMLCanvasElement;
-        loaded.gain = exposureOf(probed);
-        loaded.reference = referenceOf(probed, loaded.gain);
-      }
       await loaded.motion.seek(clipMsAt(segment, ms));
-      cover(loaded.motion.texture.source.resource as HTMLCanvasElement, 1, loaded.gain, alpha);
+      cover(loaded.motion.texture.source.resource as HTMLCanvasElement, 1, loaded.gain ?? 1, alpha);
     }
     return loaded;
   }

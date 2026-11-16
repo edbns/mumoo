@@ -58,8 +58,8 @@ test('the seven treatments are on the shelf as their own templates, and Kaleidos
 
 test('each treatment deals four variants, deterministic from the seed, and never changes the Director plan fields', () => {
   for (const kind of deal.TREATMENT_IDS) {
-    const a = pack.recommendRow(kind, profile(), 0, [], null, LIBRARY, {}, false);
-    const b = pack.recommendRow(kind, profile(), 0, [], null, LIBRARY, {}, false);
+    const a = pack.recommendRow(kind, profile(), 0, [], LIBRARY, false);
+    const b = pack.recommendRow(kind, profile(), 0, [], LIBRARY, false);
     assert.equal(a.length, 4, kind);
     assert.deepEqual(a.map(slot => slot.treatmentVariant), b.map(slot => slot.treatmentVariant), `${kind} seed`);
     assert.equal(new Set(a.map(slot => slot.treatmentVariant)).size, 4, `${kind} four variants`);
@@ -72,7 +72,7 @@ test('each treatment deals four variants, deterministic from the seed, and never
       assert.equal(slot.effectId, undefined);
       assert.equal(slot.plateId, undefined);
     }
-    const refreshed = pack.recommendRow(kind, profile(), 1, [], null, LIBRARY, {}, false);
+    const refreshed = pack.recommendRow(kind, profile(), 1, [], LIBRARY, false);
     // Refresh changes the hand (card ids include the generation seed); the four variants stay a full deal of the treatment.
     assert.notDeepEqual(a.map(slot => slot.id), refreshed.map(slot => slot.id), `${kind} refresh`);
     assert.equal(new Set(refreshed.map(slot => slot.treatmentVariant)).size, 4, `${kind} refresh variants`);
@@ -91,7 +91,7 @@ test('treatments never change the Director\'s plan: same assets, music and cut s
   const planB = director.planReel(assets, music, seed, 15_000);
   assert.deepEqual(planA, planB);
   // A treatment card's cutSeed is what the reel is directed with; the treatment options are not an input to planReel.
-  const [slot] = pack.recommendRow('triptych', profile(), 0, [], null, LIBRARY, {}, false);
+  const [slot] = pack.recommendRow('triptych', profile(), 0, [], LIBRARY, false);
   const directed = director.planReel(assets, music, slot.cutSeed, 15_000);
   assert.deepEqual(directed, director.planReel(assets, music, slot.cutSeed, 15_000));
   assert.ok(directed.every(segment => Number.isFinite(segment.atMs) && segment.endMs > segment.atMs));
@@ -99,9 +99,9 @@ test('treatments never change the Director\'s plan: same assets, music and cut s
 
 test('treatment card N finishes Directed card N: the same pictures, reel order and cut', () => {
   for (const generation of [0, 1, 5]) {
-    const directed = pack.recommendRow('photography', profile(), generation, [], null, LIBRARY, {}, false);
+    const directed = pack.recommendRow('photography', profile(), generation, [], LIBRARY, false);
     for (const kind of deal.TREATMENT_IDS) {
-      const treated = pack.recommendRow(kind, profile(), generation, [], null, LIBRARY, {}, false);
+      const treated = pack.recommendRow(kind, profile(), generation, [], LIBRARY, false);
       assert.deepEqual(treated.map(slot => slot.reelIds), directed.map(slot => slot.reelIds), `${kind} reel @${generation}`);
       assert.deepEqual(treated.map(slot => slot.cutSeed), directed.map(slot => slot.cutSeed), `${kind} cut @${generation}`);
       assert.deepEqual(treated.map(slot => slot.board), directed.map(slot => slot.board), `${kind} board @${generation}`);

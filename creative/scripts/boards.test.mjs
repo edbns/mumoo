@@ -117,13 +117,13 @@ test('a reel is edited from its row\'s board only, the card names it, and with n
   try {
     const loose = filed('x', 'none', 10, { boards: [] });
     const items = [...filed('b', 'block-party', 8), ...filed('s', 'sunset-coast', 8), ...loose];
-    const slots = pack.recommendRow('photography', profile(), 0, [], null, items);
+    const slots = pack.recommendRow('photography', profile(), 0, [], items);
     const board = slots.find(slot => slot.board)?.board;
     assert.ok(board, 'the cards say which board they came from');
     const on = new Set(items.filter(item => item.boards.includes(board)).map(item => item.id));
     for (const slot of slots) for (const id of slot.reelIds ?? []) assert.ok(on.has(id), `${id} is not on ${board}`);
 
-    const before = pack.recommendRow('photography', profile(), 0, [], null, loose);
+    const before = pack.recommendRow('photography', profile(), 0, [], loose);
     assert.ok(before.every(slot => !slot.board), 'no filled board: no board named');
     assert.ok(before.some(slot => slot.reelIds?.length), 'and the library is used as before');
   } finally { await server.close(); }
@@ -133,7 +133,7 @@ test('a board of 53 clips is walked: no clip on two cards of a Refresh, none fro
   const { server, pack } = await load();
   try {
     const items = [...filed('b', 'block-party', 53), ...filed('m', 'main-stage', 40)];
-    const refresh = generation => pack.recommendRow('photography', profile(), generation, [], null, items).map(slot => slot.reelIds ?? []);
+    const refresh = generation => pack.recommendRow('photography', profile(), generation, [], items).map(slot => slot.reelIds ?? []);
     const used = new Set();
     let before = new Set();
     for (let generation = 0; generation < 6; generation++) {

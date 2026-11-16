@@ -82,13 +82,10 @@ PRESETS = {
     "mono": {"grit"},
 }
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
-WINDOW_PALETTES = {
-    "black", "off-white", "sand", "hot-red", "orange", "sun-yellow", "acid-yellow", "lime",
-    "green", "deep-green", "teal", "cyan", "cobalt", "violet", "magenta", "hot-pink",
-}
+WINDOW_PALETTES = {"black", "off-white"}
 WINDOW_FACES = {"Anton", "Big Shoulders Display", "Staatliches", "Bangers", "Barlow Condensed"}
-# What a Window card shows through its word: our approved photo (a person stands in front of the word, or not), one baked effect, one baked background, or the person's own photo or clip.
-WINDOW_MODES = {"person", "plain", "effect", "bank"}
+# What a Window card shows through its word: the picture as it is (a Director's reel, our approved photo, or a photo or clip of the library or the person).
+WINDOW_MODES = {"plain"}
 WINDOW_KEYS = ("windowMode", "windowPalette", "windowAllowed")
 # Styles drawn from a person cut out of a photo: an approved plate (`plateId`) or the person's own photo and cut-out mask.
 CUT_OUT_STYLES = {"dust", "riso"}
@@ -342,8 +339,8 @@ def parse_meta(raw: str) -> dict:
                 raise ValueError("motionShots")
     if "reel" in opts:
         reel = opts["reel"]
-        # Our photography (with a live look), treatments and Riso draw a reel, alone: it is the card's only picture.
-        if opts["style"] not in ("filter", "riso", "treatment") or any(key in opts for key in ("plateId", "effectId")):
+        # Our photography (with a live look), treatments, Riso and Window draw a reel, alone: it is the card's only picture.
+        if opts["style"] not in ("filter", "riso", "treatment", "window") or any(key in opts for key in ("plateId", "effectId")):
             raise ValueError("reel")
         if not isinstance(reel, list) or not 2 <= len(reel) <= REEL_MAX:
             raise ValueError("reel")
@@ -392,16 +389,13 @@ def parse_meta(raw: str) -> dict:
 
 
 def window_media(opts: dict, media: dict[str, bytes]) -> set[str]:
-    """The media a Window card takes: none when it is drawn from one of our pictures (the one its mode names); else, for `person` and `plain`,
-    the person's own photo with its cut-out mask (the mask is used only by `person`) or, for `plain`, their own clip."""
-    mode = opts["windowMode"]
-    ours = {"person": "plateId", "plain": "plateId", "effect": "effectId", "bank": "bankId"}[mode]
+    """The media a Window card takes: none when it is drawn from our approved photo (`plateId`); else one photo or one clip, as it is."""
     named = {key for key in ("plateId", "effectId", "bankId") if key in opts}
-    if named == {ours}:
+    if named == {"plateId"}:
         return set()
-    if named or mode not in ("person", "plain") or (mode == "person" and "motion" in media):
+    if named:
         raise ValueError("media")
-    return {"photo", "cutout"} if "photo" in media else {"motion"}
+    return {"photo"} if "photo" in media else {"motion"}
 
 
 def check_media(opts: dict, media: dict[str, bytes]) -> None:

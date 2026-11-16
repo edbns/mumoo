@@ -26,33 +26,33 @@ for case in json.load(sys.stdin):
 print(json.dumps(answers))
 `;
 
-const base = { style: 'window', font: 'Anton', fontSecondary: 'Anton', layout: { rotate: 0, scaleBias: 1, cut: 0, seed: 3 }, cues: [], fallbackText: '', windowMode: 'plain', windowPalette: 'black', windowAllowed: ['black', 'cobalt'], plateId: 'burnnet-woman-1547507-1920' };
+const base = { style: 'window', font: 'Anton', fontSecondary: 'Anton', layout: { rotate: 0, scaleBias: 1, cut: 0, seed: 3 }, cues: [], fallbackText: '', windowMode: 'plain', windowPalette: 'black', windowAllowed: ['black'], plateId: 'burnnet-woman-1547507-1920' };
 const card = (change, media = []) => ({ opts: { ...base, ...change }, media });
+const REEL = [{ kind: 'clip', url: 'https://bucket.r2.cloudflarestorage.com/a.mp4' }, { kind: 'photo', url: 'https://bucket.r2.cloudflarestorage.com/b.jpg' }];
 
 const cases = {
   oursPlain: [card({}), true],
-  oursPerson: [card({ windowMode: 'person' }), true],
-  oursEffect: [card({ windowMode: 'effect', plateId: undefined, effectId: 'tropical-ascii-cam-1' }), true],
-  oursBank: [card({ windowMode: 'bank', plateId: undefined, bankId: 'any-look' }), true],
-  ownPlainPhoto: [card({ plateId: undefined }, ['photo', 'cutout']), true],
-  ownPerson: [card({ windowMode: 'person', plateId: undefined }, ['photo', 'cutout']), true],
+  offWhite: [card({ windowPalette: 'off-white', windowAllowed: ['off-white'] }), true],
+  directorReel: [card({ plateId: undefined, reel: REEL }), true],
+  reelWithMedia: [card({ plateId: undefined, reel: REEL }, ['motion']), false],
+  reelAndPlate: [card({ reel: REEL }), false],
+  ownPhoto: [card({ plateId: undefined }, ['photo']), true],
   ownClip: [card({ plateId: undefined }, ['motion']), true],
-  ownPhotoWithoutCutout: [card({ plateId: undefined }, ['photo']), false],
+  ownPhotoWithCutout: [card({ plateId: undefined }, ['photo', 'cutout']), false],
   noMode: [card({ windowMode: undefined }), false],
-  unknownMode: [card({ windowMode: 'sepia' }), false],
+  oldPersonMode: [card({ windowMode: 'person' }), false],
+  oldEffectMode: [card({ windowMode: 'effect', plateId: undefined, effectId: 'tropical-ascii-cam-1' }), false],
+  oldBankMode: [card({ windowMode: 'bank', plateId: undefined, bankId: 'any-look' }), false],
   noPalette: [card({ windowPalette: undefined }), false],
-  unknownPalette: [card({ windowPalette: 'chartreuse-ish', windowAllowed: ['chartreuse-ish'] }), false],
-  paletteNotAllowed: [card({ windowPalette: 'cobalt', windowAllowed: ['black'] }), false],
+  colouredScreen: [card({ windowPalette: 'cobalt', windowAllowed: ['cobalt'] }), false],
+  paletteNotAllowed: [card({ windowPalette: 'off-white', windowAllowed: ['black'] }), false],
   emptyAllowed: [card({ windowAllowed: [] }), false],
   repeatedAllowed: [card({ windowAllowed: ['black', 'black'] }), false],
   unknownFace: [card({ font: 'Oswald', fontSecondary: 'Oswald' }), false],
   noSeed: [card({ layout: { rotate: 0, scaleBias: 1, cut: 0 } }), false],
   windowKeysOnAnotherStyle: [card({ style: 'dust' }), false],
-  personWithClip: [card({ windowMode: 'person', plateId: undefined }, ['motion']), false],
-  effectWithOwnPhoto: [card({ windowMode: 'effect', plateId: undefined, effectId: 'tropical-ascii-cam-1' }, ['photo', 'cutout']), false],
-  bankWithOwnClip: [card({ windowMode: 'bank', plateId: undefined, bankId: 'any-look' }, ['motion']), false],
-  oursAndOwn: [card({}, ['photo', 'cutout']), false],
-  twoOfOurs: [card({ effectId: 'tropical-ascii-cam-1' }), false],
+  oursAndOwn: [card({}, ['photo']), false],
+  effectOnPlain: [card({ effectId: 'tropical-ascii-cam-1' }), false],
   nothing: [card({ plateId: undefined }), false],
 };
 

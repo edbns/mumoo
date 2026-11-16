@@ -10,7 +10,7 @@ const names = result => Object.keys(result.parts ?? {}).sort();
 test('a photo kept for the shelf goes with its cut-out only where the card needs it', () => {
   assert.deepEqual(names(ownMedia('dust', undefined, photo)), ['cutout', 'photo']);
   assert.deepEqual(names(ownMedia('riso', undefined, photo)), ['cutout', 'photo']);
-  assert.deepEqual(names(ownMedia('window', undefined, photo)), ['cutout', 'photo']);
+  assert.deepEqual(names(ownMedia('window', undefined, photo)), ['photo']);
   assert.deepEqual(names(ownMedia('filter', 'thermal-1', photo)), ['photo'], 'Our photography and the plain looks need no cut-out');
   assert.deepEqual(names(ownMedia('filter', undefined, photo)), ['photo']);
 });
@@ -30,4 +30,5 @@ test('the older one-picture-per-row uploads keep working as they did', () => {
   assert.deepEqual(names(ownMedia('dust', undefined, { use: 'dust', photo: Buffer.from('p'), cutout: Buffer.from('c') })), ['cutout', 'photo']);
   assert.deepEqual(names(ownMedia('filter', 'thermal-1', { use: 'thermal', photo: Buffer.from('p') })), ['photo']);
   assert.ok(ownMedia('riso', undefined, { use: 'dust', photo: Buffer.from('p') }).refused, 'kept for a different style');
+  assert.deepEqual(names(ownMedia('window', undefined, { use: 'window', photo: Buffer.from('p'), cutout: Buffer.from('c') })), ['photo'], 'an older Window photo is shown as it is');
 });

@@ -3,8 +3,8 @@
  * (see `check_media` in audio-intelligence/modal_creatives_encode_staging.py), so a picture kept for the whole shelf
  * (use `any`, which has a cut-out whenever it is a photo) is cut down to the card's needs here.
  *
- *   photo needs its cut-out   Dust, Window, Riso (photo)
- *   photo alone               Our photography and its looks, treatments
+ *   photo needs its cut-out   Dust, Riso (photo)
+ *   photo alone               Our photography and its looks, treatments, Window
  *   clip                      anything but Dust, which needs a photo
  *
  * `picture` is what `uploadMedia` read: `{ use, photo?, cutout?, motion? }`. Returns `{ parts }` (the files to send, by
@@ -18,12 +18,14 @@ export function ownMedia(style, look, picture) {
       if (style === 'dust') return { refused: 'Dust needs a photo, not a video or GIF.' };
       return { parts: { motion: picture.motion } };
     }
-    const withCutout = style === 'dust' || style === 'riso' || style === 'window';
+    const withCutout = style === 'dust' || style === 'riso';
     // Treatments finish the Directed picture alone: a photo with no cut-out, or a clip.
     if (withCutout && !picture.cutout) return { refused: 'That picture has no cut-out yet.' };
     return { parts: { photo: picture.photo, ...(withCutout ? { cutout: picture.cutout } : {}) } };
   }
   // The older one-picture-per-row uses: kept for the style they are named for (the live-look rows are drawn in the Filters style).
   if (picture.use !== style && !(style === 'filter' && OLDER_USES.includes(picture.use))) return { refused: 'That picture is kept for a different style.' };
-  return { parts: { ...(picture.photo ? { photo: picture.photo } : {}), ...(picture.cutout ? { cutout: picture.cutout } : {}), ...(picture.motion ? { motion: picture.motion } : {}) } };
+  // Window shows the photo as it is: an older Window photo's cut-out stays behind.
+  const cutout = picture.cutout && style !== 'window';
+  return { parts: { ...(picture.photo ? { photo: picture.photo } : {}), ...(cutout ? { cutout: picture.cutout } : {}), ...(picture.motion ? { motion: picture.motion } : {}) } };
 }

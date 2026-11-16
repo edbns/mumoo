@@ -5,7 +5,7 @@
 import { Application, ImageSource, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH, type LyricCue } from './composition';
 import { ensureFonts, type AdFont } from './ad-fonts';
-import { createWindowWorld, pictureColours, readWindowPicture, type WindowPicture, type WindowReading, type WindowWorld } from './pack-window';
+import { createWindowWorld, type WindowWorld } from './pack-window';
 
 export type WindowStill = {
   seed: number;
@@ -17,9 +17,8 @@ export type WindowStill = {
   cues: LyricCue[];
   beatsMs: number[];
   downbeatsMs: number[];
-  /** Where the picture is: a photo, or a frame taken out of a video. `cutoutUrl` is the mask of a person to stand in front. */
+  /** Where the picture is: a photo, or a frame taken out of a video. */
   photoUrl: string;
-  cutoutUrl?: string;
 };
 
 let app: Application | null = null;
@@ -37,18 +36,6 @@ async function textureOf(url: string) {
   return texture;
 }
 
-const pictureOf = async (photoUrl: string, cutoutUrl?: string): Promise<WindowPicture> => ({ texture: await textureOf(photoUrl), cutout: cutoutUrl ? await textureOf(cutoutUrl) : undefined });
-
-/** The colours of a picture as it shows in the letters, for judging which screens read against it. */
-async function colours(photoUrl: string, cutoutUrl?: string): Promise<string[]> {
-  return pictureColours(await pictureOf(photoUrl, cutoutUrl));
-}
-
-/** What the shelf's deal needs to know of a picture (see `readWindowPicture`). */
-async function reading(photoUrl: string, cutoutUrl?: string): Promise<WindowReading> {
-  return readWindowPicture(await textureOf(photoUrl), cutoutUrl ? await textureOf(cutoutUrl) : undefined);
-}
-
 async function still(request: WindowStill): Promise<string> {
   if (!app) {
     const canvas = document.createElement('canvas');
@@ -64,7 +51,7 @@ async function still(request: WindowStill): Promise<string> {
     app.stage.removeChildren();
     app.stage.addChild(world.world.root);
   }
-  const picture = await pictureOf(request.photoUrl, request.cutoutUrl);
+  const picture = await textureOf(request.photoUrl);
   world.world.update({
     ms: request.ms, beatsMs: request.beatsMs, downbeatsMs: request.downbeatsMs, cues: request.cues, palette: request.palette, allowed: request.allowed, font: request.font, picture,
   });
@@ -94,4 +81,4 @@ async function contactSheet(urls: string[], columns: number, width: number, gap:
   return canvas.toDataURL('image/png');
 }
 
-Object.assign(window, { windowLab: { still, colours, reading, contactSheet } });
+Object.assign(window, { windowLab: { still, contactSheet } });

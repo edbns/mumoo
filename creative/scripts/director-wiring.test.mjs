@@ -33,11 +33,11 @@ function profile(sha = 'b'.repeat(64)) {
 }
 
 const LIBRARY = [photo(1), photo(2), photo(3), clip(4), photo(5), clip(6, 'gif'), photo(7), photo(8)];
-const REEL_ROWS = ['photography', 'triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'thermal', 'halftone', 'dither', 'ascii'];
+const REEL_ROWS = ['photography', 'triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window'];
 
-test('Directed, the looks and Riso are edited reels of two or more library pictures', () => {
-  for (const row of [...REEL_ROWS, 'riso']) {
-    const slots = pack.recommendRow(row, profile(), 0, [], null, LIBRARY, {}, false);
+test('Directed, the looks, treatments, Riso and Window are edited reels of two or more library pictures', () => {
+  for (const row of REEL_ROWS) {
+    const slots = pack.recommendRow(row, profile(), 0, [], LIBRARY, false);
     assert.ok(slots.length > 0, row);
     for (const slot of slots) {
       assert.ok(slot.reelIds && slot.reelIds.length >= 2 && slot.reelIds.length <= REEL_MAX, `${row}: ${slot.reelIds}`);
@@ -54,8 +54,8 @@ test('several of the person\'s own pictures are dealt like the library, and noth
   // As the page deals them: no feeling, no genre, no tags of their own.
   const own = [photo(11), photo(12), clip(13)].map(item => ({ ...item, attitudes: ['neutral'] }));
   const ids = new Set(own.map(item => item.id));
-  for (const row of [...REEL_ROWS, 'riso', 'dust']) {
-    const slots = pack.recommendRow(row, profile(), 0, [], null, own, {}, false);
+  for (const row of [...REEL_ROWS, 'dust']) {
+    const slots = pack.recommendRow(row, profile(), 0, [], own, false);
     assert.ok(slots.length > 0, row);
     for (const slot of slots) {
       const drawn = slot.reelIds ?? (slot.libraryId ? [slot.libraryId] : []);
@@ -68,42 +68,49 @@ test('several of the person\'s own pictures are dealt like the library, and noth
 
 test('each card of a row opens on a different picture, and the cards are told apart', () => {
   for (const row of ['photography', 'thermal', 'riso']) {
-    const slots = pack.recommendRow(row, profile(), 0, [], null, LIBRARY, {}, false);
+    const slots = pack.recommendRow(row, profile(), 0, [], LIBRARY, false);
     assert.equal(new Set(slots.map(slot => slot.id)).size, slots.length, row);
-    // Riso has only the two clips of the library to open on.
-    assert.equal(new Set(slots.map(slot => slot.reelIds[0])).size, row === 'riso' ? 2 : slots.length, `${row} opens a different way on each card`);
+    assert.equal(new Set(slots.map(slot => slot.reelIds[0])).size, slots.length, `${row} opens a different way on each card`);
   }
 });
 
-test('a reel is never made of stills alone when the library has a clip, and Riso is made of clips', () => {
+test('a reel is never made of stills alone when the library has a clip', () => {
   const stillsFirst = [photo(1), photo(2), photo(3), photo(5), photo(7), photo(8), clip(4)];
-  for (const row of ['photography', 'thermal']) {
-    const [slot] = pack.recommendRow(row, profile(), 0, [], null, stillsFirst, {}, false);
+  for (const row of ['photography', 'thermal', 'riso', 'window']) {
+    const [slot] = pack.recommendRow(row, profile(), 0, [], stillsFirst, false);
     assert.ok(slot.reelIds.includes(uuid(4)), row);
   }
-  const [riso] = pack.recommendRow('riso', profile(), 0, [], null, LIBRARY, {}, false);
-  assert.ok(riso.reelIds.every(id => [uuid(4), uuid(6)].includes(id)));
+});
+
+test('every template but Pulise and Dust shows the Directed card\'s reel in its place, Refresh after Refresh', () => {
+  const big = [...LIBRARY, ...Array.from({ length: 16 }, (_, i) => photo(20 + i)), clip(40), clip(41)];
+  for (const generation of [0, 1, 5]) {
+    const directed = pack.recommendRow('photography', profile(), generation, [], big, false).map(slot => slot.reelIds);
+    for (const row of REEL_ROWS) {
+      const slots = pack.recommendRow(row, profile(), generation, [], big, false);
+      slots.forEach((slot, card) => assert.deepEqual(slot.reelIds, directed[card], `${row} card ${card} on Refresh ${generation}`));
+    }
+  }
 });
 
 test('with fewer than two pictures, or the person’s own, a card is not a reel', () => {
-  const one = pack.recommendRow('photography', profile(), 0, [], null, [photo(1)], {}, false);
+  const one = pack.recommendRow('photography', profile(), 0, [], [photo(1)], false);
   assert.ok(one.every(slot => !slot.reelIds && slot.libraryId === uuid(1)));
-  assert.ok(pack.recommendRow('riso', profile(), 0, [], null, [photo(1), photo(2)], {}, false).every(slot => !slot.reelIds), 'Riso edits clips only');
-  for (const row of ['photography', 'thermal']) {
-    assert.ok(pack.recommendRow(row, profile(), 0, [], null, LIBRARY, {}, true).every(slot => !slot.reelIds), `${row}: their own picture is drawn instead`);
+  for (const row of ['photography', 'thermal', 'window']) {
+    assert.ok(pack.recommendRow(row, profile(), 0, [], LIBRARY, true).every(slot => !slot.reelIds), `${row}: their own picture is drawn instead`);
   }
 });
 
-test('Dust and Window keep drawing one picture', () => {
-  for (const row of ['dust', 'window']) {
-    assert.ok(pack.recommendRow(row, profile(), 0, [], null, LIBRARY, {}, false).every(slot => !slot.reelIds), row);
+test('Dust and Pulise are not reels', () => {
+  for (const row of ['dust', 'pulise']) {
+    assert.ok(pack.recommendRow(row, profile(), 0, [], LIBRARY, false).every(slot => !slot.reelIds), row);
   }
 });
 
 test('Refresh deals the director other pictures, and the same song gets the same reels', () => {
   // A library bigger than the pool of eight: otherwise every deal would hold the same eight pictures.
   const big = [...LIBRARY, ...Array.from({ length: 16 }, (_, i) => photo(20 + i)), clip(40), clip(41)];
-  const reels = generation => pack.recommendRow('photography', profile(), generation, [], null, big, {}, false).map(slot => slot.reelIds.join());
+  const reels = generation => pack.recommendRow('photography', profile(), generation, [], big, false).map(slot => slot.reelIds.join());
   assert.deepEqual(reels(0), reels(0));
   assert.notDeepEqual(reels(0), reels(1));
 });

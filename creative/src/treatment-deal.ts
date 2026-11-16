@@ -63,10 +63,10 @@ export const TREATMENTS: readonly TreatmentDef[] = [
     id: 'frame',
     title: 'Colored Frame',
     variants: [
-      { id: 'slim', title: 'Charcoal' },
-      { id: 'bold', title: 'Oxblood' },
-      { id: 'accent', title: 'Midnight' },
-      { id: 'ink', title: 'Forest' },
+      { id: 'slim', title: 'Black' },
+      { id: 'bold', title: 'White' },
+      { id: 'accent', title: 'Black wide' },
+      { id: 'ink', title: 'White wide' },
     ],
   },
   {

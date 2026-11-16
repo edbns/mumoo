@@ -235,7 +235,7 @@ function profile(subGenre, style) {
 test('Directed and every treatment carry the song\'s preset, each card its own take, and the label says which', () => {
   const song = profile('Trap');
   for (const row of ['photography', ...deal.TREATMENT_IDS]) {
-    const slots = pack.recommendRow(row, song, 0, [], null, LIBRARY);
+    const slots = pack.recommendRow(row, song, 0, [], LIBRARY);
     assert.equal(slots.length, 4, row);
     for (const [i, slot] of slots.entries()) {
       assert.equal(slot.preset, 'strobe', row);
@@ -243,12 +243,12 @@ test('Directed and every treatment carry the song\'s preset, each card its own t
       assert.ok(slot.label.startsWith('Club Pulse'), `${row}: ${slot.label}`);
     }
   }
-  assert.ok(pack.recommendRow('photography', song, 1, [], null, LIBRARY).every(slot => slot.preset === 'y2k'), 'Refresh takes the next that fits');
+  assert.ok(pack.recommendRow('photography', song, 1, [], LIBRARY).every(slot => slot.preset === 'y2k'), 'Refresh takes the next that fits');
 });
 
 test('the other templates carry no preset', () => {
   for (const row of ['thermal', 'riso', 'pulise']) {
-    for (const slot of pack.recommendRow(row, profile('Trap'), 0, [{ id: 'p1', cutout: true }], null, LIBRARY)) assert.equal(slot.preset, undefined, row);
+    for (const slot of pack.recommendRow(row, profile('Trap'), 0, [{ id: 'p1', cutout: true }], LIBRARY)) assert.equal(slot.preset, undefined, row);
   }
 });
 

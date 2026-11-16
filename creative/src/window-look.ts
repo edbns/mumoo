@@ -1,13 +1,12 @@
 /**
  * Window — the rules of the look, as pure functions of the clock, the beat times and the lyric cues.
  * Nothing here draws: the flat screen colours and when they flip, which lyric words are on screen together, how big
- * they are set so that all of them fits the safe area, and how hard a beat punches the window.
+ * they are set on one line so that it fits the safe area, and how hard a beat punches the window.
  * The shelf preview and the cloud render both read these, so they agree.
  */
 import { HEIGHT, WIDTH, type LyricCue } from './composition';
 import { META_SAFE_BOTTOM } from './ad-punch';
 import type { AdFont } from './ad-fonts';
-import { luminance } from './dust-colors';
 
 /** An integer hash of three numbers: the single source of every random choice in this look. */
 export function hash(a: number, b: number, c: number): number {
@@ -28,28 +27,14 @@ const PLACE_TOP = Math.round(HEIGHT * 0.1);
 // Screens
 
 /**
- * A screen is one bold, flat colour: no texture, no fade. With it comes the rim cut round the window, and the
- * screens it flips to on a downbeat: ids of other palettes, each one a strong contrast to this one.
+ * A screen is one flat colour, black or white: no texture, no fade. With it comes the rim cut round the window, and
+ * the screen it could flip to on a downbeat (the shelf deals each card only its own, so it holds).
  */
-export type WindowPalette = { id: string; screen: string; rim: string; flips: readonly [string, string, string] };
+export type WindowPalette = { id: string; screen: string; rim: string; flips: readonly string[] };
 
 export const WINDOW_PALETTES: readonly WindowPalette[] = [
-  { id: 'black', screen: '#0a0a0b', rim: '#3d3d45', flips: ['off-white', 'orange', 'acid-yellow'] },
-  { id: 'off-white', screen: '#f1ede4', rim: '#9c9484', flips: ['black', 'cobalt', 'hot-red'] },
-  { id: 'sand', screen: '#cdbd9e', rim: '#85775c', flips: ['black', 'deep-green', 'cobalt'] },
-  { id: 'hot-red', screen: '#ff2418', rim: '#8a0f08', flips: ['off-white', 'black', 'cyan'] },
-  { id: 'orange', screen: '#ff6a00', rim: '#8a3300', flips: ['cobalt', 'deep-green', 'black'] },
-  { id: 'sun-yellow', screen: '#ffd500', rim: '#8a7200', flips: ['violet', 'black', 'cobalt'] },
-  { id: 'acid-yellow', screen: '#d8ff00', rim: '#6f8500', flips: ['black', 'violet', 'magenta'] },
-  { id: 'lime', screen: '#7de800', rim: '#3d7a00', flips: ['black', 'magenta', 'violet'] },
-  { id: 'green', screen: '#00c853', rim: '#00662a', flips: ['violet', 'magenta', 'black'] },
-  { id: 'deep-green', screen: '#0a5c3a', rim: '#052e1d', flips: ['acid-yellow', 'hot-pink', 'teal'] },
-  { id: 'teal', screen: '#00a79d', rim: '#00524d', flips: ['off-white', 'sun-yellow', 'black'] },
-  { id: 'cyan', screen: '#00d8ff', rim: '#006b80', flips: ['violet', 'magenta', 'black'] },
-  { id: 'cobalt', screen: '#1f3cff', rim: '#0f1e80', flips: ['acid-yellow', 'orange', 'hot-pink'] },
-  { id: 'violet', screen: '#7a2cff', rim: '#3d1680', flips: ['sun-yellow', 'lime', 'green'] },
-  { id: 'magenta', screen: '#e0007a', rim: '#70003d', flips: ['acid-yellow', 'cyan', 'sand'] },
-  { id: 'hot-pink', screen: '#ff7ac8', rim: '#8a2f68', flips: ['cobalt', 'deep-green', 'black'] },
+  { id: 'black', screen: '#0a0a0b', rim: '#3d3d45', flips: ['off-white'] },
+  { id: 'off-white', screen: '#f1ede4', rim: '#9c9484', flips: ['black'] },
 ];
 
 /** Every palette id, for whoever stores or checks a card's screen colour. */
@@ -59,20 +44,6 @@ export function paletteOf(id: string): WindowPalette {
   const palette = WINDOW_PALETTES.find(candidate => candidate.id === id);
   if (!palette) throw new Error(`There is no window palette "${id}".`);
   return palette;
-}
-
-/** A screen has to differ from the picture in the letters by at least this contrast (WCAG ratio, picture taken at its average) to read. */
-export const MIN_PICTURE_CONTRAST = 1.6;
-
-/**
- * The palettes whose screen reads against this picture, given colours sampled from what shows in the letters: not a
- * yellow screen round a pale yellow picture. A screen too close to the picture's average light is left out.
- */
-export function legiblePalettes(pictureColours: readonly string[]): string[] {
-  if (!pictureColours.length) throw new Error('A picture needs colours to be judged.');
-  const average = pictureColours.reduce((sum, colour) => sum + luminance(colour), 0) / pictureColours.length;
-  const reads = (screen: string) => (Math.max(luminance(screen), average) + 0.05) / (Math.min(luminance(screen), average) + 0.05) >= MIN_PICTURE_CONTRAST;
-  return WINDOW_PALETTES.filter(palette => reads(palette.screen)).map(palette => palette.id);
 }
 
 /**
@@ -100,9 +71,9 @@ export const WINDOW_FACES: readonly AdFont[] = ['Anton', 'Big Shoulders Display'
 // ---------------------------------------------------------------------------------------------------------------
 // Which words are in the window
 
-/** At most this many cues share the window, and only while together they are no longer than `GROUP_LETTERS`. */
+/** At most this many cues share the window, and only while together they are no longer than `GROUP_LETTERS`: on one line, a longer pair would be set too thin to show the picture. */
 export const GROUP_WORDS = 2;
-export const GROUP_LETTERS = 9;
+export const GROUP_LETTERS = 6;
 /** A pause between two cues longer than this closes the window until the next words. */
 export const PHRASE_GAP_MS = 400;
 /** The last words of a phrase stay this long after they are sung. */
@@ -150,11 +121,6 @@ export const PUNCH_SWELL = 0.07;
 export const SAFE_BOX = { x: SAFE_X, y: PLACE_TOP, width: WIDTH - SAFE_X * 2, height: META_SAFE_BOTTOM - PLACE_TOP } as const;
 /** The box the words are fitted to at rest: the safe box less the room the punch swells into. */
 export const REST_BOX = { width: SAFE_BOX.width / (1 + PUNCH_SWELL), height: SAFE_BOX.height / (1 + PUNCH_SWELL) } as const;
-/** The gap between stacked lines, as a share of the shortest line. */
-const LINE_GAP = 0.1;
-const MAX_LINES = 3;
-/** Another line is only worth it when it lets the type be this much bigger: fewer lines read better. */
-const WORTH_A_LINE = 1.15;
 
 /** The size of a line's ink, in px, when it is set at a size of 100 px. */
 export type Measure = (text: string) => { width: number; height: number };
@@ -171,96 +137,22 @@ export type WindowLine = {
 };
 export type WindowLayout = { lines: WindowLine[]; width: number; height: number };
 
-/** Every way to break `words` into `count` runs of neighbours. */
-function breaks(words: readonly string[], count: number): string[][] {
-  if (count === 1) return [[words.join(' ')]];
-  const found: string[][] = [];
-  for (let cut = 1; cut <= words.length - (count - 1); cut++) {
-    const first = words.slice(0, cut).join(' ');
-    for (const rest of breaks(words.slice(cut), count - 1)) found.push([first, ...rest]);
-  }
-  return found;
-}
-
-/** A short line (a lone "I") is set as wide as the box but no bigger than this many times the longest line's size: the stack is not shrunk to nothing by a tower. */
-const MAX_SIZE_RATIO = 2.2;
-
-/** One way of stacking the lines: each one is set as wide as the box (a short one within `MAX_SIZE_RATIO`), and the stack is shrunk to fit if it is too tall. */
-function stack(lines: readonly string[], measure: Measure, box: { width: number; height: number }): WindowLayout {
-  const inks = lines.map(measure);
-  const fits = inks.map(({ width }) => (box.width * 100) / width);
-  const sizes = fits.map(fit => Math.min(fit, Math.min(...fits) * MAX_SIZE_RATIO));
-  const heights = inks.map(({ height }, i) => (height * sizes[i]) / 100);
-  const gap = LINE_GAP * Math.min(...heights);
-  const tall = heights.reduce((sum, h) => sum + h, 0) + gap * (lines.length - 1);
-  const shrink = Math.min(1, box.height / tall);
-  const placed: WindowLine[] = [];
-  let y = 0;
-  lines.forEach((text, i) => {
-    const width = (inks[i].width * sizes[i] * shrink) / 100;
-    const height = heights[i] * shrink;
-    placed.push({ text, size: sizes[i] * shrink, width, height, x: 0, y });
-    y += height + gap * shrink;
-  });
-  const widest = Math.max(...placed.map(line => line.width));
-  for (const line of placed) line.x = (widest - line.width) / 2;
-  return { lines: placed, width: widest, height: y - gap * shrink };
-}
-
 /**
- * How `text` is set: broken into one to three stacked lines in whichever way gives the biggest type, each line as
- * wide as the box allows (a short one a little less). A word is never split.
+ * How `text` is set: on one horizontal line, never broken, as wide as the box allows, shrunk only if that would be
+ * taller than the box.
  */
 export function layoutWords(text: string, measure: Measure, box: { width: number; height: number } = REST_BOX): WindowLayout {
-  const words = text.split(/\s+/u).filter(Boolean);
-  let best: WindowLayout | null = null;
-  let bestSize = 0;
-  for (let count = 1; count <= Math.min(MAX_LINES, words.length); count++) {
-    for (const lines of breaks(words, count)) {
-      const layout = stack(lines, measure, box);
-      const smallest = Math.min(...layout.lines.map(line => line.size));
-      if (smallest > bestSize * WORTH_A_LINE) {
-        best = layout;
-        bestSize = smallest;
-      }
-    }
-  }
-  if (!best) throw new Error('A window needs a word to open on.');
-  return best;
+  const line = text.split(/\s+/u).filter(Boolean).join(' ');
+  if (!line) throw new Error('A window needs a word to open on.');
+  const ink = measure(line);
+  const size = Math.min((box.width * 100) / ink.width, (box.height * 100) / ink.height);
+  const width = (ink.width * size) / 100;
+  const height = (ink.height * size) / 100;
+  return { lines: [{ text: line, size, width, height, x: 0, y: 0 }], width, height };
 }
 
-/** Where the middle of the words sits in the frame when nobody stands in front: the middle of the safe box. */
+/** Where the middle of the words sits in the frame: the middle of the safe box. */
 export const WORD_CENTRE: readonly [number, number] = [WIDTH / 2, SAFE_BOX.y + SAFE_BOX.height / 2];
-
-/** With a person standing in front, her head is brought down to this far from the top of the frame, to leave room for the words above it: lower, and her body is cropped too much. */
-const PERSON_HEAD_AT = Math.round(HEIGHT * 0.32);
-/** How far the words' lower edge reaches down behind her head, as a share of their last line's height: enough to be tucked in, not enough to hide the letters. */
-const TUCK_SHARE = 0.3;
-const TUCK_PASSES = 4;
-
-/** Where the person stands: she is moved down until her head is `PERSON_HEAD_AT` from the top (or left where she is, if she is lower already). */
-export function personStage(headTop: number): { drop: number; headAt: number } {
-  const drop = Math.max(0, PERSON_HEAD_AT - headTop);
-  return { drop, headAt: headTop + drop };
-}
-
-/**
- * The words when a person stands in front of them, like the title of a magazine cover: they take the room above her
- * head, their lower edge tucked behind it. Two words stack to fill the room; one word, which can only be as high as it is
- * wide, sits on her head.
- */
-export function personWords(text: string, measure: Measure, headAt: number): { layout: WindowLayout; centre: readonly [number, number] } {
-  const floor = SAFE_BOX.y + SAFE_BOX.height;
-  const fit = (tuck: number) => layoutWords(text, measure, { width: REST_BOX.width, height: (Math.min(headAt + tuck, floor) - SAFE_BOX.y) / (1 + PUNCH_SWELL) });
-  let tuck = 0;
-  let layout = fit(tuck);
-  for (let pass = 0; pass < TUCK_PASSES; pass++) {
-    tuck = TUCK_SHARE * layout.lines[layout.lines.length - 1].height * (1 + PUNCH_SWELL);
-    layout = fit(tuck);
-  }
-  const bottom = Math.min(headAt + tuck, floor);
-  return { layout, centre: [WIDTH / 2, bottom - (layout.height * (1 + PUNCH_SWELL)) / 2] };
-}
 
 // ---------------------------------------------------------------------------------------------------------------
 // The beat
@@ -291,11 +183,8 @@ export const windowScale = (punch: number, sinceArrivedMs: number) => (1 + PUNCH
 const PUSH = 0.05;
 const CREEP_PER_SECOND = 0.004;
 
-/** With a person standing in front, the picture behind is shown this much bigger, about the middle of the frame: letters full of cloth and skin, not the wall she was photographed against, and not her face a second time. */
-export const BEHIND_ZOOM = 1.7;
-
 /** The picture's size against the frame that covers it: it creeps in slowly and the punch pushes it in further. */
-export const pictureScale = (ms: number, punch: number, personInFront: boolean) => (personInFront ? BEHIND_ZOOM : 1) * (1 + CREEP_PER_SECOND * (ms / 1000) + PUSH * punch);
+export const pictureScale = (ms: number, punch: number) => 1 + CREEP_PER_SECOND * (ms / 1000) + PUSH * punch;
 
 /** The picture, fitted to cover the whole frame, as its size in px. */
 export function coverSize(width: number, height: number): [number, number] {
