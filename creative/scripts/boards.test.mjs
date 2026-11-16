@@ -69,34 +69,28 @@ const filed = (prefix, board, count, over = {}) => Array.from({ length: count },
   id: `${prefix}${i}`, kind: 'video', attitudes: [], tags: [], genre: null, subGenre: null, boards: [board], url: `https://x/${prefix}${i}`, motionUrl: `https://x/${prefix}${i}.mp4`, ...over,
 }));
 
-test('a row is dealt from one of the song\'s best filled boards; refreshing again and again moves on; an empty board is never used', async () => {
+test('every row of a song is dealt from its best filled board, through every Refresh; an empty board is never used', async () => {
   const { server, boards } = await load();
   try {
     const wanted = { genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'Afrobeats', attitude: 'fun', themes: ['party'] };
-    assert.equal(boards.boardForRow('photography', wanted, [], 'song', 0), null, 'no filled board: the library as before');
-    assert.equal(boards.boardForRow('photography', wanted, filed('b', 'block-party', boards.BOARD_MIN - 1), 'song', 0), null, 'one short of a reel');
+    assert.equal(boards.boardForRow('photography', wanted, [], 'song'), null, 'no filled board: the library as before');
+    assert.equal(boards.boardForRow('photography', wanted, filed('b', 'block-party', boards.BOARD_MIN - 1), 'song'), null, 'one short of a reel');
 
     const items = [...filed('b', 'block-party', 8), ...filed('s', 'sunset-coast', 8), ...filed('m', 'main-stage', 8), ...filed('h', 'heartland-dust', 8)];
     const rows = ['photography', 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window', 'dust', 'looks'];
-    const dealt = generation => rows.map(row => boards.boardForRow(row, wanted, items, 'song', generation).id);
-    const first = dealt(0);
-    const count = id => first.filter(entry => entry === id).length;
-    assert.ok(count('block-party') >= count('sunset-coast') && count('block-party') > 0, 'the best board leads');
-    assert.ok(new Set(first).size >= 2, 'the shelf is dealt from more than one board');
-    assert.ok(!first.includes('heartland-dust'), 'a board outside the best three is not dealt at first');
-    assert.deepEqual(dealt(2), first, 'the first Refreshes keep the boards and deal new edits');
-    assert.notDeepEqual(dealt(3), first, 'then the boards move along');
+    assert.deepEqual([...new Set(rows.map(row => boards.boardForRow(row, wanted, items, 'song').id))], ['block-party'], 'one scene for the whole shelf');
+    assert.deepEqual(boards.songBoards(wanted, items, 'song').map(board => board.id).slice(0, 2), ['block-party', 'sunset-coast'], 'the others that fit stand behind it');
+    assert.ok(!boards.songBoards(wanted, items, 'song').some(board => board.id === 'heartland-dust'), 'a board that does not fit is never behind it');
   } finally { await server.close(); }
 });
 
-test('a song only one board fits stays on it through every Refresh; a song no board fits walks them all', async () => {
+test('Funk Carioca with party words stays on Block Party, never Main Stage; a song no board fits still gets one', async () => {
   const { server, boards } = await load();
   try {
     const items = [...filed('b', 'block-party', 8), ...filed('n', 'night-drive', 8), ...filed('m', 'main-stage', 8), ...filed('d', 'dark-warehouse', 8)];
-    const carioca = { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk carioca', attitude: null };
-    const dealt = wanted => Array.from({ length: 12 }, (_, generation) => boards.boardForRow('photography', wanted, items, 'song', generation).id);
-    assert.deepEqual([...new Set(dealt(carioca))], ['block-party'], 'Funk Carioca is never moved to a board that does not fit it');
-    assert.ok(new Set(dealt({ genre: '', subGenre: '', attitude: null })).size > 1, 'a song the boards know nothing of still moves along');
+    const carioca = { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk carioca', attitude: 'fun', themes: ['party', 'dancing'] };
+    for (const row of ['photography', 'thermal', 'halftone', 'riso', 'window']) assert.equal(boards.boardForRow(row, carioca, items, 'song').id, 'block-party', row);
+    assert.ok(boards.boardForRow('photography', { genre: '', subGenre: '', attitude: null }, items, 'song'));
   } finally { await server.close(); }
 });
 
@@ -132,6 +126,28 @@ test('a reel is edited from its row\'s board only, the card names it, and with n
     const before = pack.recommendRow('photography', profile(), 0, [], null, loose);
     assert.ok(before.every(slot => !slot.board), 'no filled board: no board named');
     assert.ok(before.some(slot => slot.reelIds?.length), 'and the library is used as before');
+  } finally { await server.close(); }
+});
+
+test('a board of 53 clips is walked: no clip on two cards of a Refresh, none from the Refresh before, every clip used', async () => {
+  const { server, pack } = await load();
+  try {
+    const items = [...filed('b', 'block-party', 53), ...filed('m', 'main-stage', 40)];
+    const refresh = generation => pack.recommendRow('photography', profile(), generation, [], null, items).map(slot => slot.reelIds ?? []);
+    const used = new Set();
+    let before = new Set();
+    for (let generation = 0; generation < 6; generation++) {
+      const reels = refresh(generation);
+      const ids = reels.flat();
+      assert.ok(reels.every(reel => reel.length >= 4), `Refresh ${generation}: a reel of ${reels.map(reel => reel.length)}`);
+      assert.ok(ids.every(id => id.startsWith('b')), `Refresh ${generation} leaves the board`);
+      assert.equal(new Set(ids).size, ids.length, `Refresh ${generation}: a clip on two cards`);
+      assert.ok(ids.every(id => !before.has(id)), `Refresh ${generation} repeats a clip of the Refresh before`);
+      ids.forEach(id => used.add(id));
+      before = new Set(ids);
+    }
+    assert.equal(used.size, 53, 'every clip on the board gets its turn');
+    assert.deepEqual(refresh(2), refresh(2), 'seeded: the same Refresh deals the same reels');
   } finally { await server.close(); }
 });
 

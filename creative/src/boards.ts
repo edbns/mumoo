@@ -171,11 +171,6 @@ export const BOARDS: readonly Board[] = [
 export const BOARD_IDS = BOARDS.map(board => board.id);
 /** A board is used once it has this many ready pictures: enough for one reel. Until then the library is chosen from as before. */
 export const BOARD_MIN = 8;
-/** A song's shelf is dealt from its best boards, so a wrong first choice never fills it. */
-const SPREAD = 3;
-/** Every this many Refreshes of a row, its boards move one along: refreshing again and again says "not this vibe". */
-const REFRESHES_PER_STEP = 3;
-
 /** What the brain knows of a song that the boards care about. */
 export type BoardWanted = { genre: string; subGenre: string; style?: string; attitude: string | null; moods?: readonly string[]; themes?: readonly SongTheme[] };
 
@@ -244,20 +239,22 @@ export function rankBoards(wanted: BoardWanted, filled: ReadonlyMap<string, numb
     .map(entry => entry.board);
 }
 
-/**
- * The board one row of the shelf is dealt from, or null while no board is filled. Each row takes one board, so its reels hold
- * together; the rows share the song's best boards, the best getting about half of them. A row's Refreshes walk its own deals
- * first, and every `REFRESHES_PER_STEP` its boards move one along the ranking. Only boards that fit the song are walked (a song
- * only one board fits stays on it); a song no board fits walks them all.
- */
-export function boardForRow(row: string, wanted: BoardWanted, items: readonly { boards?: readonly string[] }[], song: string, generation: number): Board | null {
+/** The filled boards that fit the song, best first; a song no board fits gets them all, in its own order. */
+export function songBoards(wanted: BoardWanted, items: readonly { boards?: readonly string[] }[], song: string): Board[] {
   const all = rankBoards(wanted, filledBoards(items), song);
   const fitting = all.filter(board => boardFit(board, wanted) > 0);
-  const ranked = fitting.length ? fitting : all;
+  return fitting.length ? fitting : all;
+}
+
+/**
+ * The board one row of the shelf is dealt from, or null while no board is filled. Every row of a song takes its best board, and
+ * keeps it through every Refresh: Refresh deals new pictures from it, never another scene. Only boards that fit exactly as well
+ * as the best share the rows.
+ */
+export function boardForRow(row: string, wanted: BoardWanted, items: readonly { boards?: readonly string[] }[], song: string): Board | null {
+  const ranked = songBoards(wanted, items, song);
   if (!ranked.length) return null;
-  const step = Math.floor(generation / REFRESHES_PER_STEP);
-  const spread = Math.min(SPREAD, ranked.length);
-  const share = hash(`${song}:${row}`) % 10;
-  const place = spread === 1 ? 0 : share < 5 ? 0 : spread === 2 || share < 8 ? 1 : 2;
-  return ranked[(step + place) % ranked.length];
+  const top = boardFit(ranked[0], wanted);
+  const best = ranked.filter(board => boardFit(board, wanted) === top);
+  return best[hash(`${song}:${row}`) % best.length];
 }
