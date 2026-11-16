@@ -14,6 +14,7 @@ import type { WindowPicture } from './pack-window';
 import type { DoodlePaper } from './doodle-cast';
 import type { DoodleMood } from './doodle-parts';
 import type { TreatmentId } from './treatment-deal';
+import type { PresetId } from './edit-presets';
 
 export type PackSceneInput = {
   style: AdPunchStyle;
@@ -66,6 +67,8 @@ export type PackSceneInput = {
   /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
   treatment?: TreatmentId;
   treatmentVariant?: string;
+  /** An edit preset already moved and coloured `background` (pack-preset.ts): it is drawn still, as it is. */
+  preset?: PresetId;
 };
 
 /**

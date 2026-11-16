@@ -15,6 +15,12 @@ export interface ImpactMusic {
   accentsMs?: number[];
   /** How the song wants to be cut, from its vibe. */
   pace?: Pace;
+  /** Where the drums hit (`music-hits.ts`): the edit presets cut and move on these. */
+  kicksMs?: number[];
+  heavyMs?: number[];
+  snaresMs?: number[];
+  hatsMs?: number[];
+  dropsMs?: number[];
 }
 
 /** One timed word (or short phrase) of the lyrics, in milliseconds from the start of the 15-second clip. */

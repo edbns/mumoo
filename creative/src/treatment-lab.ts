@@ -2,9 +2,12 @@
  * Treatment Lab — development only (not part of the build). Shows all eight video treatments side by side
  * on one Directed still, so finishes can be tuned without walking the shelf.
  */
-import { Application, ImageSource, Texture } from 'pixi.js';
+import { Application, ImageSource, Sprite, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
 import { ensureFonts } from './ad-fonts';
+import { PRESETS, type PresetId } from './edit-presets';
+import { createPresetPass, REC_FONT, type PresetPass } from './pack-preset';
+import { presetFrame } from './preset-motion';
 import { createTreatmentWorld } from './pack-treatment';
 import { TREATMENTS, type TreatmentId } from './treatment-deal';
 import type { PackSceneInput } from './pack-copy';
@@ -101,6 +104,44 @@ async function still(treatment: TreatmentId, variant: string, ms = 2400): Promis
   return app!.canvas.toDataURL('image/png');
 }
 
+/** A song at 120 bpm with its drop at 2 s, cut every 2 beats, for the presets' moving parts. */
+const LAB_MUSIC = {
+  kicksMs: Array.from({ length: 12 }, (_, i) => i * 500),
+  heavyMs: [0, 2000, 4000],
+  dropsMs: [2000],
+  downbeatsMs: [0, 2000, 4000],
+  energy: Array.from({ length: 60 }, (_, i) => ({ timeMs: i * 100, rms: i >= 20 ? 0.9 : 0.2 })),
+};
+const LAB_CUTS = [0, 1000, 2000, 3000, 4000];
+
+let presetPass: PresetPass | null = null;
+
+/** The picture through a preset at `ms` of the lab song: 1700 is a calm moment, 2030 just after the cut on the drop. */
+async function presetStill(preset: PresetId, take: string, ms = 1700): Promise<string> {
+  await ensure();
+  presetPass ??= createPresetPass();
+  const frame = presetFrame(preset, take, { ms, cutsMs: LAB_CUTS, music: LAB_MUSIC, energy: ms >= 2000 ? 0.9 : 0.2, seed: 42 });
+  const picture = presetPass.draw(texture!, frame, ms, 42, app!.renderer);
+  const sprite = new Sprite(picture);
+  app!.stage.visible = false;
+  app!.renderer.render({ container: sprite });
+  sprite.destroy();
+  app!.stage.visible = true;
+  return app!.canvas.toDataURL('image/png');
+}
+
+async function presetSheet(): Promise<string> {
+  await ensureFonts([REC_FONT]);
+  const cells: { title: string; url: string }[] = [];
+  for (const def of PRESETS) {
+    for (const take of def.takes) {
+      cells.push({ title: `${def.title} · ${take}`, url: await presetStill(def.id, take, 1700) });
+      cells.push({ title: `${def.title} · ${take} · drop`, url: await presetStill(def.id, take, 2030) });
+    }
+  }
+  return sheet(cells);
+}
+
 async function contactSheet(): Promise<string> {
   const cells: { title: string; url: string }[] = [];
   for (const def of TREATMENTS) {
@@ -108,6 +149,10 @@ async function contactSheet(): Promise<string> {
       cells.push({ title: `${def.title} · ${variant.title}`, url: await still(def.id, variant.id) });
     }
   }
+  return sheet(cells);
+}
+
+async function sheet(cells: { title: string; url: string }[]): Promise<string> {
   const thumbW = 180;
   const thumbH = Math.round((thumbW * HEIGHT) / WIDTH);
   const columns = 4;
@@ -139,14 +184,14 @@ async function contactSheet(): Promise<string> {
 }
 
 async function mount() {
-  const sheet = await contactSheet();
+  const presets = new URLSearchParams(location.search).has('presets');
   const img = new Image();
-  img.src = sheet;
-  img.alt = 'All eight treatments × four variants';
+  img.src = presets ? await presetSheet() : await contactSheet();
+  img.alt = presets ? 'Every edit preset and take, calm and on the drop' : 'All eight treatments × four variants';
   img.style.display = 'block';
   img.style.maxWidth = '100%';
   document.body.appendChild(img);
 }
 
-Object.assign(window, { treatmentLab: { still, contactSheet, treatments: TREATMENTS } });
+Object.assign(window, { treatmentLab: { still, contactSheet, presetStill, presetSheet, treatments: TREATMENTS } });
 void mount();

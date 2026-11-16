@@ -77,6 +77,7 @@ export function reportPackFeedback(
       // A treatment's variant, so Admin → Learning can tell the four finishes of one row apart (the row is already the treatment).
       ...(slot.treatmentVariant ? { look: slot.treatmentVariant } : {}),
       ...reel,
+      ...(slot.preset ? { preset: slot.preset, presetTake: slot.presetTake } : {}),
       // The mood board its pictures came from, unless the person's own picture took their place.
       ...(slot.board && !extras?.ownPicture ? { board: slot.board } : {}),
     },

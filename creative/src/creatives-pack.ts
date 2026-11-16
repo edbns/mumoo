@@ -36,6 +36,7 @@ import {
   treatmentVariants,
   type TreatmentId,
 } from './treatment-deal';
+import { presetAt, presetTitle, takeAt, type PresetId } from './edit-presets';
 
 type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[]; read: LookRead };
 const BANK_LOOKS = bankData as BankLook[];
@@ -130,6 +131,9 @@ export type CreativesPackSlot = {
   /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
   treatment?: TreatmentId;
   treatmentVariant?: string;
+  /** The edit preset over Directed and its treatments (`edit-presets.ts`), from the song's genre, and this card's take of it. */
+  preset?: PresetId;
+  presetTake?: string;
   /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
   bankId?: string;
   typeStyle?: TypeStyleId;
@@ -484,13 +488,26 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const risoPhotos: PhotoSources = { plateIds: cutOutPlates, libraryIds: risoLibrary };
   /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
   const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, pickLibrary(from(), wanted, `${profile.clip.sourceSha256}:${family}`, generation, ROW_SIZE), ownPicture);
-  const treatmentRow = (kind: TreatmentId) => treatmentSlots(kind, lane, intent, seed, directedSeed, pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE), ownPicture);
+  // Directed and its treatments are cut and finished in the preset the song's genre calls for; each Refresh may take the next that fits.
+  const preset = presetAt({ genre, subGenre: profile.creator.subGenre?.value, style: profile.creator.style?.name }, generation);
+  const withPreset = (slots: CreativesPackSlot[]) => slots.map((slot, index) => ({
+    ...slot,
+    label: [presetTitle(preset), slot.label].join(' · '),
+    reason: `${slot.reason} · ${preset}`,
+    preset,
+    presetTake: takeAt(preset, generation, index),
+  }));
+  const treatmentRow = (kind: TreatmentId) => withPreset(treatmentSlots(kind, lane, intent, seed, directedSeed, pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE), ownPicture));
   const slots = {
-    photography: () => photographySlots(
-      lane, intent, seed,
-      dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation),
-      pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE),
-    ),
+    photography: () => {
+      const cards = photographySlots(
+        lane, intent, seed,
+        dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation),
+        pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE),
+      );
+      // A baked effect is already a finished look: only cards of our library's pictures are cut in the preset.
+      return cards.some(card => card.effectId) ? cards : withPreset(cards);
+    },
     triptych: () => treatmentRow('triptych'),
     fisheye: () => treatmentRow('fisheye'),
     collage: () => treatmentRow('collage'),

@@ -7,6 +7,8 @@
  * Like every plan in the pack it is a pure function of (assets, music, seed): the shelf preview in the browser and
  * the cloud render make exactly the same edit.
  */
+import type { PresetRhythm } from './edit-presets';
+
 export type Shot = readonly [startMs: number, endMs: number];
 
 /** What the director is given: a still, or a clip with the shots found when it was prepared. */
@@ -34,6 +36,10 @@ export type DirectorMusic = {
   accentsMs?: readonly number[];
   /** How the song wants to be cut, from its vibe (`music-intent.ts`): restrained songs hold each picture longer. */
   pace?: Pace;
+  /** Where the drums hit (`music-hits.ts`): an edit preset cuts on these. */
+  snaresMs?: readonly number[];
+  hatsMs?: readonly number[];
+  dropsMs?: readonly number[];
 };
 
 export type Pace = 'kinetic' | 'balanced' | 'restrained';
@@ -156,6 +162,76 @@ function cutTimes(music: DirectorMusic | null, seed: number, durationMs: number)
   return { times, levels };
 }
 
+/** With no beats heard, a steady 120 bpm stands in for them. */
+const STAND_IN_BEAT_MS = 500;
+/** The last piece is never shorter than this share of the window: a cut that would leave less is not made. */
+const LAST_SHARE = 0.5;
+/** A preset's seconds bend this far (a share of each end) to keep a cut on what it cuts on: the snare a little early is still the snare. */
+const LOOSE_LOW = 0.75;
+const LOOSE_HIGH = 1.25;
+
+/**
+ * Where the cuts fall under an edit preset (`edit-presets.ts`). A cut holds the preset's count of what it cuts on (two to four beats,
+ * one snare, one bar: fewer where the music is hard), as long as that lands near its window in seconds; else it lands on what it cuts
+ * on nearest the moment the music asks for, else on a beat, inside the window. A drop always takes the cut nearest it. The hard parts
+ * (after the drop, or loud) use the preset's fast way of cutting.
+ */
+function presetCutTimes(music: DirectorMusic | null, rhythm: PresetRhythm, seed: number, durationMs: number) {
+  const next = random(seed ^ 0x5bd1e995);
+  const level = loudness(music?.energy ?? []);
+  const inside = (list: readonly number[] | undefined) => (list ?? []).filter(ms => ms > 0 && ms < durationMs);
+  let beats = inside(music?.beatsMs);
+  if (!beats.length) beats = Array.from({ length: Math.floor(durationMs / STAND_IN_BEAT_MS) - 1 }, (_, i) => (i + 1) * STAND_IN_BEAT_MS);
+  const heardBars = inside(music?.downbeatsMs);
+  const heardSnares = inside(music?.snaresMs);
+  const snares = heardSnares.length ? heardSnares : beats.filter((_, i) => i % 2 === 1);
+  const candidates: Record<PresetRhythm['on'], number[]> = {
+    beats,
+    snares,
+    hits: [...new Set([...inside(music?.hatsMs), ...snares])].sort((a, b) => a - b),
+    bars: heardBars.length ? heardBars : beats.filter((_, i) => i % 4 === 0),
+  };
+  const drops = inside(music?.dropsMs);
+
+  const times = [0];
+  const levels: number[] = [];
+  for (;;) {
+    const at = times[times.length - 1];
+    const here = level(at, at + 1500);
+    const afterDrop = drops.some(drop => at >= drop - 50);
+    const fast = rhythm.fast && (rhythm.fastAfterDrop ? (drops.length ? afterDrop : here >= HIGH) : here >= HIGH || (afterDrop && here >= LOW));
+    const way = fast ? rhythm.fast! : rhythm;
+    const low = at + way.minMs;
+    const high = at + way.maxMs;
+    const share = Math.min(1, Math.max(0, 0.85 * (1 - here) + 0.3 * (next() - 0.5)));
+    const target = low + (high - low) * share;
+    const nearest = (list: readonly number[], from: number, to: number) => list.filter(ms => ms >= from && ms <= to).sort((a, b) => Math.abs(a - target) - Math.abs(b - target))[0];
+    const list = candidates[way.on];
+    const looseLow = at + way.minMs * LOOSE_LOW;
+    const looseHigh = at + way.maxMs * LOOSE_HIGH;
+    let counted: number | undefined;
+    if (way.every !== undefined) {
+      const hold = typeof way.every === 'number' ? way.every : Math.round(way.every[1] - (way.every[1] - way.every[0]) * here);
+      const first = list.findIndex(ms => ms > at + MIN_CUT_MS / 2);
+      const pick = first >= 0 ? list[first + hold - 1] : undefined;
+      if (pick !== undefined && pick >= looseLow && pick <= looseHigh) counted = pick;
+    }
+    const heard = counted ?? nearest(list, low, high) ?? nearest(list, looseLow, looseHigh) ?? nearest(beats, low, high);
+    // Nothing left to cut on (the beats have stopped) and the end is within reach: the shot holds to it.
+    if (heard === undefined && durationMs <= looseHigh) break;
+    let cut = heard ?? target;
+    // The drop takes the cut: one inside the hold, or one just after it (so the piece before is not a flash).
+    const drop = drops.find(ms => ms >= at + MIN_CUT_MS && ms < cut + MIN_CUT_MS && ms <= looseHigh);
+    if (drop !== undefined) cut = drop;
+    cut = Math.round(cut);
+    if (cut > durationMs - way.minMs * LAST_SHARE) break;
+    levels.push(here);
+    times.push(cut);
+  }
+  levels.push(level(times[times.length - 1], durationMs));
+  return { times, levels };
+}
+
 /**
  * Where the song asks for a cut besides its beats: each stretch whose energy jumps or drops from the one before (a drop,
  * a break, a chorus coming in) and each sung line's first word. Sorted, each once, inside the clip.
@@ -176,11 +252,12 @@ export function songAccents(
   return [...new Set([...sections, ...lines].map(Math.round))].filter(ms => ms > 0 && ms < durationMs).sort((a, b) => a - b);
 }
 
-export function planReel(assets: readonly ReelAsset[], music: DirectorMusic | null, seed: number, durationMs: number): Segment[] {
+/** `rhythm`: an edit preset's way of cutting (`edit-presets.ts`), instead of the Director's own. */
+export function planReel(assets: readonly ReelAsset[], music: DirectorMusic | null, seed: number, durationMs: number, rhythm?: PresetRhythm): Segment[] {
   const playable = assets.map((asset, index) => ({ asset, index })).filter(({ asset }) => asset.kind === 'photo' || pieces(asset.shots).length > 0);
   if (!playable.length) return [];
   const next = random(seed);
-  const { times, levels } = cutTimes(music, seed, durationMs);
+  const { times, levels } = rhythm ? presetCutTimes(music, rhythm, seed, durationMs) : cutTimes(music, seed, durationMs);
 
   const clips = shuffled(playable.filter(({ asset }) => asset.kind === 'clip').map(({ index }) => index), next);
   const photos = shuffled(playable.filter(({ asset }) => asset.kind === 'photo').map(({ index }) => index), next);

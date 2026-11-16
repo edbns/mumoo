@@ -52,7 +52,7 @@ OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
     "motionShots", "reel", "cutSeed", "look", "inkSet", "sprayPalette", "windowMode", "windowPalette", "windowAllowed",
-    "doodleId", "doodlePaper", "doodleMood", "treatment", "treatmentVariant",
+    "doodleId", "doodlePaper", "doodleMood", "treatment", "treatmentVariant", "preset", "presetTake",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
 # A Director's reel: two to six library pictures or clips the page fetches itself, from links the site made for them (private bucket, signed, short-lived).
@@ -71,6 +71,15 @@ TREATMENTS = {
     "bento": {"hero-left", "hero-top", "mosaic", "strip"},
     "grain": {"fine", "classic", "heavy", "halation"},
     "double": {"blend", "screen", "offset-cut", "offset-far"},
+}
+# Edit presets over Directed and its treatments, with their takes (creative/src/edit-presets.ts; a test keeps these in step).
+PRESETS = {
+    "kodak": {"portra-drift", "vision-push", "portra-push", "vision-drift"},
+    "vhs": {"rec", "clean"},
+    "strobe": {"neon-white", "mono-black", "neon-black", "mono-white"},
+    "y2k": {"whip", "zoom"},
+    "dreamy": {"pastel", "golden"},
+    "mono": {"grit"},
 }
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
 SPRAY_PALETTES = {"neon-night", "neon-plum", "neon-navy", "bold-offwhite", "bold-grey", "bold-pastel"}
@@ -320,6 +329,14 @@ def parse_meta(raw: str) -> dict:
             raise ValueError("treatment")
     elif "treatment" in opts or "treatmentVariant" in opts:
         raise ValueError("treatment")
+    # An edit preset goes over Directed (a picture with no look of its own) or a treatment, in one of its takes.
+    if "preset" in opts or "presetTake" in opts:
+        preset = opts.get("preset")
+        take = opts.get("presetTake")
+        if preset not in PRESETS or not isinstance(take, str) or take not in PRESETS[preset]:
+            raise ValueError("preset")
+        if opts["style"] not in ("filter", "treatment") or any(key in opts for key in ("look", "effectId", "plateId")):
+            raise ValueError("preset")
     if "bankId" in opts and (not isinstance(opts["bankId"], str) or not ID_RE.match(opts["bankId"])):
         raise ValueError("bankId")
     for key in ("plateId", "effectId"):

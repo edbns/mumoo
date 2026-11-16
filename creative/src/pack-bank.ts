@@ -186,8 +186,13 @@ export function createBankWorld(): BankWorld {
           sprite.filters = [];
           sprite.visible = false;
         }
-        bg.scale.set(cover * (1 + input.beat * 0.012 * amount * input.energy));
-        bg.position.set(WIDTH / 2 + (t - 0.5) * 36 * amount, HEIGHT / 2 + Math.sin(t * Math.PI * 2) * 14 * amount);
+        if (input.preset) {
+          bg.scale.set(Math.max(WIDTH / texture.width, HEIGHT / texture.height));
+          bg.position.set(WIDTH / 2, HEIGHT / 2);
+        } else {
+          bg.scale.set(cover * (1 + input.beat * 0.012 * amount * input.energy));
+          bg.position.set(WIDTH / 2 + (t - 0.5) * 36 * amount, HEIGHT / 2 + Math.sin(t * Math.PI * 2) * 14 * amount);
+        }
       }
 
       scrim.clear();

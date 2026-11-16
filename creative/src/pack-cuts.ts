@@ -5,6 +5,7 @@
  * music and a seed, so the shelf preview and the cloud render make exactly the same edit.
  */
 import { clipMsAt, planReel, type DirectorMusic, type Shot } from './pack-director';
+import type { PresetRhythm } from './edit-presets';
 
 export type { Shot } from './pack-director';
 export type Cut = {
@@ -16,9 +17,9 @@ export type Cut = {
   fromMs: number;
 };
 
-export function planCuts(shots: readonly Shot[], beatsMs: readonly number[], seed: number, durationMs: number, music?: Pick<DirectorMusic, 'downbeatsMs' | 'energy' | 'accentsMs' | 'pace'> | null): Cut[] {
-  const direction: DirectorMusic = { beatsMs, downbeatsMs: music?.downbeatsMs, energy: music?.energy ?? [], accentsMs: music?.accentsMs, pace: music?.pace };
-  return planReel([{ kind: 'clip', shots }], direction, seed, durationMs).map(({ atMs, startMs, pieceEndMs, fromMs }) => ({ atMs, startMs, endMs: pieceEndMs, fromMs }));
+export function planCuts(shots: readonly Shot[], beatsMs: readonly number[], seed: number, durationMs: number, music?: Omit<DirectorMusic, 'beatsMs' | 'energy'> & Partial<Pick<DirectorMusic, 'energy'>> | null, rhythm?: PresetRhythm): Cut[] {
+  const direction: DirectorMusic = { ...music, beatsMs, energy: music?.energy ?? [] };
+  return planReel([{ kind: 'clip', shots }], direction, seed, durationMs, rhythm).map(({ atMs, startMs, pieceEndMs, fromMs }) => ({ atMs, startMs, endMs: pieceEndMs, fromMs }));
 }
 
 /** Where in the video the picture comes from at `ms` of the song. A piece shorter than its slot loops. */

@@ -3,6 +3,7 @@ import { HEIGHT, WIDTH, type ImpactMusic } from './composition';
 import { loadMotion, type Motion } from './pack-motion';
 import { REFERENCE_H, REFERENCE_W, references } from './pack-palette';
 import { clipMsAt, planReel, segmentAt, type ReelAsset, type Segment, type Shot } from './pack-director';
+import type { PresetRhythm } from './edit-presets';
 
 /**
  * A reel is a few pictures, clips and GIFs edited together by the Director (`pack-director.ts`) and drawn as one
@@ -27,8 +28,13 @@ export const reelKey = (source: ReelSource) => `${source.id ?? source.url.split(
 export type Reel = Motion & {
   /** Depth: the person of the picture playing now, cut out (a picture with her mask as its alpha), drawn the same way as `texture`. Null for a reel with no cut-outs. */
   subject: Texture | null;
-  /** Edits the reel to this music (once per music and seed). Call before `seek`; the milliseconds of `seek` are then those of the song. */
-  direct(music: ImpactMusic | null, seed: number, durationMs: number): void;
+  /**
+   * Edits the reel to this music (once per music, seed and preset). Call before `seek`; the milliseconds of `seek` are then those of the song.
+   * An edit preset (`edit-presets.ts`) cuts to its own rhythm, and a preset that dissolves draws the two pictures over each other for `dissolveMs`.
+   */
+  direct(music: ImpactMusic | null, seed: number, durationMs: number, preset?: { rhythm: PresetRhythm; dissolveMs: number }): void;
+  /** When each cut of the edit falls, in ms of the song (the first piece's start, 0, is not a cut). */
+  cutsMs(): number[];
 };
 
 /** How much to brighten (or dim) a picture so a dark one is not lost to the looks and a blown-out one is not burnt. */
@@ -199,22 +205,30 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
 
   let segments: Segment[] = [];
   let plannedFor = '';
+  let dissolveMs = 0;
   let seeks = 0;
 
-  /** Draws `shown` over the whole canvas the way a poster fills a frame, scaled up by `zoom` about the middle; the person too, in the same place. */
-  function cover(shown: CanvasImageSource & { width: number; height: number }, zoom: number, gain: number, alone?: HTMLCanvasElement) {
+  /**
+   * Draws `shown` over the whole canvas the way a poster fills a frame, scaled up by `zoom` about the middle; the person too, in the same place.
+   * With `alpha` below 1 it is laid over what is already drawn (the picture it dissolves from).
+   */
+  function cover(shown: CanvasImageSource & { width: number; height: number }, zoom: number, gain: number, alone?: HTMLCanvasElement, alpha = 1) {
     const scale = Math.max(WIDTH / shown.width, HEIGHT / shown.height) * zoom;
     const width = shown.width * scale;
     const height = shown.height * scale;
     const left = (WIDTH - width) / 2;
     const top = (HEIGHT - height) / 2;
     const filter = Math.abs(gain - 1) < 0.02 ? 'none' : `brightness(${gain.toFixed(3)})`;
-    picture.context.fillStyle = '#000';
-    picture.context.fillRect(0, 0, WIDTH, HEIGHT);
+    if (alpha >= 1) {
+      picture.context.fillStyle = '#000';
+      picture.context.fillRect(0, 0, WIDTH, HEIGHT);
+    }
+    picture.context.globalAlpha = alpha;
     picture.context.filter = filter;
     picture.context.drawImage(shown, left, top, width, height);
     picture.context.filter = 'none';
-    if (person) {
+    picture.context.globalAlpha = 1;
+    if (person && alpha >= 1) {
       person.context.clearRect(0, 0, WIDTH, HEIGHT);
       person.context.filter = filter;
       if (alone) person.context.drawImage(alone, left, top, width, height);
@@ -222,35 +236,47 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
     }
   }
 
+  /** One piece of the edit as it looks at `ms` of the song, drawn at `alpha` over what is there. */
+  async function draw(segment: Segment, ms: number, alpha: number): Promise<Loaded> {
+    const loaded = await keep(sources[segment.asset]);
+    if (loaded.kind === 'photo') {
+      const length = Math.max(1, segment.endMs - segment.atMs);
+      const along = Math.min(1, Math.max(0, (ms - segment.atMs) / length));
+      const [from, to] = segment.zoom;
+      cover(loaded.image, from + (to - from) * along, loaded.gain ?? 1, loaded.subject, alpha);
+    } else {
+      if (loaded.gain === undefined) {
+        await loaded.motion.seek(Math.min(PROBE_CLIP_MS, loaded.motion.durationMs * 0.3));
+        const probed = loaded.motion.texture.source.resource as HTMLCanvasElement;
+        loaded.gain = exposureOf(probed);
+        loaded.reference = referenceOf(probed, loaded.gain);
+      }
+      await loaded.motion.seek(clipMsAt(segment, ms));
+      cover(loaded.motion.texture.source.resource as HTMLCanvasElement, 1, loaded.gain, undefined, alpha);
+    }
+    return loaded;
+  }
+
   return {
     texture,
     subject,
     durationMs: 15_000,
-    direct(music, seed, durationMs) {
-      const key = `${seed}|${durationMs}|${music?.beatsMs.length ?? 0}|${music?.energy.length ?? 0}|${music?.accentsMs?.join(',') ?? ''}|${music?.pace ?? ''}|${assets.length}`;
+    direct(music, seed, durationMs, preset) {
+      const key = `${seed}|${durationMs}|${music?.beatsMs.length ?? 0}|${music?.energy.length ?? 0}|${music?.accentsMs?.join(',') ?? ''}|${music?.pace ?? ''}|${assets.length}|${preset ? JSON.stringify(preset) : ''}|${music?.snaresMs?.length ?? 0}|${music?.hatsMs?.length ?? 0}|${music?.dropsMs?.join(',') ?? ''}`;
       if (key === plannedFor) return;
-      segments = planReel(assets, music ? { beatsMs: music.beatsMs, downbeatsMs: music.downbeatsMs, energy: music.energy, accentsMs: music.accentsMs, pace: music.pace } : null, seed, durationMs);
+      segments = planReel(assets, music, seed, durationMs, preset?.rhythm);
+      dissolveMs = preset?.dissolveMs ?? 0;
       plannedFor = key;
     },
+    cutsMs: () => segments.slice(1).map(segment => segment.atMs),
     async seek(ms) {
       const segment = segmentAt(segments, ms);
       if (!segment) throw new Error('The reel has nothing to play.');
-      const loaded = await keep(sources[segment.asset]);
-      if (loaded.kind === 'photo') {
-        const length = Math.max(1, segment.endMs - segment.atMs);
-        const along = Math.min(1, Math.max(0, (ms - segment.atMs) / length));
-        const [from, to] = segment.zoom;
-        cover(loaded.image, from + (to - from) * along, loaded.gain ?? 1, loaded.subject);
-      } else {
-        if (loaded.gain === undefined) {
-          await loaded.motion.seek(Math.min(PROBE_CLIP_MS, loaded.motion.durationMs * 0.3));
-          const probed = loaded.motion.texture.source.resource as HTMLCanvasElement;
-          loaded.gain = exposureOf(probed);
-          loaded.reference = referenceOf(probed, loaded.gain);
-        }
-        await loaded.motion.seek(clipMsAt(segment, ms));
-        cover(loaded.motion.texture.source.resource as HTMLCanvasElement, 1, loaded.gain);
-      }
+      const at = segments.indexOf(segment);
+      const fading = dissolveMs > 0 && at > 0 && ms - segment.atMs < dissolveMs ? segments[at - 1] : null;
+      // A dissolve draws the picture it leaves first, then this one over it, more of it each frame.
+      if (fading) await draw(fading, ms, 1);
+      const loaded = await draw(segment, ms, fading ? Math.max(0, (ms - segment.atMs) / dissolveMs) : 1);
       const reference = loaded.reference;
       if (reference) references.set(texture, { key: reelKey(sources[segment.asset]), canvas: reference });
       pictureSource.update();

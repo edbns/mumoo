@@ -33,6 +33,9 @@ import type { WindowPicture } from './pack-window';
 import type { DoodlePaper } from './doodle-cast';
 import type { DoodleMood } from './doodle-parts';
 import { isTreatmentId, isTreatmentVariant, type TreatmentId } from './treatment-deal';
+import { DISSOLVE_MS, TRANSITION, isPresetId, isPresetTake, presetDef, type PresetId } from './edit-presets';
+import { presetFrame } from './preset-motion';
+import { REC_FONT, createPresetPass, type PresetPass } from './pack-preset';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
 export const PREVIEW_WIDTH = 360;
@@ -86,14 +89,18 @@ export type PackRendererOpts = {
   /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
   treatment?: TreatmentId;
   treatmentVariant?: string;
+  /** An edit preset (`edit-presets.ts`) over Directed or a treatment: its cut rhythm, camera, colour and texture, in one of its takes. */
+  preset?: PresetId;
+  presetTake?: string;
 };
 
 /** The font families a card draws with, so each is fetched (from this site) the first time a card needs it, not before. */
 function familiesFor(opts: PackRendererOpts): string[] {
   if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'spray' || opts.style === 'window' || opts.style === 'doodle') return [opts.font];
   if (opts.style === 'pulise') return [opts.font, opts.fontSecondary];
-  if (opts.style === 'treatment') return opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [opts.font, opts.fontSecondary];
-  return opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [];
+  const recording = opts.preset === 'vhs' && opts.presetTake === 'rec' ? [REC_FONT] : [];
+  if (opts.style === 'treatment') return [...(opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [opts.font, opts.fontSecondary]), ...recording];
+  return [...(opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : []), ...recording];
 }
 
 export type PackRenderer = {
@@ -168,13 +175,15 @@ export async function createPackRenderer(
   let dustKey = '';
   let risoPhoto: RisoPhoto | null = null;
   let risoKey = '';
-  /** Double Exposure: a second Directed frame, held while the treatment blends it with the current one. */
+  let presetPass: PresetPass | null = null;
   let contextLost = false;
   let gl: WebGL2RenderingContext | WebGLRenderingContext | null = null;
 
   const dispose = () => {
     scene?.destroy();
     scene = null;
+    presetPass?.destroy();
+    presetPass = null;
     photoTexture = null;
     photoUrlLoaded = '';
     stillTexture = null;
@@ -286,6 +295,13 @@ export async function createPackRenderer(
         } else if (current.treatment || current.treatmentVariant) {
           throw new Error('Only a treatment card carries a treatment.');
         }
+        const preset = current.preset ?? null;
+        const presetTake = current.presetTake ?? '';
+        if (preset || current.presetTake) {
+          if (!preset || !isPresetId(preset) || !isPresetTake(preset, presetTake)) throw new Error('An edit preset needs a known preset and take.');
+          if (!(style === 'treatment' || (style === 'filter' && !current.look && !current.effectId && !current.plateId))) throw new Error('An edit preset goes over Directed or a treatment, on a picture with no look of its own.');
+        }
+        const presetCut = preset ? { rhythm: presetDef(preset).rhythm, dissolveMs: TRANSITION[preset](presetTake) === 'dissolve' ? DISSOLVE_MS : 0 } : undefined;
         const windowMode = style === 'window' ? checkWindow(current) : null;
         const windowOwn = windowMode === 'person' || windowMode === 'plain';
         if (style === 'riso' && !current.inkSet) throw new Error('Riso needs an ink set.');
@@ -329,7 +345,7 @@ export async function createPackRenderer(
         if (motion) {
           if (reel) {
             // The Director's edit of several pictures, to this music; `seek` takes the moment of the song.
-            reel.direct(current.music, current.cutSeed ?? 0, DURATION_MS);
+            reel.direct(current.music, current.cutSeed ?? 0, DURATION_MS, presetCut);
             await motion.seek(ms);
           } else if (current.look) {
             // A card with a live look plays its video straight through, as one piece (looping if it is shorter than the clip), not cut up.
@@ -338,9 +354,9 @@ export async function createPackRenderer(
             await motion.seek(ms % Math.max(1, motion.durationMs));
           } else {
             // The edit: pieces of the clip, cut on the beat, differently for each card.
-            const key = `${motionUrlLoaded}|${current.cutSeed ?? 0}|${JSON.stringify(current.motionShots ?? null)}|${current.music?.beatsMs.length ?? 0}|${current.music?.energy.length ?? 0}|${current.music?.accentsMs?.join(',') ?? ''}|${current.music?.pace ?? ''}`;
+            const key = `${motionUrlLoaded}|${current.cutSeed ?? 0}|${JSON.stringify(current.motionShots ?? null)}|${current.music?.beatsMs.length ?? 0}|${current.music?.energy.length ?? 0}|${current.music?.accentsMs?.join(',') ?? ''}|${current.music?.pace ?? ''}|${preset ?? ''}`;
             if (key !== cutsKey) {
-              cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, DURATION_MS, current.music);
+              cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, DURATION_MS, current.music, presetCut?.rhythm);
               cutsKey = key;
             }
             await motion.seek(cuts.length ? sourceMsAt(cuts, ms) : ms);
@@ -392,8 +408,17 @@ export async function createPackRenderer(
           windowPicture = { texture, ...(windowMode === 'person' && cutoutTexture ? { cutout: cutoutTexture } : {}) };
         }
 
+        // The preset's pass: the picture through its camera, colour and texture, timed to the edit's cuts and the drums.
+        let picture = ownBackdrop ? (motion?.texture ?? photoTexture) : still;
+        if (preset && picture) {
+          presetPass ??= createPresetPass();
+          const cutsMs = reel ? reel.cutsMs() : motion && !current.look ? cuts.slice(1).map(cut => cut.atMs) : [];
+          const seed = current.cutSeed ?? 0;
+          picture = presetPass.draw(picture, presetFrame(preset, presetTake, { ms, cutsMs, music: current.music, energy, seed }), ms, seed, app.renderer);
+        }
         const beat = calmBeat(reaction.beat, current.grade);
-        if (current.grade) {
+        // A preset is the card's colour: the lyrics' grade only calms its beat.
+        if (current.grade && !preset) {
           gradeFilter.matrix = gradeMatrix(current.grade) as ColorMatrixFilter['matrix'];
           scene.root.filters = [gradeFilter];
         } else scene.root.filters = [];
@@ -414,7 +439,8 @@ export async function createPackRenderer(
           wordEnter,
           ms,
           words: copy.words,
-          background: ownBackdrop ? (motion?.texture ?? photoTexture) : still,
+          background: picture,
+          preset: preset ?? undefined,
           cutout: depthLook ? cutoutTexture : null,
           subject: depthLook ? reel?.subject ?? null : null,
           colors: current.colors,

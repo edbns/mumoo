@@ -15,6 +15,8 @@ import type { Uploads } from './use-uploads';
 import { useWindowOwn } from './use-window-own';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
+import { musicHits } from './music-hits';
+import { presetTitle } from './edit-presets';
 import { reportPackFeedback, reportRefresh, reportWatch } from './pack-feedback';
 import {
   PREVIEW_HEIGHT,
@@ -38,8 +40,17 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   const downbeatsMs = data.rhythm.downbeatsMs.slice(0, 200);
   const accentsMs = songAccents(data.temporalV1?.segments ?? [], profile.approvedLyrics?.cues ?? [], downbeatsMs, DURATION_MS).slice(0, 60);
   const pace = deriveMusicIntent(data)?.treatmentHint;
+  const beatsMs = data.rhythm.beatsMs.slice(0, 500);
+  const hits = musicHits({
+    beatsMs,
+    downbeatsMs,
+    transientsMs: data.features.transientsMs ?? [],
+    frames: data.features.frames,
+    segments: data.temporalV1?.segments ?? [],
+    durationMs: DURATION_MS,
+  });
   return {
-    beatsMs: data.rhythm.beatsMs.slice(0, 500),
+    beatsMs,
     downbeatsMs,
     energy: data.features.frames.slice(0, 2000).map(point => ({
       timeMs: Math.max(0, Math.min(15000, Math.round(point.timeMs))),
@@ -47,6 +58,7 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
     })),
     ...(accentsMs.length ? { accentsMs } : {}),
     ...(pace ? { pace } : {}),
+    ...hits,
   };
 }
 
@@ -98,6 +110,7 @@ function packOpts(
     // A live look goes on a picture (the library's or the person's own), never on a baked effect.
     ...(slot.look && !('effectId' in drawn) ? { look: slot.look } : {}),
     ...(slot.treatment ? { treatment: slot.treatment, treatmentVariant: slot.treatmentVariant } : {}),
+    ...(slot.preset && !('effectId' in drawn) && !('plateId' in drawn) ? { preset: slot.preset, presetTake: slot.presetTake } : {}),
     ...(slot.cutSeed != null ? { cutSeed: slot.cutSeed } : {}),
     // With lyrics off nothing about the words is used or sent anywhere, not even what they mean.
     ...(slot.grade && lyrics ? { grade: slot.grade } : {}),
@@ -576,7 +589,7 @@ export function CreativesPackStudio({
               >{isPlaying ? <PauseIcon aria-hidden="true" className="size-5" /> : <PlayIcon aria-hidden="true" className="size-5" />}</button>
             </div>
             <div className="creatives-pack-caption">
-              <span className="creatives-pack-name">{def.title}</span>
+              <span className="creatives-pack-name">{item.preset ? `${def.title} · ${presetTitle(item.preset)}` : def.title}</span>
             </div>
           </div>
         );
