@@ -17,8 +17,6 @@ export type TexturePalette = {
   luma: number;
   /** How cold and how hot (0-1, 2nd and 98th percentile) the picture's parts read to a heat look (`heatSource`), which the look stretches over its ramp. */
   range: [number, number];
-  /** The same for plain light (0-1, 2nd and 98th percentile): looks that drag the bright parts (Streaks) judge "bright" against it, not against heat. */
-  lumaRange: [number, number];
 };
 
 const W = 40;
@@ -99,10 +97,6 @@ export function analyzeTexture(texture: Texture, look?: LiveLookId): TexturePale
   for (let i = 0; i < data.length; i += 4) lights.push(heatSource(data[i], data[i + 1], data[i + 2]));
   lights.sort((a, b) => a - b);
   const range: [number, number] = [lights[Math.floor(lights.length * 0.02)], lights[Math.min(lights.length - 1, Math.floor(lights.length * 0.98))]];
-  const plain: number[] = [];
-  for (let i = 0; i < data.length; i += 4) plain.push((0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255);
-  plain.sort((a, b) => a - b);
-  const lumaRange: [number, number] = [plain[Math.floor(plain.length * 0.02)], plain[Math.min(plain.length - 1, Math.floor(plain.length * 0.98))]];
   if (look) {
     for (let i = 0; i < data.length; i += 4) {
       const [r, g, b] = lookPixel(look, data[i], data[i + 1], data[i + 2], range);
@@ -162,7 +156,7 @@ export function analyzeTexture(texture: Texture, look?: LiveLookId): TexturePale
     accent = ink; // a truly monochrome image: accent is the ink itself
   }
 
-  const palette: TexturePalette = { ink, accent, scrim, luma: meanLum, range, lumaRange };
+  const palette: TexturePalette = { ink, accent, scrim, luma: meanLum, range };
   cache.set(key, palette);
   return palette;
 }

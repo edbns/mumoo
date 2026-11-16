@@ -55,7 +55,7 @@ export type ShelfRow = 'photography' | LookFamily | TreatmentId | 'looks' | 'ris
  * never redraws (or re-renders) another:
  *   lyrics  'switch': the row has its own Lyrics on/off. 'always': made of the lyrics, so there is no switch.
  *   picture the row draws a picture, ours until the person uploads their own (the shelf has one upload for all of them).
- *           'photo': only a photo will do (Dust and Depth stand the person's cut-out in front), so a video leaves the row off the shelf.
+ *           'photo': only a photo will do (Dust stands the person's cut-out in front), so a video leaves the row off the shelf.
  *           'any': a photo, video or GIF.
  * The shelf shows one creative of each row. Every row has its own Refresh, and "More" deals the rest of its four.
  */
@@ -68,10 +68,7 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'thermal', title: 'Thermal', lyrics: 'switch', picture: 'any' },
   { id: 'halftone', title: 'Halftone', lyrics: 'switch', picture: 'any' },
   { id: 'dither', title: 'Dither', lyrics: 'switch', picture: 'any' },
-  { id: 'glow', title: 'Glow', lyrics: 'switch', picture: 'any' },
-  { id: 'streaks', title: 'Streaks', lyrics: 'switch', picture: 'any' },
   { id: 'ascii', title: 'ASCII', lyrics: 'switch', picture: 'any' },
-  { id: 'depth', title: 'Depth', lyrics: 'switch', picture: 'photo' },
   { id: 'riso', title: 'Riso', lyrics: 'switch', picture: 'any' },
   { id: 'spray', title: 'Spray', lyrics: 'always' },
   { id: 'window', title: 'Window', lyrics: 'always', picture: 'any' },
@@ -86,7 +83,7 @@ export type OwnKind = 'photo' | 'motion';
 /**
  * The rows of the shelf for a song and the person's own picture. With no words, only the rows that work without them
  * (Spray, Window, Doodle and Pulise are made of the lyrics). With any picture of their own, only the rows that draw a picture
- * (Spray, Doodle and Pulise take none, so they leave). With a video or GIF, only the rows that can use one (Dust and Depth need a photo).
+ * (Spray, Doodle and Pulise take none, so they leave). With a video or GIF, only the rows that can use one (Dust needs a photo).
  */
 export const rowsFor = (noLyrics: boolean, own: OwnKind | null = null): readonly ShelfRowDef[] =>
   SHELF_ROWS.filter(def => !(noLyrics && def.lyrics === 'always') && !(own && !def.picture) && !(own === 'motion' && def.picture === 'photo'));
@@ -375,7 +372,7 @@ const BOARD_ENOUGH = 2;
 /**
  * Where one row's library pictures come from: the mood board the brain chose for this row (`boardForRow`), or the whole library
  * while the song has no filled board. `from(capable)` gives the pictures the row can draw; when its board has too few of them
- * (Depth wants cut-out photos, Riso clips) the row falls back to the whole library, so a thin board never empties a row.
+ * (Riso wants clips) the row falls back to the whole library, so a thin board never empties a row.
  */
 function rowLibrary(row: ShelfRow, profile: CreativeProfileV1, wanted: LibraryWanted, library: readonly LibraryPicture[], generation: number) {
   const board = boardForRow(row, wanted, library, profile.clip.sourceSha256, generation);
@@ -518,10 +515,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     thermal: () => effectRow('thermal'),
     halftone: () => effectRow('halftone'),
     dither: () => effectRow('dither'),
-    glow: () => effectRow('glow'),
-    streaks: () => effectRow('streaks'),
     ascii: () => effectRow('ascii'),
-    depth: () => depthSlots(lane, intent, seed, photos, pickLibrary(from(cutOut), wanted, `${profile.clip.sourceSha256}:depth`, generation, ROW_SIZE), ownPicture),
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, risoPhotos),
     spray: () => spraySlots(lane, intent, seed),
@@ -533,12 +527,11 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     pulise: () => puliseSlots(lane, intent, seed),
     dust: () => dustSlots(lane, intent, seed, cover?.hue, photos),
   }[row]();
-  // Our photography, its live looks (Depth too, from photos that have a cut-out), treatments and Riso (whole-frame, from clips) are edited by the Director from a pool, once there are two or more pictures to edit.
+  // Our photography, its live looks, treatments and Riso (whole-frame, from clips) are edited by the Director from a pool, once there are two or more pictures to edit.
   const onBoard = (items: readonly LibraryPicture[]) => Boolean(board) && items.every(item => item.boards?.includes(board!.id));
   const directed = (items: readonly LibraryPicture[] | null, song: string) => (card: number) => (items && !ownPicture && !own ? reelPool(items, wanted, song, generation, card, onBoard(items)) : []);
   const poolOf = reelRow === 'photography' ? directed(from(), profile.clip.sourceSha256)
-    : row === 'depth' ? directed(from(cutOut), `${profile.clip.sourceSha256}:depth`)
-      : isLookRow(row) ? directed(from(), `${profile.clip.sourceSha256}:${row}`)
+    : isLookRow(row) ? directed(from(), `${profile.clip.sourceSha256}:${row}`)
       : row === 'riso' ? directed(from(isClip), `${profile.clip.sourceSha256}:riso`)
         : () => [];
   // Each card is edited from its own pictures, and opens on one no card before it opened on.
@@ -774,31 +767,10 @@ function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1
   });
 }
 
-/** Depth: library photos with a cut-out, else approved plates with a cut-out, else the person's own cut-out photo. */
-function depthSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, photos: PhotoSources, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
-  if (ownPicture || picks.length) return lookSlots('depth', lane, intent, seed, picks, ownPicture);
-  const looks = dealLooks(lane, seed, ROW_SIZE, 'depth');
-  if (!photos.plateIds.length || looks.some(look => !look)) return [];
-  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
-  const typeOf = (index: number) => types[index % types.length];
-  const faces = dealFaces(lane, intent, seed, 'depth', Array.from({ length: ROW_SIZE }, (_, index) => typeNeeds(typeOf(index))));
-  const hand = hashPick(seed, 'gen', 997).toString(36);
-  return Array.from({ length: ROW_SIZE }, (_, index) => ({
-    ...adPunchSlot('filter', index, intent, seed, lane, 'depth', faces[index]),
-    id: `ad-depth-${photos.plateIds[index % photos.plateIds.length]}-${index}-${hand}`,
-    label: liveLookTitle(looks[index]!),
-    reason: `${lane} · plate · ${typeOf(index)} · ${looks[index]}`,
-    plateId: photos.plateIds[index % photos.plateIds.length],
-    typeStyle: typeOf(index),
-    look: looks[index]!,
-    cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
-  }));
-}
-
 function lookSlots(family: LookFamily, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
   const row: ShelfRow = family;
   const cards: (LibraryPicture | null)[] = ownPicture ? Array.from({ length: ROW_SIZE }, () => null) : picks.slice(0, ROW_SIZE);
-  const looks = dealLooks(lane, seed, cards.length, family);
+  const looks = dealLooks(lane, cards.length, family);
   if (!cards.length || looks.some(look => !look)) return [];
   const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
   const typeOf = (index: number) => types[index % types.length];

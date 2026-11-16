@@ -3,23 +3,22 @@
  * (see `check_media` in audio-intelligence/modal_creatives_encode_staging.py), so a picture kept for the whole shelf
  * (use `any`, which has a cut-out whenever it is a photo) is cut down to the card's needs here.
  *
- *   photo needs its cut-out   Dust, Window, Riso (photo), and Our photography when the look is Depth
- *   photo alone               every other Our photography look
- *   clip                      anything but Dust and Depth, which need a photo
+ *   photo needs its cut-out   Dust, Window, Riso (photo)
+ *   photo alone               Our photography and its looks, treatments
+ *   clip                      anything but Dust, which needs a photo
  *
  * `picture` is what `uploadMedia` read: `{ use, photo?, cutout?, motion? }`. Returns `{ parts }` (the files to send, by
  * form name) or `{ refused }` with words for the person.
  */
-const OLDER_USES = ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'];
+const OLDER_USES = ['thermal', 'halftone', 'dither', 'ascii'];
 
 export function ownMedia(style, look, picture) {
-  const depth = typeof look === 'string' && look.startsWith('depth');
   if (picture.use === 'any') {
     if (picture.motion) {
-      if (style === 'dust' || (style === 'filter' && depth)) return { refused: `${style === 'dust' ? 'Dust' : 'Depth'} needs a photo, not a video or GIF.` };
+      if (style === 'dust') return { refused: 'Dust needs a photo, not a video or GIF.' };
       return { parts: { motion: picture.motion } };
     }
-    const withCutout = style === 'dust' || style === 'riso' || style === 'window' || (style === 'filter' && depth);
+    const withCutout = style === 'dust' || style === 'riso' || style === 'window';
     // Treatments finish the Directed picture alone: a photo with no cut-out, or a clip.
     if (withCutout && !picture.cutout) return { refused: 'That picture has no cut-out yet.' };
     return { parts: { photo: picture.photo, ...(withCutout ? { cutout: picture.cutout } : {}) } };

@@ -33,9 +33,9 @@ function profile(sha = 'b'.repeat(64)) {
 }
 
 const LIBRARY = [photo(1), photo(2), photo(3), clip(4), photo(5), clip(6, 'gif'), photo(7), photo(8)];
-const REEL_ROWS = ['photography', 'triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'];
+const REEL_ROWS = ['photography', 'triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'thermal', 'halftone', 'dither', 'ascii'];
 
-test('Directed, the looks, Depth and Riso are edited reels of two or more library pictures', () => {
+test('Directed, the looks and Riso are edited reels of two or more library pictures', () => {
   for (const row of [...REEL_ROWS, 'riso']) {
     const slots = pack.recommendRow(row, profile(), 0, [], null, LIBRARY, {}, false);
     assert.ok(slots.length > 0, row);
@@ -113,7 +113,6 @@ test('the cloud’s links carry no id, so each picture is still told apart (by i
   const keys = [reel.reelKey({ kind: 'photo', url: link('a', 1) }), reel.reelKey({ kind: 'clip', url: link('b', 1) }), reel.reelKey({ kind: 'photo', url: link('c', 1) })];
   assert.equal(new Set(keys).size, 3, 'three links, three pictures: never one picture shown for all of them');
   assert.equal(reel.reelKey({ kind: 'photo', url: link('a', 1) }), reel.reelKey({ kind: 'photo', url: link('a', 2) }), 'a renewed link is the same picture');
-  assert.notEqual(reel.reelKey({ id: 'a', kind: 'photo', url: link('a', 1) }), reel.reelKey({ id: 'a', kind: 'photo', url: link('a', 1), cutoutUrl: link('a.cut', 1) }), 'a photo with its cut-out is kept apart from one without');
 });
 
 /* ---------- the server ---------- */
@@ -121,10 +120,9 @@ test('the cloud’s links carry no id, so each picture is still told apart (by i
 test('the server takes a reel of two to eight library ids for Our photography, treatments and Riso only', () => {
   const ids = [uuid(1), uuid(2), uuid(3)];
   const reel = ids.map(id => ({ id, kind: 'photo' }));
-  assert.deepEqual(reelIds({ style: 'filter', reel }), { ids, depth: false });
-  assert.deepEqual(reelIds({ style: 'treatment', reel }), { ids, depth: false });
-  assert.deepEqual(reelIds({ style: 'riso', reel }), { ids, depth: false });
-  assert.deepEqual(reelIds({ style: 'filter', look: 'depthfog', reel }), { ids, depth: true }, 'Depth is a reel too: of photos with their cut-outs');
+  assert.deepEqual(reelIds({ style: 'filter', reel }), { ids });
+  assert.deepEqual(reelIds({ style: 'treatment', reel }), { ids });
+  assert.deepEqual(reelIds({ style: 'riso', reel }), { ids });
   assert.ok(reelIds({ style: 'dust', reel }).refused);
   assert.ok(reelIds({ style: 'filter', reel: reel.slice(0, 1) }).refused);
   assert.ok(reelIds({ style: 'filter', reel: Array.from({ length: REEL_MAX + 1 }, (_, i) => ({ id: uuid(i + 1) })) }).refused);
@@ -182,10 +180,7 @@ const cases = {
   withMedia: [card({ reel: reelOf({}, {}) }, ['photo']), false],
   withPlate: [card({ plateId: 'x', reel: reelOf({}, {}) }), false],
   withEffect: [card({ look: undefined, effectId: 'x', reel: reelOf({}, {}) }), false],
-  depth: [card({ look: 'depthfog', reel: reelOf({ cutoutUrl: R2 }, { cutoutUrl: R2 }) }), true],
-  depthWithoutCutouts: [card({ look: 'depthfog', reel: reelOf({}, {}) }), false],
-  depthWithAClip: [card({ look: 'depthfog', reel: reelOf({ cutoutUrl: R2 }, { kind: 'clip', cutoutUrl: R2 }) }), false],
-  depthCutoutOnAnotherHost: [card({ look: 'depthfog', reel: reelOf({ cutoutUrl: R2 }, { cutoutUrl: 'https://evil.example.com/c.png' }) }), false],
+  depthIsGone: [card({ look: 'depthfog', reel: reelOf({}, {}) }), false],
   cutoutsOnAPlainLook: [card({ reel: reelOf({ cutoutUrl: R2 }, {}) }), false],
   onDust: [card({ style: 'dust', look: undefined, reel: reelOf({}, {}) }), false],
 };
@@ -205,5 +200,4 @@ test('the palette and the look’s range are read from the picture on screen, no
   const source = readFileSync(new URL('../src/pack-reel.ts', import.meta.url), 'utf8');
   assert.ok(/references\.get\(texture\)/.test(palette) && /reference\?\.key/.test(palette), 'the palette is cached per picture of a reel');
   assert.ok(/references\.set\(texture, \{ key: reelKey\(sources\[segment\.asset\]\)/.test(source), 'every frame says which picture it shows');
-  assert.ok(/SUBJECT_MAX/.test(source), 'a cut-out that covers almost all of the picture, or none, is not put in front of the look');
 });

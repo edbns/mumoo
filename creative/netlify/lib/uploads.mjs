@@ -24,11 +24,11 @@ import { deleteObject, getObject, objectSize, putObject, signedDownload, signedU
 export const MAX_PHOTO_BYTES = 3_000_000;
 export const MAX_GIF_BYTES = 25_000_000;
 export const MAX_VIDEO_BYTES = 150_000_000;
-export const USES = ['dust', 'filter', 'riso', 'window', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth', 'any'];
+export const USES = ['dust', 'filter', 'riso', 'window', 'thermal', 'halftone', 'dither', 'ascii', 'any'];
 /** The uses whose photo is cut out (the subject's mask is made by the worker). */
-const CUTOUT_USES = ['dust', 'riso', 'window', 'depth', 'any'];
+const CUTOUT_USES = ['dust', 'riso', 'window', 'any'];
 /** The uses that also take a video or GIF. */
-export const MOTION_USES = ['filter', 'window', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'riso', 'any'];
+export const MOTION_USES = ['filter', 'window', 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'any'];
 export const MOTION_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'image/gif'];
 
 const PREPARE = 'https://edbns-mumoo-staging--mumoo-prepare-media-staging';
@@ -214,18 +214,15 @@ export async function uploadMedia(userId, id) {
 
 /**
  * A reel of the person's own shelf pictures, in the shape `libraryReel` gives: links the worker fetches itself for half an hour.
- * Null in place of a picture that is not theirs, not ready, or (with `withCutouts`, for Depth) not a photo.
+ * Null in place of a picture that is not theirs or not ready.
  */
-export async function uploadReel(userId, ids, withCutouts = false) {
+export async function uploadReel(userId, ids) {
   const rows = await db()`select id, kind, shots from uploads where user_id = ${userId} and id = any(${ids}::uuid[]) and use = 'any' and status = 'ready'`;
   const found = new Map(rows.map((row) => [row.id, row]));
   return Promise.all(ids.map(async (id) => {
     const row = found.get(id);
     if (!row) return null;
-    if (row.kind === 'photo') {
-      return { kind: 'photo', url: await signedDownload(KEYS.still(userId, id), null, 1800), ...(withCutouts ? { cutoutUrl: await signedDownload(KEYS.cutout(userId, id), null, 1800) } : {}) };
-    }
-    if (withCutouts) return null;
+    if (row.kind === 'photo') return { kind: 'photo', url: await signedDownload(KEYS.still(userId, id), null, 1800) };
     return { kind: 'clip', url: await signedDownload(KEYS.motion(userId, id), null, 1800), ...(row.shots ? { shots: row.shots } : {}) };
   }));
 }

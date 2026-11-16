@@ -61,9 +61,8 @@ export default async function encodeCreative(request) {
       if (!['filter', 'riso', 'dust', 'window', 'treatment'].includes(style)) return error(400, 'That picture is kept for a different style.');
       const media = await libraryMedia(library);
       if (!media) return error(404, 'That picture is no longer in the library.');
-      const depthLook = typeof scene.opts?.look === 'string' && String(scene.opts.look).startsWith('depth');
       // Riso library clips are whole-frame (no cut-out); Riso/Dust photos still need the mask.
-      const cutOut = style === 'dust' || (style === 'riso' && Boolean(media.photo)) || (style === 'window' && Boolean(media.photo)) || (style === 'filter' && depthLook);
+      const cutOut = style === 'dust' || (style === 'riso' && Boolean(media.photo)) || (style === 'window' && Boolean(media.photo));
       if (cutOut && (!media.photo || !media.cutout)) return error(404, 'That picture has no cut-out yet.');
       if (media.photo) outbound.append('photo', new Blob([media.photo], { type: 'image/jpeg' }), 'photo.jpg');
       if (cutOut) outbound.append('cutout', new Blob([media.cutout], { type: 'image/png' }), 'cutout.png');
@@ -92,10 +91,10 @@ export default async function encodeCreative(request) {
         // A reel of the person's own pictures: only theirs, so they must be signed in.
         const person = await personFrom(request);
         if (!person) return error(401, 'Sign in to use your own pictures.');
-        found = await uploadReel(person.id, asked.ids, asked.depth);
+        found = await uploadReel(person.id, asked.ids);
         if (found.includes(null)) return error(404, 'One of your pictures in that reel was removed, or is still being prepared.');
       } else {
-        found = await libraryReel(asked.ids, asked.depth);
+        found = await libraryReel(asked.ids);
         if (found.includes(null)) return error(404, 'A picture of that reel is no longer in the library, or has no cut-out yet.');
       }
       scene.opts = { ...scene.opts, reel: reelFrom(found) };

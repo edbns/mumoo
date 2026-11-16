@@ -77,7 +77,7 @@ test('a row is dealt from one of the song\'s best filled boards; refreshing agai
     assert.equal(boards.boardForRow('photography', wanted, filed('b', 'block-party', boards.BOARD_MIN - 1), 'song', 0), null, 'one short of a reel');
 
     const items = [...filed('b', 'block-party', 8), ...filed('s', 'sunset-coast', 8), ...filed('m', 'main-stage', 8), ...filed('h', 'heartland-dust', 8)];
-    const rows = ['photography', 'thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth', 'riso', 'window', 'dust', 'looks'];
+    const rows = ['photography', 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window', 'dust', 'looks'];
     const dealt = generation => rows.map(row => boards.boardForRow(row, wanted, items, 'song', generation).id);
     const first = dealt(0);
     const count = id => first.filter(entry => entry === id).length;

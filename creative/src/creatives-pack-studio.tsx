@@ -238,25 +238,24 @@ export function CreativesPackStudio({
     return upload ? asLibraryPicture(upload) : (library ?? []).find(item => item.id === id) ?? null;
   };
   /** The pictures and clips of a Director's reel, in the order it opens on them. Null when too few of them are still in the library. */
-  const reelOf = (ids: readonly string[] | undefined, depth = false): Picture | undefined => {
+  const reelOf = (ids: readonly string[] | undefined): Picture | undefined => {
     const sources = (ids ?? []).flatMap((id): ReelSource[] => {
       const item = libraryItem(id);
       if (!item) return [];
-      // Depth also needs each photo's cut-out, to put the person in front.
-      if (item.kind === 'photo') return depth && !item.cutoutUrl ? [] : [{ id, kind: 'photo', url: item.url, ...(depth ? { cutoutUrl: item.cutoutUrl } : {}) }];
+      if (item.kind === 'photo') return [{ id, kind: 'photo', url: item.url }];
       return item.motionUrl ? [{ id, kind: 'clip', url: item.motionUrl, ...(item.shots ? { shots: item.shots } : {}) }] : [];
     });
     return sources.length >= 2 ? { reel: sources } : undefined;
   };
   const pictureOf = (row: ShelfRow, slot?: CreativesPackSlot) =>
-    (ownFor(row) ? drawingFrom(ownFor(row)) : undefined) ?? (slot?.reelIds ? reelOf(slot.reelIds, row === 'depth') : undefined) ?? (slot?.libraryId ? drawingFrom(libraryItem(slot.libraryId)) : undefined);
+    (ownFor(row) ? drawingFrom(ownFor(row)) : undefined) ?? (slot?.reelIds ? reelOf(slot.reelIds) : undefined) ?? (slot?.libraryId ? drawingFrom(libraryItem(slot.libraryId)) : undefined);
   const pictureIds = own?.id ?? (ownPool ? `own:${readyIds}` : 'ours');
 
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
     // Not on the shelf now (made of the lyrics and there are none, or needs a photo and the picture is a video): nothing is dealt, drawn or paid for.
     if (!shelf.some(item => item.id === def.id)) return [def.id, { slots: [], note: '' }];
     // Dust and Depth need cut-out photos; Riso also accepts library videos/GIFs (and the person's own video).
-    if ((def.id === 'dust' || def.id === 'riso' || def.id === 'depth') && !own && !ownPool) {
+    if ((def.id === 'dust' || def.id === 'riso') && !own && !ownPool) {
       if (plates === null || library === null) {
         return [def.id, { slots: [], note: '' }];
       } else if (!plates.some(plate => plate.cutout) && !libraryCutouts && !(def.id === 'riso' && libraryRisoMotion)) {
@@ -476,7 +475,7 @@ export function CreativesPackStudio({
       return upload ? { available: true, picture: drawingFrom(upload) } : { available: false };
     }
     if (item.slot.reelIds) {
-      const picture = reelOf(item.slot.reelIds, item.slot.row === 'depth');
+      const picture = reelOf(item.slot.reelIds);
       return picture ? { available: true, picture } : { available: false };
     }
     if (item.slot.libraryId) {

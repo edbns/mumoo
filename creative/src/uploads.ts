@@ -5,7 +5,7 @@ import { shrinkPhoto } from './photo-shrink';
  * What a picture is kept for. The shelf has one upload button, and its picture is `any`: every template that can draw it does.
  * The others are the older one-picture-per-row uses, which the server still understands.
  */
-export type PictureUse = 'any' | 'dust' | 'filter' | 'riso' | 'window' | 'thermal' | 'halftone' | 'dither' | 'glow' | 'streaks' | 'ascii' | 'depth';
+export type PictureUse = 'any' | 'dust' | 'filter' | 'riso' | 'window' | 'thermal' | 'halftone' | 'dither' | 'ascii';
 
 /** The picture the whole shelf draws. */
 export const SHELF_PICTURE: PictureUse = 'any';

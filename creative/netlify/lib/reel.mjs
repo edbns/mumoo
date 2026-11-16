@@ -15,11 +15,10 @@ export function reelIds(opts) {
   if (['plateId', 'effectId', 'photoUrl', 'cutoutUrl', 'motionUrl'].some((key) => opts[key] !== undefined)) return { refused: 'A reel is the card’s only picture.' };
   const ids = reel.map((entry) => entry?.id);
   if (!ids.every((id) => typeof id === 'string' && UUID.test(id)) || new Set(ids).size !== ids.length) return { refused: 'Invalid picture.' };
-  // Depth puts the person in front of each picture, so it is a reel of photos with their cut-outs.
-  return { ids, depth: typeof opts.look === 'string' && opts.look.startsWith('depth') };
+  return { ids };
 }
 
-/** The reel as the worker takes it: `[{ kind, url, cutoutUrl?, shots? }]`, from what the library returned for each id. */
+/** The reel as the worker takes it: `[{ kind, url, shots? }]`, from what the library returned for each id. */
 export function reelFrom(found) {
-  return found.map(({ kind, url, cutoutUrl, shots }) => ({ kind, url, ...(cutoutUrl ? { cutoutUrl } : {}), ...(shots ? { shots } : {}) }));
+  return found.map(({ kind, url, shots }) => ({ kind, url, ...(shots ? { shots } : {}) }));
 }

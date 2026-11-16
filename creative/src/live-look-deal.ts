@@ -7,7 +7,7 @@
 import type { MoodLane } from './ad-fonts';
 
 /** A family is one effect with many colourings; each family has its own row on the shelf. */
-export const LOOK_FAMILIES = ['thermal', 'halftone', 'dither', 'glow', 'streaks', 'ascii', 'depth'] as const;
+export const LOOK_FAMILIES = ['thermal', 'halftone', 'dither', 'ascii'] as const;
 export type LookFamily = (typeof LOOK_FAMILIES)[number];
 export const isLookFamily = (value: unknown): value is LookFamily => LOOK_FAMILIES.includes(value as LookFamily);
 
@@ -91,43 +91,6 @@ export const LIVE_LOOKS = [
   { id: 'ditherneon', family: 'dither', title: 'Neon', lanes: ['dark', 'techno', 'party'] },
   { id: 'dithergold', family: 'dither', title: 'Gold on black', lanes: ['quiet', 'dark', 'party', 'general'] },
   { id: 'ditherown', family: 'dither', title: 'Own colours', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  /** Glow: light bleeding from the bright parts of the picture. Soft blooms for quiet songs; neon and club for the loud ones. */
-  { id: 'glowbloom', family: 'glow', title: 'Soft bloom', lanes: ['quiet', 'general', 'gospel'] },
-  { id: 'glowpink', family: 'glow', title: 'Hot pink neon', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'glowcyan', family: 'glow', title: 'Cyan neon', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'glowsplit', family: 'glow', title: 'Magenta cyan', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'glowamber', family: 'glow', title: 'Amber street', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'glowgold', family: 'glow', title: 'Gold', lanes: ['quiet', 'general', 'gospel'] },
-  { id: 'glowuv', family: 'glow', title: 'Ultraviolet', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'glowtoxic', family: 'glow', title: 'Toxic green', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'glowred', family: 'glow', title: 'Red alert', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'glowpeach', family: 'glow', title: 'Sunset peach', lanes: ['quiet', 'general', 'gospel'] },
-  { id: 'glowice', family: 'glow', title: 'Ice blue', lanes: ['quiet', 'dark', 'techno', 'general'] },
-  { id: 'glowprism', family: 'glow', title: 'Rainbow prism', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'glowdream', family: 'glow', title: 'Dream', lanes: ['quiet', 'general', 'gospel'] },
-  { id: 'glownoir', family: 'glow', title: 'Noir', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'glowclub', family: 'glow', title: 'Club', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'glowmist', family: 'glow', title: 'Mist', lanes: ['quiet', 'general', 'gospel'] },
-  { id: 'glowlilac', family: 'glow', title: 'Lilac', lanes: ['quiet', 'general', 'gospel'] },
-  { id: 'glowrose', family: 'glow', title: 'Rose', lanes: ['quiet', 'party', 'general', 'gospel'] },
-  /** Streaks: light dragged into lines (anamorphic, rain, radial, edge leaks). Not dealt on gospel. */
-  { id: 'streakblue', family: 'streaks', title: 'Anamorphic blue', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakamber', family: 'streaks', title: 'Warm amber', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakteal', family: 'streaks', title: 'Teal and orange', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakmagenta', family: 'streaks', title: 'Magenta', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakwhite', family: 'streaks', title: 'White streak', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakred', family: 'streaks', title: 'Red laser', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'streakgreen', family: 'streaks', title: 'Green', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakgold', family: 'streaks', title: 'Gold diagonal', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakcyan', family: 'streaks', title: 'Cyan', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakviolet', family: 'streaks', title: 'Violet', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakprism', family: 'streaks', title: 'Prism', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streaksunset', family: 'streaks', title: 'Sunset', lanes: ['quiet', 'party', 'general'] },
-  { id: 'streakice', family: 'streaks', title: 'Ice', lanes: ['quiet', 'dark', 'techno', 'general'] },
-  { id: 'streakburn', family: 'streaks', title: 'Film burn', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakrain', family: 'streaks', title: 'Rain', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakzoom', family: 'streaks', title: 'Starburst', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'streakspeed', family: 'streaks', title: 'Speed lines', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
   /** ASCII: the picture rebuilt from text characters. Not dealt on gospel. */
   { id: 'asciigreen', family: 'ascii', title: 'Green phosphor', lanes: ['dark', 'techno', 'party', 'general'] },
   { id: 'asciiamber', family: 'ascii', title: 'Amber terminal', lanes: ['quiet', 'dark', 'techno', 'general'] },
@@ -147,21 +110,6 @@ export const LIVE_LOOKS = [
   { id: 'asciiblocks', family: 'ascii', title: 'Blocks', lanes: ['dark', 'techno', 'party', 'general'] },
   { id: 'asciislash', family: 'ascii', title: 'Slashes', lanes: ['dark', 'techno', 'party', 'general'] },
   { id: 'asciimumoo', family: 'ascii', title: 'MUMOO', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  /** Depth: near cut-out against a graded far layer. Photos with a cut-out only. Not dealt on gospel. */
-  { id: 'depthfog', family: 'depth', title: 'Fog', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'depthtilt', family: 'depth', title: 'Tilt shift', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'depthwarm', family: 'depth', title: 'Warm near', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'depthsilhouette', family: 'depth', title: 'Silhouette', lanes: ['dark', 'techno', 'party'] },
-  { id: 'depthneon', family: 'depth', title: 'Neon outline', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'depthecho', family: 'depth', title: 'Echo', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'depthzoom', family: 'depth', title: 'Zoom pulse', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'depthdream', family: 'depth', title: 'Dream', lanes: ['quiet', 'general'] },
-  { id: 'depthgold', family: 'depth', title: 'Gold', lanes: ['quiet', 'general', 'party'] },
-  { id: 'depthnoir', family: 'depth', title: 'Noir', lanes: ['dark', 'techno'] },
-  { id: 'depthspot', family: 'depth', title: 'Spotlight', lanes: ['quiet', 'dark', 'techno', 'party', 'general'] },
-  { id: 'depthdouble', family: 'depth', title: 'Double exposure', lanes: ['dark', 'techno', 'party', 'general'] },
-  { id: 'depthice', family: 'depth', title: 'Ice', lanes: ['quiet', 'dark', 'techno', 'general'] },
-  { id: 'depthember', family: 'depth', title: 'Ember', lanes: ['dark', 'techno', 'party', 'general'] },
 ] as const satisfies readonly { id: string; family: LookFamily; title: string; lanes: readonly MoodLane[] }[];
 
 export type LiveLookId = (typeof LIVE_LOOKS)[number]['id'];
@@ -171,93 +119,22 @@ export type HeatLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'thermal
 export type HalftoneLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'halftone' }>['id'];
 /** The dither family: the picture reduced to square pixels and a flat palette. */
 export type DitherLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'dither' }>['id'];
-/** The glow family: light bleeding from the bright parts of the picture. */
-export type GlowLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'glow' }>['id'];
-/** The streaks family: light dragged into lines. */
-export type StreaksLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'streaks' }>['id'];
 /** The ASCII family: the picture rebuilt from text characters. */
 export type AsciiLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'ascii' }>['id'];
-/** The Depth family: near cut-out against a graded far layer. */
-export type DepthLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'depth' }>['id'];
-export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither', glow: 'Glow', streaks: 'Streaks', ascii: 'ASCII', depth: 'Depth' };
+export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither', ascii: 'ASCII' };
 export const LIVE_LOOK_IDS: readonly LiveLookId[] = LIVE_LOOKS.map(look => look.id);
 
 export const isLiveLook = (value: unknown): value is LiveLookId => LIVE_LOOK_IDS.includes(value as LiveLookId);
 export const liveLookTitle = (id: LiveLookId) => LIVE_LOOKS.find(look => look.id === id)!.title;
 
-function hash(seed: string, salt: string, modulo: number) {
-  let h = 2166136261;
-  const text = `${seed}:${salt}`;
-  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
-  return Math.abs(h) % Math.max(1, modulo);
-}
-
-/** The items in an order the seed decides. */
-const shuffled = <T>(items: readonly T[], seed: string, salt: string, key: (item: T) => string) =>
-  items.map(item => ({ item, order: hash(seed, `${salt}:${key(item)}`, 1_000_000) })).sort((a, b) => a.order - b.order).map(entry => entry.item);
-
 /**
- * Streak geometry tags (mirrored from streaks-styles) so a row prefers four different filters —
- * not four horizontal colourings that read as the same look.
+ * Each family's one classic look, the colours the effect is known by: a row deals it on every card (the pictures differ), never the
+ * family's other colourings. Those stay defined so a cart saved with one still draws.
  */
-const STREAK_GEOMETRY: Record<StreaksLookId, string> = {
-  streakblue: 'horizontal',
-  streakamber: 'horizontal',
-  streakteal: 'cross',
-  streakmagenta: 'diagonal',
-  streakwhite: 'horizontal',
-  streakred: 'horizontal',
-  streakgreen: 'vertical',
-  streakgold: 'diagonal',
-  streakcyan: 'diagonal',
-  streakviolet: 'diagonal',
-  streakprism: 'cross',
-  streaksunset: 'diagonal',
-  streakice: 'horizontal',
-  streakburn: 'edge',
-  streakrain: 'vertical',
-  streakzoom: 'cross',
-  streakspeed: 'cross',
-};
+export const CLASSIC: Record<LookFamily, LiveLookId> = { thermal: 'thermal', halftone: 'halftonebw', dither: 'dithermac', ascii: 'asciigreen' };
 
-/**
- * What the Thermal row deals: the colourings that read as a heat camera (iron, rainbow) and a hot one (lava). The other colourings of the family
- * (neon, cool and soft ones, the grey modes) stay defined but are not dealt: a row of Thermal that does not look thermal is not Thermal.
- */
-const HEAT_CAMERA: readonly LiveLookId[] = ['thermal', 'rainbow', 'lava'];
-
-/**
- * The look of each of `count` cards of a family's row: every card carries one a lane welcomes (a card that shows its picture as it is looks like a look that did not work),
- * and neighbouring cards never carry the same, so a row is never one look four times. With three looks and four cards one look comes twice, never side by side.
- * The seed (the song and the row's Refresh count) decides the order, so Refresh deals new ones. A lane no look of the family welcomes deals none (the row is then left out);
- * a lane that welcomes only one look gets it on one card and the others show the picture as it is, rather than that look four times.
- * Streaks also prefer a different geometry on each card (horizontal / diagonal / vertical / cross / radial / edge) so the filter itself does not duplicate.
- */
-export function dealLooks(lane: MoodLane, seed: string, count: number, family: LookFamily): (LiveLookId | null)[] {
-  const welcome = LIVE_LOOKS.filter(look => look.family === family && (look.lanes as readonly MoodLane[]).includes(lane) && (family !== 'thermal' || HEAT_CAMERA.includes(look.id)));
-  const order = shuffled(welcome.map(look => look.id), seed, 'look', id => id);
-  if (!order.length) return Array.from({ length: count }, () => null);
-  if (order.length === 1) {
-    const place = hash(seed, 'place', count);
-    return Array.from({ length: count }, (_, index) => (index === place ? order[0] : null));
-  }
-  const start = hash(seed, 'start', order.length);
-  const rotated = order.slice(start).concat(order.slice(0, start));
-  if (family !== 'streaks') {
-    return Array.from({ length: count }, (_, index) => rotated[index % rotated.length]);
-  }
-  const picked: LiveLookId[] = [];
-  const used = new Set<string>();
-  const pool = [...rotated];
-  while (picked.length < count && pool.length) {
-    let index = pool.findIndex(id => !used.has(STREAK_GEOMETRY[id as StreaksLookId]));
-    if (index < 0) {
-      used.clear();
-      index = 0;
-    }
-    const id = pool.splice(index, 1)[0]!;
-    picked.push(id);
-    used.add(STREAK_GEOMETRY[id as StreaksLookId]);
-  }
-  return picked;
+/** The look of each of `count` cards of a family's row: its classic look on every card, on any lane the family is dealt on; none elsewhere (the row is then left out). */
+export function dealLooks(lane: MoodLane, count: number, family: LookFamily): (LiveLookId | null)[] {
+  const welcome = LIVE_LOOKS.some(look => look.family === family && (look.lanes as readonly MoodLane[]).includes(lane));
+  return Array.from({ length: count }, () => (welcome ? CLASSIC[family] : null));
 }

@@ -60,7 +60,7 @@ REEL_MAX = 8
 REEL_HOST_SUFFIX = ".r2.cloudflarestorage.com"
 # The kinds of creative the page draws, the Riso ink sets, the Spray walls and the Window screens and faces it knows (creative/src/ad-punch.ts, riso-look.ts, spray-look.ts, window-look.ts, window-deal.ts; a test keeps these in step).
 # The live looks drawn on a picture of Our photography (creative/src/live-look-deal.ts; a test keeps these in step).
-LIVE_LOOKS = {"thermal", "arctic", "night", "whitehot", "blackhot", "rainbow", "lava", "crimson", "amber", "gold", "ultraviolet", "acid", "vapor", "candy", "dusk", "lagoon", "aurora", "cyanotype", "halftone", "halftonebw", "halftonenews", "halftoneblue", "halftonered", "halftonepink", "halftoneteal", "halftonepop", "halftoneneon", "halftoneinvert", "halftonegold", "halftonecmyk", "halftoneriso", "halftoneblueprint", "halftonesepia", "halftonemanga", "halftonesubway", "halftonesunset", "halftonematcha", "halftonecandy", "halftonetarot", "halftoneacid", "halftonesilver", "halftonephosphor", "halftoneuv", "halftonecopper", "halftoneengrave", "halftonehatch", "halftoneled", "halftonebenday", "dithermac", "ditherinvert", "dithergameboy", "dithercga", "dithercgagreen", "ditherega", "ditherc64", "ditherapple2", "ditherpico8", "ditheramiga", "ditherreceipt", "ditherblueprint", "ditheramber", "dithersunset", "dithervapor", "ditherforest", "dithernews", "ditherneon", "dithergold", "ditherown", "glowbloom", "glowpink", "glowcyan", "glowsplit", "glowamber", "glowgold", "glowuv", "glowtoxic", "glowred", "glowpeach", "glowice", "glowprism", "glowdream", "glownoir", "glowclub", "glowmist", "glowlilac", "glowrose", "streakblue", "streakamber", "streakteal", "streakmagenta", "streakwhite", "streakred", "streakgreen", "streakgold", "streakcyan", "streakviolet", "streakprism", "streaksunset", "streakice", "streakburn", "streakrain", "streakzoom", "streakspeed", "asciigreen", "asciiamber", "asciiwhite", "asciitype", "asciicolour", "asciicyan", "asciipink", "asciiblueprint", "asciimatrix", "asciired", "asciigold", "asciiice", "asciinews", "asciisunset", "asciibinary", "asciiblocks", "asciislash", "asciimumoo", "depthfog", "depthtilt", "depthwarm", "depthsilhouette", "depthneon", "depthecho", "depthzoom", "depthdream", "depthgold", "depthnoir", "depthspot", "depthdouble", "depthice", "depthember"}
+LIVE_LOOKS = {"thermal", "arctic", "night", "whitehot", "blackhot", "rainbow", "lava", "crimson", "amber", "gold", "ultraviolet", "acid", "vapor", "candy", "dusk", "lagoon", "aurora", "cyanotype", "halftone", "halftonebw", "halftonenews", "halftoneblue", "halftonered", "halftonepink", "halftoneteal", "halftonepop", "halftoneneon", "halftoneinvert", "halftonegold", "halftonecmyk", "halftoneriso", "halftoneblueprint", "halftonesepia", "halftonemanga", "halftonesubway", "halftonesunset", "halftonematcha", "halftonecandy", "halftonetarot", "halftoneacid", "halftonesilver", "halftonephosphor", "halftoneuv", "halftonecopper", "halftoneengrave", "halftonehatch", "halftoneled", "halftonebenday", "dithermac", "ditherinvert", "dithergameboy", "dithercga", "dithercgagreen", "ditherega", "ditherc64", "ditherapple2", "ditherpico8", "ditheramiga", "ditherreceipt", "ditherblueprint", "ditheramber", "dithersunset", "dithervapor", "ditherforest", "dithernews", "ditherneon", "dithergold", "ditherown", "asciigreen", "asciiamber", "asciiwhite", "asciitype", "asciicolour", "asciicyan", "asciipink", "asciiblueprint", "asciimatrix", "asciired", "asciigold", "asciiice", "asciinews", "asciisunset", "asciibinary", "asciiblocks", "asciislash", "asciimumoo"}
 STYLES = {"bank", "pulise", "dust", "filter", "riso", "spray", "window", "doodle", "treatment"}
 # Video treatments over the Director's reel (creative/src/treatment-deal.ts; a test keeps these in step).
 TREATMENTS = {
@@ -357,24 +357,17 @@ def parse_meta(raw: str) -> dict:
                 raise ValueError("motionShots")
     if "reel" in opts:
         reel = opts["reel"]
-        # Our photography (with a live look; Depth takes photos with cut-outs), treatments and Riso draw a reel, alone: it is the card's only picture.
+        # Our photography (with a live look), treatments and Riso draw a reel, alone: it is the card's only picture.
         if opts["style"] not in ("filter", "riso", "treatment") or any(key in opts for key in ("plateId", "effectId")):
             raise ValueError("reel")
-        depth = isinstance(opts.get("look"), str) and opts["look"].startswith("depth")
         if not isinstance(reel, list) or not 2 <= len(reel) <= REEL_MAX:
             raise ValueError("reel")
         for entry in reel:
-            if not isinstance(entry, dict) or not {"kind", "url"} <= set(entry) <= {"kind", "url", "cutoutUrl", "shots"} or entry["kind"] not in ("photo", "clip"):
+            if not isinstance(entry, dict) or not {"kind", "url"} <= set(entry) <= {"kind", "url", "shots"} or entry["kind"] not in ("photo", "clip"):
                 raise ValueError("reel")
-            # Depth puts the person in front of each picture: a reel of photos, each with its cut-out. No other reel carries one.
-            if depth != ("cutoutUrl" in entry) or (depth and entry["kind"] != "photo"):
+            link = urlparse(entry["url"]) if isinstance(entry["url"], str) and len(entry["url"]) <= 3000 else None
+            if link is None or link.scheme != "https" or link.username or link.password or link.port or not (link.hostname or "").endswith(REEL_HOST_SUFFIX):
                 raise ValueError("reel")
-            for field in ("url", "cutoutUrl"):
-                if field not in entry:
-                    continue
-                link = urlparse(entry[field]) if isinstance(entry[field], str) and len(entry[field]) <= 3000 else None
-                if link is None or link.scheme != "https" or link.username or link.password or link.port or not (link.hostname or "").endswith(REEL_HOST_SUFFIX):
-                    raise ValueError("reel")
             if "shots" in entry:
                 shots = entry["shots"]
                 if entry["kind"] != "clip" or not isinstance(shots, list) or not 0 < len(shots) <= 40:
@@ -443,17 +436,13 @@ def check_media(opts: dict, media: dict[str, bytes]) -> None:
         wanted = set()
         if opts["style"] in ("filter", "treatment"):
             # One of our own pictures (our photo, or one baked effect on it), or the person's or the library's photo or clip.
-            # Depth looks need the cut-out as a near layer. Treatments never take a baked effect or a cut-out.
-            depth = opts["style"] == "filter" and isinstance(opts.get("look"), str) and opts["look"].startswith("depth")
+            # Treatments never take a baked effect or a cut-out.
             if opts["style"] == "treatment" and named:
                 raise ValueError("media")
             if len(named) > 1:
                 raise ValueError("media")
             if not named:
-                if depth:
-                    wanted = {"photo", "cutout"}
-                else:
-                    wanted = {"photo"} if "photo" in media else {"motion"}
+                wanted = {"photo"} if "photo" in media else {"motion"}
         else:
             approved = {"dust": "plateId", "riso": "plateId"}.get(opts["style"])
             if approved and approved not in named:

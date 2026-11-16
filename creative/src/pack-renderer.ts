@@ -14,7 +14,6 @@ import type { AdPunchStyle } from './ad-punch';
 import { activePackCopy, packReaction, packWordEnter } from './pack-copy';
 import { createPackScene } from './pack-scenes';
 import { isLiveLook, type LiveLookId } from './live-look-deal';
-import { isDepth } from './live-look-ramp';
 import { bankBackgroundUrl, photoEffectUrl } from './pack-looks';
 import { typeFamilies, type TypeStyleId } from './pack-type';
 import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
@@ -308,11 +307,9 @@ export async function createPackRenderer(
         if (style === 'spray' && !current.sprayPalette) throw new Error('Spray needs a wall and paints.');
         if (style === 'doodle' && !(current.doodleId && current.doodlePaper && current.doodleMood)) throw new Error('Doodle needs a singer, a paper and a mood.');
         // Window brings her cut-out only for a card with her in front; a plain card of the same photo does not read it.
-        // Depth live looks need the cut-out as a near layer (same media path as Dust / Riso photos).
         // Riso on a clip is whole-frame: no cut-out.
-        const depthLook = Boolean(current.look && isDepth(current.look));
         const risoMotion = style === 'riso' && Boolean(current.motionUrl || reelled);
-        const cutOut = style === 'dust' || (style === 'riso' && !risoMotion) || windowMode === 'person' || (ownBackdrop && depthLook);
+        const cutOut = style === 'dust' || (style === 'riso' && !risoMotion) || windowMode === 'person';
         const ownPicture = cutOut || ownBackdrop || windowOwn || risoMotion;
         // Our photography can also draw our approved photo itself (with a live look on it). Treatments never use a plate.
         const photoUrl = (cutOut || windowOwn || style === 'filter') && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
@@ -398,7 +395,6 @@ export async function createPackRenderer(
           }
         }
         if (ownBackdrop && !photoTexture && !motion) throw new Error(style === 'treatment' ? 'A treatment needs a Directed picture.' : 'Our photography needs an effect or a picture.');
-        if (depthLook && !cutoutTexture && !reel?.subject) throw new Error('Depth needs a photo and its cut-out.');
         // Window: the picture behind the word is the clip's frame, the photo, or the baked still; her cut-out stands in front when the card says so.
         let windowPicture: WindowPicture | undefined;
         if (windowMode) {
@@ -441,8 +437,6 @@ export async function createPackRenderer(
           words: copy.words,
           background: picture,
           preset: preset ?? undefined,
-          cutout: depthLook ? cutoutTexture : null,
-          subject: depthLook ? reel?.subject ?? null : null,
           colors: current.colors,
           typeStyle: current.typeStyle,
           look: current.look,

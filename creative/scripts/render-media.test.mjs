@@ -11,15 +11,13 @@ test('a photo kept for the shelf goes with its cut-out only where the card needs
   assert.deepEqual(names(ownMedia('dust', undefined, photo)), ['cutout', 'photo']);
   assert.deepEqual(names(ownMedia('riso', undefined, photo)), ['cutout', 'photo']);
   assert.deepEqual(names(ownMedia('window', undefined, photo)), ['cutout', 'photo']);
-  assert.deepEqual(names(ownMedia('filter', 'depth-fog', photo)), ['cutout', 'photo']);
   assert.deepEqual(names(ownMedia('filter', 'thermal-1', photo)), ['photo'], 'Our photography and the plain looks need no cut-out');
   assert.deepEqual(names(ownMedia('filter', undefined, photo)), ['photo']);
 });
 
-test('a video or GIF kept for the shelf goes as its clip alone, and never to Dust or Depth', () => {
+test('a video or GIF kept for the shelf goes as its clip alone, and never to Dust', () => {
   for (const [style, look] of [['riso'], ['window'], ['filter', 'thermal-1'], ['filter']]) assert.deepEqual(names(ownMedia(style, look, clip)), ['motion'], style);
   assert.ok(ownMedia('dust', undefined, clip).refused);
-  assert.ok(ownMedia('filter', 'depth-fog', clip).refused);
 });
 
 test('a photo with no cut-out yet is refused where the cut-out is needed', () => {

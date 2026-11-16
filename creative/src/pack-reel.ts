@@ -16,18 +16,14 @@ export type ReelSource = {
   kind: 'photo' | 'clip';
   /** A link to the photo, or to the prepared clip. */
   url: string;
-  /** A photo's cut-out mask (white where the person is). Given only to a reel that draws Depth, which puts the person in front. */
-  cutoutUrl?: string;
   /** A clip's shots, in ms of the clip. */
   shots?: readonly Shot[];
 };
 
 /** What tells one picture of a reel from another: its library id, or (in the cloud) its link without the signature that changes every time. */
-export const reelKey = (source: ReelSource) => `${source.id ?? source.url.split('?')[0]}${source.cutoutUrl ? '|cut' : ''}`;
+export const reelKey = (source: ReelSource) => source.id ?? source.url.split('?')[0];
 
 export type Reel = Motion & {
-  /** Depth: the person of the picture playing now, cut out (a picture with her mask as its alpha), drawn the same way as `texture`. Null for a reel with no cut-outs. */
-  subject: Texture | null;
   /**
    * Edits the reel to this music (once per music, seed and preset). Call before `seek`; the milliseconds of `seek` are then those of the song.
    * An edit preset (`edit-presets.ts`) cuts to its own rhythm, and a preset that dissolves draws the two pictures over each other for `dissolveMs`.
@@ -43,7 +39,7 @@ type Exposure = {
   /** A small copy of the picture as it is shown, which the palette and the look's range are read from (`references`). */
   reference?: HTMLCanvasElement;
 };
-type Loaded = ({ kind: 'photo'; image: ImageBitmap; subject?: HTMLCanvasElement } | { kind: 'clip'; motion: Motion }) & Exposure;
+type Loaded = ({ kind: 'photo'; image: ImageBitmap } | { kind: 'clip'; motion: Motion }) & Exposure;
 
 /** The average light every picture is brought to, and how far it may be pushed either way. */
 const TARGET_LIGHT = 0.4;
@@ -108,48 +104,12 @@ async function bitmapOf(url: string, what: string): Promise<ImageBitmap> {
   return image;
 }
 
-/** How much of the picture a usable person fills: a mask of almost nothing, or of nearly all of it, would put the picture back on top of the look. */
-const SUBJECT_MIN = 0.04;
-const SUBJECT_MAX = 0.6;
-
-/** The photo with her mask as its alpha, made once (the mask is a grey picture, white where she is). Null when the mask is not a person worth putting in front. */
-function cutOut(photo: ImageBitmap, mask: ImageBitmap): HTMLCanvasElement | null {
-  const width = Math.max(1, mask.width);
-  const height = Math.max(1, mask.height);
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const maskCanvas = document.createElement('canvas');
-  maskCanvas.width = width;
-  maskCanvas.height = height;
-  const context = canvas.getContext('2d', { willReadFrequently: true });
-  const maskContext = maskCanvas.getContext('2d', { willReadFrequently: true });
-  if (!context || !maskContext) throw new Error('Canvas 2D is unavailable.');
-  context.drawImage(photo, 0, 0, width, height);
-  maskContext.drawImage(mask, 0, 0, width, height);
-  const colour = context.getImageData(0, 0, width, height);
-  const alpha = maskContext.getImageData(0, 0, width, height).data;
-  let covered = 0;
-  for (let i = 0; i < width * height; i += 1) {
-    colour.data[i * 4 + 3] = alpha[i * 4];
-    covered += alpha[i * 4];
-  }
-  const share = covered / 255 / (width * height);
-  if (share < SUBJECT_MIN || share > SUBJECT_MAX) return null;
-  context.putImageData(colour, 0, 0);
-  return canvas;
-}
-
 async function read(source: ReelSource): Promise<Loaded> {
   if (source.kind === 'clip') return { kind: 'clip', motion: await loadMotion(source.url) };
   const image = await bitmapOf(source.url, 'A picture of the reel');
   const gain = exposureOf(image);
   const reference = referenceOf(image, gain);
-  if (!source.cutoutUrl) return { kind: 'photo', image, gain, reference };
-  const mask = await bitmapOf(source.cutoutUrl, 'A cut-out of the reel');
-  const subject = cutOut(image, mask);
-  mask.close();
-  return { kind: 'photo', image, ...(subject ? { subject } : {}), gain, reference };
+  return { kind: 'photo', image, gain, reference };
 }
 
 function release(loaded: Loaded) {
@@ -196,11 +156,6 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
   const picture = surface();
   const pictureSource = new CanvasSource({ resource: picture.canvas });
   const texture = new Texture({ source: pictureSource });
-  // Only a reel that has cut-outs (Depth) draws a second picture: the person, alone, on the same footing.
-  const cutouts = sources.some(item => item.cutoutUrl);
-  const person = cutouts ? surface() : null;
-  const personSource = person ? new CanvasSource({ resource: person.canvas }) : null;
-  const subject = personSource ? new Texture({ source: personSource }) : null;
   const assets: ReelAsset[] = sources.map(item => (item.kind === 'photo' ? { kind: 'photo' } : { kind: 'clip', shots: item.shots ?? [[0, 6000]] }));
 
   let segments: Segment[] = [];
@@ -209,10 +164,10 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
   let seeks = 0;
 
   /**
-   * Draws `shown` over the whole canvas the way a poster fills a frame, scaled up by `zoom` about the middle; the person too, in the same place.
+   * Draws `shown` over the whole canvas the way a poster fills a frame, scaled up by `zoom` about the middle.
    * With `alpha` below 1 it is laid over what is already drawn (the picture it dissolves from).
    */
-  function cover(shown: CanvasImageSource & { width: number; height: number }, zoom: number, gain: number, alone?: HTMLCanvasElement, alpha = 1) {
+  function cover(shown: CanvasImageSource & { width: number; height: number }, zoom: number, gain: number, alpha = 1) {
     const scale = Math.max(WIDTH / shown.width, HEIGHT / shown.height) * zoom;
     const width = shown.width * scale;
     const height = shown.height * scale;
@@ -228,12 +183,6 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
     picture.context.drawImage(shown, left, top, width, height);
     picture.context.filter = 'none';
     picture.context.globalAlpha = 1;
-    if (person && alpha >= 1) {
-      person.context.clearRect(0, 0, WIDTH, HEIGHT);
-      person.context.filter = filter;
-      if (alone) person.context.drawImage(alone, left, top, width, height);
-      person.context.filter = 'none';
-    }
   }
 
   /** One piece of the edit as it looks at `ms` of the song, drawn at `alpha` over what is there. */
@@ -243,7 +192,7 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
       const length = Math.max(1, segment.endMs - segment.atMs);
       const along = Math.min(1, Math.max(0, (ms - segment.atMs) / length));
       const [from, to] = segment.zoom;
-      cover(loaded.image, from + (to - from) * along, loaded.gain ?? 1, loaded.subject, alpha);
+      cover(loaded.image, from + (to - from) * along, loaded.gain ?? 1, alpha);
     } else {
       if (loaded.gain === undefined) {
         await loaded.motion.seek(Math.min(PROBE_CLIP_MS, loaded.motion.durationMs * 0.3));
@@ -252,14 +201,13 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
         loaded.reference = referenceOf(probed, loaded.gain);
       }
       await loaded.motion.seek(clipMsAt(segment, ms));
-      cover(loaded.motion.texture.source.resource as HTMLCanvasElement, 1, loaded.gain, undefined, alpha);
+      cover(loaded.motion.texture.source.resource as HTMLCanvasElement, 1, loaded.gain, alpha);
     }
     return loaded;
   }
 
   return {
     texture,
-    subject,
     durationMs: 15_000,
     direct(music, seed, durationMs, preset) {
       const key = `${seed}|${durationMs}|${music?.beatsMs.length ?? 0}|${music?.energy.length ?? 0}|${music?.accentsMs?.join(',') ?? ''}|${music?.pace ?? ''}|${assets.length}|${preset ? JSON.stringify(preset) : ''}|${music?.snaresMs?.length ?? 0}|${music?.hatsMs?.length ?? 0}|${music?.dropsMs?.join(',') ?? ''}`;
@@ -280,7 +228,6 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
       const reference = loaded.reference;
       if (reference) references.set(texture, { key: reelKey(sources[segment.asset]), canvas: reference });
       pictureSource.update();
-      personSource?.update();
       // Playing the reel (a poster is one look, playing is many): the pictures the next couple of seconds need are fetched ahead, so a first sight of a clip does not stall it.
       seeks += 1;
       if (seeks >= 2 && prefetching) {
@@ -290,7 +237,6 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
     destroy() {
       // The pictures stay kept for the next card; only this reel's own canvases go.
       texture.destroy(true);
-      subject?.destroy(true);
     },
   };
 }
