@@ -54,6 +54,13 @@ const cases = {
   oursAndOwn: [card({}, ['photo']), false],
   effectOnPlain: [card({ effectId: 'tropical-ascii-cam-1' }), false],
   nothing: [card({ plateId: undefined }), false],
+  silhouetteRed: [card({ windowMode: 'silhouette', windowShape: 'man-cap', windowPalette: 'red', windowAllowed: ['red'] }), true],
+  silhouetteReel: [card({ windowMode: 'silhouette', windowShape: 'woman-side', plateId: undefined, reel: REEL }), true],
+  silhouetteNoShape: [card({ windowMode: 'silhouette' }), false],
+  silhouetteUnknownShape: [card({ windowMode: 'silhouette', windowShape: 'dog' }), false],
+  shapeOnPlain: [card({ windowShape: 'man-cap' }), false],
+  redOnPlain: [card({ windowPalette: 'red', windowAllowed: ['red'] }), false],
+  shapeOnAnotherStyle: [card({ style: 'dust', windowMode: undefined, windowPalette: undefined, windowAllowed: undefined, windowShape: 'man-cap' }), false],
 };
 
 const python = spawnSync('python3', ['-c', 'import modal'], { encoding: 'utf8' });

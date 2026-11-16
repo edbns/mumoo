@@ -27,6 +27,7 @@ import { risoInkSetById } from './riso-look';
 import { prepareRisoFrame, prepareRisoPhoto, type RisoPhoto } from './riso-photo';
 import { WINDOW_PALETTE_IDS } from './window-look';
 import type { WindowMode } from './window-deal';
+import { SILHOUETTE_IDS, SILHOUETTE_SCREENS, silhouetteUrl } from './silhouette';
 import { isTreatmentId, isTreatmentVariant, type TreatmentId } from './treatment-deal';
 import { DISSOLVE_MS, TRANSITION, isPresetId, isPresetTake, presetDef, type PresetId } from './edit-presets';
 import { presetFrame } from './preset-motion';
@@ -77,6 +78,8 @@ export type PackRendererOpts = {
   windowMode?: WindowMode;
   windowPalette?: string;
   windowAllowed?: readonly string[];
+  /** Silhouette (`windowMode: 'silhouette'`): the figure the picture is seen through. */
+  windowShape?: string;
   /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
   treatment?: TreatmentId;
   treatmentVariant?: string;
@@ -121,12 +124,14 @@ export async function loadTexture(url: string, what: string): Promise<Texture> {
 
 /**
  * Where a Window card's picture comes from: the Director's reel, an approved photo, or a photo or clip (ours or the person's). Exactly one.
- * Its screen is black or white and holds that colour. Anything else is a mistake in the card, and is not drawn around.
+ * Its screen is black or white (a Silhouette's red, black or white, around a known figure) and holds that colour. Anything else is a mistake in the card, and is not drawn around.
  */
 function checkWindow(opts: PackRendererOpts): WindowMode {
-  const { windowMode: mode, windowPalette: palette, windowAllowed: allowed } = opts;
-  if (mode !== 'plain' || !palette || !allowed) throw new Error('Window needs its picture as it is, a screen colour and the colours it may flip to.');
-  if (![palette, ...allowed].every(id => WINDOW_PALETTE_IDS.includes(id))) throw new Error('Window has no such screen colour.');
+  const { windowMode: mode, windowPalette: palette, windowAllowed: allowed, windowShape: shape } = opts;
+  if ((mode !== 'plain' && mode !== 'silhouette') || !palette || !allowed) throw new Error('Window needs its picture as it is, a screen colour and the colours it may flip to.');
+  const screens: readonly string[] = mode === 'silhouette' ? SILHOUETTE_SCREENS : WINDOW_PALETTE_IDS.filter(id => id !== 'red');
+  if (![palette, ...allowed].every(id => screens.includes(id))) throw new Error('Window has no such screen colour.');
+  if (mode === 'silhouette' ? !shape || !SILHOUETTE_IDS.includes(shape) : shape !== undefined) throw new Error(mode === 'silhouette' ? 'Silhouette has no such figure.' : 'Only a Silhouette has a figure.');
   if (opts.effectId || opts.bankId) throw new Error('Window shows only a picture behind the word.');
   const sources = [Boolean(opts.reel?.length), Boolean(opts.plateId), Boolean(opts.photoUrl || opts.motionUrl)].filter(Boolean).length;
   if (sources !== 1) throw new Error('A Window card needs exactly one picture.');
@@ -158,6 +163,7 @@ export async function createPackRenderer(
   let dustKey = '';
   let risoPhoto: RisoPhoto | null = null;
   let risoKey = '';
+  const figures = new Map<string, Texture>();
   let presetPass: PresetPass | null = null;
   let contextLost = false;
   let gl: WebGL2RenderingContext | WebGLRenderingContext | null = null;
@@ -183,6 +189,8 @@ export async function createPackRenderer(
     dustKey = '';
     risoPhoto = null;
     risoKey = '';
+    for (const texture of figures.values()) texture.destroy(true);
+    figures.clear();
     if (initialized) {
       try { app.destroy(false, { children: true }); } catch { /* a lost surface cannot be torn down cleanly */ }
     }
@@ -297,6 +305,10 @@ export async function createPackRenderer(
         const cutoutUrl = cutOut ? (current.plateId ? plateCutoutUrl(current.plateId) : current.cutoutUrl) : undefined;
         if (ownPicture) await ensurePicture(photoUrl, cutoutUrl, current.motionUrl, current.reel);
         else await ensurePicture(undefined, undefined, undefined);
+        // The six figures are small and shared by every Silhouette card: each is read once and kept.
+        const shape = windowMode === 'silhouette' ? current.windowShape : undefined;
+        if (shape && !figures.has(shape)) figures.set(shape, await loadTexture(silhouetteUrl(shape), 'The silhouette'));
+        const windowFigure = shape ? figures.get(shape) : undefined;
 
         // A baked still: a Look Bank background or a photography effect. One that cannot be loaded shows the downtime message.
         const stillUrl = style === 'bank' && current.bankId ? bankBackgroundUrl(current.bankId)
@@ -431,6 +443,8 @@ export async function createPackRenderer(
           windowPicture,
           windowPalette: current.windowPalette,
           windowAllowed: current.windowAllowed,
+          windowShape: windowFigure ? current.windowShape : undefined,
+          windowFigure,
           treatment: style === 'treatment' ? current.treatment : undefined,
           treatmentVariant: style === 'treatment' ? current.treatmentVariant : undefined,
         }, app.renderer);

@@ -10,7 +10,7 @@ await server.close();
 
 test('a song with no words shows only the rows that work without them', () => {
   const treatments = ['triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double'];
-  assert.deepEqual(pack.rowsFor(true).map(row => row.id), ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'dust']);
+  assert.deepEqual(pack.rowsFor(true).map(row => row.id), ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'silhouette', 'dust']);
   assert.ok(pack.rowsFor(true).every(row => row.lyrics === 'switch'), 'none of them is made of the lyrics');
   assert.deepEqual(pack.rowsFor(false).map(row => row.id), pack.SHELF_ROWS.map(row => row.id), 'with words, every row');
   assert.ok(pack.rowsFor(true).length < pack.rowsFor(false).length);
@@ -18,8 +18,8 @@ test('a song with no words shows only the rows that work without them', () => {
   assert.deepEqual(pack.rowsFor(false).map(row => row.id).filter(id => !pack.rowsFor(false, 'motion').some(row => row.id === id)), ['pulise', 'dust']);
   // Any picture of their own leaves out the templates that draw none (Pulise).
   assert.deepEqual(pack.rowsFor(false).map(row => row.id).filter(id => !pack.rowsFor(false, 'photo').some(row => row.id === id)), ['pulise']);
-  assert.deepEqual(pack.rowsFor(false, 'motion').map(row => row.id), ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window'], 'a video: no Pulise or Dust');
-  assert.deepEqual(pack.rowsFor(true, 'motion').map(row => row.id), ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso'], 'no lyrics and a video: both rules');
+  assert.deepEqual(pack.rowsFor(false, 'motion').map(row => row.id), ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window', 'silhouette'], 'a video: no Pulise or Dust');
+  assert.deepEqual(pack.rowsFor(true, 'motion').map(row => row.id), ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'silhouette'], 'no lyrics and a video: both rules');
 });
 
 test('with no words the page still deals a hand: no lyrics and no reading of them are needed', () => {

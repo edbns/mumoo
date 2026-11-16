@@ -51,7 +51,7 @@ CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
-    "motionShots", "reel", "cutSeed", "look", "inkSet", "windowMode", "windowPalette", "windowAllowed",
+    "motionShots", "reel", "cutSeed", "look", "inkSet", "windowMode", "windowPalette", "windowAllowed", "windowShape",
     "treatment", "treatmentVariant", "preset", "presetTake",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
@@ -82,10 +82,14 @@ PRESETS = {
     "mono": {"grit"},
 }
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
-WINDOW_PALETTES = {"black", "off-white"}
+WINDOW_PALETTES = {"black", "off-white", "red"}
 WINDOW_FACES = {"Anton", "Big Shoulders Display", "Staatliches", "Bangers", "Barlow Condensed"}
-# What a Window card shows through its word: the picture as it is (a Director's reel, our approved photo, or a photo or clip of the library or the person).
-WINDOW_MODES = {"plain"}
+# What a Window card shows its picture through (a Director's reel, our approved photo, or a photo or clip of the library or the person):
+# the lyric word (`plain`, on black or white), or the still figure of a person (`silhouette`, on red, black or white).
+WINDOW_MODES = {"plain", "silhouette"}
+WINDOW_SCREENS = {"plain": {"black", "off-white"}, "silhouette": {"red", "black", "off-white"}}
+# The figures of creative/public/silhouettes (creative/src/silhouette.ts).
+WINDOW_SHAPES = {"woman-front", "woman-side", "woman-curls", "man-front", "man-hood", "man-cap"}
 WINDOW_KEYS = ("windowMode", "windowPalette", "windowAllowed")
 # Styles drawn from a person cut out of a photo: an approved plate (`plateId`) or the person's own photo and cut-out mask.
 CUT_OUT_STYLES = {"dust", "riso"}
@@ -295,11 +299,13 @@ def parse_meta(raw: str) -> dict:
             raise ValueError("window")
         if not isinstance(allowed, list) or not 0 < len(allowed) <= len(WINDOW_PALETTES) or len(set(allowed)) != len(allowed):
             raise ValueError("windowAllowed")
-        if not all(isinstance(id_, str) and id_ in WINDOW_PALETTES for id_ in allowed) or opts["windowPalette"] not in allowed:
+        if not all(isinstance(id_, str) and id_ in WINDOW_SCREENS[opts["windowMode"]] for id_ in allowed) or opts["windowPalette"] not in allowed:
             raise ValueError("windowPalette")
+        if (opts["windowMode"] == "silhouette") != ("windowShape" in opts) or opts.get("windowShape", "woman-front") not in WINDOW_SHAPES:
+            raise ValueError("windowShape")
         if opts["font"] not in WINDOW_FACES:
             raise ValueError("font")
-    elif any(key in opts for key in WINDOW_KEYS):
+    elif any(key in opts for key in (*WINDOW_KEYS, "windowShape")):
         raise ValueError("window")
     # A video treatment finishes the Director's reel with one known pass and variant; preview and encode share the same options.
     if opts["style"] == "treatment":

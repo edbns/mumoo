@@ -13,7 +13,7 @@ import {
 import { STYLE_NAMES, type AdPunchStyle } from './ad-punch';
 import { dustColors, type DustColors } from './dust-colors';
 import { RISO_INK_SETS } from './riso-look';
-import { dealWindow, type WindowMode } from './window-deal';
+import { dealSilhouette, dealWindow, type WindowCard, type WindowMode } from './window-deal';
 import bankData from './look-lab/bank.json';
 import effectsData from '../punch-plates/effects/effects.json';
 import { laneFromMeaning, leansDeep, type LyricAttitude, type LyricMeaning } from './lyric-meaning';
@@ -44,7 +44,7 @@ const PHOTO_EFFECTS = effectsData as PhotoEffect[];
 export type PackFamily = 'ad_punch';
 
 /** Every row that can be dealt. 'looks' (Moving backgrounds) is dealt but not on the shelf: see SHELF_ROWS. */
-export type ShelfRow = 'photography' | LookFamily | TreatmentId | 'looks' | 'riso' | 'window' | 'pulise' | 'dust';
+export type ShelfRow = 'photography' | LookFamily | TreatmentId | 'looks' | 'riso' | 'window' | 'silhouette' | 'pulise' | 'dust';
 
 /**
  * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
@@ -67,6 +67,8 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'ascii', title: 'ASCII', lyrics: 'switch', picture: 'any' },
   { id: 'riso', title: 'Riso', lyrics: 'switch', picture: 'any' },
   { id: 'window', title: 'Window', lyrics: 'always', picture: 'any' },
+  // The song's video inside the still figure of a person, on red, black or white; never for gospel.
+  { id: 'silhouette', title: 'Silhouette', lyrics: 'switch', picture: 'any' },
   // "Moving backgrounds" (id 'looks', the Shaders backgrounds under lyric type) is off the shelf until its backgrounds are good enough.
   // To bring it back, add { id: 'looks', title: 'Moving backgrounds', lyrics: 'switch' } here.
   { id: 'pulise', title: 'Pulise', lyrics: 'always' },
@@ -103,6 +105,8 @@ export type CreativesPackSlot = {
   windowMode?: WindowMode;
   windowPalette?: string;
   windowAllowed?: string[];
+  /** Silhouette: the figure the picture is seen through (`SILHOUETTES` id). */
+  windowShape?: string;
   /** Our photography and Window: which arrangement of the person's video or GIF this card plays (its cut speed follows the card's place). */
   cutSeed?: number;
   /** Our photography: the approved library picture (a photo, video or GIF) this card is drawn from, until the person uses their own. */
@@ -329,7 +333,7 @@ function libraryWanted(profile: CreativeProfileV1, meaning: LyricMeaning | null,
 export type PlateRef = { id: string; cutout: boolean };
 
 /** Riso and Window are drawn in the inks and screen colours they were dealt: a mood grade over them would recolour the design. */
-const UNGRADED: readonly ShelfRow[] = ['riso', 'window'];
+const UNGRADED: readonly ShelfRow[] = ['riso', 'window', 'silhouette'];
 
 /** Riso: a cut-out photo (person print) or a video/GIF (whole-frame print). Dust stays cut-out photos only. */
 const risoCapable = (item: LibraryPicture) => (item.kind === 'photo' ? Boolean(item.cutoutUrl) : Boolean(item.motionUrl));
@@ -488,7 +492,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   // Dust draws library photos that have a cut-out; Riso those, or library videos/GIFs; with none, our approved photos.
   const wanted = libraryWanted(profile, meaning, genre, intent);
   // Every template but Pulise and Dust shows the Directed card's video in its place: the same board, pictures and reel.
-  const directedRow = row === 'photography' || isTreatmentId(row) || isLookRow(row) || row === 'riso' || row === 'window';
+  const directedRow = row === 'photography' || isTreatmentId(row) || isLookRow(row) || row === 'riso' || row === 'window' || row === 'silhouette';
   const directedSeed = `${profile.clip.sourceSha256}:${generation}:${lane}:photography`;
   const { board, from } = rowLibrary(directedRow ? 'photography' : row, profile, wanted, library);
   const cutOut = (item: LibraryPicture) => item.kind === 'photo' && Boolean(item.cutoutUrl);
@@ -532,6 +536,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, risoPhotos),
     window: () => windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE), ownPicture ? [] : plates),
+    silhouette: () => (GOSPEL_GENRE.test(`${genre} ${profile.creator.subGenre?.value ?? ''}`.toLowerCase()) ? [] : windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE), ownPicture ? [] : plates, dealSilhouette(seed))),
     pulise: () => puliseSlots(lane, intent, seed),
     dust: () => dustSlots(lane, intent, seed, cover?.hue, photos),
   }[row]();
@@ -598,21 +603,23 @@ function risoSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, p
   }));
 }
 
-/** Four Window cards: the song's video through the word, on black or white, each in its own condensed face (see window-deal.ts). Every card is made of the lyrics. */
-function windowSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, picks: readonly LibraryPicture[], plates: readonly PlateRef[]): CreativesPackSlot[] {
+/** Four Window cards: the song's video through the word, on black or white, each in its own condensed face (see window-deal.ts); or, given Silhouette's `cards`, through a figure. */
+function windowSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, picks: readonly LibraryPicture[], plates: readonly PlateRef[], cards: readonly WindowCard[] = dealWindow(seed)): CreativesPackSlot[] {
   // With no library picture, our approved photos stand in.
   const photos = seededOrder(plates, `${seed}:plates`, plate => plate.id);
-  return dealWindow(seed).map((card, index) => {
+  const row: ShelfRow = cards[0]?.mode === 'silhouette' ? 'silhouette' : 'window';
+  return cards.map((card, index) => {
     const pick = picks.length ? picks[index % picks.length] : null;
     const plate = !pick && photos.length ? photos[index % photos.length] : null;
     return {
       // Window sets one face of type: the second is the same, so nothing else is asked of the worker.
-      ...adPunchSlot('window', index, intent, seed, lane, 'window', { font: card.font, fontSecondary: card.font }),
-      label: sentence(card.palette.replace('-', ' ')),
-      reason: `${lane} · ${card.palette} · ${card.font}`,
+      ...adPunchSlot('window', index, intent, seed, lane, row, { font: card.font, fontSecondary: card.font }),
+      label: sentence([card.shape?.replace('-', ' '), card.palette.replace('-', ' ')].filter(Boolean).join(' · ')),
+      reason: `${lane} · ${card.shape ? `${card.shape} · ` : ''}${card.palette} · ${card.font}`,
       windowMode: card.mode,
       windowPalette: card.palette,
       windowAllowed: card.allowed,
+      ...(card.shape ? { windowShape: card.shape } : {}),
       ...(pick ? { libraryId: pick.id } : {}),
       ...(plate ? { plateId: plate.id } : {}),
       cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,

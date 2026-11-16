@@ -53,6 +53,9 @@ export type PackSceneInput = {
   windowPicture?: Texture;
   windowPalette?: string;
   windowAllowed?: readonly string[];
+  /** Silhouette: the figure the picture is seen through, and its mask (white is the person). */
+  windowShape?: string;
+  windowFigure?: Texture;
   /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
   treatment?: TreatmentId;
   treatmentVariant?: string;

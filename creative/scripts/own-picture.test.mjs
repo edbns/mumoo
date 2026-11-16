@@ -186,7 +186,7 @@ test('a Window card draws our photo or a person\'s own photo as it is, on black 
     const page = await chrome.newPage();
     await page.goto(`${site.resolvedUrls.local[0]}render.html`);
     await page.waitForFunction(() => 'mumooPack' in window, null, { timeout: 60000 });
-    const card = (extra) => ({ ...opts(undefined), style: 'window', typeStyle: undefined, fallbackText: 'HELLO', lyrics: true, font: 'Anton', fontSecondary: 'Anton', windowMode: 'plain', windowPalette: 'black', windowAllowed: ids, ...extra });
+    const card = (extra) => ({ ...opts(undefined), style: 'window', typeStyle: undefined, fallbackText: 'HELLO', lyrics: true, font: 'Anton', fontSecondary: 'Anton', windowMode: 'plain', windowPalette: 'black', windowAllowed: ids.filter(id => id !== 'red'), ...extra });
     const own = `${files.url}/own.jpg?signature=1`;
     const woman = 'burnnet-woman-1547507-1920';
 
@@ -204,6 +204,17 @@ test('a Window card draws our photo or a person\'s own photo as it is, on black 
     await assert.rejects(frameBrightness(page, card({ plateId: woman, windowPalette: undefined })), /screen colour/);
     await assert.rejects(frameBrightness(page, card({ plateId: woman, windowPalette: 'cobalt', windowAllowed: ['cobalt'] })), /no such screen colour/);
     await assert.rejects(frameBrightness(page, card({ plateId: woman, windowAllowed: undefined })), /screen colour/);
+
+    // Silhouette: the picture inside a figure, on red, black or white.
+    const figure = (extra) => card({ plateId: woman, windowMode: 'silhouette', windowShape: 'man-cap', windowPalette: 'black', windowAllowed: ['black'], ...extra });
+    const inFigure = await frameBrightness(page, figure({}));
+    assert.ok(inFigure > 2, `the picture shows inside the figure (${inFigure})`);
+    assert.ok(await frameBrightness(page, figure({ windowPalette: 'off-white', windowAllowed: ['off-white'] })) > inFigure + 40, 'the screen colour is drawn around the figure');
+    assert.ok(await frameBrightness(page, figure({ windowPalette: 'red', windowAllowed: ['red'] })) > inFigure, 'a red screen');
+    await assert.rejects(frameBrightness(page, figure({ windowShape: 'dog' })), /no such figure/);
+    await assert.rejects(frameBrightness(page, figure({ windowShape: undefined })), /no such figure/);
+    await assert.rejects(frameBrightness(page, card({ plateId: woman, windowShape: 'man-cap' })), /Only a Silhouette/);
+    await assert.rejects(frameBrightness(page, card({ plateId: woman, windowPalette: 'red', windowAllowed: ['red'] })), /no such screen colour/, 'red is Silhouette\'s');
   } finally {
     await chrome.close();
     await site.close();

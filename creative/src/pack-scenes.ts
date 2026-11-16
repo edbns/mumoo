@@ -9,6 +9,7 @@ import { createPuliseWorld } from './pack-pulise';
 import { createDustWorld, type DustPoints, type DustWorld } from './pack-dust';
 import { createRisoWorld, type RisoWorld } from './pack-riso';
 import { createWindowWorld, type WindowWorld } from './pack-window';
+import { createSilhouetteWorld, type SilhouetteWorld } from './pack-silhouette';
 import { createTreatmentWorld } from './pack-treatment';
 import type { RisoPhoto } from './riso-photo';
 
@@ -33,6 +34,7 @@ export function createPackScene(): PackScene {
   // the shelf draws one poster after another on this one scene.
   let riso: { photo: RisoPhoto; seed: number; world: RisoWorld } | null = null;
   let knockout: { seed: number; world: WindowWorld } | null = null;
+  let figure: SilhouetteWorld | null = null;
   const treatment = createTreatmentWorld();
   const printLayer = new Container();
   root.addChild(picture.root, pulise.root, dustLayer, printLayer, treatment.root);
@@ -65,7 +67,29 @@ export function createPackScene(): PackScene {
     riso.world.update({ ms: input.ms, beatsMs: input.beatsMs, downbeatsMs: input.downbeatsMs, cues: input.cues, inks: input.inks, font: input.font });
   }
 
+  function updateSilhouette(input: PackSceneInput) {
+    if (!input.windowPicture || !input.windowPalette || !input.windowShape || !input.windowFigure) throw new Error('Silhouette needs a picture, a screen colour and a figure.');
+    if (!figure) {
+      figure = createSilhouetteWorld();
+      printLayer.addChild(figure.root);
+    }
+    const words = !input.lyrics || !input.phrase ? [] : input.words.length ? [...input.words] : [{ text: input.phrase, startMs: 0, endMs: 600 }];
+    figure.update({
+      ms: input.ms, beatsMs: input.beatsMs, downbeatsMs: input.downbeatsMs, beat: input.beat, beatIndex: input.beatIndex, energy: input.energy,
+      seed: input.seed, palette: input.windowPalette, shape: input.windowShape, figure: input.windowFigure, picture: input.windowPicture,
+      words, typeStyle: input.typeStyle ?? 'stack', font: input.font,
+    });
+  }
+
   function updateWindow(input: PackSceneInput) {
+    if (input.windowFigure) {
+      knockout?.world.destroy();
+      knockout = null;
+      updateSilhouette(input);
+      return;
+    }
+    figure?.destroy();
+    figure = null;
     if (!input.windowPicture || !input.windowPalette) throw new Error('Window needs a picture and a screen colour.');
     if (knockout?.seed !== input.seed) {
       knockout?.world.destroy();
@@ -82,7 +106,7 @@ export function createPackScene(): PackScene {
     root,
     update(input, renderer) {
       if (input.style !== 'riso') { riso?.world.destroy(); riso = null; }
-      if (input.style !== 'window') { knockout?.world.destroy(); knockout = null; }
+      if (input.style !== 'window') { knockout?.world.destroy(); knockout = null; figure?.destroy(); figure = null; }
       picture.root.visible = input.style === 'bank' || input.style === 'filter';
       pulise.root.visible = input.style === 'pulise';
       dustLayer.visible = input.style === 'dust';
@@ -103,6 +127,7 @@ export function createPackScene(): PackScene {
       dust?.world.destroy();
       riso?.world.destroy();
       knockout?.world.destroy();
+      figure?.destroy();
       treatment.destroy();
       root.destroy({ children: true });
     },
