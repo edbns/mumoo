@@ -109,6 +109,26 @@ test('words are set on one horizontal line, as big as the safe area allows, and 
   } finally { await server.close(); }
 });
 
+test('the words take turns running across the frame and up it, and both ways they are set bigger than other lyrics, inside the frame at a full punch', async () => {
+  const { server, look } = await load();
+  try {
+    for (const seed of [0, 1, 7]) {
+      const ways = Array.from({ length: 6 }, (_, group) => look.turnedAt(seed, group));
+      ways.forEach((turned, group) => group && assert.notEqual(turned, ways[group - 1], `seed ${seed}: group ${group} turns the other way`));
+    }
+    assert.notEqual(look.turnedAt(0, 0), look.turnedAt(1, 0), 'the seed decides which way a card starts');
+    for (const text of ['NO', 'CAMBIAR', 'MY BAD']) {
+      const across = look.layoutWindow(text, measure, false);
+      const up = look.layoutWindow(text, measure, true);
+      assert.ok(across.lines[0].size >= look.layoutWords(text, measure).lines[0].size, `${text}: across, at least as big as before`);
+      assert.ok(across.width * (1 + look.PUNCH_SWELL) <= 1080 + 1e-6 && across.height * (1 + look.PUNCH_SWELL) <= look.SAFE_BOX.height + 1e-6, `${text}: across stays in the frame`);
+      // Turned, the line's width runs along the frame's height, its height across the frame.
+      assert.ok(up.width * (1 + look.PUNCH_SWELL) <= look.SAFE_BOX.height + 1e-6 && up.height * (1 + look.PUNCH_SWELL) <= 1080 + 1e-6, `${text}: up stays in the frame`);
+      if (text.length > 2) assert.ok(up.lines[0].size > across.lines[0].size, `${text}: turned, it is set bigger`);
+    }
+  } finally { await server.close(); }
+});
+
 test('a beat punches the window, a downbeat harder, and the punch dies away', async () => {
   const { server, look } = await load();
   try {

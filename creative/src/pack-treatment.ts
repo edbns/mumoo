@@ -3,7 +3,8 @@
  * The reel texture is already cut, pushed-in and levelled (pack-reel.ts). This world draws that picture into
  * an off-screen texture, then finishes it: sliced into panels (Triptych, Bento, Collage, Colored Frame) or passed
  * through a shader (Fisheye, Film Grain), or exposed twice (Double Exposure). The lyrics are drawn on top so they
- * stay readable, except under Fisheye, where they sit in the black below the lens and pass behind it. Preview and cloud render share this code.
+ * stay readable, except under Fisheye, where they sit in the black below the lens and pass behind it, and Colored
+ * Frame, where they sit on the solid colour above and below the video. Preview and cloud render share this code.
  */
 import {
   BlurFilter, Container, Filter, GlProgram, Graphics, Rectangle, RenderTexture, Sprite, Texture, UniformGroup,
@@ -12,7 +13,7 @@ import {
 import { HEIGHT, WIDTH } from './composition';
 import { analyzeTexture } from './pack-palette';
 import type { PackSceneInput } from './pack-copy';
-import { createTypeLayer, type TimedWord } from './pack-type';
+import { createTypeLayer, type TimedWord, type TypeFrame } from './pack-type';
 import type { TreatmentId } from './treatment-deal';
 
 export type TreatmentWorld = {
@@ -263,11 +264,14 @@ const BENTO_RADIUS = 30;
  * in a thin line of the other colour. `scale` is its size against the card.
  */
 const FRAME_LOOK: Record<string, { matte: string; edge: string; scale: number }> = {
-  slim: { matte: '#000000', edge: '#ffffff', scale: 0.8 },
-  bold: { matte: '#ffffff', edge: '#000000', scale: 0.8 },
-  accent: { matte: '#000000', edge: '#ffffff', scale: 0.88 },
-  ink: { matte: '#ffffff', edge: '#000000', scale: 0.88 },
+  slim: { matte: '#000000', edge: '#ffffff', scale: 0.55 },
+  bold: { matte: '#ffffff', edge: '#000000', scale: 0.55 },
+  accent: { matte: '#000000', edge: '#ffffff', scale: 0.62 },
+  ink: { matte: '#ffffff', edge: '#000000', scale: 0.62 },
 };
+/** Colored Frame's lyrics stay on the solid colour, in the bands above and below the video: this far from the frame's sides and from the band's edges. */
+const BAND_SIDE = 60;
+const BAND_PAD = 40;
 const FRAME_RADIUS = 36;
 const FRAME_EDGE = 4;
 
@@ -309,7 +313,9 @@ export function createTreatmentWorld(): TreatmentWorld {
   const treated = new Sprite();
   const scrim = new Graphics();
   const type = createTypeLayer();
-  root.addChild(backdrop, blurred, panels, treated, scrim, type.root);
+  /** Colored Frame's second line of lyrics, in the band below the video (`type` takes the band above). */
+  const below = createTypeLayer();
+  root.addChild(backdrop, blurred, panels, treated, scrim, type.root, below.root);
 
   let sourceRt: RenderTexture | null = null;
   let smallRt: RenderTexture | null = null;
@@ -463,10 +469,12 @@ export function createTreatmentWorld(): TreatmentWorld {
       if (!kind || !variant || !texture) {
         clearBuilt();
         scrim.clear();
-        type.paint('minimal', {
+        const none: TypeFrame = {
           ms: 0, words: [], beat: 0, beatIndex: 0, energy: 0, seed: 0,
           ink: '#fff', accent: '#fff', shadow: '#000', font: 'Anton', fontSecondary: 'Anton',
-        });
+        };
+        type.paint('minimal', none);
+        below.paint('minimal', none);
         return;
       }
 
@@ -543,22 +551,44 @@ export function createTreatmentWorld(): TreatmentWorld {
       }
 
       const style = input.typeStyle ?? 'minimal';
-      const onBlack = kind === 'fisheye';
       const words: TimedWord[] = !input.lyrics || !input.phrase ? [] : input.words.length
         ? [...input.words]
         : [{ text: input.phrase, startMs: 0, endMs: 600 }];
+      const frame = { ms: input.ms, beat: input.beat, beatIndex: input.beatIndex, energy: input.energy, seed: input.layout.seed, font: input.font, fontSecondary: input.fontSecondary };
+
+      if (kind === 'frame') {
+        // The phrase is shared out over the two bands of solid colour: its first half above the video, the rest below; never over the video.
+        const look = FRAME_LOOK[variant] ?? FRAME_LOOK.slim;
+        const dark = look.matte === '#000000';
+        const colours = { ink: dark ? LIGHT : BLACK, accent: dark ? LIGHT : BLACK, shadow: dark ? '#000000' : '#ffffff' };
+        const half = Math.ceil(words.length / 2);
+        const band = (HEIGHT * (1 - look.scale)) / 2 - FRAME_EDGE;
+        for (const [layer, part, middle] of [[type, words.slice(0, half), band / 2], [below, words.slice(half), HEIGHT - band / 2]] as const) {
+          layer.root.pivot.set(0, 0);
+          layer.root.position.set(0, 0);
+          layer.root.scale.set(1);
+          layer.paint(style, { ...frame, ...colours, words: part });
+          const bounds = layer.root.getLocalBounds();
+          if (!part.length || bounds.width <= 0 || bounds.height <= 0) continue;
+          const fit = Math.min(1, (WIDTH - BAND_SIDE * 2) / bounds.width, (band - BAND_PAD * 2) / bounds.height);
+          layer.root.pivot.set(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+          layer.root.position.set(WIDTH / 2, middle);
+          layer.root.scale.set(fit);
+        }
+        return;
+      }
+
+      below.root.pivot.set(0, 0);
+      below.root.position.set(0, 0);
+      below.root.scale.set(1);
+      below.paint(style, { ...frame, words: [], ink: LIGHT, accent: LIGHT, shadow: '#000000' });
+      const onBlack = kind === 'fisheye';
       type.paint(style, {
-        ms: input.ms,
+        ...frame,
         words,
-        beat: input.beat,
-        beatIndex: input.beatIndex,
-        energy: input.energy,
-        seed: input.layout.seed,
         ink: onBlack ? LIGHT : palette.ink,
         accent: onBlack ? (light(palette.accent) ? palette.accent : LIGHT) : palette.accent,
         shadow: onBlack || palette.ink.toLowerCase() === LIGHT ? '#000000' : '#ffffff',
-        font: input.font,
-        fontSecondary: input.fontSecondary,
       });
     },
     destroy() {
@@ -569,6 +599,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       fisheye.filter.destroy();
       grain.filter.destroy();
       type.destroy();
+      below.destroy();
       root.destroy({ children: true });
     },
   };

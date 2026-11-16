@@ -151,6 +151,18 @@ export function layoutWords(text: string, measure: Measure, box: { width: number
   return { lines: [{ text: line, size, width, height, x: 0, y: 0 }], width, height };
 }
 
+/** The window's words reach this close to the sides of the frame: bigger than other lyrics, so more of the picture shows through them. */
+const WINDOW_SIDE = 24;
+/** A line laid across the frame, and one turned to run up it (reading bottom to top); the punch's swell is left free in both. */
+export const ACROSS_BOX = { width: (WIDTH - WINDOW_SIDE * 2) / (1 + PUNCH_SWELL), height: SAFE_BOX.height / (1 + PUNCH_SWELL) } as const;
+export const UP_BOX = { width: SAFE_BOX.height / (1 + PUNCH_SWELL), height: (WIDTH - WINDOW_SIDE * 2) / (1 + PUNCH_SWELL) } as const;
+
+/** Whether the words of group `group` run up the frame instead of across it: the card's words take turns, the seed saying which way it starts. */
+export const turnedAt = (seed: number, group: number) => ((seed + group) & 1) === 1;
+
+/** How a group of words is set in the window: one line, across the frame or turned up it (its width then runs along the frame's height). */
+export const layoutWindow = (text: string, measure: Measure, turned: boolean): WindowLayout => layoutWords(text, measure, turned ? UP_BOX : ACROSS_BOX);
+
 /** Where the middle of the words sits in the frame: the middle of the safe box. */
 export const WORD_CENTRE: readonly [number, number] = [WIDTH / 2, SAFE_BOX.y + SAFE_BOX.height / 2];
 

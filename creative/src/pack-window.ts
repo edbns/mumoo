@@ -2,8 +2,7 @@
  * Window — a blank, flat, single-colour screen with a giant heavy lyric word cut out of it: the word is a window,
  * and the picture behind shows through the letters. The edges are crisp, with a thin darker rim and a hard shadow
  * inside the top left of every letter, so the word reads as a hole cut in thick card. On every beat the window
- * punches and the picture behind pushes in; on a downbeat the screen flips to another of its palette's colours. New
- * words pop in.
+ * punches and the picture behind pushes in. New words pop in, taking turns running across the frame and up it.
  * The picture is any Pixi texture: a photo, or the texture of a video (`Motion` in `pack-motion.ts`), which the
  * caller has already moved to the right moment. Every frame is a pure function of the clock, the beat times and the
  * lyric cues, so the shelf preview and the cloud render draw the same picture.
@@ -14,7 +13,7 @@ import { cssFont, displayFace, setCase, type AdFont } from './ad-fonts';
 import { hexToRgb } from './dust-colors';
 import { textMeasureCtx } from './pack-text';
 import {
-  WORD_CENTRE, coverSize, groupAt, layoutWords, pictureScale, punchAt, screenAt, windowScale, wordGroups,
+  WORD_CENTRE, coverSize, groupAt, layoutWindow, pictureScale, punchAt, screenAt, turnedAt, windowScale, wordGroups,
   type Measure, type WindowLayout, type WordGroup,
 } from './window-look';
 
@@ -58,13 +57,17 @@ uniform vec2 uHalf;
 uniform float uScale;
 uniform vec2 uCover;
 uniform float uPush;
+uniform float uTurn;
 uniform sampler2D uWord;
 uniform sampler2D uPhoto;
 out vec4 finalColor;
 
 /** How much of the word is under this spot of the frame. */
 float word(vec2 frame) {
-  vec2 at = (frame - uCentre) / uScale / (uHalf * 2.0) + 0.5;
+  vec2 d = (frame - uCentre) / uScale;
+  // Turned words run up the frame: their line goes from the bottom to the top, the tops of the letters to the left.
+  if (uTurn > 0.5) d = vec2(-d.y, d.x);
+  vec2 at = d / (uHalf * 2.0) + 0.5;
   return texture(uWord, at).a;
 }
 
@@ -116,6 +119,7 @@ function screen(picture: Texture, word: Texture) {
     uScale: { value: 1, type: 'f32' },
     uCover: vec2(),
     uPush: { value: 1, type: 'f32' },
+    uTurn: { value: 0, type: 'f32' },
   };
   const shader = Shader.from({ gl: { vertex: VERTEX, fragment: FRAGMENT }, resources: { window: uniforms, uWord: word.source, uPhoto: picture.source } as never });
   const mesh = new Mesh({ geometry, shader });
@@ -191,7 +195,7 @@ export type WindowWorld = {
   destroy(): void;
 };
 
-type Words = { index: number; texture: Texture; centre: readonly [number, number] };
+type Words = { index: number; texture: Texture; centre: readonly [number, number]; turned: boolean };
 
 /** The screen for one card. `seed` decides which of its flip colours the screen flips to, bar by bar. */
 export function createWindowWorld(seed: number): WindowWorld {
@@ -231,7 +235,8 @@ export function createWindowWorld(seed: number): WindowWorld {
       } else if (words?.index !== index) {
         dropWords();
         const text = setCase(font, groups[index].text);
-        words = { index, texture: drawWords(layoutWords(text, measureFor(font)), font), centre: WORD_CENTRE };
+        const turned = turnedAt(seed, index);
+        words = { index, texture: drawWords(layoutWindow(text, measureFor(font), turned), font), centre: WORD_CENTRE, turned };
       }
       // The picture, or the words' texture, is new: the screen is made again to point at it.
       if (view && (view.picture !== picture || view.word !== (words?.texture ?? Texture.EMPTY))) dropView();
@@ -252,6 +257,7 @@ export function createWindowWorld(seed: number): WindowWorld {
         uScale: windowScale(punch, index < 0 ? Infinity : ms - groups[index].startMs),
         uCover: coverSize(picture.width, picture.height),
         uPush: pictureScale(ms, punch),
+        uTurn: words?.turned ? 1 : 0,
       });
     },
     destroy() {
