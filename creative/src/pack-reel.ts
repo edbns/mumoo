@@ -1,5 +1,6 @@
 import { CanvasSource, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH, type ImpactMusic } from './composition';
+import { fetchFresh } from './fetch-fresh';
 import { loadMotion, type Motion } from './pack-motion';
 import { REFERENCE_H, REFERENCE_W, references } from './pack-palette';
 import { clipMsAt, planReel, segmentAt, type ReelAsset, type Segment, type Shot } from './pack-director';
@@ -97,7 +98,7 @@ export function setReelPrefetch(on: boolean) {
 }
 
 async function bitmapOf(url: string, what: string): Promise<ImageBitmap> {
-  const response = await fetch(url, { cache: 'no-store' }).catch(() => null);
+  const response = await fetchFresh(url);
   if (!response?.ok) throw new Error(`${what} could not be loaded${response ? ` (${response.status})` : ''}. Reload the page.`);
   const image = await createImageBitmap(await response.blob()).catch(() => null);
   if (!image) throw new Error(`${what} could not be read.`);

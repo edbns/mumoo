@@ -1,4 +1,5 @@
 import { CanvasSource, Texture } from 'pixi.js';
+import { fetchFresh } from './fetch-fresh';
 
 /**
  * A person's own video or GIF, as a picture that can be asked for any moment (which moment is the edit's
@@ -17,8 +18,7 @@ export type Motion = {
 const SEEK_TIMEOUT_MS = 1500;
 
 export async function loadMotion(url: string): Promise<Motion> {
-  // Fresh from the network, never the browser's cache (see loadTexture in pack-renderer.ts).
-  const response = await fetch(url, { cache: 'no-store' }).catch(() => null);
+  const response = await fetchFresh(url);
   if (!response?.ok) throw new Error(`Your video could not be loaded${response ? ` (${response.status})` : ''}. Reload the page, or go back to our photography.`);
   const link = URL.createObjectURL(await response.blob());
   const video = document.createElement('video');

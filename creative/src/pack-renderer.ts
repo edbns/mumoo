@@ -31,6 +31,7 @@ import type { WindowPicture } from './pack-window';
 import { isTreatmentId, isTreatmentVariant, type TreatmentId } from './treatment-deal';
 import { DISSOLVE_MS, TRANSITION, isPresetId, isPresetTake, presetDef, type PresetId } from './edit-presets';
 import { presetFrame } from './preset-motion';
+import { fetchFresh } from './fetch-fresh';
 import { REC_FONT, createPresetPass, type PresetPass } from './pack-preset';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
@@ -110,12 +111,9 @@ let shared: PackRenderer | null = null;
 /** What a card without music or lyrics holds. One array, so a world that compares by identity does not take it for new input every frame. */
 const NOTHING: readonly never[] = [];
 
-/**
- * Reads a picture into a texture. It is fetched fresh, never from the browser's cache: a signed link that
- * was once shown in an <img> sits in the cache without CORS headers, and reusing it here would fail.
- */
+/** Reads a picture into a texture, fresh from the network (`fetchFresh`). */
 export async function loadTexture(url: string, what: string): Promise<Texture> {
-  const response = await fetch(url, { cache: 'no-store' }).catch(() => null);
+  const response = await fetchFresh(url);
   if (!response?.ok) throw new Error(`${what} could not be loaded${response ? ` (${response.status})` : ''}. Reload the page, or go back to our photography.`);
   const bitmap = await createImageBitmap(await response.blob()).catch(() => null);
   if (!bitmap) throw new Error(`${what} could not be read as a picture.`);

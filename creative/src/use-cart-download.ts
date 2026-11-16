@@ -61,40 +61,49 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
 
   async function follow(pending: PendingDownload) {
     const total = pending.jobs.length;
-    const waiting = new AbortController();
     let done = 0;
     const show = () => setProgress({
       label: total > 1 ? `Making ${done} of ${total}…` : 'Making your creative…',
       percent: Math.floor(done / total * 100),
     });
     show();
-    try {
-      const videos = await Promise.all(pending.jobs.map(async job => {
-        const video = await awaitCloudJob(latest.current.token, job.jobId, waiting.signal);
+    // One render failing does not end the wait for the others: the ones that are made are delivered, the rest stay in the cart.
+    type Result = { job: PendingDownload['jobs'][number]; video: Blob } | { job: PendingDownload['jobs'][number]; cause: unknown };
+    const results = await Promise.all(pending.jobs.map(async (job): Promise<Result> => {
+      try {
+        return { job, video: await awaitCloudJob(latest.current.token, job.jobId) };
+      } catch (cause) {
+        return { job, cause };
+      } finally {
         done += 1;
         show();
-        return video;
-      }));
-      setProgress({ label: 'Getting your download ready…', percent: 100 });
-      // The renders are done: from here a failure is the download's (the file could not be put together or saved), not a render's.
-      try {
-        const { file, name } = await bundle(videos);
-        saveFile(file, name);
-      } catch (cause) {
-        throw Object.assign(cause instanceof Error ? cause : new Error(String(cause)), { problemKind: 'download' });
       }
+    }));
+    const made = results.flatMap(result => ('video' in result ? [{ job: result.job, video: result.video }] : []));
+    const failed = results.flatMap(result => ('cause' in result ? [result.cause] : []));
+    if (!made.length) throw failed[0];
+    setProgress({ label: 'Getting your download ready…', percent: 100 });
+    // The renders are done: from here a failure is the download's (the file could not be put together or saved), not a render's.
+    try {
+      const { file, name } = await bundle(made.map(entry => entry.video));
+      saveFile(file, name);
     } catch (cause) {
-      // One render failing ends the wait for the others.
-      waiting.abort();
-      throw cause;
+      throw Object.assign(cause instanceof Error ? cause : new Error(String(cause)), { problemKind: 'download' });
     }
     localStorage.removeItem(PENDING_KEY);
     const signedIn = await import('./account').then(account => account.sessionToken()).then(Boolean).catch(() => false);
-    const count = pending.jobs.length;
-    const text = `${count === 1 ? 'Your creative is' : `Your ${count} creatives are`} ready${signedIn ? ' and in your History.' : ' and downloaded.'}`;
-    latest.current.cart.removeFrom(pending.songKey, pending.jobs.map(job => job.itemId));
-    reportDelivered(latest.current.token, pending.songKey.split(':')[0], pending.jobs.map(job => job.itemId));
-    setMessage({ kind: 'ready', text });
+    const count = made.length;
+    const delivered = made.map(entry => entry.job.itemId);
+    const ready = `${count === 1 ? 'Your creative is' : `Your ${count} creatives are`} ready${signedIn ? ' and in your History.' : ' and downloaded.'}`;
+    let text = ready;
+    if (failed.length) {
+      const reason = friendlyError(failed[0], 'The creatives could not be exported.');
+      reportProblem('render', reason);
+      text = `${ready} ${failed.length === 1 ? '1 could not be made' : `${failed.length} could not be made`} (${reason.replace(/\.$/, '')}) and ${failed.length === 1 ? 'is' : 'are'} still in your cart: press Download to try again.`;
+    }
+    latest.current.cart.removeFrom(pending.songKey, delivered);
+    reportDelivered(latest.current.token, pending.songKey.split(':')[0], delivered);
+    setMessage({ kind: failed.length ? 'error' : 'ready', text });
     notify(text);
     latest.current.onDelivered();
   }

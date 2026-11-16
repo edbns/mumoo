@@ -160,6 +160,8 @@ def handing(body: bytes, content_type: str):
     max_containers=60,
     scaledown_window=10,
     timeout=270,
+    # Many chunks ask storage for the same clips at once: a passing failure is tried again rather than failing the whole video.
+    retries=modal.Retries(max_retries=2, initial_delay=1.0, backoff_coefficient=2.0),
 )
 def render_chunk(opts: dict, media: dict[str, bytes], start: int, end: int) -> bytes:
     """Render frames [start, end) of the real Pixi scene to a silent H.264 segment."""
@@ -235,6 +237,8 @@ def render_chunk(opts: dict, media: dict[str, bytes], start: int, end: int) -> b
     max_containers=30,
     scaledown_window=10,
     timeout=900,
+    # A reclaimed container would start the whole video again.
+    nonpreemptible=True,
 )
 def render_job(audio: bytes, opts: dict, media: dict[str, bytes]) -> bytes:
     """Fan the frame ranges out in parallel, then concat + mux audio."""
@@ -437,7 +441,7 @@ def check_media(opts: dict, media: dict[str, bytes]) -> None:
         raise ValueError("media")
 
 
-@app.function(image=image, secrets=[secret], timeout=30, scaledown_window=10)
+@app.function(image=image, secrets=[secret], timeout=30, scaledown_window=10, nonpreemptible=True)
 @modal.fastapi_endpoint(method="POST", docs=False)
 async def submit(request: Request):
     authorized(request)
@@ -468,7 +472,7 @@ async def submit(request: Request):
     return {"id": call.object_id}
 
 
-@app.function(image=image, secrets=[secret], timeout=30, scaledown_window=10)
+@app.function(image=image, secrets=[secret], timeout=30, scaledown_window=10, nonpreemptible=True)
 @modal.fastapi_endpoint(method="GET", docs=False)
 async def status(request: Request, id: str = ""):
     authorized(request)

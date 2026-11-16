@@ -16,6 +16,8 @@ const SAMPLE_RATE = 32_000;
 const WAV_SAMPLES = SAMPLE_RATE * (DURATION_MS / 1000);
 const WAV_BYTES = 44 + WAV_SAMPLES * 2;
 const POLL_MS = 1500;
+/** A check on a render that did not get through (the worker was slow to answer, the network dropped) is tried again this many times in a row before giving up. */
+const MISSED_POLLS = 6;
 /** How long a render is waited for before giving up. */
 export const JOB_TIMEOUT_MS = 900_000;
 
@@ -118,11 +120,17 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
     opts: { ...scene, ...(reel?.length ? { reel: reel.map(({ id, kind, shots }) => ({ id, kind, ...(shots ? { shots } : {}) })) } : {}), fallbackText: '' },
   }));
   const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
-  const response = await withAccess(input.token, access => fetch('/.netlify/functions/encode-creative', {
+  const send = () => withAccess(input.token, access => fetch('/.netlify/functions/encode-creative', {
     method: 'POST',
     headers: { 'x-mumoo-brain-access': access, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
     body: form,
   }));
+  // A worker that did not answer in time is asked once more.
+  let response = await send().catch(() => null);
+  if (!response || response.status === 504) {
+    await sleep(2000);
+    response = await send();
+  }
   if (!response.ok) throw new Error(await errorMessage(response));
   const result = await response.json().catch(() => null) as { id?: string } | null;
   if (!result?.id) throw new Error('Your creative did not start. Reload and try again.');
@@ -134,12 +142,22 @@ export async function awaitCloudJob(token: string, id: string, signal?: AbortSig
   // Signed-in people get the finished video kept in their history; the access token is renewed by `withAccess` whenever it gets old, however long the render takes.
   const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
   const deadline = Date.now() + JOB_TIMEOUT_MS;
+  let missed = 0;
   while (Date.now() < deadline) {
     await sleep(POLL_MS, signal);
     const response = await withAccess(token, access => fetch(`/.netlify/functions/encode-creative-status?id=${encodeURIComponent(id)}`, {
       headers: { 'x-mumoo-brain-access': access, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
       signal,
-    }));
+    })).catch(cause => {
+      if (signal?.aborted) throw cause;
+      return null;
+    });
+    // Only the worker's own answer ends the wait; a check that did not get through is tried again.
+    if (!response || response.status === 504 || response.status === 503) {
+      missed += 1;
+      if (missed < MISSED_POLLS) continue;
+      if (!response) throw new Error('Creatives are temporarily unavailable. Reload and try again.');
+    } else missed = 0;
     if (response.status === 202) continue;
     if (!response.ok) throw new Error(await errorMessage(response));
     const blob = await response.blob();
