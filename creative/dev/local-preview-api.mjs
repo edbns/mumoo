@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { cleanLink, slugProblem } from '../netlify/lib/smart-links.mjs';
+import { SERVICES, parseSource } from '../netlify/lib/song-lookup.mjs';
 
 /**
  * Stand-ins for the staging servers, so every screen can be used and designed on the local dev server.
@@ -244,6 +246,46 @@ export function localPreviewApi() {
         send(response, 200, problemsNow());
       }));
       route('/api/report-problem', 'POST', async (_request, response) => send(response, 202, { ok: true }));
+
+      // Smart links: a sample song (a Spotify link is a guess with candidates until one is picked), and links kept in memory,
+      // checked by the real rules. The more specific paths come first: the middleware matches by prefix.
+      const sampleSong = (url, sure) => {
+        const source = parseSource(url);
+        const search = service => `https://${{ spotify: 'open.spotify.com/search/', apple: 'music.apple.com/us/search?term=', youtube: 'www.youtube.com/results?search_query=', youtubeMusic: 'music.youtube.com/search?q=', deezer: 'www.deezer.com/search/', tidal: 'tidal.com/search?q=', soundcloud: 'soundcloud.com/search/sounds?q=', amazon: 'music.amazon.com/search/' }[service]}sample`;
+        const exact = { spotify: source.platform === 'spotify' ? `https://open.spotify.com/track/${source.id}` : null, apple: sure ? 'https://music.apple.com/us/song/sample/1' : null };
+        return {
+          source: `${source.platform}:${source.id}`, title: 'Sample Song', artist: sure ? 'Sample Artist' : null, isrc: sure ? 'USXXX2600001' : null,
+          cover: null, preview: null, confident: sure,
+          links: Object.fromEntries(SERVICES.map(service => [service, exact[service] ? { url: exact[service], exact: true } : { url: search(service), exact: false }])),
+          ...(!sure && { candidates: [
+            { title: 'Sample Song', artist: 'Sample Artist', cover: null, url: 'https://www.deezer.com/track/1', pick: 'deezer:1' },
+            { title: 'Sample Song (Cover)', artist: 'Someone Else', cover: null, url: 'https://www.deezer.com/track/2', pick: 'deezer:2' },
+          ] }),
+        };
+      };
+      route('/api/links/lookup', 'POST', async (request, response) => {
+        const { url, pick } = JSON.parse((await readBody(request)).toString('utf8'));
+        if (!parseSource(url)) return send(response, 400, { error: 'Paste a song link from Spotify, Apple Music or YouTube.' });
+        send(response, 200, { song: sampleSong(url, !url.includes('spotify') || pick === 'deezer:1') });
+      });
+      const smartLinks = new Map();
+      route('/api/links/slug', 'GET', async (request, response) => {
+        const name = new URL(request.url, 'http://local').searchParams.get('name') ?? '';
+        const problem = slugProblem(name) ?? (smartLinks.has(name) || name === 'taken-name' ? 'Someone already has that name. Try another.' : null);
+        send(response, 200, problem ? { free: false, error: problem } : { free: true });
+      });
+      const linksRoute = method => route('/api/links', method, signedIn(async (_email, request, response) => {
+        if (method === 'GET') return send(response, 200, { links: [...smartLinks.values()].reverse() });
+        if (method === 'DELETE') { smartLinks.delete(new URL(request.url, 'http://local').searchParams.get('slug')); return send(response, 200, {}); }
+        const { slug, link } = JSON.parse((await readBody(request)).toString('utf8'));
+        const problem = method === 'POST' ? slugProblem(slug) ?? (smartLinks.has(slug) ? 'Someone already has that name. Try another.' : null) : null;
+        const cleaned = cleanLink(link);
+        if (problem || cleaned.error) return send(response, 400, { error: problem ?? cleaned.error });
+        const now = new Date().toISOString();
+        smartLinks.set(slug, { slug, link: cleaned.link, created_at: smartLinks.get(slug)?.created_at ?? now, updated_at: now });
+        send(response, 200, { link: smartLinks.get(slug) });
+      }));
+      for (const method of ['GET', 'POST', 'PUT', 'DELETE']) linksRoute(method);
 
       route('/.netlify/functions/transcribe-lyrics', 'POST', async (request, response) => {
         const form = (await readBody(request)).toString('utf8');

@@ -1,7 +1,7 @@
-import { HistoryIcon, ReceiptTextIcon, SettingsIcon, SparklesIcon, WalletIcon, type LucideIcon } from 'lucide-react';
+import { HistoryIcon, Link2Icon, ReceiptTextIcon, SettingsIcon, SparklesIcon, WalletIcon, type LucideIcon } from 'lucide-react';
 
-/** Everything the person can be looking at: making creatives, or one page of their account. */
-export type AccountPage = 'create' | 'history' | 'invoices' | 'settings';
+/** Everything the person can be looking at: making creatives, their smart links (open signed out too), or one page of their account. */
+export type AccountPage = 'create' | 'links' | 'history' | 'invoices' | 'settings';
 
 /** A line of the account menu: a page to go to, or the credit, which is only shown on its line. */
 export type MenuLine = AccountPage | 'credit';
@@ -13,6 +13,7 @@ export const ACCOUNT_MENU: readonly (readonly Entry[])[] = [
   [
     { line: 'create', label: 'Create', icon: SparklesIcon },
     { line: 'history', label: 'History', icon: HistoryIcon },
+    { line: 'links', label: 'Smart links', icon: Link2Icon },
     { line: 'credit', label: 'Credit', icon: WalletIcon },
     { line: 'invoices', label: 'Invoices', icon: ReceiptTextIcon },
   ],

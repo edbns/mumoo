@@ -14,6 +14,12 @@
   to = "/admin.html"
   status = 200
 
+# Smart links: the editor is a page of the app, at its own address.
+[[redirects]]
+  from = "/links"
+  to = "/index.html"
+  status = 200
+
 # Where a phone sends the song from (the QR code on the song step). Its link is in the #fragment, never sent to a server.
 [[redirects]]
   from = "/phone"

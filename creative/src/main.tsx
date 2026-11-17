@@ -43,6 +43,7 @@ const ProfilePage = lazy(loadProfilePage);
 /** How long the window must rest before the music inside it plays. */
 const AUDITION_PAUSE_MS = 200;
 const INITIAL: Composition = { sourceSha256: '', clipStartMs: 0, cues: [] };
+const LINKS_PATH = '/links';
 
 
 const styleOption = ({ label }: StyleMatch): ComboboxOption => ({ value: label, label });
@@ -53,7 +54,12 @@ function App() {
   const [accessToken, setAccessToken] = useState('');
   const [inCreatives, setInCreatives] = useState(false);
   /** The page being shown: making creatives, or a page of the person's account (the work underneath is kept as it was). */
-  const [page, setPage] = useState<AccountPage>('create');
+  const [page, setPage] = useState<AccountPage>(() => location.pathname === LINKS_PATH ? 'links' : 'create');
+  // Smart links have their own address, to share and come back to; every other page is at the root.
+  useEffect(() => {
+    const path = page === 'links' ? LINKS_PATH : '/';
+    if (location.pathname !== path) history.replaceState(history.state, '', path + location.search + location.hash);
+  }, [page]);
   const [profileTab, setProfileTab] = useState<ProfileTab>('creatives');
   /** The creatives are shown only after the song is analysed and every poster is painted. */
   const [stage, setStage] = useState<'analyzing' | 'prepared' | 'revealed'>('analyzing');
@@ -362,6 +368,7 @@ function App() {
       {page === 'history' && <ProfileNav current={profileTab} onSelect={setProfileTab} />}
       <div className="masthead-actions">
         {page === 'create' && buffer && <button type="button" className="link-button" onClick={startOver}>Start over</button>}
+        {page === 'create' && <button type="button" className="link-button" onClick={() => setPage('links')}>Smart links</button>}
         {page !== 'create' && <Button variant="secondary" onClick={() => setPage('create')}><ArrowLeftIcon aria-hidden="true" className="size-4" />Create</Button>}
         <CartButton count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)} />
         <Suspense fallback={null}><AccountBar page={page} onNavigate={setPage} /></Suspense>
@@ -471,7 +478,7 @@ function App() {
     {buffer && clipValid && IS_ALIGNMENT_STAGING && inCreatives && <StylePrintRunner key={`${composition.sourceSha256}:${composition.clipStartMs}:${style?.name ?? '?'}`}
       audio={buffer} clip={clip} style={style} unknown={genreUnknown} accessToken={accessToken} />}
 
-    <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>
+    {page === 'create' && <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>}
   </>;
 }
 

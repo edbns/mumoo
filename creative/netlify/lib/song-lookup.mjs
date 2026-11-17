@@ -73,6 +73,8 @@ const VARIANT = /\b(remix|live|acoustic|instrumental|karaoke|sped up|slowed|cove
 const isVariant = (title) => VARIANT.test(String(title ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g, ''));
 /** The shape of an ISRC: country, registrant, year, number. */
 export const ISRC = /^[A-Z]{2}[A-Z0-9]{3}\d{7}$/;
+/** A candidate the artist picked: its ISRC, or its Deezer track (Deezer's search leaves the ISRC out; its track page has it). */
+export const PICK = /^(?:[A-Z]{2}[A-Z0-9]{3}\d{7}|deezer:\d{1,15})$/;
 
 /** How well a found song fits what we know (title, maybe artist and length): higher is better. */
 export function fitOf(seed, found) {
@@ -165,7 +167,7 @@ export const SERVICES = ['spotify', 'apple', 'youtube', 'youtubeMusic', 'deezer'
 
 /**
  * Looks the song up everywhere. Returns null when the link is not one we know or the song cannot be found.
- * `picked` is the ISRC of the candidate the artist chose when we were not sure: it is trusted when that song has the link's title.
+ * `picked` is the candidate the artist chose when we were not sure (its `pick`, see PICK): it is trusted when that song has the link's title.
  * `fetcher` is `fetch` (a test passes its own).
  */
 export async function lookupSong(raw, fetcher = fetch, picked = null) {
@@ -173,9 +175,11 @@ export async function lookupSong(raw, fetcher = fetch, picked = null) {
   if (!source) return null;
   const seed = await seedOf(fetcher, source);
   if (!seed?.title) return null;
-  if (picked && ISRC.test(picked) && !seed.isrc) {
-    const track = await getJson(fetcher, `https://api.deezer.com/track/isrc:${picked}`).catch(() => null);
-    if (track?.id && alike(seed.title, track.title) >= 0.8) Object.assign(seed, { artist: track.artist?.name ?? seed.artist, isrc: picked, sure: true });
+  if (picked && PICK.test(picked) && !seed.isrc) {
+    const track = await getJson(fetcher, `https://api.deezer.com/track/${ISRC.test(picked) ? `isrc:${picked}` : picked.slice('deezer:'.length)}`).catch(() => null);
+    if (track?.id && alike(seed.title, track.title) >= 0.8) {
+      Object.assign(seed, { artist: track.artist?.name ?? seed.artist, isrc: track.isrc ?? (ISRC.test(picked) ? picked : null), sure: true });
+    }
   }
 
   const query = [seed.artist, plain(seed.title) || seed.title].filter(Boolean).join(' ');
@@ -228,7 +232,7 @@ export async function lookupSong(raw, fetcher = fetch, picked = null) {
     preview: apple?.preview ?? null,
     links,
     confident,
-    ...(confident ? {} : { candidates: ranked.slice(0, CANDIDATES).map(({ found }) => ({ title: found.title, artist: found.artist, cover: found.cover, url: found.url, isrc: found.isrc })) }),
+    ...(confident ? {} : { candidates: ranked.slice(0, CANDIDATES).map(({ found }) => ({ title: found.title, artist: found.artist, cover: found.cover, url: found.url, pick: found.isrc ?? `deezer:${found.deezerId}` })) }),
   };
 }
 
@@ -240,7 +244,7 @@ export async function lookupSong(raw, fetcher = fetch, picked = null) {
 export async function lookupSongKept(raw, fetcher = fetch, picked = null) {
   const source = parseSource(raw);
   if (!source) return null;
-  const pick = picked && ISRC.test(picked) ? picked : null;
+  const pick = picked && PICK.test(picked) ? picked : null;
   const key = `${source.platform}:${source.id}${pick ? `#${pick}` : ''}`;
   const sql = db();
   const [kept] = await sql`select song from song_lookups where source = ${key} and looked_up_at > now() - make_interval(days => ${KEEP_DAYS})`;

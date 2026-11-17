@@ -60,6 +60,7 @@ function services({ spotifyTitle = 'Blinding Lights' } = {}) {
     if (hostname === 'open.spotify.com') return json({ title: spotifyTitle, thumbnail_url: 'https://spotify.example/thumb.jpg' });
     if (hostname === 'www.youtube.com') return json({ title: 'The Weeknd - Blinding Lights (Official Video)', author_name: 'TheWeekndVEVO' });
     if (hostname === 'api.deezer.com' && pathname.startsWith('/track/isrc:')) return json(pathname.endsWith(DEEZER.isrc) ? DEEZER : { error: {} });
+    if (hostname === 'api.deezer.com' && pathname.startsWith('/track/')) return json(pathname === `/track/${DEEZER.id}` ? DEEZER : { error: {} });
     if (hostname === 'api.deezer.com') return json({ data: [COVER, DEEZER] });
     if (hostname === 'itunes.apple.com' && pathname === '/lookup') return json({ results: [{ wrapperType: 'collection' }, ITUNES] });
     if (hostname === 'itunes.apple.com') return json({ results: [REMIX, ITUNES] });
@@ -103,6 +104,11 @@ test('a Spotify link without keys is only a guess until the artist picks the son
   assert.deepEqual([picked.artist, picked.confident, picked.links.apple.exact, picked.links.deezer.url], ['The Weeknd', true, true, DEEZER.link]);
   const wrong = await lookupSong('https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b', services({ spotifyTitle: 'Another Song' }).fetcher, 'USUG11904206');
   assert.equal(wrong.confident, false, 'a pick with a different title is not believed');
+
+  // Deezer's real search leaves the ISRC out: the candidate is then picked by its Deezer track, whose page has it.
+  assert.equal(guess.candidates[0].pick, 'USUG11904206');
+  const byTrack = await lookupSong('https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b', fetcher, `deezer:${DEEZER.id}`);
+  assert.deepEqual([byTrack.artist, byTrack.isrc, byTrack.confident, byTrack.links.deezer.url], ['The Weeknd', 'USUG11904206', true, DEEZER.link]);
 });
 
 test('a sure song is looked up once, a guess every time, and an artist\'s pick is kept apart from what everyone else sees', { skip: !process.env.DATABASE_URL, timeout: 30000 }, async () => {
