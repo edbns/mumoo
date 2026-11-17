@@ -36,20 +36,31 @@ export const EMPTY_DRAFT: Draft = { url: '', link: null, candidates: null, slug:
 
 const DRAFT_KEY = 'mumoo-link-draft';
 
-export function loadDraft(): Draft {
+/** The new link being made, kept in this browser. A published link being edited is never kept, so Create always opens on a new one. */
+function loadDraft(): Draft {
   try {
     const kept = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null') as Draft | null;
-    return kept && typeof kept.url === 'string' ? { ...EMPTY_DRAFT, ...kept } : EMPTY_DRAFT;
+    return kept && typeof kept.url === 'string' && !kept.editing ? { ...EMPTY_DRAFT, ...kept } : EMPTY_DRAFT;
   } catch {
     return EMPTY_DRAFT;
   }
 }
 
 export function saveDraft(draft: Draft) {
+  if (draft.editing) return;
   try {
     if (draft.url || draft.link) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     else localStorage.removeItem(DRAFT_KEY);
   } catch { /* storage unavailable: the draft lasts as long as the page */ }
+}
+
+let toEdit: Draft | null = null;
+/** Edit on My Smart Links: the editor opens on this link once, then on the new-link draft again. */
+export function openForEdit(item: Published) { toEdit = draftOf(item); }
+export function startingDraft(): Draft {
+  const next = toEdit ?? loadDraft();
+  toEdit = null;
+  return next;
 }
 
 async function answer<T>(response: Response): Promise<T> {

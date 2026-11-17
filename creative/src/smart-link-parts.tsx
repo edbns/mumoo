@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { CheckIcon, CopyIcon, ExternalLinkIcon } from 'lucide-react';
 import { addressOf } from './smart-links';
 
@@ -6,17 +6,6 @@ const COPIED_MS = 1500;
 
 export const iconButton = 'grid size-9 shrink-0 cursor-pointer place-items-center rounded-[var(--radius-control)] bg-transparent p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30';
 export const textButton = 'cursor-pointer bg-transparent p-0 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground';
-
-/** A smart links page, titled like History: its name large on the left, a short note on the right. */
-export function LinksSection({ label, aside, children }: { label: string; aside?: ReactNode; children: ReactNode }) {
-  return <div role="region" aria-label={label} className="flex flex-col gap-4">
-    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-      <h2 className="m-0 text-2xl font-semibold tracking-tight">{label}</h2>
-      {aside && <p className="m-0 text-sm text-muted-foreground">{aside}</p>}
-    </div>
-    {children}
-  </div>;
-}
 
 export function Cover({ src, size }: { src: string | null; size: string }) {
   return src ? <img src={src} alt="" className={`${size} shrink-0 rounded-[6px] object-cover`} /> : <span className={`${size} shrink-0 rounded-[6px] bg-muted`} />;

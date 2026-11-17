@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Reorder, useDragControls } from 'motion/react';
-import { EyeIcon, EyeOffIcon, GripVerticalIcon, PauseIcon, PlayIcon, SearchIcon } from 'lucide-react';
+import { ExternalLinkIcon, EyeIcon, EyeOffIcon, GripVerticalIcon, PauseIcon, PlayIcon, SearchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Iphone16Pro, SCREEN_RATIO, SCREEN_SHARE } from '@/components/ui/iphone-16-pro';
 import { fanPage } from '../netlify/lib/fan-page.mjs';
@@ -8,10 +8,10 @@ import { authClient, checkSignInCode, sendSignInCode, signInWithGoogle } from '.
 import type { AccountPage } from './account-pages';
 import { AccountSection } from './account-section';
 import { SignInDialog } from './sign-in-dialog';
-import { AddressLine, Cover, LinksSection, iconButton, textButton } from './smart-link-parts';
+import { AddressLine, Cover, iconButton, textButton } from './smart-link-parts';
 import {
   EMPTY_DRAFT, LABELS, SERVICES, addressOf, asLink, checkSlug, fieldsOf, isSearch, lookupSong, publishDraft, saveDraft,
-  searchSongs, suggestSlug, loadDraft,
+  searchSongs, startingDraft, suggestSlug,
   type Draft, type LinkFields, type Published, type SearchResult, type ServiceRow,
 } from './smart-links';
 
@@ -34,7 +34,7 @@ type Choice = { key: string; title: string; artist: string | null; cover: string
 export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPage) => void }) {
   const session = authClient.useSession();
   const user = session.data?.user;
-  const [draft, setDraft] = useState<Draft>(loadDraft);
+  const [draft, setDraft] = useState<Draft>(startingDraft);
   useEffect(() => saveDraft(draft), [draft]);
   const [busy, setBusy] = useState<'find' | 'pick' | 'publish' | null>(null);
   const [error, setError] = useState('');
@@ -131,82 +131,80 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
       : null;
 
   return <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6">
-    <LinksSection label={draft.editing ? 'Edit Smart Link' : 'Create Smart Link'} aside={draft.editing ? null : 'Free, no account needed until you publish'}>
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-4">
-          {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
-            <AddressLine slug={published.slug} />
-            <p className="m-0 text-sm text-muted-foreground">Put it in your bio and posts. Every fan gets the button for the app they use, and My Smart Links counts which ones they press.</p>
-          </AccountSection>}
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="flex min-w-0 flex-col gap-4">
+        {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
+          <AddressLine slug={published.slug} />
+          <p className="m-0 text-sm text-muted-foreground">Put it in your bio and posts. Every fan gets the button for the app they use, and My Smart Links counts which ones they press.</p>
+        </AccountSection>}
 
-          <AccountSection label={draft.editing ? 'Editing your link' : 'Your song'} aside={(draft.url || link) &&
-            <button type="button" className={textButton} onClick={startAgain}>{draft.editing ? 'Cancel' : 'Start again'}</button>}>
-            {!draft.editing && !link && <p className="m-0 text-sm text-muted-foreground">One link for your song that opens in every fan’s app: Spotify, Apple Music, YouTube and more.</p>}
-            {!draft.editing && <form onSubmit={find} className="flex gap-2">
-              <label className="m-0 flex h-[var(--control-height-md)] min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-control)] bg-muted px-3 font-normal focus-within:shadow-[0_0_0_2px_var(--focus-ring)]">
-                <SearchIcon className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden />
-                <input className="h-full w-full min-w-0 bg-transparent p-0 text-sm text-foreground outline-none placeholder:text-muted-foreground" type="text"
-                  aria-label="Your song’s name or link" placeholder="Search your song, or paste its Spotify, Apple Music or YouTube link" autoComplete="off" spellCheck={false}
-                  value={draft.url} onChange={event => { setError(''); change(current => ({ ...current, url: event.target.value, link: null, candidates: null })); }}
-                  onPaste={event => {
-                    const pasted = asLink(event.clipboardData.getData('text'));
-                    if (pasted && !draft.url.trim()) { event.preventDefault(); change(current => ({ ...current, url: pasted, link: null, candidates: null })); lookUp('find', pasted); }
-                  }} />
+        <AccountSection label={draft.editing ? 'Editing your link' : 'Your song'} aside={(draft.url || link) &&
+          <button type="button" className={textButton} onClick={startAgain}>{draft.editing ? 'Cancel' : 'Start again'}</button>}>
+          {!draft.editing && !link && <p className="m-0 text-sm text-muted-foreground">One link for your song that opens in every fan’s app: Spotify, Apple Music, YouTube and more.</p>}
+          {!draft.editing && <form onSubmit={find} className="flex gap-2">
+            <label className="m-0 flex h-[var(--control-height-md)] min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-control)] bg-muted px-3 font-normal focus-within:shadow-[0_0_0_2px_var(--focus-ring)]">
+              <SearchIcon className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden />
+              <input className="h-full w-full min-w-0 bg-transparent p-0 text-sm text-foreground outline-none placeholder:text-muted-foreground" type="text"
+                aria-label="Your song’s name or link" placeholder="Search your song, or paste its Spotify, Apple Music or YouTube link" autoComplete="off" spellCheck={false}
+                value={draft.url} onChange={event => { setError(''); change(current => ({ ...current, url: event.target.value, link: null, candidates: null })); }}
+                onPaste={event => {
+                  const pasted = asLink(event.clipboardData.getData('text'));
+                  if (pasted && !draft.url.trim()) { event.preventDefault(); change(current => ({ ...current, url: pasted, link: null, candidates: null })); lookUp('find', pasted); }
+                }} />
+            </label>
+            <Button type="submit" className="h-[var(--control-height-md)] px-5" disabled={!draft.url.trim() || busy !== null}>
+              {busy === 'find' ? 'Finding…' : 'Find'}
+            </Button>
+          </form>}
+          {!link && typedName.length >= 2 && found.state !== 'done' && <p className="m-0 text-sm text-muted-foreground">{found.state === 'failed' ? found.error : 'Searching…'}</p>}
+          {!link && found.state === 'done' && !found.results?.length && <p className="m-0 text-sm text-muted-foreground">Nothing found for “{typedName}”. Try the artist and the title, or paste the song’s link.</p>}
+          {choices && choices.length > 0 && <SongChoices title={link ? 'We weren’t sure. Is this your song?' : 'Pick your song'} choices={choices}
+            busy={busy !== null} player={player} />}
+          {link && draft.candidates && draft.candidates.length > 0 &&
+            <button type="button" className={`${textButton} self-start`} onClick={() => change(current => ({ ...current, candidates: null }))}>None of these: I’ll correct the details</button>}
+          {link && <div className="grid gap-3 sm:grid-cols-2">
+            <label className="m-0 flex flex-col gap-1.5 text-xs font-normal text-muted-foreground">Title
+              <input className={field} value={link.title} maxLength={200} onChange={event => edit({ title: event.target.value })} />
+            </label>
+            <label className="m-0 flex flex-col gap-1.5 text-xs font-normal text-muted-foreground">Artist
+              <input className={field} value={link.artist} maxLength={200} onChange={event => edit({ artist: event.target.value })} />
+            </label>
+          </div>}
+          {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
+        </AccountSection>
+
+        {link && <AccountSection label="Buttons">
+          <p className="m-0 text-sm text-muted-foreground">Drag to change the order. “Search” buttons open a search for your song on that service: paste your song’s own link there to send fans straight to it.</p>
+          <Reorder.Group axis="y" values={link.services} onReorder={services => edit({ services })} className="m-0 flex list-none flex-col gap-2 p-0">
+            {link.services.map(row => <ServiceEditor key={row.service} row={row}
+              onChange={changes => setRow(row.service, changes)} onMove={by => move(row.service, by)} />)}
+          </Reorder.Group>
+        </AccountSection>}
+
+        {link && <AccountSection label="Address">
+          {draft.editing
+            ? <><AddressLine slug={draft.editing} /><p className="m-0 text-sm text-muted-foreground">The address stays the same, so where you shared it keeps working.</p></>
+            : <>
+              <label className="m-0 flex h-[var(--control-height-md)] items-center gap-0 rounded-[var(--radius-control)] bg-muted pl-3 text-sm font-normal text-muted-foreground focus-within:shadow-[0_0_0_2px_var(--focus-ring)]">
+                <span className="shrink-0">{location.host}/l/</span>
+                <input className="h-full w-full min-w-0 bg-transparent p-0 pr-3 text-sm text-foreground outline-none" aria-label="Your link’s name" value={draft.slug} maxLength={40} autoCapitalize="off" spellCheck={false}
+                  onChange={event => change(current => ({ ...current, slug: event.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-') }))} />
               </label>
-              <Button type="submit" className="h-[var(--control-height-md)] px-5" disabled={!draft.url.trim() || busy !== null}>
-                {busy === 'find' ? 'Finding…' : 'Find'}
-              </Button>
-            </form>}
-            {!link && typedName.length >= 2 && found.state !== 'done' && <p className="m-0 text-sm text-muted-foreground">{found.state === 'failed' ? found.error : 'Searching…'}</p>}
-            {!link && found.state === 'done' && !found.results?.length && <p className="m-0 text-sm text-muted-foreground">Nothing found for “{typedName}”. Try the artist and the title, or paste the song’s link.</p>}
-            {choices && choices.length > 0 && <SongChoices title={link ? 'We weren’t sure. Is this your song?' : 'Pick your song'} choices={choices}
-              busy={busy !== null} player={player} />}
-            {link && draft.candidates && draft.candidates.length > 0 &&
-              <button type="button" className={`${textButton} self-start`} onClick={() => change(current => ({ ...current, candidates: null }))}>None of these: I’ll correct the details</button>}
-            {link && <div className="grid gap-3 sm:grid-cols-2">
-              <label className="m-0 flex flex-col gap-1.5 text-xs font-normal text-muted-foreground">Title
-                <input className={field} value={link.title} maxLength={200} onChange={event => edit({ title: event.target.value })} />
-              </label>
-              <label className="m-0 flex flex-col gap-1.5 text-xs font-normal text-muted-foreground">Artist
-                <input className={field} value={link.artist} maxLength={200} onChange={event => edit({ artist: event.target.value })} />
-              </label>
-            </div>}
-            {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
-          </AccountSection>
-
-          {link && <AccountSection label="Buttons">
-            <p className="m-0 text-sm text-muted-foreground">Drag to change the order. “Search” buttons open a search for your song on that service: paste your song’s own link there to send fans straight to it.</p>
-            <Reorder.Group axis="y" values={link.services} onReorder={services => edit({ services })} className="m-0 flex list-none flex-col gap-2 p-0">
-              {link.services.map(row => <ServiceEditor key={row.service} row={row}
-                onChange={changes => setRow(row.service, changes)} onMove={by => move(row.service, by)} />)}
-            </Reorder.Group>
-          </AccountSection>}
-
-          {link && <AccountSection label="Address">
-            {draft.editing
-              ? <><AddressLine slug={draft.editing} /><p className="m-0 text-sm text-muted-foreground">The address stays the same, so where you shared it keeps working.</p></>
-              : <>
-                <label className="m-0 flex h-[var(--control-height-md)] items-center gap-0 rounded-[var(--radius-control)] bg-muted pl-3 text-sm font-normal text-muted-foreground focus-within:shadow-[0_0_0_2px_var(--focus-ring)]">
-                  <span className="shrink-0">{location.host}/l/</span>
-                  <input className="h-full w-full min-w-0 bg-transparent p-0 pr-3 text-sm text-foreground outline-none" aria-label="Your link’s name" value={draft.slug} maxLength={40} autoCapitalize="off" spellCheck={false}
-                    onChange={event => change(current => ({ ...current, slug: event.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-') }))} />
-                </label>
-                <p role="status" className={`m-0 text-sm ${slug.free ? 'text-primary' : slug.error ? 'text-destructive' : 'text-muted-foreground'}`}>
-                  {!draft.slug ? 'Choose a name for your link.' : slug.free ? 'This name is free.' : slug.error || 'Checking…'}
-                </p>
-              </>}
-            <div className="flex items-center justify-end gap-3">
-              {!user && <span className="text-sm text-muted-foreground">You’ll sign in to publish.</span>}
-              <Button className="h-[var(--control-height-md)] px-5" disabled={!ready || busy !== null} onClick={publish}>
-                {busy === 'publish' ? 'Publishing…' : draft.editing ? 'Save changes' : 'Publish'}
-              </Button>
-            </div>
-          </AccountSection>}
-        </div>
-
-        <PhonePreview link={link} slug={draft.editing ?? draft.slug} />
+              <p role="status" className={`m-0 text-sm ${slug.free ? 'text-primary' : slug.error ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {!draft.slug ? 'Choose a name for your link.' : slug.free ? 'This name is free.' : slug.error || 'Checking…'}
+              </p>
+            </>}
+          <div className="flex items-center justify-end gap-3">
+            {!user && <span className="text-sm text-muted-foreground">You’ll sign in to publish.</span>}
+            <Button className="h-[var(--control-height-md)] px-5" disabled={!ready || busy !== null} onClick={publish}>
+              {busy === 'publish' ? 'Publishing…' : draft.editing ? 'Save changes' : 'Publish'}
+            </Button>
+          </div>
+        </AccountSection>}
       </div>
-    </LinksSection>
+
+      <PhonePreview link={link} slug={draft.editing ?? draft.slug} />
+    </div>
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}
       onSendCode={async email => { await sendSignInCode(email); signInAddress.current = email; }}
@@ -219,6 +217,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
 function ServiceEditor({ row, onChange, onMove }: { row: ServiceRow; onChange: (changes: Partial<ServiceRow>) => void; onMove: (by: -1 | 1) => void }) {
   const drag = useDragControls();
   const label = LABELS[row.service];
+  const opens = row.url.startsWith('https://');
   function keys(event: KeyboardEvent) {
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); onMove(event.key === 'ArrowUp' ? -1 : 1); }
   }
@@ -231,6 +230,8 @@ function ServiceEditor({ row, onChange, onMove }: { row: ServiceRow; onChange: (
     <input className={field} type="url" aria-label={`${label} link`} value={row.url}
       onChange={event => onChange({ url: event.target.value, exact: !isSearch(event.target.value) })} />
     <span className={`w-14 shrink-0 text-center text-xs ${row.exact ? 'text-primary' : 'text-muted-foreground'}`}>{row.exact ? 'Song' : 'Search'}</span>
+    <a className={`${iconButton} ${opens ? '' : 'pointer-events-none opacity-30'}`} href={opens ? row.url : undefined} target="_blank" rel="noreferrer"
+      aria-label={`Open the ${label} link in a new tab`} aria-disabled={!opens}><ExternalLinkIcon className="size-4" /></a>
     <button type="button" className={iconButton} aria-label={row.hidden ? `Show ${label}` : `Hide ${label}`} aria-pressed={row.hidden}
       onClick={() => onChange({ hidden: !row.hidden })}>{row.hidden ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}</button>
   </Reorder.Item>;

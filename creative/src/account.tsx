@@ -187,7 +187,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
 
   const groups = ACCOUNT_MENU.map(entries => entries.map(({ line, label, icon }) => line === 'credit'
     ? { label, icon, aside: credit, onSelect: () => setBuying(true) }
-    : { label, icon, current: line === page, onSelect: () => onNavigate(line) }));
+    : { label, icon, current: line === page || (line === 'links' && page === 'my-links'), onSelect: () => onNavigate(line) }));
 
   return <>
     {known && !user && <Button variant="secondary" onClick={() => setOpen(true)}>Sign in</Button>}

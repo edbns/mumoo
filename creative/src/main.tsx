@@ -58,6 +58,8 @@ function App() {
     if (location.pathname !== path) history.replaceState(history.state, '', path + location.search + location.hash);
   }, [page]);
   const [profileTab, setProfileTab] = useState<ProfileTab>('creatives');
+  /** Pressing Create Smart Link opens the editor anew, so an edit in progress gives way to the new-link draft. */
+  const [linksOpened, setLinksOpened] = useState(0);
   /** The creatives are shown only after the song is analysed and every poster is painted. */
   const [stage, setStage] = useState<'analyzing' | 'prepared' | 'revealed'>('analyzing');
   const [paint, setPaint] = useState<PaintProgress | null>(null);
@@ -363,7 +365,7 @@ function App() {
         : <button type="button" className="masthead-logo" aria-label="Back to Create" onClick={() => setPage('create')}><img src="/brand/mumoo-logo.png" alt="" /></button>}
       {page === 'create' && <StepNav current={currentStep} onSelect={goToStep} />}
       {page === 'history' && <ProfileNav current={profileTab} onSelect={setProfileTab} />}
-      {(page === 'links' || page === 'my-links') && <LinksNav current={page} onSelect={setPage} />}
+      {(page === 'links' || page === 'my-links') && <LinksNav current={page} onSelect={tab => { if (tab === 'links') setLinksOpened(count => count + 1); setPage(tab); }} />}
       <div className="masthead-actions">
         {page === 'create' && buffer && <button type="button" className="link-button" onClick={startOver}>Start over</button>}
         {page === 'create' && <button type="button" className="link-button" onClick={() => setPage('links')}>Smart links</button>}
@@ -385,7 +387,7 @@ function App() {
     {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
     {download.message && <DownloadNotice message={download.message} onDismiss={download.dismiss} />}
     {IS_ALIGNMENT_STAGING && !accessToken && <StagingAccess onAccess={setAccessToken} />}
-    {page !== 'create' && <Suspense fallback={null}><ProfilePage page={page} tab={profileTab} progress={download.progress} delivered={delivered} onNavigate={setPage} /></Suspense>}
+    {page !== 'create' && <Suspense fallback={null}><ProfilePage key={page === 'links' ? `links-${linksOpened}` : page} page={page} tab={profileTab} progress={download.progress} delivered={delivered} onNavigate={setPage} /></Suspense>}
     {/* The work stays exactly as it was while a page of the account is open: hidden, but still laid out, so its drawings are not cleared and redrawn. */}
     <div className={page === 'create' ? 'contents' : 'invisible fixed inset-0 overflow-hidden'} inert={page !== 'create'}>
     {!inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center' : 'desktop trim'}>

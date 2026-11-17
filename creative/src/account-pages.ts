@@ -1,4 +1,4 @@
-import { HistoryIcon, LayoutListIcon, Link2Icon, ReceiptTextIcon, SettingsIcon, SparklesIcon, WalletIcon, type LucideIcon } from 'lucide-react';
+import { HistoryIcon, Link2Icon, ReceiptTextIcon, SettingsIcon, SparklesIcon, WalletIcon, type LucideIcon } from 'lucide-react';
 
 /**
  * Everything the person can be looking at: making creatives, making a smart link (open signed out too) or their smart links, or one
@@ -21,10 +21,7 @@ export const ACCOUNT_MENU: readonly (readonly Entry[])[] = [
   [
     { line: 'create', label: 'Create', icon: SparklesIcon },
     { line: 'history', label: 'History', icon: HistoryIcon },
-  ],
-  [
-    { line: 'links', label: 'Create Smart Link', icon: Link2Icon },
-    { line: 'my-links', label: 'My Smart Links', icon: LayoutListIcon },
+    { line: 'links', label: 'Smart Links', icon: Link2Icon },
   ],
   [
     { line: 'credit', label: 'Credit', icon: WalletIcon },

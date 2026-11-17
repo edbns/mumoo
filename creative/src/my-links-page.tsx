@@ -4,12 +4,12 @@ import { Button } from '@/components/ui/button';
 import { authClient, checkSignInCode, sendSignInCode, signInWithGoogle } from './account';
 import type { AccountPage } from './account-pages';
 import { SignInDialog } from './sign-in-dialog';
-import { CopyButton, Cover, LinksSection, OpenButton, iconButton } from './smart-link-parts';
-import { LABELS, addressOf, deletePublished, draftOf, listLinks, saveDraft, type Published, type Service } from './smart-links';
+import { CopyButton, Cover, OpenButton, iconButton } from './smart-link-parts';
+import { LABELS, addressOf, deletePublished, listLinks, openForEdit, type Published, type Service } from './smart-links';
 
 /**
  * My Smart Links: the person's published links, each with how many times fans pressed each button (counted on the server per day,
- * with nothing about the fans). A link is changed in Create Smart Link, which it is put in as the draft.
+ * with nothing about the fans). A link is changed in Create Smart Link, which opens on it. Every link here opens in a new tab.
  */
 export default function MyLinksPage({ onNavigate }: { onNavigate: (page: AccountPage) => void }) {
   const session = authClient.useSession();
@@ -28,7 +28,7 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
   }, [user?.id]);
 
   function edit(item: Published) {
-    saveDraft(draftOf(item));
+    openForEdit(item);
     onNavigate('links');
   }
 
@@ -42,25 +42,19 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
     }
   }
 
-  const total = (links ?? []).reduce((sum, item) => sum + Object.values(item.clicks ?? {}).reduce((all, count) => all + (count ?? 0), 0), 0);
-
   return <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6">
-    <LinksSection label="My Smart Links"
-      aside={links && links.length > 0 && `${links.length} ${links.length === 1 ? 'link' : 'links'} · ${total} ${total === 1 ? 'click' : 'clicks'}`}>
-      {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
-      {!session.isPending && !user && <div className="flex flex-col items-center gap-4 py-24 text-center">
-        <p className="m-0 text-sm text-muted-foreground">Sign in to see your smart links and how many fans pressed each button.</p>
-        <Button onClick={() => setSigningIn(true)}>Sign in</Button>
-      </div>}
-      {user && links?.length === 0 && !error && <div className="flex flex-col items-center gap-4 py-24 text-center">
-        <p className="m-0 text-sm text-muted-foreground">No smart links yet. Make one for your song: one link that opens in every fan’s app.</p>
-        <Button onClick={() => onNavigate('links')}><PlusIcon aria-hidden="true" className="size-4" />Create Smart Link</Button>
-      </div>}
-      {user && links === null && !error && <div aria-hidden="true" className="h-40 animate-pulse rounded-[var(--radius-panel)] bg-background" />}
-      {links && links.length > 0 && <ul className="m-0 flex list-none flex-col gap-4 p-0">
-        {links.map(item => <LinkRow key={item.slug} item={item} onEdit={() => edit(item)} onDelete={() => void remove(item.slug)} />)}
-      </ul>}
-    </LinksSection>
+    {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
+    {!session.isPending && !user && <div className="flex flex-col items-center gap-4 py-24 text-center">
+      <p className="m-0 text-sm text-muted-foreground">Sign in to see your smart links and how many fans pressed each button.</p>
+      <Button onClick={() => setSigningIn(true)}>Sign in</Button>
+    </div>}
+    {user && links?.length === 0 && !error && <div className="flex flex-col items-center gap-4 py-24 text-center">
+      <p className="m-0 text-sm text-muted-foreground">No smart links yet. Make one for your song: one link that opens in every fan’s app.</p>
+      <Button onClick={() => onNavigate('links')}><PlusIcon aria-hidden="true" className="size-4" />Create Smart Link</Button>
+    </div>}
+    {links && links.length > 0 && <ul className="m-0 flex list-none flex-col gap-4 p-0">
+      {links.map(item => <LinkRow key={item.slug} item={item} onEdit={() => edit(item)} onDelete={() => void remove(item.slug)} />)}
+    </ul>}
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}
       onSendCode={async email => { await sendSignInCode(email); signInAddress.current = email; }}
@@ -74,17 +68,20 @@ function LinkRow({ item, onEdit, onDelete }: { item: Published; onEdit: () => vo
   const address = addressOf(item.slug);
   const clicks = item.clicks ?? {};
   const total = Object.values(clicks).reduce((sum, count) => sum + (count ?? 0), 0);
-  const shown = item.link.services.filter(row => !row.hidden).map(row => ({ service: row.service, count: clicks[row.service] ?? 0 }));
-  const gone = (Object.keys(clicks) as Service[]).filter(service => !shown.some(row => row.service === service)).map(service => ({ service, count: clicks[service] ?? 0 }));
+  const shown = item.link.services.filter(row => !row.hidden).map(row => ({ service: row.service, url: row.url, count: clicks[row.service] ?? 0 }));
+  const gone = (Object.keys(clicks) as Service[]).filter(service => !shown.some(row => row.service === service))
+    .map(service => ({ service, url: null, count: clicks[service] ?? 0 }));
   const rows = [...shown, ...gone].sort((a, b) => b.count - a.count);
   const most = Math.max(1, ...rows.map(row => row.count));
   return <li className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-background p-5">
     <div className="flex items-center gap-3">
-      <Cover src={item.link.cover} size="size-14" />
-      <div className="min-w-0 flex-1">
-        <p className="m-0 truncate text-sm font-medium">{item.link.title} · {item.link.artist}</p>
-        <a className="block truncate text-sm text-muted-foreground hover:text-foreground" href={address} target="_blank" rel="noreferrer">{address.replace(/^https?:\/\//, '')}</a>
-      </div>
+      <a href={address} target="_blank" rel="noreferrer" className="flex min-w-0 flex-1 items-center gap-3 text-foreground no-underline hover:opacity-80">
+        <Cover src={item.link.cover} size="size-14" />
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium">{item.link.title} · {item.link.artist}</span>
+          <span className="block truncate text-sm text-muted-foreground">{address.replace(/^https?:\/\//, '')}</span>
+        </span>
+      </a>
       <CopyButton text={address} />
       <OpenButton slug={item.slug} />
       <button type="button" className={iconButton} aria-label={`Edit ${item.slug}`} onClick={onEdit}><PencilIcon className="size-4" /></button>
@@ -98,7 +95,9 @@ function LinkRow({ item, onEdit, onDelete }: { item: Published; onEdit: () => vo
       <ul aria-label={`Clicks per button for ${item.slug}`} className="m-0 flex list-none flex-col gap-2 p-0">
         {rows.map(row => <li key={row.service} className="flex items-center gap-3 text-sm">
           <img src={`/logos/${row.service}.svg`} alt="" className="size-5 shrink-0 object-contain" />
-          <span className="w-28 shrink-0 truncate">{LABELS[row.service]}</span>
+          {row.url
+            ? <a href={row.url} target="_blank" rel="noreferrer" className="w-28 shrink-0 truncate text-foreground underline-offset-4 hover:underline">{LABELS[row.service]}</a>
+            : <span className="w-28 shrink-0 truncate text-muted-foreground">{LABELS[row.service]}</span>}
           <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
             <span className="block h-full rounded-full bg-primary" style={{ width: `${(row.count / most) * 100}%` }} />
           </span>
