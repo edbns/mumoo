@@ -53,6 +53,7 @@ export function validFeedback(v) {
   if (s.presetTake !== undefined && !word(s.presetTake, 24)) return false;
   if (s.colourFit !== undefined && !(typeof s.colourFit === 'number' && s.colourFit >= 0 && s.colourFit <= 1)) return false;
   if (v.ownPicture !== undefined && typeof v.ownPicture !== 'boolean') return false;
+  if (v.place !== undefined && !(Number.isInteger(v.place) && v.place >= 0 && v.place < 40)) return false;
   if (v.event === 'watch') return Number.isInteger(v.watchMs) && v.watchMs > 0 && v.watchMs <= MOST_WATCH_MS;
   return v.watchMs === undefined;
 }
@@ -69,10 +70,10 @@ export async function storeFeedback(v, userId) {
       await sql`
         insert into brain_feedback (event, user_id, clip_sha256, genre, sub_genre, vibe, lane, language, lyrics_origin, attitude, sadness, intensity,
           row_id, slot_id, style, font, font_secondary, type_style, effect_id, library_id, look, own_picture, generation,
-          reel_ids, cut_seed, lyric_moods, lyric_themes, drive, mode, board, preset, preset_take, colour_fit)
+          reel_ids, cut_seed, lyric_moods, lyric_themes, drive, mode, board, preset, preset_take, colour_fit, shelf_place)
         select distinct on (slot_id) 'delivered', ${userId}, clip_sha256, genre, sub_genre, vibe, lane, language, lyrics_origin, attitude, sadness, intensity,
           row_id, slot_id, style, font, font_secondary, type_style, effect_id, library_id, look, own_picture, generation,
-          reel_ids, cut_seed, lyric_moods, lyric_themes, drive, mode, board, preset, preset_take, colour_fit
+          reel_ids, cut_seed, lyric_moods, lyric_themes, drive, mode, board, preset, preset_take, colour_fit, shelf_place
         from brain_feedback
         where event = 'download' and clip_sha256 = ${v.clipSha256} and slot_id = any(${v.slotIds}::text[]) and created_at > now() - interval '1 day'
         order by slot_id, created_at desc`;
@@ -85,14 +86,14 @@ export async function storeFeedback(v, userId) {
     await sql`
       insert into brain_feedback (event, user_id, nth_download, clip_sha256, genre, sub_genre, vibe, lane, language, lyrics_origin,
         attitude, sadness, intensity, row_id, slot_id, style, font, font_secondary, type_style, effect_id, library_id, look, own_picture, generation,
-        reel_ids, cut_seed, watch_ms, lyric_moods, lyric_themes, drive, mode, board, preset, preset_take, colour_fit)
+        reel_ids, cut_seed, watch_ms, lyric_moods, lyric_themes, drive, mode, board, preset, preset_take, colour_fit, shelf_place)
       values (${v.event}, ${userId}, ${nth},
         ${v.clipSha256}, ${v.primaryGenre.trim()}, ${v.subGenre ?? null}, ${v.vibe}, ${v.lane}, ${v.language}, ${v.lyricsOrigin},
         ${v.lyricAttitude}, ${v.lyricSadness}, ${v.lyricIntensity}, ${v.row ?? null}, ${s.id ?? null}, ${s.style ?? null},
         ${s.font ?? null}, ${s.fontSecondary ?? null}, ${s.typeStyle ?? null}, ${s.effectId ?? null}, ${s.libraryId ?? null}, ${s.look ?? null},
         ${typeof v.ownPicture === 'boolean' ? v.ownPicture : null}, ${v.generation ?? null},
         ${s.reelIds ?? null}, ${s.cutSeed ?? null}, ${v.watchMs ?? null}, ${v.lyricMoods ?? null}, ${v.lyricThemes ?? null}, ${v.drive ?? null}, ${v.mode ?? null}, ${s.board ?? null},
-        ${s.preset ?? null}, ${s.presetTake ?? null}, ${s.colourFit ?? null})`;
+        ${s.preset ?? null}, ${s.presetTake ?? null}, ${s.colourFit ?? null}, ${v.place ?? null})`;
     return true;
   } catch (cause) {
     console.error('feedback not kept:', cause);

@@ -428,13 +428,14 @@ test('each template leads with the kind of card people download, seeded, and onl
       const kinds = plain[0].map(pack.cardKind);
       assert.ok(kinds.every(Boolean), `${row}: every card has a kind (${kinds})`);
       assert.deepEqual(pack.recommendRow(row, songs[0], 0, [], library, false, {}), plain[0], `${row}: with no history the deal is as before`);
-      // Every song: the card in last place is the kind people download, the others are passed over.
+      // Every song: the card in last place is the kind people download, the others are passed over (all of it in songs of its lane).
+      const learning = (person, counts) => ({ cards: { [row]: counts }, lanes: { [pack.readSong(person).lane]: { cards: { [row]: counts } } } });
       let led = 0;
       songs.forEach((person, index) => {
         const last = pack.cardKind(plain[index].at(-1));
         const counts = Object.fromEntries(plain[index].map(slot => [pack.cardKind(slot), pack.cardKind(slot) === last ? { shown: 300, won: 150 } : { shown: 300, won: 3 }]));
-        const learned = pack.recommendRow(row, person, 0, [], library, false, { [row]: counts });
-        assert.deepEqual(learned, pack.recommendRow(row, person, 0, [], library, false, { [row]: counts }), `${row}: the same hand every time`);
+        const learned = pack.recommendRow(row, person, 0, [], library, false, learning(person, counts));
+        assert.deepEqual(learned, pack.recommendRow(row, person, 0, [], library, false, learning(person, counts)), `${row}: the same hand every time`);
         assert.deepEqual(new Set(learned.map(slot => slot.id)), new Set(plain[index].map(slot => slot.id)), `${row}: the same cards`);
         assert.deepEqual(learned.slice(1).map(slot => slot.id), plain[index].filter(slot => slot.id !== learned[0].id).map(slot => slot.id), `${row}: the others keep their order`);
         if (pack.cardKind(learned[0]) === last) led++;

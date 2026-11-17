@@ -1,22 +1,23 @@
-import { learnedCards, listApproved } from '../lib/library.mjs';
+import { learnedShelf, listApproved } from '../lib/library.mjs';
 import { storageReady } from '../lib/storage.mjs';
 
 /**
  * What the creatives may draw from the approved library: only approved items that are ready, each with a link that
  * works for 15 minutes. Anyone using the app may ask (the templates need it), so nothing here says who cleared a file
- * or where it came from; the admin sees all of that through /api/admin/library. `cards` is what people lately kept and downloaded
- * of each row's kinds of card (counts only), so the shelf can lead with what they want.
+ * or where it came from; the admin sees all of that through /api/admin/library. `cards`, `rows` and `lanes` are what people lately
+ * kept and downloaded of each template and its kinds of card, overall and per lane (counts only, `learnedShelf`), so the shelf can
+ * lead with what they want.
  */
 export default async function handler(request) {
   if (request.method !== 'GET') return Response.json({ error: 'Use GET.' }, { status: 405, headers: { Allow: 'GET' } });
   // Without storage there is simply nothing to offer: the templates carry on with our own photography.
-  if (!storageReady() || !process.env.DATABASE_URL) return Response.json({ items: [], cards: {} }, { headers: { 'Cache-Control': 'no-store' } });
+  if (!storageReady() || !process.env.DATABASE_URL) return Response.json({ items: [], cards: {}, rows: {}, lanes: {} }, { headers: { 'Cache-Control': 'no-store' } });
   try {
-    const [items, cards] = await Promise.all([listApproved(), learnedCards()]);
-    return Response.json({ items, cards }, { headers: { 'Cache-Control': 'private, max-age=30' } });
+    const [items, shelf] = await Promise.all([listApproved(), learnedShelf()]);
+    return Response.json({ items, ...shelf }, { headers: { 'Cache-Control': 'private, max-age=30' } });
   } catch (cause) {
     console.error('library:', cause);
-    return Response.json({ items: [], cards: {} }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    return Response.json({ items: [], cards: {}, rows: {}, lanes: {} }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 

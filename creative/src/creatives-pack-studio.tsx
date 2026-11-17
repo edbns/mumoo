@@ -3,7 +3,7 @@ import { DURATION_MS, FPS, playheadFrame, type Composition, type ImpactMusic } f
 import { songAccents } from './pack-director';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
-import { isLookRow, isTreatmentRow, recommendRow, rowsFor, SHELF_ROWS, type CreativesPackSlot, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
+import { isLookRow, isTreatmentRow, recommendRow, rowsFor, shelfOrder, SHELF_ROWS, type CreativesPackSlot, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
 import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
 import { friendlyError } from './friendly-error';
@@ -206,12 +206,20 @@ export function CreativesPackStudio({
     const ids = slot.reelIds ?? (slot.libraryId ? [slot.libraryId] : []);
     return ids.every(id => readyOwn.some(item => item.id === id)) ? ids : [];
   };
-  /** The templates on the shelf now: a video or GIF leaves out the ones that need a photo, no lyrics the ones made of them. */
-  const shelf = rowsFor(textless, ownKind);
+  // Our approved library fills the shelf until the person uses their own pictures.
+  const { items: library, learning } = useLibrary();
+  /**
+   * The templates on the shelf now: a video or GIF leaves out the ones that need a photo, no lyrics the ones made of them. Their order
+   * is learned from what people download in songs like this one (`shelfOrder`), the same each time for the same song.
+   */
+  const shelf = useMemo(() => shelfOrder(rowsFor(textless, ownKind), learning, profile), [textless, ownKind, learning, profile]);
+  /** Where a template is on the shelf now (0 is the top), told with each card so Learning can tell a good template from a high one. */
+  const placeOf = (row: ShelfRow) => {
+    const place = shelf.findIndex(def => def.id === row);
+    return place < 0 ? undefined : place;
+  };
   /** The person's own picture, for a template that draws one. */
   const ownFor = (row: ShelfRow) => (SHELF_ROWS.find(def => def.id === row)?.picture ? own : null);
-  // Our approved library fills the shelf until the person uses their own pictures.
-  const { items: library, cards: learnedCards } = useLibrary();
   /** What the shelf deals from: the person's own pictures when they have several, else our library. */
   const dealt = ownPool ?? library;
   /** Window and Silhouette: the song's picture seen through the lyrics, or through a figure. */
@@ -263,7 +271,7 @@ export function CreativesPackStudio({
     // The looks, treatments and Window are dealt once it knows what our library holds.
     if ((isLookRow(def.id) || isTreatmentRow(def.id) || isWindowRow(def.id)) && dealt === null && !own) return [def.id, { slots: [], note: '' }];
     if (!textless && !hasLyrics) return [def.id, { slots: [], note: '' }];
-    const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, libraryFor(def.id), (isLookRow(def.id) || isTreatmentRow(def.id) || isWindowRow(def.id)) && Boolean(ownFor(def.id)), learnedCards);
+    const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, libraryFor(def.id), (isLookRow(def.id) || isTreatmentRow(def.id) || isWindowRow(def.id)) && Boolean(ownFor(def.id)), learning);
     // The looks and treatments are drawn on our library pictures, so with none for this song they say so instead of vanishing.
     const note = !slots.length && (isLookRow(def.id) || isTreatmentRow(def.id) || def.id === 'window') && !ownPool ? `${def.title} is drawn on pictures from our library, and none fits this song yet. Upload your own picture to see it here.` : '';
     return [def.id, { slots, note }];
@@ -271,7 +279,7 @@ export function CreativesPackStudio({
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, creatorKey, lyricKey,
     controls, plates, hasLyrics, textless, pictureIds, ownKind, uploads.signedIn, uploads.pending,
     // What the library (or the person's own pool) holds, not the links to it (they are renewed all the time).
-    dealtKey, learnedCards,
+    dealtKey, learning,
   ]);
   /** The cards on the page, in order: each template's first creative, and the rest of its four where the person asked for more. */
   const cards = shelf.flatMap(def => view[def.id].slots.slice(0, LEAD).map(slot => ({ def, slot })));
@@ -311,14 +319,14 @@ export function CreativesPackStudio({
   }, [cueKey]);
 
   // How long each card's preview is watched: told once, when it stops, another card starts, the shelf goes or the page closes.
-  const watchFacts = useRef({ token, profile, controls, ownCard });
-  watchFacts.current = { token, profile, controls, ownCard };
+  const watchFacts = useRef({ token, profile, controls, ownCard, placeOf });
+  watchFacts.current = { token, profile, controls, ownCard, placeOf };
   useEffect(() => {
     if (!playing || !playingSlot) return;
     const slot = playingSlot;
     const since = performance.now();
-    const { controls: rows, ownCard: isOwn } = watchFacts.current;
-    const extras = { generation: rows[slot.row].generation, ownPicture: isOwn(slot) };
+    const { controls: rows, ownCard: isOwn, placeOf: placed } = watchFacts.current;
+    const extras = { generation: rows[slot.row].generation, ownPicture: isOwn(slot), place: placed(slot.row) };
     let told = false;
     const tell = () => {
       if (told) return;
@@ -462,7 +470,7 @@ export function CreativesPackStudio({
       thumb: cardThumbnail(card),
     };
     cart.add(item);
-    reportPackFeedback(token, profile, 'select', slot, { selectedIds: [...cart.items.map(held => held.id), slot.id], generation: item.generation, ownPicture: ownCard(slot) });
+    reportPackFeedback(token, profile, 'select', slot, { selectedIds: [...cart.items.map(held => held.id), slot.id], generation: item.generation, ownPicture: ownCard(slot), place: placeOf(slot.row) });
   }
 
   /** What a cart item is drawn from now: the person's own picture (if it is still there) or the library / plate. */
@@ -498,7 +506,7 @@ export function CreativesPackStudio({
     setPlayingId(id);
     if (playing) onStop();
     const slot = pack.find(item => item.id === id);
-    if (slot) reportPackFeedback(token, profile, 'play', slot, { generation: controls[slot.row].generation, ownPicture: ownCard(slot) });
+    if (slot) reportPackFeedback(token, profile, 'play', slot, { generation: controls[slot.row].generation, ownPicture: ownCard(slot), place: placeOf(slot.row) });
     onPlay();
   }
 
@@ -528,7 +536,7 @@ export function CreativesPackStudio({
           // Never send both: own upload replaces the library picture on this row.
           ...(item.uploadId ? { uploadId: item.uploadId } : item.ownReel ? { ownReel: true } : item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
         }));
-        reportPackFeedback(token, profile, 'download', item.slot, { selectedIds: cart.items.map(held => held.id), generation: item.generation, ownPicture: item.uploadId !== null || Boolean(item.ownReel) });
+        reportPackFeedback(token, profile, 'download', item.slot, { selectedIds: cart.items.map(held => held.id), generation: item.generation, ownPicture: item.uploadId !== null || Boolean(item.ownReel), place: placeOf(item.slot.row) });
       }
       return ids;
     });

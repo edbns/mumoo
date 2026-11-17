@@ -52,7 +52,7 @@ export function reportPackFeedback(
   profile: CreativeProfileV1,
   event: PackFeedbackEvent,
   slot: CreativesPackSlot,
-  extras?: { selectedIds?: string[]; generation?: number; ownPicture?: boolean; watchMs?: number },
+  extras?: { selectedIds?: string[]; generation?: number; ownPicture?: boolean; watchMs?: number; place?: number },
 ) {
   if (!token) return;
   const libraryId = slot.libraryId ?? slot.reelIds?.[0];
@@ -86,11 +86,13 @@ export function reportPackFeedback(
     ...(extras?.ownPicture !== undefined && { ownPicture: extras.ownPicture }),
     ...(extras?.selectedIds && { selectedIds: extras.selectedIds.slice(0, 32) }),
     ...(extras?.generation !== undefined && { generation: extras.generation }),
+    // Where its template was on the shelf (0 is the top): the shelf's order is learned, and a high place gets played more.
+    ...(extras?.place !== undefined && { place: extras.place }),
   });
 }
 
 /** A card's preview stopped: how long it was watched. */
-export function reportWatch(token: string, profile: CreativeProfileV1, slot: CreativesPackSlot, watchedMs: number, extras: { generation: number; ownPicture: boolean }) {
+export function reportWatch(token: string, profile: CreativeProfileV1, slot: CreativesPackSlot, watchedMs: number, extras: { generation: number; ownPicture: boolean; place?: number }) {
   if (watchedMs < LEAST_WATCH_MS) return;
   reportPackFeedback(token, profile, 'watch', slot, { ...extras, watchMs: Math.min(MOST_WATCH_MS, Math.round(watchedMs)) });
 }

@@ -22,7 +22,7 @@ import { coverFit } from './look-fit';
 import type { CoverRead } from './cover-palette';
 import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
 import { coloursFor } from './genre-guide';
-import { colourFit, learnedNudge, libraryFit, pickLibrary, showing, usualRate, type Learned, type LibraryPicture, type LibraryWanted } from './library-pick';
+import { colourFit, inLane, learnedNudge, libraryFit, pickLibrary, showing, usualRate, type Learned, type LibraryPicture, type LibraryWanted } from './library-pick';
 import { boardForRow, songBoards } from './boards';
 import {
   dealTreatments,
@@ -409,9 +409,11 @@ export function reeled(slot: CreativesPackSlot, pool: readonly LibraryPicture[],
  * photos Dust and Riso are drawn from (the person's own picture, if any, replaces them in the app); `ownPicture` says
  * the person's one picture is drawn on every card instead of our library.
  */
-export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], library: readonly LibraryPicture[] = [], ownPicture = false,
-  cards: LearnedCards = {}): CreativesPackSlot[] {
+export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], pool: readonly LibraryPicture[] = [], ownPicture = false,
+  learning: ShelfLearning = {}): CreativesPackSlot[] {
   const { intent, meaning, lane, genre } = readSong(profile);
+  // What people did with each picture, for songs in this lane first (`inLane`).
+  const library = pool.some(item => item.learnedLanes) ? pool.map(item => ({ ...item, learned: inLane(item.learned, item.learnedLanes?.[lane]) })) : pool;
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
@@ -492,7 +494,19 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   });
   const grade = moodGrade(meaning);
   const graded = grade && !UNGRADED.includes(row) ? coloured.map(slot => ({ ...slot, grade })) : coloured;
-  return learnedLead(graded, cards[row], seed);
+  return learnedLead(graded, cardsInLane(learning, lane, row), seed);
+}
+
+/** What people did with each kind of card of `row`, for songs in `lane` first. */
+function cardsInLane(learning: ShelfLearning, lane: string, row: ShelfRow): Readonly<Record<string, Learned>> | undefined {
+  const all = learning.cards?.[row];
+  const own = learning.lanes?.[lane]?.cards?.[row];
+  if (!all && !own) return undefined;
+  const kinds = new Set([...Object.keys(all ?? {}), ...Object.keys(own ?? {})]);
+  return Object.fromEntries([...kinds].flatMap(kind => {
+    const counts = inLane(all?.[kind], own?.[kind]);
+    return counts ? [[kind, counts]] : [];
+  }));
 }
 
 /**
@@ -505,8 +519,29 @@ export function cardKind(slot: CreativesPackSlot): string | undefined {
   return slot.inkSet ?? slot.look;
 }
 
-/** What people did lately with each kind of card of each row (`learnedCards` on the server, with `/api/library`). */
+/** What people did lately with each kind of card of each row. */
 export type LearnedCards = Partial<Record<ShelfRow, Readonly<Record<string, Learned>>>>;
+/** What people did lately with each row (template) as a whole. */
+export type LearnedRows = Partial<Record<ShelfRow, Learned>>;
+/** What the shelf learns from (`learnedShelf` on the server, with `/api/library`): overall, and again for each lane the brain chose for the song. */
+export type ShelfLearning = { cards?: LearnedCards; rows?: LearnedRows; lanes?: Readonly<Record<string, { cards?: LearnedCards; rows?: LearnedRows }>> };
+
+/** One place down the shelf weighs this much against what people downloaded (a nudge is at most 0.3): a template moves a few places at most. */
+const SHELF_STEP = 0.1;
+
+/**
+ * The templates in the order the shelf shows them for this song: the brain's order (`SHELF_ROWS`), nudged by how often each template's
+ * cards were kept and downloaded in songs of this lane (`learnedNudge`, seeded per song, so a template with little history still gets
+ * turns near the top). The same song always gets the same order, so the shelf never reorders under the person.
+ */
+export function shelfOrder<Row extends { id: ShelfRow }>(rows: readonly Row[], learning: ShelfLearning, profile: CreativeProfileV1): Row[] {
+  const { lane } = readSong(profile);
+  const learned = rows.map(row => inLane(learning.rows?.[row.id], learning.lanes?.[lane]?.rows?.[row.id]));
+  if (rows.length < 2 || !learned.some(Boolean)) return [...rows];
+  const usual = usualRate(learned.map(counts => ({ learned: counts })));
+  const score = rows.map((row, index) => learnedNudge(learned[index], usual, `${profile.clip.sourceSha256}:shelf:${row.id}`) - index * SHELF_STEP);
+  return rows.map((row, index) => ({ row, index })).sort((a, b) => score[b.index] - score[a.index] || a.index - b.index).map(entry => entry.row);
+}
 
 /** One place down the brain's order weighs this much against what people downloaded (a nudge is at most 0.3). */
 const PLACE_STEP = 0.15;

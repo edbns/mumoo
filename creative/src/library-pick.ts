@@ -35,8 +35,9 @@ export type LibraryPicture = {
   /** A video or GIF's small prepared clip and its shots, as [start, end] in ms of the clip. Riso and Window can draw these. */
   motionUrl?: string;
   shots?: [number, number][];
-  /** What people did with cards drawn from it lately (`learnedCounts` on the server). */
+  /** What people did with cards drawn from it lately (`learnedCounts` on the server), and the same for each lane the brain chose for the song. */
   learned?: Learned;
+  learnedLanes?: Readonly<Record<string, Learned>>;
   /** How strongly our vision model sees each look in it (song themes and genre looks), 0..1; unseen looks are left out. */
   looks?: Readonly<Record<string, number>>;
   /** Its colours, measured on our server like a song's cover (a clip's are its poster's). Absent until measured. */
@@ -51,6 +52,21 @@ export type PictureColours = { palette: readonly { hex: string; share: number }[
  * that was downloaded counts in full, one only put in the cart a third.
  */
 export type Learned = { shown: number; won: number };
+
+/** What people did in other lanes counts this much against the song's own lane: a lane with little history leans on the rest. */
+const OTHER_LANES = 0.25;
+
+/**
+ * What is known of something for a song in `lane`: what people did with it in that lane, plus a quarter of what they did in the
+ * others. A party song learns from party songs first, and a lane nobody has used yet still learns a little from the rest.
+ */
+export function inLane(all: Learned | undefined, lane: Learned | undefined): Learned | undefined {
+  if (!all) return lane;
+  const own = lane ?? { shown: 0, won: 0 };
+  const shown = own.shown + OTHER_LANES * Math.max(0, all.shown - own.shown);
+  const won = own.won + OTHER_LANES * Math.max(0, all.won - own.won);
+  return shown > 0 ? { shown: Math.round(shown * 100) / 100, won: Math.round(won * 100) / 100 } : undefined;
+}
 
 /** A picture with no history is taken as this many plays at the library's usual rate: a few plays never swing it far. */
 const PRIOR_PLAYS = 20;

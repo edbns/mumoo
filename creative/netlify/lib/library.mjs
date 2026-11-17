@@ -440,7 +440,7 @@ export async function listApproved() {
     ...(row.boards?.length ? { boards: row.boards } : {}),
     ...(row.looks && Object.keys(row.looks).length ? { looks: row.looks } : {}),
     ...(row.colours ? { colours: { palette: row.colours.palette, lightness: row.colours.lightness, saturation: row.colours.saturation, contrast: row.colours.contrast } } : {}),
-    ...(learned.has(row.id) ? { learned: learned.get(row.id) } : {}),
+    ...(learned.has(row.id) ? learned.get(row.id) : {}),
     url: await signedDownload(row.kind === 'photo' ? keyOf(row.id) : posterKey(row.id), null),
     ...(row.kind === 'photo' ? (row.cutout ? { cutoutUrl: await signedDownload(cutoutKey(row.id), null) } : {}) : { motionUrl: await signedDownload(motionKey(row.id), null), ...(row.shots ? { shots: row.shots } : {}) }),
   })));
@@ -458,20 +458,29 @@ const won = (selects, delivered) => Math.round(((selects + 2 * delivered) / 3) *
 /**
  * For each library picture, how often a card drawn from it was played (`shown`) and how much of that was kept (`won`, see above).
  * A reel counts for every picture in it. Cards drawn on the person's own picture say nothing about ours. Counts only, never who.
- * Learning must never stop the library from loading: without the table, or on any error, nothing is learned.
+ * Also the same per lane the brain chose for the song (`learnedLanes`), so a picture people download for party songs leads there.
+ * `{ learned, learnedLanes }` per id. Learning must never stop the library from loading: without the table, or on any error, nothing is learned.
  */
 export async function learnedCounts() {
   try {
     const rows = await db()`
-      select id, count(*) filter (where event = 'play')::int as shown,
+      select id, lane, count(*) filter (where event = 'play')::int as shown,
         count(*) filter (where event = 'select')::int as selects, count(*) filter (where event = 'delivered')::int as delivered
       from (
-        select event, unnest(coalesce(reel_ids, array[library_id])) as id from brain_feedback
+        select event, lane, unnest(coalesce(reel_ids, array[library_id])) as id from brain_feedback
         where created_at > now() - make_interval(days => ${LEARNED_DAYS}) and event in ('play', 'select', 'delivered')
           and (library_id is not null or reel_ids is not null) and own_picture is not true
       ) used
-      group by id`;
-    return new Map(rows.map(row => [row.id, { shown: row.shown, won: won(row.selects, row.delivered) }]));
+      group by id, lane`;
+    const counts = new Map();
+    for (const row of rows) {
+      const entry = counts.get(row.id) ?? { learned: { shown: 0, selects: 0, delivered: 0 }, learnedLanes: {} };
+      entry.learned.shown += row.shown; entry.learned.selects += row.selects; entry.learned.delivered += row.delivered;
+      if (row.lane) entry.learnedLanes[row.lane] = { shown: row.shown, won: won(row.selects, row.delivered) };
+      counts.set(row.id, entry);
+    }
+    for (const entry of counts.values()) entry.learned = { shown: entry.learned.shown, won: won(entry.learned.selects, entry.learned.delivered) };
+    return counts;
   } catch (cause) {
     console.error('learned counts:', cause);
     return new Map();
@@ -479,25 +488,45 @@ export async function learnedCounts() {
 }
 
 /**
- * For each row of the shelf, each kind of card it deals (the `look` feedback keeps: a treatment's variant, a Window palette, a
- * Silhouette figure, a Riso ink set, a live look): how often it was played and how much of that was kept, as for pictures.
- * `{ [row]: { [kind]: { shown, won } } }`, over the same days. Never stops the library from loading.
+ * What the shelf learns from, as for pictures (how often played, `shown`, and how much of that was kept, `won`), over the same days:
+ *   cards: for each row of the shelf, each kind of card it deals (the `look` feedback keeps: a treatment's variant, a Window palette,
+ *          a Silhouette figure, a Riso ink set, a live look). `{ [row]: { [kind]: counts } }`
+ *   rows:  each row (template) as a whole, which orders the shelf. `{ [row]: counts }`
+ *   lanes: both again for each lane the brain chose for the song. `{ [lane]: { cards, rows } }`
+ * Never stops the library from loading.
  */
-export async function learnedCards() {
+export async function learnedShelf() {
   try {
     const rows = await db()`
-      select row_id, look, count(*) filter (where event = 'play')::int as shown,
+      select lane, row_id, look, count(*) filter (where event = 'play')::int as shown,
         count(*) filter (where event = 'select')::int as selects, count(*) filter (where event = 'delivered')::int as delivered
       from brain_feedback
-      where created_at > now() - make_interval(days => ${LEARNED_DAYS}) and event in ('play', 'select', 'delivered')
-        and row_id is not null and look is not null
-      group by row_id, look`;
-    const cards = {};
-    for (const row of rows) (cards[row.row_id] ??= {})[row.look] = { shown: row.shown, won: won(row.selects, row.delivered) };
-    return cards;
+      where created_at > now() - make_interval(days => ${LEARNED_DAYS}) and event in ('play', 'select', 'delivered') and row_id is not null
+      group by lane, row_id, look`;
+    const shelf = { cards: {}, rows: {}, lanes: {} };
+    const add = (to, row) => {
+      const counts = (to[row.row_id] ??= { shown: 0, selects: 0, delivered: 0 });
+      counts.shown += row.shown; counts.selects += row.selects; counts.delivered += row.delivered;
+    };
+    const addCard = (to, row) => {
+      const counts = ((to[row.row_id] ??= {})[row.look] ??= { shown: 0, selects: 0, delivered: 0 });
+      counts.shown += row.shown; counts.selects += row.selects; counts.delivered += row.delivered;
+    };
+    for (const row of rows) {
+      const lane = row.lane ? (shelf.lanes[row.lane] ??= { cards: {}, rows: {} }) : null;
+      add(shelf.rows, row);
+      if (lane) add(lane.rows, row);
+      if (row.look) { addCard(shelf.cards, row); if (lane) addCard(lane.cards, row); }
+    }
+    const done = counts => ({ shown: counts.shown, won: won(counts.selects, counts.delivered) });
+    const finish = ({ cards, rows: byRow }) => ({
+      cards: Object.fromEntries(Object.entries(cards).map(([row, kinds]) => [row, Object.fromEntries(Object.entries(kinds).map(([kind, counts]) => [kind, done(counts)]))])),
+      rows: Object.fromEntries(Object.entries(byRow).map(([row, counts]) => [row, done(counts)])),
+    });
+    return { ...finish(shelf), lanes: Object.fromEntries(Object.entries(shelf.lanes).map(([lane, part]) => [lane, finish(part)])) };
   } catch (cause) {
-    console.error('learned cards:', cause);
-    return {};
+    console.error('learned shelf:', cause);
+    return { cards: {}, rows: {}, lanes: {} };
   }
 }
 

@@ -112,7 +112,7 @@ export function LearningView() {
     <header className="flex flex-wrap items-center justify-between gap-4">
       <div>
         <h1 className="m-0 text-2xl font-semibold">Learning</h1>
-        <p className="m-0 text-sm text-muted-foreground">What people play, watch, keep and download. Each template leads with the kind of card people download, and picks the pictures they download; a download counts three times a cart.</p>
+        <p className="m-0 text-sm text-muted-foreground">What people play, watch, keep and download. The shelf puts first the templates people download, each template leads with the kind of card people download and picks the pictures they download, all learned per lane; a download counts three times a cart.</p>
       </div>
       <div className="flex gap-1" role="group" aria-label="Period">
         {PERIODS.map(period => <Button key={period} size="sm" variant={period === days ? 'default' : 'secondary'} aria-pressed={period === days} onClick={() => setDays(period)}>{period} days</Button>)}
@@ -130,6 +130,10 @@ export function LearningView() {
       <Table title="Templates" note="Which templates people download, most downloaded first." tallies={learning.rows} />
       <Table title="What people download" note="Each kind of card of each template: a treatment's variant, a Window colour, a Silhouette figure and colour, a Riso ink, a live look. The template leads with the kinds people download." tallies={learning.cards}
         label={key => { const [row, kind] = key.split(' · '); return <>{row} <span className="text-muted-foreground">· {kind}</span></>; }} />
+      <Table title="Templates by lane" note="The same, for each lane the brain chose for the song. The shelf's order is learned per lane: a song's own lane counts in full, the others a quarter." tallies={learning.rowLanes}
+        label={key => { const [row, lane] = key.split(' · '); return <>{row} <span className="text-muted-foreground">· {lane}</span></>; }} />
+      <Table title="Place on the shelf" note="Cards by where their template was on the shelf (1 is the top). Templates near the top are played more just for being there; downloads per play say whether they deserve it." tallies={learning.places}
+        label={key => `Place ${Number(key) + 1}`} />
       <Table title="Library pictures" note="Most downloaded first. Every picture of a reel counts. Cards on the person's own picture are left out." tallies={learning.pictures} label={picture} />
       <Table title="Mood boards" note="Cards dealt from each board. A board people often refresh past is a weak fit for those songs." tallies={learning.boards} label={boardName} />
       <Table title="Mood boards by genre" note="The same, for each genre the creator gave (unknown when they did not know)." tallies={learning.boardGenres}

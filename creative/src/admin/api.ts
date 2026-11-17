@@ -52,6 +52,10 @@ export type Learning = {
   rows: Tally[];
   /** Each kind of card of each row (`row · kind`: a treatment variant, Window palette, Silhouette figure, Riso ink, live look), most downloaded first. */
   cards: Tally[];
+  /** Each row in each lane the brain chose for the song (`row · lane`), most downloaded first: the shelf's order is learned per lane. */
+  rowLanes: Tally[];
+  /** By the template's place on the shelf when the card was played (`0` is the top). */
+  places: Tally[];
   looks: Tally[]; vibes: Tally[]; moods: Tally[]; pictures: Tally[];
   /** Cards dealt from each mood board, and from each board for each genre (`board · genre`). */
   boards: Tally[]; boardGenres: Tally[];

@@ -4,7 +4,8 @@ import { db } from '../lib/person.mjs';
 /**
  * GET /api/admin/learning?days=30: what people did with the creatives (brain_feedback), summed up for reading. Counts and codes only:
  * which rows, kinds of card, looks, vibes, library pictures and genre colour matches are played, watched, kept and downloaded. Never who did it, never any words.
- * Rows, cards and pictures come most downloaded first: downloads are what the shelf learns from (`learnedCards`, `learnedCounts`).
+ * Rows, cards and pictures come most downloaded first: downloads are what the shelf learns from (`learnedShelf`, `learnedCounts`),
+ * overall and per lane.
  */
 const DAYS = [7, 30, 90];
 const COLOUR_ORDER = ['strong', 'some', 'weak', 'none'];
@@ -30,6 +31,13 @@ export default async function handler(request) {
     const cards = await sql`
       select row_id || ' · ' || look as key, ${tally} from brain_feedback where ${since} and row_id is not null and look is not null and event <> 'refresh'
       group by 1 order by delivered desc, selects desc, plays desc, key limit 40`;
+    const rowLanes = await sql`
+      select row_id || ' · ' || coalesce(lane, 'unknown') as key, ${tally} from brain_feedback where ${since} and row_id is not null and event <> 'refresh'
+      group by 1 order by delivered desc, selects desc, plays desc, key limit 60`;
+    // How the shelf's place plays into it: a template near the top gets played more just for being there.
+    const places = await sql`
+      select shelf_place::text as key, ${tally} from brain_feedback where ${since} and shelf_place is not null and event <> 'refresh'
+      group by shelf_place order by shelf_place`;
     const looks = await sql`select coalesce(look, type_style, style) as key, ${tally} from brain_feedback where ${since} and event <> 'refresh' group by 1 order by plays desc, key limit 30`;
     const vibes = await sql`select coalesce(vibe, 'unread') || ' · ' || lane as key, ${tally} from brain_feedback where ${since} group by 1 order by plays desc, key limit 30`;
     const boards = await sql`select board as key, ${tally} from brain_feedback where ${since} and board is not null group by board order by plays desc, key`;
@@ -71,6 +79,8 @@ export default async function handler(request) {
       totals: { ...shape([{ key: 'all', ...totals }])[0], songs: totals.songs },
       rows: shape(rows),
       cards: shape(cards),
+      rowLanes: shape(rowLanes),
+      places: shape(places),
       looks: shape(looks),
       vibes: shape(vibes),
       moods: shape(moods),
