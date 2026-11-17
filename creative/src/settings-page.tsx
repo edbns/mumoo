@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
-import { authClient, confirmEmailChange, requestEmailChange } from './account';
+import { authClient, confirmEmailChange, deleteAccount, requestEmailChange } from './account';
 import { AccountColumn, AccountSection } from './account-section';
 
 /** How long the confirmation is read before the page reloads. */
@@ -8,7 +8,7 @@ const RELOAD_MS = 2000;
 
 const field = 'h-10 w-full rounded-[var(--radius-control)] bg-muted px-3 text-sm text-foreground outline-ring placeholder:text-muted-foreground focus-visible:outline-2';
 
-/** The person's settings. For now: changing the email, with a code sent to the new address, so everything they made stays with them. */
+/** The person's settings: changing the email (with a code sent to the new address, so everything they made stays with them), and deleting the account. */
 export default function SettingsPage() {
   const current = authClient.useSession().data?.user.email ?? '';
   /** The new address once its code has been sent; null while the person is still typing it. */
@@ -69,5 +69,45 @@ export default function SettingsPage() {
       {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
       {notice && <p role="status" className="m-0 text-sm text-primary">{notice}</p>}
     </AccountSection>
+    <DeleteAccount email={current} />
   </AccountColumn>;
+}
+
+/** Deleting the account for good: the person types their email to confirm, since nothing can be brought back. */
+function DeleteAccount({ email }: { email: string }) {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const matches = Boolean(email) && typed.trim().toLowerCase() === email.toLowerCase();
+
+  async function remove(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true); setError('');
+    try {
+      await deleteAccount(typed.trim());
+      location.assign('/');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'That did not work. Try again in a moment.');
+      setBusy(false);
+    }
+  }
+
+  return <AccountSection label="Delete account">
+    <p className="m-0 text-sm text-muted-foreground">Deletes your account and everything in it: your creatives, your pictures and your history. It cannot be undone. Download anything you want to keep first.</p>
+    {!open
+      ? <div className="flex justify-end"><Button variant="destructive" onClick={() => setOpen(true)}>Delete account</Button></div>
+      : <form onSubmit={remove} className="flex flex-col gap-3">
+        <label className="flex flex-col gap-2 text-sm">
+          <span>Type <strong>{email}</strong> to confirm.</span>
+          <input className={field} type="email" autoComplete="off" autoFocus aria-label="Your email, to confirm" value={typed} onChange={event => setTyped(event.target.value)} />
+        </label>
+        <div className="flex items-center justify-between gap-3">
+          <button type="button" className="cursor-pointer bg-transparent p-0 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            onClick={() => { setOpen(false); setTyped(''); setError(''); }}>Keep my account</button>
+          <Button type="submit" variant="destructive" disabled={busy || !matches}>{busy ? 'Deleting…' : 'Delete everything'}</Button>
+        </div>
+      </form>}
+    {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
+  </AccountSection>;
 }

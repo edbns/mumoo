@@ -36,6 +36,24 @@ export async function deleteObject(key) {
   if (!response.ok) throw new Error(`Storage refused the delete (${response.status}).`);
 }
 
+/** Every key that starts with `prefix` (S3 ListObjectsV2, page by page). */
+export async function listKeys(prefix) {
+  const keys = [];
+  let token = null;
+  do {
+    const url = new URL(`https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET}`);
+    url.searchParams.set('list-type', '2');
+    url.searchParams.set('prefix', prefix);
+    if (token) url.searchParams.set('continuation-token', token);
+    const response = await aws().fetch(url);
+    if (!response.ok) throw new Error(`Storage could not list the files (${response.status}).`);
+    const xml = await response.text();
+    for (const [, key] of xml.matchAll(/<Key>([^<]*)<\/Key>/g)) keys.push(key.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'"));
+    token = /<IsTruncated>true<\/IsTruncated>/.test(xml) ? /<NextContinuationToken>([^<]*)<\/NextContinuationToken>/.exec(xml)?.[1] ?? null : null;
+  } while (token);
+  return keys;
+}
+
 /** A download link that stops working after `seconds`. */
 export async function signedDownload(key, filename, seconds = 900) {
   const url = new URL(objectUrl(key));

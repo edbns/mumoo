@@ -84,6 +84,18 @@ export async function requestEmailChange(newEmail: string) {
   await accountFetch('/api/account/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newEmail }) });
 }
 
+/**
+ * Deletes the account completely (files, history, pictures and the sign-in itself), then forgets it on this device too: signs out
+ * and clears what MUMOO keeps in the browser (the cart, a download in progress). `email` is the person's own, typed to confirm.
+ */
+export async function deleteAccount(email: string) {
+  await accountFetch('/api/account', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+  await authClient.signOut().catch(() => undefined);
+  try {
+    for (const key of Object.keys(localStorage)) if (key.startsWith('mumoo-')) localStorage.removeItem(key);
+  } catch { /* storage unavailable: nothing kept */ }
+}
+
 /** Confirms the new address. */
 export async function confirmEmailChange(newEmail: string, code: string) {
   await accountFetch('/api/account/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newEmail, code }) });

@@ -24,10 +24,15 @@ export async function personFrom(request) {
   }
 }
 
-/** Records that this person was here (restarts the inactivity clock) and returns their row. */
+/**
+ * Records that this person was here (restarts the inactivity clock) and returns their row. Undefined for an account that was
+ * deleted: its token works for a few minutes more, and must not bring the account back.
+ */
 export async function recordPerson(person) {
   const [row] = await db()`
-    insert into app_users (id, email) values (${person.id}, ${person.email})
+    insert into app_users (id, email)
+    select ${person.id}, ${person.email}
+    where exists (select 1 from neon_auth."user" where id::text = ${person.id}) or exists (select 1 from app_users where id = ${person.id})
     on conflict (id) do update set email = excluded.email, last_seen_at = now(), reminded_60_at = null, reminded_83_at = null
     returning id, email, created_at, last_seen_at`;
   return row;
