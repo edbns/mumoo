@@ -1,3 +1,4 @@
+import { inactivityReminder } from './letters.mjs';
 import { db } from './person.mjs';
 import { removeRender } from './renders.mjs';
 import { removeUpload } from './uploads.mjs';
@@ -14,22 +15,6 @@ const GRACE_DAYS = 5;
 const hasFiles = (userId) => db()`
   select (exists (select 1 from renders where user_id = ${userId}) or exists (select 1 from uploads where user_id = ${userId})) as has`;
 
-function letter(days, siteUrl) {
-  const left = DELETE_DAYS - days;
-  return {
-    subject: left > 10 ? 'Your MUMOO creatives are waiting' : `Your MUMOO files will be deleted in ${left} days`,
-    text: [
-      `You have not been to MUMOO for ${days} days.`,
-      '',
-      `To keep storage tidy, the creatives and pictures saved in your account are deleted after ${DELETE_DAYS} days without a visit. That is in about ${left} days.`,
-      '',
-      `Sign in at ${siteUrl} before then and everything stays. To keep a copy, open My library and choose "Download everything".`,
-      '',
-      'MUMOO',
-    ].join('\n'),
-  };
-}
-
 /** One pass. `send({to, subject, text})` writes the letters; it is passed in so a test can listen. */
 export async function sweep({ send, siteUrl }) {
   const sql = db();
@@ -42,7 +27,7 @@ export async function sweep({ send, siteUrl }) {
     for (const person of due) {
       const [{ has }] = await hasFiles(person.id);
       if (!has) continue;
-      await send({ to: person.email, ...letter(days, siteUrl) });
+      await send({ to: person.email, ...inactivityReminder(days, DELETE_DAYS, siteUrl) });
       if (days === 83) await sql`update app_users set reminded_83_at = now(), reminded_60_at = coalesce(reminded_60_at, now()) where id = ${person.id}`;
       else await sql`update app_users set reminded_60_at = now() where id = ${person.id}`;
       sent.push({ id: person.id, days });

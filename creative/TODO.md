@@ -34,7 +34,8 @@ Still to do:
 - Done: delete account completely (Settings → Delete account, typing the email to confirm; `DELETE /api/account`, `delete-account.mjs`). Every file under the person's `uploads/` and `renders/` in storage (also leftovers no row knows), their rows (account, history, pictures, email change), error reports naming them, and their Neon sign-in with its sessions and Google link. Feedback stays as untraceable codes. A token still in use cannot bring the account back.
 - Done: a person's own pictures and clips stay in their account (History → Uploads) until they delete them; they used to be cleared on every visit and on Start over. The shelf still starts empty each run and takes ten at once; the account keeps up to 500 within its storage.
 - Done: History plays downloaded videos (and uploaded videos and GIFs): a play button on each card opens it large, with sound and a Download button.
-- Update the old product-flow tests to the new nav, genre / sub-genre and account menu.
+- Done: the product-flow tests walk the current flow again (the one style box, the shelf without a heading), with a mocked library so the cards paint; the cover test reads the Dust card and the lyric-meaning test the live looks.
+- Done (migration 034): emails all from "mumoo" (lowercase, no name or address in them, the code in the subject), Neon's sign-in code sent by us through its `send.otp` webhook, a letter when an account is deleted, the inactivity reminders reworded, and a letter when storage passes 90% of 5 GB.
 
 ## Brain feedback
 - Done: every play, select, download press and refresh is kept in `brain_feedback` (codes only), against the person when signed in; `nth_download` 1 is their first download (the free one).

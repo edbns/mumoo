@@ -34,7 +34,12 @@ test('deleting an account removes every file, row and the sign-in, and the brain
     // The last one an unfinished upload left behind: no row knows it.
     for (const key of keys) await putObject(key, new Uint8Array([1, 2, 3]), 'application/octet-stream');
 
-    await deleteAccount({ id, email });
+    const letters = [];
+    await deleteAccount({ id, email }, async (mail) => { letters.push(mail); });
+    assert.equal(letters.length, 1, 'they are told it is done');
+    assert.equal(letters[0].to, email);
+    assert.equal(letters[0].subject, 'Your mumoo account is deleted');
+    assert.ok(!letters[0].text.includes(email), 'the letter does not show their address');
 
     for (const key of keys) assert.equal(await objectSize(key), null, `${key} is gone`);
     assert.deepEqual([...await listKeys(`uploads/${id}/`), ...await listKeys(`renders/${id}/`)], []);

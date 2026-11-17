@@ -9,7 +9,7 @@ import ffmpegPath from '@ffmpeg-installer/ffmpeg';
 
 /**
  * One harness for every browser test of the product flow:
- *   upload song + genre → clip + lyrics → creatives.
+ *   upload song + style → clip + lyrics → creatives.
  * Network is mocked at the Netlify boundary (access, lyrics, music analysis); everything else is the real app.
  * Headed Brave on macOS only, like the rest of the browser suite (hardware-backed WebCodecs/WebGL).
  */
@@ -39,11 +39,38 @@ export function lyricsResult(text, { language = 'en', source = 'transcribed', st
   return { version: 2, source, language, languageProbability: 0.97, languageAlternatives: [], words, metrics: {} };
 }
 
+/** Colourful test pictures (ffmpeg's test patterns), made once per run: the library the creatives draw from. */
+let pictures;
+function testPictures() {
+  if (pictures) return pictures;
+  const dir = mkdtempSync(join(tmpdir(), 'mumoo-library-'));
+  try {
+    pictures = ['testsrc2', 'smptehdbars', 'rgbtestsrc', 'testsrc'].map((source, index) => {
+      const file = join(dir, `${index}.jpg`);
+      const result = spawnSync(ffmpegPath.path, ['-v', 'error', '-y', '-f', 'lavfi', '-i', `${source}=s=720x1280`, '-frames:v', '1', '-q:v', '3', file], { encoding: 'utf8' });
+      if (result.status !== 0) throw new Error(`ffmpeg failed: ${result.stderr}`);
+      return readFileSync(file);
+    });
+    return pictures;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** What /api/library answers: a few approved photos, each with its cut-out, free for any genre, showing nothing in particular. */
+export function testLibrary() {
+  return testPictures().map((_, index) => ({
+    id: `test-picture-${index}`, kind: 'photo', attitudes: [], tags: ['street'], genre: null, subGenre: null,
+    url: `/test-media/${index}.jpg`, cutoutUrl: `/test-media/${index}.jpg`,
+  }));
+}
+
 /**
  * Start the app and a browser with the Netlify boundary mocked.
  * `lyrics(meta)` receives {lines, language} and returns the worker result; every call is recorded.
  * `analysis` replaces the default music-analysis answer (e.g. a real worker result).
  * `meaning` is what the lyric-meaning worker says about the words (default: nothing in particular); each request body is recorded.
+ * The library is `testLibrary()`, so every template has pictures to draw.
  */
 export const NEUTRAL_READING = { version: 1, clarity: 'clear', attitude: 'neutral', sadness: 0, intensity: 3 };
 export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = [], meaningCalls = [], analysis, meaning = NEUTRAL_READING } = {}) {
@@ -55,6 +82,8 @@ export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = []
   page.on('pageerror', error => errors.push(error.message));
 
   await page.route('**/api/brain-tester-access', route => route.fulfill({ json: { token: 'test-token' } }));
+  await page.route('**/api/library', route => route.fulfill({ json: { items: testLibrary() } }));
+  await page.route('**/test-media/*.jpg', route => route.fulfill({ contentType: 'image/jpeg', body: testPictures()[Number(/(\d+)\.jpg$/.exec(route.request().url())[1])] }));
   await page.route('**/.netlify/functions/analyze-music', route => {
     const hash = createHash('sha256').update(route.request().postDataBuffer()).digest('hex');
     analysisCalls.push(hash);
@@ -99,15 +128,44 @@ export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = []
   };
 }
 
-/** Step 1: song + genre, then Continue. */
-export async function uploadSong(page, { genre = 'Pop', subGenre = 'General Pop', seconds = 20, name = 'song.wav', file } = {}) {
-  await page.locator('input[type=file]').setInputFiles(file ?? { name, mimeType: 'audio/wav', buffer: songWav(seconds) });
-  await page.getByLabel('Genre', { exact: true }).click();
+/** Step 1: the song, then what kind of music it is (typed into the one style box and picked from its list), then Continue. */
+export async function uploadSong(page, { genre = 'Pop', seconds = 20, name = 'song.wav', file } = {}) {
+  await page.locator('input[type=file]').first().setInputFiles(file ?? { name, mimeType: 'audio/wav', buffer: songWav(seconds) });
+  const style = page.getByRole('combobox', { name: 'What kind of music is it?' });
+  await style.fill(genre);
   await page.getByRole('option', { name: genre, exact: true }).click();
-  await page.getByLabel('Sub-genre').click();
-  await page.getByRole('option', { name: subGenre, exact: true }).click();
-  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.locator('main.desktop').getByRole('button', { name: 'Continue' }).click();
   await page.getByRole('heading', { name: 'Choose your 15 seconds' }).waitFor();
+}
+
+/** Step 2 to the shelf: find the lyrics, Continue, and wait until every card is painted (previews are drawn asynchronously). */
+export async function reachShelf(page) {
+  await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
+  await page.locator('.lyrics-editor').waitFor({ timeout: 30000 });
+  await page.locator('.step-actions').getByRole('button', { name: 'Continue' }).click();
+  await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length > 0 && !document.querySelector('.creatives-pack-card.pending'), null, { timeout: 30000 });
+  await page.waitForTimeout(4000);
+}
+
+/**
+ * What the creator sees on each named template's card: how warm (mean of red minus blue, -255…255) and how colourful (mean of
+ * the largest minus the smallest channel) its preview is. Keyed by template name, as in "Play Dust creative".
+ */
+export async function cardColours(page) {
+  return page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.creatives-pack-card')].flatMap(card => {
+    const name = /^Play (.+) creative$/.exec(card.querySelector('button[aria-label^="Play "]')?.getAttribute('aria-label') ?? '')?.[1];
+    const canvas = card.querySelector('canvas');
+    const context = canvas?.getContext('2d');
+    if (!name || !context) return [];
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let warm = 0, spread = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      warm += data[i] - data[i + 2];
+      spread += Math.max(data[i], data[i + 1], data[i + 2]) - Math.min(data[i], data[i + 1], data[i + 2]);
+    }
+    const pixels = data.length / 4;
+    return [[name, { warm: Math.round(warm / pixels), spread: Math.round(spread / pixels) }]];
+  })));
 }
 
 /** A real 20-second MP3 with a flat-colour cover embedded as an ID3 picture (made with the bundled ffmpeg). */

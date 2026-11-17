@@ -1,5 +1,6 @@
 import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import { db, recordPerson } from './person.mjs';
+import { emailChangeCode } from './letters.mjs';
 import { sendMail } from './mail.mjs';
 
 /**
@@ -32,11 +33,7 @@ export async function requestEmailChange(person, newEmail) {
     insert into email_changes (user_id, new_email, code_hash) values (${person.id}, ${email}, ${hashOf(person.id, email, code)})
     on conflict (user_id) do update set new_email = excluded.new_email, code_hash = excluded.code_hash, attempts = 0, sent_at = now()`;
   try {
-    await sendMail({
-      to: email,
-      subject: `${code} is your MUMOO code`,
-      text: `Your code to make this your MUMOO email is ${code}.\n\nIt works for ${CODE_MINUTES} minutes. If you did not ask for it, ignore this email: nothing changes.`,
-    });
+    await sendMail({ to: email, ...emailChangeCode(code, CODE_MINUTES) });
   } catch (cause) {
     console.error('email change code:', cause);
     await sql`delete from email_changes where user_id = ${person.id}`;

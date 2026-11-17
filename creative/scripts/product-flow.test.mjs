@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canRunBrowserTests, lyricsResult, NEUTRAL_READING, openProduct, songMp3WithCover, uploadSong } from './support/product-flow.mjs';
+import { canRunBrowserTests, cardColours, lyricsResult, NEUTRAL_READING, openProduct, reachShelf, songMp3WithCover, uploadSong } from './support/product-flow.mjs';
 
 const SKIP = !canRunBrowserTests;
 const HEARD = 'louvado seja o Senhor Deus gloria e graça para sempre';
@@ -51,7 +51,6 @@ test('song → clip + lyrics → edit and sync again → creatives', { timeout: 
     // Continue → the music analysis of this exact clip is requested and creatives are recommended.
     await next.click();
     assert.equal(await page.getByText('Upload media').count(), 0, 'no Director gate any more');
-    await page.getByRole('heading', { name: /recommended creatives/ }).waitFor({ timeout: 30000 });
     await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length > 0 && !document.querySelector('.creatives-pack-card.pending'), null, { timeout: 30000 });
     assert.equal(analysisCalls.length, 1);
     // The words are read once per distinct text (heard, then edited), only after they are final, with nothing else attached.
@@ -82,66 +81,39 @@ test('a worker failure is retried once, and a second failure keeps the user\'s w
   } finally { await product.close(); }
 });
 
-test('the cover inside the uploaded file steers which backgrounds lead', { timeout: 240000, skip: SKIP }, async () => {
-  const leading = async (color) => {
+test('the colour of the cover inside the uploaded file colours the Dust card', { timeout: 240000, skip: SKIP }, async () => {
+  const dust = async (color) => {
     const product = await openProduct({ lyrics: () => lyricsResult('hold me close tonight', { language: 'en' }) });
     const { page } = product;
     try {
       await uploadSong(page, { file: songMp3WithCover(color) });
-      await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
-      await page.locator('.lyrics-editor').waitFor({ timeout: 30000 });
-      await page.locator('.step-actions').getByRole('button', { name: 'Continue' }).click();
-      await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length > 0 && !document.querySelector('.creatives-pack-card.pending'), null, { timeout: 30000 });
+      await reachShelf(page);
       assert.deepEqual(product.errors, []);
-      await page.waitForTimeout(2500); // previews are painted asynchronously
       if (process.env.MUMOO_SHOTS) await page.screenshot({ path: `${process.env.MUMOO_SHOTS}/cover-${color}.png`, fullPage: true });
-      // What the creator actually sees: how red-vs-blue the first three previews are (mean of R - B, -255…255).
-      return await page.evaluate(() => [...document.querySelectorAll('.creatives-pack-row[aria-label="Moving backgrounds"] canvas')].slice(0, 3).map(canvas => {
-        const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-        let sum = 0;
-        for (let i = 0; i < data.length; i += 4) sum += data[i] - data[i + 2];
-        return Math.round(sum / (data.length / 4));
-      }));
+      return (await cardColours(page)).Dust;
     } finally { await product.close(); }
   };
-  const warm = await leading('0xe1782a');
-  const cool = await leading('0x2a3ea0');
-  const mean = values => values.reduce((n, v) => n + v, 0) / values.length;
-  assert.ok(mean(warm) > 20, `warm cover leads with warm previews (red minus blue): ${warm}`);
-  assert.ok(mean(cool) < -10, `cool cover leads with cool previews (red minus blue): ${cool}`);
+  const warm = await dust('0xe1782a');
+  const cool = await dust('0x2a3ea0');
+  assert.ok(warm.warm > 20, `a warm cover gives a warm Dust card (red minus blue): ${warm.warm}`);
+  assert.ok(cool.warm < -10, `a cool cover gives a cool Dust card (red minus blue): ${cool.warm}`);
 });
 
-test('what the lyrics mean greys and cools the previews of the same song', { timeout: 240000, skip: SKIP }, async () => {
-  const preview = async (meaning) => {
+test('sad words grey and cool the live looks, and leave the photo cards (whose preset is their colour) alone', { timeout: 240000, skip: SKIP }, async () => {
+  const shelf = async (meaning) => {
     const product = await openProduct({ meaning, lyrics: () => lyricsResult('you cannot change me', { language: 'en' }) });
     const { page } = product;
     try {
       await uploadSong(page, { file: songMp3WithCover('0xe1782a') });
-      await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
-      await page.locator('.lyrics-editor').waitFor({ timeout: 30000 });
-      await page.locator('.step-actions').getByRole('button', { name: 'Continue' }).click();
-      await page.getByRole('heading', { name: /recommended creatives/ }).waitFor({ timeout: 30000 });
-      await page.getByText('Reading what your lyrics say').waitFor({ state: 'detached', timeout: 30000 });
-      await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length > 0 && !document.querySelector('.creatives-pack-card.pending'), null, { timeout: 30000 });
-      await page.waitForTimeout(3000); // previews are painted asynchronously
+      await reachShelf(page);
       assert.deepEqual(product.errors, []);
-      // Same song, same cards: how colourful (max - min channel) and how warm (R - B) the previews are on average.
-      return await page.evaluate(() => {
-        let spread = 0, warm = 0, pixels = 0;
-        for (const canvas of document.querySelectorAll('.creatives-pack-card canvas')) {
-          const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-          for (let i = 0; i < data.length; i += 4) {
-            spread += Math.max(data[i], data[i + 1], data[i + 2]) - Math.min(data[i], data[i + 1], data[i + 2]);
-            warm += data[i] - data[i + 2];
-            pixels++;
-          }
-        }
-        return { spread: spread / pixels, warm: warm / pixels };
-      });
+      return await cardColours(page);
     } finally { await product.close(); }
   };
-  const plain = await preview(NEUTRAL_READING);
-  const sad = await preview({ ...NEUTRAL_READING, attitude: 'sad', sadness: 3, intensity: 2 });
-  assert.ok(sad.spread < plain.spread - 8, `sad words dull the previews: ${plain.spread} → ${sad.spread}`);
-  assert.ok(sad.warm < plain.warm - 8, `sad words cool the previews: ${plain.warm} → ${sad.warm}`);
+  const plain = await shelf(NEUTRAL_READING);
+  const sad = await shelf({ ...NEUTRAL_READING, attitude: 'sad', sadness: 3, intensity: 2 });
+  const mean = (cards, key) => ['Thermal', 'Halftone', 'Dither', 'ASCII'].reduce((sum, name) => sum + cards[name][key], 0) / 4;
+  assert.ok(mean(sad, 'spread') < mean(plain, 'spread') - 4, `sad words dull the live looks: ${mean(plain, 'spread')} → ${mean(sad, 'spread')}`);
+  assert.ok(mean(sad, 'warm') < mean(plain, 'warm') - 8, `sad words cool the live looks: ${mean(plain, 'warm')} → ${mean(sad, 'warm')}`);
+  for (const name of ['Directed', 'Triptych', 'Collage', 'Film Grain']) assert.deepEqual(sad[name], plain[name], `${name} keeps its preset's colours`);
 });
