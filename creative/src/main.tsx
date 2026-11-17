@@ -31,7 +31,7 @@ import { AnalyzingScreen, type PaintProgress } from './analyzing-screen';
 import { StepNav, type StepNumber } from './step-nav';
 import { ArrowLeftIcon, CheckIcon } from 'lucide-react';
 import { PAGE_PATHS, pageAt, type AccountPage } from './account-pages';
-import { ProfileNav, type ProfileTab } from './profile-nav';
+import { LinksNav, ProfileNav, type ProfileTab } from './profile-nav';
 import { ClipPicker } from './clip-picker';
 import './styles/index.css';
 
@@ -363,6 +363,7 @@ function App() {
         : <button type="button" className="masthead-logo" aria-label="Back to Create" onClick={() => setPage('create')}><img src="/brand/mumoo-logo.png" alt="" /></button>}
       {page === 'create' && <StepNav current={currentStep} onSelect={goToStep} />}
       {page === 'history' && <ProfileNav current={profileTab} onSelect={setProfileTab} />}
+      {(page === 'links' || page === 'my-links') && <LinksNav current={page} onSelect={setPage} />}
       <div className="masthead-actions">
         {page === 'create' && buffer && <button type="button" className="link-button" onClick={startOver}>Start over</button>}
         {page === 'create' && <button type="button" className="link-button" onClick={() => setPage('links')}>Smart links</button>}

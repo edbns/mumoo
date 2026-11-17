@@ -8,7 +8,7 @@ import { authClient, checkSignInCode, sendSignInCode, signInWithGoogle } from '.
 import type { AccountPage } from './account-pages';
 import { AccountSection } from './account-section';
 import { SignInDialog } from './sign-in-dialog';
-import { AddressLine, Cover, LinksCard, iconButton, textButton } from './smart-link-parts';
+import { AddressLine, Cover, LinksSection, iconButton, textButton } from './smart-link-parts';
 import {
   EMPTY_DRAFT, LABELS, SERVICES, addressOf, asLink, checkSlug, fieldsOf, isSearch, lookupSong, publishDraft, saveDraft,
   searchSongs, suggestSlug, loadDraft,
@@ -131,8 +131,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
       : null;
 
   return <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6">
-    <LinksCard label={draft.editing ? 'Edit Smart Link' : 'Create Smart Link · Free'}
-      aside={user && <button type="button" className={textButton} onClick={() => onNavigate('my-links')}>My Smart Links</button>}>
+    <LinksSection label={draft.editing ? 'Edit Smart Link' : 'Create Smart Link'} aside={draft.editing ? null : 'Free, no account needed until you publish'}>
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-4">
           {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
@@ -207,7 +206,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
 
         <PhonePreview link={link} slug={draft.editing ?? draft.slug} />
       </div>
-    </LinksCard>
+    </LinksSection>
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}
       onSendCode={async email => { await sendSignInCode(email); signInAddress.current = email; }}

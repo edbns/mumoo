@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { authClient, checkSignInCode, sendSignInCode, signInWithGoogle } from './account';
 import type { AccountPage } from './account-pages';
 import { SignInDialog } from './sign-in-dialog';
-import { CopyButton, Cover, LinksCard, OpenButton, iconButton } from './smart-link-parts';
+import { CopyButton, Cover, LinksSection, OpenButton, iconButton } from './smart-link-parts';
 import { LABELS, addressOf, deletePublished, draftOf, listLinks, saveDraft, type Published, type Service } from './smart-links';
 
 /**
@@ -42,24 +42,25 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
     }
   }
 
-  const create = <Button className="h-[var(--control-height-md)] px-5" onClick={() => onNavigate('links')}><PlusIcon className="size-4" aria-hidden />Create Smart Link</Button>;
+  const total = (links ?? []).reduce((sum, item) => sum + Object.values(item.clicks ?? {}).reduce((all, count) => all + (count ?? 0), 0), 0);
 
   return <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6">
-    <LinksCard label="My Smart Links" aside={user && links && links.length > 0 && create}>
-      {!session.isPending && !user && <div className="flex flex-col items-start gap-4 rounded-[var(--radius-panel)] bg-background p-5">
+    <LinksSection label="My Smart Links"
+      aside={links && links.length > 0 && `${links.length} ${links.length === 1 ? 'link' : 'links'} · ${total} ${total === 1 ? 'click' : 'clicks'}`}>
+      {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
+      {!session.isPending && !user && <div className="flex flex-col items-center gap-4 py-24 text-center">
         <p className="m-0 text-sm text-muted-foreground">Sign in to see your smart links and how many fans pressed each button.</p>
-        <Button className="h-[var(--control-height-md)] px-5" onClick={() => setSigningIn(true)}>Sign in</Button>
+        <Button onClick={() => setSigningIn(true)}>Sign in</Button>
       </div>}
-      {user && links === null && <p className="m-0 text-sm text-muted-foreground">Loading your links…</p>}
-      {user && links?.length === 0 && !error && <div className="flex flex-col items-start gap-4 rounded-[var(--radius-panel)] bg-background p-5">
+      {user && links?.length === 0 && !error && <div className="flex flex-col items-center gap-4 py-24 text-center">
         <p className="m-0 text-sm text-muted-foreground">No smart links yet. Make one for your song: one link that opens in every fan’s app.</p>
-        {create}
+        <Button onClick={() => onNavigate('links')}><PlusIcon aria-hidden="true" className="size-4" />Create Smart Link</Button>
       </div>}
-      {error && <p role="alert" className="m-0 mb-4 text-sm text-destructive">{error}</p>}
+      {user && links === null && !error && <div aria-hidden="true" className="h-40 animate-pulse rounded-[var(--radius-panel)] bg-background" />}
       {links && links.length > 0 && <ul className="m-0 flex list-none flex-col gap-4 p-0">
         {links.map(item => <LinkRow key={item.slug} item={item} onEdit={() => edit(item)} onDelete={() => void remove(item.slug)} />)}
       </ul>}
-    </LinksCard>
+    </LinksSection>
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}
       onSendCode={async email => { await sendSignInCode(email); signInAddress.current = email; }}
