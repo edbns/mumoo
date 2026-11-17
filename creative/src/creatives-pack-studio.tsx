@@ -138,7 +138,7 @@ const LEAD = 1;
 
 export function CreativesPackStudio({
   profile, composition, audio, token, position, getPosition, playing, playbackError,
-  cart, download, uploads, downloadRef, onPlay, onStop, onBack, onProgress,
+  cart, download, uploads, downloadRef, onPlay, onStop, onBack, onProgress, onGone,
 }: {
   profile: CreativeProfileV1;
   composition: Composition;
@@ -154,6 +154,8 @@ export function CreativesPackStudio({
   uploads: Uploads;
   /** Where the app finds this page's download, which needs the music and pictures only this page has. */
   downloadRef: MutableRefObject<(() => boolean) | null>;
+  /** The cart items whose library pictures were removed (comma-separated ids), once the library is known: the cart says so and leaves them out. */
+  onGone: (ids: string) => void;
   onPlay: () => void;
   onStop: () => void;
   onSeek?: (ms: number) => void;
@@ -480,6 +482,11 @@ export function CreativesPackStudio({
     }
     return { available: true };
   }
+
+  // Too few of a reel's pictures left in the library (or its one picture gone): the card cannot be made as it was put in the cart.
+  const goneKey = library === null ? null
+    : cart.items.filter(item => item.uploadId === null && !item.ownReel && !pictureFor(item).available).map(item => item.id).join(',');
+  useEffect(() => { if (goneKey !== null) onGone(goneKey); }, [goneKey, onGone]);
 
   function togglePlay(id: string) {
     if (!allReady || !fontReady) return;

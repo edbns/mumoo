@@ -9,7 +9,7 @@ import type { DownloadMessage, DownloadProgress } from './use-cart-download';
 export type CartLine = {
   item: CartItem;
   title: string;
-  /** False when what it was made from (the person's own picture) is no longer there. */
+  /** False when what it was made from (the person's own picture, or our library's) is no longer there. */
   available: boolean;
 };
 

@@ -114,6 +114,8 @@ function App() {
   const clip: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: DURATION_MS };
   // The cart belongs to the song and clip being worked on, and is the same on every page.
   const cart = useCart(clipValid ? songKeyOf(composition.sourceSha256, composition.clipStartMs) : '');
+  /** Cart items whose library pictures were removed, as the creatives page last found them (comma-separated ids). */
+  const [goneFromLibrary, setGoneFromLibrary] = useState('');
   const uploads = useUploads();
   const [delivered, setDelivered] = useState(0);
   const download = useCartDownload({ token: accessToken, cart, onDelivered: () => { setCartOpen(false); setDelivered(count => count + 1); } });
@@ -321,14 +323,15 @@ function App() {
 
   const canContinue = valid && clipValid && genreValid && (noLyrics || composition.cues.length > 0) && !lyricsState.busy && !lyricsState.dirty;
   const checkingPictures = cart.items.some(item => ownIdsOf(item).length > 0) && (uploads.pending || (uploads.signedIn && uploads.list === null));
+  const gone = new Set(goneFromLibrary.split(',').filter(Boolean));
   const lines: CartLine[] = cart.items.map(item => {
     const own = ownIdsOf(item);
     return {
       item,
       title: `${SHELF_ROWS.find(row => row.id === item.row)?.title ?? ''} · ${!own.length ? item.slot.label : own.length > 1 ? 'Your pictures' : 'Your picture'}`,
       // Every one of its own pictures must still be there: the cloud is not given a reel with one missing.
-      available: !own.length || checkingPictures
-        || own.every(id => (uploads.list ?? []).some(candidate => candidate.id === id && candidate.status === 'ready' && candidate.url)),
+      available: own.length ? checkingPictures || own.every(id => (uploads.list ?? []).some(candidate => candidate.id === id && candidate.status === 'ready' && candidate.url))
+        : !gone.has(item.id),
     };
   });
   // Videos are made from the creatives page, which has the music analysis and the pictures; elsewhere the cart leads there.
@@ -449,6 +452,7 @@ function App() {
               download={download}
               uploads={uploads}
               downloadRef={downloadRef}
+              onGone={setGoneFromLibrary}
               onPlay={() => void play()}
               onStop={stop}
               onBack={() => openCreatives(false)}
