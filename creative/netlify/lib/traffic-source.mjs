@@ -1,36 +1,60 @@
 /**
- * Where a fan page visit came from, read from the page's own address: the campaign tags artists add (`utm_source`, `utm_medium`)
- * and the click IDs Meta, TikTok and Google add to their links. Only the category is kept, never the tag or the ID, so it says
- * nothing about the fan.
+ * Where a fan page visit came from, read from the page's address and the referring page: the ad platforms' click IDs (`fbclid`
+ * Meta, `ttclid` TikTok, `gclid` / `gbraid` / `wbraid` Google), the campaign tags (`utm_source`, `utm_medium`, `utm_campaign`) and
+ * the referring site. The click IDs are returned only to forward to the artist's own ad accounts; they are never kept.
  */
-export const SOURCES = ['direct', 'meta_ads', 'meta', 'tiktok_ads', 'tiktok', 'google_ads', 'youtube', 'other'];
 
-export const SOURCE_LABELS = {
-  direct: 'Direct and bio links', meta_ads: 'Meta ads', meta: 'Facebook and Instagram', tiktok_ads: 'TikTok ads', tiktok: 'TikTok',
-  google_ads: 'Google ads', youtube: 'YouTube', other: 'Other campaigns',
-};
-
-const PAID = /^(paid|cpc|ppc|cpm|ads?|paid[_-]?social|paidsocial|social[_-]?paid|display|sponsored)$/;
-const PLATFORMS = [
+const PAID = /^(paid|cpc|ppc|cpm|cpv|ads?|paid[_-]?social|paidsocial|social[_-]?paid|display|sponsored|promoted)$/;
+/** A medium the artist set that says it is not an ad, which wins over a click ID (Meta adds `fbclid` to posts too). */
+const ORGANIC = /^(organic|social|bio|link[_-]?in[_-]?bio|post|story|stories|reel|referral|email|newsletter|sms|qr)$/;
+const NETWORKS = [
   [/^(facebook|fb|instagram|ig|meta|messenger|threads)$/, 'meta'],
   [/^tiktok$/, 'tiktok'],
-  [/^(google|adwords|gads)$/, 'google'],
-  [/^(youtube|yt)$/, 'youtube'],
+  [/^(google|adwords|gads|youtube|yt)$/, 'google'],
+];
+const TAG_LENGTH = 100;
+
+const clean = (value) => (value ?? '').trim().toLowerCase().slice(0, TAG_LENGTH) || null;
+
+function hostOf(url) {
+  try { return new URL(url).hostname.replace(/^(www|m|l|lm)\./, '') || null; } catch { return null; }
+}
+
+/**
+ * {is_paid_ad, ad_network, utm_source, utm_medium, utm_campaign, referrer, fbclid, ttclid} for a visit to `pageUrl` from
+ * `referrer`. Paid when the page has an ad platform's click ID (unless its tags say otherwise) or a paid `utm_medium`; the network
+ * comes from the click ID, else from `utm_source`.
+ */
+export function adClick(pageUrl, referrer = '') {
+  let params;
+  try { params = new URL(pageUrl).searchParams; } catch { params = new URLSearchParams(); }
+  const utm_source = clean(params.get('utm_source'));
+  const utm_medium = clean(params.get('utm_medium'));
+  const utm_campaign = clean(params.get('utm_campaign'));
+  const fbclid = params.get('fbclid')?.slice(0, 500) || null;
+  const ttclid = params.get('ttclid')?.slice(0, 500) || null;
+  const google = ['gclid', 'gbraid', 'wbraid'].some(id => params.has(id));
+  const byClick = fbclid ? 'meta' : ttclid ? 'tiktok' : google ? 'google' : null;
+  const byTag = NETWORKS.find(([pattern]) => utm_source && pattern.test(utm_source))?.[1] ?? null;
+  const tagged = utm_medium && PAID.test(utm_medium);
+  const is_paid_ad = Boolean(tagged || (byClick && !(utm_medium && ORGANIC.test(utm_medium))));
+  const own = hostOf(pageUrl);
+  const from = hostOf(referrer);
+  return {
+    is_paid_ad, ad_network: is_paid_ad ? byClick ?? byTag : null, utm_source, utm_medium, utm_campaign,
+    referrer: from && from !== own ? from : null, fbclid, ttclid,
+  };
+}
+
+const SOURCE_NAMES = [
+  [/^(instagram|ig|instagram\.com)$/, 'Instagram'], [/^(facebook|fb|facebook\.com|messenger(\.com)?)$/, 'Facebook'],
+  [/^(tiktok|tiktok\.com)$/, 'TikTok'], [/^(x|twitter|t\.co|x\.com|twitter\.com)$/, 'X'], [/^(youtube|yt|youtube\.com|youtu\.be)$/, 'YouTube'],
+  [/^(google|google\.[a-z.]+)$/, 'Google'], [/^(linktree|linktr\.ee)$/, 'Linktree'], [/^(threads|threads\.net|threads\.com)$/, 'Threads'],
+  [/^(snapchat|snapchat\.com)$/, 'Snapchat'], [/^(reddit|reddit\.com)$/, 'Reddit'], [/^(whatsapp|wa\.me|whatsapp\.com)$/, 'WhatsApp'],
 ];
 
-/** The source of a visit to `pageUrl`, the fan page's full address; anything unreadable is "direct". */
-export function sourceOf(pageUrl) {
-  let params;
-  try { params = new URL(pageUrl).searchParams; } catch { return 'direct'; }
-  const tag = (name) => (params.get(name) ?? '').trim().toLowerCase();
-  const paid = PAID.test(tag('utm_medium'));
-  const named = PLATFORMS.find(([pattern]) => pattern.test(tag('utm_source')))?.[1];
-  const platform = named ?? (params.has('fbclid') ? 'meta' : params.has('ttclid') ? 'tiktok'
-    : ['gclid', 'gbraid', 'wbraid'].some(id => params.has(id)) ? 'google' : null);
-  if (platform === 'meta') return paid ? 'meta_ads' : 'meta';
-  // TikTok and Google only add their click IDs to ads.
-  if (platform === 'tiktok') return paid || params.has('ttclid') ? 'tiktok_ads' : 'tiktok';
-  if (platform === 'google') return paid || !named ? 'google_ads' : 'other';
-  if (platform === 'youtube') return 'youtube';
-  return tag('utm_source') || tag('utm_medium') || tag('utm_campaign') ? 'other' : 'direct';
+/** A readable name for where a visit came from (the `utm_source` tag, else the referring site), so a tag and its site count as one. */
+export function sourceLabel(source) {
+  if (!source) return 'Direct';
+  return SOURCE_NAMES.find(([pattern]) => pattern.test(source))?.[1] ?? source;
 }

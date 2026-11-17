@@ -20,9 +20,20 @@ const PLAYER = "var a=document.getElementById('a'),b=document.getElementById('p'
   + "a.onpause=a.onended=function(){b.className='';b.setAttribute('aria-label','Play preview')};";
 /** sha256 of PLAYER, base64 (scripts/fan-page.test.mjs checks it). */
 const PLAYER_HASH = '7MUWMJNDfxwHJ+IfbCU3B7O94HkKjcPwtvWa7a/sGsM=';
+/**
+ * The visit and each button press, sent home without holding the fan up (`sendBeacon`; the button still opens the app at once).
+ * The address goes with them, for the ad click IDs and campaign tags; smart-links-track.mjs does the rest.
+ */
+const TRACKER = "(function(){var s=document.body.getAttribute('data-l'),u='/api/smart-links/track';"
+  + "function t(e,v){var d=JSON.stringify({slug:s,event:e,service:v||null,url:location.href,referrer:document.referrer});"
+  + "if(navigator.sendBeacon&&navigator.sendBeacon(u,new Blob([d],{type:'text/plain'})))return;"
+  + "fetch(u,{method:'POST',body:d,keepalive:true}).catch(function(){})}"
+  + "t('view');document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a.s');if(a)t('click',a.getAttribute('data-s'))})})();";
+/** sha256 of TRACKER, base64 (checked by the same test). */
+const TRACKER_HASH = '/g0rzsylaPSYvMOthjDA2MYblIOz4wqkBFfTcjLHTi0=';
 
-/** Only the cover, the logos, the preview and our one script may load, and the click counts go home; nothing may frame the page. */
-export const POLICY = `default-src 'none'; img-src 'self' https:; media-src https:; style-src 'unsafe-inline'; script-src 'sha256-${PLAYER_HASH}'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
+/** Only the cover, the logos, the preview and our two scripts may load, and the events go home; nothing may frame the page. */
+export const POLICY = `default-src 'none'; img-src 'self' https:; media-src https:; style-src 'unsafe-inline'; script-src 'sha256-${PLAYER_HASH}' 'sha256-${TRACKER_HASH}'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
 
 const STYLE = `*{box-sizing:border-box}html{background:#0b0b0b;color:#fff;font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden}
@@ -40,15 +51,14 @@ a.s{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12p
 a.s:hover,a.s:focus-visible{background:rgba(255,255,255,.18)}a.s:focus-visible{outline:2px solid #fff;outline-offset:2px}
 a.s img{width:28px;height:28px;object-fit:contain;flex:none}a.s span{flex:1}
 a.s em{font-style:normal;font-size:13px;padding:5px 12px;border-radius:999px;background:#fff;color:#000}
-.v{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 footer{margin-top:auto;padding:24px 0 28px;font-size:13px}footer a{color:rgba(255,255,255,.6);text-decoration:none}footer b{color:#fff}`;
 
 /**
  * The page for a published link. `link` is as `cleanLink` keeps it; `address` is the page's own URL, for sharing previews.
  * `home` is our site, for the logos and the footer credit. `inPhone` is the editor's preview: below the phone's camera, and its
- * links open in a new tab. `countAs` is the published link's slug: each button then has the browser count its press by itself
- * (`ping`, links-click.mjs), with no script and nothing about the fan, so the button stays a plain link that opens the app, and an
- * invisible image counts the open (links-view.mjs). Both tell our server only the page's address, for the traffic source.
+ * links open in a new tab. `countAs` is the published link's slug: the page then sends its visit and each button press to our
+ * server (TRACKER, smart-links-track.mjs) for the artist's analytics and their own ad accounts; the buttons stay plain links that
+ * open the app. The editor's phone sends nothing.
  */
 export function fanPage(link, address, home, { inPhone = false, countAs = null } = {}) {
   const title = esc(link.title);
@@ -57,17 +67,15 @@ export function fanPage(link, address, home, { inPhone = false, countAs = null }
   const names = shown.map(row => LABELS[row.service]);
   const description = esc(`Listen to ${link.title} by ${link.artist} on ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]}.`);
   const cover = link.cover ? esc(link.cover) : '';
-  const ping = (service) => (countAs && !inPhone ? ` ping="${esc(`${home}/api/links/click?slug=${encodeURIComponent(countAs)}&service=${service}`)}"` : '');
-  const counter = countAs && !inPhone
-    ? `<img class="v" src="${esc(`${home}/api/links/view?slug=${encodeURIComponent(countAs)}`)}" alt="" width="1" height="1" referrerpolicy="same-origin">` : '';
-  const buttons = shown.map(row => `<li><a class="s" href="${esc(row.url)}"${ping(row.service)}><img src="${esc(logoOf(home, row.service))}" alt="" width="28" height="28"><span>${esc(LABELS[row.service])}</span><em>${row.service === 'youtube' ? 'Watch' : 'Play'}</em></a></li>`).join('');
+  const tracked = Boolean(countAs && !inPhone);
+  const buttons = shown.map(row => `<li><a class="s" href="${esc(row.url)}" data-s="${row.service}"><img src="${esc(logoOf(home, row.service))}" alt="" width="28" height="28"><span>${esc(LABELS[row.service])}</span><em>${row.service === 'youtube' ? 'Watch' : 'Play'}</em></a></li>`).join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} · ${artist}</title><meta name="description" content="${description}"><link rel="canonical" href="${esc(address)}">
 <meta property="og:type" content="music.song"><meta property="og:title" content="${title} · ${artist}"><meta property="og:description" content="${description}"><meta property="og:url" content="${esc(address)}">${cover ? `<meta property="og:image" content="${cover}"><meta name="twitter:card" content="summary_large_image">` : ''}
-<meta name="theme-color" content="#0b0b0b"><style>${STYLE}${inPhone ? 'main{padding-top:64px}' : ''}</style>${inPhone ? '<base target="_blank">' : ''}</head><body>
+<meta name="theme-color" content="#0b0b0b"><style>${STYLE}${inPhone ? 'main{padding-top:64px}' : ''}</style>${inPhone ? '<base target="_blank">' : ''}</head><body${tracked ? ` data-l="${esc(countAs)}"` : ''}>
 ${cover ? `<div class="bg" style="background-image:url('${cssUrl(link.cover)}')"></div>` : ''}<main><div class="art">${cover ? `<img src="${cover}" alt="${title} cover" width="280" height="280" fetchpriority="high">` : ''}${link.preview ? '<button id="p" type="button" aria-label="Play preview"></button>' : ''}</div>
 <h1>${title}</h1><p class="by">${artist}</p><ul>${buttons}</ul></main>
-<footer><a href="${esc(home)}/links">Make your own free smart link · <b>mumoo</b></a></footer>${link.preview ? `<audio id="a" preload="none" src="${esc(link.preview)}"></audio><script>${PLAYER}</script>` : ''}${counter}
+<footer><a href="${esc(home)}/links">Make your own free smart link · <b>mumoo</b></a></footer>${link.preview ? `<audio id="a" preload="none" src="${esc(link.preview)}"></audio><script>${PLAYER}</script>` : ''}${tracked ? `<script>${TRACKER}</script>` : ''}
 </body></html>`;
 }
 

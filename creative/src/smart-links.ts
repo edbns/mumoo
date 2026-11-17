@@ -1,5 +1,4 @@
 import { accountFetch } from './account';
-import type { Source } from '../netlify/lib/traffic-source.mjs';
 
 /**
  * Smart links in the browser: the song found from a pasted link (`/api/links/lookup`), the draft the artist edits (kept in this
@@ -25,15 +24,41 @@ export type ServiceRow = { service: Service; url: string; hidden: boolean; exact
 export type LinkFields = {
   source: string; title: string; artist: string; cover: string | null; preview: string | null; isrc: string | null; services: ServiceRow[];
 };
-/**
- * A published link. Listed, it has its button presses per service ever (`clicks`) and of the last seven days (`week`), its page
- * opens ever and of the last seven days, and both per traffic source.
- */
+/** A link's own ad accounts: the IDs, and only whether each token is set (tokens are never sent back). */
+export type Tracking = {
+  meta_pixel_id: string | null; meta_capi_token: boolean; tiktok_pixel_id: string | null; tiktok_events_token: boolean; google_ads_id: string | null;
+};
+/** What may be sent to change them: a token left out stays, an empty one is removed. */
+export type TrackingChange = {
+  meta_pixel_id: string; tiktok_pixel_id: string; google_ads_id: string; meta_capi_token?: string; tiktok_events_token?: string;
+};
+
+/** A published link. Listed, it has its visits and clicks ever and of the last seven days, clicks per service and its ad accounts. */
 export type Published = {
   slug: string; link: Omit<LinkFields, 'services'> & { services: Omit<ServiceRow, 'exact'>[] }; created_at: string; updated_at: string;
-  clicks?: Partial<Record<Service, number>>; week?: number; views?: number; views_week?: number;
-  sources?: Partial<Record<Source, { views: number; clicks: number }>>;
+  views?: number; clicks?: number; week_views?: number; week_clicks?: number; paid_views?: number;
+  services?: Partial<Record<Service, number>>; tracking?: Tracking;
 };
+
+/** A row of a breakdown: visits and clicks for one country, browser, source… */
+export type Tally = { key: string; views: number; clicks: number };
+/** A link's analytics over `days` (0: all time), as `summarise` in netlify/lib/link-stats.mjs makes them. */
+export type LinkStats = {
+  days: number; from: string; to: string;
+  totals: { views: number; clicks: number; engagement: number; paid_views: number; paid_clicks: number };
+  daily: { day: string; views: number; clicks: number }[];
+  services: Tally[]; traffic: Tally[]; sources: Tally[]; countries: Tally[]; browsers: Tally[]; devices: Tally[]; systems: Tally[];
+};
+
+export async function linkStats(slug: string, days: number, signal?: AbortSignal): Promise<LinkStats> {
+  const response = await accountFetch(`/api/links/stats?slug=${encodeURIComponent(slug)}&days=${days}`, { signal });
+  return (await answer<{ stats: LinkStats }>(response)).stats;
+}
+
+export async function saveTracking(slug: string, tracking: TrackingChange): Promise<Tracking> {
+  const response = await accountFetch('/api/links/stats', { method: 'PUT', ...json({ slug, tracking }) });
+  return (await answer<{ tracking: Tracking }>(response)).tracking;
+}
 
 /** What the editor holds. `editing` is the address of the published link being changed, or null for a new one. */
 export type Draft = { url: string; link: LinkFields | null; candidates: Candidate[] | null; slug: string; editing: string | null };

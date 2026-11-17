@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { cleanLink, slugProblem } from '../netlify/lib/smart-links.mjs';
 import { fanPage, missingPage, POLICY } from '../netlify/lib/fan-page.mjs';
 import { PICK, lookupSong, parseSource, searchSongs } from '../netlify/lib/song-lookup.mjs';
-import { sourceOf } from '../netlify/lib/traffic-source.mjs';
+import { summarise } from '../netlify/lib/link-stats.mjs';
+import { adClick } from '../netlify/lib/traffic-source.mjs';
+import { parseAgent } from '../netlify/lib/user-agent.mjs';
 
 /**
  * Stand-ins for the staging servers, so every screen can be used and designed on the local dev server.
@@ -269,44 +271,70 @@ export function localPreviewApi() {
         const problem = slugProblem(name) ?? (smartLinks.has(name) || name === 'taken-name' ? 'Someone already has that name. Try another.' : null);
         send(response, 200, problem ? { free: false, error: problem } : { free: true });
       });
-      // Counts as the real ones keep them: per link, service and traffic source (all days count as this week here).
-      const linkCounts = new Map();
-      const countsOf = slug => linkCounts.get(slug) ?? linkCounts.set(slug, { clicks: {}, views: 0, sources: {} }).get(slug);
-      const sourceCounts = (counts, source) => (counts.sources[source] ??= { views: 0, clicks: 0 });
-      route('/api/links/click', 'POST', async (request, response) => {
-        const params = new URL(request.url, 'http://local').searchParams;
-        const shown = smartLinks.get(params.get('slug'))?.link.services.some(row => row.service === params.get('service') && !row.hidden);
-        if (shown) {
-          const counts = countsOf(params.get('slug'));
-          counts.clicks[params.get('service')] = (counts.clicks[params.get('service')] ?? 0) + 1;
-          sourceCounts(counts, sourceOf(request.headers['ping-from'] ?? request.headers.referer ?? '')).clicks += 1;
-        }
+      // Fan page events as the real tracker keeps them, read with the same code; the country comes from the browser's language
+      // (Netlify gives the real one), and `devDaysAgo` lets sample data fill the timeline. Nothing is forwarded to ad accounts.
+      const linkEvents = new Map();
+      const linkTracking = new Map();
+      const noTracking = { meta_pixel_id: null, meta_capi_token: false, tiktok_pixel_id: null, tiktok_events_token: false, google_ads_id: null };
+      route('/api/smart-links/track', 'POST', async (request, response) => {
         response.statusCode = 204;
         response.end();
+        let body;
+        try { body = JSON.parse((await readBody(request)).toString('utf8')); } catch { return; }
+        const kept = smartLinks.get(body?.slug);
+        const device = parseAgent(request.headers['user-agent'] ?? '');
+        const kind = body?.event === 'click' ? 'click' : 'view';
+        if (!kept || device.robot || (kind === 'click' && !kept.link.services.some(row => row.service === body.service && !row.hidden))) return;
+        const ad = adClick(String(body.url ?? ''), String(body.referrer ?? ''));
+        const country = /-([A-Z]{2})/.exec(request.headers['accept-language'] ?? '')?.[1] ?? null;
+        const at = Date.now() - (Number(body.devDaysAgo) || 0) * 86_400_000;
+        (linkEvents.get(body.slug) ?? linkEvents.set(body.slug, []).get(body.slug)).push({
+          at, day: new Date(at).toISOString().slice(0, 10), kind, service: kind === 'click' ? body.service : null, country, ...device,
+          is_paid_ad: ad.is_paid_ad, ad_network: ad.ad_network, source: ad.utm_source ?? ad.referrer, n: 1,
+        });
       });
-      route('/api/links/view', 'GET', async (request, response) => {
-        const slug = new URL(request.url, 'http://local').searchParams.get('slug');
-        if (smartLinks.has(slug)) {
-          const counts = countsOf(slug);
-          counts.views += 1;
-          sourceCounts(counts, sourceOf(request.headers.referer ?? '')).views += 1;
-        }
-        response.setHeader('Content-Type', 'image/gif');
-        response.setHeader('Cache-Control', 'no-store');
-        response.end(Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'));
-      });
+      route('/api/links/stats', 'GET', signedIn(async (_email, request, response) => {
+        const params = new URL(request.url, 'http://local').searchParams;
+        const days = Number(params.get('days') ?? 7);
+        if (!smartLinks.has(params.get('slug'))) return send(response, 404, { error: 'That link is not yours, or it was deleted.' });
+        const today = new Date().toISOString().slice(0, 10);
+        const since = days ? Date.parse(`${today}T00:00:00Z`) - (days - 1) * 86_400_000 : 0;
+        const rows = (linkEvents.get(params.get('slug')) ?? []).filter(event => event.at >= since);
+        send(response, 200, { stats: summarise(rows, days, today) });
+      }));
+      route('/api/links/stats', 'PUT', signedIn(async (_email, request, response) => {
+        const { slug, tracking } = JSON.parse((await readBody(request)).toString('utf8'));
+        if (!smartLinks.has(slug)) return send(response, 404, { error: 'That link is not yours, or it was deleted.' });
+        const before = linkTracking.get(slug) ?? noTracking;
+        const token = (field) => (tracking[field] === undefined ? before[field] : Boolean(tracking[field]?.trim()));
+        const saved = {
+          meta_pixel_id: tracking.meta_pixel_id || null, meta_capi_token: token('meta_capi_token'),
+          tiktok_pixel_id: tracking.tiktok_pixel_id || null, tiktok_events_token: token('tiktok_events_token'), google_ads_id: tracking.google_ads_id || null,
+        };
+        linkTracking.set(slug, saved);
+        send(response, 200, { tracking: saved });
+      }));
       const linksRoute = method => route('/api/links', method, signedIn(async (_email, request, response) => {
         if (method === 'GET') {
+          const week = Date.now() - 7 * 86_400_000;
           return send(response, 200, { links: [...smartLinks.values()].reverse().map(item => {
-            const counts = linkCounts.get(item.slug) ?? { clicks: {}, views: 0, sources: {} };
-            const week = Object.values(counts.clicks).reduce((sum, count) => sum + count, 0);
-            return { ...item, clicks: counts.clicks, week, views: counts.views, views_week: counts.views, sources: counts.sources };
+            const events = linkEvents.get(item.slug) ?? [];
+            const count = (test) => events.filter(test).length;
+            const services = {};
+            for (const event of events) if (event.kind === 'click') services[event.service] = (services[event.service] ?? 0) + 1;
+            return {
+              ...item, tracking: linkTracking.get(item.slug) ?? noTracking, services,
+              views: count(event => event.kind === 'view'), clicks: count(event => event.kind === 'click'),
+              week_views: count(event => event.kind === 'view' && event.at > week), week_clicks: count(event => event.kind === 'click' && event.at > week),
+              paid_views: count(event => event.kind === 'view' && event.is_paid_ad),
+            };
           }) });
         }
         if (method === 'DELETE') {
           const slug = new URL(request.url, 'http://local').searchParams.get('slug');
           smartLinks.delete(slug);
-          linkCounts.delete(slug);
+          linkEvents.delete(slug);
+          linkTracking.delete(slug);
           return send(response, 200, {});
         }
         const { slug, link } = JSON.parse((await readBody(request)).toString('utf8'));

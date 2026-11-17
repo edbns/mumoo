@@ -45,14 +45,17 @@ test('the editor\'s phone shows the same page, its links opening in a new tab', 
   assert.equal(html.replace('<base target="_blank">', '').replace('main{padding-top:64px}', ''), fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app'));
 });
 
-test('a published page counts presses with the link\'s own ping, never the editor\'s phone, and the policy lets it reach only us', () => {
-  const counted = fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app', { countAs: 'x' });
-  assert.ok(counted.includes('ping="https://mumoo.app/api/links/click?slug=x&amp;service=spotify"'));
-  assert.equal((counted.match(/ ping="/g) ?? []).length, 2, 'one per shown button');
-  assert.ok(!fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app').includes('ping='));
-  assert.ok(!fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app', { countAs: 'x', inPhone: true }).includes('ping='));
-  assert.ok(counted.includes('<img class="v" src="https://mumoo.app/api/links/view?slug=x"'), 'and an invisible image counts the open');
-  assert.ok(!fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app', { countAs: 'x', inPhone: true }).includes('/api/links/view'));
+test('a published page sends its visits and presses home with its own small script, never the editor\'s phone, and loads no pixel', () => {
+  const tracked = fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app', { countAs: 'x' });
+  assert.ok(tracked.includes('<body data-l="x">'));
+  assert.ok(tracked.includes('data-s="spotify"') && tracked.includes('/api/smart-links/track'));
+  assert.ok(!/facebook|tiktok|googletagmanager|gtag/i.test(tracked.replace(/data-s="[^"]*"/g, '')), 'no third-party script');
+  for (const untracked of [fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app'), fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app', { countAs: 'x', inPhone: true })]) {
+    assert.ok(!untracked.includes('/api/smart-links/track') && !untracked.includes('data-l='));
+  }
+  for (const script of [...tracked.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1])) {
+    assert.ok(POLICY.includes(`'sha256-${createHash('sha256').update(script).digest('base64')}'`), 'each script is allowed by its hash');
+  }
   assert.ok(POLICY.includes("connect-src 'self'"));
 });
 
