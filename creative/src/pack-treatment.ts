@@ -188,16 +188,17 @@ const light = (hex: string) => {
   const n = parseInt(hex.replace('#', ''), 16);
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.5;
 };
-const PAPER = '#efe9de';
-
 /** Triptych: the frame split into three upright panels, pulled apart with a clear black gap and the same margin around them. */
 const TRIPTYCH_GAP: Record<string, number> = { narrow: 32, medium: 48, wide: 72, breathing: 60 };
 
-/** Collage: three parts of the frame (`cx`, `cy`, `zoom`) cut out, with no border, and laid out (`at`, centre and size in shares of the frame, `tilt` in degrees). */
+/**
+ * Collage: three parts of the frame (`cx`, `cy`, `zoom`) cut out, with no border, and laid out (`at`, centre and size in shares of
+ * the frame, `tilt` in degrees), always over the reel itself, blurred and playing: never a flat colour.
+ */
 type CollagePiece = { cx: number; cy: number; zoom: number; at: Box; tilt: number };
-const COLLAGE: Record<string, { backdrop: string | 'blur'; shadow: number; pieces: CollagePiece[] }> = {
+const COLLAGE: Record<string, { shadow: number; pieces: CollagePiece[] }> = {
   editorial: {
-    backdrop: PAPER, shadow: 0.25,
+    shadow: 0.4,
     pieces: [
       { cx: 0.5, cy: 0.35, zoom: 1.1, at: { x: 0.42, y: 0.27, w: 0.72, h: 0.4 }, tilt: -3 },
       { cx: 0.62, cy: 0.62, zoom: 1.8, at: { x: 0.66, y: 0.6, w: 0.5, h: 0.3 }, tilt: 4 },
@@ -205,7 +206,7 @@ const COLLAGE: Record<string, { backdrop: string | 'blur'; shadow: number; piece
     ],
   },
   scatter: {
-    backdrop: 'blur', shadow: 0.45,
+    shadow: 0.45,
     pieces: [
       { cx: 0.5, cy: 0.3, zoom: 1.4, at: { x: 0.34, y: 0.2, w: 0.56, h: 0.3 }, tilt: -7 },
       { cx: 0.5, cy: 0.5, zoom: 1.0, at: { x: 0.64, y: 0.5, w: 0.58, h: 0.32 }, tilt: 5 },
@@ -213,7 +214,7 @@ const COLLAGE: Record<string, { backdrop: string | 'blur'; shadow: number; piece
     ],
   },
   stack: {
-    backdrop: BLACK, shadow: 0.5,
+    shadow: 0.5,
     pieces: [
       { cx: 0.5, cy: 0.25, zoom: 1.2, at: { x: 0.5, y: 0.22, w: 0.86, h: 0.3 }, tilt: -2.5 },
       { cx: 0.5, cy: 0.5, zoom: 1.0, at: { x: 0.5, y: 0.5, w: 0.9, h: 0.32 }, tilt: 2 },
@@ -221,7 +222,7 @@ const COLLAGE: Record<string, { backdrop: string | 'blur'; shadow: number; piece
     ],
   },
   offset: {
-    backdrop: 'blur', shadow: 0.55,
+    shadow: 0.55,
     pieces: [
       { cx: 0.45, cy: 0.4, zoom: 1.0, at: { x: 0.4, y: 0.33, w: 0.7, h: 0.5 }, tilt: 0 },
       { cx: 0.6, cy: 0.6, zoom: 1.7, at: { x: 0.64, y: 0.66, w: 0.6, h: 0.4 }, tilt: 0 },
@@ -308,7 +309,7 @@ export function createTreatmentWorld(): TreatmentWorld {
   const blurred = new Sprite();
   blurred.width = WIDTH;
   blurred.height = HEIGHT;
-  blurred.alpha = 0.55;
+  blurred.alpha = 0.75;
   const panels = new Container();
   const treated = new Sprite();
   const scrim = new Graphics();
@@ -389,7 +390,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       holder.rotation = (card.tilt * Math.PI) / 180;
       panels.addChild(holder);
     }
-    return { backdrop: spec.backdrop };
+    return { backdrop: 'blur' };
   }
 
   function buildBento(variant: string, source: RenderTexture, textures: Texture[]): Look {
