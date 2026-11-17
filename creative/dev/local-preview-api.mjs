@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { cleanLink, slugProblem } from '../netlify/lib/smart-links.mjs';
+import { fanPage, missingPage, POLICY } from '../netlify/lib/fan-page.mjs';
 import { SERVICES, parseSource } from '../netlify/lib/song-lookup.mjs';
 
 /**
@@ -286,6 +287,15 @@ export function localPreviewApi() {
         send(response, 200, { link: smartLinks.get(slug) });
       }));
       for (const method of ['GET', 'POST', 'PUT', 'DELETE']) linksRoute(method);
+      route('/l', 'GET', async (request, response) => {
+        const slug = new URL(request.url, 'http://local').pathname.slice(1);
+        const home = `http://${request.headers.host}`;
+        const kept = smartLinks.get(slug);
+        response.statusCode = kept ? 200 : 404;
+        response.setHeader('Content-Type', 'text/html; charset=utf-8');
+        response.setHeader('Content-Security-Policy', POLICY);
+        response.end(kept ? fanPage(kept.link, `${home}/l/${slug}`, home) : missingPage(home));
+      });
 
       route('/.netlify/functions/transcribe-lyrics', 'POST', async (request, response) => {
         const form = (await readBody(request)).toString('utf8');
