@@ -131,6 +131,9 @@ export const ASCII_STYLES: Record<AsciiLookId, AsciiStyle> = {
 const clamp = (x: number) => Math.min(1, Math.max(0, x));
 const luma = (r: number, g: number, b: number) => (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 
+/** How much of the picture itself shows behind the characters (the paper is this much picture), so ASCII reads as a look on the picture. */
+export const ASCII_PICTURE = 0.45;
+
 /**
  * A pixel of ASCII as it averages over a cell (0-255 in and out): paper mixed toward ink by the ramp's average coverage at this brightness.
  */
@@ -143,9 +146,8 @@ export function asciiAverage(look: AsciiLookId, r: number, g: number, b: number)
   const i = Math.min(coverage.length - 2, Math.max(0, Math.floor(x)));
   const t = x - i;
   const dens = coverage[i]! + (coverage[i + 1]! - coverage[i]!) * t;
-  const paper = style.paper;
-  const ink = style.ink === 'picture'
-    ? [clamp(r / 255), clamp(g / 255), clamp(b / 255)] as Rgb
-    : style.ink;
+  const picture = [clamp(r / 255), clamp(g / 255), clamp(b / 255)] as Rgb;
+  const paper = style.paper.map((p, c) => p + (picture[c]! - p) * ASCII_PICTURE);
+  const ink = style.ink === 'picture' ? picture : style.ink;
   return [0, 1, 2].map(c => clamp(paper[c]! + (ink[c]! - paper[c]!) * dens) * 255) as [number, number, number];
 }

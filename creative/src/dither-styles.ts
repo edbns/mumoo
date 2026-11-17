@@ -147,9 +147,18 @@ export function ditherTone(style: DitherStyle, r: number, g: number, b: number):
 /**
  * A pixel of the dither as it averages over a cell (0-255 in and out): the expected colour of a tone with a threshold matrix is a mix of the two
  * nearest palette colours in the proportion of the tone, which is the same as sampling a gradient through the palette by brightness. The matrix, the
- * beat and the hard block edges are in the shader only.
+ * beat and the hard block edges are in the shader only. The picture shows through by DITHER_PICTURE.
  */
 export function ditherAverage(look: DitherLookId, r: number, g: number, b: number): [number, number, number] {
+  const dithered = paletteAverage(look, r, g, b);
+  const picture = [r, g, b];
+  return [0, 1, 2].map(c => dithered[c]! + (picture[c]! - dithered[c]!) * DITHER_PICTURE) as [number, number, number];
+}
+
+/** How much of the picture itself shows through the blocks, so Dither reads as a look on the picture rather than replacing it. */
+export const DITHER_PICTURE = 0.35;
+
+function paletteAverage(look: DitherLookId, r: number, g: number, b: number): [number, number, number] {
   const style = DITHER_STYLES[look];
   const { palette } = style;
   if (palette === 'own8' || palette === 'own16') {

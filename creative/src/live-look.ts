@@ -5,7 +5,8 @@
 import { Filter, GlProgram, UniformGroup } from 'pixi.js';
 import type { AsciiLookId, DitherLookId, HalftoneLookId, HeatLookId, LiveLookId } from './live-look-deal';
 import { ASCII_STYLES, DITHER_STYLES, HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD } from './live-look-ramp';
-import { ASCII_GLYPHS, ASCII_RAMPS } from './ascii-styles';
+import { ASCII_GLYPHS, ASCII_PICTURE, ASCII_RAMPS } from './ascii-styles';
+import { DITHER_PICTURE } from './dither-styles';
 
 /** What a look needs to know about this moment. `range`: how cold and how hot the picture reads (0-1), which a look stretches over its ramp. */
 export type LiveLookInput = { beat: number; energy: number; ms: number; range: readonly [number, number] };
@@ -290,6 +291,7 @@ void main(void) {
   int iy = int(id.y);
   ${matrixCode}
   ${paletteCode}
+  colour = mix(colour, seen(vTextureCoord), ${f(DITHER_PICTURE)});
   finalColor = vec4(colour, 1.0) * centre.a;
 }
 `;
@@ -380,7 +382,7 @@ void main(void) {
   vec2 local = vec2(fract(px.x / cellW), fract(px.y / cellH));
   // Slight letterboxing so glyphs do not touch cell edges.
   vec2 inset = (local - 0.08) / 0.84;
-  vec3 paper = ${paperExpr};
+  vec3 paper = mix(${paperExpr}, seen(vTextureCoord), ${f(ASCII_PICTURE)});
   vec3 ink = ${inkExpr};
   if (inset.x < 0.0 || inset.y < 0.0 || inset.x > 1.0 || inset.y > 1.0) {
     finalColor = vec4(paper, 1.0) * centre.a;
