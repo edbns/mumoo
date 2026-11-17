@@ -103,6 +103,9 @@ test('visits and clicks go on to Meta\'s Conversions API and TikTok\'s Events AP
   assert.equal(tiktok.body.event_source_id, 'CTIKTOK123456789');
   assert.deepEqual(tiktok.body.data[0].user, { ip: '203.0.113.9', user_agent: 'Mozilla/5.0 Instagram', ttclid: 'T1' });
   assert.equal(tiktok.body.data[0].event_id, meta.body.data[0].event_id, 'one event ID, for deduplication');
+  assert.equal(tiktok.body.data[0].event, 'Mumoo_Smart_Link_Click');
+  assert.match(tiktok.body.data[0].event, /^[A-Za-z][A-Za-z0-9_-]{0,49}$/, 'a name TikTok accepts for a custom event');
+  assert.deepEqual(tiktok.body.data[0].properties, { content_name: 'SEM VERGONHA', description: 'Spotify' });
 
   sent.length = 0;
   await forwardEvent({ ...event, kind: 'view', fbclid: null, ttclid: null }, { meta: { pixel: '1234567890', token: 'T' }, tiktok: { pixel: 'CTIKTOK123456789', token: 'T' } }, fetcher);

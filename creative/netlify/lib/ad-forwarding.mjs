@@ -1,7 +1,7 @@
 /**
  * Visits and stream clicks sent on to the artist's own ad accounts, from our server, so the fan page needs no pixel script:
  * Meta's Conversions API (PageView, and "Mumoo Smart Link Click" as a custom event the artist picks as a conversion) and TikTok's
- * Events API 2.0 (ViewContent, as it has no page view event, and StreamClick). The fan's IP address and user agent go with them, as
+ * Events API 2.0 (ViewContent, as it has no page view event, and "Mumoo_Smart_Link_Click"). The fan's IP address and user agent go with them, as
  * both ask for, and the ad's click ID when there is one; none of it is kept. Google Ads has no such API with only a tag ID, so its
  * ID is kept for later. Failures are logged and never reach the fan.
  */
@@ -10,6 +10,8 @@ import { LABELS } from './services.mjs';
 
 /** The click's name in the artist's Events Manager and Ads Manager conversion list, where it reads as ours. */
 export const META_CLICK_EVENT = 'Mumoo Smart Link Click';
+/** The same on TikTok, whose custom event names allow only letters, digits, underscores and dashes. */
+export const TIKTOK_CLICK_EVENT = 'Mumoo_Smart_Link_Click';
 const META_API = 'https://graph.facebook.com/v23.0';
 const TIKTOK_API = 'https://business-api.tiktok.com/open_api/v1.3/event/track/';
 const TIMEOUT_MS = 5000;
@@ -57,9 +59,9 @@ function sendToTikTok(event, { pixel, token }, fetcher) {
   return post(fetcher, TIKTOK_API, {
     event_source: 'web', event_source_id: pixel,
     data: [{
-      event: event.kind === 'view' ? 'ViewContent' : 'StreamClick', event_time: Math.floor(event.at / 1000), event_id: event.id,
+      event: event.kind === 'view' ? 'ViewContent' : TIKTOK_CLICK_EVENT, event_time: Math.floor(event.at / 1000), event_id: event.id,
       user, page: { url: event.url, referrer: event.referrer || undefined },
-      properties: { content_name: `${event.title} · ${event.artist}`, ...(event.kind === 'click' ? { description: event.service } : {}) },
+      properties: { content_name: event.title, ...(event.kind === 'click' ? { description: LABELS[event.service] ?? event.service } : {}) },
     }],
   }, { 'Access-Token': token });
 }

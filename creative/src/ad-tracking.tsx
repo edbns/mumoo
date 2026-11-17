@@ -35,10 +35,14 @@ export function AdTracking({ ids, saved, tokens, onIds, onTokens }: {
           <span className="font-semibold text-foreground"> ‘Mumoo Smart Link Click’ </span>as your Conversion Event in Meta Ads Manager.
         </p>
       </Platform>
-      <Platform name="TikTok" status={ids.tiktok_pixel_id && has('tiktok_events_token') ? 'Sends ViewContent and StreamClick' : null}>
+      <Platform name="TikTok" status={ids.tiktok_pixel_id && has('tiktok_events_token') ? 'Sends ViewContent and Mumoo_Smart_Link_Click' : null}>
         <Labelled label="Pixel ID"><input className={field} value={ids.tiktok_pixel_id} placeholder="e.g. C1A2B3C4D5E6F7G8H9"
           onChange={event => onIds({ ...ids, tiktok_pixel_id: event.target.value.trim() })} /></Labelled>
         <Token label="Events API access token" field="tiktok_events_token" saved={saved.tiktok_events_token} tokens={tokens} onTokens={onTokens} />
+        <p className="m-0 rounded-[var(--radius-control)] bg-muted px-3 py-2 text-xs text-muted-foreground sm:col-span-2">
+          <span className="font-semibold text-foreground">Tip:</span> Once your link receives its first test click, ‘Mumoo_Smart_Link_Click’ appears in
+          TikTok Events Manager. If TikTok doesn’t offer it as an optimisation event for your campaign, choose ViewContent.
+        </p>
       </Platform>
       <Platform name="Google Ads" status={null}>
         <Labelled label="Google Ads ID"><input className={field} value={ids.google_ads_id} placeholder="e.g. AW-123456789"
