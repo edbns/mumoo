@@ -271,6 +271,7 @@ export async function lookupSong(raw, fetcher = fetch, picked = null) {
 }
 
 const RESULTS = 8;
+const PREVIEWS_BORROWED = 3;
 const https = (url) => (typeof url === 'string' && url.startsWith('https://') ? url : null);
 /**
  * Songs for a typed name ("artist title"), for the artist to choose from: each is then looked up by its link. Spotify first (its
@@ -286,10 +287,13 @@ export async function searchSongs(query, fetcher = fetch) {
     client && secret
       ? spotifyBearer(fetcher, client, secret)
         .then(token => getJson(fetcher, `https://api.spotify.com/v1/search?type=track&limit=${RESULTS}&q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } }))
-        .then(body => (body.tracks?.items ?? []).filter(track => /^[A-Za-z0-9]{22}$/.test(track?.id ?? '')).map(track => ({
+        .then(body => Promise.all((body.tracks?.items ?? []).filter(track => /^[A-Za-z0-9]{22}$/.test(track?.id ?? '')).map(async (track, at) => ({
           title: track.name, artist: track.artists?.map(a => a.name).join(', ') ?? null, cover: https(track.album?.images?.at(-2)?.url ?? track.album?.images?.[0]?.url),
-          url: `https://open.spotify.com/track/${track.id}`, preview: https(track.preview_url),
-        }))).catch(quiet('spotify'))
+          url: `https://open.spotify.com/track/${track.id}`,
+          // Spotify rarely gives a preview now: the likeliest few borrow Deezer's, found by the ISRC.
+          preview: https(track.preview_url) ?? (at < PREVIEWS_BORROWED && ISRC.test(track.external_ids?.isrc ?? '')
+            ? https((await getJson(fetcher, `https://api.deezer.com/track/isrc:${track.external_ids.isrc}`).catch(() => null))?.preview) : null),
+        })))).catch(quiet('spotify'))
       : [],
     getJson(fetcher, `https://api.deezer.com/search?limit=${RESULTS}&q=${encodeURIComponent(q)}`)
       .then(body => (body.data ?? []).filter(track => Number.isSafeInteger(track?.id) && track.readable !== false).map(track => ({

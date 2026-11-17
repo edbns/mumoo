@@ -42,6 +42,7 @@ const DEEZER = {
   id: 908604612, title: 'Blinding Lights', isrc: 'USUG11904206', link: 'https://www.deezer.com/track/908604612', duration: 200, rank: 984833,
   artist: { name: 'The Weeknd' }, album: { cover_xl: 'https://cdn.deezer.example/cover.jpg' },
 };
+const DEEZER_PREVIEW = 'https://cdnt-preview.dzcdn.net/blinding.mp3';
 const COVER = { ...DEEZER, id: 1, title: 'Blinding Lights', isrc: 'GBXXX2000001', artist: { name: 'Loi' }, link: 'https://www.deezer.com/track/1', rank: 2000 };
 const ITUNES = {
   wrapperType: 'track', trackId: 1499378615, trackName: 'Blinding Lights', artistName: 'The Weeknd', trackTimeMillis: 200_040,
@@ -62,10 +63,10 @@ function services({ spotifyTitle = 'Blinding Lights' } = {}) {
     if (hostname === 'api.spotify.com') {
       const q = new URL(url).searchParams.get('q');
       return json({ tracks: { items: q === `isrc:${DEEZER.isrc}` || q === 'blinding lights'
-        ? [{ id: '0VjIjW4GlUZAMYd2vXMi3b', name: 'Blinding Lights', artists: [{ name: 'The Weeknd' }], album: { images: [{ url: 'https://i.scdn.co/a.jpg' }] }, preview_url: null }] : [] } });
+        ? [{ id: '0VjIjW4GlUZAMYd2vXMi3b', name: 'Blinding Lights', artists: [{ name: 'The Weeknd' }], album: { images: [{ url: 'https://i.scdn.co/a.jpg' }] }, preview_url: null, external_ids: { isrc: DEEZER.isrc } }] : [] } });
     }
     if (hostname === 'www.youtube.com') return json({ title: 'The Weeknd - Blinding Lights (Official Video)', author_name: 'TheWeekndVEVO' });
-    if (hostname === 'api.deezer.com' && pathname.startsWith('/track/isrc:')) return json(pathname.endsWith(DEEZER.isrc) ? DEEZER : { error: {} });
+    if (hostname === 'api.deezer.com' && pathname.startsWith('/track/isrc:')) return json(pathname.endsWith(DEEZER.isrc) ? { ...DEEZER, preview: DEEZER_PREVIEW } : { error: {} });
     if (hostname === 'api.deezer.com' && pathname.startsWith('/track/')) return json(pathname === `/track/${DEEZER.id}` ? DEEZER : { error: {} });
     if (hostname === 'api.deezer.com') return json({ data: [COVER, DEEZER] });
     if (hostname === 'itunes.apple.com' && pathname === '/lookup') return json({ results: [{ wrapperType: 'collection' }, ITUNES] });
@@ -153,6 +154,7 @@ test('a typed name finds songs on every service, each listed once, with a previe
   await withSpotifyKeys(async () => {
     const withSpotify = await searchSongs('blinding lights', services().fetcher);
     assert.equal(withSpotify[0].url, 'https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b', 'Spotify first: it knows new releases first');
+    assert.equal(withSpotify[0].preview, DEEZER_PREVIEW, 'Spotify gives no preview: Deezer\'s, by the ISRC');
     assert.equal(withSpotify.filter(found => found.artist === 'The Weeknd' && found.title === 'Blinding Lights').length, 1);
   });
 });
