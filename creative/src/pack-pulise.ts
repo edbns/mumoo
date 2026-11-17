@@ -10,17 +10,19 @@ import { META_SAFE_BOTTOM } from './ad-punch';
 import { fitPackLines } from './pack-text';
 import { displayFace, type AdFont } from './ad-fonts';
 import type { PackSceneInput } from './pack-copy';
+import { paletteOf } from './window-look';
 
-const RED = '#ff1a2e';
+/** Silhouette's red screen, so mumoo's red is one red. */
+const RED = paletteOf('red').screen;
 const WHITE = '#fbfdff';
 const BLACK = '#050506';
 
 /** Field and type colours in turn: mostly red and white, with a black beat so the cut has room to land. */
 const PHASES = [
-  { field: RED, ink: WHITE, glow: '#ffd0d4' },
-  { field: WHITE, ink: RED, glow: '#ff7a86' },
-  { field: RED, ink: WHITE, glow: '#ffd0d4' },
-  { field: BLACK, ink: RED, glow: '#ff1a2e' },
+  { field: RED, ink: WHITE, glow: '#ffd2c8' },
+  { field: WHITE, ink: RED, glow: '#ff6b4f' },
+  { field: RED, ink: WHITE, glow: '#ffd2c8' },
+  { field: BLACK, ink: RED, glow: RED },
 ] as const;
 
 /** Beats closer than this (over 176 BPM) change the field every second beat: at most three cuts a second. */
