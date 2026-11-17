@@ -1,5 +1,8 @@
 import { db } from './person.mjs';
-import { ISRC, SERVICES, parseSource } from './song-lookup.mjs';
+import { LABELS, SERVICES } from './services.mjs';
+import { ISRC, parseSource } from './song-lookup.mjs';
+
+export { LABELS };
 
 /**
  * Smart links the artists publish (`smart_links`): the address at /l/<slug>, and what the fan page shows. Everything the editor sends
@@ -39,10 +42,6 @@ const SERVICE_HOSTS = {
   tidal: ['tidal.com'],
   soundcloud: ['soundcloud.com'],
   amazon: ['music.amazon.com', 'amazon.com', 'amazon.co.uk', 'amazon.de', 'amazon.fr', 'amazon.it', 'amazon.es', 'amazon.ca', 'amazon.co.jp', 'amazon.com.au', 'amazon.com.br', 'amazon.in', 'amazon.com.mx', 'amzn.to'],
-};
-export const LABELS = {
-  spotify: 'Spotify', apple: 'Apple Music', youtube: 'YouTube', youtubeMusic: 'YouTube Music',
-  deezer: 'Deezer', tidal: 'TIDAL', soundcloud: 'SoundCloud', amazon: 'Amazon Music',
 };
 /** Where covers and previews come from: Apple, Deezer, Spotify and YouTube's image and audio servers. */
 const MEDIA_HOSTS = ['mzstatic.com', 'apple.com', 'dzcdn.net', 'scdn.co', 'spotifycdn.com', 'ytimg.com'];

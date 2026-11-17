@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { cleanLink, slugProblem } from '../netlify/lib/smart-links.mjs';
 import { fanPage, missingPage, POLICY } from '../netlify/lib/fan-page.mjs';
-import { SERVICES, parseSource } from '../netlify/lib/song-lookup.mjs';
+import { PICK, lookupSong, parseSource, searchSongs } from '../netlify/lib/song-lookup.mjs';
 
 /**
  * Stand-ins for the staging servers, so every screen can be used and designed on the local dev server.
@@ -248,26 +248,19 @@ export function localPreviewApi() {
       }));
       route('/api/report-problem', 'POST', async (_request, response) => send(response, 202, { ok: true }));
 
-      // Smart links: a sample song (a Spotify link is a guess with candidates until one is picked), and links kept in memory,
-      // checked by the real rules. The more specific paths come first: the middleware matches by prefix.
-      const sampleSong = (url, sure) => {
-        const source = parseSource(url);
-        const search = service => `https://${{ spotify: 'open.spotify.com/search/', apple: 'music.apple.com/us/search?term=', youtube: 'www.youtube.com/results?search_query=', youtubeMusic: 'music.youtube.com/search?q=', deezer: 'www.deezer.com/search/', tidal: 'tidal.com/search?q=', soundcloud: 'soundcloud.com/search/sounds?q=', amazon: 'music.amazon.com/search/' }[service]}sample`;
-        const exact = { spotify: source.platform === 'spotify' ? `https://open.spotify.com/track/${source.id}` : null, apple: sure ? 'https://music.apple.com/us/song/sample/1' : null };
-        return {
-          source: `${source.platform}:${source.id}`, title: 'Sample Song', artist: sure ? 'Sample Artist' : null, isrc: sure ? 'USXXX2600001' : null,
-          cover: null, preview: null, confident: sure,
-          links: Object.fromEntries(SERVICES.map(service => [service, exact[service] ? { url: exact[service], exact: true } : { url: search(service), exact: false }])),
-          ...(!sure && { candidates: [
-            { title: 'Sample Song', artist: 'Sample Artist', cover: null, url: 'https://www.deezer.com/track/1', pick: 'deezer:1' },
-            { title: 'Sample Song (Cover)', artist: 'Someone Else', cover: null, url: 'https://www.deezer.com/track/2', pick: 'deezer:2' },
-          ] }),
-        };
-      };
+      // Smart links: the real lookup and search (public song data from Deezer and Apple, nothing of the person's; without Spotify's
+      // keys here, a Spotify link is a guess with candidates), and links kept in memory, checked by the real rules.
+      // The more specific paths come first: the middleware matches by prefix.
       route('/api/links/lookup', 'POST', async (request, response) => {
         const { url, pick } = JSON.parse((await readBody(request)).toString('utf8'));
-        if (!parseSource(url)) return send(response, 400, { error: 'Paste a song link from Spotify, Apple Music or YouTube.' });
-        send(response, 200, { song: sampleSong(url, !url.includes('spotify') || pick === 'deezer:1') });
+        if (!parseSource(url)) return send(response, 400, { error: 'Paste a song link from Spotify, Apple Music, YouTube or Deezer, or type the song’s name.' });
+        const song = await lookupSong(url, fetch, PICK.test(pick ?? '') ? pick : null).catch(() => null);
+        send(response, song ? 200 : 404, song ? { song } : { error: 'We could not find that song. Check the link and try again.' });
+      });
+      route('/api/links/search', 'GET', async (request, response) => {
+        const q = new URL(request.url, 'http://local').searchParams.get('q') ?? '';
+        const results = await searchSongs(q).catch(() => null);
+        send(response, results ? 200 : 502, results ? { results } : { error: 'Searching failed. Try again in a moment.' });
       });
       const smartLinks = new Map();
       route('/api/links/slug', 'GET', async (request, response) => {

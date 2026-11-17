@@ -12,7 +12,7 @@ export default async function handler(request) {
   if (!process.env.DATABASE_URL) return reply(503, { error: 'Smart links are unavailable.' });
   const body = await request.json().catch(() => null);
   const url = typeof body?.url === 'string' ? body.url.slice(0, 500) : '';
-  if (!parseSource(url)) return reply(400, { error: 'Paste a song link from Spotify, Apple Music or YouTube.' });
+  if (!parseSource(url)) return reply(400, { error: 'Paste a song link from Spotify, Apple Music, YouTube or Deezer, or type the song’s name.' });
   try {
     const pick = typeof body?.pick === 'string' && PICK.test(body.pick) ? body.pick : null;
     const song = await lookupSongKept(url, fetch, pick);

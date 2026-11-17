@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { alike, fitOf, fromVideoTitle, lookupSong, lookupSongKept, parseSource } from '../netlify/lib/song-lookup.mjs';
+import { alike, fitOf, fromVideoTitle, lookupSong, lookupSongKept, parseSource, searchSongs } from '../netlify/lib/song-lookup.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import handler from '../netlify/functions/links-lookup.mjs';
 
@@ -58,6 +58,12 @@ function services({ spotifyTitle = 'Blinding Lights' } = {}) {
     const { hostname, pathname } = new URL(url);
     const json = (body) => Response.json(body);
     if (hostname === 'open.spotify.com') return json({ title: spotifyTitle, thumbnail_url: 'https://spotify.example/thumb.jpg' });
+    if (hostname === 'accounts.spotify.com') return json({ access_token: 'token', expires_in: 3600 });
+    if (hostname === 'api.spotify.com') {
+      const q = new URL(url).searchParams.get('q');
+      return json({ tracks: { items: q === `isrc:${DEEZER.isrc}` || q === 'blinding lights'
+        ? [{ id: '0VjIjW4GlUZAMYd2vXMi3b', name: 'Blinding Lights', artists: [{ name: 'The Weeknd' }], album: { images: [{ url: 'https://i.scdn.co/a.jpg' }] }, preview_url: null }] : [] } });
+    }
     if (hostname === 'www.youtube.com') return json({ title: 'The Weeknd - Blinding Lights (Official Video)', author_name: 'TheWeekndVEVO' });
     if (hostname === 'api.deezer.com' && pathname.startsWith('/track/isrc:')) return json(pathname.endsWith(DEEZER.isrc) ? DEEZER : { error: {} });
     if (hostname === 'api.deezer.com' && pathname.startsWith('/track/')) return json(pathname === `/track/${DEEZER.id}` ? DEEZER : { error: {} });
@@ -109,6 +115,46 @@ test('a Spotify link without keys is only a guess until the artist picks the son
   assert.equal(guess.candidates[0].pick, 'USUG11904206');
   const byTrack = await lookupSong('https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b', fetcher, `deezer:${DEEZER.id}`);
   assert.deepEqual([byTrack.artist, byTrack.isrc, byTrack.confident, byTrack.links.deezer.url], ['The Weeknd', 'USUG11904206', true, DEEZER.link]);
+});
+
+test('a Deezer link is sure of itself, and its ISRC gives Apple and Deezer exactly', async () => {
+  assert.deepEqual(parseSource('https://www.deezer.com/en/track/908604612'), { platform: 'deezer', id: '908604612' });
+  assert.equal(parseSource('https://www.deezer.com/album/908604612'), null);
+  const song = await lookupSong('https://www.deezer.com/track/908604612', services().fetcher);
+  assert.deepEqual([song.source, song.artist, song.isrc, song.confident], ['deezer:908604612', 'The Weeknd', 'USUG11904206', true]);
+  assert.deepEqual([song.links.deezer.url, song.links.apple.exact], [DEEZER.link, true]);
+});
+
+/** Runs `work` with Spotify's keys set, as on staging and mumoo.app. */
+async function withSpotifyKeys(work) {
+  const kept = { id: process.env.SPOTIFY_CLIENT_ID, secret: process.env.SPOTIFY_CLIENT_SECRET };
+  Object.assign(process.env, { SPOTIFY_CLIENT_ID: 'id', SPOTIFY_CLIENT_SECRET: 'secret' });
+  try { await work(); } finally {
+    for (const [name, value] of [['SPOTIFY_CLIENT_ID', kept.id], ['SPOTIFY_CLIENT_SECRET', kept.secret]]) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
+}
+
+test('with Spotify\'s keys, a song from any link gets its own Spotify page, found by its ISRC', async () => {
+  await withSpotifyKeys(async () => {
+    const song = await lookupSong('https://youtu.be/4NRXx6U8ABQ', services().fetcher);
+    assert.deepEqual(song.links.spotify, { url: 'https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b', exact: true });
+  });
+});
+
+test('a typed name finds songs on every service, each listed once, with a preview from whichever has one', async () => {
+  const plainly = await searchSongs('blinding lights', services().fetcher);
+  assert.deepEqual(plainly.map(found => `${found.artist}: ${found.title}`), ['Loi: Blinding Lights', 'The Weeknd: Blinding Lights', 'The Weeknd & ROSALÍA: Blinding Lights (Remix)']);
+  assert.equal(plainly[1].url, DEEZER.link, 'chosen by its Deezer link');
+  assert.equal(plainly[1].preview, ITUNES.previewUrl, 'Apple\'s preview, as Deezer gave none');
+  assert.equal(plainly[2].url, 'https://music.apple.com/us/song/2', 'a song only Apple has is looked up by its Apple link');
+  assert.deepEqual(await searchSongs(' ', services().fetcher), []);
+  await withSpotifyKeys(async () => {
+    const withSpotify = await searchSongs('blinding lights', services().fetcher);
+    assert.equal(withSpotify[0].url, 'https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b', 'Spotify first: it knows new releases first');
+    assert.equal(withSpotify.filter(found => found.artist === 'The Weeknd' && found.title === 'Blinding Lights').length, 1);
+  });
 });
 
 test('a sure song is looked up once, a guess every time, and an artist\'s pick is kept apart from what everyone else sees', { skip: !process.env.DATABASE_URL, timeout: 30000 }, async () => {

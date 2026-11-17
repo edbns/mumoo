@@ -60,6 +60,21 @@ export async function lookupSong(url: string, pick?: string): Promise<FoundSong>
   return (await answer<{ song: FoundSong }>(response)).song;
 }
 
+/** A song found by its name; choosing it looks up its Deezer `url`. `preview` is Deezer's 30 seconds, whose link lasts minutes. */
+export type SearchResult = { title: string; artist: string | null; cover: string | null; url: string; preview: string | null };
+
+/** Songs for a typed name. Throws the words to show. */
+export async function searchSongs(query: string, signal?: AbortSignal): Promise<SearchResult[]> {
+  return (await answer<{ results: SearchResult[] }>(await fetch(`/api/links/search?q=${encodeURIComponent(query)}`, { signal }))).results;
+}
+
+/** The pasted text as a song link, when it is one ("open.spotify.com/…" without https:// too); null for a name to search. */
+export function asLink(text: string): string | null {
+  const trimmed = text.trim();
+  if (/^(https?:\/\/|spotify:)/i.test(trimmed)) return trimmed;
+  return /^(www\.|m\.)?(open\.spotify\.com|music\.apple\.com|(music\.)?youtube\.com|youtu\.be|deezer\.com)\//i.test(trimmed) ? `https://${trimmed}` : null;
+}
+
 /** Whether a link can be published at /l/<name>, with the reason when not. */
 export async function checkSlug(name: string): Promise<{ free: boolean; error?: string }> {
   return answer(await fetch(`/api/links/slug?name=${encodeURIComponent(name)}`));

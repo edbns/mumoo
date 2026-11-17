@@ -1,7 +1,10 @@
 import { db } from './person.mjs';
+import { SERVICES } from './services.mjs';
+
+export { SERVICES };
 
 /**
- * One paste, every service: the song behind a Spotify, Apple Music or YouTube link, matched on Deezer and Apple Music, with a link
+ * One paste, every service: the song behind a Spotify, Apple Music, YouTube or Deezer link (or one the artist found by its name), matched on Deezer and Apple Music, with a link
  * for every service a fan might use. Only free, keyless public endpoints (Spotify's own API only when SPOTIFY_CLIENT_ID and
  * SPOTIFY_CLIENT_SECRET are set). Each song is looked up once and kept (`song_lookups`).
  *
@@ -13,6 +16,8 @@ const TIMEOUT_MS = 6000;
 /** A kept lookup is redone after this long, so moved or newly released links are found. */
 const KEEP_DAYS = 30;
 const CANDIDATES = 4;
+/** Raised when the lookup finds more than it used to (2: Spotify by ISRC), so songs kept by an older one are looked up again. */
+const LOOKUP_VERSION = 2;
 
 /** The service and its id behind a pasted link, or null when it is not a song link we know. */
 export function parseSource(raw) {
@@ -39,6 +44,10 @@ export function parseSource(raw) {
   if (host === 'youtu.be') {
     const id = url.pathname.slice(1);
     return /^[\w-]{11}$/.test(id) ? { platform: 'youtube', id } : null;
+  }
+  if (host === 'deezer.com') {
+    const id = /^\/(?:[a-z]{2}\/)?track\/(\d{1,15})$/.exec(url.pathname)?.[1];
+    return id ? { platform: 'deezer', id } : null;
   }
   return null;
 }
@@ -115,12 +124,7 @@ const fromItunes = (track) => ({
 let spotifyToken;
 /** Why the last Spotify lookup could not use Spotify's API ('ok', 'kept' when it was not asked, 'no keys' or what Spotify answered), for the function's answer and logs. */
 export let spotifyState = 'no keys';
-async function spotifyTrack(fetcher, id) {
-  const { SPOTIFY_CLIENT_ID: client, SPOTIFY_CLIENT_SECRET: secret } = process.env;
-  if (!client || !secret) {
-    spotifyState = !client && !secret ? 'no keys' : !client ? 'no SPOTIFY_CLIENT_ID' : 'no SPOTIFY_CLIENT_SECRET';
-    return null;
-  }
+async function spotifyBearer(fetcher, client, secret) {
   if (!spotifyToken || spotifyToken.until < Date.now()) {
     const body = await getJson(fetcher, 'https://accounts.spotify.com/api/token', {
       method: 'POST', body: 'grant_type=client_credentials',
@@ -128,9 +132,27 @@ async function spotifyTrack(fetcher, id) {
     });
     spotifyToken = { value: body.access_token, until: Date.now() + (body.expires_in - 60) * 1000 };
   }
-  const track = await getJson(fetcher, `https://api.spotify.com/v1/tracks/${id}`, { headers: { Authorization: `Bearer ${spotifyToken.value}` } });
+  return spotifyToken.value;
+}
+async function spotifyTrack(fetcher, id) {
+  const { SPOTIFY_CLIENT_ID: client, SPOTIFY_CLIENT_SECRET: secret } = process.env;
+  if (!client || !secret) {
+    spotifyState = !client && !secret ? 'no keys' : !client ? 'no SPOTIFY_CLIENT_ID' : 'no SPOTIFY_CLIENT_SECRET';
+    return null;
+  }
+  const track = await getJson(fetcher, `https://api.spotify.com/v1/tracks/${id}`, { headers: { Authorization: `Bearer ${await spotifyBearer(fetcher, client, secret)}` } });
   spotifyState = 'ok';
   return { title: track.name, artist: track.artists?.map(a => a.name).join(', ') ?? null, durationMs: track.duration_ms ?? null, isrc: track.external_ids?.isrc ?? null, cover: track.album?.images?.[0]?.url ?? null };
+}
+
+/** The song's own Spotify page, found by its ISRC; null without the keys or when Spotify does not have it. */
+async function spotifyByIsrc(fetcher, isrc) {
+  const { SPOTIFY_CLIENT_ID: client, SPOTIFY_CLIENT_SECRET: secret } = process.env;
+  if (!client || !secret || !ISRC.test(isrc ?? '')) return null;
+  const body = await getJson(fetcher, `https://api.spotify.com/v1/search?type=track&limit=1&q=${encodeURIComponent(`isrc:${isrc}`)}`,
+    { headers: { Authorization: `Bearer ${await spotifyBearer(fetcher, client, secret)}` } });
+  const id = body.tracks?.items?.[0]?.id;
+  return /^[A-Za-z0-9]{22}$/.test(id ?? '') ? `https://open.spotify.com/track/${id}` : null;
 }
 
 /** What the pasted link itself tells us: always a title, and as much else as the service gives away. */
@@ -140,6 +162,10 @@ async function seedOf(fetcher, source) {
     const track = body.results?.find(item => item.wrapperType === 'track' && String(item.trackId) === source.id);
     if (!track) return null;
     return { ...fromItunes(track), apple: fromItunes(track), sure: true };
+  }
+  if (source.platform === 'deezer') {
+    const track = await getJson(fetcher, `https://api.deezer.com/track/${source.id}`);
+    return track?.id ? { ...fromDeezer(track), sure: true } : null;
   }
   if (source.platform === 'spotify') {
     const full = await spotifyTrack(fetcher, source.id).catch((cause) => {
@@ -165,9 +191,6 @@ const searchUrl = {
   soundcloud: q => `https://soundcloud.com/search/sounds?q=${encodeURIComponent(q)}`,
   amazon: q => `https://music.amazon.com/search/${encodeURIComponent(q)}`,
 };
-/** The order the buttons appear in, before the artist changes it. */
-export const SERVICES = ['spotify', 'apple', 'youtube', 'youtubeMusic', 'deezer', 'tidal', 'soundcloud', 'amazon'];
-
 /**
  * Looks the song up everywhere. Returns null when the link is not one we know or the song cannot be found.
  * `picked` is the candidate the artist chose when we were not sure (its `pick`, see PICK): it is trusted when that song has the link's title.
@@ -212,10 +235,18 @@ export async function lookupSong(raw, fetcher = fetch, picked = null) {
 
   const sureOfDeezer = Boolean(deezer && (seed.isrc ? deezer.isrc === seed.isrc : alike(known.title, deezer.title) >= 0.8 && (!seed.artist || alike(seed.artist, deezer.artist) >= 0.5)));
   const confident = seed.sure || Boolean(seed.artist && sureOfDeezer);
+  // Deezer's search leaves the ISRC out; its track page has it, and the ISRC finds the song's own Spotify page.
+  if (confident && sureOfDeezer && !deezer.isrc && !seed.isrc) {
+    deezer.isrc = (await getJson(fetcher, `https://api.deezer.com/track/${deezer.deezerId}`).catch(() => null))?.isrc ?? null;
+  }
+  const isrc = seed.isrc ?? (sureOfDeezer ? deezer.isrc : null);
+  const spotify = source.platform === 'spotify' ? `https://open.spotify.com/track/${source.id}`
+    : confident ? await spotifyByIsrc(fetcher, isrc).catch((cause) => { console.error('spotify isrc:', cause instanceof Error ? cause.message : cause); return null; })
+    : null;
   const q = [known.artist, plain(known.title) || known.title].filter(Boolean).join(' ');
   // A guess is not a link: until the artist confirms the song, the other services get searches.
   const exact = {
-    spotify: source.platform === 'spotify' ? `https://open.spotify.com/track/${source.id}` : null,
+    spotify,
     apple: confident ? apple?.url ?? null : null,
     youtube: source.platform === 'youtube' ? `https://www.youtube.com/watch?v=${source.id}` : null,
     youtubeMusic: source.platform === 'youtube' ? `https://music.youtube.com/watch?v=${source.id}` : null,
@@ -230,13 +261,55 @@ export async function lookupSong(raw, fetcher = fetch, picked = null) {
     title: known.title,
     artist: known.artist,
     durationMs: known.durationMs,
-    isrc: seed.isrc ?? (sureOfDeezer ? deezer.isrc : null),
+    isrc,
     cover: apple?.cover ?? (sureOfDeezer ? deezer.cover : null) ?? seed.cover ?? null,
     preview: apple?.preview ?? null,
     links,
     confident,
     ...(confident ? {} : { candidates: ranked.slice(0, CANDIDATES).map(({ found }) => ({ title: found.title, artist: found.artist, cover: found.cover, url: found.url, pick: found.isrc ?? `deezer:${found.deezerId}` })) }),
   };
+}
+
+const RESULTS = 8;
+const https = (url) => (typeof url === 'string' && url.startsWith('https://') ? url : null);
+/**
+ * Songs for a typed name ("artist title"), for the artist to choose from: each is then looked up by its link. Spotify first (its
+ * search knows a release on its first day; only with its keys), then Deezer and Apple Music; one song found on several is listed once,
+ * with a preview from whichever has one.
+ */
+export async function searchSongs(query, fetcher = fetch) {
+  const q = String(query ?? '').trim().slice(0, 120);
+  if (q.length < 2) return [];
+  const { SPOTIFY_CLIENT_ID: client, SPOTIFY_CLIENT_SECRET: secret } = process.env;
+  const quiet = (service) => (cause) => { console.error(`${service} search:`, cause instanceof Error ? cause.message : cause); return []; };
+  const [spotify, deezer, apple] = await Promise.all([
+    client && secret
+      ? spotifyBearer(fetcher, client, secret)
+        .then(token => getJson(fetcher, `https://api.spotify.com/v1/search?type=track&limit=${RESULTS}&q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } }))
+        .then(body => (body.tracks?.items ?? []).filter(track => /^[A-Za-z0-9]{22}$/.test(track?.id ?? '')).map(track => ({
+          title: track.name, artist: track.artists?.map(a => a.name).join(', ') ?? null, cover: https(track.album?.images?.at(-2)?.url ?? track.album?.images?.[0]?.url),
+          url: `https://open.spotify.com/track/${track.id}`, preview: https(track.preview_url),
+        }))).catch(quiet('spotify'))
+      : [],
+    getJson(fetcher, `https://api.deezer.com/search?limit=${RESULTS}&q=${encodeURIComponent(q)}`)
+      .then(body => (body.data ?? []).filter(track => Number.isSafeInteger(track?.id) && track.readable !== false).map(track => ({
+        title: track.title, artist: track.artist?.name ?? null, cover: https(track.album?.cover_medium), url: `https://www.deezer.com/track/${track.id}`, preview: https(track.preview),
+      }))).catch(quiet('deezer')),
+    getJson(fetcher, `https://itunes.apple.com/search?entity=song&limit=${RESULTS}&term=${encodeURIComponent(q)}`)
+      .then(body => (body.results ?? []).filter(track => Number.isSafeInteger(track?.trackId)).map(track => ({
+        title: track.trackName, artist: track.artistName ?? null, cover: https(track.artworkUrl100?.replace(/100x100bb/, '200x200bb')),
+        url: `https://music.apple.com/us/song/${track.trackId}`, preview: https(track.previewUrl),
+      }))).catch(quiet('apple')),
+  ]);
+  const byName = new Map();
+  for (const found of [...spotify, ...deezer, ...apple]) {
+    // The whole title, "(Remix)" and all: only the same version is the same song.
+    const key = `${plain(found.artist)}|${String(found.title ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}`;
+    const known = byName.get(key);
+    if (!known) byName.set(key, found);
+    else if (!known.preview && found.preview) known.preview = found.preview;
+  }
+  return [...byName.values()].slice(0, RESULTS);
 }
 
 /**
@@ -251,14 +324,14 @@ export async function lookupSongKept(raw, fetcher = fetch, picked = null) {
   const key = `${source.platform}:${source.id}${pick ? `#${pick}` : ''}`;
   const sql = db();
   const [kept] = await sql`select song from song_lookups where source = ${key} and (song->>'confident')::boolean
-    and looked_up_at > now() - make_interval(days => ${KEEP_DAYS})`;
+    and song->>'version' = ${String(LOOKUP_VERSION)} and looked_up_at > now() - make_interval(days => ${KEEP_DAYS})`;
   if (kept) {
     spotifyState = 'kept';
     return kept.song;
   }
   const song = await lookupSong(raw, fetcher, pick);
   if (song?.confident) {
-    await sql`insert into song_lookups (source, song) values (${key}, ${JSON.stringify(song)}::jsonb)
+    await sql`insert into song_lookups (source, song) values (${key}, ${JSON.stringify({ ...song, version: LOOKUP_VERSION })}::jsonb)
       on conflict (source) do update set song = excluded.song, looked_up_at = now()`;
   }
   return song;

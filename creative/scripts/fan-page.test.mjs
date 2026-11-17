@@ -35,7 +35,14 @@ test('the page shows the song and only the buttons the artist kept, in their ord
   assert.ok(html.includes('og:image'), 'a shared link shows the cover');
   assert.ok(html.includes('Listen to Mr. Brightside'), 'and says where to listen');
   assert.ok(html.includes('href="https://mumoo.app/links"'), 'the credit leads artists to make their own');
+  assert.ok(html.includes('src="https://mumoo.app/logos/spotify.svg"'), 'each button has its service\'s logo');
   assert.ok(Buffer.byteLength(html) < 15_000, `the page is small (${Buffer.byteLength(html)} bytes)`);
+});
+
+test('the editor\'s phone shows the same page, its links opening in a new tab', () => {
+  const html = fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app', { inPhone: true });
+  assert.ok(html.includes('<base target="_blank">'));
+  assert.equal(html.replace('<base target="_blank">', '').replace('main{padding-top:64px}', ''), fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app'));
 });
 
 test('the only script is the preview player, and the page policy allows exactly it', () => {

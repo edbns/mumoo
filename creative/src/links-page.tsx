@@ -1,25 +1,35 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowDownIcon, ArrowUpIcon, CheckIcon, CopyIcon, EyeIcon, EyeOffIcon, ExternalLinkIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { Reorder, useDragControls } from 'motion/react';
+import { CheckIcon, CopyIcon, EyeIcon, EyeOffIcon, ExternalLinkIcon, GripVerticalIcon, PauseIcon, PencilIcon, PlayIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Iphone16Pro, SCREEN_RATIO, SCREEN_SHARE } from '@/components/ui/iphone-16-pro';
+import { fanPage } from '../netlify/lib/fan-page.mjs';
 import { authClient, checkSignInCode, sendSignInCode, signInWithGoogle } from './account';
 import { AccountSection } from './account-section';
 import { SignInDialog } from './sign-in-dialog';
 import {
-  EMPTY_DRAFT, LABELS, addressOf, checkSlug, deletePublished, draftOf, fieldsOf, isSearch, listLinks, loadDraft, lookupSong, publishDraft, saveDraft, suggestSlug,
-  type Candidate, type Draft, type Published, type ServiceRow,
+  EMPTY_DRAFT, LABELS, SERVICES, addressOf, asLink, checkSlug, deletePublished, draftOf, fieldsOf, isSearch, listLinks, lookupSong, publishDraft, saveDraft,
+  searchSongs, suggestSlug, loadDraft,
+  type Draft, type LinkFields, type Published, type SearchResult, type ServiceRow,
 } from './smart-links';
 
-/** How long the name rests before it is checked. */
+/** How long typing rests before a name is checked or searched. */
 const CHECK_PAUSE_MS = 400;
 const COPIED_MS = 1500;
+/** The phone's width on screen, and the width the fan page is laid out at inside it (an iPhone's). */
+const PHONE_WIDTH = 320;
+const PAGE_WIDTH = 390;
 
-const field = 'h-10 w-full min-w-0 rounded-[var(--radius-control)] bg-muted px-3 text-sm text-foreground outline-ring placeholder:text-muted-foreground focus-visible:outline-2';
+const field = 'h-[var(--control-height-md)] w-full min-w-0 rounded-[var(--radius-control)] bg-muted px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:shadow-[0_0_0_2px_var(--focus-ring)]';
 const textButton = 'cursor-pointer bg-transparent p-0 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground';
-const iconButton = 'grid size-8 shrink-0 cursor-pointer place-items-center rounded-[var(--radius-control)] bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30';
+const iconButton = 'grid size-9 shrink-0 cursor-pointer place-items-center rounded-[var(--radius-control)] bg-transparent p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30';
+
+/** One song to choose: found by its name, or a guess for a Spotify link we were not sure of. */
+type Choice = { key: string; title: string; artist: string | null; cover: string | null; preview: string | null; choose: () => void };
 
 /**
  * Smart links: one page for a song, with a button for every service. Free, and open before signing in: the draft stays in this
- * browser, and only publishing asks the artist to sign in (Google or email). Signed in, their published links are listed below.
+ * browser, and only publishing asks the artist to sign in (Google or email). The phone on the right is the fan page itself.
  */
 export default function LinksPage() {
   const session = authClient.useSession();
@@ -31,6 +41,7 @@ export default function LinksPage() {
   const [links, setLinks] = useState<Published[] | null>(null);
   const [published, setPublished] = useState<Published | null>(null);
   const [signingIn, setSigningIn] = useState(false);
+  const player = usePreview();
   /** Publish was pressed while signed out: it goes ahead once they are signed in. */
   const publishWhenIn = useRef(false);
   const signInAddress = useRef('');
@@ -44,6 +55,8 @@ export default function LinksPage() {
 
   const slug = useSlugCheck(draft.editing ? '' : draft.slug);
   const link = draft.link;
+  const typedName = asLink(draft.url) ? '' : draft.url.trim();
+  const found = useSongSearch(link ? '' : typedName);
   const ready = Boolean(link && link.title.trim() && link.artist.trim() && link.services.some(row => !row.hidden)
     && (draft.editing || slug.free));
 
@@ -59,39 +72,41 @@ export default function LinksPage() {
     setDraft(update);
   }
 
-  function find(event: FormEvent) {
-    event.preventDefault();
-    const url = draft.url.trim();
-    void run('find', async () => {
-      const song = await lookupSong(url);
+  /** Fills the editor from the song behind `url`: a pasted link, or the Deezer link of a song chosen by name. */
+  function lookUp(kind: 'find' | 'pick', url: string, pick?: string) {
+    player.stop();
+    void run(kind, async () => {
+      const song = await lookupSong(url, pick);
+      if (pick && !song.confident) throw new Error('That song does not have this link’s title. Pick another, or correct the details below.');
       const fields = fieldsOf(url, song);
-      change(current => ({ ...current, url, link: fields, candidates: song.confident ? null : song.candidates ?? [],
+      change(current => ({ ...current, link: fields, candidates: song.confident ? null : song.candidates ?? [],
         slug: current.editing ? current.slug : suggestSlug(fields.artist, fields.title) }));
     });
   }
 
-  function pick(candidate: Candidate) {
-    if (!link) return;
-    void run('pick', async () => {
-      const song = await lookupSong(link.source, candidate.pick);
-      if (!song.confident) throw new Error('That song does not have this link’s title. Pick another, or correct the details below.');
-      const fields = fieldsOf(link.source, song);
-      change(current => ({ ...current, link: fields, candidates: null, slug: current.editing ? current.slug : suggestSlug(fields.artist, fields.title) }));
-    });
+  function find(event: FormEvent) {
+    event.preventDefault();
+    const url = asLink(draft.url);
+    if (url) lookUp('find', url);
+    else if (found.results?.[0]) setError('Pick your song from the list below.');
+    else if (typedName.length < 2) setError('Type your song’s name, or paste its link.');
   }
 
-  function edit(fields: Partial<NonNullable<Draft['link']>>) {
+  function edit(fields: Partial<LinkFields>) {
     change(current => current.link ? { ...current, link: { ...current.link, ...fields } } : current);
   }
 
-  function setRow(index: number, row: Partial<ServiceRow>) {
-    if (link) edit({ services: link.services.map((current, at) => at === index ? { ...current, ...row } : current) });
+  function setRow(service: ServiceRow['service'], row: Partial<ServiceRow>) {
+    if (link) edit({ services: link.services.map(current => current.service === service ? { ...current, ...row } : current) });
   }
 
-  function move(index: number, by: -1 | 1) {
+  function move(service: ServiceRow['service'], by: -1 | 1) {
     if (!link) return;
+    const from = link.services.findIndex(row => row.service === service);
+    const to = from + by;
+    if (to < 0 || to >= link.services.length) return;
     const services = [...link.services];
-    [services[index], services[index + by]] = [services[index + by], services[index]];
+    [services[from], services[to]] = [services[to], services[from]];
     edit({ services });
   }
 
@@ -122,105 +137,227 @@ export default function LinksPage() {
     }
   }
 
-  return <main className="mx-auto grid w-full max-w-[1040px] items-start gap-4 px-6 pb-24 pt-6 md:grid-cols-[minmax(0,1fr)_300px]">
-    <div className="flex min-w-0 flex-col gap-4">
-      {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
-        <AddressLine slug={published.slug} />
-        <p className="m-0 text-sm text-muted-foreground">Put it in your bio and posts. Every fan gets the button for the app they use.</p>
-      </AccountSection>}
+  function startAgain() {
+    player.stop();
+    setDraft(EMPTY_DRAFT);
+    setError('');
+  }
 
-      <AccountSection label={draft.editing ? 'Editing your link' : 'Smart link'} aside={(draft.url || link) &&
-        <button type="button" className={textButton} onClick={() => { setDraft(EMPTY_DRAFT); setError(''); }}>{draft.editing ? 'Cancel' : 'Start again'}</button>}>
-        {!draft.editing && !link && <p className="m-0 text-sm text-muted-foreground">One link for your song that opens in every fan’s app: Spotify, Apple Music, YouTube and more. Free.</p>}
-        <form onSubmit={find} className="flex gap-2">
-          <input className={field} type="url" inputMode="url" required aria-label="Song link" placeholder="Paste your song’s Spotify, Apple Music or YouTube link"
-            value={draft.url} onChange={event => setDraft(current => ({ ...current, url: event.target.value }))} />
-          <Button type="submit" className="h-10" disabled={!draft.url.trim() || busy !== null}>{busy === 'find' ? 'Finding…' : 'Find'}</Button>
-        </form>
-        {draft.candidates && draft.candidates.length > 0 && <div className="flex flex-col gap-2">
-          <p className="m-0 text-sm">Is this your song?</p>
-          <ul className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2">
-            {draft.candidates.map(candidate => <li key={candidate.pick}>
-              <button type="button" disabled={busy !== null} onClick={() => pick(candidate)}
-                className="flex w-full cursor-pointer items-center gap-3 rounded-[var(--radius-control)] bg-muted p-2 text-left text-sm hover:bg-accent disabled:opacity-50">
-                <Cover src={candidate.cover} size="size-10" />
-                <span className="min-w-0"><span className="block truncate">{candidate.title}</span><span className="block truncate text-muted-foreground">{candidate.artist}</span></span>
-              </button>
-            </li>)}
-          </ul>
-          <button type="button" className={`${textButton} self-start`} onClick={() => change(current => ({ ...current, candidates: null }))}>None of these: I’ll correct the details</button>
-        </div>}
-        {link && <div className="grid gap-3 sm:grid-cols-2">
-          <label className="m-0 flex flex-col gap-1.5 text-xs text-muted-foreground">Title
-            <input className={field} value={link.title} maxLength={200} onChange={event => edit({ title: event.target.value })} />
-          </label>
-          <label className="m-0 flex flex-col gap-1.5 text-xs text-muted-foreground">Artist
-            <input className={field} value={link.artist} maxLength={200} onChange={event => edit({ artist: event.target.value })} />
-          </label>
-        </div>}
-        {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
-      </AccountSection>
+  const choices: Choice[] | null = link && draft.candidates?.length
+    ? draft.candidates.map(candidate => ({ key: candidate.pick, ...candidate, preview: null, choose: () => lookUp('pick', link.source, candidate.pick) }))
+    : !link && found.results
+      ? found.results.map((result: SearchResult) => ({ key: result.url, ...result, choose: () => lookUp('pick', result.url) }))
+      : null;
 
-      {link && <AccountSection label="Buttons">
-        <p className="m-0 text-sm text-muted-foreground">“Search” buttons open a search for your song on that service. Paste your song’s own link there to send fans straight to it.</p>
-        <ul className="m-0 flex list-none flex-col gap-2 p-0">
-          {link.services.map((row, index) => <li key={row.service} className={`flex items-center gap-2 ${row.hidden ? 'opacity-50' : ''}`}>
-            <span className="w-28 shrink-0 text-sm">{LABELS[row.service]}</span>
-            <input className={field} type="url" aria-label={`${LABELS[row.service]} link`} value={row.url}
-              onChange={event => setRow(index, { url: event.target.value, exact: !isSearch(event.target.value) })} />
-            <span className={`w-14 shrink-0 text-xs ${row.exact ? 'text-primary' : 'text-muted-foreground'}`}>{row.exact ? 'Song' : 'Search'}</span>
-            <button type="button" className={iconButton} aria-label={`Move ${LABELS[row.service]} up`} disabled={index === 0} onClick={() => move(index, -1)}><ArrowUpIcon className="size-4" /></button>
-            <button type="button" className={iconButton} aria-label={`Move ${LABELS[row.service]} down`} disabled={index === link.services.length - 1} onClick={() => move(index, 1)}><ArrowDownIcon className="size-4" /></button>
-            <button type="button" className={iconButton} aria-label={row.hidden ? `Show ${LABELS[row.service]}` : `Hide ${LABELS[row.service]}`} aria-pressed={row.hidden}
-              onClick={() => setRow(index, { hidden: !row.hidden })}>{row.hidden ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}</button>
-          </li>)}
-        </ul>
-      </AccountSection>}
+  return <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6">
+    <section aria-label="Smart link" className="rounded-[var(--radius-panel)] bg-card p-6">
+      <p className="eyebrow mb-6 mt-0">SMART LINK · FREE</p>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
+            <AddressLine slug={published.slug} />
+            <p className="m-0 text-sm text-muted-foreground">Put it in your bio and posts. Every fan gets the button for the app they use.</p>
+          </AccountSection>}
 
-      {link && <AccountSection label="Address">
-        {draft.editing
-          ? <><AddressLine slug={draft.editing} /><p className="m-0 text-sm text-muted-foreground">The address stays the same, so where you shared it keeps working.</p></>
-          : <>
-            <label className="m-0 flex items-center gap-1 rounded-[var(--radius-control)] bg-muted pl-3 text-sm text-muted-foreground">
-              <span className="shrink-0">{location.host}/l/</span>
-              <input className={`${field} pl-0`} aria-label="Your link’s name" value={draft.slug} maxLength={40} autoCapitalize="off" spellCheck={false}
-                onChange={event => change(current => ({ ...current, slug: event.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-') }))} />
-            </label>
-            <p role="status" className={`m-0 text-sm ${slug.free ? 'text-primary' : slug.error ? 'text-destructive' : 'text-muted-foreground'}`}>
-              {!draft.slug ? 'Choose a name for your link.' : slug.free ? 'This name is free.' : slug.error || 'Checking…'}
-            </p>
-          </>}
-        <div className="flex items-center justify-end gap-3">
-          {!user && <span className="text-sm text-muted-foreground">You’ll sign in to publish.</span>}
-          <Button disabled={!ready || busy !== null} onClick={publish}>
-            {busy === 'publish' ? 'Publishing…' : draft.editing ? 'Save changes' : 'Publish'}
-          </Button>
+          <AccountSection label={draft.editing ? 'Editing your link' : 'Your song'} aside={(draft.url || link) &&
+            <button type="button" className={textButton} onClick={startAgain}>{draft.editing ? 'Cancel' : 'Start again'}</button>}>
+            {!draft.editing && !link && <p className="m-0 text-sm text-muted-foreground">One link for your song that opens in every fan’s app: Spotify, Apple Music, YouTube and more.</p>}
+            {!draft.editing && <form onSubmit={find} className="flex gap-2">
+              <label className="m-0 flex h-[var(--control-height-md)] min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-control)] bg-muted px-3 font-normal focus-within:shadow-[0_0_0_2px_var(--focus-ring)]">
+                <SearchIcon className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden />
+                <input className="h-full w-full min-w-0 bg-transparent p-0 text-sm text-foreground outline-none placeholder:text-muted-foreground" type="text"
+                  aria-label="Your song’s name or link" placeholder="Search your song, or paste its Spotify, Apple Music or YouTube link" autoComplete="off" spellCheck={false}
+                  value={draft.url} onChange={event => { setError(''); change(current => ({ ...current, url: event.target.value, link: null, candidates: null })); }}
+                  onPaste={event => {
+                    const pasted = asLink(event.clipboardData.getData('text'));
+                    if (pasted && !draft.url.trim()) { event.preventDefault(); change(current => ({ ...current, url: pasted, link: null, candidates: null })); lookUp('find', pasted); }
+                  }} />
+              </label>
+              <Button type="submit" className="h-[var(--control-height-md)] px-5" disabled={!draft.url.trim() || busy !== null}>
+                {busy === 'find' ? 'Finding…' : 'Find'}
+              </Button>
+            </form>}
+            {!link && typedName.length >= 2 && found.state !== 'done' && <p className="m-0 text-sm text-muted-foreground">{found.state === 'failed' ? found.error : 'Searching…'}</p>}
+            {!link && found.state === 'done' && !found.results?.length && <p className="m-0 text-sm text-muted-foreground">Nothing found for “{typedName}”. Try the artist and the title, or paste the song’s link.</p>}
+            {choices && choices.length > 0 && <SongChoices title={link ? 'We weren’t sure. Is this your song?' : 'Pick your song'} choices={choices}
+              busy={busy !== null} player={player} />}
+            {link && draft.candidates && draft.candidates.length > 0 &&
+              <button type="button" className={`${textButton} self-start`} onClick={() => change(current => ({ ...current, candidates: null }))}>None of these: I’ll correct the details</button>}
+            {link && <div className="grid gap-3 sm:grid-cols-2">
+              <label className="m-0 flex flex-col gap-1.5 text-xs font-normal text-muted-foreground">Title
+                <input className={field} value={link.title} maxLength={200} onChange={event => edit({ title: event.target.value })} />
+              </label>
+              <label className="m-0 flex flex-col gap-1.5 text-xs font-normal text-muted-foreground">Artist
+                <input className={field} value={link.artist} maxLength={200} onChange={event => edit({ artist: event.target.value })} />
+              </label>
+            </div>}
+            {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
+          </AccountSection>
+
+          {link && <AccountSection label="Buttons">
+            <p className="m-0 text-sm text-muted-foreground">Drag to change the order. “Search” buttons open a search for your song on that service: paste your song’s own link there to send fans straight to it.</p>
+            <Reorder.Group axis="y" values={link.services} onReorder={services => edit({ services })} className="m-0 flex list-none flex-col gap-2 p-0">
+              {link.services.map(row => <ServiceEditor key={row.service} row={row}
+                onChange={changes => setRow(row.service, changes)} onMove={by => move(row.service, by)} />)}
+            </Reorder.Group>
+          </AccountSection>}
+
+          {link && <AccountSection label="Address">
+            {draft.editing
+              ? <><AddressLine slug={draft.editing} /><p className="m-0 text-sm text-muted-foreground">The address stays the same, so where you shared it keeps working.</p></>
+              : <>
+                <label className="m-0 flex h-[var(--control-height-md)] items-center gap-0 rounded-[var(--radius-control)] bg-muted pl-3 text-sm font-normal text-muted-foreground focus-within:shadow-[0_0_0_2px_var(--focus-ring)]">
+                  <span className="shrink-0">{location.host}/l/</span>
+                  <input className="h-full w-full min-w-0 bg-transparent p-0 pr-3 text-sm text-foreground outline-none" aria-label="Your link’s name" value={draft.slug} maxLength={40} autoCapitalize="off" spellCheck={false}
+                    onChange={event => change(current => ({ ...current, slug: event.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-') }))} />
+                </label>
+                <p role="status" className={`m-0 text-sm ${slug.free ? 'text-primary' : slug.error ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  {!draft.slug ? 'Choose a name for your link.' : slug.free ? 'This name is free.' : slug.error || 'Checking…'}
+                </p>
+              </>}
+            <div className="flex items-center justify-end gap-3">
+              {!user && <span className="text-sm text-muted-foreground">You’ll sign in to publish.</span>}
+              <Button className="h-[var(--control-height-md)] px-5" disabled={!ready || busy !== null} onClick={publish}>
+                {busy === 'publish' ? 'Publishing…' : draft.editing ? 'Save changes' : 'Publish'}
+              </Button>
+            </div>
+          </AccountSection>}
         </div>
-      </AccountSection>}
 
-      {user && links && links.length > 0 && <AccountSection label="Your links">
-        <ul className="m-0 flex list-none flex-col gap-3 p-0">
-          {links.map(item => <li key={item.slug} className="flex items-center gap-3">
-            <Cover src={item.link.cover} size="size-10" />
-            <span className="min-w-0 flex-1 text-sm">
-              <span className="block truncate">{item.link.title} · {item.link.artist}</span>
-              <a className="block truncate text-muted-foreground hover:text-foreground" href={addressOf(item.slug)} target="_blank" rel="noreferrer">{addressOf(item.slug).replace(/^https?:\/\//, '')}</a>
-            </span>
-            <CopyButton text={addressOf(item.slug)} />
-            <button type="button" className={iconButton} aria-label={`Edit ${item.slug}`} onClick={() => { setPublished(null); setError(''); setDraft(draftOf(item)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><PencilIcon className="size-4" /></button>
-            <button type="button" className={iconButton} aria-label={`Delete ${item.slug}`} onClick={() => void remove(item.slug)}><Trash2Icon className="size-4" /></button>
-          </li>)}
-        </ul>
-      </AccountSection>}
-    </div>
+        <PhonePreview link={link} slug={draft.editing ?? draft.slug} />
+      </div>
+    </section>
 
-    {link && <FanPreview link={link} />}
+    {user && links && links.length > 0 && <section aria-label="Your links" className="rounded-[var(--radius-panel)] bg-card p-6">
+      <p className="eyebrow mb-6 mt-0">YOUR LINKS</p>
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
+        {links.map(item => <li key={item.slug} className="flex items-center gap-3 rounded-[var(--radius-panel)] bg-background p-3">
+          <Cover src={item.link.cover} size="size-12" />
+          <span className="min-w-0 flex-1 text-sm">
+            <span className="block truncate font-medium">{item.link.title} · {item.link.artist}</span>
+            <a className="block truncate text-muted-foreground hover:text-foreground" href={addressOf(item.slug)} target="_blank" rel="noreferrer">{addressOf(item.slug).replace(/^https?:\/\//, '')}</a>
+          </span>
+          <CopyButton text={addressOf(item.slug)} />
+          <button type="button" className={iconButton} aria-label={`Edit ${item.slug}`} onClick={() => { player.stop(); setPublished(null); setError(''); setDraft(draftOf(item)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><PencilIcon className="size-4" /></button>
+          <button type="button" className={iconButton} aria-label={`Delete ${item.slug}`} onClick={() => void remove(item.slug)}><Trash2Icon className="size-4" /></button>
+        </li>)}
+      </ul>
+    </section>}
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}
       onSendCode={async email => { await sendSignInCode(email); signInAddress.current = email; }}
       onCheckCode={async code => { await checkSignInCode(signInAddress.current, code); return true; }}
       onGoogle={async () => { await signInWithGoogle(); await session.refetch(); }} />
   </main>;
+}
+
+/** One button of the fan page: dragged by its handle (or moved with the arrow keys on it), its link, and shown or hidden. */
+function ServiceEditor({ row, onChange, onMove }: { row: ServiceRow; onChange: (changes: Partial<ServiceRow>) => void; onMove: (by: -1 | 1) => void }) {
+  const drag = useDragControls();
+  const label = LABELS[row.service];
+  function keys(event: KeyboardEvent) {
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); onMove(event.key === 'ArrowUp' ? -1 : 1); }
+  }
+  return <Reorder.Item value={row} dragListener={false} dragControls={drag}
+    className={`relative flex items-center gap-2 rounded-[var(--radius-control)] bg-card p-1.5 ${row.hidden ? 'opacity-50' : ''}`}>
+    <button type="button" className={`${iconButton} cursor-grab touch-none active:cursor-grabbing`} aria-label={`Move ${label}: drag, or use the up and down arrow keys`}
+      onPointerDown={event => drag.start(event)} onKeyDown={keys}><GripVerticalIcon className="size-4" /></button>
+    <img src={`/logos/${row.service}.svg`} alt="" className="size-6 shrink-0 object-contain" draggable={false} />
+    <span className="w-28 shrink-0 truncate text-sm font-medium">{label}</span>
+    <input className={field} type="url" aria-label={`${label} link`} value={row.url}
+      onChange={event => onChange({ url: event.target.value, exact: !isSearch(event.target.value) })} />
+    <span className={`w-14 shrink-0 text-center text-xs ${row.exact ? 'text-primary' : 'text-muted-foreground'}`}>{row.exact ? 'Song' : 'Search'}</span>
+    <button type="button" className={iconButton} aria-label={row.hidden ? `Show ${label}` : `Hide ${label}`} aria-pressed={row.hidden}
+      onClick={() => onChange({ hidden: !row.hidden })}>{row.hidden ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}</button>
+  </Reorder.Item>;
+}
+
+function SongChoices({ title, choices, busy, player }: { title: string; choices: Choice[]; busy: boolean; player: Preview }) {
+  return <div className="flex flex-col gap-2">
+    <p className="m-0 text-sm">{title}</p>
+    <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+      {choices.map(choice => <li key={choice.key} className="flex items-center gap-2 rounded-[var(--radius-control)] bg-muted p-1.5 pr-2">
+        <button type="button" disabled={busy} onClick={choice.choose}
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-[calc(var(--radius-control)-4px)] bg-transparent p-0 text-left text-sm hover:opacity-80 disabled:opacity-50">
+          <Cover src={choice.cover} size="size-11" />
+          <span className="min-w-0"><span className="block truncate font-medium">{choice.title}</span><span className="block truncate text-muted-foreground">{choice.artist}</span></span>
+        </button>
+        {choice.preview && <PlayButton playing={player.playing === choice.preview} onClick={() => player.toggle(choice.preview!)} />}
+        <Button size="sm" variant="secondary" disabled={busy} onClick={choice.choose}>Choose</Button>
+      </li>)}
+    </ul>
+  </div>;
+}
+
+function PlayButton({ playing, onClick }: { playing: boolean; onClick: () => void }) {
+  return <button type="button" onClick={onClick} aria-label={playing ? 'Pause preview' : 'Play preview'}
+    className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full bg-foreground p-0 text-background hover:opacity-90">
+    {playing ? <PauseIcon className="size-3.5 fill-current" /> : <PlayIcon className="ml-0.5 size-3.5 fill-current" />}
+  </button>;
+}
+
+/** The fan page itself, on an iPhone: what fans will see, with the preview playing from its own button. */
+function PhonePreview({ link, slug }: { link: LinkFields | null; slug: string }) {
+  const shown = link ?? EXAMPLE;
+  const html = useResting(fanPage(shown, addressOf(slug || 'your-song'), location.origin, { inPhone: true }), 250);
+  const scale = (PHONE_WIDTH * SCREEN_SHARE) / PAGE_WIDTH;
+  return <aside aria-label="Preview" className="flex flex-col items-center gap-4 lg:sticky lg:top-20">
+    <Iphone16Pro className="w-[320px] max-w-full">
+      <iframe title="Your fan page" srcDoc={html} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+        className="block origin-top-left border-0" style={{ width: PAGE_WIDTH, height: PAGE_WIDTH * SCREEN_RATIO, transform: `scale(${scale})` }} />
+    </Iphone16Pro>
+    <p className="m-0 text-center text-xs text-muted-foreground">{link ? 'What fans see. Press play to hear your preview.' : 'Find your song, and your page appears here.'}</p>
+  </aside>;
+}
+
+const EXAMPLE: LinkFields = {
+  source: '', title: 'Your song', artist: 'Your name', cover: null, preview: null, isrc: null,
+  services: SERVICES.map(service => ({ service, url: '#', hidden: false, exact: false })),
+};
+
+/** One preview playing at a time, from any list. */
+type Preview = { playing: string | null; toggle: (url: string) => void; stop: () => void };
+function usePreview(): Preview {
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState<string | null>(null);
+  useEffect(() => () => audio.current?.pause(), []);
+  function stop() { audio.current?.pause(); setPlaying(null); }
+  function toggle(url: string) {
+    if (playing === url) { stop(); return; }
+    audio.current?.pause();
+    const next = new Audio(url);
+    next.onended = () => setPlaying(null);
+    audio.current = next;
+    setPlaying(url);
+    next.play().catch(() => setPlaying(null));
+  }
+  return { playing, toggle, stop };
+}
+
+/** Songs for a typed name, searched once the typing rests. */
+function useSongSearch(name: string) {
+  const [state, setState] = useState<{ name: string; results?: SearchResult[]; error?: string } | null>(null);
+  useEffect(() => {
+    if (name.length < 2) return;
+    const stop = new AbortController();
+    const timer = window.setTimeout(() => {
+      searchSongs(name, stop.signal).then(results => setState({ name, results }),
+        (cause: Error) => { if (!stop.signal.aborted) setState({ name, error: cause.message }); });
+    }, CHECK_PAUSE_MS);
+    return () => { stop.abort(); window.clearTimeout(timer); };
+  }, [name]);
+  if (state?.name !== name) return { state: 'searching' as const };
+  return state.error ? { state: 'failed' as const, error: state.error } : { state: 'done' as const, results: state.results };
+}
+
+/** `value`, once it has stopped changing for `ms`: the phone reloads its page only when the typing rests. */
+function useResting<T>(value: T, ms: number) {
+  const [resting, setResting] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setResting(value), ms);
+    return () => window.clearTimeout(timer);
+  }, [value, ms]);
+  return resting;
 }
 
 /** Whether the wanted name is free, checked once the typing rests. */
@@ -238,7 +375,7 @@ function useSlugCheck(name: string) {
 }
 
 function Cover({ src, size }: { src: string | null; size: string }) {
-  return src ? <img src={src} alt="" className={`${size} shrink-0 rounded-[4px] object-cover`} /> : <span className={`${size} shrink-0 rounded-[4px] bg-muted`} />;
+  return src ? <img src={src} alt="" className={`${size} shrink-0 rounded-[6px] object-cover`} /> : <span className={`${size} shrink-0 rounded-[6px] bg-background`} />;
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -256,22 +393,4 @@ function AddressLine({ slug }: { slug: string }) {
     <CopyButton text={address} />
     <a className={iconButton} href={address} target="_blank" rel="noreferrer" aria-label="Open link"><ExternalLinkIcon className="size-4" /></a>
   </div>;
-}
-
-/** Roughly what a fan will see: the cover, the song, and the buttons the artist kept, in their order. */
-function FanPreview({ link }: { link: NonNullable<Draft['link']> }) {
-  return <aside aria-label="Preview" className="sticky top-20 hidden flex-col items-center gap-3 overflow-hidden rounded-[var(--radius-panel)] bg-background p-5 md:flex">
-    <p className="m-0 self-start text-xs font-semibold uppercase tracking-widest text-muted-foreground">Preview</p>
-    <Cover src={link.cover} size="size-40" />
-    <div className="w-full text-center">
-      <p className="m-0 truncate font-semibold">{link.title || 'Title'}</p>
-      <p className="m-0 truncate text-sm text-muted-foreground">{link.artist || 'Artist'}</p>
-    </div>
-    <ul className="m-0 flex w-full list-none flex-col gap-2 p-0">
-      {link.services.filter(row => !row.hidden).map(row => <li key={row.service} className="flex items-center justify-between rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm">
-        {LABELS[row.service]}<span className="text-xs text-muted-foreground">Play</span>
-      </li>)}
-    </ul>
-    <p className="m-0 text-[11px] text-muted-foreground">Powered by mumoo</p>
-  </aside>;
 }
