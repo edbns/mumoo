@@ -30,8 +30,10 @@ Still to do:
 ## 4. Smaller things
 - Real `/terms` and `/privacy` pages.
 - Landing page (Hirael template 781).
-- Send the sub-genre to the feedback log and the server.
-- Check on Neon that "change email" is switched on.
+- Done (migration 032): change email. Neon's managed sign-in refuses every way of changing an email and has no setting for it, so our server does it (`/api/account/email`, `email-change.mjs`): a 6-digit code to the new address through Resend (10 minutes, 5 tries), then the email changes in `neon_auth."user"` and `app_users`. Same account, so everything made stays; open sessions see the new address at once.
+- Delete account completely: the person, their songs, uploads, creatives and downloads, in the database and in storage.
+- Check that a person's own uploaded pictures and clips are kept in their profile.
+- History: downloaded videos play on the Creatives tab, so a person can check one before downloading it again.
 - Update the old product-flow tests to the new nav, genre / sub-genre and account menu.
 
 ## Brain feedback

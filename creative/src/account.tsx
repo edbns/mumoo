@@ -17,13 +17,6 @@ const emailCode = authClient as unknown as {
   emailOtp: { sendVerificationOtp(input: { email: string; type: 'sign-in' }): Outcome };
   signIn: { emailOtp(input: { email: string; otp: string }): Outcome };
 };
-/** Changing the email with a code sent to the new address: the account, and so everything kept in it, stays the same. */
-const emailChange = authClient as unknown as {
-  emailOtp: {
-    requestEmailChange(input: { newEmail: string }): Outcome;
-    changeEmail(input: { newEmail: string; otp: string }): Outcome;
-  };
-};
 
 /** The signed JWT Neon Auth keeps on the session (this SDK version has no separate token call), or null when signed out. */
 export async function sessionToken(): Promise<string | null> {
@@ -83,13 +76,17 @@ export async function checkSignInCode(email: string, otp: string) {
   }
 }
 
+/**
+ * Changing the email with a code sent to the new address: the account, and so everything kept in it, stays the same.
+ * Neon's sign-in does not allow it, so our own server sends the code and makes the change (`/api/account/email`).
+ */
 export async function requestEmailChange(newEmail: string) {
-  await attempt(() => emailChange.emailOtp.requestEmailChange({ newEmail }), 'Check the email address and try again.');
+  await accountFetch('/api/account/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newEmail }) });
 }
 
 /** Confirms the new address. */
-export async function confirmEmailChange(newEmail: string, otp: string) {
-  await attempt(() => emailChange.emailOtp.changeEmail({ newEmail, otp }), 'That code is wrong or has expired.');
+export async function confirmEmailChange(newEmail: string, code: string) {
+  await accountFetch('/api/account/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newEmail, code }) });
 }
 
 /**
