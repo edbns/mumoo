@@ -37,6 +37,8 @@ npm test
 
 `npm test` runs unit tests and the headed product-flow test (`MUMOO_HEADED=1`, macOS, local Brave/Chrome). The product-flow test mocks the network at the Netlify boundary (and serves a few ffmpeg test-pattern photos as the library) and walks upload → clip → lyrics → creatives.
 
+Sign-in: the browser reaches Neon Auth through our own address, `/api/neon-auth/*` (`neon-auth.mjs`, `netlify/lib/auth-proxy.mjs`), which passes each request on as it is (with our origin) and hands Neon's cookies back for our site (no Domain). Talking to Neon's domain directly made its session cookie a third-party one, which Safari, iPhones and private windows drop as soon as the code is accepted (the person lands back on the sign-in screen). The local preview keeps `VITE_NEON_AUTH_URL` (the `/dev-auth` stand-in).
+
 Email: every letter is in `netlify/lib/letters.mjs` and goes out through Resend (`mail.mjs`) from "mumoo <moo@mumoo.app>": always "mumoo" in lowercase, never "app", no name and no address in the body, a code always in the subject. Neon's sign-in codes come to us too: Neon Auth's `send.otp` webhook calls `/api/auth/email` (`auth-email.mjs`, checked against Neon's signing keys in `neon-webhook.mjs`), and a sign-in waits for it, so if it is down nobody can sign in. The daily `inactivity` function sends the 60- and 83-day reminders (files go at 90 days) and the storage letter (`storage-warning.mjs`: once past 90% of the 5 GB, again only after dropping under 80%). Deleting an account sends a last letter saying it is done.
 
 ## Source map

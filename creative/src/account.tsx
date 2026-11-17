@@ -8,8 +8,13 @@ import { ACCOUNT_MENU, type AccountPage } from './account-pages';
 import { PurchaseCredits } from './purchase-credits';
 import { reportProblem } from './report-problem';
 
-/** Neon Auth (managed Better Auth). The browser only ever talks to Neon's auth server and our own /api/account. */
-export const authClient = createAuthClient(import.meta.env.VITE_NEON_AUTH_URL, { adapter: BetterAuthReactAdapter() });
+/**
+ * Neon Auth (managed Better Auth), reached through our own address (/api/neon-auth, passed on to Neon as it is) so its session
+ * cookie is our site's: browsers that block third-party cookies would drop it straight after the code is accepted. The local
+ * preview keeps its stand-in.
+ */
+const AUTH_URL = import.meta.env.DEV ? import.meta.env.VITE_NEON_AUTH_URL : `${location.origin}/api/neon-auth`;
+export const authClient = createAuthClient(AUTH_URL, { adapter: BetterAuthReactAdapter() });
 
 type Outcome = Promise<{ error?: { message?: string } | null }>;
 /** Email-code sign-in is on the client at runtime, but this SDK version's typings leave it out. */
