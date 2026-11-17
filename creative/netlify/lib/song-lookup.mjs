@@ -113,7 +113,7 @@ const fromItunes = (track) => ({
 });
 
 let spotifyToken;
-/** Why the last Spotify lookup could not use Spotify's API ('ok', 'no keys' or what Spotify answered), for the function's answer and logs. */
+/** Why the last Spotify lookup could not use Spotify's API ('ok', 'kept' when it was not asked, 'no keys' or what Spotify answered), for the function's answer and logs. */
 export let spotifyState = 'no keys';
 async function spotifyTrack(fetcher, id) {
   const { SPOTIFY_CLIENT_ID: client, SPOTIFY_CLIENT_SECRET: secret } = process.env;
@@ -250,8 +250,12 @@ export async function lookupSongKept(raw, fetcher = fetch, picked = null) {
   const pick = picked && PICK.test(picked) ? picked : null;
   const key = `${source.platform}:${source.id}${pick ? `#${pick}` : ''}`;
   const sql = db();
-  const [kept] = await sql`select song from song_lookups where source = ${key} and looked_up_at > now() - make_interval(days => ${KEEP_DAYS})`;
-  if (kept) return kept.song;
+  const [kept] = await sql`select song from song_lookups where source = ${key} and (song->>'confident')::boolean
+    and looked_up_at > now() - make_interval(days => ${KEEP_DAYS})`;
+  if (kept) {
+    spotifyState = 'kept';
+    return kept.song;
+  }
   const song = await lookupSong(raw, fetcher, pick);
   if (song?.confident) {
     await sql`insert into song_lookups (source, song) values (${key}, ${JSON.stringify(song)}::jsonb)
