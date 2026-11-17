@@ -77,7 +77,7 @@ test('every row of a song is dealt from its best filled board, through every Ref
     assert.equal(boards.boardForRow('photography', wanted, filed('b', 'block-party', boards.BOARD_MIN - 1), 'song'), null, 'one short of a reel');
 
     const items = [...filed('b', 'block-party', 8), ...filed('s', 'sunset-coast', 8), ...filed('m', 'main-stage', 8), ...filed('h', 'heartland-dust', 8)];
-    const rows = ['photography', 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window', 'dust', 'looks'];
+    const rows = ['photography', 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window', 'dust'];
     assert.deepEqual([...new Set(rows.map(row => boards.boardForRow(row, wanted, items, 'song').id))], ['block-party'], 'one scene for the whole shelf');
     assert.deepEqual(boards.songBoards(wanted, items, 'song').map(board => board.id).slice(0, 2), ['block-party', 'sunset-coast'], 'the others that fit stand behind it');
     assert.ok(!boards.songBoards(wanted, items, 'song').some(board => board.id === 'heartland-dust'), 'a board that does not fit is never behind it');

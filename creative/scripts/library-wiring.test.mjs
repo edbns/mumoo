@@ -154,7 +154,7 @@ test('Window shows the Directed reel through the word, one library picture as it
     const cards = pack.recommendRow('window', person, 0, plates, library);
     assert.equal(cards.length, 4);
     assert.deepEqual(cards.map(card => card.reelIds), pack.recommendRow('photography', person, 0, plates, library).map(card => card.reelIds), 'the Directed card’s reel, card for card');
-    assert.ok(cards.every(card => card.windowMode === 'plain' && !card.libraryId && !card.plateId && !card.effectId && !card.bankId));
+    assert.ok(cards.every(card => card.windowMode === 'plain' && !card.libraryId && !card.plateId && !card.effectId));
     assert.deepEqual(cards, pack.recommendRow('window', person, 0, plates, library), 'the same deal every time');
     const alone = pack.recommendRow('window', person, 0, plates, [clip('c1')]);
     assert.ok(alone.every(card => card.libraryId === 'c1' && !card.reelIds && !card.plateId), 'one picture is shown as it is');
@@ -414,6 +414,35 @@ test('what people kept nudges the order a little: never past a better fit, the s
     // Without any history the order is exactly as before.
     const plain = [item('p'), item('q'), item('r')];
     assert.deepEqual(ids(pick.pickLibrary(plain, wanted, 's', 0, 3)), ids(pick.pickLibrary(plain.map(entry => ({ ...entry })), wanted, 's', 0, 3)));
+  } finally { await server.close(); }
+});
+
+test('each template leads with the kind of card people download, seeded, and only moves its lead', async () => {
+  const { server, pack } = await load();
+  try {
+    const clip = id => ({ ...item(id), kind: 'video', motionUrl: `https://x/${id}.mp4`, shots: [[0, 1000]] });
+    const library = [item('p1'), item('p2'), clip('c1'), clip('c2'), clip('c3')];
+    const songs = Array.from({ length: 30 }, (_, i) => profile('Pop', 'Indie Pop', 'love', i.toString(16).padStart(64, '0')));
+    for (const row of ['triptych', 'window', 'silhouette', 'thermal']) {
+      const plain = songs.map(person => pack.recommendRow(row, person, 0, [], library));
+      const kinds = plain[0].map(pack.cardKind);
+      assert.ok(kinds.every(Boolean), `${row}: every card has a kind (${kinds})`);
+      assert.deepEqual(pack.recommendRow(row, songs[0], 0, [], library, false, {}), plain[0], `${row}: with no history the deal is as before`);
+      // Every song: the card in last place is the kind people download, the others are passed over.
+      let led = 0;
+      songs.forEach((person, index) => {
+        const last = pack.cardKind(plain[index].at(-1));
+        const counts = Object.fromEntries(plain[index].map(slot => [pack.cardKind(slot), pack.cardKind(slot) === last ? { shown: 300, won: 150 } : { shown: 300, won: 3 }]));
+        const learned = pack.recommendRow(row, person, 0, [], library, false, { [row]: counts });
+        assert.deepEqual(learned, pack.recommendRow(row, person, 0, [], library, false, { [row]: counts }), `${row}: the same hand every time`);
+        assert.deepEqual(new Set(learned.map(slot => slot.id)), new Set(plain[index].map(slot => slot.id)), `${row}: the same cards`);
+        assert.deepEqual(learned.slice(1).map(slot => slot.id), plain[index].filter(slot => slot.id !== learned[0].id).map(slot => slot.id), `${row}: the others keep their order`);
+        if (pack.cardKind(learned[0]) === last) led++;
+      });
+      assert.ok(led >= 25, `${row}: the downloaded kind leads ${led} of 30 songs`);
+    }
+    const window = pack.recommendRow('silhouette', songs[0], 0, [], library)[0];
+    assert.equal(pack.cardKind(window), `${window.windowShape}/${window.windowPalette}`, 'a Silhouette is told by its figure and colour');
   } finally { await server.close(); }
 });
 

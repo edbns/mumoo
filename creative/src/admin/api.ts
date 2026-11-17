@@ -47,7 +47,10 @@ export type LearningEvent = {
 export type Learning = {
   days: number;
   totals: Tally & { songs: number };
-  rows: Tally[]; looks: Tally[]; vibes: Tally[]; moods: Tally[]; pictures: Tally[];
+  rows: Tally[];
+  /** Each kind of card of each row (`row · kind`: a treatment variant, Window palette, Silhouette figure, Riso ink, live look), most downloaded first. */
+  cards: Tally[];
+  looks: Tally[]; vibes: Tally[]; moods: Tally[]; pictures: Tally[];
   /** Cards dealt from each mood board, and from each board for each genre (`board · genre`). */
   boards: Tally[]; boardGenres: Tally[];
   /** Genre learning: the kept style prints (all time), "I don't know" presses, and the answers to the brain's guesses, per guessed style. */
@@ -84,7 +87,6 @@ export const markAllSeen = () => adminFetch<{ problems: Problem[]; unseen: numbe
 export type Change = Partial<{ status: 'approved' | 'hidden'; attitudes: string[]; tags: string[]; genre: string; subGenre: string; boards: string[]; notBoards: string[]; note: string }>;
 export const changeItem = (item: string, change: Change) => adminFetch<{ item: LibraryItem; tags: TagCount[] }>(`library?${id(item)}`, json('PATCH', change));
 export const deleteItem = (item: string) => adminFetch<Library>(`library?${id(item)}`, { method: 'DELETE' });
-export const addTag = (name: string) => adminFetch<Library>(`library?tag=${encodeURIComponent(name)}`, { method: 'POST' });
 export const deleteTag = (name: string) => adminFetch<Library>(`library?tag=${encodeURIComponent(name)}`, { method: 'DELETE' });
 
 /** Genre training: the songs the brain learns genres from, and how ready its guess is (see admin-genre). */

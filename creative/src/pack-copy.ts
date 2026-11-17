@@ -29,7 +29,7 @@ export type PackSceneInput = {
   /** Current time within the clip (ms) and the cue's word timings (original case). */
   ms: number;
   words: readonly TimedWord[];
-  /** The picture behind the lyrics: a baked Look Bank background or photography effect, or the person's own picture. */
+  /** The picture behind the lyrics: a baked photography effect, a library picture, or the person's own picture. */
   background?: Texture | null;
   /** Dust: the two colours of the template. */
   colors?: DustColors;

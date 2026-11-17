@@ -9,8 +9,7 @@
  *   LYRICS=0 node scripts/cloud-render.mjs dust techno  lyrics off
  *   SEED=4 node scripts/cloud-render.mjs dust slaphouse pick the colour pair
  *   node scripts/cloud-render.mjs pulise reggaeton      a library style, through the deployed staging site
- *   BANK=lit-rays-5 node scripts/cloud-render.mjs bank techno
- *   TYPE=bounce FONT="Bowlby One" node scripts/cloud-render.mjs bank techno   try a lyric motion (bank and photography) and a face
+ *   TYPE=bounce FONT="Bowlby One" node scripts/cloud-render.mjs filter techno   try a lyric motion and a face
  *
  * Dust and Riso are drawn from an approved photo (PLATE, default: our cleared library photo) and Our photography ("filter") from
  * a baked effect on it (EFFECT), through the deployed site like every other style. To try a person's own media instead,
@@ -56,7 +55,6 @@ const cutOut = style === 'dust' || style === 'riso';
 const photoStyle = cutOut || style === 'filter' || style === 'window';
 const ownMedia = photoStyle && Boolean(process.env.PHOTO || process.env.MOTION);
 const effectId = process.env.EFFECT || 'glass-facets-1';
-const bankId = process.env.BANK || 'neon-flow-5';
 const plateId = process.env.PLATE || 'burnnet-woman-1547507-1920';
 
 const screen = process.env.PALETTE || 'black';
@@ -74,7 +72,6 @@ const opts = {
   ...((cutOut || style === 'window') && !ownMedia ? { plateId } : {}),
   ...(style === 'riso' ? { inkSet: process.env.INKSET || 'pink-blue' } : {}),
   ...(style === 'window' ? { windowMode, windowPalette: screen, windowAllowed: [screen], ...(process.env.MOTION ? { cutSeed: Number(process.env.CUTSEED || 0) } : {}) } : {}),
-  ...(style === 'bank' ? { bankId, typeStyle: process.env.TYPE || 'karaoke' } : {}),
   ...(style === 'filter' ? { ...(ownMedia ? {} : { effectId }), typeStyle: process.env.TYPE || 'stack', cutSeed: Number(process.env.CUTSEED || 0) } : {}),
   ...(process.env.SHOTS ? { motionShots: JSON.parse(process.env.SHOTS) } : {}),
 };

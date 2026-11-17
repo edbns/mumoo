@@ -35,8 +35,6 @@ const recommend = (pack, row, person, generation = 0, plates = PLATES) => pack.r
 
 /** Every row of the shelf, in order. */
 const shelf = (pack, person, generation = 0, plates = PLATES) => pack.SHELF_ROWS.flatMap(row => recommend(pack, row.id, person, generation, plates));
-/** Moving backgrounds: not on the shelf, but still dealt. */
-const looks = (pack, person, generation = 0) => pack.recommendRow('looks', person, generation, PLATES);
 
 async function load() {
   const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
@@ -71,8 +69,6 @@ test('the shelf is twelve rows of four, in order, each card distinct', async () 
       assert.ok(slots.filter(slot => slot.row === 'dust').every(slot => slot.plateId === 'burnnet-woman-1547507-1920'), 'Dust is drawn from the approved photo');
       const pulise = slots.filter(slot => slot.row === 'pulise');
       assert.equal(new Set(pulise.map(slot => slot.layout.cut)).size, 4, `${genre} Pulise cards open on the same colour`);
-      const pairs = new Set(looks(pack, profile(genre)).map(slot => `${slot.bankId}:${slot.typeStyle}`));
-      assert.equal(pairs.size, 4, `${genre} Moving backgrounds repeats a background+type pair`);
       assert.equal(new Set(slots.map(slot => slot.id)).size, slots.length, `${genre} repeats an id`);
     }
   } finally { await server.close(); }
@@ -219,54 +215,18 @@ test('club songs keep club fonts', async () => {
   } finally { await server.close(); }
 });
 
-test('sad lyrics never land on a bright background', async () => {
+test('Our photography\'s baked effects follow the song: the cover\'s colours lead, and sad words never sit on a bright picture', async () => {
   const { server, pack } = await load();
   try {
-    const bank = (await import('../src/look-lab/bank.json', { with: { type: 'json' } })).default;
-    const tone = new Map(bank.map(item => [item.slug, item.tone]));
-    for (const gen of [0, 1, 2]) {
-      for (const slot of looks(pack, profile('Ambient', 'tears fall like rain tonight alone', 'a'.repeat(64), { attitude: 'sad', sadness: 3, intensity: 2 }), gen)) {
-        assert.equal(tone.get(slot.bankId), 'deep', slot.bankId);
-      }
-    }
-  } finally { await server.close(); }
-});
-
-test('the cover decides which backgrounds lead: warm cover → warm looks, cool cover → cool looks', async () => {
-  const { server, pack } = await load();
-  try {
-    const { default: bank } = await server.ssrLoadModule('/src/look-lab/bank.json');
-    const read = slug => bank.find(look => look.slug === slug).read;
+    const { default: all } = await import('../punch-plates/effects/effects.json', { with: { type: 'json' } });
+    const read = id => all.find(effect => effect.id === id);
     const cover = (hex, extra) => ({ palette: [{ hex, share: 1 }], lightness: 0.5, saturation: 0.8, contrast: 0.5, hue: 20, warmth: 1, ...extra });
     const withCover = value => ({ ...profile('Pop'), creator: { primaryGenre: { value: 'Pop', source: 'creator' }, cover: { value, source: 'embedded_metadata' } } });
-    const lead = value => looks(pack, withCover(value)).slice(0, 3).map(slot => read(slot.bankId));
-
-    const warm = lead(cover('#e1782a'));
-    const cool = lead(cover('#2a3ea0', { hue: 230, warmth: 0, lightness: 0.25 }));
-    assert.ok(warm.every(look => look.warmth > 0.6), 'warm cover leads with warm backgrounds');
-    assert.ok(cool.every(look => look.warmth < 0.4), 'cool cover leads with cool backgrounds');
-
-    // No cover: nothing changes, still a full pack.
-    assert.equal(shelf(pack, profile('Pop')).length, 68, 'still a full shelf');
-  } finally { await server.close(); }
-});
-
-test('club songs get cards that look different: one per effect, at most two per colour family', async () => {
-  const { server, pack } = await load();
-  try {
-    const { default: bank } = await server.ssrLoadModule('/src/look-lab/bank.json');
-    const { colorFamily, effectFamily } = await server.ssrLoadModule('/src/look-fit.ts');
-    const look = slug => bank.find(item => item.slug === slug);
-    for (const genre of ['House', 'Techno', 'Slap House', 'EDM']) {
-      for (let generation = 0; generation < 12; generation++) {
-        const cards = looks(pack, profile(genre, 'hello', 'b'.repeat(64)), generation);
-        const backgrounds = cards.map(slot => look(slot.bankId));
-        const effects = backgrounds.map(item => effectFamily(item.slug));
-        assert.equal(new Set(effects).size, effects.length, `${genre} #${generation} repeats an effect: ${effects}`);
-        const families = backgrounds.map(item => colorFamily(item.read));
-        const counts = families.reduce((all, name) => ({ ...all, [name]: (all[name] ?? 0) + 1 }), {});
-        assert.ok(Math.max(...Object.values(counts)) <= 2, `${genre} #${generation} leans on one colour: ${JSON.stringify(counts)}`);
-        assert.ok(new Set(families).size >= 3, `${genre} #${generation} has too few colour families: ${families}`);
+    const warmth = value => pack.recommendRow('photography', withCover(value), 0, []).reduce((sum, slot) => sum + read(slot.effectId).warmth, 0) / 4;
+    assert.ok(warmth(cover('#e1782a')) > warmth(cover('#2a3ea0', { hue: 230, warmth: 0, lightness: 0.25 })), 'a warm cover leads with warmer effects than a cool one');
+    for (const generation of [0, 1, 2]) {
+      for (const slot of pack.recommendRow('photography', profile('Ambient', 'tears fall like rain tonight alone', 'a'.repeat(64), { attitude: 'sad', sadness: 3, intensity: 2 }), generation, [])) {
+        assert.ok(read(slot.effectId).lightness < 0.6, `${slot.effectId} is too bright for sad words`);
       }
     }
   } finally { await server.close(); }
@@ -296,35 +256,6 @@ test('the lyrics grade the colours and calm the beat without changing the look',
     // Defiant and forceful: warmer, punchier, no calming.
     const defiant = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'confident', sadness: 0, intensity: 4 }))[0].grade;
     assert.ok(defiant.warmth > 0 && defiant.contrast > 1 && defiant.calm === 0, JSON.stringify(defiant));
-  } finally { await server.close(); }
-});
-
-test('the attitude of the words picks backgrounds that look like it', async () => {
-  const { server, pack } = await load();
-  try {
-    const { default: bank } = await server.ssrLoadModule('/src/look-lab/bank.json');
-    const fit = await server.ssrLoadModule('/src/look-fit.ts');
-    const read = slug => bank.find(look => look.slug === slug).read;
-    const mean = (slots, key) => slots.reduce((n, slot) => n + read(slot.bankId)[key], 0) / slots.length;
-    const sha = 'c'.repeat(64);
-    const song = meaning => looks(pack, profile('Pop', 'hello', sha, meaning));
-
-    // Words with no particular feel leave the recommendation exactly as the sound made it.
-    assert.deepEqual(song({ attitude: 'neutral', sadness: 0, intensity: 3 }).map(slot => slot.id), song(undefined).map(slot => slot.id));
-
-    // Tender words lead with lighter, warmer pictures than angry ones; sad ones go darker and cooler still.
-    const tender = song({ attitude: 'love', sadness: 0, intensity: 2 });
-    const angry = song({ attitude: 'angry', sadness: 0, intensity: 5 });
-    const lonely = song({ attitude: 'sad', sadness: 3, intensity: 1 });
-    assert.ok(mean(tender, 'lightness') > mean(angry, 'lightness') + 0.1, 'tender is lighter than angry');
-    assert.ok(mean(lonely, 'warmth') < mean(tender, 'warmth'), 'lonely is cooler than tender');
-
-    // The fit itself: a defiant song suits a dark, saturated, warm look better than a pale grey one.
-    const defiant = { attitude: 'confident', sadness: 0, intensity: 4 };
-    assert.ok(fit.attitudeFit(defiant, read('neon-flow-5')) > fit.attitudeFit(defiant, read('lit-rays-5')) + 0.2);
-    // More sadness always asks for a darker, cooler picture, never a brighter one.
-    const dark = fit.attitudeFit({ ...defiant, sadness: 3 }, read('shifted-swirls-9')) - fit.attitudeFit({ ...defiant, sadness: 0 }, read('shifted-swirls-9'));
-    assert.ok(dark > 0, 'a very dark look fits better as sadness grows');
   } finally { await server.close(); }
 });
 
@@ -405,7 +336,7 @@ test('Window deals four cards of the picture as it is, each on one black or off-
           assert.ok(look.WINDOW_FACES.includes(slot.font) && slot.fontSecondary === slot.font, `${name}: ${slot.font} is not one of the condensed faces`);
           assert.deepEqual(slot.windowAllowed, [slot.windowPalette], `${name}: one screen for the whole video`);
           assert.equal(slot.label, `${slot.windowPalette[0].toUpperCase()}${slot.windowPalette.slice(1).replace('-', ' ')}`, 'the label names the screen colour');
-          assert.ok(slot.effectId === undefined && slot.bankId === undefined && slot.grade === undefined && slot.inkSet === undefined, `${name}: nothing but the picture`);
+          assert.ok(slot.effectId === undefined && slot.grade === undefined && slot.inkSet === undefined, `${name}: nothing but the picture`);
           assert.ok(PLATES.some(plate => plate.id === slot.plateId), `${name}: with no library our approved photo stands in`);
         }
       }

@@ -121,7 +121,6 @@ export type HalftoneLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'hal
 export type DitherLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'dither' }>['id'];
 /** The ASCII family: the picture rebuilt from text characters. */
 export type AsciiLookId = Extract<(typeof LIVE_LOOKS)[number], { family: 'ascii' }>['id'];
-export const LOOK_FAMILY_TITLES: Record<LookFamily, string> = { thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither', ascii: 'ASCII' };
 export const LIVE_LOOK_IDS: readonly LiveLookId[] = LIVE_LOOKS.map(look => look.id);
 
 export const isLiveLook = (value: unknown): value is LiveLookId => LIVE_LOOK_IDS.includes(value as LiveLookId);

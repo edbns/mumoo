@@ -143,7 +143,7 @@ function profile(genre, lyrics, meaning, sha = 'a'.repeat(64)) {
 }
 
 const PLATES = [{ id: 'burnnet-woman-1547507-1920', cutout: true }];
-const ROWS = ['photography', 'looks', 'riso', 'window', 'pulise', 'dust'];
+const ROWS = ['photography', 'riso', 'window', 'pulise', 'dust'];
 
 /** Every row of every refresh of a song, with the lane it was dealt in. */
 function refreshes(pack, song, count = 12) {

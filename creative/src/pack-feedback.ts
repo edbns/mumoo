@@ -1,6 +1,6 @@
 import type { CreativeProfileV1 } from './creative-profile';
 import type { CreativesPackSlot, ShelfRow } from './creatives-pack';
-import { readSong } from './creatives-pack';
+import { cardKind, readSong } from './creatives-pack';
 import { freshAccess } from './staging-token';
 
 export type PackFeedbackEvent = 'play' | 'select' | 'download' | 'watch';
@@ -56,6 +56,7 @@ export function reportPackFeedback(
 ) {
   if (!token) return;
   const libraryId = slot.libraryId ?? slot.reelIds?.[0];
+  const kind = cardKind(slot);
   // The whole reel, and the seed the Director cut it with, only when the reel was really drawn (not under the person's own picture).
   const reel = slot.reelIds && !extras?.ownPicture ? { reelIds: slot.reelIds, ...(slot.cutSeed !== undefined ? { cutSeed: slot.cutSeed } : {}) } : {};
   void send(token, {
@@ -72,10 +73,9 @@ export function reportPackFeedback(
       ...(slot.effectId ? { effectId: slot.effectId } : {}),
       // A reel is told by the picture it opens on, the one the Director leads with.
       ...(libraryId ? { libraryId } : {}),
-      // Only when the look was really drawn: on a library picture or the person's own, never on a baked effect.
-      ...(slot.look && (libraryId || extras?.ownPicture) ? { look: slot.look } : {}),
-      // A treatment's variant, so Admin → Learning can tell the four finishes of one row apart (the row is already the treatment).
-      ...(slot.treatmentVariant ? { look: slot.treatmentVariant } : {}),
+      // The kind of card within its row (`cardKind`: a treatment's variant, a Window palette and Silhouette figure, a Riso ink set, a
+      // live look), which the row's lead learns from. A live look only when it was really drawn: on a library picture or the person's own.
+      ...(kind && (kind !== slot.look || libraryId || extras?.ownPicture) ? { look: kind } : {}),
       ...reel,
       ...(slot.preset ? { preset: slot.preset, presetTake: slot.presetTake } : {}),
       // The mood board its pictures came from, unless the person's own picture took their place.

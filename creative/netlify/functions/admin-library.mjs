@@ -1,5 +1,5 @@
 import { adminFrom, reply, refuse } from '../lib/admin.mjs';
-import { addTag, changeItem, itemArrived, listLibrary, listTagPool, removeItem, removeTag, reserveItem } from '../lib/library.mjs';
+import { changeItem, itemArrived, listLibrary, listTagPool, removeItem, removeTag, reserveItem } from '../lib/library.mjs';
 import { storageReady } from '../lib/storage.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
  *   PUT    ?id=…             the file has been sent: it joins the library as pending
  *   PATCH  ?id=… JSON        change status, attitudes, tags, genre, subGenre or note
  *   DELETE ?id=…             removes the item and its file
- *   POST   ?tag=name         adds a tag to the list;  DELETE ?tag=name removes it from the list and from every item
+ *   DELETE ?tag=name         removes a tag from the list and from every item (a new tag joins the list when an item is given it)
  */
 export default async function handler(request) {
   if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return refuse(405, 'Use GET, POST, PUT, PATCH or DELETE.');
@@ -24,12 +24,8 @@ export default async function handler(request) {
 
     const tag = params.get('tag');
     if (tag !== null) {
-      if (request.method === 'POST') {
-        const result = await addTag(tag);
-        return result.refused ? refuse(400, result.refused) : reply(200, await listLibrary());
-      }
       if (request.method === 'DELETE') return (await removeTag(tag.trim().toLowerCase())) ? reply(200, await listLibrary()) : refuse(404, 'Not found.');
-      return refuse(405, 'Use POST or DELETE for a tag.');
+      return refuse(405, 'Use DELETE for a tag.');
     }
 
     if (request.method === 'POST') {

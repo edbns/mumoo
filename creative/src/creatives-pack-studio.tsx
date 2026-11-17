@@ -10,7 +10,7 @@ import { friendlyError } from './friendly-error';
 import { PauseIcon, PlayIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PictureUpload } from './picture-upload';
-import { SHELF_PICTURE, type Upload } from './uploads';
+import type { Upload } from './uploads';
 import type { Uploads } from './use-uploads';
 import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
@@ -102,7 +102,6 @@ function packOpts(
     ...(slot.colors ? { colors: slot.colors } : {}),
     ...(slot.inkSet ? { inkSet: slot.inkSet } : {}),
     ...(slot.windowMode ? { windowMode: slot.windowMode, windowPalette: slot.windowPalette, windowAllowed: slot.windowAllowed, ...(slot.windowShape ? { windowShape: slot.windowShape } : {}) } : {}),
-    ...(slot.bankId ? { bankId: slot.bankId } : {}),
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
     // A live look goes on a picture (the library's or the person's own), never on a baked effect.
     ...(slot.look && !('effectId' in drawn) ? { look: slot.look } : {}),
@@ -188,7 +187,7 @@ export function CreativesPackStudio({
   // The person's own pictures, once ready, else ours. One is drawn on every template (four colourings of it); two or more are
   // dealt like our library, each card its own picture, and the Director edits reels from them.
   // Links are renewed from time to time, so cards are keyed by id, not link.
-  const readyOwn = uploads.current.filter(item => item.use === SHELF_PICTURE && item.status === 'ready' && item.url);
+  const readyOwn = uploads.current.filter(item => item.status === 'ready' && item.url);
   const readyIds = readyOwn.map(item => item.id).join(',');
   // The person can go back to our pictures after uploading their own; a new upload is used at once.
   const [ours, setOurs] = useState(false);
@@ -210,7 +209,7 @@ export function CreativesPackStudio({
   /** The person's own picture, for a template that draws one. */
   const ownFor = (row: ShelfRow) => (SHELF_ROWS.find(def => def.id === row)?.picture ? own : null);
   // Our approved library fills the shelf until the person uses their own pictures.
-  const library = useLibrary();
+  const { items: library, cards: learnedCards } = useLibrary();
   /** What the shelf deals from: the person's own pictures when they have several, else our library. */
   const dealt = ownPool ?? library;
   /** Window and Silhouette: the song's picture seen through the lyrics, or through a figure. */
@@ -262,7 +261,7 @@ export function CreativesPackStudio({
     // The looks, treatments and Window are dealt once it knows what our library holds.
     if ((isLookRow(def.id) || isTreatmentRow(def.id) || isWindowRow(def.id)) && dealt === null && !own) return [def.id, { slots: [], note: '' }];
     if (!textless && !hasLyrics) return [def.id, { slots: [], note: '' }];
-    const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, libraryFor(def.id), (isLookRow(def.id) || isTreatmentRow(def.id) || isWindowRow(def.id)) && Boolean(ownFor(def.id)));
+    const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, libraryFor(def.id), (isLookRow(def.id) || isTreatmentRow(def.id) || isWindowRow(def.id)) && Boolean(ownFor(def.id)), learnedCards);
     // The looks and treatments are drawn on our library pictures, so with none for this song they say so instead of vanishing.
     const note = !slots.length && (isLookRow(def.id) || isTreatmentRow(def.id) || def.id === 'window') && !ownPool ? `${def.title} is drawn on pictures from our library, and none fits this song yet. Upload your own picture to see it here.` : '';
     return [def.id, { slots, note }];
@@ -270,7 +269,7 @@ export function CreativesPackStudio({
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, creatorKey, lyricKey,
     controls, plates, hasLyrics, textless, pictureIds, ownKind, uploads.signedIn, uploads.pending,
     // What the library (or the person's own pool) holds, not the links to it (they are renewed all the time).
-    dealtKey,
+    dealtKey, learnedCards,
   ]);
   /** The cards on the page, in order: each template's first creative, and the rest of its four where the person asked for more. */
   const cards = shelf.flatMap(def => view[def.id].slots.slice(0, LEAD).map(slot => ({ def, slot })));

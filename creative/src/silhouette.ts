@@ -18,7 +18,6 @@ export const SILHOUETTES = [
   { id: 'man-head', headAt: 0.267 },
 ] as const;
 
-export type SilhouetteId = (typeof SILHOUETTES)[number]['id'];
 export const SILHOUETTE_IDS: readonly string[] = SILHOUETTES.map(figure => figure.id);
 
 /** The screens a Silhouette card is dealt in (ids of `WINDOW_PALETTES`). */

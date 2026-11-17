@@ -8,8 +8,11 @@ const boardName = (id: string) => BOARDS.find(board => board.id === id)?.name ??
 const EVENT: Record<string, string> = { play: 'Played', watch: 'Watched', select: 'Into cart', download: 'Download pressed', delivered: 'Delivered', refresh: 'Refreshed' };
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 const seconds = (ms: number) => (ms ? `${(ms / 1000).toFixed(1)} s` : '–');
+const share = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : '–');
 /** Kept: put in the cart, out of every play. */
-const keptRate = (tally: Tally) => (tally.plays ? `${Math.round((tally.selects / tally.plays) * 100)}%` : '–');
+const keptRate = (tally: Tally) => share(tally.selects, tally.plays);
+/** Downloaded: delivered, out of every play. What the shelf learns from most. */
+const downloadRate = (tally: Tally) => share(tally.delivered, tally.plays);
 
 function Stat({ label, value, note }: { label: string; value: string | number; note?: string }) {
   return <div className="flex flex-col gap-1 rounded-[var(--radius-panel)] bg-card p-5 shadow-sm">
@@ -29,7 +32,7 @@ function Table({ title, note, tallies, label }: { title: string; note: string; t
       : <div className="overflow-x-auto rounded-[var(--radius-panel)] bg-card shadow-sm">
         <table className="w-full border-collapse text-sm tabular-nums">
           <thead><tr className="text-left text-xs text-muted-foreground">
-            {['', 'Played', 'Avg watch', 'Into cart', 'Kept', 'Download pressed', 'Delivered'].map(head => <th key={head} className="px-4 py-2 font-medium">{head}</th>)}
+            {['', 'Played', 'Avg watch', 'Into cart', 'Kept', 'Download pressed', 'Delivered', 'Downloaded'].map(head => <th key={head} className="px-4 py-2 font-medium">{head}</th>)}
           </tr></thead>
           <tbody>{tallies.map(tally => <tr key={tally.key} className="border-t border-border">
             <td className="px-4 py-2">{label ? label(tally.key) : tally.key}</td>
@@ -39,6 +42,7 @@ function Table({ title, note, tallies, label }: { title: string; note: string; t
             <td className="px-4 py-2">{keptRate(tally)}</td>
             <td className="px-4 py-2">{tally.downloads}</td>
             <td className="px-4 py-2">{tally.delivered}</td>
+            <td className="px-4 py-2">{downloadRate(tally)}</td>
           </tr>)}</tbody>
         </table>
       </div>}
@@ -78,7 +82,7 @@ function GenreLearning({ genre }: { genre: Learning['genre'] }) {
   </section>;
 }
 
-/** What people do with the creatives, so we can see what the brain is learning: per row, look, vibe, mood and library picture. */
+/** What people do with the creatives, so we can see what the brain is learning: per row, kind of card, look, vibe, mood and library picture. */
 export function LearningView() {
   const [days, setDays] = useState<number>(30);
   const [learning, setLearning] = useState<Learning | null>(null);
@@ -107,7 +111,7 @@ export function LearningView() {
     <header className="flex flex-wrap items-center justify-between gap-4">
       <div>
         <h1 className="m-0 text-2xl font-semibold">Learning</h1>
-        <p className="m-0 text-sm text-muted-foreground">What people play, watch, keep and download. The brain leans a little towards the pictures people keep.</p>
+        <p className="m-0 text-sm text-muted-foreground">What people play, watch, keep and download. Each template leads with the kind of card people download, and picks the pictures they download; a download counts three times a cart.</p>
       </div>
       <div className="flex gap-1" role="group" aria-label="Period">
         {PERIODS.map(period => <Button key={period} size="sm" variant={period === days ? 'default' : 'secondary'} aria-pressed={period === days} onClick={() => setDays(period)}>{period} days</Button>)}
@@ -120,10 +124,12 @@ export function LearningView() {
         <Stat label="Played" value={learning.totals.plays} note={`Avg watch ${seconds(learning.totals.avgWatchMs)}`} />
         <Stat label="Into cart" value={learning.totals.selects} note={`Kept ${keptRate(learning.totals)} of plays`} />
         <Stat label="Download pressed" value={learning.totals.downloads} />
-        <Stat label="Delivered" value={learning.totals.delivered} note={learning.totals.downloads ? `${Math.round((learning.totals.delivered / learning.totals.downloads) * 100)}% of presses` : undefined} />
+        <Stat label="Delivered" value={learning.totals.delivered} note={`${downloadRate(learning.totals)} of plays · ${share(learning.totals.delivered, learning.totals.downloads)} of presses`} />
       </div>
-      <Table title="Rows" note="Which rows of the shelf people use." tallies={learning.rows} />
-      <Table title="Library pictures" note="Every picture of a reel counts. Cards on the person's own picture are left out." tallies={learning.pictures} label={picture} />
+      <Table title="Templates" note="Which templates people download, most downloaded first." tallies={learning.rows} />
+      <Table title="What people download" note="Each kind of card of each template: a treatment's variant, a Window colour, a Silhouette figure and colour, a Riso ink, a live look. The template leads with the kinds people download." tallies={learning.cards}
+        label={key => { const [row, kind] = key.split(' · '); return <>{row} <span className="text-muted-foreground">· {kind}</span></>; }} />
+      <Table title="Library pictures" note="Most downloaded first. Every picture of a reel counts. Cards on the person's own picture are left out." tallies={learning.pictures} label={picture} />
       <Table title="Mood boards" note="Cards dealt from each board. A board people often refresh past is a weak fit for those songs." tallies={learning.boards} label={boardName} />
       <Table title="Mood boards by genre" note="The same, for each genre the creator gave (unknown when they did not know)." tallies={learning.boardGenres}
         label={key => { const [board, genre] = key.split(' · '); return <>{boardName(board)} <span className="text-muted-foreground">· {genre}</span></>; }} />

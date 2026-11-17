@@ -7,7 +7,7 @@
  * Reads:  punch-plates/masters/*.jpg|png|webp (+ optional *.json sidecar)
  *         punch-plates/cutouts/{id}.png  the subject's cut-out mask (Dust needs one; see scripts/prepare-sample.mjs)
  * Writes: punch-plates/out/{id}.jpg, {id}-thumb.jpg, {id}.cut.png, plates.json
- *         public/punch-plates/  (Vite/Netlify static copy — not committed), with punch-plates/looks → looks/ and
+ *         public/punch-plates/  (Vite/Netlify static copy — not committed), with
  *         punch-plates/effects/{id}.jpg → effects/ (Our photography's baked looks)
  *
  * Masters stay local. Only small proxies are served.
@@ -117,9 +117,8 @@ function publish(outBase) {
   for (const name of readdirSync(outBase)) {
     copyFileSync(join(outBase, name), join(publicDir, name));
   }
-  // Baked Shaders looks live beside the masters and are republished every build: the Look Lab's backgrounds, and the
-  // Photo Lab's effects on our photo (files starting with `_` are contact sheets for people, not for the site).
-  publishJpegs('looks', name => /\.jpe?g$/i.test(name));
+  // The Photo Lab's effects on our photo live beside the masters and are republished every build (files starting with `_`
+  // are contact sheets for people, not for the site).
   publishJpegs('effects', name => /^[^_].*\.jpe?g$/i.test(name));
 }
 

@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { adminEmails, adminFrom } from '../netlify/lib/admin.mjs';
-import { ACCEPTED_TYPES, addTag, ATTITUDES, changeItem, itemArrived, listLibrary, removeItem, removeTag, reserveItem } from '../netlify/lib/library.mjs';
+import { ACCEPTED_TYPES, ATTITUDES, changeItem, itemArrived, listLibrary, removeItem, removeTag, reserveItem } from '../netlify/lib/library.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import { listProblems, markSeen, recordProblem } from '../netlify/lib/problems.mjs';
 import { storageReady } from '../netlify/lib/storage.mjs';
@@ -184,15 +184,14 @@ test('a library item goes from upload to approved, is checked at every step, and
 test('the tag list has a limit', { skip: !READY, timeout: 60000 }, async () => {
   // This runs against the shared staging list, which a person may be using: it never adds a tag to it. The limit is lowered for this process
   // to the size the list already has, so the next new tag meets it at once.
-  const { tags } = await listLibrary();
+  const { tags, items } = await listLibrary();
+  const item = items.find(entry => entry.tags.length < 5);
+  if (!item) return;
   const limit = process.env.MUMOO_MAX_TAGS_IN_POOL;
   process.env.MUMOO_MAX_TAGS_IN_POOL = String(Math.max(1, tags.length));
   try {
-    assert.match((await addTag('no way!')).refused, /symbols/);
-    if (tags.length) {
-      assert.match((await addTag(aTag())).refused, /full/);
-      assert.equal((await addTag(tags[0].name)).tag, tags[0].name, 'a tag that exists is not a new one');
-    }
+    assert.match((await changeItem(item.id, { tags: [...item.tags, 'no way!'] })).refused, /symbols/);
+    assert.match((await changeItem(item.id, { tags: [...item.tags, aTag()] })).refused, /full/);
   } finally {
     if (limit === undefined) delete process.env.MUMOO_MAX_TAGS_IN_POOL; else process.env.MUMOO_MAX_TAGS_IN_POOL = limit;
   }

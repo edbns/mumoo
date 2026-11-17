@@ -107,8 +107,8 @@ test('the lyric reader and the app share one list of themes, and a freely typed 
   } finally { await server.close(); }
 });
 
-/** The Moving backgrounds row stands for the shelf: every row reads the song the same way. */
-const recommend = (pack, person) => pack.recommendRow('looks', person, 0);
+/** Our photography stands for the shelf: every row reads the song the same way. */
+const recommend = (pack, person) => pack.recommendRow('photography', person, 0, []);
 
 test('what the words mean shapes the recommendation, in any language', async () => {
   const { server, pack } = await load();

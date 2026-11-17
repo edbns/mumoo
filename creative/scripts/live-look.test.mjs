@@ -242,7 +242,7 @@ test('Thermal, Halftone, Dither and ASCII are rows of their own, drawn on librar
   assert.deepEqual(pack.recommendRow('ascii', profile('Gospel'), 0, [], library), [], 'no ASCII on a gospel song');
   assert.equal(pack.recommendRow('halftone', profile('Gospel'), 0, [], library).length, 4, 'Halftone suits a gospel song');
   assert.equal(pack.recommendRow('dither', profile('Gospel'), 0, [], library).length, 4, 'Dither suits a gospel song');
-  for (const row of ['photography', 'looks', 'riso', 'pulise', 'dust']) {
+  for (const row of ['photography', 'riso', 'pulise', 'dust']) {
     assert.ok(pack.recommendRow(row, profile('Techno'), 0, [], library).every(slot => !slot.look), `${row} has no look`);
   }
 });
@@ -275,7 +275,6 @@ print(json.dumps(answers))
     [{ ...filter }, true, ['photo']],
     [{ ...filter, look: 'sepia' }, false],
     [{ ...filter, look: 'thermal', effectId: 'tropical-ascii-cam-1' }, false],
-    [{ ...filter, look: 'thermal', style: 'bank', bankId: 'x' }, false],
     [{ ...filter, look: 7 }, false],
     [{ ...filter, look: 'thermal', plateId: 'burnnet-woman-1547507-1920' }, true],
     [{ ...filter, plateId: 'burnnet-woman-1547507-1920', effectId: 'tropical-ascii-cam-1' }, false],

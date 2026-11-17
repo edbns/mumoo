@@ -34,11 +34,17 @@ export type LibraryPicture = {
   /** A video or GIF's small prepared clip and its shots, as [start, end] in ms of the clip. Riso and Window can draw these. */
   motionUrl?: string;
   shots?: [number, number][];
-  /** What people did with cards drawn from it lately (`learnedCounts` on the server): played, and kept (cart or delivered). */
-  learned?: { shown: number; won: number };
+  /** What people did with cards drawn from it lately (`learnedCounts` on the server). */
+  learned?: Learned;
   /** How strongly our vision model sees each look in it (song themes and genre looks), 0..1; unseen looks are left out. */
   looks?: Readonly<Record<string, number>>;
 };
+
+/**
+ * What people did with something lately: how often it was played (`shown`), and how much of that was kept (`won`, 0…shown): a card
+ * that was downloaded counts in full, one only put in the cart a third.
+ */
+export type Learned = { shown: number; won: number };
 
 /** A picture with no history is taken as this many plays at the library's usual rate: a few plays never swing it far. */
 const PRIOR_PLAYS = 20;
@@ -172,7 +178,7 @@ export function showing(item: LibraryPicture): string[] {
 }
 
 /** The library's usual rate of keeping a card it was played on; a library nobody has used yet keeps one in ten. */
-export function usualRate(items: readonly LibraryPicture[]): number {
+export function usualRate(items: readonly Pick<LibraryPicture, 'learned'>[]): number {
   let shown = 0;
   let won = 0;
   for (const item of items) { shown += item.learned?.shown ?? 0; won += item.learned?.won ?? 0; }

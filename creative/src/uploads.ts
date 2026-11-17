@@ -1,25 +1,16 @@
 import { accountFetch } from './account';
 import { shrinkPhoto } from './photo-shrink';
 
-/**
- * What a picture is kept for. The shelf has one upload button, and its picture is `any`: every template that can draw it does.
- * The others are the older one-picture-per-row uses, which the server still understands.
- */
-export type PictureUse = 'any' | 'dust' | 'filter' | 'riso' | 'window' | 'thermal' | 'halftone' | 'dither' | 'ascii';
-
-/** The picture the whole shelf draws. */
-export const SHELF_PICTURE: PictureUse = 'any';
 /** How many of their own pictures the shelf keeps and deals from (netlify/lib/uploads.mjs). */
 export const MAX_SHELF_PICTURES = 10;
 
 /**
- * A person's own picture, kept privately in their storage (each row keeps one; a new one replaces it).
+ * A person's own picture, kept privately in their storage: every template that can draw it does.
  * Every call needs them to be signed in.
  */
 export type Upload = {
   id: string;
   kind: 'photo' | 'motion';
-  use: PictureUse;
   /**
    * A picture is being prepared on our worker (a photo's cut-out, a video's small clip) until it is ready.
    * `failed` is only ever reported once, with the reason, in the answer that found out; it is not kept.
@@ -88,13 +79,13 @@ function send(url: string, file: File, onProgress: (share: number) => void): Pro
   });
 }
 
-async function addMotion(file: File, use: PictureUse, onProgress: (share: number) => void): Promise<Upload[]> {
+async function addMotion(file: File, onProgress: (share: number) => void): Promise<Upload[]> {
   const seconds = await videoSeconds(file);
   if (seconds !== null && seconds > MAX_SECONDS) throw new Error(`Videos can be up to ${MAX_SECONDS} seconds long.`);
   const reserved = await accountFetch('/api/uploads?kind=motion', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ use, type: file.type, bytes: file.size }),
+    body: JSON.stringify({ type: file.type, bytes: file.size }),
   }).then(response => response.json() as Promise<{ id: string; putUrl: string }>);
   try {
     await send(reserved.putUrl, file, onProgress);
@@ -106,18 +97,17 @@ async function addMotion(file: File, use: PictureUse, onProgress: (share: number
 }
 
 /**
- * Adds a picture for a row, replacing the one it has. A photo is shrunk and sent in one request; a Filter photo
- * is ready as soon as it is stored. A Dust, Riso or Window photo is cut out, and a video or GIF prepared, in the cloud: the
- * answer lists it as `preparing` until `listUploads` says it is ready. Resolves with the person's pictures.
+ * Adds a picture. A photo is shrunk and sent in one request, a video or GIF straight to storage; in the cloud a photo is cut out
+ * and a video or GIF prepared: the answer lists it as `preparing` until `listUploads` says it is ready. Resolves with the person's pictures.
  */
-export async function addUpload(file: File, use: PictureUse, onProgress: (share: number) => void = () => undefined): Promise<Upload[]> {
+export async function addUpload(file: File, onProgress: (share: number) => void = () => undefined): Promise<Upload[]> {
   if (PHOTO_TYPES.includes(file.type)) {
     if (file.size > MAX_PHOTO_FILE_BYTES) throw new Error('That photo is larger than 25 MB.');
     const photo = await shrinkPhoto(file);
-    return pictures(await accountFetch(`/api/uploads?kind=photo&use=${use}`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: photo }));
+    return pictures(await accountFetch('/api/uploads?kind=photo', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: photo }));
   }
   const limit = MOTION_LIMITS[file.type];
   if (!limit) throw new Error('Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.');
   if (file.size > limit) throw new Error(`That ${file.type === 'image/gif' ? 'GIF' : 'video'} is larger than ${limit / 1e6} MB.`);
-  return addMotion(file, use, onProgress);
+  return addMotion(file, onProgress);
 }

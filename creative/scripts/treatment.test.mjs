@@ -192,6 +192,7 @@ test('the worker\'s TREATMENTS set stays in step with treatment-deal.ts', () => 
 
 test('Learning records the treatment row and its variant', () => {
   const feedback = readFileSync(new URL('../src/pack-feedback.ts', import.meta.url), 'utf8');
-  assert.ok(/treatmentVariant/.test(feedback));
-  assert.ok(/look: slot\.treatmentVariant/.test(feedback));
+  const pack = readFileSync(new URL('../src/creatives-pack.ts', import.meta.url), 'utf8');
+  assert.ok(/const kind = cardKind\(slot\)/.test(feedback) && /look: kind/.test(feedback), 'feedback keeps the kind of card as its look');
+  assert.ok(/if \(slot\.treatmentVariant\) return slot\.treatmentVariant;/.test(pack), 'a treatment card is told by its variant first');
 });

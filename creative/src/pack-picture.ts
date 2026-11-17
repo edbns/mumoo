@@ -1,6 +1,6 @@
 /**
- * Bank world — a picture behind the lyric type system: a Shaders Pro background baked by the Look Lab
- * (Look Bank), a baked photography effect (Our photography), or the person's own picture.
+ * Picture world — a picture behind the lyric type system: a baked photography effect (Our photography), a library
+ * picture, or the person's own picture.
  * Colors come from the picture itself (pack-palette), so type always belongs to the image.
  * If the picture is missing, show downtime copy — never a substitute design.
  */
@@ -18,13 +18,13 @@ const DRIFT: Partial<Record<TypeStyleId, number>> = {
   typewriter: 0.6, minimal: 0.5, editorial: 0.6, wipe: 0.6, slide: 0.6, wave: 0.7,
 };
 
-export type BankWorld = {
+export type PictureWorld = {
   root: Container;
   update(input: PackSceneInput): void;
   destroy(): void;
 };
 
-export function createBankWorld(): BankWorld {
+export function createPictureWorld(): PictureWorld {
   const root = new Container();
   const bg = new Sprite();
   bg.anchor.set(0.5);

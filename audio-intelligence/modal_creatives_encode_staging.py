@@ -50,7 +50,7 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
-    "cues", "music", "fallbackText", "bankId", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
+    "cues", "music", "fallbackText", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
     "motionShots", "reel", "cutSeed", "look", "inkSet", "windowMode", "windowPalette", "windowAllowed", "windowShape",
     "treatment", "treatmentVariant", "preset", "presetTake",
 }
@@ -61,7 +61,7 @@ REEL_HOST_SUFFIX = ".r2.cloudflarestorage.com"
 # The kinds of creative the page draws, the Riso ink sets and the Window screens and faces it knows (creative/src/ad-punch.ts, riso-look.ts, window-look.ts, window-deal.ts; a test keeps these in step).
 # The live looks drawn on a picture of Our photography (creative/src/live-look-deal.ts; a test keeps these in step).
 LIVE_LOOKS = {"thermal", "arctic", "night", "whitehot", "blackhot", "rainbow", "lava", "crimson", "amber", "gold", "ultraviolet", "acid", "vapor", "candy", "dusk", "lagoon", "aurora", "cyanotype", "halftone", "halftonebw", "halftonenews", "halftoneblue", "halftonered", "halftonepink", "halftoneteal", "halftonepop", "halftoneneon", "halftoneinvert", "halftonegold", "halftonecmyk", "halftoneriso", "halftoneblueprint", "halftonesepia", "halftonemanga", "halftonesubway", "halftonesunset", "halftonematcha", "halftonecandy", "halftonetarot", "halftoneacid", "halftonesilver", "halftonephosphor", "halftoneuv", "halftonecopper", "halftoneengrave", "halftonehatch", "halftoneled", "halftonebenday", "dithermac", "ditherinvert", "dithergameboy", "dithercga", "dithercgagreen", "ditherega", "ditherc64", "ditherapple2", "ditherpico8", "ditheramiga", "ditherreceipt", "ditherblueprint", "ditheramber", "dithersunset", "dithervapor", "ditherforest", "dithernews", "ditherneon", "dithergold", "ditherown", "asciigreen", "asciiamber", "asciiwhite", "asciitype", "asciicolour", "asciicyan", "asciipink", "asciiblueprint", "asciimatrix", "asciired", "asciigold", "asciiice", "asciinews", "asciisunset", "asciibinary", "asciiblocks", "asciislash", "asciimumoo"}
-STYLES = {"bank", "pulise", "dust", "filter", "riso", "window", "treatment"}
+STYLES = {"pulise", "dust", "filter", "riso", "window", "treatment"}
 # Video treatments over the Director's reel (creative/src/treatment-deal.ts; a test keeps these in step).
 TREATMENTS = {
     "triptych": {"narrow", "medium", "wide", "breathing"},
@@ -325,8 +325,6 @@ def parse_meta(raw: str) -> dict:
             raise ValueError("preset")
         if opts["style"] not in ("filter", "treatment") or any(key in opts for key in ("look", "effectId", "plateId")):
             raise ValueError("preset")
-    if "bankId" in opts and (not isinstance(opts["bankId"], str) or not ID_RE.match(opts["bankId"])):
-        raise ValueError("bankId")
     for key in ("plateId", "effectId"):
         if key in opts and (not isinstance(opts[key], str) or not ID_RE.match(opts[key])):
             raise ValueError(key)
@@ -396,7 +394,7 @@ def parse_meta(raw: str) -> dict:
 
 def window_media(opts: dict, media: dict[str, bytes]) -> set[str]:
     """The media a Window card takes: none when it is drawn from our approved photo (`plateId`); else one photo or one clip, as it is."""
-    named = {key for key in ("plateId", "effectId", "bankId") if key in opts}
+    named = {key for key in ("plateId", "effectId") if key in opts}
     if named == {"plateId"}:
         return set()
     if named:

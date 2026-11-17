@@ -97,4 +97,3 @@ export const FIXED_FACES = {
   'Outfit': { weight: 400, italic: false, load: () => import('@fontsource/outfit/latin-400.css') },
   'Playfair Display': { weight: 700, italic: true, load: () => import('@fontsource/playfair-display/latin-700-italic.css') },
 } as const;
-export type FixedFace = keyof typeof FIXED_FACES;

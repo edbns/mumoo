@@ -4,7 +4,7 @@
  */
 import { Container, type Renderer } from 'pixi.js';
 import type { PackSceneInput } from './pack-copy';
-import { createBankWorld } from './pack-bank';
+import { createPictureWorld } from './pack-picture';
 import { createPuliseWorld } from './pack-pulise';
 import { createDustWorld, type DustPoints, type DustWorld } from './pack-dust';
 import { createRisoWorld, type RisoWorld } from './pack-riso';
@@ -24,8 +24,8 @@ export type PackScene = {
 /** Build the pack scene graph once; update() shows the world for the style and hides the others. */
 export function createPackScene(): PackScene {
   const root = new Container();
-  // Look Bank and Our photography share a world: a picture behind the lyric type.
-  const picture = createBankWorld();
+  // Our photography: a picture behind the lyric type.
+  const picture = createPictureWorld();
   const pulise = createPuliseWorld();
   // The dust world is built from the photo's grains, so it exists once a photo has been read.
   let dust: { points: DustPoints; world: DustWorld } | null = null;
@@ -107,7 +107,7 @@ export function createPackScene(): PackScene {
     update(input, renderer) {
       if (input.style !== 'riso') { riso?.world.destroy(); riso = null; }
       if (input.style !== 'window') { knockout?.world.destroy(); knockout = null; figure?.destroy(); figure = null; }
-      picture.root.visible = input.style === 'bank' || input.style === 'filter';
+      picture.root.visible = input.style === 'filter';
       pulise.root.visible = input.style === 'pulise';
       dustLayer.visible = input.style === 'dust';
       treatment.root.visible = input.style === 'treatment';

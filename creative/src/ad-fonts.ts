@@ -53,10 +53,6 @@ export function fontsForLane(lane: MoodLane, needs: readonly FontNeed[] = []): r
   return AD_FONTS.filter(font => hasMood(font, LANE_MOODS[lane]) && meets(font, needs));
 }
 
-export function fontMoods(font: AdFont): readonly FontMood[] {
-  return DISPLAY_FACES[font].moods;
-}
-
 /**
  * One face per card of a row, `needs[i]` being what card i's type asks for. The row is dealt from a seeded order
  * (the vibe's moods first) and each card takes a face from a mood the row has not used yet, so the four cards do

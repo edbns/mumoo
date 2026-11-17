@@ -14,15 +14,14 @@ import { STYLE_NAMES, type AdPunchStyle } from './ad-punch';
 import { dustColors, type DustColors } from './dust-colors';
 import { RISO_INK_SETS } from './riso-look';
 import { dealSilhouette, dealWindow, type WindowCard, type WindowMode } from './window-deal';
-import bankData from './look-lab/bank.json';
 import effectsData from '../punch-plates/effects/effects.json';
 import { laneFromMeaning, leansDeep, type LyricAttitude, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
-import { attitudeFit, coverFit, diversify, hasFeel, type LookRead } from './look-fit';
+import { coverFit } from './look-fit';
 import type { CoverRead } from './cover-palette';
 import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
-import { libraryFit, pickLibrary, showing, type LibraryPicture, type LibraryWanted } from './library-pick';
+import { learnedNudge, libraryFit, pickLibrary, showing, usualRate, type Learned, type LibraryPicture, type LibraryWanted } from './library-pick';
 import { boardForRow, songBoards } from './boards';
 import {
   dealTreatments,
@@ -34,17 +33,13 @@ import {
 } from './treatment-deal';
 import { presetAt, presetTitle, takeAt, type PresetId } from './edit-presets';
 
-type BankLook = { slug: string; title: string; mood: string; tone: 'bright' | 'deep'; lanes: readonly string[]; read: LookRead };
-const BANK_LOOKS = bankData as BankLook[];
 
 /** One of our approved photo with a Shaders Pro image effect baked on it (punch-plates/effects), as measured when it was baked. */
 type PhotoEffect = { id: string; title: string; collection: string; mood: string; lightness: number; saturation: number; warmth: number; palette: { hex: string; share: number }[] };
 const PHOTO_EFFECTS = effectsData as PhotoEffect[];
 
-export type PackFamily = 'ad_punch';
-
-/** Every row that can be dealt. 'looks' (Moving backgrounds) is dealt but not on the shelf: see SHELF_ROWS. */
-export type ShelfRow = 'photography' | LookFamily | TreatmentId | 'looks' | 'riso' | 'window' | 'silhouette' | 'pulise' | 'dust';
+/** Every row of the shelf. */
+export type ShelfRow = 'photography' | LookFamily | TreatmentId | 'riso' | 'window' | 'silhouette' | 'pulise' | 'dust';
 
 /**
  * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
@@ -69,8 +64,6 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'window', title: 'Window', lyrics: 'always', picture: 'any' },
   // The song's video inside the still figure of a person, on red, black or white; never for gospel.
   { id: 'silhouette', title: 'Silhouette', lyrics: 'switch', picture: 'any' },
-  // "Moving backgrounds" (id 'looks', the Shaders backgrounds under lyric type) is off the shelf until its backgrounds are good enough.
-  // To bring it back, add { id: 'looks', title: 'Moving backgrounds', lyrics: 'switch' } here.
   { id: 'pulise', title: 'Pulise', lyrics: 'always' },
   { id: 'dust', title: 'Dust', lyrics: 'switch', picture: 'photo' },
 ];
@@ -123,8 +116,6 @@ export type CreativesPackSlot = {
   /** The edit preset over Directed and its treatments (`edit-presets.ts`), from the song's genre, and this card's take of it. */
   preset?: PresetId;
   presetTake?: string;
-  /** Look Bank card: Shaders Pro background id + lyric type style, both chosen by the brain. */
-  bankId?: string;
   typeStyle?: TypeStyleId;
   /** What the lyrics do to the colours and the beat. Absent when the words change nothing. */
   grade?: MoodGrade;
@@ -187,83 +178,8 @@ function dealFaces(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, r
   }));
 }
 
-/**
- * Which tagged looks a lane may draw from. Club music is not one colour: a techno or house song also
- * suits the energetic party looks, so its pool is wide enough to have real variety.
- */
-const LANE_POOL: Partial<Record<MoodLane, readonly string[]>> = {
-  techno: ['techno', 'party'],
-  party: ['party', 'techno'],
-};
-
 function seededOrder<T>(items: readonly T[], seed: string, key: (item: T) => string): T[] {
   return [...items].sort((a, b) => hashPick(seed, key(a), 99991) - hashPick(seed, key(b), 99991));
-}
-
-/** One row of cards: distinct (background, type) pairs, rotated by seed so no two generations look alike. */
-function bankSlots(
-  lane: MoodLane,
-  meaning: LyricMeaning | null,
-  intent: MusicIntentV1 | null,
-  seed: string,
-  count: number,
-  cover: CoverRead | null,
-): CreativesPackSlot[] {
-  const pool = LANE_POOL[lane] ?? [lane];
-  let looks = BANK_LOOKS.filter(look => look.lanes.some(tag => pool.includes(tag)));
-  if (!looks.length) looks = BANK_LOOKS.filter(look => look.lanes.includes('general'));
-  // A sad or angry song never sits on a sunny background ("match" policy).
-  if (leansDeep(meaning)) {
-    const deep = looks.filter(look => look.tone === 'deep');
-    if (deep.length >= 3) looks = deep;
-  }
-  // Backgrounds closest to the cover's colours and to what the words feel like lead; the seed still shuffles
-  // near-equal ones between generations. With neither, the seed alone decides.
-  const fit = (look: BankLook) => (cover ? coverFit(cover, look.read) : 0)
-    + (hasFeel(meaning) ? attitudeFit(meaning, look.read) : 0)
-    + hashPick(seed, look.slug, 1000) / 4000;
-  const ranked = cover || hasFeel(meaning)
-    ? [...looks].sort((a, b) => fit(b) - fit(a))
-    : seededOrder(looks, seed, look => look.slug);
-  // The four cards must look different from each other: one per effect, one per colour family.
-  // A cover is the creator's own colour identity, so it may fill three of the four cards with its family.
-  const backgrounds = diversify(ranked, cover ? 3 : 1);
-  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), seed, id => id);
-  const pairs: { look: BankLook; type: TypeStyleId }[] = [];
-  const used = new Set<string>();
-  for (let round = 0; pairs.length < count && round < types.length; round++) {
-    backgrounds.forEach((look, index) => {
-      const type = types[(index + round) % types.length];
-      const key = `${look.slug}:${type}`;
-      if (pairs.length >= count || used.has(key)) return;
-      used.add(key);
-      pairs.push({ look, type });
-    });
-  }
-  const faces = dealFaces(lane, intent, seed, 'looks', pairs.map(pair => typeNeeds(pair.type)));
-  return pairs.map(({ look, type }, index) => bankCard(look.slug, look.title, type, index, lane, meaning, intent, seed, faces[index]));
-}
-
-/** One card on the Look Bank world: a baked background image plus a lyric type style. */
-function bankCard(
-  bankId: string,
-  title: string,
-  type: TypeStyleId,
-  index: number,
-  lane: MoodLane,
-  meaning: LyricMeaning | null,
-  intent: MusicIntentV1 | null,
-  seed: string,
-  faces: Faces,
-): CreativesPackSlot {
-  return {
-    ...adPunchSlot('bank', index, intent, seed, lane, 'looks', faces),
-    id: `ad-bank-${bankId}-${type}-${hashPick(seed, 'gen', 997).toString(36)}`,
-    label: `${type[0].toUpperCase()}${type.slice(1)} · ${title}`,
-    reason: `${lane} · lyrics ${meaning?.attitude ?? 'unread'} · ${title} · ${type}`,
-    bankId,
-    typeStyle: type,
-  };
 }
 
 function adPunchSlot(
@@ -484,7 +400,8 @@ export function reeled(slot: CreativesPackSlot, pool: readonly LibraryPicture[],
  * photos Dust and Riso are drawn from (the person's own picture, if any, replaces them in the app); `ownPicture` says
  * the person's one picture is drawn on every card instead of our library.
  */
-export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], library: readonly LibraryPicture[] = [], ownPicture = false): CreativesPackSlot[] {
+export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], library: readonly LibraryPicture[] = [], ownPicture = false,
+  cards: LearnedCards = {}): CreativesPackSlot[] {
   const { intent, meaning, lane, genre } = readSong(profile);
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
@@ -533,7 +450,6 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     halftone: () => effectRow('halftone'),
     dither: () => effectRow('dither'),
     ascii: () => effectRow('ascii'),
-    looks: () => bankSlots(lane, meaning, intent, seed, ROW_SIZE, cover),
     riso: () => risoSlots(lane, intent, seed, risoPhotos),
     window: () => windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE), ownPicture ? [] : plates),
     silhouette: () => (GOSPEL_GENRE.test(`${genre} ${profile.creator.subGenre?.value ?? ''}`.toLowerCase()) ? [] : windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE), ownPicture ? [] : plates, dealSilhouette(seed, TYPE_ALLOW[lane]))),
@@ -557,7 +473,39 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const filed = (slot: CreativesPackSlot) => board && [slot.libraryId, ...(slot.reelIds ?? [])].some(id => id && library.find(item => item.id === id)?.boards?.includes(board.id));
   const boarded = board ? edited.map(slot => (filed(slot) ? { ...slot, board: board.id } : slot)) : edited;
   const grade = moodGrade(meaning);
-  return grade && !UNGRADED.includes(row) ? boarded.map(slot => ({ ...slot, grade })) : boarded;
+  const graded = grade && !UNGRADED.includes(row) ? boarded.map(slot => ({ ...slot, grade })) : boarded;
+  return learnedLead(graded, cards[row], seed);
+}
+
+/**
+ * The kind of card a slot is, within its row, as Admin → Learning and the lead nudge know it: a treatment's variant, a Window
+ * palette (with the Silhouette's figure), a Riso ink set or a live look. Undefined for a row whose cards are only their pictures.
+ */
+export function cardKind(slot: CreativesPackSlot): string | undefined {
+  if (slot.treatmentVariant) return slot.treatmentVariant;
+  if (slot.windowPalette) return slot.windowShape ? `${slot.windowShape}/${slot.windowPalette}` : slot.windowPalette;
+  return slot.inkSet ?? slot.look;
+}
+
+/** What people did lately with each kind of card of each row (`learnedCards` on the server, with `/api/library`). */
+export type LearnedCards = Partial<Record<ShelfRow, Readonly<Record<string, Learned>>>>;
+
+/** One place down the brain's order weighs this much against what people downloaded (a nudge is at most 0.3). */
+const PLACE_STEP = 0.15;
+
+/**
+ * The shelf shows a row's first card, so learning chooses which card leads: the brain's order, nudged by how often each kind of
+ * card was kept and downloaded (`learnedNudge`, seeded per hand, so a kind with little history still gets to lead). The others
+ * keep their order. Nothing moves until the row has some history and every card has a kind.
+ */
+export function learnedLead(slots: CreativesPackSlot[], learned: Readonly<Record<string, Learned>> | undefined, draw: string): CreativesPackSlot[] {
+  if (!learned || slots.length < 2) return slots;
+  const kinds = slots.map(cardKind);
+  if (kinds.some(kind => kind === undefined)) return slots;
+  const usual = usualRate(Object.values(learned).map(counts => ({ learned: counts })));
+  const scores = kinds.map((kind, index) => learnedNudge(learned[kind!], usual, `${draw}:${kind}`) - index * PLACE_STEP);
+  const lead = scores.indexOf(Math.max(...scores));
+  return lead === 0 ? slots : [slots[lead], ...slots.filter((_, index) => index !== lead)];
 }
 
 /** Colours for card `index` of a Dust row; when the cover has a colour, the first two cards grow from it. */

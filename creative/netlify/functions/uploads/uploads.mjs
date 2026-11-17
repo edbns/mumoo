@@ -1,13 +1,12 @@
 import { personFrom, recordPerson } from '../../lib/person.mjs';
 import { storageReady } from '../../lib/storage.mjs';
-import { entries, listUploads, MAX_PHOTO_BYTES, MAX_SHELF_PICTURES, motionArrived, removeAllExcept, removeUpload, reserveMotion, saveUpload, USES } from '../../lib/uploads.mjs';
+import { entries, listUploads, MAX_PHOTO_BYTES, MAX_SHELF_PICTURES, motionArrived, removeAllExcept, removeUpload, reserveMotion, saveUpload } from '../../lib/uploads.mjs';
 
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const REFUSALS = {
   format: [415, 'Use a JPEG, PNG or WebP photo, or an MP4, MOV, WebM or GIF.'],
   size: [413, 'That file is too large.'],
-  busy: [409, 'Your last picture is still being prepared. Try again in a moment.'],
   full: [409, 'Your storage is full. Delete some files or creatives to make room.'],
   many: [409, `You already have ${MAX_SHELF_PICTURES} of your own pictures here. Start over to use others.`],
 };
@@ -18,10 +17,10 @@ const guarded = (work, fallback) => work.catch((cause) => { console.error('uploa
 const pictures = async (status, userId) => reply(status, { uploads: await entries(userId) });
 
 /**
- * Your own pictures: at most one for each row of the shelf, and a new one replaces the old.
+ * Your own pictures: up to ten for the whole shelf.
  *   GET    lists them (a picture still being prepared is settled first)
- *   POST   ?kind=photo&use=any (or an older row's use)  a JPEG body (Dust, Riso and Window have its subject cut out)
- *   POST   ?kind=motion JSON {use, type, bytes}: reserves room (Filters, Window, Riso, …), returns {id, putUrl} to send the video or GIF to
+ *   POST   ?kind=photo         a JPEG body (its subject is cut out on our worker)
+ *   POST   ?kind=motion JSON {type, bytes}: reserves room, returns {id, putUrl} to send the video or GIF to
  *   PUT    ?id=…        the video or GIF has been sent: start preparing it
  *   DELETE ?id=…        removes it and everything made from it
  *   DELETE ?except=a,b  removes every picture but those (a new run starts clean; the ones a cart still uses stay). `except=` alone removes all.
@@ -37,15 +36,13 @@ export default async function handler(request) {
   if (request.method === 'GET') return reply(200, { uploads: await listUploads(person.id) });
   if (request.method === 'POST') {
     if (params.get('kind') === 'motion') {
-      const { use, type, bytes } = await request.json().catch(() => ({}));
-      if (typeof use !== 'string' || typeof type !== 'string' || !Number.isInteger(bytes) || bytes < 1) return reply(400, { error: 'Say what the file is for, what it is and how big.' });
-      const result = await reserveMotion(person.id, use, type, bytes);
+      const { type, bytes } = await request.json().catch(() => ({}));
+      if (typeof type !== 'string' || !Number.isInteger(bytes) || bytes < 1) return reply(400, { error: 'Say what the file is and how big.' });
+      const result = await reserveMotion(person.id, type, bytes);
       return result.refused ? refuse(result.refused) : reply(201, result);
     }
     if (Number(request.headers.get('content-length') || 0) > MAX_PHOTO_BYTES) return refuse('size');
-    const use = params.get('use') ?? '';
-    if (!USES.includes(use)) return reply(400, { error: 'Say what the photo is for.' });
-    const result = await guarded(saveUpload(person.id, use, new Uint8Array(await request.arrayBuffer())), { failed: true });
+    const result = await guarded(saveUpload(person.id, new Uint8Array(await request.arrayBuffer())), { failed: true });
     if (result.failed) return reply(502, { error: 'We could not start preparing that photo. Try again.' });
     return result.refused ? refuse(result.refused) : pictures(201, person.id);
   }

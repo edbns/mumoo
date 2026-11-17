@@ -87,7 +87,7 @@ test('a row of four is dealt four different faces from different moods, the same
     const needs = [['letters'], ['heavy'], [], ['heavy', 'caps']];
     for (const lane of LANES) {
       for (let i = 0; i < 40; i++) {
-        const deal = () => fonts.dealFonts(lane, 'Uplifting/Energetic', `seed-${i}`, 'looks', needs);
+        const deal = () => fonts.dealFonts(lane, 'Uplifting/Energetic', `seed-${i}`, 'photography', needs);
         const row = deal();
         assert.deepEqual(row, deal(), 'dealt the same way every time');
         assert.equal(new Set(row).size, 4, `${lane} ${i}: ${row}`);

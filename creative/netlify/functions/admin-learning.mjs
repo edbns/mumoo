@@ -3,7 +3,8 @@ import { db } from '../lib/person.mjs';
 
 /**
  * GET /api/admin/learning?days=30: what people did with the creatives (brain_feedback), summed up for reading. Counts and codes only:
- * which rows, looks, vibes and library pictures are played, watched, kept and delivered. Never who did it, never any words.
+ * which rows, kinds of card, looks, vibes and library pictures are played, watched, kept and downloaded. Never who did it, never any words.
+ * Rows, cards and pictures come most downloaded first: downloads are what the shelf learns from (`learnedCards`, `learnedCounts`).
  */
 const DAYS = [7, 30, 90];
 
@@ -24,7 +25,10 @@ export default async function handler(request) {
       count(*) filter (where event = 'refresh')::int as refreshes,
       coalesce(round(avg(watch_ms) filter (where event = 'watch'))::int, 0) as avg_watch_ms`;
     const [totals] = await sql`select ${tally}, count(distinct clip_sha256)::int as songs from brain_feedback where ${since}`;
-    const rows = await sql`select row_id as key, ${tally} from brain_feedback where ${since} and row_id is not null group by row_id order by plays desc, key`;
+    const rows = await sql`select row_id as key, ${tally} from brain_feedback where ${since} and row_id is not null group by row_id order by delivered desc, plays desc, key`;
+    const cards = await sql`
+      select row_id || ' · ' || look as key, ${tally} from brain_feedback where ${since} and row_id is not null and look is not null and event <> 'refresh'
+      group by 1 order by delivered desc, selects desc, plays desc, key limit 40`;
     const looks = await sql`select coalesce(look, type_style, style) as key, ${tally} from brain_feedback where ${since} and event <> 'refresh' group by 1 order by plays desc, key limit 30`;
     const vibes = await sql`select coalesce(vibe, 'unread') || ' · ' || lane as key, ${tally} from brain_feedback where ${since} group by 1 order by plays desc, key limit 30`;
     const boards = await sql`select board as key, ${tally} from brain_feedback where ${since} and board is not null group by board order by plays desc, key`;
@@ -36,7 +40,7 @@ export default async function handler(request) {
       select id as key, ${tally} from (
         select *, unnest(coalesce(reel_ids, array[library_id])) as id from brain_feedback
         where ${since} and (library_id is not null or reel_ids is not null) and own_picture is not true
-      ) used group by id order by plays desc, key limit 40`;
+      ) used group by id order by delivered desc, plays desc, key limit 40`;
     const recent = await sql`
       select created_at, event, row_id, coalesce(look, type_style, style) as look, vibe, lane, attitude, genre, watch_ms, nth_download
       from brain_feedback where ${since} order by created_at desc limit 50`;
@@ -59,6 +63,7 @@ export default async function handler(request) {
       days,
       totals: { ...shape([{ key: 'all', ...totals }])[0], songs: totals.songs },
       rows: shape(rows),
+      cards: shape(cards),
       looks: shape(looks),
       vibes: shape(vibes),
       moods: shape(moods),

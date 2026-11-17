@@ -12,7 +12,6 @@ Still to do:
 - Set `ADMIN_EMAILS=moo@mumoo.app` in the Netlify environment (staging and production).
 - Library to templates, wired for **Our photography** (photos, videos, GIFs; only `approved` and ready items; the song's attitude is the main match, a set genre/sub-genre is preferred and kept to its own genre, an unset one is free for any; a tag that is one of the genre's themes from `src/genre-guide.ts` is a small plus). Still to do:
   - Genre colours: measure each library photo's palette, then match it to the guidance's colours (not read yet).
-  - Riso, Dust and Window: they need a cut-out of the subject, so library photos must be run through the prepare worker (`kind: photo`) when they arrive, then dealt like plates. Window also needs a reading per picture.
   - Decide what a card shows when an item is removed from the library while it sits in someone's cart (it is dropped from the download quietly now).
 - Financials: sales, refunds, tokens sold and used, per day and per month (needs payments).
 - Referral figures (needs the referral program).
@@ -40,4 +39,5 @@ Still to do:
 - Done: every play, select, download press and refresh is kept in `brain_feedback` (codes only), against the person when signed in; `nth_download` 1 is their first download (the free one).
 - Done (migration 023): the whole reel and the Director's seed, preview watch time (`watch`), finished downloads (`delivered`, copied from the card's own download press), and the song's other moods, themes, drive and key. Admin → Learning reads it per row, look, vibe, mood and library picture.
 - Done: library picks lean a little (at most ±0.3, below one theme) towards pictures people keep, with a seeded draw so new pictures still get turns (`learnedNudge`). Counts come with `/api/library` (last 90 days).
-- To do: mark the free download properly once credits exist; nudge looks and rows (not only library pictures) once there is enough traffic; nudge per mood or lane instead of overall.
+- Done: downloads lead the learning. A downloaded card counts in full, one only put in the cart a third (`learnedCounts`). Each template leads with the kind of card people download (`learnedCards`, `learnedLead`: treatment variant, Window colour, Silhouette figure and colour, Riso ink, live look). Admin → Learning shows what people download, most downloaded first.
+- To do: mark the free download properly once credits exist; learn per mood or lane instead of overall; learn the order of the templates on the shelf.

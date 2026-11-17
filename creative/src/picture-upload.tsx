@@ -5,7 +5,7 @@ import { FileDropzone } from '@/components/ui/file-dropzone';
 import { Modal } from '@/components/ui/modal';
 import { PhoneUpload } from './phone-upload';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
-import { ACCEPT, MAX_SHELF_PICTURES, SHELF_PICTURE } from './uploads';
+import { ACCEPT, MAX_SHELF_PICTURES } from './uploads';
 import type { Uploads } from './use-uploads';
 
 /**
@@ -20,10 +20,9 @@ export function PictureUpload({ uploads, token, onChange }: {
   onChange: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const use = SHELF_PICTURE;
-  const sending = uploads.sending?.use === use ? uploads.sending : null;
-  const preparing = uploads.current.filter(item => item.use === use && item.status === 'preparing').length;
-  const problem = uploads.problem && (uploads.problem.use === use || uploads.problem.use === null) ? uploads.problem.message : '';
+  const { sending } = uploads;
+  const preparing = uploads.current.filter(item => item.status === 'preparing').length;
+  const problem = uploads.problem?.message ?? '';
   const of = sending && sending.total > 1 ? ` ${sending.index + 1} of ${sending.total}` : '';
   const status = sending
     ? (sending.share === undefined ? `Sending${of}…` : sending.share < 1 ? `Sending${of} ${Math.round(sending.share * 100)}%` : `Starting${of}…`)
@@ -32,7 +31,7 @@ export function PictureUpload({ uploads, token, onChange }: {
   async function pick(files: File[]) {
     onChange();
     setOpen(false);
-    await uploads.add(files, use);
+    await uploads.add(files);
   }
 
   return <>

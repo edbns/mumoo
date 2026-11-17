@@ -74,8 +74,7 @@ export default async function encodeCreative(request) {
       if (!person) return error(401, 'Sign in to use your own pictures.');
       const media = await uploadMedia(person.id, upload);
       if (!media) return error(404, 'That picture was not found, or is still being prepared.');
-      // A picture kept for one row cannot be sent to another; one kept for the whole shelf is cut down to what this card needs.
-      const sent = ownMedia(scene.opts?.style, scene.opts?.look, media);
+      const sent = ownMedia(scene.opts?.style, media);
       if (sent.refused) return error(400, sent.refused);
       if (sent.parts.photo) outbound.append('photo', new Blob([sent.parts.photo], { type: 'image/jpeg' }), 'photo.jpg');
       if (sent.parts.cutout) outbound.append('cutout', new Blob([sent.parts.cutout], { type: 'image/png' }), 'cutout.png');

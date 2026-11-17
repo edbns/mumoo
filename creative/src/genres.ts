@@ -36,4 +36,3 @@ export const familyOf = (subGenre: string) => FAMILY[subGenre.trim().toLowerCase
 /** How a typed style is compared: case, accents, spaces, hyphens and "&"/"and"/"'n'" do not matter ("Afro beat", "afrobeat", "AFRO-BEAT"). */
 export const styleKey = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&|\band\b|'n'/g, 'n').replace(/[^a-z0-9]+/g, '');
 
-export const toOptions = (items: readonly string[]) => items.map(item => ({ value: item, label: item }));

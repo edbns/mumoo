@@ -14,7 +14,7 @@ import type { AdPunchStyle } from './ad-punch';
 import { activePackCopy, packReaction, packWordEnter } from './pack-copy';
 import { createPackScene } from './pack-scenes';
 import { isLiveLook, type LiveLookId } from './live-look-deal';
-import { bankBackgroundUrl, photoEffectUrl } from './pack-looks';
+import { photoEffectUrl } from './pack-looks';
 import { typeFamilies, type TypeStyleId } from './pack-type';
 import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
@@ -61,8 +61,6 @@ export type PackRendererOpts = {
    */
   reel?: readonly ReelSource[];
   cutSeed?: number;
-  /** Look Bank card: baked Shaders Pro background id + lyric type style. */
-  bankId?: string;
   typeStyle?: TypeStyleId;
   /** Our photography: a live look drawn on the person's own or our library picture (not on a baked effect, which is already a look). */
   look?: LiveLookId;
@@ -133,7 +131,7 @@ function checkWindow(opts: PackRendererOpts): WindowMode {
   const screens: readonly string[] = mode === 'silhouette' ? SILHOUETTE_SCREENS : WINDOW_PALETTE_IDS.filter(id => id !== 'red');
   if (![palette, ...allowed].every(id => screens.includes(id))) throw new Error('Window has no such screen colour.');
   if (mode === 'silhouette' ? !shape || !SILHOUETTE_IDS.includes(shape) : shape !== undefined) throw new Error(mode === 'silhouette' ? 'Silhouette has no such figure.' : 'Only a Silhouette has a figure.');
-  if (opts.effectId || opts.bankId) throw new Error('Window shows only a picture behind the word.');
+  if (opts.effectId) throw new Error('Window shows only a picture behind the word.');
   const sources = [Boolean(opts.reel?.length), Boolean(opts.plateId), Boolean(opts.photoUrl || opts.motionUrl)].filter(Boolean).length;
   if (sources !== 1) throw new Error('A Window card needs exactly one picture.');
   return mode;
@@ -311,10 +309,8 @@ export async function createPackRenderer(
         if (shape && !figures.has(shape)) figures.set(shape, await loadTexture(silhouetteUrl(shape), 'The silhouette'));
         const windowFigure = shape ? figures.get(shape) : undefined;
 
-        // A baked still: a Look Bank background or a photography effect. One that cannot be loaded shows the downtime message.
-        const stillUrl = style === 'bank' && current.bankId ? bankBackgroundUrl(current.bankId)
-          : style === 'filter' && current.effectId ? photoEffectUrl(current.effectId)
-          : null;
+        // A baked photography effect. One that cannot be loaded shows the downtime message.
+        const stillUrl = style === 'filter' && current.effectId ? photoEffectUrl(current.effectId) : null;
         let still: Texture | null = null;
         if (stillUrl) {
           if (stillUrl !== stillUrlLoaded || !stillTexture) {

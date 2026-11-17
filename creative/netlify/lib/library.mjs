@@ -419,24 +419,54 @@ export async function listApproved() {
 const LEARNED_DAYS = 90;
 
 /**
- * For each library picture, how often a card drawn from it was played (`shown`) and how often one was kept: put in the cart or delivered
- * (`won`). A reel counts for every picture in it. Cards drawn on the person's own picture say nothing about ours. Counts only, never who.
+ * How much a play was worth, 0…1: a card that was downloaded (put in the cart, then delivered) counts in full, one only put in the
+ * cart a third. Downloads are what people really wanted.
+ */
+const won = (selects, delivered) => Math.round(((selects + 2 * delivered) / 3) * 100) / 100;
+
+/**
+ * For each library picture, how often a card drawn from it was played (`shown`) and how much of that was kept (`won`, see above).
+ * A reel counts for every picture in it. Cards drawn on the person's own picture say nothing about ours. Counts only, never who.
  * Learning must never stop the library from loading: without the table, or on any error, nothing is learned.
  */
 export async function learnedCounts() {
   try {
     const rows = await db()`
-      select id, count(*) filter (where event = 'play')::int as shown, count(*) filter (where event in ('select', 'delivered'))::int as won
+      select id, count(*) filter (where event = 'play')::int as shown,
+        count(*) filter (where event = 'select')::int as selects, count(*) filter (where event = 'delivered')::int as delivered
       from (
         select event, unnest(coalesce(reel_ids, array[library_id])) as id from brain_feedback
         where created_at > now() - make_interval(days => ${LEARNED_DAYS}) and event in ('play', 'select', 'delivered')
           and (library_id is not null or reel_ids is not null) and own_picture is not true
       ) used
       group by id`;
-    return new Map(rows.map(row => [row.id, { shown: row.shown, won: row.won }]));
+    return new Map(rows.map(row => [row.id, { shown: row.shown, won: won(row.selects, row.delivered) }]));
   } catch (cause) {
     console.error('learned counts:', cause);
     return new Map();
+  }
+}
+
+/**
+ * For each row of the shelf, each kind of card it deals (the `look` feedback keeps: a treatment's variant, a Window palette, a
+ * Silhouette figure, a Riso ink set, a live look): how often it was played and how much of that was kept, as for pictures.
+ * `{ [row]: { [kind]: { shown, won } } }`, over the same days. Never stops the library from loading.
+ */
+export async function learnedCards() {
+  try {
+    const rows = await db()`
+      select row_id, look, count(*) filter (where event = 'play')::int as shown,
+        count(*) filter (where event = 'select')::int as selects, count(*) filter (where event = 'delivered')::int as delivered
+      from brain_feedback
+      where created_at > now() - make_interval(days => ${LEARNED_DAYS}) and event in ('play', 'select', 'delivered')
+        and row_id is not null and look is not null
+      group by row_id, look`;
+    const cards = {};
+    for (const row of rows) (cards[row.row_id] ??= {})[row.look] = { shown: row.shown, won: won(row.selects, row.delivered) };
+    return cards;
+  } catch (cause) {
+    console.error('learned cards:', cause);
+    return {};
   }
 }
 
@@ -469,16 +499,4 @@ export async function removeTag(name) {
   await sql`update library_items set tags = array_remove(tags, ${name}) where ${name} = any (tags)`;
   const [row] = await sql`delete from library_tags where name = ${name} returning name`;
   return Boolean(row);
-}
-
-/** A new, unused tag on its own (typed in the tag box before it is given to an item). */
-export async function addTag(value) {
-  const read = readTags([value]);
-  if (read.refused) return read;
-  const sql = db();
-  const [{ count }] = await sql`select count(*)::int as count from library_tags`;
-  const [known] = await sql`select 1 as known from library_tags where name = ${read.tags[0]}`;
-  if (!known && count >= tagLimit()) return { refused: `The tag list is full (${tagLimit()}). Remove a tag you do not use first.` };
-  await sql`insert into library_tags (name) values (${read.tags[0]}) on conflict do nothing`;
-  return { tag: read.tags[0] };
 }
