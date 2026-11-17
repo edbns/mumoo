@@ -1,4 +1,5 @@
 import { accountFetch } from './account';
+import type { Source } from '../netlify/lib/traffic-source.mjs';
 
 /**
  * Smart links in the browser: the song found from a pasted link (`/api/links/lookup`), the draft the artist edits (kept in this
@@ -24,10 +25,14 @@ export type ServiceRow = { service: Service; url: string; hidden: boolean; exact
 export type LinkFields = {
   source: string; title: string; artist: string; cover: string | null; preview: string | null; isrc: string | null; services: ServiceRow[];
 };
-/** A published link; listed, it has its button presses per service ever (`clicks`) and of the last seven days (`week`). */
+/**
+ * A published link. Listed, it has its button presses per service ever (`clicks`) and of the last seven days (`week`), its page
+ * opens ever and of the last seven days, and both per traffic source.
+ */
 export type Published = {
   slug: string; link: Omit<LinkFields, 'services'> & { services: Omit<ServiceRow, 'exact'>[] }; created_at: string; updated_at: string;
-  clicks?: Partial<Record<Service, number>>; week?: number;
+  clicks?: Partial<Record<Service, number>>; week?: number; views?: number; views_week?: number;
+  sources?: Partial<Record<Source, { views: number; clicks: number }>>;
 };
 
 /** What the editor holds. `editing` is the address of the published link being changed, or null for a new one. */

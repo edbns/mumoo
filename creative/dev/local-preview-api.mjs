@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { cleanLink, slugProblem } from '../netlify/lib/smart-links.mjs';
 import { fanPage, missingPage, POLICY } from '../netlify/lib/fan-page.mjs';
 import { PICK, lookupSong, parseSource, searchSongs } from '../netlify/lib/song-lookup.mjs';
+import { sourceOf } from '../netlify/lib/traffic-source.mjs';
 
 /**
  * Stand-ins for the staging servers, so every screen can be used and designed on the local dev server.
@@ -268,29 +269,44 @@ export function localPreviewApi() {
         const problem = slugProblem(name) ?? (smartLinks.has(name) || name === 'taken-name' ? 'Someone already has that name. Try another.' : null);
         send(response, 200, problem ? { free: false, error: problem } : { free: true });
       });
-      const linkClicks = new Map();
+      // Counts as the real ones keep them: per link, service and traffic source (all days count as this week here).
+      const linkCounts = new Map();
+      const countsOf = slug => linkCounts.get(slug) ?? linkCounts.set(slug, { clicks: {}, views: 0, sources: {} }).get(slug);
+      const sourceCounts = (counts, source) => (counts.sources[source] ??= { views: 0, clicks: 0 });
       route('/api/links/click', 'POST', async (request, response) => {
         const params = new URL(request.url, 'http://local').searchParams;
         const shown = smartLinks.get(params.get('slug'))?.link.services.some(row => row.service === params.get('service') && !row.hidden);
         if (shown) {
-          const counts = linkClicks.get(params.get('slug')) ?? {};
-          counts[params.get('service')] = (counts[params.get('service')] ?? 0) + 1;
-          linkClicks.set(params.get('slug'), counts);
+          const counts = countsOf(params.get('slug'));
+          counts.clicks[params.get('service')] = (counts.clicks[params.get('service')] ?? 0) + 1;
+          sourceCounts(counts, sourceOf(request.headers['ping-from'] ?? request.headers.referer ?? '')).clicks += 1;
         }
         response.statusCode = 204;
         response.end();
       });
+      route('/api/links/view', 'GET', async (request, response) => {
+        const slug = new URL(request.url, 'http://local').searchParams.get('slug');
+        if (smartLinks.has(slug)) {
+          const counts = countsOf(slug);
+          counts.views += 1;
+          sourceCounts(counts, sourceOf(request.headers.referer ?? '')).views += 1;
+        }
+        response.setHeader('Content-Type', 'image/gif');
+        response.setHeader('Cache-Control', 'no-store');
+        response.end(Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'));
+      });
       const linksRoute = method => route('/api/links', method, signedIn(async (_email, request, response) => {
         if (method === 'GET') {
           return send(response, 200, { links: [...smartLinks.values()].reverse().map(item => {
-            const clicks = linkClicks.get(item.slug) ?? {};
-            return { ...item, clicks, week: Object.values(clicks).reduce((sum, count) => sum + count, 0) };
+            const counts = linkCounts.get(item.slug) ?? { clicks: {}, views: 0, sources: {} };
+            const week = Object.values(counts.clicks).reduce((sum, count) => sum + count, 0);
+            return { ...item, clicks: counts.clicks, week, views: counts.views, views_week: counts.views, sources: counts.sources };
           }) });
         }
         if (method === 'DELETE') {
           const slug = new URL(request.url, 'http://local').searchParams.get('slug');
           smartLinks.delete(slug);
-          linkClicks.delete(slug);
+          linkCounts.delete(slug);
           return send(response, 200, {});
         }
         const { slug, link } = JSON.parse((await readBody(request)).toString('utf8'));

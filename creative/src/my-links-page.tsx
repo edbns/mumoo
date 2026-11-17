@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { authClient, checkSignInCode, sendSignInCode, signInWithGoogle } from './account';
 import type { AccountPage } from './account-pages';
 import { SignInDialog } from './sign-in-dialog';
-import { CopyButton, Cover, OpenButton, iconButton } from './smart-link-parts';
+import { SOURCE_LABELS, type Source } from '../netlify/lib/traffic-source.mjs';
+import { CopyButton, CopyTextButton, Cover, OpenButton, iconButton } from './smart-link-parts';
 import { LABELS, addressOf, deletePublished, listLinks, openForEdit, type Published, type Service } from './smart-links';
 
 /**
@@ -89,8 +90,9 @@ function LinkRow({ item, onEdit, onDelete }: { item: Published; onEdit: () => vo
     </div>
     <div className="grid gap-x-8 gap-y-4 sm:grid-cols-[auto_minmax(0,1fr)]">
       <div className="flex gap-6 sm:flex-col sm:gap-3">
+        <Stat label="Opens" value={item.views ?? 0} />
         <Stat label="Clicks" value={total} />
-        <Stat label="Last 7 days" value={item.week ?? 0} />
+        <Stat label="Clicks, last 7 days" value={item.week ?? 0} />
       </div>
       <ul aria-label={`Clicks per button for ${item.slug}`} className="m-0 flex list-none flex-col gap-2 p-0">
         {rows.map(row => <li key={row.service} className="flex items-center gap-3 text-sm">
@@ -105,8 +107,39 @@ function LinkRow({ item, onEdit, onDelete }: { item: Published; onEdit: () => vo
         </li>)}
       </ul>
     </div>
+    <Sources item={item} address={address} />
     {total === 0 && <p className="m-0 text-xs text-muted-foreground">No clicks yet. Each time a fan presses a button, it’s counted here: only the number, nothing about the fan.</p>}
   </li>;
+}
+
+/** The address with the tags that mark a visit as coming from a Meta ad (Meta adds its click ID to ads and posts alike). */
+const forMetaAds = (address: string) => `${address}?utm_source=meta&utm_medium=paid`;
+
+/** Opens and clicks per traffic source, most opened first, with how many of the opens went on to a service. */
+function Sources({ item, address }: { item: Published; address: string }) {
+  const rows = (Object.entries(item.sources ?? {}) as [Source, { views: number; clicks: number }][])
+    .sort(([, a], [, b]) => b.views - a.views || b.clicks - a.clicks);
+  return <div className="flex flex-col gap-2 border-t border-border pt-4">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <p className="m-0 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Where fans came from</p>
+      <CopyTextButton text={forMetaAds(address)} label="Copy link for Meta ads" />
+    </div>
+    {rows.length > 0 && <table className="w-full border-collapse text-sm">
+      <thead><tr className="text-left text-xs text-muted-foreground">
+        <th className="py-1 font-normal">Source</th><th className="w-20 py-1 text-right font-normal">Opens</th>
+        <th className="w-20 py-1 text-right font-normal">Clicks</th><th className="w-24 py-1 text-right font-normal">Opens → app</th>
+      </tr></thead>
+      <tbody>{rows.map(([source, counts]) => <tr key={source}>
+        <td className="py-1">{SOURCE_LABELS[source] ?? source}</td>
+        <td className="py-1 text-right tabular-nums">{counts.views}</td>
+        <td className="py-1 text-right tabular-nums">{counts.clicks}</td>
+        <td className="py-1 text-right tabular-nums text-muted-foreground">{counts.views ? `${Math.min(100, Math.round((counts.clicks / counts.views) * 100))}%` : '–'}</td>
+      </tr>)}</tbody>
+    </table>}
+    <p className="m-0 text-xs text-muted-foreground">
+      Running Meta ads? Use the Meta ads link as the ad’s website, so its fans show as “Meta ads” here. TikTok and Google ads are recognised by themselves.
+    </p>
+  </div>;
 }
 
 function Stat({ label, value }: { label: string; value: number }) {

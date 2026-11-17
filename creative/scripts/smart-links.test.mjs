@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { cleanLink, countClick, deleteLink, linksOf, publishLink, slugProblem, updateLink } from '../netlify/lib/smart-links.mjs';
+import { cleanLink, countClick, countView, deleteLink, linksOf, publishLink, slugProblem, updateLink } from '../netlify/lib/smart-links.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import links from '../netlify/functions/links.mjs';
 import slugCheck from '../netlify/functions/links-slug.mjs';
 import click from '../netlify/functions/links-click.mjs';
+import view from '../netlify/functions/links-view.mjs';
 
 /** Smart links, step two: what the editor publishes, at which address, and only by its owner. */
 
@@ -88,15 +89,27 @@ test('a name is taken by whoever publishes first, and only its owner can change 
     const [listed] = await linksOf(owner);
     assert.deepEqual(listed.clicks, { spotify: 2, apple: 1 });
     assert.equal(listed.week, 3);
-    assert.deepEqual(Object.keys((await sql`select * from smart_link_clicks where slug = ${slug} limit 1`)[0]).sort(), ['clicks', 'day', 'service', 'slug'],
+    assert.deepEqual(Object.keys((await sql`select * from smart_link_clicks where slug = ${slug} limit 1`)[0]).sort(), ['clicks', 'day', 'service', 'slug', 'source'],
       'only counts are kept, nothing about who pressed');
-    assert.equal((await click(new Request(`https://mumoo.app/api/links/click?slug=${slug}&service=apple`, { method: 'POST' }))).status, 204);
+    assert.equal((await click(new Request(`https://mumoo.app/api/links/click?slug=${slug}&service=apple`, { method: 'POST',
+      headers: { 'Ping-From': `https://mumoo.app/l/${slug}?utm_source=meta&utm_medium=paid&fbclid=IwAR0secret` } }))).status, 204);
     assert.equal((await linksOf(owner))[0].clicks.apple, 2);
+
+    const opened = await view(new Request(`https://mumoo.app/api/links/view?slug=${slug}`, { headers: { Referer: `https://mumoo.app/l/${slug}?ttclid=E.C.P.secret` } }));
+    assert.equal(opened.headers.get('Content-Type'), 'image/gif');
+    assert.equal(await countView(slug), true);
+    assert.equal(await countView(`gone-${randomUUID().slice(0, 8)}`), false);
+    const [withSources] = await linksOf(owner);
+    assert.equal(withSources.views, 2);
+    assert.deepEqual(withSources.sources, { direct: { views: 1, clicks: 3 }, meta_ads: { views: 0, clicks: 1 }, tiktok_ads: { views: 1, clicks: 0 } });
+    const kept = JSON.stringify(await sql`select * from smart_link_clicks where slug = ${slug} union all select slug, 'view', day, views, source from smart_link_views where slug = ${slug}`);
+    assert.ok(!kept.includes('secret'), 'the click IDs are never kept, only their category');
     assert.equal((await click(new Request(`https://mumoo.app/api/links/click?slug=${slug}&service=apple`))).status, 405);
 
     await sql`delete from app_users where id = ${owner}`;
     assert.deepEqual(await sql`select 1 from smart_links where slug = ${slug}`, [], 'a deleted account takes its links with it');
     assert.deepEqual(await sql`select 1 from smart_link_clicks where slug = ${slug}`, [], 'and their clicks');
+    assert.deepEqual(await sql`select 1 from smart_link_views where slug = ${slug}`, [], 'and their opens');
   } finally {
     await sql`delete from smart_links where slug = ${slug}`;
     await sql`delete from app_users where id in (${owner}, ${other})`;

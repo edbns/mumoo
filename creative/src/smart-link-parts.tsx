@@ -19,6 +19,15 @@ export function CopyButton({ text }: { text: string }) {
   </button>;
 }
 
+/** A text button that copies `text`, saying so for a moment. */
+export function CopyTextButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return <button type="button" className={textButton}
+    onClick={() => void navigator.clipboard.writeText(text).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), COPIED_MS); })}>
+    {copied ? 'Copied' : label}
+  </button>;
+}
+
 export function OpenButton({ slug }: { slug: string }) {
   return <a className={iconButton} href={addressOf(slug)} target="_blank" rel="noreferrer" aria-label="Open link"><ExternalLinkIcon className="size-4" /></a>;
 }

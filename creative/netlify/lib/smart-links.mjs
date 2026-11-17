@@ -1,6 +1,7 @@
 import { db } from './person.mjs';
 import { LABELS, SERVICES } from './services.mjs';
 import { ISRC, parseSource } from './song-lookup.mjs';
+import { SOURCES } from './traffic-source.mjs';
 
 export { LABELS };
 
@@ -98,25 +99,45 @@ export async function slugTaken(slug) {
 /** How far back "this week" goes in the click counts. */
 const WEEK_DAYS = 7;
 
-/** The person's links, each with its clicks per service ever and its clicks of the last week. */
+/**
+ * The person's links, each with its clicks per service ever and of the last week, its page opens ever and of the last week, and
+ * both per traffic source (`sources`: {meta_ads: {views, clicks}, …}).
+ */
 export async function linksOf(userId) {
   return db()`select l.slug, l.link, l.created_at, l.updated_at,
       coalesce((select jsonb_object_agg(service, total) from (select service, sum(clicks)::int as total from smart_link_clicks c
         where c.slug = l.slug group by service) per_service), '{}'::jsonb) as clicks,
-      coalesce((select sum(clicks)::int from smart_link_clicks c where c.slug = l.slug and c.day > current_date - ${WEEK_DAYS}::int), 0) as week
+      coalesce((select sum(clicks)::int from smart_link_clicks c where c.slug = l.slug and c.day > current_date - ${WEEK_DAYS}::int), 0) as week,
+      coalesce((select sum(views)::int from smart_link_views v where v.slug = l.slug), 0) as views,
+      coalesce((select sum(views)::int from smart_link_views v where v.slug = l.slug and v.day > current_date - ${WEEK_DAYS}::int), 0) as views_week,
+      coalesce((select jsonb_object_agg(source, jsonb_build_object('views', views, 'clicks', clicks)) from (
+        select source, coalesce(sum(views), 0)::int as views, coalesce(sum(clicks), 0)::int as clicks from (
+          select source, views, 0 as clicks from smart_link_views v where v.slug = l.slug
+          union all select source, 0, clicks from smart_link_clicks c where c.slug = l.slug) counted group by source) per_source), '{}'::jsonb) as sources
     from smart_links l where l.user_id = ${userId} order by l.created_at desc`;
 }
 
+const knownSource = (source) => (SOURCES.includes(source) ? source : 'direct');
+
 /**
- * A fan pressed a button: one more for that link, service and day. Only a button the page shows counts. Nothing about the fan is
- * kept. True when it was counted.
+ * A fan pressed a button: one more for that link, service, traffic source and day. Only a button the page shows counts. Nothing
+ * about the fan is kept. True when it was counted.
  */
-export async function countClick(slug, service) {
+export async function countClick(slug, service, source = 'direct') {
   if (slugProblem(slug) || !SERVICES.includes(service)) return false;
-  const rows = await db()`insert into smart_link_clicks (slug, service, clicks)
-    select ${slug}, ${service}, 1 where exists (select 1 from smart_links where slug = ${slug}
+  const rows = await db()`insert into smart_link_clicks (slug, service, source, clicks)
+    select ${slug}, ${service}, ${knownSource(source)}, 1 where exists (select 1 from smart_links where slug = ${slug}
       and link->'services' @> ${JSON.stringify([{ service, hidden: false }])}::jsonb)
-    on conflict (slug, service, day) do update set clicks = smart_link_clicks.clicks + 1 returning clicks`;
+    on conflict (slug, service, day, source) do update set clicks = smart_link_clicks.clicks + 1 returning clicks`;
+  return rows.length > 0;
+}
+
+/** A fan opened the page: one more for that link, traffic source and day. True when it was counted. */
+export async function countView(slug, source = 'direct') {
+  if (slugProblem(slug)) return false;
+  const rows = await db()`insert into smart_link_views (slug, source, views)
+    select ${slug}, ${knownSource(source)}, 1 where exists (select 1 from smart_links where slug = ${slug})
+    on conflict (slug, source, day) do update set views = smart_link_views.views + 1 returning views`;
   return rows.length > 0;
 }
 

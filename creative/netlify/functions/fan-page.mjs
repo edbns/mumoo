@@ -14,6 +14,9 @@ function page(status, html, slug, cdnSeconds) {
       'Cache-Control': 'public, max-age=0, must-revalidate',
       'Netlify-CDN-Cache-Control': `public, durable, s-maxage=${cdnSeconds}, stale-while-revalidate=86400`,
       'Netlify-Cache-Tag': cacheTag(slug),
+      // The page is the same whatever the query, and ads add a click ID unique to each visit: no query parameter (but one that is
+      // never sent) makes another copy, so they all share one.
+      'Netlify-Vary': 'query=mumoo-none',
     },
   });
 }

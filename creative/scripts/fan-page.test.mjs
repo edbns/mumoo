@@ -51,6 +51,8 @@ test('a published page counts presses with the link\'s own ping, never the edito
   assert.equal((counted.match(/ ping="/g) ?? []).length, 2, 'one per shown button');
   assert.ok(!fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app').includes('ping='));
   assert.ok(!fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app', { countAs: 'x', inPhone: true }).includes('ping='));
+  assert.ok(counted.includes('<img class="v" src="https://mumoo.app/api/links/view?slug=x"'), 'and an invisible image counts the open');
+  assert.ok(!fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app', { countAs: 'x', inPhone: true }).includes('/api/links/view'));
   assert.ok(POLICY.includes("connect-src 'self'"));
 });
 
@@ -76,6 +78,7 @@ test('/l/<slug> serves the published page, cached until it changes, and "not her
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('Netlify-Cache-Tag'), `link-${slug}`);
     assert.match(response.headers.get('Netlify-CDN-Cache-Control'), /durable/);
+    assert.equal(response.headers.get('Netlify-Vary'), 'query=mumoo-none', 'an ad\'s click ID does not make a copy of its own');
     assert.match(await response.text(), /Mr\. Brightside/);
 
     for (const other of [`gone-${randomUUID().slice(0, 8)}`, 'admin', 'Bad Name']) {
