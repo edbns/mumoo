@@ -3,6 +3,7 @@ import { db } from './person.mjs';
 import { askPrepare, startPrepare } from './prepare.mjs';
 import { BOARDS } from './boards.mjs';
 import { alsoFits, suggestBoards } from './board-suggest.mjs';
+import { jpegColours } from './colours.mjs';
 import { deleteObject, getObject, objectSize, signedDownload, signedUpload } from './storage.mjs';
 
 /**
@@ -77,6 +78,7 @@ const isJpeg = (bytes) => bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 
 const STARTING_MS = 2 * 60 * 1000;
 const CUTOUT_TRIES = 3;
 const LOOK_TRIES = 3;
+const COLOUR_TRIES = 3;
 /** A file whose upload never finished is of no use after this long. */
 const STALE_MS = 60 * 60 * 1000;
 
@@ -117,6 +119,8 @@ const asItem = async (row, suggestion = null, also = []) => ({
   suggestion,
   /** Once it is on a board, the other boards our models say it would also fit (`alsoFits`): one picture can serve several. */
   also,
+  /** Its main colours (`measureColours`), largest first, once measured. */
+  colours: row.colours?.palette ?? null,
   url: await signedDownload(keyOf(row.id), null),
 });
 
@@ -267,10 +271,36 @@ async function lookAt(row) {
   }
 }
 
+/**
+ * Measures a ready item's colours (a photo, or a clip's poster), read like a song's cover, so the brain can match pictures to a genre's
+ * colours. A picture that cannot be read is tried three times. Never throws.
+ */
+async function measureColours(row) {
+  const sql = db();
+  try {
+    const [claimed] = await sql`
+      update library_items set colour_tries = colour_tries + 1
+      where id = ${row.id} and ready and colours is null and colour_tries < ${COLOUR_TRIES} returning id`;
+    if (!claimed) return;
+    const read = jpegColours(await getObject(row.kind === 'photo' ? keyOf(row.id) : posterKey(row.id)));
+    if (read) await sql`update library_items set colours = ${JSON.stringify(read)}::jsonb where id = ${row.id}`;
+  } catch (cause) {
+    console.error('library colours:', cause);
+  }
+}
+
+/** Measures the colours of up to `limit` ready items that have none yet (newest first). Returns how many it tried. */
+export async function measureMissingColours(limit = 20) {
+  const rows = await db()`select id, kind from library_items where arrived and ready and colours is null and colour_tries < ${COLOUR_TRIES} order by created_at desc limit ${limit}`;
+  for (const row of rows) await measureColours(row);
+  return rows.length;
+}
+
 /** Looks at every arrived item that is not ready, still needs its cut-out or has not been looked at, and has no stated problem, so the library moves on whenever anyone looks at it. */
 async function prepareWaiting() {
   const rows = await db()`select * from library_items where arrived and problem is null and (not ready or (kind = 'photo' and not cutout and cutout_tries < ${CUTOUT_TRIES}) or ((looks is null or embedding is null or reading is null) and look_tries < ${LOOK_TRIES})) order by ready, cardinality(boards) > 0, created_at desc limit 20`;
   await Promise.all(rows.map(prepareItem));
+  await measureMissingColours(10);
 }
 
 /** A safety cap on one listing, far above the library: a smaller one silently hid the oldest items (and their boards) once the library outgrew it. */
@@ -398,7 +428,7 @@ export async function removeItem(id) {
  */
 export async function listApproved() {
   await prepareWaiting();
-  const rows = await db()`select id, kind, attitudes, tags, genre, sub_genre, boards, looks, cutout, shots from library_items where arrived and ready and status = 'approved' order by created_at desc limit ${LIBRARY_MAX}`;
+  const rows = await db()`select id, kind, attitudes, tags, genre, sub_genre, boards, looks, colours, cutout, shots from library_items where arrived and ready and status = 'approved' order by created_at desc limit ${LIBRARY_MAX}`;
   const learned = await learnedCounts();
   return Promise.all(rows.map(async (row) => ({
     id: row.id,
@@ -409,6 +439,7 @@ export async function listApproved() {
     subGenre: row.sub_genre,
     ...(row.boards?.length ? { boards: row.boards } : {}),
     ...(row.looks && Object.keys(row.looks).length ? { looks: row.looks } : {}),
+    ...(row.colours ? { colours: { palette: row.colours.palette, lightness: row.colours.lightness, saturation: row.colours.saturation, contrast: row.colours.contrast } } : {}),
     ...(learned.has(row.id) ? { learned: learned.get(row.id) } : {}),
     url: await signedDownload(row.kind === 'photo' ? keyOf(row.id) : posterKey(row.id), null),
     ...(row.kind === 'photo' ? (row.cutout ? { cutoutUrl: await signedDownload(cutoutKey(row.id), null) } : {}) : { motionUrl: await signedDownload(motionKey(row.id), null), ...(row.shots ? { shots: row.shots } : {}) }),

@@ -4,6 +4,7 @@ import { loadLearning, loadLibrary, type Learning, type LibraryItem, type Tally 
 import { BOARDS } from '../boards';
 
 const PERIODS = [7, 30, 90] as const;
+const COLOUR_MATCH: Record<string, string> = { strong: 'Strong', some: 'Some', weak: 'Weak', none: 'Not read' };
 const boardName = (id: string) => BOARDS.find(board => board.id === id)?.name ?? id;
 const EVENT: Record<string, string> = { play: 'Played', watch: 'Watched', select: 'Into cart', download: 'Download pressed', delivered: 'Delivered', refresh: 'Refreshed' };
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -133,6 +134,8 @@ export function LearningView() {
       <Table title="Mood boards" note="Cards dealt from each board. A board people often refresh past is a weak fit for those songs." tallies={learning.boards} label={boardName} />
       <Table title="Mood boards by genre" note="The same, for each genre the creator gave (unknown when they did not know)." tallies={learning.boardGenres}
         label={key => { const [board, genre] = key.split(' · '); return <>{boardName(board)} <span className="text-muted-foreground">· {genre}</span></>; }} />
+      <Table title="Genre colour match" note="Cards on our pictures, by how well the picture carries the colours of the song's genre. Not read: the picture is not measured yet, or the genre has no colours. If strong matches are downloaded more, colours are worth more weight."
+        tallies={learning.colours} label={key => COLOUR_MATCH[key] ?? key} />
       <Table title="Looks" note="The live look, else the lyric type, else the style." tallies={learning.looks} />
       <Table title="Vibe and lane" note="How the song was heard, and the lane the brain chose." tallies={learning.vibes} />
       <Table title="Moods of the words" note="The main mood the lyric reader found." tallies={learning.moods} />

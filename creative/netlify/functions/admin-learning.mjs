@@ -3,10 +3,11 @@ import { db } from '../lib/person.mjs';
 
 /**
  * GET /api/admin/learning?days=30: what people did with the creatives (brain_feedback), summed up for reading. Counts and codes only:
- * which rows, kinds of card, looks, vibes and library pictures are played, watched, kept and downloaded. Never who did it, never any words.
+ * which rows, kinds of card, looks, vibes, library pictures and genre colour matches are played, watched, kept and downloaded. Never who did it, never any words.
  * Rows, cards and pictures come most downloaded first: downloads are what the shelf learns from (`learnedCards`, `learnedCounts`).
  */
 const DAYS = [7, 30, 90];
+const COLOUR_ORDER = ['strong', 'some', 'weak', 'none'];
 
 export default async function handler(request) {
   if (request.method !== 'GET') return refuse(405, 'Use GET.');
@@ -41,6 +42,12 @@ export default async function handler(request) {
         select *, unnest(coalesce(reel_ids, array[library_id])) as id from brain_feedback
         where ${since} and (library_id is not null or reel_ids is not null) and own_picture is not true
       ) used group by id order by delivered desc, plays desc, key limit 40`;
+    // Does a picture in the genre's colours get downloaded more? Cards on our pictures, by how well the picture carried them (`colourFit`).
+    const colours = await sql`
+      select case when colour_fit is null then 'none' when colour_fit >= 0.66 then 'strong' when colour_fit >= 0.33 then 'some' else 'weak' end as key, ${tally}
+      from brain_feedback where ${since} and (library_id is not null or reel_ids is not null) and own_picture is not true and event <> 'refresh'
+      group by 1`;
+    colours.sort((a, b) => COLOUR_ORDER.indexOf(a.key) - COLOUR_ORDER.indexOf(b.key));
     const recent = await sql`
       select created_at, event, row_id, coalesce(look, type_style, style) as look, vibe, lane, attitude, genre, watch_ms, nth_download
       from brain_feedback where ${since} order by created_at desc limit 50`;
@@ -69,6 +76,7 @@ export default async function handler(request) {
       moods: shape(moods),
       pictures: shape(pictures),
       boards: shape(boards),
+      colours: shape(colours),
       boardGenres: shape(boardGenres),
       genre: { prints, unknowns: unknowns.count, answers },
       recent: recent.map(row => ({

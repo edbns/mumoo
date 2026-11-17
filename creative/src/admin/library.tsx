@@ -218,6 +218,12 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
         Suggested: {item.suggestion.boards.map(boardName).join(' or ')}{item.suggestion.sure ? '' : ' (not sure)'}</span>}
       {item.also.length > 0 && <span className="text-xs text-muted-foreground">Would also fit: {item.also.map(boardName).join(', ')}</span>}
     </div>}
+    {item.colours && <div className="flex flex-col gap-1">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Colours · matched to each song's genre</span>
+      <div className="flex h-5 overflow-hidden rounded-[var(--radius-control)]" role="img" aria-label={`Colours: ${item.colours.map(colour => colour.hex).join(', ')}`}>
+        {item.colours.map(colour => <span key={colour.hex} style={{ background: colour.hex, flexGrow: colour.share }} title={`${colour.hex} · ${Math.round(colour.share * 100)}%`} />)}
+      </div>
+    </div>}
 
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
       <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Mood boards · the scenes it belongs to</legend>

@@ -302,6 +302,6 @@ test('Learning keeps the preset and take of each card', () => {
   const sent = readFileSync(new URL('../src/pack-feedback.ts', import.meta.url), 'utf8');
   const kept = readFileSync(new URL('../netlify/lib/feedback.mjs', import.meta.url), 'utf8');
   assert.match(sent, /preset: slot\.preset, presetTake: slot\.presetTake/);
-  assert.match(kept, /preset, preset_take\)/);
+  assert.match(kept, /preset, preset_take[,)]/);
   assert.match(readFileSync(new URL('../db/migrations/030_feedback_preset.sql', import.meta.url), 'utf8'), /add column if not exists preset text/);
 });

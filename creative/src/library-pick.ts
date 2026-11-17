@@ -1,4 +1,4 @@
-import { styleLooksFor, themesFor } from './genre-guide';
+import { styleLooksFor, themesFor, type GenreColours } from './genre-guide';
 import { familyOf } from './genres';
 import { attitudeOf, type LyricAttitude } from './lyric-meaning';
 import { tagShows, THEMES, type SongTheme } from './song-themes';
@@ -15,6 +15,7 @@ import { tagShows, THEMES, type SongTheme } from './song-themes';
  *              is never used for another, and a little preferred for its own; unset, it is free for any song.
  * A thing counts in full when the admin's tags show it, and up to half when only our vision model sees it (`looks`, 0..1):
  * the tags are checked by a person, the model fills in what they missed.
+ * A picture that shows something wanted is also a little preferred when it carries the colours the genre calls for (`colourFit`).
  * A picture that shows none of them still fills a hand that the fitting ones cannot. A picture has no mood of its own:
  * the mood belongs to the song (the `attitudes` of older items are not read).
  */
@@ -38,7 +39,12 @@ export type LibraryPicture = {
   learned?: Learned;
   /** How strongly our vision model sees each look in it (song themes and genre looks), 0..1; unseen looks are left out. */
   looks?: Readonly<Record<string, number>>;
+  /** Its colours, measured on our server like a song's cover (a clip's are its poster's). Absent until measured. */
+  colours?: PictureColours;
 };
+
+/** What the brain reads of a picture's colours (`colour-read.mjs`). */
+export type PictureColours = { palette: readonly { hex: string; share: number }[]; lightness: number; saturation: number; contrast: number };
 
 /**
  * What people did with something lately: how often it was played (`shown`), and how much of that was kept (`won`, 0…shown): a card
@@ -65,6 +71,8 @@ export type LibraryWanted = {
   themes?: readonly SongTheme[];
   /** The words said nothing (no lyrics, or too few): the attitude was heard in the music, and the genre's looks count double. */
   fromSound?: true;
+  /** The colours the song's genre calls for (`coloursFor`); absent for a genre with none. */
+  colours?: GenreColours;
 };
 
 /** A song's feeling, as the things a picture for it can show. Neutral asks for nothing; the themes and the genre then lead. */
@@ -91,6 +99,8 @@ const GENRE_KEPT = 0.75;
 const SUB_GENRE_KEPT = 0.25;
 /** The most a thing seen only by the vision model counts, against one the admin tagged. */
 const SEEN_SHARE = 0.5;
+/** A picture in the genre's colours, against one in none of them: below one thing it shows (a mood's 1), above the genre it is kept for. */
+const COLOUR_WEIGHT = 0.8;
 
 /** `look` names the same thing in the vision model's `looks`. */
 type Want = { show: (tag: string) => boolean; look: string; weight: number };
@@ -165,8 +175,38 @@ export function libraryFit(item: LibraryPicture, wanted: LibraryWanted, wants: r
       fit += SUB_GENRE_KEPT;
     }
   }
-  for (const want of wants) fit += want.weight * shownBy(item, want);
-  return fit;
+  let shows = 0;
+  for (const want of wants) shows += want.weight * shownBy(item, want);
+  // Colours only lift a picture that shows something the song wants: a picture of the wrong thing in the right colours stays behind.
+  const colour = shows > 0 && wanted.colours && item.colours ? COLOUR_WEIGHT * colourFit(item.colours, wanted.colours) : 0;
+  return fit + shows + colour;
+}
+
+const rgb = (hex: string) => [1, 3, 5].map(at => parseInt(hex.slice(at, at + 2), 16));
+/** How far apart two colours look, 0…~765: RGB weighted the way the eye weighs it ("redmean"). */
+function colourDistance(a: string, b: string) {
+  const [r1, g1, b1] = rgb(a);
+  const [r2, g2, b2] = rgb(b);
+  const red = (r1 + r2) / 2;
+  return Math.sqrt((2 + red / 256) * (r1 - r2) ** 2 + 4 * (g1 - g2) ** 2 + (2 + (255 - red) / 256) * (b1 - b2) ** 2);
+}
+/** A colour of the picture counts in full once it covers this much of it: a speck of the right colour is not the picture's colour. */
+const FULL_SHARE = 0.12;
+const near = (target: number, value: number) => Math.max(0, 1 - 2 * Math.abs(target - value));
+
+/**
+ * How well a picture carries a genre's colours, 0…1. Mostly whether its main colours are among the genre's (the best two of them count:
+ * "deep blues, warm ambers, neon purples" asks for some of those, not all), then how light, how vivid and how contrasty it is.
+ */
+export function colourFit(picture: PictureColours, genre: GenreColours): number {
+  const matches = genre.swatches
+    .map(swatch => Math.max(0, ...picture.palette.map(colour => Math.exp(-((colourDistance(swatch, colour.hex) / 150) ** 2)) * Math.min(1, colour.share / FULL_SHARE))))
+    .sort((a, b) => b - a);
+  const swatches = (matches[0] + (matches[1] ?? matches[0])) / 2;
+  const light = near(genre.light, picture.lightness);
+  const vivid = near(genre.vivid, picture.saturation);
+  if (genre.contrast === undefined) return 0.55 * swatches + 0.2 * light + 0.25 * vivid;
+  return 0.5 * swatches + 0.15 * light + 0.2 * vivid + 0.15 * near(genre.contrast, picture.contrast);
 }
 
 const CLEARLY_SEEN = 0.6;

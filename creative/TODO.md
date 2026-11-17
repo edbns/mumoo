@@ -10,8 +10,8 @@ Done (staging DB migrated, tests in `scripts/admin.test.mjs`):
 
 Still to do:
 - Set `ADMIN_EMAILS=moo@mumoo.app` on the production Netlify site too (staging is done).
-- Library to templates, wired for **Our photography** (photos, videos, GIFs; only `approved` and ready items; the song's attitude is the main match, a set genre/sub-genre is preferred and kept to its own genre, an unset one is free for any; a tag that is one of the genre's themes from `src/genre-guide.ts` is a small plus). Still to do:
-  - Genre colours: measure each library photo's palette, then match it to the guidance's colours (not read yet).
+- Library to templates, wired for **Our photography** (photos, videos, GIFs; only `approved` and ready items; the song's attitude is the main match, a set genre/sub-genre is preferred and kept to its own genre, an unset one is free for any; a tag that is one of the genre's themes from `src/genre-guide.ts` is a small plus).
+  - Done (migration 031): genre colours. Each ready picture's colours (a clip's from its poster) are measured on our server like a song's cover (`jpegColours`, `measureColours`) and matched to the colours its genre calls for (`coloursFor` in `genre-guide.ts`, `colourFit`). They only lift a picture that already shows something the song wants. The admin item panel shows the palette.
 - Financials: sales, refunds, tokens sold and used, per day and per month (needs payments).
 - Referral figures (needs the referral program).
 
@@ -39,4 +39,5 @@ Still to do:
 - Done (migration 023): the whole reel and the Director's seed, preview watch time (`watch`), finished downloads (`delivered`, copied from the card's own download press), and the song's other moods, themes, drive and key. Admin → Learning reads it per row, look, vibe, mood and library picture.
 - Done: library picks lean a little (at most ±0.3, below one theme) towards pictures people keep, with a seeded draw so new pictures still get turns (`learnedNudge`). Counts come with `/api/library` (last 90 days).
 - Done: downloads lead the learning. A downloaded card counts in full, one only put in the cart a third (`learnedCounts`). Each template leads with the kind of card people download (`learnedCards`, `learnedLead`: treatment variant, Window colour, Silhouette figure and colour, Riso ink, live look). Admin → Learning shows what people download, most downloaded first.
+- Done (migration 031): each card on our picture tells the brain how well that picture carried the genre's colours (`colour_fit`). Admin → Learning → Genre colour match shows whether strong matches are downloaded more; if they are, raise `COLOUR_WEIGHT` in `library-pick.ts`.
 - To do: mark the free download properly once credits exist; learn per mood or lane instead of overall; learn the order of the templates on the shelf.

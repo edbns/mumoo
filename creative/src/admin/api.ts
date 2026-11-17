@@ -27,6 +27,8 @@ export type LibraryItem = {
   suggestion: { boards: string[]; sure: boolean } | null;
   /** Once it is on a board: the other boards our models say it would also fit, best first. */
   also: string[];
+  /** Its main colours, largest first, once measured: matched to the colours of a song's genre. */
+  colours: { hex: string; share: number }[] | null;
 };
 export type TagCount = { name: string; items: number };
 export type Library = { items: LibraryItem[]; tags: TagCount[] };
@@ -53,6 +55,8 @@ export type Learning = {
   looks: Tally[]; vibes: Tally[]; moods: Tally[]; pictures: Tally[];
   /** Cards dealt from each mood board, and from each board for each genre (`board · genre`). */
   boards: Tally[]; boardGenres: Tally[];
+  /** Cards on our pictures by how well the picture carried the genre's colours: `strong`, `some`, `weak`, or `none` (not measured, or a genre without colours). */
+  colours: Tally[];
   /** Genre learning: the kept style prints (all time), "I don't know" presses, and the answers to the brain's guesses, per guessed style. */
   genre: {
     prints: { songs: number; creator: number; confirmed: number; seeded: number };

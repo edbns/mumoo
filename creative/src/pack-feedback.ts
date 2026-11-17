@@ -80,6 +80,8 @@ export function reportPackFeedback(
       ...(slot.preset ? { preset: slot.preset, presetTake: slot.presetTake } : {}),
       // The mood board its pictures came from, unless the person's own picture took their place.
       ...(slot.board && !extras?.ownPicture ? { board: slot.board } : {}),
+      // How well its picture carries the genre's colours: ours only, never the person's own.
+      ...(slot.colourFit !== undefined && !extras?.ownPicture ? { colourFit: slot.colourFit } : {}),
     },
     ...(extras?.ownPicture !== undefined && { ownPicture: extras.ownPicture }),
     ...(extras?.selectedIds && { selectedIds: extras.selectedIds.slice(0, 32) }),

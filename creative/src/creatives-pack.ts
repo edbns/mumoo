@@ -21,7 +21,8 @@ import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
 import { coverFit } from './look-fit';
 import type { CoverRead } from './cover-palette';
 import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
-import { learnedNudge, libraryFit, pickLibrary, showing, usualRate, type Learned, type LibraryPicture, type LibraryWanted } from './library-pick';
+import { coloursFor } from './genre-guide';
+import { colourFit, learnedNudge, libraryFit, pickLibrary, showing, usualRate, type Learned, type LibraryPicture, type LibraryWanted } from './library-pick';
 import { boardForRow, songBoards } from './boards';
 import {
   dealTreatments,
@@ -121,6 +122,8 @@ export type CreativesPackSlot = {
   grade?: MoodGrade;
   /** The mood board (`boards.ts`) the row's library pictures were dealt from. Absent while the song has no filled board. */
   board?: string;
+  /** How well the library picture it opens on carries the colours the song's genre calls for (`colourFit`, 0…1), for Learning. */
+  colourFit?: number;
 };
 
 function hashPick(seed: string, salt: string, modulo: number) {
@@ -242,8 +245,14 @@ function libraryWanted(profile: CreativeProfileV1, meaning: LyricMeaning | null,
     ...(meaning?.moods?.length ? { moods: meaning.moods } : {}),
     ...(meaning?.themes?.length ? { themes: meaning.themes } : {}),
     ...(heard && !meaning?.themes?.length ? { fromSound: true as const } : {}),
+    ...withColours(genre, profile.creator.subGenre?.value ?? ''),
   };
 }
+
+const withColours = (genre: string, subGenre: string) => {
+  const colours = coloursFor(genre, subGenre);
+  return colours ? { colours } : {};
+};
 
 /** An approved photo; `cutout` says it also has the mask Dust needs. */
 export type PlateRef = { id: string; cutout: boolean };
@@ -472,8 +481,17 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   // A card tells its board only when it really draws a library picture from it.
   const filed = (slot: CreativesPackSlot) => board && [slot.libraryId, ...(slot.reelIds ?? [])].some(id => id && library.find(item => item.id === id)?.boards?.includes(board.id));
   const boarded = board ? edited.map(slot => (filed(slot) ? { ...slot, board: board.id } : slot)) : edited;
+  // The brain keeps how well the picture a card opens on carries the genre's colours, so Learning can tell whether that is worth it.
+  const colourOf = (slot: CreativesPackSlot) => {
+    const lead = library.find(item => item.id === (slot.reelIds?.[0] ?? slot.libraryId));
+    return lead?.colours && wanted.colours ? Math.round(colourFit(lead.colours, wanted.colours) * 100) / 100 : undefined;
+  };
+  const coloured = boarded.map(slot => {
+    const fit = colourOf(slot);
+    return fit === undefined ? slot : { ...slot, colourFit: fit };
+  });
   const grade = moodGrade(meaning);
-  const graded = grade && !UNGRADED.includes(row) ? boarded.map(slot => ({ ...slot, grade })) : boarded;
+  const graded = grade && !UNGRADED.includes(row) ? coloured.map(slot => ({ ...slot, grade })) : coloured;
   return learnedLead(graded, cards[row], seed);
 }
 
