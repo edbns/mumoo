@@ -141,7 +141,8 @@ test('a name is taken by whoever publishes first, and only its owner can change 
       await Promise.all(waited);
       assert.equal(forwarded.length, 1);
       assert.match(forwarded[0].url, /graph\.facebook\.com\/v\d+\.0\/1234567890\/events\?access_token=EAAB-secret-token-0123456789/);
-      assert.equal(forwarded[0].body.data[0].event_name, 'StreamClick');
+      assert.equal(forwarded[0].body.data[0].event_name, 'Mumoo Smart Link Click');
+      assert.deepEqual(forwarded[0].body.data[0].custom_data, { content_name: 'After Hours', platform: 'Apple Music' });
       assert.equal(forwarded[0].body.data[0].user_data.client_ip_address, '203.0.113.9');
       assert.match(forwarded[0].body.data[0].user_data.fbc, /^fb\.1\.\d+\.IwAR0secret$/);
       assert.equal((await setTracking(owner, slug, { meta_pixel_id: '1234567890', meta_capi_token: '' })).tracking.meta_capi_token, false, 'removed');

@@ -26,10 +26,14 @@ export function AdTracking({ ids, saved, tokens, onIds, onTokens }: {
       measure and optimise your campaigns. No pixel is added to your page. Ad visits are recognised and counted either way.
     </p>
     {open && <div className="flex flex-col gap-3">
-      <Platform name="Meta" status={ids.meta_pixel_id && has('meta_capi_token') ? 'Sends PageView and StreamClick' : null}>
+      <Platform name="Meta" status={ids.meta_pixel_id && has('meta_capi_token') ? 'Sends PageView and Mumoo Smart Link Click' : null}>
         <Labelled label="Pixel ID"><input className={field} inputMode="numeric" value={ids.meta_pixel_id} placeholder="e.g. 1234567890123456"
           onChange={event => onIds({ ...ids, meta_pixel_id: event.target.value.trim() })} /></Labelled>
         <Token label="Conversions API token" field="meta_capi_token" saved={saved.meta_capi_token} tokens={tokens} onTokens={onTokens} />
+        <p className="m-0 rounded-[var(--radius-control)] bg-muted px-3 py-2 text-xs text-muted-foreground sm:col-span-2">
+          <span className="font-semibold text-foreground">Tip:</span> Once your link receives its first test click, select
+          <span className="font-semibold text-foreground"> ‘Mumoo Smart Link Click’ </span>as your Conversion Event in Meta Ads Manager.
+        </p>
       </Platform>
       <Platform name="TikTok" status={ids.tiktok_pixel_id && has('tiktok_events_token') ? 'Sends ViewContent and StreamClick' : null}>
         <Labelled label="Pixel ID"><input className={field} value={ids.tiktok_pixel_id} placeholder="e.g. C1A2B3C4D5E6F7G8H9"

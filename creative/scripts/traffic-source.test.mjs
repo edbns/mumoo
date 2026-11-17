@@ -95,9 +95,9 @@ test('visits and clicks go on to Meta\'s Conversions API and TikTok\'s Events AP
   const meta = sent.find(call => call.url.startsWith('https://graph.facebook.com/'));
   assert.match(meta.url, /\/1234567890\/events\?access_token=META-TOKEN$/);
   assert.deepEqual(meta.body.data[0].user_data, { client_ip_address: '203.0.113.9', client_user_agent: 'Mozilla/5.0 Instagram', fbc: 'fb.1.1763380000000.IwAR0' });
-  assert.equal(meta.body.data[0].event_name, 'StreamClick');
+  assert.equal(meta.body.data[0].event_name, 'Mumoo Smart Link Click', 'shows as ours in Ads Manager\'s conversion events');
   assert.equal(meta.body.data[0].action_source, 'website');
-  assert.deepEqual(meta.body.data[0].custom_data, { service: 'spotify', content_name: 'SEM VERGONHA · StefnaXYZ' });
+  assert.deepEqual(meta.body.data[0].custom_data, { content_name: 'SEM VERGONHA', platform: 'Spotify' });
   const tiktok = sent.find(call => call.url.startsWith('https://business-api.tiktok.com/'));
   assert.equal(tiktok.headers['Access-Token'], 'TT-TOKEN');
   assert.equal(tiktok.body.event_source_id, 'CTIKTOK123456789');
