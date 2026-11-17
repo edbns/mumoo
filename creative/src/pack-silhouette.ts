@@ -9,7 +9,7 @@ import { HEIGHT, WIDTH } from './composition';
 import type { AdFont } from './ad-fonts';
 import { hexToRgb } from './dust-colors';
 import { createTypeLayer, type TimedWord, type TypeStyleId } from './pack-type';
-import { FIGURE_SCALE, headTop } from './silhouette';
+import { headTop } from './silhouette';
 import { SAFE_BOX, coverSize, paletteOf, pictureScale, punchAt } from './window-look';
 
 /** The lyrics keep this far from the frame's sides and from the head below them, in px. */
@@ -17,6 +17,8 @@ const LYRICS_SIDE = 70;
 const LYRICS_CLEAR = 50;
 /** A short line grows up to this much to fill the room. */
 const LYRICS_GROW = 2;
+/** Room kept for a style that swells on the beat. */
+const LYRICS_SWELL = 0.92;
 const DARK_INK = '#0a0a0b';
 const LIGHT_INK = '#f7f4ee';
 
@@ -34,7 +36,7 @@ void main() {
 }
 `;
 
-/** The screen, and the picture wherever the figure is. The figure stands on the frame's bottom edge, in the middle, `FIGURE_SCALE` of the frame's size. */
+/** The screen, and the picture wherever the figure is. The figure's mask is the size of the frame. */
 const FRAGMENT = `#version 300 es
 precision highp float;
 in vec2 vFrame;
@@ -48,8 +50,7 @@ out vec4 finalColor;
 
 void main() {
   vec2 frame = vec2(${WIDTH}.0, ${HEIGHT}.0);
-  vec2 at = (vFrame - vec2(frame.x * 0.5, frame.y)) / (frame * ${FIGURE_SCALE.toFixed(3)}) + vec2(0.5, 1.0);
-  float inside = at.x < 0.0 || at.x > 1.0 || at.y < 0.0 || at.y > 1.0 ? 0.0 : texture(uFigure, at).r;
+  float inside = texture(uFigure, vFrame / frame).r;
   vec3 seen = texture(uPhoto, (vFrame - frame * 0.5) / (uCover * uPush) + 0.5).rgb;
   // On red the picture is black and white, pushed hard, like a screen print.
   float grey = dot(seen, vec3(0.2126, 0.7152, 0.0722));
@@ -114,6 +115,9 @@ export type SilhouetteWorld = { root: Container; update(input: SilhouetteInput):
 export function createSilhouetteWorld(): SilhouetteWorld {
   const root = new Container();
   const type = createTypeLayer();
+  // Measures each phrase, off screen, so a style that moves its letters is drawn at one size the whole phrase.
+  const ruler = createTypeLayer();
+  let measured: { key: string; x: number; y: number; width: number; height: number } | null = null;
   let view: { picture: Texture; figure: Texture; screen: ReturnType<typeof screen> } | null = null;
 
   function dropView() {
@@ -137,25 +141,37 @@ export function createSilhouetteWorld(): SilhouetteWorld {
 
       // The lyrics fill the solid colour above the head: as big as that room allows, never over the figure.
       const ink = input.palette === 'black' ? LIGHT_INK : DARK_INK;
-      type.root.pivot.set(0, 0);
-      type.root.position.set(0, 0);
-      type.root.scale.set(1);
-      type.paint(input.typeStyle, {
-        ms: input.ms, words: [...input.words], beat: input.beat, beatIndex: input.beatIndex, energy: input.energy, seed: input.seed,
+      const frame = {
+        words: [...input.words], beatIndex: input.beatIndex, seed: input.seed,
         ink, accent: ink, shadow: ink === DARK_INK ? '#ffffff' : '#000000', font: input.font, fontSecondary: input.font,
-      });
-      const bounds = type.root.getLocalBounds();
-      if (!input.words.length || bounds.width <= 0 || bounds.height <= 0) return;
+      };
+      type.paint(input.typeStyle, { ...frame, ms: input.ms, beat: input.beat, energy: input.energy });
+      if (!input.words.length) return;
+      // The phrase's size depends only on the phrase (never on which frame it was first seen in): the cloud draws a video in pieces.
+      const key = `${input.typeStyle}|${input.font}|${input.words.map(word => `${word.text}@${word.startMs}`).join(' ')}`;
+      if (measured?.key !== key) {
+        const ends = input.words.map(word => word.endMs);
+        let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+        for (const ms of [...input.words.map(word => (word.startMs + word.endMs) / 2), ...ends, Math.max(...ends) + 600]) {
+          ruler.paint(input.typeStyle, { ...frame, ms, beat: 0, energy: 0 });
+          const box = ruler.root.getLocalBounds();
+          if (box.width <= 0 || box.height <= 0) continue;
+          [x0, y0, x1, y1] = [Math.min(x0, box.x), Math.min(y0, box.y), Math.max(x1, box.x + box.width), Math.max(y1, box.y + box.height)];
+        }
+        measured = x1 > x0 ? { key, x: x0, y: y0, width: x1 - x0, height: y1 - y0 } : null;
+      }
+      if (!measured) return;
       const top = SAFE_BOX.y;
       const room = headTop(input.shape) - LYRICS_CLEAR - top;
-      const fit = Math.min(LYRICS_GROW, (WIDTH - LYRICS_SIDE * 2) / bounds.width, room / bounds.height);
-      type.root.pivot.set(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      const fit = LYRICS_SWELL * Math.min(LYRICS_GROW, (WIDTH - LYRICS_SIDE * 2) / measured.width, room / measured.height);
+      type.root.pivot.set(measured.x + measured.width / 2, measured.y + measured.height / 2);
       type.root.position.set(WIDTH / 2, top + room / 2);
       type.root.scale.set(fit);
     },
     destroy() {
       dropView();
       type.destroy();
+      ruler.destroy();
       root.destroy({ children: true });
     },
   };

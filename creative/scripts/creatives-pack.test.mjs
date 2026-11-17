@@ -418,9 +418,9 @@ test('Window deals four cards of the picture as it is, each on one black or off-
   } finally { await server.close(); }
 });
 
-test('Silhouette deals four different figures on red, black and white, the song\'s picture inside, and never for gospel', async () => {
+test('Silhouette deals four different figures (two men, two women) in four lyric styles on red, black and white, the song\'s picture inside, and never for gospel', async () => {
   const { server, pack } = await load();
-  const { SILHOUETTE_IDS } = await server.ssrLoadModule('/src/silhouette.ts');
+  const { SILHOUETTE_IDS, SILHOUETTE_TYPES } = await server.ssrLoadModule('/src/silhouette.ts');
   try {
     for (const genre of GENRES.filter(genre => genre !== 'Gospel')) {
       for (let generation = 0; generation < 12; generation++) {
@@ -430,6 +430,10 @@ test('Silhouette deals four different figures on red, black and white, the song\
         assert.ok(row.every(slot => slot.style === 'window' && slot.row === 'silhouette' && slot.windowMode === 'silhouette'), name);
         assert.equal(new Set(row.map(slot => slot.windowShape)).size, 4, `${name}: a figure repeated`);
         assert.ok(row.every(slot => SILHOUETTE_IDS.includes(slot.windowShape)), name);
+        assert.equal(row.filter(slot => slot.windowShape.startsWith('man-')).length, 2, `${name}: two men and two women`);
+        assert.ok(row.every((slot, index) => index === 0 || slot.windowShape.split('-')[0] !== row[index - 1].windowShape.split('-')[0]), `${name}: men and women take turns`);
+        assert.equal(new Set(row.map(slot => slot.typeStyle)).size, 4, `${name}: a lyric style repeated`);
+        assert.ok(row.every(slot => SILHOUETTE_TYPES.includes(slot.typeStyle)), name);
         assert.equal(new Set(row.slice(0, 3).map(slot => slot.windowPalette)).size, 3, `${name}: red, black and white take turns`);
         assert.ok(row.every(slot => ['red', 'black', 'off-white'].includes(slot.windowPalette) && slot.windowAllowed.length === 1 && slot.windowAllowed[0] === slot.windowPalette), name);
         assert.ok(row.every(slot => PLATES.some(plate => plate.id === slot.plateId)), `${name}: with no library our approved photo stands in`);

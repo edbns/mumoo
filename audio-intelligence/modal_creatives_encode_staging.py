@@ -89,7 +89,7 @@ WINDOW_FACES = {"Anton", "Big Shoulders Display", "Staatliches", "Bangers", "Bar
 WINDOW_MODES = {"plain", "silhouette"}
 WINDOW_SCREENS = {"plain": {"black", "off-white"}, "silhouette": {"red", "black", "off-white"}}
 # The figures of creative/public/silhouettes (creative/src/silhouette.ts).
-WINDOW_SHAPES = {"woman-front", "woman-side", "woman-curls", "man-front", "man-hood", "man-cap"}
+WINDOW_SHAPES = {"man-cap", "woman-hair", "man-wide", "woman-wide", "woman-curls", "man-hood", "woman-head", "man-head"}
 WINDOW_KEYS = ("windowMode", "windowPalette", "windowAllowed")
 # Styles drawn from a person cut out of a photo: an approved plate (`plateId`) or the person's own photo and cut-out mask.
 CUT_OUT_STYLES = {"dust", "riso"}
@@ -301,7 +301,7 @@ def parse_meta(raw: str) -> dict:
             raise ValueError("windowAllowed")
         if not all(isinstance(id_, str) and id_ in WINDOW_SCREENS[opts["windowMode"]] for id_ in allowed) or opts["windowPalette"] not in allowed:
             raise ValueError("windowPalette")
-        if (opts["windowMode"] == "silhouette") != ("windowShape" in opts) or opts.get("windowShape", "woman-front") not in WINDOW_SHAPES:
+        if (opts["windowMode"] == "silhouette") != ("windowShape" in opts) or ("windowShape" in opts and opts["windowShape"] not in WINDOW_SHAPES):
             raise ValueError("windowShape")
         if opts["font"] not in WINDOW_FACES:
             raise ValueError("font")

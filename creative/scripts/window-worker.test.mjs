@@ -55,7 +55,7 @@ const cases = {
   effectOnPlain: [card({ effectId: 'tropical-ascii-cam-1' }), false],
   nothing: [card({ plateId: undefined }), false],
   silhouetteRed: [card({ windowMode: 'silhouette', windowShape: 'man-cap', windowPalette: 'red', windowAllowed: ['red'] }), true],
-  silhouetteReel: [card({ windowMode: 'silhouette', windowShape: 'woman-side', plateId: undefined, reel: REEL }), true],
+  silhouetteReel: [card({ windowMode: 'silhouette', windowShape: 'woman-wide', plateId: undefined, reel: REEL }), true],
   silhouetteNoShape: [card({ windowMode: 'silhouette' }), false],
   silhouetteUnknownShape: [card({ windowMode: 'silhouette', windowShape: 'dog' }), false],
   shapeOnPlain: [card({ windowShape: 'man-cap' }), false],

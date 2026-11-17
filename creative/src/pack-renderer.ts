@@ -90,6 +90,7 @@ export type PackRendererOpts = {
 
 /** The font families a card draws with, so each is fetched (from this site) the first time a card needs it, not before. */
 function familiesFor(opts: PackRendererOpts): string[] {
+  if (opts.style === 'window' && opts.typeStyle) return [...new Set([opts.font, ...typeFamilies(opts.typeStyle, opts)])];
   if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'window') return [opts.font];
   if (opts.style === 'pulise') return [opts.font, opts.fontSecondary];
   const recording = opts.preset === 'vhs' && opts.presetTake === 'rec' ? [REC_FONT] : [];
