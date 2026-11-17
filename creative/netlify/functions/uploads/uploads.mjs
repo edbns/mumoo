@@ -1,6 +1,6 @@
 import { personFrom, recordPerson } from '../../lib/person.mjs';
 import { storageReady } from '../../lib/storage.mjs';
-import { entries, listUploads, MAX_PHOTO_BYTES, MAX_SHELF_PICTURES, motionArrived, removeAllExcept, removeUpload, reserveMotion, saveUpload } from '../../lib/uploads.mjs';
+import { entries, listUploads, MAX_KEPT_PICTURES, MAX_PHOTO_BYTES, motionArrived, removeUpload, reserveMotion, saveUpload } from '../../lib/uploads.mjs';
 
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -8,7 +8,7 @@ const REFUSALS = {
   format: [415, 'Use a JPEG, PNG or WebP photo, or an MP4, MOV, WebM or GIF.'],
   size: [413, 'That file is too large.'],
   full: [409, 'Your storage is full. Delete some files or creatives to make room.'],
-  many: [409, `You already have ${MAX_SHELF_PICTURES} of your own pictures here. Start over to use others.`],
+  many: [409, `You have ${MAX_KEPT_PICTURES} pictures saved. Delete some in History to add more.`],
 };
 const refuse = (reason) => reply(...REFUSALS[reason]);
 /** Every change answers with the person's pictures as they now are, so the page needs no second request. */
@@ -17,13 +17,12 @@ const guarded = (work, fallback) => work.catch((cause) => { console.error('uploa
 const pictures = async (status, userId) => reply(status, { uploads: await entries(userId) });
 
 /**
- * Your own pictures: up to ten for the whole shelf.
+ * Your own pictures, kept in your account until you delete them (the shelf draws up to ten of this run's).
  *   GET    lists them (a picture still being prepared is settled first)
  *   POST   ?kind=photo         a JPEG body (its subject is cut out on our worker)
  *   POST   ?kind=motion JSON {type, bytes}: reserves room, returns {id, putUrl} to send the video or GIF to
  *   PUT    ?id=…        the video or GIF has been sent: start preparing it
  *   DELETE ?id=…        removes it and everything made from it
- *   DELETE ?except=a,b  removes every picture but those (a new run starts clean; the ones a cart still uses stay). `except=` alone removes all.
  * Adding a picture is the person's confirmation that they own the rights to it; the time is kept with it.
  */
 export default async function handler(request) {
@@ -45,12 +44,6 @@ export default async function handler(request) {
     const result = await guarded(saveUpload(person.id, new Uint8Array(await request.arrayBuffer())), { failed: true });
     if (result.failed) return reply(502, { error: 'We could not start preparing that photo. Try again.' });
     return result.refused ? refuse(result.refused) : pictures(201, person.id);
-  }
-  if (request.method === 'DELETE' && params.has('except')) {
-    const keep = (params.get('except') ?? '').split(',').filter(Boolean);
-    if (keep.length > 100 || !keep.every(value => UUID.test(value))) return reply(400, { error: 'Invalid id.' });
-    await guarded(removeAllExcept(person.id, keep), 0);
-    return pictures(200, person.id);
   }
   const id = params.get('id') ?? '';
   if (!UUID.test(id)) return reply(400, { error: 'Invalid id.' });

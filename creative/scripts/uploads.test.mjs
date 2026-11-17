@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { QUOTA_BYTES, usedBytes } from '../netlify/lib/allowance.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import { putObject, storageReady } from '../netlify/lib/storage.mjs';
-import { listUploads, MAX_SHELF_PICTURES, removeAllExcept, removeUpload, reserveMotion, saveUpload, uploadMedia } from '../netlify/lib/uploads.mjs';
+import { listUploads, MAX_KEPT_PICTURES, removeUpload, reserveMotion, saveUpload, uploadMedia } from '../netlify/lib/uploads.mjs';
 
 /** Live check of Cloudflare R2 + Postgres for people's own pictures. Needs .env.local; skipped without it. */
 const READY = storageReady() && Boolean(process.env.DATABASE_URL);
@@ -68,35 +68,14 @@ test('a photo is cut out on our worker, private to its owner, and removed with i
   });
 }));
 
-test('a new run clears every picture but the ones a cart still uses, and never touches anyone else', { skip: !READY, timeout: 90000 }, () => withPerson(async (_sql, userId) => {
+test('a person keeps more than a shelf of pictures, and the account turns away one past its most', { skip: !READY, timeout: 120000 }, () => withPerson(async (_sql, userId) => {
   await withWorker(() => ready, async () => {
-    const stranger = `test-${randomUUID()}`;
-    await _sql`insert into app_users (id, email) values (${stranger}, ${`${stranger}@example.com`})`;
-    try {
-      const kept = await saveUpload(userId, jpeg(2048));
-      const gone = await saveUpload(userId, jpeg(1000));
-      const also = await saveUpload(userId, jpeg(1200));
-      const theirs = await saveUpload(stranger, jpeg(512));
-      const [shown] = (await listUploads(userId)).filter(row => row.id === gone.id);
-      assert.equal(await removeAllExcept(userId, [kept.id, also.id]), 1);
-      assert.deepEqual((await listUploads(userId)).map(row => row.id).sort(), [also.id, kept.id].sort());
-      assert.equal((await fetch(shown.url)).status, 404, 'the removed picture is gone from storage');
-      assert.equal((await listUploads(stranger)).length, 1, 'another person keeps theirs');
-      assert.equal(await removeAllExcept(userId, []), 2, 'nothing kept removes the rest');
-      assert.deepEqual(await listUploads(userId), []);
-      assert.equal(await removeUpload(stranger, theirs.id), true);
-    } finally {
-      await _sql`delete from app_users where id = ${stranger}`;
-    }
-  });
-}));
-
-test('the shelf keeps ten pictures side by side, and turns the eleventh away', { skip: !READY, timeout: 120000 }, () => withPerson(async (_sql, userId) => {
-  await withWorker(() => ready, async () => {
-    for (let n = 0; n < MAX_SHELF_PICTURES; n++) assert.ok((await saveUpload(userId, jpeg(300))).id);
+    for (let n = 0; n < 11; n++) assert.ok((await saveUpload(userId, jpeg(300))).id, `picture ${n + 1} is kept`);
+    assert.equal((await listUploads(userId)).filter(row => row.status === 'ready').length, 11, 'none replaces another');
+    const filler = Array.from({ length: MAX_KEPT_PICTURES - 11 }, () => randomUUID());
+    await _sql`insert into uploads (id, user_id, kind, bytes, rights_confirmed_at) select unnest(${filler}::uuid[]), ${userId}, 'photo', 1, now()`;
     assert.deepEqual(await saveUpload(userId, jpeg(300)), { refused: 'many' });
     assert.deepEqual(await reserveMotion(userId, 'video/mp4', 1000), { refused: 'many' });
-    assert.equal((await listUploads(userId)).filter(row => row.status === 'ready').length, MAX_SHELF_PICTURES, 'none replaces another');
   });
 }));
 

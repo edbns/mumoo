@@ -242,9 +242,9 @@ function App() {
   }
 
   function startOver() {
-    if (!window.confirm('Start over with another song? Your song, lyrics and pictures are cleared. Your cart is kept.')) return;
+    if (!window.confirm('Start over with another song? Your song and lyrics are cleared. Your cart is kept, and your pictures stay in History.')) return;
     void choose(undefined);
-    void uploads.clear();
+    uploads.clear();
     setPicked(null);
     setGenreUnknown(false);
     setComposition(INITIAL);

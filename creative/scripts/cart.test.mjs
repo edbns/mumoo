@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
-const { uploadIdsIn, readCarts, writeCarts, cartFor, addItem, dropItems, songKeyOf, CART_LIMIT, CART_SONGS } = await server.ssrLoadModule('/src/cart.ts');
+const { readCarts, writeCarts, cartFor, addItem, dropItems, songKeyOf, CART_LIMIT, CART_SONGS } = await server.ssrLoadModule('/src/cart.ts');
 await server.close();
 
 const THUMB = `data:image/jpeg;base64,${'/9j/4AAQ'.repeat(50)}`;
@@ -84,11 +84,3 @@ test('a cart over the limit is not trusted', () => {
   assert.deepEqual(readCarts(writeCarts([{ songKey: 's', items }])), []);
 });
 
-test('the pictures carts still draw from are known across every song, once each', () => {
-  const carts = [
-    { songKey: 'a:0', items: [{ ...item('a'), uploadId: 'u1' }, item('b'), { ...item('c'), uploadId: 'u2' }] },
-    { songKey: 'b:0', items: [{ ...item('d'), uploadId: 'u1' }] },
-  ];
-  assert.deepEqual(uploadIdsIn(carts).sort(), ['u1', 'u2']);
-  assert.deepEqual(uploadIdsIn([]), []);
-});

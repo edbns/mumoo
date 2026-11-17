@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { authClient } from './account';
-import { cartUploadIds } from './cart';
-import { addUpload, clearUploads, listUploads, MAX_SHELF_PICTURES, type Upload } from './uploads';
+import { addUpload, listUploads, MAX_SHELF_PICTURES, type Upload } from './uploads';
 
 /** Signed links last 15 minutes, so a long session asks for fresh ones before they run out. */
 const RELINK_MS = 10 * 60_000;
@@ -15,8 +14,9 @@ type PictureProblem = { listing: boolean; message: string };
  * The signed-in person's own pictures: up to ten for the shelf. While something is being prepared in
  * the cloud it looks again every couple of seconds; otherwise it only looks when something changes.
  *
- * Every visit starts clean: pictures from an earlier run are removed when the page opens (and on Start over), except those a cart
- * still draws from. Those stay in `list` so the cart can be downloaded, but only pictures added in this run (`current`) are drawn on the rows.
+ * Every picture stays in the person's account (History → Uploads) until they delete it, but every visit starts with a clean shelf:
+ * only pictures added in this run (`current`) are drawn on the rows, up to ten at once. The others stay in `list`, so a cart that
+ * still draws from one can be downloaded.
  */
 export function useUploads() {
   const session = authClient.useSession();
@@ -50,8 +50,7 @@ export function useUploads() {
   useEffect(() => {
     if (!signedIn) { setList(null); return; }
     let live = true;
-    // A new run: what an earlier one left behind goes, except what a cart still needs.
-    void clearUploads(cartUploadIds()).then(next => { if (live) receive(next); }, () => refresh(() => live));
+    void refresh(() => live);
     const timer = setInterval(() => void refresh(() => live), RELINK_MS);
     return () => { live = false; clearInterval(timer); };
   }, [signedIn, refresh]);
@@ -68,7 +67,7 @@ export function useUploads() {
    * the person is told which.
    */
   async function add(files: File[]) {
-    const room = Math.max(0, MAX_SHELF_PICTURES - (list ?? []).length);
+    const room = Math.max(0, MAX_SHELF_PICTURES - current.length);
     const taken = files.slice(0, room);
     setProblem(null);
     if (!taken.length) {
@@ -99,14 +98,9 @@ export function useUploads() {
     }
   }
 
-  /** Start over: every picture goes except what a cart still needs, and the rows go back to our own. */
-  async function clear() {
+  /** Start over: the rows go back to our own pictures. The person's stay in their account. */
+  function clear() {
     setMine(new Set());
-    try {
-      receive(await clearUploads(cartUploadIds()));
-    } catch {
-      await refresh();
-    }
   }
 
   const current = (list ?? []).filter(item => mine.has(item.id));

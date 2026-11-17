@@ -83,13 +83,6 @@ export function writeCarts(carts: readonly CartEntry[]): string {
 export const ownIdsOf = (item: CartItem): string[] =>
   item.uploadId !== null ? [item.uploadId] : item.ownReel ? [...(item.slot.reelIds ?? [])] : [];
 
-/** The ids of own pictures that carts still draw from (every song's), so a clean start knows which to keep. */
-export const uploadIdsIn = (carts: readonly CartEntry[]): string[] =>
-  [...new Set(carts.flatMap(entry => entry.items.flatMap(ownIdsOf)))];
-
-/** The same, read from this browser's saved carts. */
-export const cartUploadIds = (): string[] => uploadIdsIn(readCarts(localStorage.getItem(KEY)));
-
 /** The id of one song's cart: the song and where the 15 seconds start. */
 export const songKeyOf = (sourceSha256: string, clipStartMs: number) => `${sourceSha256}:${clipStartMs}`;
 

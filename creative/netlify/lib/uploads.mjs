@@ -27,14 +27,17 @@ const KEYS = {
 const isJpeg = (bytes) => bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
 const bridge = () => ({ Authorization: `Bearer ${process.env.MUMOO_MUSIC_BRIDGE_SECRET}` });
 
-/** The shelf keeps up to this many of the person's own pictures; the creatives deal from all of them. */
-export const MAX_SHELF_PICTURES = 10;
+/**
+ * A person's pictures stay in their account (History → Uploads) until they delete them; their storage allowance is the real limit
+ * (`hasRoom`), this only keeps a runaway client from filling it with tiny files. The shelf's ten at once is the page's to keep.
+ */
+export const MAX_KEPT_PICTURES = 500;
 
-/** Why a picture was turned away: 'size', 'many' (the shelf has its ten) or 'full'. Null when there is room and it is fine. */
+/** Why a picture was turned away: 'size', 'many' (the account keeps its most) or 'full'. Null when there is room and it is fine. */
 async function refusal(userId, bytes, limit) {
   if (bytes > limit) return 'size';
   const [{ count }] = await db()`select count(*)::int as count from uploads where user_id = ${userId} and status <> 'failed'`;
-  if (count >= MAX_SHELF_PICTURES) return 'many';
+  if (count >= MAX_KEPT_PICTURES) return 'many';
   return (await hasRoom(userId, bytes)) ? null : 'full';
 }
 
@@ -183,13 +186,6 @@ export async function uploadReel(userId, ids) {
     if (row.kind === 'photo') return { kind: 'photo', url: await signedDownload(KEYS.still(userId, id), null, 1800) };
     return { kind: 'clip', url: await signedDownload(KEYS.motion(userId, id), null, 1800), ...(row.shots ? { shots: row.shots } : {}) };
   }));
-}
-
-/** Removes all of a person's pictures except those in `keep` (the ones their cart still draws from), and every file made from them. Returns how many went. */
-export async function removeAllExcept(userId, keep) {
-  const rows = await db()`select id from uploads where user_id = ${userId} and id::text <> all (${keep})`;
-  const gone = await Promise.all(rows.map(row => removeUpload(userId, row.id)));
-  return gone.filter(Boolean).length;
 }
 
 /** Removes the picture and every file made from it. */
