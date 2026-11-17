@@ -9,7 +9,7 @@ Done (staging DB migrated, tests in `scripts/admin.test.mjs`):
   Approve, hide and delete an item.
 
 Still to do:
-- Set `ADMIN_EMAILS=moo@mumoo.app` on the production Netlify site too (staging is done).
+- Done: `ADMIN_EMAILS=moo@mumoo.app` on both Netlify sites. mumoo.app (site `mumoo`) is still password-protected with no other variables: it needs the database, Neon Auth, R2 and Resend variables when the app moves there.
 - Library to templates, wired for **Our photography** (photos, videos, GIFs; only `approved` and ready items; the song's attitude is the main match, a set genre/sub-genre is preferred and kept to its own genre, an unset one is free for any; a tag that is one of the genre's themes from `src/genre-guide.ts` is a small plus).
   - Done (migration 031): genre colours. Each ready picture's colours (a clip's from its poster) are measured on our server like a song's cover (`jpegColours`, `measureColours`) and matched to the colours its genre calls for (`coloursFor` in `genre-guide.ts`, `colourFit`). They only lift a picture that already shows something the song wants. The admin item panel shows the palette.
 - Financials: sales, refunds, tokens sold and used, per day and per month (needs payments).
