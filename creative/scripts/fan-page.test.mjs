@@ -45,6 +45,15 @@ test('the editor\'s phone shows the same page, its links opening in a new tab', 
   assert.equal(html.replace('<base target="_blank">', '').replace('main{padding-top:64px}', ''), fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app'));
 });
 
+test('a published page counts presses with the link\'s own ping, never the editor\'s phone, and the policy lets it reach only us', () => {
+  const counted = fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app', { countAs: 'x' });
+  assert.ok(counted.includes('ping="https://mumoo.app/api/links/click?slug=x&amp;service=spotify"'));
+  assert.equal((counted.match(/ ping="/g) ?? []).length, 2, 'one per shown button');
+  assert.ok(!fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app').includes('ping='));
+  assert.ok(!fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app', { countAs: 'x', inPhone: true }).includes('ping='));
+  assert.ok(POLICY.includes("connect-src 'self'"));
+});
+
 test('the only script is the preview player, and the page policy allows exactly it', () => {
   const html = fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app');
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);

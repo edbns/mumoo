@@ -95,8 +95,29 @@ export async function slugTaken(slug) {
   return Boolean(row);
 }
 
+/** How far back "this week" goes in the click counts. */
+const WEEK_DAYS = 7;
+
+/** The person's links, each with its clicks per service ever and its clicks of the last week. */
 export async function linksOf(userId) {
-  return db()`select slug, link, created_at, updated_at from smart_links where user_id = ${userId} order by created_at desc`;
+  return db()`select l.slug, l.link, l.created_at, l.updated_at,
+      coalesce((select jsonb_object_agg(service, total) from (select service, sum(clicks)::int as total from smart_link_clicks c
+        where c.slug = l.slug group by service) per_service), '{}'::jsonb) as clicks,
+      coalesce((select sum(clicks)::int from smart_link_clicks c where c.slug = l.slug and c.day > current_date - ${WEEK_DAYS}::int), 0) as week
+    from smart_links l where l.user_id = ${userId} order by l.created_at desc`;
+}
+
+/**
+ * A fan pressed a button: one more for that link, service and day. Only a button the page shows counts. Nothing about the fan is
+ * kept. True when it was counted.
+ */
+export async function countClick(slug, service) {
+  if (slugProblem(slug) || !SERVICES.includes(service)) return false;
+  const rows = await db()`insert into smart_link_clicks (slug, service, clicks)
+    select ${slug}, ${service}, 1 where exists (select 1 from smart_links where slug = ${slug}
+      and link->'services' @> ${JSON.stringify([{ service, hidden: false }])}::jsonb)
+    on conflict (slug, service, day) do update set clicks = smart_link_clicks.clicks + 1 returning clicks`;
+  return rows.length > 0;
 }
 
 /** Publishes at a free address. {link} or {status, error}. */

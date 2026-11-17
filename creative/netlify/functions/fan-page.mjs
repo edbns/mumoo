@@ -27,7 +27,7 @@ export default async function handler(request, context) {
   if (slugProblem(slug) || !process.env.DATABASE_URL) return page(404, missingPage(home), slug, 60);
   try {
     const [row] = await db()`select link from smart_links where slug = ${slug}`;
-    return row ? page(200, fanPage(row.link, `${home}/l/${slug}`, home), slug, 3600) : page(404, missingPage(home), slug, 60);
+    return row ? page(200, fanPage(row.link, `${home}/l/${slug}`, home, { countAs: slug }), slug, 3600) : page(404, missingPage(home), slug, 60);
   } catch (cause) {
     console.error('fan page:', cause);
     return new Response('This page is unavailable right now. Try again in a moment.', { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '30' } });

@@ -21,8 +21,8 @@ const PLAYER = "var a=document.getElementById('a'),b=document.getElementById('p'
 /** sha256 of PLAYER, base64 (scripts/fan-page.test.mjs checks it). */
 const PLAYER_HASH = '7MUWMJNDfxwHJ+IfbCU3B7O94HkKjcPwtvWa7a/sGsM=';
 
-/** Only the cover, the logos, the preview and our one script may load; nothing may frame the page. */
-export const POLICY = `default-src 'none'; img-src 'self' https:; media-src https:; style-src 'unsafe-inline'; script-src 'sha256-${PLAYER_HASH}'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
+/** Only the cover, the logos, the preview and our one script may load, and the click counts go home; nothing may frame the page. */
+export const POLICY = `default-src 'none'; img-src 'self' https:; media-src https:; style-src 'unsafe-inline'; script-src 'sha256-${PLAYER_HASH}'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
 
 const STYLE = `*{box-sizing:border-box}html{background:#0b0b0b;color:#fff;font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden}
@@ -45,16 +45,18 @@ footer{margin-top:auto;padding:24px 0 28px;font-size:13px}footer a{color:rgba(25
 /**
  * The page for a published link. `link` is as `cleanLink` keeps it; `address` is the page's own URL, for sharing previews.
  * `home` is our site, for the logos and the footer credit. `inPhone` is the editor's preview: below the phone's camera, and its
- * links open in a new tab.
+ * links open in a new tab. `countAs` is the published link's slug: each button then has the browser count its press by itself
+ * (`ping`, links-click.mjs), with no script and nothing about the fan, so the button stays a plain link that opens the app.
  */
-export function fanPage(link, address, home, { inPhone = false } = {}) {
+export function fanPage(link, address, home, { inPhone = false, countAs = null } = {}) {
   const title = esc(link.title);
   const artist = esc(link.artist);
   const shown = link.services.filter(row => !row.hidden);
   const names = shown.map(row => LABELS[row.service]);
   const description = esc(`Listen to ${link.title} by ${link.artist} on ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]}.`);
   const cover = link.cover ? esc(link.cover) : '';
-  const buttons = shown.map(row => `<li><a class="s" href="${esc(row.url)}"><img src="${esc(logoOf(home, row.service))}" alt="" width="28" height="28"><span>${esc(LABELS[row.service])}</span><em>${row.service === 'youtube' ? 'Watch' : 'Play'}</em></a></li>`).join('');
+  const ping = (service) => (countAs && !inPhone ? ` ping="${esc(`${home}/api/links/click?slug=${encodeURIComponent(countAs)}&service=${service}`)}"` : '');
+  const buttons = shown.map(row => `<li><a class="s" href="${esc(row.url)}"${ping(row.service)}><img src="${esc(logoOf(home, row.service))}" alt="" width="28" height="28"><span>${esc(LABELS[row.service])}</span><em>${row.service === 'youtube' ? 'Watch' : 'Play'}</em></a></li>`).join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} · ${artist}</title><meta name="description" content="${description}"><link rel="canonical" href="${esc(address)}">
 <meta property="og:type" content="music.song"><meta property="og:title" content="${title} · ${artist}"><meta property="og:description" content="${description}"><meta property="og:url" content="${esc(address)}">${cover ? `<meta property="og:image" content="${cover}"><meta name="twitter:card" content="summary_large_image">` : ''}

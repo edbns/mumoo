@@ -268,9 +268,31 @@ export function localPreviewApi() {
         const problem = slugProblem(name) ?? (smartLinks.has(name) || name === 'taken-name' ? 'Someone already has that name. Try another.' : null);
         send(response, 200, problem ? { free: false, error: problem } : { free: true });
       });
+      const linkClicks = new Map();
+      route('/api/links/click', 'POST', async (request, response) => {
+        const params = new URL(request.url, 'http://local').searchParams;
+        const shown = smartLinks.get(params.get('slug'))?.link.services.some(row => row.service === params.get('service') && !row.hidden);
+        if (shown) {
+          const counts = linkClicks.get(params.get('slug')) ?? {};
+          counts[params.get('service')] = (counts[params.get('service')] ?? 0) + 1;
+          linkClicks.set(params.get('slug'), counts);
+        }
+        response.statusCode = 204;
+        response.end();
+      });
       const linksRoute = method => route('/api/links', method, signedIn(async (_email, request, response) => {
-        if (method === 'GET') return send(response, 200, { links: [...smartLinks.values()].reverse() });
-        if (method === 'DELETE') { smartLinks.delete(new URL(request.url, 'http://local').searchParams.get('slug')); return send(response, 200, {}); }
+        if (method === 'GET') {
+          return send(response, 200, { links: [...smartLinks.values()].reverse().map(item => {
+            const clicks = linkClicks.get(item.slug) ?? {};
+            return { ...item, clicks, week: Object.values(clicks).reduce((sum, count) => sum + count, 0) };
+          }) });
+        }
+        if (method === 'DELETE') {
+          const slug = new URL(request.url, 'http://local').searchParams.get('slug');
+          smartLinks.delete(slug);
+          linkClicks.delete(slug);
+          return send(response, 200, {});
+        }
         const { slug, link } = JSON.parse((await readBody(request)).toString('utf8'));
         const problem = method === 'POST' ? slugProblem(slug) ?? (smartLinks.has(slug) ? 'Someone already has that name. Try another.' : null) : null;
         const cleaned = cleanLink(link);
@@ -287,7 +309,7 @@ export function localPreviewApi() {
         response.statusCode = kept ? 200 : 404;
         response.setHeader('Content-Type', 'text/html; charset=utf-8');
         response.setHeader('Content-Security-Policy', POLICY);
-        response.end(kept ? fanPage(kept.link, `${home}/l/${slug}`, home) : missingPage(home));
+        response.end(kept ? fanPage(kept.link, `${home}/l/${slug}`, home, { countAs: slug }) : missingPage(home));
       });
 
       route('/.netlify/functions/transcribe-lyrics', 'POST', async (request, response) => {

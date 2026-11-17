@@ -3,4 +3,4 @@ type FanLink = {
   services: { service: string; url: string; hidden: boolean }[];
 };
 
-export function fanPage(link: FanLink, address: string, home: string, options?: { inPhone?: boolean }): string;
+export function fanPage(link: FanLink, address: string, home: string, options?: { inPhone?: boolean; countAs?: string | null }): string;

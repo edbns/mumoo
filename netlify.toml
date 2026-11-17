@@ -20,6 +20,11 @@
   to = "/index.html"
   status = 200
 
+[[redirects]]
+  from = "/links/mine"
+  to = "/index.html"
+  status = 200
+
 # Where a phone sends the song from (the QR code on the song step). Its link is in the #fragment, never sent to a server.
 [[redirects]]
   from = "/phone"

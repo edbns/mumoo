@@ -30,7 +30,7 @@ import { FileDropzone } from '@/components/ui/file-dropzone';
 import { AnalyzingScreen, type PaintProgress } from './analyzing-screen';
 import { StepNav, type StepNumber } from './step-nav';
 import { ArrowLeftIcon, CheckIcon } from 'lucide-react';
-import type { AccountPage } from './account-pages';
+import { PAGE_PATHS, pageAt, type AccountPage } from './account-pages';
 import { ProfileNav, type ProfileTab } from './profile-nav';
 import { ClipPicker } from './clip-picker';
 import './styles/index.css';
@@ -43,8 +43,6 @@ const ProfilePage = lazy(loadProfilePage);
 /** How long the window must rest before the music inside it plays. */
 const AUDITION_PAUSE_MS = 200;
 const INITIAL: Composition = { sourceSha256: '', clipStartMs: 0, cues: [] };
-const LINKS_PATH = '/links';
-
 
 const styleOption = ({ label }: StyleMatch): ComboboxOption => ({ value: label, label });
 const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -54,10 +52,9 @@ function App() {
   const [accessToken, setAccessToken] = useState('');
   const [inCreatives, setInCreatives] = useState(false);
   /** The page being shown: making creatives, or a page of the person's account (the work underneath is kept as it was). */
-  const [page, setPage] = useState<AccountPage>(() => location.pathname === LINKS_PATH ? 'links' : 'create');
-  // Smart links have their own address, to share and come back to; every other page is at the root.
+  const [page, setPage] = useState<AccountPage>(() => pageAt(location.pathname));
   useEffect(() => {
-    const path = page === 'links' ? LINKS_PATH : '/';
+    const path = PAGE_PATHS[page] ?? '/';
     if (location.pathname !== path) history.replaceState(history.state, '', path + location.search + location.hash);
   }, [page]);
   const [profileTab, setProfileTab] = useState<ProfileTab>('creatives');
@@ -387,7 +384,7 @@ function App() {
     {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
     {download.message && <DownloadNotice message={download.message} onDismiss={download.dismiss} />}
     {IS_ALIGNMENT_STAGING && !accessToken && <StagingAccess onAccess={setAccessToken} />}
-    {page !== 'create' && <Suspense fallback={null}><ProfilePage page={page} tab={profileTab} progress={download.progress} delivered={delivered} /></Suspense>}
+    {page !== 'create' && <Suspense fallback={null}><ProfilePage page={page} tab={profileTab} progress={download.progress} delivered={delivered} onNavigate={setPage} /></Suspense>}
     {/* The work stays exactly as it was while a page of the account is open: hidden, but still laid out, so its drawings are not cleared and redrawn. */}
     <div className={page === 'create' ? 'contents' : 'invisible fixed inset-0 overflow-hidden'} inert={page !== 'create'}>
     {!inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center' : 'desktop trim'}>

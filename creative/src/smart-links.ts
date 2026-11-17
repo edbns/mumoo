@@ -24,7 +24,11 @@ export type ServiceRow = { service: Service; url: string; hidden: boolean; exact
 export type LinkFields = {
   source: string; title: string; artist: string; cover: string | null; preview: string | null; isrc: string | null; services: ServiceRow[];
 };
-export type Published = { slug: string; link: Omit<LinkFields, 'services'> & { services: Omit<ServiceRow, 'exact'>[] }; created_at: string; updated_at: string };
+/** A published link; listed, it has its button presses per service ever (`clicks`) and of the last seven days (`week`). */
+export type Published = {
+  slug: string; link: Omit<LinkFields, 'services'> & { services: Omit<ServiceRow, 'exact'>[] }; created_at: string; updated_at: string;
+  clicks?: Partial<Record<Service, number>>; week?: number;
+};
 
 /** What the editor holds. `editing` is the address of the published link being changed, or null for a new one. */
 export type Draft = { url: string; link: LinkFields | null; candidates: Candidate[] | null; slug: string; editing: string | null };

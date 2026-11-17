@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { cleanLink, deleteLink, linksOf, publishLink, slugProblem, updateLink } from '../netlify/lib/smart-links.mjs';
+import { cleanLink, countClick, deleteLink, linksOf, publishLink, slugProblem, updateLink } from '../netlify/lib/smart-links.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import links from '../netlify/functions/links.mjs';
 import slugCheck from '../netlify/functions/links-slug.mjs';
+import click from '../netlify/functions/links-click.mjs';
 
 /** Smart links, step two: what the editor publishes, at which address, and only by its owner. */
 
@@ -78,8 +79,24 @@ test('a name is taken by whoever publishes first, and only its owner can change 
     assert.equal(await deleteLink(other, slug), false);
     assert.deepEqual((await linksOf(owner)).map(row => row.slug), [slug]);
 
+    assert.equal(await countClick(slug, 'spotify'), true);
+    assert.equal(await countClick(slug, 'spotify'), true);
+    assert.equal(await countClick(slug, 'apple'), true);
+    assert.equal(await countClick(slug, 'tidal'), false, 'a hidden button is not counted');
+    assert.equal(await countClick(slug, 'nope'), false);
+    assert.equal(await countClick(`gone-${randomUUID().slice(0, 8)}`, 'spotify'), false);
+    const [listed] = await linksOf(owner);
+    assert.deepEqual(listed.clicks, { spotify: 2, apple: 1 });
+    assert.equal(listed.week, 3);
+    assert.deepEqual(Object.keys((await sql`select * from smart_link_clicks where slug = ${slug} limit 1`)[0]).sort(), ['clicks', 'day', 'service', 'slug'],
+      'only counts are kept, nothing about who pressed');
+    assert.equal((await click(new Request(`https://mumoo.app/api/links/click?slug=${slug}&service=apple`, { method: 'POST' }))).status, 204);
+    assert.equal((await linksOf(owner))[0].clicks.apple, 2);
+    assert.equal((await click(new Request(`https://mumoo.app/api/links/click?slug=${slug}&service=apple`))).status, 405);
+
     await sql`delete from app_users where id = ${owner}`;
     assert.deepEqual(await sql`select 1 from smart_links where slug = ${slug}`, [], 'a deleted account takes its links with it');
+    assert.deepEqual(await sql`select 1 from smart_link_clicks where slug = ${slug}`, [], 'and their clicks');
   } finally {
     await sql`delete from smart_links where slug = ${slug}`;
     await sql`delete from app_users where id in (${owner}, ${other})`;

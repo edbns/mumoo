@@ -1,57 +1,49 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Reorder, useDragControls } from 'motion/react';
-import { CheckIcon, CopyIcon, EyeIcon, EyeOffIcon, ExternalLinkIcon, GripVerticalIcon, PauseIcon, PencilIcon, PlayIcon, SearchIcon, Trash2Icon } from 'lucide-react';
+import { EyeIcon, EyeOffIcon, GripVerticalIcon, PauseIcon, PlayIcon, SearchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Iphone16Pro, SCREEN_RATIO, SCREEN_SHARE } from '@/components/ui/iphone-16-pro';
 import { fanPage } from '../netlify/lib/fan-page.mjs';
 import { authClient, checkSignInCode, sendSignInCode, signInWithGoogle } from './account';
+import type { AccountPage } from './account-pages';
 import { AccountSection } from './account-section';
 import { SignInDialog } from './sign-in-dialog';
+import { AddressLine, Cover, LinksCard, iconButton, textButton } from './smart-link-parts';
 import {
-  EMPTY_DRAFT, LABELS, SERVICES, addressOf, asLink, checkSlug, deletePublished, draftOf, fieldsOf, isSearch, listLinks, lookupSong, publishDraft, saveDraft,
+  EMPTY_DRAFT, LABELS, SERVICES, addressOf, asLink, checkSlug, fieldsOf, isSearch, lookupSong, publishDraft, saveDraft,
   searchSongs, suggestSlug, loadDraft,
   type Draft, type LinkFields, type Published, type SearchResult, type ServiceRow,
 } from './smart-links';
 
 /** How long typing rests before a name is checked or searched. */
 const CHECK_PAUSE_MS = 400;
-const COPIED_MS = 1500;
 /** The phone's width on screen, and the width the fan page is laid out at inside it (an iPhone's). */
 const PHONE_WIDTH = 320;
 const PAGE_WIDTH = 390;
 
 const field = 'h-[var(--control-height-md)] w-full min-w-0 rounded-[var(--radius-control)] bg-muted px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:shadow-[0_0_0_2px_var(--focus-ring)]';
-const textButton = 'cursor-pointer bg-transparent p-0 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground';
-const iconButton = 'grid size-9 shrink-0 cursor-pointer place-items-center rounded-[var(--radius-control)] bg-transparent p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30';
 
 /** One song to choose: found by its name, or a guess for a Spotify link we were not sure of. */
 type Choice = { key: string; title: string; artist: string | null; cover: string | null; preview: string | null; choose: () => void };
 
 /**
- * Smart links: one page for a song, with a button for every service. Free, and open before signing in: the draft stays in this
+ * Create Smart Link: one page for a song, with a button for every service. Free, and open before signing in: the draft stays in this
  * browser, and only publishing asks the artist to sign in (Google or email). The phone on the right is the fan page itself.
+ * A published link is opened here again from My Smart Links (`my-links-page.tsx`), which puts it in the draft.
  */
-export default function LinksPage() {
+export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPage) => void }) {
   const session = authClient.useSession();
   const user = session.data?.user;
   const [draft, setDraft] = useState<Draft>(loadDraft);
   useEffect(() => saveDraft(draft), [draft]);
   const [busy, setBusy] = useState<'find' | 'pick' | 'publish' | null>(null);
   const [error, setError] = useState('');
-  const [links, setLinks] = useState<Published[] | null>(null);
   const [published, setPublished] = useState<Published | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   const player = usePreview();
   /** Publish was pressed while signed out: it goes ahead once they are signed in. */
   const publishWhenIn = useRef(false);
   const signInAddress = useRef('');
-
-  useEffect(() => {
-    if (!user) return;
-    let live = true;
-    listLinks().then(found => { if (live) setLinks(found); }, () => { if (live) setLinks([]); });
-    return () => { live = false; };
-  }, [user?.id]);
 
   const slug = useSlugCheck(draft.editing ? '' : draft.slug);
   const link = draft.link;
@@ -114,7 +106,6 @@ export default function LinksPage() {
     if (!user) { publishWhenIn.current = true; setSigningIn(true); return; }
     void run('publish', async () => {
       const done = await publishDraft(draft);
-      setLinks(current => [done, ...(current ?? []).filter(other => other.slug !== done.slug)]);
       setDraft(EMPTY_DRAFT);
       setPublished(done);
     });
@@ -125,22 +116,12 @@ export default function LinksPage() {
     if (user && publishWhenIn.current) { publishWhenIn.current = false; publishLatest.current(); }
   }, [user]);
 
-  async function remove(slug: string) {
-    if (!window.confirm(`Delete ${addressOf(slug)}? Anyone who opens it will find nothing. This cannot be undone.`)) return;
-    try {
-      await deletePublished(slug);
-      setLinks(current => (current ?? []).filter(other => other.slug !== slug));
-      if (draft.editing === slug) setDraft(EMPTY_DRAFT);
-      if (published?.slug === slug) setPublished(null);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That did not work. Try again in a moment.');
-    }
-  }
-
   function startAgain() {
     player.stop();
+    const wasEditing = Boolean(draft.editing);
     setDraft(EMPTY_DRAFT);
     setError('');
+    if (wasEditing) onNavigate('my-links');
   }
 
   const choices: Choice[] | null = link && draft.candidates?.length
@@ -150,13 +131,13 @@ export default function LinksPage() {
       : null;
 
   return <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6">
-    <section aria-label="Smart link" className="rounded-[var(--radius-panel)] bg-card p-6">
-      <p className="eyebrow mb-6 mt-0">SMART LINK · FREE</p>
+    <LinksCard label={draft.editing ? 'Edit Smart Link' : 'Create Smart Link · Free'}
+      aside={user && <button type="button" className={textButton} onClick={() => onNavigate('my-links')}>My Smart Links</button>}>
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-4">
           {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
             <AddressLine slug={published.slug} />
-            <p className="m-0 text-sm text-muted-foreground">Put it in your bio and posts. Every fan gets the button for the app they use.</p>
+            <p className="m-0 text-sm text-muted-foreground">Put it in your bio and posts. Every fan gets the button for the app they use, and My Smart Links counts which ones they press.</p>
           </AccountSection>}
 
           <AccountSection label={draft.editing ? 'Editing your link' : 'Your song'} aside={(draft.url || link) &&
@@ -226,23 +207,7 @@ export default function LinksPage() {
 
         <PhonePreview link={link} slug={draft.editing ?? draft.slug} />
       </div>
-    </section>
-
-    {user && links && links.length > 0 && <section aria-label="Your links" className="rounded-[var(--radius-panel)] bg-card p-6">
-      <p className="eyebrow mb-6 mt-0">YOUR LINKS</p>
-      <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {links.map(item => <li key={item.slug} className="flex items-center gap-3 rounded-[var(--radius-panel)] bg-background p-3">
-          <Cover src={item.link.cover} size="size-12" />
-          <span className="min-w-0 flex-1 text-sm">
-            <span className="block truncate font-medium">{item.link.title} · {item.link.artist}</span>
-            <a className="block truncate text-muted-foreground hover:text-foreground" href={addressOf(item.slug)} target="_blank" rel="noreferrer">{addressOf(item.slug).replace(/^https?:\/\//, '')}</a>
-          </span>
-          <CopyButton text={addressOf(item.slug)} />
-          <button type="button" className={iconButton} aria-label={`Edit ${item.slug}`} onClick={() => { player.stop(); setPublished(null); setError(''); setDraft(draftOf(item)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><PencilIcon className="size-4" /></button>
-          <button type="button" className={iconButton} aria-label={`Delete ${item.slug}`} onClick={() => void remove(item.slug)}><Trash2Icon className="size-4" /></button>
-        </li>)}
-      </ul>
-    </section>}
+    </LinksCard>
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}
       onSendCode={async email => { await sendSignInCode(email); signInAddress.current = email; }}
@@ -372,25 +337,4 @@ function useSlugCheck(name: string) {
     return () => { live = false; window.clearTimeout(timer); };
   }, [name]);
   return state?.name === name ? state : { name, free: false };
-}
-
-function Cover({ src, size }: { src: string | null; size: string }) {
-  return src ? <img src={src} alt="" className={`${size} shrink-0 rounded-[6px] object-cover`} /> : <span className={`${size} shrink-0 rounded-[6px] bg-background`} />;
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return <button type="button" className={iconButton} aria-label={copied ? 'Copied' : 'Copy link'}
-    onClick={() => void navigator.clipboard.writeText(text).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), COPIED_MS); })}>
-    {copied ? <CheckIcon className="size-4 text-primary" /> : <CopyIcon className="size-4" />}
-  </button>;
-}
-
-function AddressLine({ slug }: { slug: string }) {
-  const address = addressOf(slug);
-  return <div className="flex items-center gap-2 rounded-[var(--radius-control)] bg-muted py-1 pl-3 pr-1">
-    <span className="min-w-0 flex-1 truncate text-sm">{address.replace(/^https?:\/\//, '')}</span>
-    <CopyButton text={address} />
-    <a className={iconButton} href={address} target="_blank" rel="noreferrer" aria-label="Open link"><ExternalLinkIcon className="size-4" /></a>
-  </div>;
 }
