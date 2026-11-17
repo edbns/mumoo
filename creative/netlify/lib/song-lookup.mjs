@@ -80,6 +80,8 @@ export function fitOf(seed, found) {
   if (seed.artist) score += 2 * alike(seed.artist, found.artist);
   if (seed.durationMs && found.durationMs) score += Math.max(0, 1 - Math.abs(seed.durationMs - found.durationMs) / 10_000);
   if (isVariant(found.title) && !isVariant(seed.title)) score -= 1.5;
+  // Between equals (a title alone fits the original and every cover of it), the more played one: Deezer's rank runs to about a million.
+  if (found.rank) score += 0.3 * Math.min(1, Math.log10(1 + found.rank) / 6);
   return score;
 }
 
@@ -100,7 +102,7 @@ async function getJson(fetcher, url, init) {
 
 const fromDeezer = (track) => ({
   title: track.title, artist: track.artist?.name ?? null, durationMs: track.duration ? track.duration * 1000 : null,
-  isrc: track.isrc ?? null, url: track.link, cover: track.album?.cover_xl ?? null, deezerId: track.id,
+  isrc: track.isrc ?? null, url: track.link, cover: track.album?.cover_xl ?? null, deezerId: track.id, rank: track.rank ?? 0,
 });
 const fromItunes = (track) => ({
   title: track.trackName, artist: track.artistName, durationMs: track.trackTimeMillis ?? null,
@@ -109,9 +111,11 @@ const fromItunes = (track) => ({
 });
 
 let spotifyToken;
+/** Why the last Spotify lookup could not use Spotify's API ('ok', 'no keys' or what Spotify answered), for the function's answer and logs. */
+export let spotifyState = 'no keys';
 async function spotifyTrack(fetcher, id) {
   const { SPOTIFY_CLIENT_ID: client, SPOTIFY_CLIENT_SECRET: secret } = process.env;
-  if (!client || !secret) return null;
+  if (!client || !secret) { spotifyState = 'no keys'; return null; }
   if (!spotifyToken || spotifyToken.until < Date.now()) {
     const body = await getJson(fetcher, 'https://accounts.spotify.com/api/token', {
       method: 'POST', body: 'grant_type=client_credentials',
@@ -120,6 +124,7 @@ async function spotifyTrack(fetcher, id) {
     spotifyToken = { value: body.access_token, until: Date.now() + (body.expires_in - 60) * 1000 };
   }
   const track = await getJson(fetcher, `https://api.spotify.com/v1/tracks/${id}`, { headers: { Authorization: `Bearer ${spotifyToken.value}` } });
+  spotifyState = 'ok';
   return { title: track.name, artist: track.artists?.map(a => a.name).join(', ') ?? null, durationMs: track.duration_ms ?? null, isrc: track.external_ids?.isrc ?? null, cover: track.album?.images?.[0]?.url ?? null };
 }
 
@@ -132,7 +137,11 @@ async function seedOf(fetcher, source) {
     return { ...fromItunes(track), apple: fromItunes(track), sure: true };
   }
   if (source.platform === 'spotify') {
-    const full = await spotifyTrack(fetcher, source.id).catch(() => null);
+    const full = await spotifyTrack(fetcher, source.id).catch((cause) => {
+      spotifyState = cause instanceof Error ? cause.message : 'failed';
+      console.error('spotify api:', spotifyState);
+      return null;
+    });
     if (full) return { ...full, sure: true };
     const body = await getJson(fetcher, `https://open.spotify.com/oembed?url=${encodeURIComponent(`https://open.spotify.com/track/${source.id}`)}`);
     return body.title ? { title: body.title, artist: null, cover: body.thumbnail_url ?? null, sure: false } : null;
@@ -224,7 +233,8 @@ export async function lookupSong(raw, fetcher = fetch, picked = null) {
 }
 
 /**
- * The same, kept: a song is looked up once (and again after `KEEP_DAYS`). A song the artist picked is kept apart from the plain
+ * The same, kept: a song is looked up once (and again after `KEEP_DAYS`). Only a sure answer is kept: a guess is cheap to make again,
+ * and may be bettered (Spotify's keys arriving, a new release on Deezer). A song the artist picked is kept apart from the plain
  * lookup (`source#isrc`), so one person's choice never changes what another sees for the same link.
  */
 export async function lookupSongKept(raw, fetcher = fetch, picked = null) {
@@ -236,7 +246,7 @@ export async function lookupSongKept(raw, fetcher = fetch, picked = null) {
   const [kept] = await sql`select song from song_lookups where source = ${key} and looked_up_at > now() - make_interval(days => ${KEEP_DAYS})`;
   if (kept) return kept.song;
   const song = await lookupSong(raw, fetcher, pick);
-  if (song) {
+  if (song?.confident) {
     await sql`insert into song_lookups (source, song) values (${key}, ${JSON.stringify(song)}::jsonb)
       on conflict (source) do update set song = excluded.song, looked_up_at = now()`;
   }

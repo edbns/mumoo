@@ -1,4 +1,4 @@
-import { ISRC, lookupSongKept, parseSource } from '../lib/song-lookup.mjs';
+import { ISRC, lookupSongKept, parseSource, spotifyState } from '../lib/song-lookup.mjs';
 
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 
@@ -16,7 +16,9 @@ export default async function handler(request) {
   try {
     const pick = typeof body?.pick === 'string' && ISRC.test(body.pick) ? body.pick : null;
     const song = await lookupSongKept(url, fetch, pick);
-    return song ? reply(200, { song }) : reply(404, { error: 'We could not find that song. Check the link and try again.' });
+    const answer = song ? reply(200, { song }) : reply(404, { error: 'We could not find that song. Check the link and try again.' });
+    if (song?.source.startsWith('spotify:')) answer.headers.set('X-Spotify-Api', spotifyState);
+    return answer;
   } catch (cause) {
     console.error('links lookup:', cause);
     return reply(502, { error: 'Looking up the song failed. Try again in a moment.' });

@@ -39,10 +39,10 @@ test('the original beats its remix, cover and "versión", and the length breaks 
 });
 
 const DEEZER = {
-  id: 908604612, title: 'Blinding Lights', isrc: 'USUG11904206', link: 'https://www.deezer.com/track/908604612', duration: 200,
+  id: 908604612, title: 'Blinding Lights', isrc: 'USUG11904206', link: 'https://www.deezer.com/track/908604612', duration: 200, rank: 984833,
   artist: { name: 'The Weeknd' }, album: { cover_xl: 'https://cdn.deezer.example/cover.jpg' },
 };
-const COVER = { ...DEEZER, id: 1, title: 'Blinding Lights', isrc: 'GBXXX2000001', artist: { name: 'Loi' }, link: 'https://www.deezer.com/track/1' };
+const COVER = { ...DEEZER, id: 1, title: 'Blinding Lights', isrc: 'GBXXX2000001', artist: { name: 'Loi' }, link: 'https://www.deezer.com/track/1', rank: 2000 };
 const ITUNES = {
   wrapperType: 'track', trackId: 1499378615, trackName: 'Blinding Lights', artistName: 'The Weeknd', trackTimeMillis: 200_040,
   trackViewUrl: 'https://music.apple.com/us/album/blinding-lights/1499378108?i=1499378615&uo=4', previewUrl: 'https://audio.example/preview.m4a',
@@ -94,7 +94,7 @@ test('a Spotify link without keys is only a guess until the artist picks the son
   const { fetcher } = services();
   const guess = await lookupSong('https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b', fetcher);
   assert.equal(guess.confident, false);
-  assert.deepEqual(guess.candidates.map(c => c.artist).sort(), ['Loi', 'The Weeknd']);
+  assert.deepEqual(guess.candidates.map(c => c.artist), ['The Weeknd', 'Loi'], 'the more played one first, whatever order Deezer gave');
   assert.deepEqual(guess.links.spotify, { url: 'https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b', exact: true });
   assert.equal(guess.links.apple.exact, false, 'a guess is not a link');
   assert.equal(guess.links.deezer.exact, false);
@@ -105,19 +105,20 @@ test('a Spotify link without keys is only a guess until the artist picks the son
   assert.equal(wrong.confident, false, 'a pick with a different title is not believed');
 });
 
-test('a song is looked up once, and an artist\'s pick is kept apart from what everyone else sees', { skip: !process.env.DATABASE_URL, timeout: 30000 }, async () => {
+test('a sure song is looked up once, a guess every time, and an artist\'s pick is kept apart from what everyone else sees', { skip: !process.env.DATABASE_URL, timeout: 30000 }, async () => {
   const sql = db();
   const id = randomUUID().replace(/-/g, '').slice(0, 22);
   const url = `https://open.spotify.com/track/${id}`;
   try {
-    const first = services();
-    await lookupSongKept(url, first.fetcher);
-    const again = services();
-    const kept = await lookupSongKept(url, again.fetcher);
-    assert.equal(again.asked.length, 0, 'the second time nothing is asked');
-    assert.equal(kept.confident, false);
-    const picked = await lookupSongKept(url, services().fetcher, 'USUG11904206');
-    assert.equal(picked.confident, true);
+    await lookupSongKept(url, services().fetcher);
+    const guessAgain = services();
+    assert.equal((await lookupSongKept(url, guessAgain.fetcher)).confident, false);
+    assert.ok(guessAgain.asked.length > 0, 'a guess is not kept, so it can be bettered');
+
+    assert.equal((await lookupSongKept(url, services().fetcher, 'USUG11904206')).confident, true);
+    const pickAgain = services();
+    assert.equal((await lookupSongKept(url, pickAgain.fetcher, 'USUG11904206')).confident, true);
+    assert.equal(pickAgain.asked.length, 0, 'a sure answer is kept: the second time nothing is asked');
     assert.equal((await lookupSongKept(url, services().fetcher)).confident, false, 'the plain lookup is unchanged by the pick');
   } finally {
     await sql`delete from song_lookups where source like ${`spotify:${id}%`}`;
