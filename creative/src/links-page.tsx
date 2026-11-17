@@ -8,6 +8,8 @@ import { authClient, checkSignInCode, sendSignInCode, signInWithGoogle } from '.
 import type { AccountPage } from './account-pages';
 import { AccountSection } from './account-section';
 import { AdTracking } from './ad-tracking';
+import { AdsNextStep } from './smart-link-cta';
+import { handSong } from './song-handoff';
 import { SignInDialog } from './sign-in-dialog';
 import { AddressLine, Cover, iconButton, textButton } from './smart-link-parts';
 import {
@@ -144,6 +146,10 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
         {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
           <AddressLine slug={published.slug} />
           <p className="m-0 text-sm text-muted-foreground">Put it in your bio and posts. Every fan gets the button for the app they use, and My Smart Links counts which ones they press.</p>
+          <AdsNextStep published={published} onStart={() => {
+            handSong({ title: published.link.title, artist: published.link.artist, cover: published.link.cover });
+            onNavigate('create');
+          }} />
         </AccountSection>}
 
         <AccountSection label={draft.editing ? 'Editing your link' : 'Your song'} aside={(draft.url || link) &&

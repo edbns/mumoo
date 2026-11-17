@@ -19,6 +19,7 @@ import { CartButton, CartPanel, DownloadNotice, type CartAction, type CartLine }
 import { useCartDownload } from './use-cart-download';
 import { useUploads } from './use-uploads';
 import { forgetSession } from './forget-session';
+import { takeHandedSong, type HandedSong } from './song-handoff';
 import type { LyricWord } from './lyrics-cloud';
 import { StagingAccess } from './staging-access';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
@@ -29,7 +30,7 @@ import { Modal } from '@/components/ui/modal';
 import { FileDropzone } from '@/components/ui/file-dropzone';
 import { AnalyzingScreen, type PaintProgress } from './analyzing-screen';
 import { StepNav, type StepNumber } from './step-nav';
-import { ArrowLeftIcon, CheckIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, XIcon } from 'lucide-react';
 import { PAGE_PATHS, pageAt, type AccountPage } from './account-pages';
 import { LinksNav, ProfileNav, type ProfileTab } from './profile-nav';
 import { ClipPicker } from './clip-picker';
@@ -85,6 +86,13 @@ function App() {
   const currentClip = useRef<ClipIdentity | null>(null);
   const genreValid = Boolean(picked) || genreUnknown;
   const [songTags, setSongTags] = useState<SongTags>();
+  /** The song a smart link handed over ("Make my first ad free"), until the creator dismisses it. */
+  const [handed, setHanded] = useState<HandedSong | null>(null);
+  useEffect(() => {
+    if (page !== 'create') return;
+    const song = takeHandedSong();
+    if (song) setHanded(song);
+  }, [page]);
   const [songCover, setSongCover] = useState<CoverRead | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer>();
   const [lyricsState, setLyricsState] = useState({ busy: false, dirty: false });
@@ -140,8 +148,10 @@ function App() {
       // Not known: no genre, and the brain goes by the sound and the words.
       primaryGenre: { value: known?.style.genre ?? '', source: known?.source ?? 'creator' },
       ...(known && { subGenre: { value: known.style.subGenre, source: known.source }, style: { value: known.label, name: known.style.name, source: known.source } }),
-      ...(songTags?.title && { title: { value: songTags.title, source: 'embedded_metadata' as const } }),
-      ...(songTags?.artist && { artist: { value: songTags.artist, source: 'embedded_metadata' as const } }),
+      ...(songTags?.title ? { title: { value: songTags.title, source: 'embedded_metadata' as const } }
+        : handed?.title ? { title: { value: handed.title, source: 'creator' as const } } : {}),
+      ...(songTags?.artist ? { artist: { value: songTags.artist, source: 'embedded_metadata' as const } }
+        : handed?.artist ? { artist: { value: handed.artist, source: 'creator' as const } } : {}),
       ...(songCover && { cover: { value: songCover, source: 'embedded_metadata' as const } }),
     },
     musicAnalysis: analysisForClip(musicAnalysis, clip),
@@ -397,6 +407,15 @@ function App() {
         {step === 1 && <>
         <div className="grid gap-5 md:grid-cols-2">
           <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-background p-5">
+            {handed && !buffer && <div className="flex items-center gap-3 rounded-[var(--radius-control)] bg-card p-3">
+              {handed.cover ? <img src={handed.cover} alt="" className="size-11 shrink-0 rounded-[6px] object-cover" /> : <span className="size-11 shrink-0 rounded-[6px] bg-muted" />}
+              <p className="m-0 min-w-0 flex-1 text-sm">
+                <span className="block truncate font-semibold">Ads for {handed.title}{handed.artist ? ` · ${handed.artist}` : ''}</span>
+                <span className="block text-muted-foreground">Drop the song file to start. Your first creative is free.</span>
+              </p>
+              <button type="button" aria-label="Not this song" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => setHanded(null)}><XIcon aria-hidden="true" className="size-4" /></button>
+            </div>}
             <FileDropzone accept={ACCEPTED_AUDIO} icon={Music2Icon} title="Drop your song here" hint={ACCEPTED_LABEL} buttonLabel="Select song" inputLabel="Song file" removeLabel="Remove song" fileName={songName || undefined}
               onSelect={file => void choose(file)} onRemove={() => void choose(undefined)} />
             {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}

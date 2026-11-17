@@ -182,3 +182,7 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .shimmer:disabled::after { animation: none; }
 @keyframes shimmer-sweep { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
 @media (prefers-reduced-motion: reduce) { .shimmer::after { animation: none; } }
+/* The ad mockup after a smart link is published: the song title lit word by word, like a lyric video. */
+.lyric-word { opacity: 0.35; animation: lyric-word var(--lyric-cycle, 3s) ease-in-out infinite; animation-delay: var(--lyric-at, 0s); }
+@keyframes lyric-word { 0%, 100% { opacity: 0.35; transform: none; } 8%, 30% { opacity: 1; transform: scale(1.06); } 40% { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .lyric-word { animation: none; opacity: 1; } }
