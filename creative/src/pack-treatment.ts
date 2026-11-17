@@ -6,56 +6,20 @@
  * stay readable, except under Fisheye, where they sit in the black below the lens and pass behind it, and Colored
  * Frame, where they sit on the solid colour above and below the video. Preview and cloud render share this code.
  */
-import {
-  BlurFilter, Container, Filter, GlProgram, Graphics, Rectangle, RenderTexture, Sprite, Texture, UniformGroup,
-  type Renderer,
-} from 'pixi.js';
+import { BlurFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, type Filter, type Renderer } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
 import { analyzeTexture } from './pack-palette';
 import type { PackSceneInput } from './pack-copy';
 import { createTypeLayer, type TimedWord, type TypeFrame } from './pack-type';
 import type { TreatmentId } from './treatment-deal';
+import { FRAME_UV, makeFilter } from './treatment-filter';
+import { createTypewriterPage } from './pack-typewriter';
 
 export type TreatmentWorld = {
   root: Container;
   update(input: PackSceneInput, renderer: Renderer): void;
   destroy(): void;
 };
-
-const VERTEX = `
-in vec2 aPosition;
-out vec2 vTextureCoord;
-uniform vec4 uInputSize;
-uniform vec4 uOutputFrame;
-uniform vec4 uOutputTexture;
-void main(void) {
-  vec2 position = aPosition * uOutputFrame.zw + uOutputFrame.xy;
-  position.x = position.x * (2.0 / uOutputTexture.x) - 1.0;
-  position.y = position.y * (2.0 * uOutputTexture.z / uOutputTexture.y) - uOutputTexture.z;
-  gl_Position = vec4(position, 0.0, 1.0);
-  vTextureCoord = aPosition * (uOutputFrame.zw * uInputSize.zw);
-}
-`;
-
-/** Filter textures can be larger than the frame: `n` is 0..1 over the frame, `back(n)` the coordinate to sample. */
-const FRAME_UV = `
-uniform highp vec4 uInputSize;
-uniform highp vec4 uOutputFrame;
-vec2 frameMax() { return uOutputFrame.zw * uInputSize.zw; }
-vec2 mirrored(vec2 n) { return 1.0 - abs(1.0 - mod(n, 2.0)); }
-`;
-
-function makeFilter(fragment: string, name: string, initial: Record<string, number>) {
-  const group = new UniformGroup(Object.fromEntries(Object.entries(initial).map(([key, value]) => [key, { value, type: 'f32' as const }])));
-  const filter = new Filter({
-    glProgram: GlProgram.from({ vertex: VERTEX, fragment, name }),
-    resources: { treatmentUniforms: group },
-  });
-  return {
-    filter,
-    set: (values: Record<string, number>) => { Object.assign(group.uniforms, values); },
-  };
-}
 
 /**
  * A real lens: inside a circle (radius `uRadius`, a share of the frame's width) the picture bulges, magnified in the
@@ -303,6 +267,20 @@ const DOUBLE_LOOK: Record<string, { zoom: number; flip: boolean; shift: number; 
   'offset-far': { zoom: 2.1, flip: false, shift: 0, y: 0.62, alpha: 0.75, screen: true, dim: 0x8c8c8c },
 };
 
+/**
+ * Sideways: the card is a landscape video turned a quarter (`turn`, 1 clockwise), so the viewer turns their head or phone. The landscape
+ * frame is the reel cut to its shape (`cover`), the whole upright picture between blurred sides (`pillar`), or a cinema strip (`cinema`).
+ */
+const SIDEWAYS: Record<string, { turn: 1 | -1; fit: 'cover' | 'pillar' | 'cinema' }> = {
+  right: { turn: 1, fit: 'cover' },
+  left: { turn: -1, fit: 'cover' },
+  pillar: { turn: 1, fit: 'pillar' },
+  cinema: { turn: -1, fit: 'cinema' },
+};
+/** Sideways' lyrics, turned with the picture, keep this far from the landscape frame's ends and its top and bottom. */
+const TURNED_SIDE = 120;
+const TURNED_PAD = 90;
+
 export function createTreatmentWorld(): TreatmentWorld {
   const root = new Container();
   const backdrop = new Graphics();
@@ -331,6 +309,8 @@ export function createTreatmentWorld(): TreatmentWorld {
   const doubleLayer = new Container();
   doubleLayer.addChild(doubleBase, doubleOver);
   root.addChildAt(doubleLayer, 3);
+  const page = createTypewriterPage();
+  root.addChildAt(page.root, root.getChildIndex(type.root));
 
   function rt(current: RenderTexture | null, w = WIDTH, h = HEIGHT) {
     return current ?? RenderTexture.create({ width: w, height: h, resolution: 1 });
@@ -437,6 +417,32 @@ export function createTreatmentWorld(): TreatmentWorld {
     return { backdrop: look.matte };
   }
 
+  /** Built in the landscape frame (HEIGHT wide, WIDTH tall); `update` turns the panels onto the card. */
+  function buildSideways(variant: string, source: RenderTexture, textures: Texture[]): Look {
+    const look = SIDEWAYS[variant] ?? SIDEWAYS.right;
+    const w = HEIGHT;
+    const h = WIDTH;
+    if (look.fit === 'pillar' && smallRt) {
+      const band = (smallRt.width * h) / w;
+      const blur = new Texture({ source: smallRt.source, frame: new Rectangle(0, Math.round((smallRt.height - band) / 2), smallRt.width, Math.max(1, Math.round(band))) });
+      textures.push(blur);
+      const sides = new Sprite(blur);
+      sides.width = w;
+      sides.height = h;
+      sides.alpha = 0.75;
+      const upright = Math.round((h * WIDTH) / HEIGHT);
+      const sprite = piece(source, new Rectangle(0, 0, WIDTH, HEIGHT), upright, h, textures);
+      sprite.position.set((w - upright) / 2, 0);
+      panels.addChild(sides, sprite);
+    } else {
+      const strip = look.fit === 'cinema' ? Math.round(w / 2.39) : h;
+      const sprite = piece(source, coverCrop(w, strip, 0.5, 0.45), w, strip, textures);
+      sprite.position.set(0, (h - strip) / 2);
+      panels.addChild(sprite);
+    }
+    return { backdrop: BLACK };
+  }
+
   function build(kind: TreatmentId, variant: string, source: RenderTexture) {
     const key = `${kind}:${variant}`;
     if (built?.key === key) return built.look;
@@ -446,7 +452,8 @@ export function createTreatmentWorld(): TreatmentWorld {
       : kind === 'collage' ? buildCollage(variant, source, textures)
         : kind === 'bento' ? buildBento(variant, source, textures)
           : kind === 'frame' ? buildFrame(variant, source, textures)
-            : { backdrop: BLACK };
+            : kind === 'sideways' ? buildSideways(variant, source, textures)
+              : { backdrop: BLACK };
     built = { key, look, textures };
     return look;
   }
@@ -457,6 +464,7 @@ export function createTreatmentWorld(): TreatmentWorld {
     doubleLayer.visible = false;
     panels.visible = false;
     blurred.visible = false;
+    page.root.visible = false;
     backdrop.clear();
   }
 
@@ -483,16 +491,20 @@ export function createTreatmentWorld(): TreatmentWorld {
       sourceRt = rt(sourceRt);
       paint(texture, renderer, sourceRt);
       const energy = input.energy;
-      const sliced = kind === 'triptych' || kind === 'collage' || kind === 'bento' || kind === 'frame';
+      const sliced = kind === 'triptych' || kind === 'collage' || kind === 'bento' || kind === 'frame' || kind === 'sideways';
+      const turn = kind === 'sideways' ? (SIDEWAYS[variant] ?? SIDEWAYS.right).turn : 0;
+      panels.pivot.set(turn ? HEIGHT / 2 : 0, turn ? WIDTH / 2 : 0);
+      panels.position.set(turn ? WIDTH / 2 : 0, turn ? HEIGHT / 2 : 0);
+      panels.rotation = (turn * Math.PI) / 2;
 
       if (sliced) {
+        smallRt = rt(smallRt, Math.round(WIDTH / 6), Math.round(HEIGHT / 6));
         const look = build(kind, variant, sourceRt);
         panels.visible = true;
         backdrop.rect(0, 0, WIDTH, HEIGHT);
         backdrop.fill({ color: look.backdrop === 'blur' ? BLACK : look.backdrop });
+        if (look.backdrop === 'blur' || (kind === 'sideways' && variant === 'pillar')) paint(sourceRt, renderer, smallRt, [softly]);
         if (look.backdrop === 'blur') {
-          smallRt = rt(smallRt, Math.round(WIDTH / 6), Math.round(HEIGHT / 6));
-          paint(sourceRt, renderer, smallRt, [softly]);
           blurred.texture = smallRt;
           blurred.width = WIDTH;
           blurred.height = HEIGHT;
@@ -509,6 +521,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       type.root.pivot.set(kind === 'fisheye' ? WIDTH / 2 : 0, kind === 'fisheye' ? HEIGHT * 0.58 : 0);
       type.root.position.set(kind === 'fisheye' ? WIDTH / 2 : 0, kind === 'fisheye' ? HEIGHT * LYRICS_AT : 0);
       type.root.scale.set(kind === 'fisheye' ? LYRICS_SCALE : 1);
+      type.root.rotation = 0;
 
       if (kind === 'fisheye') {
         const lens = LENS[variant] ?? LENS.medium;
@@ -529,6 +542,14 @@ export function createTreatmentWorld(): TreatmentWorld {
           uScratch: look.scratch, uHalation: look.halation, uSepia: look.sepia, uFade: look.fade, uEnergy: energy,
         });
         treated.filters = [grain.filter];
+      } else if (kind === 'typewriter') {
+        treated.visible = true;
+        treated.texture = sourceRt;
+        treated.width = WIDTH;
+        treated.height = HEIGHT;
+        treated.filters = [page.paper];
+        page.root.visible = true;
+        page.update({ cues: input.cues, ms: input.ms, seed: input.layout.seed, variant, lyrics: input.lyrics });
       } else if (kind === 'double') {
         const look = DOUBLE_LOOK[variant] ?? DOUBLE_LOOK.blend;
         doubleLayer.visible = true;
@@ -552,7 +573,8 @@ export function createTreatmentWorld(): TreatmentWorld {
       }
 
       const style = input.typeStyle ?? 'minimal';
-      const words: TimedWord[] = !input.lyrics || !input.phrase ? [] : input.words.length
+      // Typewriter's lyrics are typed on its page, not set in the card's type.
+      const words: TimedWord[] = !input.lyrics || !input.phrase || kind === 'typewriter' ? [] : input.words.length
         ? [...input.words]
         : [{ text: input.phrase, startMs: 0, endMs: 600 }];
       const frame = { ms: input.ms, beat: input.beat, beatIndex: input.beatIndex, energy: input.energy, seed: input.layout.seed, font: input.font, fontSecondary: input.fontSecondary };
@@ -591,6 +613,16 @@ export function createTreatmentWorld(): TreatmentWorld {
         accent: onBlack ? (light(palette.accent) ? palette.accent : LIGHT) : palette.accent,
         shadow: onBlack || palette.ink.toLowerCase() === LIGHT ? '#000000' : '#ffffff',
       });
+      if (turn) {
+        // Sideways: the lyrics turn with the picture, centred and fitted in the landscape frame.
+        const bounds = type.root.getLocalBounds();
+        if (bounds.width > 0 && bounds.height > 0) {
+          type.root.pivot.set(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+          type.root.position.set(WIDTH / 2, HEIGHT / 2);
+          type.root.scale.set(Math.min(1, (HEIGHT - 2 * TURNED_SIDE) / bounds.width, (WIDTH - 2 * TURNED_PAD) / bounds.height));
+          type.root.rotation = (turn * Math.PI) / 2;
+        }
+      }
     },
     destroy() {
       clearBuilt();
@@ -599,6 +631,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       softly.destroy();
       fisheye.filter.destroy();
       grain.filter.destroy();
+      page.destroy();
       type.destroy();
       below.destroy();
       root.destroy({ children: true });

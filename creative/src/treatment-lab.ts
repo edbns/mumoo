@@ -1,6 +1,6 @@
 /**
- * Treatment Lab — development only (not part of the build). Shows all eight video treatments side by side
- * on one Directed still, so finishes can be tuned without walking the shelf.
+ * Treatment Lab — development only (not part of the build). Shows every video treatment side by side on one Directed
+ * still, so finishes can be tuned without walking the shelf. `?only=sideways,typewriter` shows only those, `?nolyrics` without words.
  */
 import { Application, ImageSource, Sprite, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
@@ -9,6 +9,7 @@ import { PRESETS, type PresetId } from './edit-presets';
 import { createPresetPass, REC_FONT, type PresetPass } from './pack-preset';
 import { presetFrame } from './preset-motion';
 import { createTreatmentWorld } from './pack-treatment';
+import { TYPEWRITER_FONT } from './pack-typewriter';
 import { TREATMENTS, type TreatmentId } from './treatment-deal';
 import type { PackSceneInput } from './pack-copy';
 
@@ -65,8 +66,15 @@ async function ensure() {
   world = createTreatmentWorld();
   app.stage.addChild(world.root);
   texture = new Texture({ source: new ImageSource({ resource: await photo() ?? PLACEHOLDER }) });
-  await ensureFonts(['Anton']);
+  await ensureFonts(['Anton', TYPEWRITER_FONT]);
 }
+
+const LAB_LYRICS = 'I keep on running back to you | every night the city calls my name | hold me close until the morning | we were young and we were wild | dancing on the edge of something | never let the music stop';
+/** Every word of the lab song, a phrase every two seconds and a word every 300 ms. */
+const LAB_CUES = LAB_LYRICS.split(' | ').flatMap((line, row) => line.split(' ').map((text, k) => ({ text, startMs: row * 2000 + k * 300, endMs: row * 2000 + k * 300 + 280 })));
+const params = new URLSearchParams(location.search);
+const ONLY = params.get('only')?.split(',');
+const LYRICS = !params.has('nolyrics');
 
 function inputOf(treatment: TreatmentId, variant: string, ms = 2400): PackSceneInput {
   return {
@@ -86,11 +94,11 @@ function inputOf(treatment: TreatmentId, variant: string, ms = 2400): PackSceneI
     words: [{ text: 'HELLO', startMs: 0, endMs: 400 }, { text: 'WORLD', startMs: 400, endMs: 900 }],
     background: texture,
     typeStyle: 'karaoke',
-    lyrics: true,
+    lyrics: LYRICS,
     beatsMs: [0, 480, 960, 1440, 1920, 2400],
     downbeatsMs: [0, 1920],
     dustWord: null,
-    cues: [{ text: 'hello world', startMs: 0, endMs: 900 }],
+    cues: LYRICS ? LAB_CUES : [],
     seed: 42,
     treatment,
     treatmentVariant: variant,
@@ -144,9 +152,10 @@ async function presetSheet(): Promise<string> {
 
 async function contactSheet(): Promise<string> {
   const cells: { title: string; url: string }[] = [];
-  for (const def of TREATMENTS) {
+  for (const def of TREATMENTS.filter(entry => !ONLY || ONLY.includes(entry.id))) {
     for (const variant of def.variants) {
-      cells.push({ title: `${def.title} · ${variant.title}`, url: await still(def.id, variant.id) });
+      // Typewriter is shown late in the song, its page well typed, the last phrase half way.
+      cells.push({ title: `${def.title} · ${variant.title}`, url: await still(def.id, variant.id, def.id === 'typewriter' ? 9500 : 2400) });
     }
   }
   return sheet(cells);
@@ -187,7 +196,7 @@ async function mount() {
   const presets = new URLSearchParams(location.search).has('presets');
   const img = new Image();
   img.src = presets ? await presetSheet() : await contactSheet();
-  img.alt = presets ? 'Every edit preset and take, calm and on the drop' : 'All eight treatments × four variants';
+  img.alt = presets ? 'Every edit preset and take, calm and on the drop' : 'Every treatment × four variants';
   img.style.display = 'block';
   img.style.maxWidth = '100%';
   document.body.appendChild(img);

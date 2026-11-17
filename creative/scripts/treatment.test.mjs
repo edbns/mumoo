@@ -44,9 +44,9 @@ const music = {
   pace: 'balanced',
 };
 
-test('the seven treatments are on the shelf as their own templates, and Kaleidoscope is gone', () => {
+test('the nine treatments are on the shelf as their own templates, and Kaleidoscope is gone', () => {
   const ids = pack.SHELF_ROWS.map(row => row.id);
-  assert.equal(deal.TREATMENT_IDS.length, 7);
+  assert.equal(deal.TREATMENT_IDS.length, 9);
   assert.ok(!ids.includes('kaleidoscope'));
   for (const id of deal.TREATMENT_IDS) {
     assert.ok(ids.includes(id), id);

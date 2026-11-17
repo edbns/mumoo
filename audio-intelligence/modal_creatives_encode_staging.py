@@ -71,6 +71,8 @@ TREATMENTS = {
     "bento": {"hero-left", "hero-top", "mosaic", "strip"},
     "grain": {"fine", "classic", "heavy", "halation"},
     "double": {"blend", "screen", "offset-cut", "offset-far"},
+    "sideways": {"right", "left", "pillar", "cinema"},
+    "typewriter": {"newsprint", "letter", "faded", "yellowed"},
 }
 # Edit presets over Directed and its treatments, with their takes (creative/src/edit-presets.ts; a test keeps these in step).
 PRESETS = {

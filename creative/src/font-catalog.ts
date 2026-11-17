@@ -96,4 +96,6 @@ export const FIXED_FACES = {
   'Space Mono': { weight: 700, italic: false, load: () => import('@fontsource/space-mono/latin-700.css') },
   'Outfit': { weight: 400, italic: false, load: () => import('@fontsource/outfit/latin-400.css') },
   'Playfair Display': { weight: 700, italic: true, load: () => import('@fontsource/playfair-display/latin-700-italic.css') },
+  /** Typewriter's ink (pack-typewriter.ts). */
+  'Special Elite': { weight: 400, italic: false, load: () => import('@fontsource/special-elite/latin-400.css') },
 } as const;

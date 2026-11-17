@@ -13,6 +13,8 @@ export const TREATMENT_IDS = [
   'bento',
   'grain',
   'double',
+  'sideways',
+  'typewriter',
 ] as const;
 export type TreatmentId = (typeof TREATMENT_IDS)[number];
 export const isTreatmentId = (value: unknown): value is TreatmentId =>
@@ -97,6 +99,26 @@ export const TREATMENTS: readonly TreatmentDef[] = [
       { id: 'screen', title: 'Mirrored' },
       { id: 'offset-cut', title: 'Shifted' },
       { id: 'offset-far', title: 'Close-up' },
+    ],
+  },
+  {
+    id: 'sideways',
+    title: 'Sideways',
+    variants: [
+      { id: 'right', title: 'Turn right' },
+      { id: 'left', title: 'Turn left' },
+      { id: 'pillar', title: 'Blurred sides' },
+      { id: 'cinema', title: 'Cinema bars' },
+    ],
+  },
+  {
+    id: 'typewriter',
+    title: 'Typewriter',
+    variants: [
+      { id: 'newsprint', title: 'Newsprint' },
+      { id: 'letter', title: 'Old letter' },
+      { id: 'faded', title: 'Faded page' },
+      { id: 'yellowed', title: 'Yellowed' },
     ],
   },
 ];

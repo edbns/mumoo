@@ -30,7 +30,7 @@ const PLATES = [{ id: 'burnnet-woman-1547507-1920', cutout: true }];
 /** Our library: the pictures live-look rows are drawn on (they have no picture of ours without it). */
 const LIBRARY = ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id, kind: 'photo', attitudes: ['neutral'], tags: ['street'], genre: null, subGenre: null, url: `/${id}.jpg` }));
 /** One row, with the library only for the rows that live on it (looks and treatments). */
-const LOOK_ROWS = new Set(['thermal', 'halftone', 'dither', 'ascii', 'triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double']);
+const LOOK_ROWS = new Set(['thermal', 'halftone', 'dither', 'ascii', 'triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'sideways', 'typewriter']);
 const recommend = (pack, row, person, generation = 0, plates = PLATES) => pack.recommendRow(row, person, generation, plates, LOOK_ROWS.has(row) ? LIBRARY : []);
 
 /** Every row of the shelf, in order. */
@@ -51,10 +51,10 @@ test('the shelf is twelve rows of four, in order, each card distinct', async () 
       const thermal = genre === 'Gospel' ? 0 : 4;
       const ascii = genre === 'Gospel' ? 0 : 4;
       const silhouette = genre === 'Gospel' ? 0 : 4;
-      const treatments = ['triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double'];
-      assert.equal(slots.length, 28 + 28 + thermal + ascii + silhouette, genre);
+      const treatments = ['triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'sideways', 'typewriter'];
+      assert.equal(slots.length, 36 + 28 + thermal + ascii + silhouette, genre);
       assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', ...treatments, ...(thermal ? ['thermal'] : []), 'halftone', 'dither', ...(ascii ? ['ascii'] : []), 'riso', 'window', ...(silhouette ? ['silhouette'] : []), 'pulise', 'dust'], 'rows come in order');
-      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Directed', 'Triptych', 'Fisheye', 'Collage', 'Colored Frame', 'Bento Grid', 'Film Grain', 'Double Exposure', 'Thermal', 'Halftone', 'Dither', 'ASCII', 'Riso', 'Window', 'Silhouette', 'Pulise', 'Dust']);
+      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Directed', 'Triptych', 'Fisheye', 'Collage', 'Colored Frame', 'Bento Grid', 'Film Grain', 'Double Exposure', 'Sideways', 'Typewriter', 'Thermal', 'Halftone', 'Dither', 'ASCII', 'Riso', 'Window', 'Silhouette', 'Pulise', 'Dust']);
       for (const row of ['photography', ...treatments, 'halftone', 'dither', 'riso', 'window', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
       assert.equal(slots.filter(slot => slot.row === 'thermal').length, thermal, `${genre} thermal`);
       assert.equal(slots.filter(slot => slot.row === 'ascii').length, ascii, `${genre} ascii`);
@@ -126,7 +126,7 @@ test('a refresh deals four effects the earlier ones did not, and the deal is see
     assert.equal(new Set(first).size, 20, 'five refreshes in a row never repeat an effect');
     assert.deepEqual(row(person, 3).map(slot => slot.id), row(person, 3).map(slot => slot.id), 'the same song and refresh deal the same cards, with the same ids');
     assert.notDeepEqual(row(person, 0).map(slot => slot.effectId), row(profile('Pop', 'hello', 'b'.repeat(64)), 0).map(slot => slot.effectId), 'another song is dealt other effects');
-    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 68);
+    assert.equal(new Set(shelf(pack, person).map(slot => slot.id)).size, 76);
   } finally { await server.close(); }
 });
 
@@ -247,7 +247,7 @@ test('the lyrics grade the colours and calm the beat without changing the look',
     const sad = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'sad', sadness: 3, intensity: 2 }));
     assert.ok(sad.every(slot => slot.reason.startsWith('techno')));
     const graded = sad.filter(slot => !['riso', 'window', 'silhouette'].includes(slot.row));
-    assert.equal(graded.length, 56);
+    assert.equal(graded.length, 64);
     const grade = graded[0].grade;
     assert.ok(grade.saturation < 1 && grade.warmth < 0 && grade.brightness < 1 && grade.calm > 0.5, JSON.stringify(grade));
     assert.ok(graded.every(slot => JSON.stringify(slot.grade) === JSON.stringify(grade)));
@@ -284,7 +284,7 @@ test('rows say what they own: lyrics switch, which picture they take, and Pulise
     assert.equal(rows.pulise.picture, undefined, 'Pulise takes no picture');
     for (const row of ['spray', 'doodle']) assert.equal(rows[row], undefined, `${row} is off the shelf`);
     assert.equal(rows.dust.picture, 'photo', 'Dust needs a photo');
-    const treatments = ['triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double'];
+    const treatments = ['triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'sideways', 'typewriter'];
     for (const row of ['photography', ...treatments, 'riso', 'window', 'thermal', 'halftone', 'dither', 'ascii']) assert.equal(rows[row].picture, 'any', `${row} takes a photo, video or GIF`);
     assert.equal(rows.window.lyrics, 'always', 'the word is the window');
     for (const row of ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'dust']) assert.equal(rows[row].lyrics, 'switch', row);

@@ -13,6 +13,7 @@ import { ensureFonts, type AdFont, type AdLayout } from './ad-fonts';
 import type { AdPunchStyle } from './ad-punch';
 import { activePackCopy, packReaction, packWordEnter } from './pack-copy';
 import { createPackScene } from './pack-scenes';
+import { TYPEWRITER_FONT } from './pack-typewriter';
 import { isLiveLook, type LiveLookId } from './live-look-deal';
 import { photoEffectUrl } from './pack-looks';
 import { typeFamilies, type TypeStyleId } from './pack-type';
@@ -92,7 +93,10 @@ function familiesFor(opts: PackRendererOpts): string[] {
   if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'window') return [opts.font];
   if (opts.style === 'pulise') return [opts.font, opts.fontSecondary];
   const recording = opts.preset === 'vhs' && opts.presetTake === 'rec' ? [REC_FONT] : [];
-  if (opts.style === 'treatment') return [...(opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [opts.font, opts.fontSecondary]), ...recording];
+  if (opts.style === 'treatment') {
+    const typed = opts.treatment === 'typewriter' ? [TYPEWRITER_FONT] : [];
+    return [...(opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [opts.font, opts.fontSecondary]), ...recording, ...typed];
+  }
   return [...(opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : []), ...recording];
 }
 
