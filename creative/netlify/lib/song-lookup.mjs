@@ -117,7 +117,10 @@ let spotifyToken;
 export let spotifyState = 'no keys';
 async function spotifyTrack(fetcher, id) {
   const { SPOTIFY_CLIENT_ID: client, SPOTIFY_CLIENT_SECRET: secret } = process.env;
-  if (!client || !secret) { spotifyState = 'no keys'; return null; }
+  if (!client || !secret) {
+    spotifyState = !client && !secret ? 'no keys' : !client ? 'no SPOTIFY_CLIENT_ID' : 'no SPOTIFY_CLIENT_SECRET';
+    return null;
+  }
   if (!spotifyToken || spotifyToken.until < Date.now()) {
     const body = await getJson(fetcher, 'https://accounts.spotify.com/api/token', {
       method: 'POST', body: 'grant_type=client_credentials',
