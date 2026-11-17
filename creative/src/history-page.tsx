@@ -1,4 +1,4 @@
-import { CheckIcon, DownloadIcon } from 'lucide-react';
+import { CheckIcon, DownloadIcon, PlayIcon } from 'lucide-react';
 import { MotionConfig, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import type { DownloadProgress } from './use-cart-download';
 type Creative = { id: string; bytes: number; createdAt: string; url: string };
 type Storage = { used: number; quota: number };
 /** One card of the history, whichever kind it is. */
-type Item = { id: string; kind: 'creative' | 'upload'; bytes: number; createdAt: string; picture?: string; video?: string; download?: string; extension: 'mp4' | 'jpg'; note?: string };
+type Item = { id: string; kind: 'creative' | 'upload'; bytes: number; createdAt: string; picture?: string; video?: string; play?: string; download?: string; extension: 'mp4' | 'jpg'; note?: string };
 
 /** How many cards appear at first, and how many more each time the person scrolls near the end. */
 const PAGE = 24;
@@ -25,15 +25,23 @@ const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 
 /** A zip is built in the browser's memory, so it is offered while everything fits comfortably. */
 const ZIP_LIMIT = 1_000_000_000;
 
+/** Sends one file to the person's downloads. */
+function save(url: string) {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = '';
+  link.click();
+}
+
 function size(bytes: number) {
   if (bytes >= 1e9) return `${Number((bytes / 1e9).toFixed(1))} GB`;
   return `${(bytes / 1e6).toFixed(bytes < 1e7 ? 1 : 0)} MB`;
 }
 
-const creativeItem = (creative: Creative): Item => ({ id: creative.id, kind: 'creative', bytes: creative.bytes, createdAt: creative.createdAt, video: creative.url, download: creative.url, extension: 'mp4' });
+const creativeItem = (creative: Creative): Item => ({ id: creative.id, kind: 'creative', bytes: creative.bytes, createdAt: creative.createdAt, video: creative.url, play: creative.url, download: creative.url, extension: 'mp4' });
 const uploadItem = (upload: Upload): Item => ({
   id: upload.id, kind: 'upload', bytes: upload.bytes, createdAt: upload.createdAt,
-  picture: upload.url, download: upload.motionUrl ?? upload.url, extension: upload.motionUrl ? 'mp4' : 'jpg',
+  picture: upload.url, play: upload.motionUrl, download: upload.motionUrl ?? upload.url, extension: upload.motionUrl ? 'mp4' : 'jpg',
   ...(upload.url ? {} : { note: upload.status === 'failed' ? upload.error ?? 'This picture could not be prepared.' : 'Preparing…' }),
 });
 
@@ -61,6 +69,8 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  /** The video playing large, with sound, so the person can see what it is before downloading it again. */
+  const [watching, setWatching] = useState<Item | null>(null);
 
   async function load() {
     try {
@@ -98,10 +108,7 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
     try {
       const files = chosen.filter(item => item.download);
       if (files.length === 1) {
-        const link = document.createElement('a');
-        link.href = files[0].download!;
-        link.download = '';
-        link.click();
+        save(files[0].download!);
         return;
       }
       const { zipSync } = await import('fflate');
@@ -148,7 +155,7 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
     </div>}
 
     {items?.length === 0 && <p className="m-0 py-24 text-center text-sm text-muted-foreground">
-      {tab === 'creatives' ? 'Creatives you download while signed in are kept here.' : 'Each visit starts clean. Only the photos, videos and GIFs your cart still uses are kept here, private to you.'}
+      {tab === 'creatives' ? 'Creatives you download while signed in are kept here.' : 'The photos, videos and GIFs you upload are kept here, private to you, until you delete them.'}
     </p>}
 
     {items && items.length > 0 && <div className="sticky top-4 z-10 flex min-h-12 items-center justify-between gap-3 rounded-full bg-background/80 px-5 py-1.5 backdrop-blur-md">
@@ -184,6 +191,10 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
               <span>{day(item.createdAt)}</span><span className="text-muted-foreground">{size(item.bytes)}</span>
             </div>
             {on && <span aria-hidden="true" className="pointer-events-none absolute top-2 left-2 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground"><CheckIcon className="size-4" /></span>}
+            {item.play && <button type="button" aria-label={`Play ${noun} from ${day(item.createdAt)}`} onClick={() => setWatching(item)}
+              className="absolute top-1/2 left-1/2 z-10 flex size-12 -translate-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-black/60 p-0 text-white outline-ring transition-colors hover:bg-black/80 focus-visible:outline-2">
+              <PlayIcon aria-hidden="true" className="ml-0.5 size-5 fill-current" />
+            </button>}
             {item.download && <a href={item.download} download="" aria-label={`Download ${noun} from ${day(item.createdAt)}`}
               className="absolute top-2 right-2 z-10 flex size-8 items-center justify-center rounded-full bg-black/60 text-white outline-ring transition-colors hover:bg-black/80 focus-visible:outline-2">
               <DownloadIcon aria-hidden="true" className="size-4" />
@@ -193,6 +204,18 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
       </motion.ul>}
     </MotionConfig>
     <div ref={end} aria-hidden="true" />
+
+    <Modal open={watching !== null} onClose={() => setWatching(null)} bare maxWidth={460} maxHeight="calc(100vh - 3rem)"
+      title={watching ? `${watching.kind === 'creative' ? 'Creative' : 'Upload'} from ${day(watching.createdAt)}` : ''}>
+      {watching?.play && <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-muted p-3 shadow-[0_28px_56px_-24px_#000]">
+        <video key={watching.id} src={watching.play} controls autoPlay playsInline
+          className="max-h-[calc(100vh-10rem)] w-full rounded-[var(--radius)] bg-black object-contain" />
+        <div className="flex items-center justify-between gap-3 px-1">
+          <span className="text-sm text-muted-foreground">{day(watching.createdAt)} · {size(watching.bytes)}</span>
+          {watching.download && <Button variant="secondary" onClick={() => save(watching.download!)}><DownloadIcon aria-hidden="true" />Download</Button>}
+        </div>
+      </div>}
+    </Modal>
 
     <Modal open={confirming} onClose={() => setConfirming(false)}
       title={`Delete ${chosen.length} ${noun}${chosen.length === 1 ? '' : 's'}?`}
