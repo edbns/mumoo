@@ -35,6 +35,7 @@ Still to do:
 - Done: a person's own pictures and clips stay in their account (History → Uploads) until they delete them; they used to be cleared on every visit and on Start over. The shelf still starts empty each run and takes ten at once; the account keeps up to 500 within its storage.
 - Done: History plays downloaded videos (and uploaded videos and GIFs): a play button on each card opens it large, with sound and a Download button.
 - Done: the product-flow tests walk the current flow again (the one style box, the shelf without a heading), with a mocked library so the cards paint; the cover test reads the Dust card and the lyric-meaning test the live looks.
+- Done: "Continue with Google" in the sign-in window, in a popup so the song on the page is kept (`signInWithGoogle` in `account.tsx`; the SDK in the popup hands the session verifier back). It uses Neon's shared Google credentials, which are for testing: before launch, make our own Google OAuth client (consent screen named mumoo, with the privacy and terms links; redirect URI `{NEON_AUTH_BASE_URL}/callback/google`) and enter its ID and secret in Neon (Auth → OAuth providers → Google). When the app moves to mumoo.app, add it to Neon's trusted domains.
 - Done (migration 034): emails all from "mumoo" (lowercase, no name or address in them, the code in the subject), Neon's sign-in code sent by us through its `send.otp` webhook, a letter when an account is deleted, the inactivity reminders reworded, and a letter when storage passes 90% of 5 GB.
 
 ## Brain feedback

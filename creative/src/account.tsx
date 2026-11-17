@@ -76,6 +76,52 @@ export async function checkSignInCode(email: string, otp: string) {
   }
 }
 
+/** Where Google sends the popup back to: the SDK, loading there, hands the session verifier to the page that opened it and closes. */
+const GOOGLE_BACK = () => `${location.origin}/?neon_popup=1`;
+/** How long the person may take on Google's pages. */
+const GOOGLE_MINUTES = 5;
+
+/**
+ * Signs in with Google in a popup, so the page (and the song, clip and lyrics on it, which a reload would lose) stays as it is.
+ * Google's pages open in the popup; back on our site the SDK posts the session verifier to this page, which hands it to Neon
+ * for the session. Must be called straight from a click, or the browser blocks the popup. Fails with the words to show.
+ */
+export async function signInWithGoogle() {
+  const popup = window.open('about:blank', 'mumoo-google', 'width=500,height=700,popup=yes');
+  if (!popup) throw new Error('Your browser blocked the Google window. Allow popups for this site, or sign in with your email.');
+  try {
+    const { data, error } = await authClient.signIn.social({ provider: 'google', callbackURL: GOOGLE_BACK(), errorCallbackURL: GOOGLE_BACK(), disableRedirect: true });
+    if (error || !data?.url) throw new Error('Google sign-in is unavailable right now. Try again in a moment.');
+    popup.location.href = data.url;
+  } catch (cause) {
+    popup.close();
+    reportProblem('sign_in', `Google sign-in did not start: ${(cause as Error).message}`, { signedOut: true });
+    throw cause;
+  }
+  const verifier = await new Promise<string | null>((resolve, reject) => {
+    const done = (finish: () => void) => { window.removeEventListener('message', onMessage); clearInterval(watch); clearTimeout(limit); finish(); };
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== location.origin || event.source !== popup || event.data?.type !== 'neon-auth:oauth-complete') return;
+      done(() => resolve(typeof event.data.verifier === 'string' ? event.data.verifier : null));
+    };
+    const watch = setInterval(() => { if (popup.closed) done(() => reject(new Error('The Google window was closed before you signed in.'))); }, 500);
+    const limit = setTimeout(() => done(() => { popup.close(); reject(new Error('Google sign-in took too long. Try again.')); }), GOOGLE_MINUTES * 60_000);
+    window.addEventListener('message', onMessage);
+  });
+  if (!verifier) throw new Error('Google did not sign you in. Try again, or sign in with your email.');
+  // The SDK reads the verifier from the address bar on its next session check, trades it for the session, and removes it.
+  const url = new URL(location.href);
+  url.searchParams.set('neon_auth_session_verifier', verifier);
+  history.replaceState(history.state, '', url.href);
+  const signedIn = await authClient.getSession().then(({ data }) => Boolean(data?.user), () => false);
+  if (!signedIn) {
+    url.searchParams.delete('neon_auth_session_verifier');
+    history.replaceState(history.state, '', url.href);
+    reportProblem('sign_in', 'Google sign-in returned no session', { signedOut: true });
+    throw new Error('Google sign-in did not finish. Try again, or sign in with your email.');
+  }
+}
+
 /**
  * Changing the email with a code sent to the new address: the account, and so everything kept in it, stays the same.
  * Neon's sign-in does not allow it, so our own server sends the code and makes the change (`/api/account/email`).
@@ -150,6 +196,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     </div>}
     <PurchaseCredits open={buying} onClose={() => setBuying(false)} />
     {/* One popup for both states, so the welcome after signing in is not cut short when the button changes. */}
-    <SignInDialog open={open} onClose={closeSignIn} onSendCode={sendCode} onCheckCode={checkCode} />
+    <SignInDialog open={open} onClose={closeSignIn} onSendCode={sendCode} onCheckCode={checkCode}
+      onGoogle={async () => { await signInWithGoogle(); await session.refetch(); }} />
   </>;
 }

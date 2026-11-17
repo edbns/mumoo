@@ -17,6 +17,8 @@ export type MagicLinkOtpLoginProps = {
   resendSeconds?: number;
   codeLength?: number;
   onResend?: (email: string) => unknown;
+  /** Another way in, offered under the email form: resolve when signed in (the success step follows), reject with the words to show. */
+  onGoogle?: () => unknown;
   appName?: string;
   logo?: React.ReactNode;
   successTitle?: string;
@@ -46,11 +48,22 @@ function Envelope() {
   );
 }
 
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 48 48" className="size-[18px]">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
+  );
+}
+
 /** Passwordless UI only. The host owns delivery, verification, expiry and attempt limits. */
 export function MagicLinkOtpLogin({
   defaultEmail = "", onStepChange,
   onSendCode, onVerifyCode,
-  resendSeconds = 30, codeLength = 6, onResend,
+  resendSeconds = 30, codeLength = 6, onResend, onGoogle,
   appName = "your workspace", logo, successTitle = "You're in",
   className = "", ref,
 }: MagicLinkOtpLoginProps) {
@@ -186,6 +199,25 @@ export function MagicLinkOtpLogin({
     }
   };
 
+  const google = async () => {
+    if (!onGoogle || busy || pending.current) return;
+    pending.current = true;
+    const token = ++request.current;
+    setStatus("sending");
+    setLocalError("");
+    try {
+      await onGoogle();
+      if (!mounted.current || token !== request.current) return;
+      changeStep("success");
+    } catch (cause) {
+      if (!mounted.current || token !== request.current) return;
+      setLocalError(cause instanceof Error && cause.message ? cause.message : "Couldn't sign in with Google. Please try again.");
+      setStatus("error");
+    } finally {
+      if (mounted.current && token === request.current) pending.current = false;
+    }
+  };
+
   React.useEffect(() => {
     if (currentCode.length !== length) { submitted.current = null; return; }
     if (currentStep !== "code" || busy || pending.current || !onVerifyCode || submitted.current === currentCode) return;
@@ -258,6 +290,12 @@ export function MagicLinkOtpLogin({
             <button type="submit" disabled={busy || !onSendCode} className={`mt-3 flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 ${FOCUS}`}>
               {busy ? <><LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />Sending code…</> : <>Email me a code <ArrowRight aria-hidden="true" className="size-4" /></>}
             </button>
+            {onGoogle && <>
+              <div aria-hidden="true" className="my-4 flex items-center gap-3 text-[11px] text-muted-foreground"><span className="h-px flex-1 bg-secondary" />or<span className="h-px flex-1 bg-secondary" /></div>
+              <button type="button" disabled={busy} onClick={() => void google()} className={`flex h-12 w-full cursor-pointer items-center justify-center gap-2.5 rounded-[var(--radius-control)] bg-muted text-sm font-medium hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-70 ${FOCUS}`}>
+                <GoogleMark />Continue with Google
+              </button>
+            </>}
             {failed && <p id={`${id}-error`} role="alert" className="mt-3 text-xs leading-5 text-destructive">{message || "Something went wrong. Please try again."}</p>}
           </form>
         ) : currentStep === "code" ? (
