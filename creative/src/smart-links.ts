@@ -28,10 +28,12 @@ export type LinkFields = {
 export type Tracking = {
   meta_pixel_id: string | null; meta_capi_token: boolean; tiktok_pixel_id: string | null; tiktok_events_token: boolean; google_ads_id: string | null;
 };
-/** What may be sent to change them: a token left out stays, an empty one is removed. */
-export type TrackingChange = {
-  meta_pixel_id: string; tiktok_pixel_id: string; google_ads_id: string; meta_capi_token?: string; tiktok_events_token?: string;
-};
+/** The ad account IDs the editor holds (kept with the draft; the tokens never are). */
+export type AdIds = { meta_pixel_id: string; tiktok_pixel_id: string; google_ads_id: string };
+export const NO_ADS: AdIds = { meta_pixel_id: '', tiktok_pixel_id: '', google_ads_id: '' };
+export type TokenField = 'meta_capi_token' | 'tiktok_events_token';
+/** Tokens typed in the editor: a new one replaces the saved one, null removes it, left out keeps it. */
+export type AdTokens = Partial<Record<TokenField, string | null>>;
 
 /** A published link. Listed, it has its visits and clicks ever and of the last seven days, clicks per service and its ad accounts. */
 export type Published = {
@@ -55,14 +57,17 @@ export async function linkStats(slug: string, days: number, signal?: AbortSignal
   return (await answer<{ stats: LinkStats }>(response)).stats;
 }
 
-export async function saveTracking(slug: string, tracking: TrackingChange): Promise<Tracking> {
-  const response = await accountFetch('/api/links/stats', { method: 'PUT', ...json({ slug, tracking }) });
-  return (await answer<{ tracking: Tracking }>(response)).tracking;
-}
-
-/** What the editor holds. `editing` is the address of the published link being changed, or null for a new one. */
-export type Draft = { url: string; link: LinkFields | null; candidates: Candidate[] | null; slug: string; editing: string | null };
-export const EMPTY_DRAFT: Draft = { url: '', link: null, candidates: null, slug: '', editing: null };
+/**
+ * What the editor holds. `editing` is the address of the published link being changed, or null for a new one; `ads` its ad
+ * account IDs, and `tokensSaved` which tokens the published link already has.
+ */
+export type Draft = {
+  url: string; link: LinkFields | null; candidates: Candidate[] | null; slug: string; editing: string | null;
+  ads: AdIds; tokensSaved: Record<TokenField, boolean>;
+};
+export const EMPTY_DRAFT: Draft = {
+  url: '', link: null, candidates: null, slug: '', editing: null, ads: NO_ADS, tokensSaved: { meta_capi_token: false, tiktok_events_token: false },
+};
 
 const DRAFT_KEY = 'mumoo-link-draft';
 
@@ -143,8 +148,12 @@ export function fieldsOf(url: string, song: FoundSong): LinkFields {
 export const isSearch = (url: string) => /\/search\b|[?&](q|term|search_query)=/.test(url);
 
 /** A published link opened again in the editor. */
-export function draftOf({ slug, link }: Published): Draft {
-  return { url: link.source, link: { ...link, services: link.services.map(row => ({ ...row, exact: !isSearch(row.url) })) }, candidates: null, slug, editing: slug };
+export function draftOf({ slug, link, tracking }: Published): Draft {
+  return {
+    url: link.source, link: { ...link, services: link.services.map(row => ({ ...row, exact: !isSearch(row.url) })) }, candidates: null, slug, editing: slug,
+    ads: { meta_pixel_id: tracking?.meta_pixel_id ?? '', tiktok_pixel_id: tracking?.tiktok_pixel_id ?? '', google_ads_id: tracking?.google_ads_id ?? '' },
+    tokensSaved: { meta_capi_token: Boolean(tracking?.meta_capi_token), tiktok_events_token: Boolean(tracking?.tiktok_events_token) },
+  };
 }
 
 /** Where fans open it. */
@@ -152,14 +161,24 @@ export const addressOf = (slug: string) => `${location.origin}/l/${slug}`;
 
 const json = (body: unknown): RequestInit => ({ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
-export async function listLinks(): Promise<Published[]> {
-  return (await (await accountFetch('/api/links')).json() as { links: Published[] }).links;
+/** The person's links as last fetched in this tab, so My Smart Links shows them at once while it fetches them again. */
+let lastList: { user: string; links: Published[] } | null = null;
+export const knownLinks = (user: string) => (lastList?.user === user ? lastList.links : null);
+export function rememberLinks(user: string, links: Published[]) { lastList = { user, links }; }
+
+export async function listLinks(user: string): Promise<Published[]> {
+  const links = (await answer<{ links: Published[] }>(await accountFetch('/api/links'))).links;
+  rememberLinks(user, links);
+  return links;
 }
 
-/** Publishes the draft (or saves the changes to the link it was opened from). */
-export async function publishDraft(draft: Draft): Promise<Published> {
-  const response = await accountFetch('/api/links', { method: draft.editing ? 'PUT' : 'POST', ...json({ slug: draft.editing ?? draft.slug, link: draft.link }) });
-  return (await response.json() as { link: Published }).link;
+/** Publishes the draft with its ad accounts (or saves the changes to the link it was opened from). Throws the words to show. */
+export async function publishDraft(draft: Draft, tokens: AdTokens): Promise<Published> {
+  const typed = Object.fromEntries(Object.entries(tokens).filter(([, value]) => value === null || value?.trim()).map(([field, value]) => [field, value ?? '']));
+  const response = await accountFetch('/api/links', {
+    method: draft.editing ? 'PUT' : 'POST', ...json({ slug: draft.editing ?? draft.slug, link: draft.link, tracking: { ...draft.ads, ...typed } }),
+  });
+  return (await answer<{ link: Published }>(response)).link;
 }
 
 export async function deletePublished(slug: string) {

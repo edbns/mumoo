@@ -164,10 +164,11 @@ const PIXEL_FIELDS = {
 const TOKEN = /^[A-Za-z0-9_\-.|=+/]{20,600}$/;
 
 /**
- * Sets the ad accounts of one of the person's links. IDs are replaced (an empty one clears it); a token is replaced when a new one
- * is sent, cleared when it is null or empty, and kept when it is left out. {tracking} or {status, error}.
+ * A link's ad accounts as they are saved, checked before the link is published so a mistake publishes nothing: IDs are replaced
+ * (an empty one clears it); a token is sealed when a new one is sent, cleared when it is null or empty, and kept when it is left
+ * out. {ids, tokens} or {status, error}.
  */
-export async function setTracking(userId, slug, input, sealer) {
+export async function cleanTracking(input, sealer) {
   if (!input || typeof input !== 'object') return { status: 400, error: 'Nothing to save.' };
   const ids = {};
   for (const [field, [pattern, problem]] of Object.entries(PIXEL_FIELDS)) {
@@ -184,13 +185,18 @@ export async function setTracking(userId, slug, input, sealer) {
     tokens[field] = await sealer(value);
     if (!tokens[field]) return { status: 503, error: 'Ad tokens can’t be saved yet. Try again later.' };
   }
+  return { ids, tokens };
+}
+
+/** Saves ad accounts made by `cleanTracking` on one of the person's links. The tracking as `linksOf` shows it, or null. */
+export async function saveTracking(userId, slug, { ids, tokens }) {
   const keep = (field) => !(field in tokens);
   const sql = db();
   const [row] = await sql`update smart_links set meta_pixel_id = ${ids.meta_pixel_id}, tiktok_pixel_id = ${ids.tiktok_pixel_id}, google_ads_id = ${ids.google_ads_id},
       meta_capi_token = case when ${keep('meta_capi_token')} then meta_capi_token else ${tokens.meta_capi_token ?? null} end,
       tiktok_events_token = case when ${keep('tiktok_events_token')} then tiktok_events_token else ${tokens.tiktok_events_token ?? null} end
     where slug = ${slug} and user_id = ${userId} returning ${sql.unsafe(TRACKING('smart_links'))} as tracking`;
-  return row ? { tracking: row.tracking } : { status: 404, error: 'That link is not yours, or it was deleted.' };
+  return row?.tracking ?? null;
 }
 
 /** Publishes at a free address. {link} or {status, error}. */

@@ -1,11 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ArrowLeftIcon, PencilIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { CopyButton, Cover, OpenButton, iconButton } from './smart-link-parts';
-import {
-  LABELS, addressOf, linkStats, saveTracking,
-  type LinkStats, type Published, type Service, type Tally, type Tracking, type TrackingChange,
-} from './smart-links';
+import { LABELS, addressOf, linkStats, type LinkStats, type Published, type Service, type Tally } from './smart-links';
 
 const RANGES = [{ days: 7, label: '7 days' }, { days: 30, label: '30 days' }, { days: 90, label: '90 days' }, { days: 0, label: 'All time' }] as const;
 const SHOWN_ROWS = 8;
@@ -15,14 +11,10 @@ const regions = new Intl.DisplayNames(['en'], { type: 'region' });
 const flag = (code: string) => (/^[A-Z]{2}$/.test(code) ? String.fromCodePoint(...[...code].map(c => 0x1f1a5 + c.charCodeAt(0))) : '🌐');
 const countryName = (code: string) => { try { return /^[A-Z]{2}$/.test(code) ? regions.of(code) ?? code : 'Unknown'; } catch { return code; } };
 const percent = (part: number, whole: number) => (whole ? `${((part / whole) * 100).toFixed(part === whole ? 0 : 1)}%` : '0%');
-const field = 'h-[var(--control-height-md)] w-full min-w-0 rounded-[var(--radius-control)] bg-muted px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:shadow-[0_0_0_2px_var(--focus-ring)]';
-
 type Metric = 'views' | 'clicks';
 
-/** One link's analytics: totals, the timeline and where visits and clicks came from, over a chosen range; then its ad accounts. */
-export default function LinkAnalytics({ item, onBack, onEdit, onTracking }: {
-  item: Published; onBack: () => void; onEdit: () => void; onTracking: (tracking: Tracking) => void;
-}) {
+/** One link's analytics: totals, the timeline and where visits and clicks came from, over a chosen range. */
+export default function LinkAnalytics({ item, onBack, onEdit }: { item: Published; onBack: () => void; onEdit: () => void }) {
   const [days, setDays] = useState<number>(7);
   const [stats, setStats] = useState<LinkStats | null>(null);
   const [error, setError] = useState('');
@@ -80,8 +72,6 @@ export default function LinkAnalytics({ item, onBack, onEdit, onTracking }: {
       <Breakdown title="Top devices" rows={stats.devices} metric={metric} label={row => row.key} />
       <Breakdown title="Operating systems" rows={stats.systems} metric={metric} label={row => row.key} />
     </div>}
-
-    <AdTracking slug={item.slug} tracking={item.tracking} onSaved={onTracking} />
   </div>;
 }
 
@@ -199,84 +189,4 @@ function Timeline({ daily }: { daily: LinkStats['daily'] }) {
 function niceMax(value: number) {
   const power = 10 ** Math.floor(Math.log10(value));
   return ([1, 2, 2.5, 5, 10].find(step => step * power >= value) ?? 10) * power;
-}
-
-/**
- * The link's own ad accounts. Visits and stream clicks are then sent to them from our server (Meta's Conversions API, TikTok's
- * Events API), so the fan page stays free of their scripts. Tokens are write-only: once saved, only that they are set is shown.
- */
-function AdTracking({ slug, tracking, onSaved }: { slug: string; tracking?: Tracking; onSaved: (tracking: Tracking) => void }) {
-  const [ids, setIds] = useState({ meta_pixel_id: tracking?.meta_pixel_id ?? '', tiktok_pixel_id: tracking?.tiktok_pixel_id ?? '', google_ads_id: tracking?.google_ads_id ?? '' });
-  const [tokens, setTokens] = useState<{ meta_capi_token?: string; tiktok_events_token?: string }>({});
-  const [state, setState] = useState<{ busy?: boolean; error?: string; saved?: boolean }>({});
-
-  async function save(change: TrackingChange) {
-    setState({ busy: true });
-    try {
-      onSaved(await saveTracking(slug, change));
-      setTokens({});
-      setState({ saved: true });
-    } catch (cause) {
-      setState({ error: cause instanceof Error ? cause.message : 'That did not save. Try again in a moment.' });
-    }
-  }
-
-  const sending = (pixel: string | null | undefined, token: boolean | undefined) => Boolean(pixel && token);
-  return <Panel title="Ad tracking" aside={<span className="text-xs text-muted-foreground">Sent from our server, no pixel on your page</span>}>
-    <p className="m-0 text-sm text-muted-foreground">
-      Running ads? Connect your accounts and every visit and stream click is sent to them, so they can measure and optimise your campaigns.
-      Ad traffic is recognised by itself either way (Meta, TikTok and Google add their click IDs to ad links).
-    </p>
-    <form className="flex flex-col gap-4" onSubmit={event => {
-      event.preventDefault();
-      void save({ ...ids, ...Object.fromEntries(Object.entries(tokens).filter(([, value]) => value?.trim())) });
-    }}>
-      <div className="grid gap-4 md:grid-cols-3">
-        <Platform name="Meta" status={sending(tracking?.meta_pixel_id, tracking?.meta_capi_token) ? 'Sending PageView and StreamClick' : null}>
-          <Labelled label="Pixel ID"><input className={field} inputMode="numeric" value={ids.meta_pixel_id} placeholder="1234567890123456"
-            onChange={event => setIds({ ...ids, meta_pixel_id: event.target.value })} /></Labelled>
-          <Token label="Conversions API token" set={tracking?.meta_capi_token} value={tokens.meta_capi_token}
-            onChange={value => setTokens({ ...tokens, meta_capi_token: value })} onRemove={() => void save({ ...ids, meta_capi_token: '' })} />
-        </Platform>
-        <Platform name="TikTok" status={sending(tracking?.tiktok_pixel_id, tracking?.tiktok_events_token) ? 'Sending ViewContent and StreamClick' : null}>
-          <Labelled label="Pixel ID"><input className={field} value={ids.tiktok_pixel_id} placeholder="C1A2B3C4D5E6F7G8H9"
-            onChange={event => setIds({ ...ids, tiktok_pixel_id: event.target.value })} /></Labelled>
-          <Token label="Events API access token" set={tracking?.tiktok_events_token} value={tokens.tiktok_events_token}
-            onChange={value => setTokens({ ...tokens, tiktok_events_token: value })} onRemove={() => void save({ ...ids, tiktok_events_token: '' })} />
-        </Platform>
-        <Platform name="Google Ads" status={null}>
-          <Labelled label="Google Ads ID"><input className={field} value={ids.google_ads_id} placeholder="AW-123456789"
-            onChange={event => setIds({ ...ids, google_ads_id: event.target.value })} /></Labelled>
-          <p className="m-0 text-xs text-muted-foreground">Google Ads clicks are recognised and counted. Sending conversions to Google needs its own API access, coming later.</p>
-        </Platform>
-      </div>
-      <div className="flex items-center justify-end gap-3">
-        {state.error && <p role="alert" className="m-0 text-sm text-destructive">{state.error}</p>}
-        {state.saved && !state.error && <p role="status" className="m-0 text-sm text-primary">Saved</p>}
-        <Button type="submit" className="h-[var(--control-height-md)] px-5" disabled={state.busy}>{state.busy ? 'Saving…' : 'Save'}</Button>
-      </div>
-    </form>
-  </Panel>;
-}
-
-function Platform({ name, status, children }: { name: string; status: string | null; children: ReactNode }) {
-  return <fieldset className="m-0 flex min-w-0 flex-col gap-3 rounded-[var(--radius-control)] border-0 bg-card p-4">
-    <legend className="contents"><span className="text-sm font-semibold">{name}</span></legend>
-    <p className={`m-0 text-xs ${status ? 'text-primary' : 'text-muted-foreground'}`}>{status ?? 'Not connected'}</p>
-    {children}
-  </fieldset>;
-}
-
-function Labelled({ label, children }: { label: string; children: ReactNode }) {
-  return <label className="m-0 flex flex-col gap-1.5 text-xs font-normal text-muted-foreground">{label}{children}</label>;
-}
-
-function Token({ label, set, value, onChange, onRemove }: {
-  label: string; set?: boolean; value?: string; onChange: (value: string) => void; onRemove: () => void;
-}) {
-  return <Labelled label={label}>
-    <input className={field} type="password" autoComplete="off" value={value ?? ''} placeholder={set ? 'Saved · paste a new one to replace it' : 'Paste your token'}
-      onChange={event => onChange(event.target.value)} />
-    {set && <button type="button" onClick={onRemove} className="cursor-pointer self-start bg-transparent p-0 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground">Remove token</button>}
-  </Labelled>;
 }

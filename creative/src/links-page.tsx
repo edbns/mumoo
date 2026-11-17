@@ -7,12 +7,13 @@ import { fanPage } from '../netlify/lib/fan-page.mjs';
 import { authClient, checkSignInCode, sendSignInCode, signInWithGoogle } from './account';
 import type { AccountPage } from './account-pages';
 import { AccountSection } from './account-section';
+import { AdTracking } from './ad-tracking';
 import { SignInDialog } from './sign-in-dialog';
 import { AddressLine, Cover, iconButton, textButton } from './smart-link-parts';
 import {
-  EMPTY_DRAFT, LABELS, SERVICES, addressOf, asLink, checkSlug, fieldsOf, isSearch, lookupSong, publishDraft, saveDraft,
+  EMPTY_DRAFT, LABELS, SERVICES, addressOf, asLink, checkSlug, fieldsOf, isSearch, listLinks, lookupSong, publishDraft, saveDraft,
   searchSongs, startingDraft, suggestSlug,
-  type Draft, type LinkFields, type Published, type SearchResult, type ServiceRow,
+  type AdTokens, type Draft, type LinkFields, type Published, type SearchResult, type ServiceRow,
 } from './smart-links';
 
 /** How long typing rests before a name is checked or searched. */
@@ -40,6 +41,8 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
   const [error, setError] = useState('');
   const [published, setPublished] = useState<Published | null>(null);
   const [signingIn, setSigningIn] = useState(false);
+  /** Ad tokens typed for this link: only in memory, sent once with Publish. */
+  const [tokens, setTokens] = useState<AdTokens>({});
   const player = usePreview();
   /** Publish was pressed while signed out: it goes ahead once they are signed in. */
   const publishWhenIn = useRef(false);
@@ -105,11 +108,15 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
   function publish() {
     if (!user) { publishWhenIn.current = true; setSigningIn(true); return; }
     void run('publish', async () => {
-      const done = await publishDraft(draft);
+      const done = await publishDraft(draft, tokens);
       setDraft(EMPTY_DRAFT);
+      setTokens({});
       setPublished(done);
     });
   }
+  useEffect(() => {
+    if (user) listLinks(user.id).catch(() => { /* My Smart Links fetches again and shows the error */ });
+  }, [user?.id, published]);
   const publishLatest = useRef(publish);
   publishLatest.current = publish;
   useEffect(() => {
@@ -120,6 +127,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
     player.stop();
     const wasEditing = Boolean(draft.editing);
     setDraft(EMPTY_DRAFT);
+    setTokens({});
     setError('');
     if (wasEditing) onNavigate('my-links');
   }
@@ -180,6 +188,9 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
               onChange={changes => setRow(row.service, changes)} onMove={by => move(row.service, by)} />)}
           </Reorder.Group>
         </AccountSection>}
+
+        {link && <AdTracking key={draft.editing ?? 'new'} ids={draft.ads} saved={draft.tokensSaved} tokens={tokens}
+          onIds={ads => change(current => ({ ...current, ads }))} onTokens={next => { setPublished(null); setTokens(next); }} />}
 
         {link && <AccountSection label="Address">
           {draft.editing

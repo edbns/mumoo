@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { cleanLink, deleteLink, linksOf, publishLink, setTracking, slugProblem, statsRows, updateLink } from '../netlify/lib/smart-links.mjs';
+import { cleanLink, cleanTracking, deleteLink, linksOf, publishLink, saveTracking, slugProblem, statsRows, updateLink } from '../netlify/lib/smart-links.mjs';
 import { summarise } from '../netlify/lib/link-stats.mjs';
 import { seal } from '../netlify/lib/secret-box.mjs';
 import { db } from '../netlify/lib/person.mjs';
@@ -117,14 +117,19 @@ test('a name is taken by whoever publishes first, and only its owner can change 
     const before = process.env.PIXEL_TOKEN_KEY;
     process.env.PIXEL_TOKEN_KEY = Buffer.alloc(32, 3).toString('base64');
     const realFetch = globalThis.fetch;
+    const setTracking = async (userId, linkSlug, input) => {
+      const cleaned = await cleanTracking(input, seal);
+      return cleaned.error ? cleaned : { tracking: await saveTracking(userId, linkSlug, cleaned) };
+    };
     try {
-      assert.equal((await setTracking(owner, slug, { meta_pixel_id: 'abc' }, seal)).status, 400);
-      assert.equal((await setTracking(other, slug, { meta_pixel_id: '1234567890' }, seal)).status, 404);
-      const saved = await setTracking(owner, slug, { meta_pixel_id: '1234567890', meta_capi_token: 'EAAB-secret-token-0123456789', tiktok_pixel_id: '', google_ads_id: 'aw-123456789' }, seal);
+      assert.equal((await setTracking(owner, slug, { meta_pixel_id: 'abc' })).status, 400, 'checked before anything is published');
+      assert.equal((await cleanTracking({ meta_capi_token: 'short' }, seal)).status, 400);
+      assert.equal((await setTracking(other, slug, { meta_pixel_id: '1234567890' })).tracking, null, 'not their link');
+      const saved = await setTracking(owner, slug, { meta_pixel_id: '1234567890', meta_capi_token: 'EAAB-secret-token-0123456789', tiktok_pixel_id: '', google_ads_id: 'aw-123456789' });
       assert.deepEqual(saved.tracking, { meta_pixel_id: '1234567890', meta_capi_token: true, tiktok_pixel_id: null, tiktok_events_token: false, google_ads_id: 'AW-123456789' });
       assert.ok(!JSON.stringify(await sql`select meta_capi_token from smart_links where slug = ${slug}`).includes('EAAB'), 'the token is kept encrypted');
       assert.deepEqual((await linksOf(owner))[0].tracking, saved.tracking);
-      assert.equal((await setTracking(owner, slug, { meta_pixel_id: '1234567890' }, seal)).tracking.meta_capi_token, true, 'a token left out stays');
+      assert.equal((await setTracking(owner, slug, { meta_pixel_id: '1234567890' })).tracking.meta_capi_token, true, 'a token left out stays');
 
       const forwarded = [];
       globalThis.fetch = async (url, init) => {
@@ -139,7 +144,7 @@ test('a name is taken by whoever publishes first, and only its owner can change 
       assert.equal(forwarded[0].body.data[0].event_name, 'StreamClick');
       assert.equal(forwarded[0].body.data[0].user_data.client_ip_address, '203.0.113.9');
       assert.match(forwarded[0].body.data[0].user_data.fbc, /^fb\.1\.\d+\.IwAR0secret$/);
-      assert.equal((await setTracking(owner, slug, { meta_pixel_id: '1234567890', meta_capi_token: '' }, seal)).tracking.meta_capi_token, false, 'removed');
+      assert.equal((await setTracking(owner, slug, { meta_pixel_id: '1234567890', meta_capi_token: '' })).tracking.meta_capi_token, false, 'removed');
     } finally {
       globalThis.fetch = realFetch;
       if (before === undefined) delete process.env.PIXEL_TOKEN_KEY; else process.env.PIXEL_TOKEN_KEY = before;

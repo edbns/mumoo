@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { cleanLink, slugProblem } from '../netlify/lib/smart-links.mjs';
+import { cleanLink, cleanTracking, slugProblem } from '../netlify/lib/smart-links.mjs';
 import { fanPage, missingPage, POLICY } from '../netlify/lib/fan-page.mjs';
 import { PICK, lookupSong, parseSource, searchSongs } from '../netlify/lib/song-lookup.mjs';
 import { summarise } from '../netlify/lib/link-stats.mjs';
@@ -302,18 +302,6 @@ export function localPreviewApi() {
         const rows = (linkEvents.get(params.get('slug')) ?? []).filter(event => event.at >= since);
         send(response, 200, { stats: summarise(rows, days, today) });
       }));
-      route('/api/links/stats', 'PUT', signedIn(async (_email, request, response) => {
-        const { slug, tracking } = JSON.parse((await readBody(request)).toString('utf8'));
-        if (!smartLinks.has(slug)) return send(response, 404, { error: 'That link is not yours, or it was deleted.' });
-        const before = linkTracking.get(slug) ?? noTracking;
-        const token = (field) => (tracking[field] === undefined ? before[field] : Boolean(tracking[field]?.trim()));
-        const saved = {
-          meta_pixel_id: tracking.meta_pixel_id || null, meta_capi_token: token('meta_capi_token'),
-          tiktok_pixel_id: tracking.tiktok_pixel_id || null, tiktok_events_token: token('tiktok_events_token'), google_ads_id: tracking.google_ads_id || null,
-        };
-        linkTracking.set(slug, saved);
-        send(response, 200, { tracking: saved });
-      }));
       const linksRoute = method => route('/api/links', method, signedIn(async (_email, request, response) => {
         if (method === 'GET') {
           const week = Date.now() - 7 * 86_400_000;
@@ -337,13 +325,19 @@ export function localPreviewApi() {
           linkTracking.delete(slug);
           return send(response, 200, {});
         }
-        const { slug, link } = JSON.parse((await readBody(request)).toString('utf8'));
+        const { slug, link, tracking } = JSON.parse((await readBody(request)).toString('utf8'));
         const problem = method === 'POST' ? slugProblem(slug) ?? (smartLinks.has(slug) ? 'Someone already has that name. Try another.' : null) : null;
         const cleaned = cleanLink(link);
-        if (problem || cleaned.error) return send(response, 400, { error: problem ?? cleaned.error });
+        const ads = tracking === undefined ? null : await cleanTracking(tracking, async () => 'sealed');
+        if (problem || cleaned.error || ads?.error) return send(response, ads?.status ?? 400, { error: problem ?? cleaned.error ?? ads.error });
         const now = new Date().toISOString();
         smartLinks.set(slug, { slug, link: cleaned.link, created_at: smartLinks.get(slug)?.created_at ?? now, updated_at: now });
-        send(response, 200, { link: smartLinks.get(slug) });
+        if (ads) {
+          const before = linkTracking.get(slug) ?? noTracking;
+          const token = (field) => (field in ads.tokens ? Boolean(ads.tokens[field]) : before[field]);
+          linkTracking.set(slug, { ...ads.ids, meta_capi_token: token('meta_capi_token'), tiktok_events_token: token('tiktok_events_token') });
+        }
+        send(response, 200, { link: { ...smartLinks.get(slug), tracking: linkTracking.get(slug) ?? noTracking } });
       }));
       for (const method of ['GET', 'POST', 'PUT', 'DELETE']) linksRoute(method);
       route('/l', 'GET', async (request, response) => {

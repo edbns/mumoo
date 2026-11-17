@@ -6,7 +6,7 @@ import type { AccountPage } from './account-pages';
 import LinkAnalytics from './link-analytics';
 import { SignInDialog } from './sign-in-dialog';
 import { CopyButton, Cover, OpenButton, iconButton } from './smart-link-parts';
-import { LABELS, addressOf, deletePublished, listLinks, openForEdit, type Published, type Service, type Tracking } from './smart-links';
+import { LABELS, addressOf, deletePublished, knownLinks, listLinks, openForEdit, rememberLinks, type Published, type Service } from './smart-links';
 
 const LINK_PARAM = 'link';
 
@@ -27,10 +27,12 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
   useEffect(() => {
     if (!user) return;
     let live = true;
-    listLinks().then(found => { if (live) setLinks(found); },
-      (cause: Error) => { if (live) { setLinks([]); setError(cause.message || 'Your links could not be loaded. Try again in a moment.'); } });
+    setLinks(current => current ?? knownLinks(user.id));
+    listLinks(user.id).then(found => { if (live) setLinks(found); },
+      (cause: Error) => { if (live) { setLinks(current => current ?? []); setError(cause.message || 'Your links could not be loaded. Try again in a moment.'); } });
     return () => { live = false; };
   }, [user?.id]);
+  useEffect(() => { if (user && links) rememberLinks(user.id, links); }, [user?.id, links]);
 
   function show(slug: string | null) {
     setOpen(slug);
@@ -56,11 +58,9 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
     }
   }
 
-  function tracked(slug: string, tracking: Tracking) {
-    setLinks(current => (current ?? []).map(item => item.slug === slug ? { ...item, tracking } : item));
-  }
-
-  const opened = open ? links?.find(item => item.slug === open) : null;
+  const shown = links ?? (user ? knownLinks(user.id) : null);
+  const opened = open ? shown?.find(item => item.slug === open) : null;
+  const loading = session.isPending || (Boolean(user) && !shown);
 
   return <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6">
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
@@ -68,13 +68,23 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
       <p className="m-0 text-sm text-muted-foreground">Sign in to see your smart links and their analytics.</p>
       <Button onClick={() => setSigningIn(true)}>Sign in</Button>
     </div>}
-    {user && links?.length === 0 && !error && <div className="flex flex-col items-center gap-4 py-24 text-center">
+    {loading && <ul aria-busy="true" aria-label="Loading your smart links" className="m-0 flex list-none flex-col gap-3 p-0">
+      {[0, 1, 2].map(index => <li key={index} className="flex items-center gap-4 rounded-[var(--radius-panel)] bg-background p-4">
+        <span className="size-14 shrink-0 animate-pulse rounded-[6px] bg-muted" />
+        <span className="flex min-w-0 flex-1 flex-col gap-2">
+          <span className="h-3.5 w-40 max-w-full animate-pulse rounded-full bg-muted" />
+          <span className="h-3 w-24 animate-pulse rounded-full bg-muted" />
+        </span>
+        <span className="hidden h-8 w-48 animate-pulse rounded-full bg-muted md:block" />
+      </li>)}
+    </ul>}
+    {user && shown?.length === 0 && !error && <div className="flex flex-col items-center gap-4 py-24 text-center">
       <p className="m-0 text-sm text-muted-foreground">No smart links yet. Make one for your song: one link that opens in every fan’s app.</p>
       <Button onClick={() => onNavigate('links')}><PlusIcon aria-hidden="true" className="size-4" />Create Smart Link</Button>
     </div>}
-    {opened && <LinkAnalytics item={opened} onBack={() => show(null)} onEdit={() => edit(opened)} onTracking={tracking => tracked(opened.slug, tracking)} />}
-    {!opened && links && links.length > 0 && <ul className="m-0 flex list-none flex-col gap-3 p-0">
-      {links.map(item => <LinkRow key={item.slug} item={item} onOpen={() => show(item.slug)} onEdit={() => edit(item)} onDelete={() => void remove(item.slug)} />)}
+    {opened && <LinkAnalytics item={opened} onBack={() => show(null)} onEdit={() => edit(opened)} />}
+    {!opened && shown && shown.length > 0 && <ul className="m-0 flex list-none flex-col gap-3 p-0">
+      {shown.map(item => <LinkRow key={item.slug} item={item} onOpen={() => show(item.slug)} onEdit={() => edit(item)} onDelete={() => void remove(item.slug)} />)}
     </ul>}
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}
