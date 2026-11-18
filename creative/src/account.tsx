@@ -152,6 +152,11 @@ export async function confirmEmailChange(newEmail: string, code: string) {
   await accountFetch('/api/account/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newEmail, code }) });
 }
 
+/** Holds the top-right actions back (`shell.css`) until it is known whether someone is signed in, so they arrive together. */
+export function AccountPending() {
+  return <span className="account-pending" hidden />;
+}
+
 /**
  * The person's place in the corner. Signed out it is the Sign in button (top right, beside the cart); signed in it is
  * their profile icon at the bottom left, which opens the account menu.
@@ -195,6 +200,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     : { label, icon, current: line === page || (line === 'links' && page === 'my-links'), onSelect: () => onNavigate(line) }));
 
   return <>
+    {!known && !user && <AccountPending />}
     {known && !user && <Button variant="secondary" onClick={() => setOpen(true)}>Sign in</Button>}
     {user && <div className="fixed bottom-6 left-6 z-[5]">
       <UserDropdownMenu email={user.email} groups={groups} onSignOut={() => { void authClient.signOut(); onNavigate('create'); }} />

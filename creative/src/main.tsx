@@ -382,7 +382,7 @@ function App() {
         {page === 'create' && <button type="button" className="link-button" onClick={() => setPage('links')}>Smart links</button>}
         {page !== 'create' && <Button variant="secondary" onClick={() => setPage('create')}><ArrowLeftIcon aria-hidden="true" className="size-4" />Create</Button>}
         <CartButton count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)} />
-        <Suspense fallback={null}><AccountBar page={page} onNavigate={setPage} /></Suspense>
+        <Suspense fallback={<span className="account-pending" hidden />}><AccountBar page={page} onNavigate={setPage} /></Suspense>
       </div>
     </header>
     {/* Asked wherever the creator is when the guess arrives, until the creatives are shown; closing it is "not sure". */}

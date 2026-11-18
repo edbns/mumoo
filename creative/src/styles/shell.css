@@ -3,7 +3,10 @@
 .masthead-logo { position: absolute; top: 1.5rem; left: 1.5rem; display: block; height: 1.25rem; width: auto; padding: 0; background: none; border-radius: 0; }
 .masthead-logo img { display: block; height: 100%; width: auto; }
 /* Inside the layer's rounded corner (the body's 1rem gap plus the logo's 1.5rem inset), centred on the logo's line. */
-.masthead-actions { position: fixed; z-index: 9; top: 2rem; right: 2.5rem; display: flex; align-items: center; gap: .75rem; }
+.masthead-actions { position: fixed; z-index: 9; top: 2rem; right: 2.5rem; display: flex; align-items: center; gap: .75rem; transition: opacity .25s; }
+/* Until the sign-in check answers (1.5 s at most), so Sign in does not arrive after the rest and push it aside. */
+.masthead-actions:has(.account-pending) { opacity: 0; animation: masthead-reveal 0s 1.5s forwards; }
+@keyframes masthead-reveal { to { opacity: 1; } }
 
 /* The notch is the page's black, so it reads as part of the page edge; the two ears curve it into the top of the layer. */
 .step-nav { position: relative; background: var(--background); border-radius: 0 0 var(--layer-radius) var(--layer-radius); padding: .6rem 1.5rem 1rem; }

@@ -7,8 +7,13 @@ const COPIED_MS = 1500;
 export const iconButton = 'grid size-9 shrink-0 cursor-pointer place-items-center rounded-[var(--radius-control)] bg-transparent p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30';
 export const textButton = 'cursor-pointer bg-transparent p-0 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground';
 
+/** The song's cover on its grey square, fading in once it has loaded rather than popping in. */
 export function Cover({ src, size }: { src: string | null; size: string }) {
-  return src ? <img src={src} alt="" className={`${size} shrink-0 rounded-[6px] object-cover`} /> : <span className={`${size} shrink-0 rounded-[6px] bg-muted`} />;
+  const [loaded, setLoaded] = useState<string | null>(null);
+  return <span className={`${size} block shrink-0 overflow-hidden rounded-[6px] bg-muted`}>
+    {src && <img key={src} src={src} alt="" onLoad={() => setLoaded(src)} ref={image => { if (image?.complete && image.naturalWidth) setLoaded(src); }}
+      className={`size-full object-cover transition-opacity duration-300 ${loaded === src ? 'opacity-100' : 'opacity-0'}`} />}
+  </span>;
 }
 
 export function CopyButton({ text }: { text: string }) {

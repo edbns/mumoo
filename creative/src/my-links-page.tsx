@@ -83,7 +83,7 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
       No smart links yet. Make one for your song: one link that opens in every fan’s app.
     </EmptyState>}
     {opened && <LinkAnalytics item={opened} onBack={() => show(null)} onEdit={() => edit(opened)} />}
-    {!opened && shown && shown.length > 0 && <ul className="m-0 flex list-none flex-col gap-3 p-0">
+    {!opened && shown && shown.length > 0 && <ul className="m-0 flex list-none flex-col gap-3 p-0 animate-in fade-in-0 duration-300">
       {shown.map(item => <LinkRow key={item.slug} item={item} onOpen={() => show(item.slug)} onEdit={() => edit(item)} onDelete={() => void remove(item.slug)} />)}
     </ul>}
 
@@ -123,7 +123,7 @@ function LinkRow({ item, onOpen, onEdit, onDelete }: { item: Published; onOpen: 
       </li>)}
     </ul>
     <div className="flex items-center gap-1 justify-self-end">
-      <Button variant="secondary" className="mr-1" onClick={onOpen}><BarChart3Icon aria-hidden="true" className="size-4" />Analytics</Button>
+      <button type="button" className={iconButton} aria-label={`Analytics for ${item.slug}`} title="Analytics" onClick={onOpen}><BarChart3Icon className="size-4" /></button>
       <CopyButton text={address} />
       <OpenButton slug={item.slug} />
       <button type="button" className={iconButton} aria-label={`Edit ${item.slug}`} onClick={onEdit}><PencilIcon className="size-4" /></button>

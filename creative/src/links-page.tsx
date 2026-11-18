@@ -41,6 +41,9 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
   useEffect(() => saveDraft(draft), [draft]);
   const [busy, setBusy] = useState<'find' | 'pick' | 'publish' | null>(null);
   const [error, setError] = useState('');
+  /** The page shows once the phone has drawn the fan page (or after a second at most), so the two arrive together. */
+  const [phoneReady, setPhoneReady] = useState(false);
+  useEffect(() => { const timer = setTimeout(() => setPhoneReady(true), 1000); return () => clearTimeout(timer); }, []);
   const [published, setPublished] = useState<Published | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   /** Ad tokens typed for this link: only in memory, sent once with Publish. */
@@ -140,7 +143,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
       ? found.results.map((result: SearchResult) => ({ key: result.url, ...result, choose: () => lookUp('pick', result.url) }))
       : null;
 
-  return <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6">
+  return <main className={`mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6 transition-opacity duration-300 ${phoneReady ? 'opacity-100' : 'opacity-0'}`}>
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-4">
         {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
@@ -220,7 +223,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
         </AccountSection>}
       </div>
 
-      <PhonePreview link={link} slug={draft.editing ?? draft.slug} />
+      <PhonePreview link={link} slug={draft.editing ?? draft.slug} onReady={() => setPhoneReady(true)} />
     </div>
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}
@@ -279,13 +282,13 @@ function PlayButton({ playing, onClick }: { playing: boolean; onClick: () => voi
 }
 
 /** The fan page itself, on an iPhone: what fans will see, with the preview playing from its own button. */
-function PhonePreview({ link, slug }: { link: LinkFields | null; slug: string }) {
+function PhonePreview({ link, slug, onReady }: { link: LinkFields | null; slug: string; onReady: () => void }) {
   const shown = link ?? EXAMPLE;
   const html = useResting(fanPage(shown, addressOf(slug || 'your-song'), location.origin, { inPhone: true }), 250);
   const scale = (PHONE_WIDTH * SCREEN_SHARE) / PAGE_WIDTH;
   return <aside aria-label="Preview" className="flex flex-col items-center gap-4 lg:sticky lg:top-20">
     <Iphone16Pro className="w-[320px] max-w-full">
-      <iframe title="Your fan page" srcDoc={html} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+      <iframe title="Your fan page" srcDoc={html} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" onLoad={onReady}
         className="block origin-top-left border-0" style={{ width: PAGE_WIDTH, height: PAGE_WIDTH * SCREEN_RATIO, transform: `scale(${scale})` }} />
     </Iphone16Pro>
     <p className="m-0 text-center text-xs text-muted-foreground">{link ? 'What fans see. Press play to hear your preview.' : 'Find your song, and your page appears here.'}</p>
