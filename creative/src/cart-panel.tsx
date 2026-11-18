@@ -86,7 +86,7 @@ export function CartPanel({ lines, progress, action, onClose, onRemove }: {
             <span className="text-sm text-muted-foreground">{title}</span>
           </li>)}
         </ul>}
-      {progress && <RenderProgress progress={progress} note="This can take a few minutes. You can close this panel; we will tell you when your creatives are ready." />}
+      {progress && <RenderProgress progress={progress} note="This can take a few minutes. You can close this panel and keep creating." />}
       {lines.length > 0 && <div className="mt-auto flex flex-col gap-3 pt-2">
         <p className="m-0 flex justify-between text-sm"><span>Total</span><strong>{ready.length} {ready.length === 1 ? 'token' : 'tokens'}</strong></p>
         {action.kind === 'download' && <>

@@ -13,6 +13,7 @@ test('the download bar keeps moving while the worker only says "not yet", and ne
   assert.ok(steps[0] > 3, 'it visibly starts within seconds');
   assert.equal(steps.at(-1), 95, 'it waits at 95% for a slow render');
   assert.equal(estimatedPercent(1, 1, 1000), 100);
+  for (const ms of [1234, 45_678, 99_999]) assert.ok(Number.isInteger(estimatedPercent(1, 3, ms)), 'the cart shows a whole number');
 });
 
 test('a finished video counts in full, and the bar never goes back when one finishes', () => {

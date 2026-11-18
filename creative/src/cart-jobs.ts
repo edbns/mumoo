@@ -51,12 +51,12 @@ export function expired(pending: PendingDownload, now: number, waitMs: number): 
 export const RENDER_PACE_MS = 70_000;
 
 /**
- * How far along the download looks, 0–95 until every video is in: the renders run side by side, so each unfinished one
- * creeps on a slowing curve that never passes 95%, and a finished one counts in full.
+ * How far along the download looks, a whole number, 0–95 until every video is in: the renders run side by side, so each
+ * unfinished one creeps on a slowing curve that never passes 95%, and a finished one counts in full.
  */
 export function estimatedPercent(done: number, total: number, elapsedMs: number): number {
   if (total <= 0) return 0;
   if (done >= total) return 100;
   const guess = Math.min(0.95, 1 - Math.exp(-Math.max(0, elapsedMs) / RENDER_PACE_MS));
-  return Math.min(95, ((done + (total - done) * guess) / total) * 100);
+  return Math.min(95, Math.floor(((done + (total - done) * guess) / total) * 100));
 }

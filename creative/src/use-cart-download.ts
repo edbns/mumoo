@@ -10,24 +10,6 @@ export type DownloadProgress = { label: string; percent: number };
 /** What the person is told when a download ends, wherever they are in the app. */
 export type DownloadMessage = { kind: 'ready' | 'error'; text: string };
 
-const ASKED_KEY = 'mumoo-notify-asked';
-
-/** True while we still want to ask for permission to notify: asked once, never again, and never when the browser already decided. */
-function shouldAskToNotify(): boolean {
-  return 'Notification' in window && Notification.permission === 'default' && !localStorage.getItem(ASKED_KEY);
-}
-
-/** Must run inside the person's click on Download, or the browser ignores the request. */
-function askToNotify() {
-  if (!shouldAskToNotify()) return;
-  localStorage.setItem(ASKED_KEY, '1');
-  void Notification.requestPermission();
-}
-
-function notify(text: string) {
-  if ('Notification' in window && Notification.permission === 'granted') new Notification('Your creatives are ready', { body: text });
-}
-
 /** One video as it is; several as one zip. */
 async function bundle(videos: Blob[]): Promise<{ file: Blob; name: string }> {
   if (videos.length === 1) return { file: videos[0], name: 'mumoo-creative.mp4' };
@@ -92,20 +74,16 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
       throw Object.assign(cause instanceof Error ? cause : new Error(String(cause)), { problemKind: 'download' });
     }
     localStorage.removeItem(PENDING_KEY);
-    const signedIn = await import('./account').then(account => account.sessionToken()).then(Boolean).catch(() => false);
-    const count = made.length;
     const delivered = made.map(entry => entry.job.itemId);
-    const ready = `${count === 1 ? 'Your creative is' : `Your ${count} creatives are`} ready${signedIn ? ' and in your History.' : ' and downloaded.'}`;
-    let text = ready;
+    // Success needs no notice: the person is on their History, where the creatives appear. Only a partial failure is told.
     if (failed.length) {
       const reason = friendlyError(failed[0], 'The creatives could not be exported.');
       reportProblem('render', reason);
-      text = `${ready} ${failed.length === 1 ? '1 could not be made' : `${failed.length} could not be made`} (${reason.replace(/\.$/, '')}) and ${failed.length === 1 ? 'is' : 'are'} still in your cart: press Download to try again.`;
+      const count = made.length;
+      setMessage({ kind: 'error', text: `${count === 1 ? 'Your creative is' : `Your ${count} creatives are`} ready. ${failed.length === 1 ? '1 could not be made' : `${failed.length} could not be made`} (${reason.replace(/\.$/, '')}) and ${failed.length === 1 ? 'is' : 'are'} still in your cart: press Download to try again.` });
     }
     latest.current.cart.removeFrom(pending.songKey, delivered);
     reportDelivered(latest.current.token, pending.songKey.split(':')[0], delivered);
-    setMessage({ kind: failed.length ? 'error' : 'ready', text });
-    notify(text);
     latest.current.onDelivered();
   }
 
@@ -128,7 +106,6 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
   /** `submit` starts one render per item (in order) and returns their ids; it may report what it is doing. */
   function start(songKey: string, items: readonly CartItem[], submit: (report: (label: string) => void) => Promise<string[]>) {
     if (running.current) return;
-    askToNotify();
     setProgress({ label: 'Starting…', percent: 0 });
     void run(async () => {
       const ids = await submit(label => setProgress({ label, percent: 0 }));
