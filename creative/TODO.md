@@ -28,7 +28,7 @@ Still to do:
 - A webhook adds the tokens and writes the invoice; the real `/api/invoices` and the token balance come from it.
 
 ## 4. Smaller things
-- Real `/terms` and `/privacy` pages.
+- Done: real `/terms` and `/privacy` pages (see "legal pages" below).
 - Landing page (Hirael template 781).
 - Done (migration 032): change email. Neon's managed sign-in refuses every way of changing an email and has no setting for it, so our server does it (`/api/account/email`, `email-change.mjs`): a 6-digit code to the new address through Resend (10 minutes, 5 tries), then the email changes in `neon_auth."user"` and `app_users`. Same account, so everything made stays; open sessions see the new address at once.
 - Done: delete account completely (Settings → Delete account, typing the email to confirm; `DELETE /api/account`, `delete-account.mjs`). Every file under the person's `uploads/` and `renders/` in storage (also leftovers no row knows), their rows (account, history, pictures, email change), error reports naming them, and their Neon sign-in with its sessions and Google link. Feedback stays as untraceable codes. A token still in use cannot bring the account back.
