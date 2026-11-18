@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Cart, CartItem } from './cart';
-import { PENDING_KEY, expired, readPending, writePending, type PendingDownload } from './cart-jobs';
+import { PENDING_KEY, estimatedPercent, expired, readPending, writePending, type PendingDownload } from './cart-jobs';
 import { friendlyError } from './friendly-error';
 import { JOB_TIMEOUT_MS, awaitCloudJob } from './pack-cloud-export';
 import { reportDelivered } from './pack-feedback';
@@ -63,10 +63,11 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     const total = pending.jobs.length;
     let done = 0;
     const show = () => setProgress({
-      label: total > 1 ? `Making ${done} of ${total}…` : 'Making your creative…',
-      percent: Math.floor(done / total * 100),
+      label: total > 1 ? `Made ${done} of ${total}` : 'Making your creative…',
+      percent: estimatedPercent(done, total, Date.now() - pending.startedAt),
     });
     show();
+    const ticking = setInterval(show, 1000);
     // One render failing does not end the wait for the others: the ones that are made are delivered, the rest stay in the cart.
     type Result = { job: PendingDownload['jobs'][number]; video: Blob } | { job: PendingDownload['jobs'][number]; cause: unknown };
     const results = await Promise.all(pending.jobs.map(async (job): Promise<Result> => {
@@ -78,7 +79,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
         done += 1;
         show();
       }
-    }));
+    })).finally(() => clearInterval(ticking));
     const made = results.flatMap(result => ('video' in result ? [{ job: result.job, video: result.video }] : []));
     const failed = results.flatMap(result => ('cause' in result ? [result.cause] : []));
     if (!made.length) throw failed[0];

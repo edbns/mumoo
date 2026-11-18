@@ -5,6 +5,7 @@ import { RemoveBadge } from '@/components/ui/remove-badge';
 import { useEffect, useRef } from 'react';
 import { EmptyState } from './account-section';
 import type { CartItem } from './cart';
+import { RenderProgress } from './render-progress';
 import type { DownloadMessage, DownloadProgress } from './use-cart-download';
 
 export type CartLine = {
@@ -85,11 +86,7 @@ export function CartPanel({ lines, progress, action, onClose, onRemove }: {
             <span className="text-sm text-muted-foreground">{title}</span>
           </li>)}
         </ul>}
-      {progress && <div className="flex flex-col gap-2" role="status">
-        <progress className="w-full accent-primary" max={100} value={progress.percent} aria-label="Download progress" />
-        <strong className="text-sm">{progress.label}</strong>
-        <p className="hint">This can take a few minutes. You can close this panel; we will tell you when your creatives are ready.</p>
-      </div>}
+      {progress && <RenderProgress progress={progress} note="This can take a few minutes. You can close this panel; we will tell you when your creatives are ready." />}
       {lines.length > 0 && <div className="mt-auto flex flex-col gap-3 pt-2">
         <p className="m-0 flex justify-between text-sm"><span>Total</span><strong>{ready.length} {ready.length === 1 ? 'token' : 'tokens'}</strong></p>
         {action.kind === 'download' && <>

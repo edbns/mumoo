@@ -6,6 +6,7 @@ import { ImageGeneration } from '@/components/ui/image-generation';
 import { Modal } from '@/components/ui/modal';
 import { cn } from '@/lib/utils';
 import { AccountColumn, EmptyState } from './account-section';
+import { RenderProgress } from './render-progress';
 import { accountFetch } from './account';
 import { LazyMedia } from './lazy-media';
 import type { ProfileTab } from './profile-nav';
@@ -148,11 +149,7 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
       {storage && <p className="m-0 text-sm text-muted-foreground">{size(Math.max(0, storage.quota - storage.used))} remaining space from {size(storage.quota)}</p>}
     </div>
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
-    {progress && <div className="flex flex-col gap-2 rounded-[var(--radius-panel)] bg-background p-5" role="status">
-      <strong className="text-sm">{progress.label}</strong>
-      <progress className="w-full accent-primary" max={100} value={progress.percent} aria-label="Your creatives are being made" />
-      <p className="m-0 text-sm text-muted-foreground">This can take a few minutes. They appear here when they are ready.</p>
-    </div>}
+    {progress && <RenderProgress progress={progress} note="This can take a few minutes. They appear here when they are ready." />}
 
     {items?.length === 0 && <EmptyState>
       {tab === 'creatives' ? 'Creatives you download while signed in are kept here.' : 'The photos, videos and GIFs you upload are kept here, private to you, until you delete them.'}
