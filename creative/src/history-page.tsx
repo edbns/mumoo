@@ -1,7 +1,7 @@
 import { CheckIcon, DownloadIcon, PlayIcon } from 'lucide-react';
 import { MotionConfig, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
-import { ActionDialog, type ReportProgress } from '@/components/ui/action-dialog';
+import { ActionDialog } from '@/components/ui/action-dialog';
 import { Button } from '@/components/ui/button';
 import { ImageGeneration } from '@/components/ui/image-generation';
 import { Modal } from '@/components/ui/modal';
@@ -129,15 +129,12 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
     } finally { setBusy(false); }
   }
 
-  async function deleteChosen(report: ReportProgress) {
-    const all = chosen;
+  async function deleteChosen() {
     try {
-      for (const [index, item] of all.entries()) {
-        if (all.length > 1) report(index, all.length, `Deleting ${index + 1} of ${all.length}`);
+      for (const item of chosen) {
         if (item.kind === 'creative') await accountFetch(`/api/renders?id=${item.id}`, { method: 'DELETE' });
         else await removeUpload(item.id);
       }
-      report(all.length, all.length);
       setSelected(new Set());
     } finally { await load(); }
   }
@@ -216,6 +213,6 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
     <ActionDialog open={confirming} onClose={() => setConfirming(false)} destructive
       title={`Delete ${chosen.length} ${noun}${chosen.length === 1 ? '' : 's'}?`}
       description="They are removed from your account and storage. This cannot be undone."
-      confirmLabel="Delete" working="Deleting" done="Deleted" onConfirm={deleteChosen} />
+      confirmLabel="Delete" working="Deleting…" onConfirm={deleteChosen} />
   </AccountColumn>;
 }

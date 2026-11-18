@@ -87,7 +87,9 @@ export function MagicLinkOtpLogin({
   const glowedCode = React.useRef(null as string | null);
   const focusNext = React.useRef(false);
   const message = localError;
-  const busy = currentStatus === "sending" || currentStatus === "verifying";
+  // Google has its own wait: no code is sent, so the email button never says it is sending one.
+  const [googling, setGoogling] = React.useState(false);
+  const busy = currentStatus === "sending" || currentStatus === "verifying" || googling;
   const failed = currentStatus === "error" || !!message;
   const attachRef = React.useCallback((node: HTMLDivElement | null) => {
     root.current = node;
@@ -203,7 +205,7 @@ export function MagicLinkOtpLogin({
     if (!onGoogle || busy || pending.current) return;
     pending.current = true;
     const token = ++request.current;
-    setStatus("sending");
+    setGoogling(true);
     setLocalError("");
     try {
       await onGoogle();
@@ -214,6 +216,7 @@ export function MagicLinkOtpLogin({
       setLocalError(cause instanceof Error && cause.message ? cause.message : "Couldn't sign in with Google. Please try again.");
       setStatus("error");
     } finally {
+      if (mounted.current) setGoogling(false);
       if (mounted.current && token === request.current) pending.current = false;
     }
   };
@@ -288,12 +291,12 @@ export function MagicLinkOtpLogin({
             <label htmlFor={`${id}-email`} className="sr-only">Email address</label>
             <input id={`${id}-email`} autoFocus type="email" name="email" required autoComplete="email" autoCapitalize="none" spellCheck={false} value={value} disabled={busy} onChange={(event) => { setValue(event.target.value); setLocalError(""); setStatus("idle"); }} placeholder="you@example.com" aria-invalid={failed || undefined} aria-describedby={failed ? `${id}-error` : undefined} className={`mt-6 h-12 w-full rounded-[var(--radius-control)] bg-muted px-3.5 text-sm placeholder:text-muted-foreground disabled:opacity-60 ${FOCUS}`} />
             <button type="submit" disabled={busy || !onSendCode} className={`mt-3 flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 ${FOCUS}`}>
-              {busy ? <><LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />Sending code…</> : <>Email me a code <ArrowRight aria-hidden="true" className="size-4" /></>}
+              {currentStatus === "sending" ? <><LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />Sending code…</> : <>Email me a code <ArrowRight aria-hidden="true" className="size-4" /></>}
             </button>
             {onGoogle && <>
               <div aria-hidden="true" className="my-4 flex items-center gap-3 text-[11px] text-muted-foreground"><span className="h-px flex-1 bg-secondary" />or<span className="h-px flex-1 bg-secondary" /></div>
               <button type="button" disabled={busy} onClick={() => void google()} className={`flex h-12 w-full cursor-pointer items-center justify-center gap-2.5 rounded-[var(--radius-control)] bg-muted text-sm font-medium hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-70 ${FOCUS}`}>
-                <GoogleMark />Continue with Google
+                {googling ? <><LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />Waiting for Google…</> : <><GoogleMark />Continue with Google</>}
               </button>
             </>}
             {failed && <p id={`${id}-error`} role="alert" className="mt-3 text-xs leading-5 text-destructive">{message || "Something went wrong. Please try again."}</p>}
@@ -336,7 +339,7 @@ export function MagicLinkOtpLogin({
           return <li key={item} aria-current={active ? "step" : undefined} className={`flex items-center gap-1.5 text-[10px] ${active || done ? "text-foreground" : "text-muted-foreground"}`}><span className={`flex size-4 items-center justify-center rounded-full text-[9px] ${active ? "bg-primary text-primary-foreground" : done ? "bg-secondary text-foreground" : "bg-muted"}`}>{done ? <Check className="size-2.5" aria-hidden="true" /> : index + 1}</span>{STEP_LABELS[index]}</li>;
         })}
       </ol>
-      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{currentStep === "success" ? successTitle : currentStatus === "sending" ? "Sending your code" : currentStatus === "verifying" ? "Verifying your code" : currentStep === "code" ? `Check your inbox at ${value}. Enter your ${length}-digit code.` : "Enter your email to get a code."}</p>
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{currentStep === "success" ? successTitle : googling ? "Signing in with Google" : currentStatus === "sending" ? "Sending your code" : currentStatus === "verifying" ? "Verifying your code" : currentStep === "code" ? `Check your inbox at ${value}. Enter your ${length}-digit code.` : "Enter your email to get a code."}</p>
     </div>
   );
 }
