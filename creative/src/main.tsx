@@ -89,7 +89,7 @@ function App() {
   const currentClip = useRef<ClipIdentity | null>(null);
   const genreValid = Boolean(picked) || genreUnknown;
   const [songTags, setSongTags] = useState<SongTags>();
-  /** The song a smart link handed over ("Make my first ad free"), until the creator dismisses it. */
+  /** The song a smart link handed over ("Make my first video free"), until the creator dismisses it. */
   const [handed, setHanded] = useState<HandedSong | null>(null);
   useEffect(() => {
     if (page !== 'create') return;
@@ -415,7 +415,7 @@ function App() {
             {handed && !buffer && <div className="flex items-center gap-3 rounded-[var(--radius-control)] bg-card p-3">
               {handed.cover ? <img src={handed.cover} alt="" className="size-11 shrink-0 rounded-[6px] object-cover" /> : <span className="size-11 shrink-0 rounded-[6px] bg-muted" />}
               <p className="m-0 min-w-0 flex-1 text-sm">
-                <span className="block truncate font-semibold">Ads for {handed.title}{handed.artist ? ` · ${handed.artist}` : ''}</span>
+                <span className="block truncate font-semibold">{handed.title}{handed.artist ? ` · ${handed.artist}` : ''}</span>
                 <span className="block text-muted-foreground">Drop the song file to start. Your first creative is free.</span>
               </p>
               <button type="button" aria-label="Not this song" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"

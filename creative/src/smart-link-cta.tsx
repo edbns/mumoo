@@ -17,13 +17,13 @@ export function AdsNextStep({ published, onStart }: { published: Published; onSt
       <p className="m-0 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
         <SparklesIcon aria-hidden="true" className="size-3.5" />Next: get fans to tap it
       </p>
-      <p className="m-0 text-lg font-semibold leading-snug">Turn “{title}” into scroll-stopping lyric-video ads.</p>
+      <p className="m-0 text-lg font-semibold leading-snug">Turn “{title}” into scroll-stopping lyric videos.</p>
       <p className="m-0 text-sm text-muted-foreground">
         Upload {artist ? `${artist}’s` : 'your'} song and mumoo makes 9:16 creatives for Reels, TikTok and Shorts in minutes, in the
         style of your music. Your first creative is free.
       </p>
       <Button className="shimmer relative h-[var(--control-height-md)] overflow-hidden px-5" onClick={onStart}>
-        Make my first ad free<ArrowRightIcon aria-hidden="true" className="size-4" />
+        Make my first video free<ArrowRightIcon aria-hidden="true" className="size-4" />
       </Button>
     </div>
   </div>;
@@ -38,7 +38,7 @@ function AdMockup({ published }: { published: Published }) {
     {cover && <img src={cover} alt="" className="absolute inset-0 size-full scale-125 object-cover opacity-60 blur-xl" />}
     <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/20 to-black/80" />
     <div className="relative flex h-full flex-col items-center justify-between p-2.5 text-center">
-      <span className="self-start rounded-full bg-black/50 px-1.5 py-0.5 text-[8px] font-medium text-white/80">Sponsored</span>
+      <span className="h-4" />
       {cover ? <img src={cover} alt="" className="w-20 rounded-[6px] shadow-lg" /> : <span className="size-20 rounded-[6px] bg-white/10" />}
       <div className="flex w-full flex-col gap-1.5">
         <p className="m-0 flex flex-wrap justify-center gap-x-1 text-[13px] font-extrabold uppercase leading-tight text-white">

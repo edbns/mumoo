@@ -1,7 +1,6 @@
 # Refund Policy
 
-**Last updated:** 18 November 2026  
-**Operator:** The individual operating mumoo.app  
+**Last updated:** 19 November 2026  
 **Contact:** moo@mumoo.app
 
 ## Free trial
@@ -12,7 +11,7 @@ Every new account receives one free Creative. This free Creative is the trial th
 - Credits never expire while the account exists.
 - **Credits are non-refundable.**
 
-We rely on the exception to the right of withdrawal for digital content under Korean electronic commerce law where a free trial has been provided and the service has been commenced. This reliance must be confirmed by qualified legal counsel before the Service is offered to the public.
+We rely on the exception to the right of withdrawal for digital content under applicable electronic commerce rules where a free trial has been provided and the service has been commenced. This reliance must be confirmed by qualified legal counsel before the Service is offered to the public.
 
 ## Mandatory refunds
 We will provide a refund where required by law, including (but not limited to):
