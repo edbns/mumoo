@@ -34,6 +34,7 @@ import { ArrowLeftIcon, CheckIcon, XIcon } from 'lucide-react';
 import { PAGE_PATHS, pageAt, type AccountPage } from './account-pages';
 import { LinksNav, ProfileNav, type ProfileTab } from './profile-nav';
 import { ClipPicker } from './clip-picker';
+import { LegalCorner } from './legal-corner';
 import './styles/index.css';
 
 // Sign-in pulls in the auth client; it loads beside the page instead of in front of it.
@@ -396,6 +397,7 @@ function App() {
     </Modal>
     {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
     {download.message && <DownloadNotice message={download.message} onDismiss={download.dismiss} />}
+    <LegalCorner />
     {IS_ALIGNMENT_STAGING && !accessToken && <StagingAccess onAccess={setAccessToken} />}
     {page !== 'create' && <Suspense fallback={null}><ProfilePage key={page === 'links' ? `links-${linksOpened}` : page} page={page} tab={profileTab} progress={download.progress} delivered={delivered} onNavigate={setPage} /></Suspense>}
     {/* The work stays exactly as it was while a page of the account is open: hidden, but still laid out, so its drawings are not cleared and redrawn. */}

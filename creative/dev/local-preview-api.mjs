@@ -94,6 +94,11 @@ export function localPreviewApi() {
         if (request.method !== method) return next();
         handler(request, response).catch(() => send(response, 500, { error: 'The local preview stand-in failed.' }));
       });
+      // The same addresses netlify.toml sends to the legal page.
+      server.middlewares.use((request, _response, next) => {
+        if (/^\/(legal|terms|privacy|cookies|acceptable-use|refunds|ai|dpa)\/?(\?|$)/.test(request.url ?? '')) request.url = '/legal.html';
+        next();
+      });
       const startJob = (result) => {
         const id = `local-${++jobCount}`;
         jobs.set(id, { result, readyAt: Date.now() + READY_AFTER_MS });

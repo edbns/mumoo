@@ -17,6 +17,7 @@ export function PurchaseCredits({ open, onClose }: { open: boolean; onClose: () 
       <PricingInteraction packs={PACKS} onChoose={() => setNote('Payments are not switched on yet.')} />
       {note && <p role="status" className="m-0 text-center text-sm text-muted-foreground">{note}</p>}
       <p className="m-0 text-center text-sm text-muted-foreground">One-time purchase, no subscription. Credit never expires.</p>
+      <p className="m-0 text-center text-xs text-muted-foreground">Credits are non-refundable. See the <a href="/terms" className="underline underline-offset-4 hover:text-foreground">Terms</a> and <a href="/refunds" className="underline underline-offset-4 hover:text-foreground">Refund policy</a>.</p>
     </div>
   </Modal>;
 }

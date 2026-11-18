@@ -31,6 +31,47 @@
   to = "/phone.html"
   status = 200
 
+# The legal documents (creative/legal/*.md): one page, which shows the document its address names.
+[[redirects]]
+  from = "/legal"
+  to = "/legal.html"
+  status = 200
+
+[[redirects]]
+  from = "/terms"
+  to = "/legal.html"
+  status = 200
+
+[[redirects]]
+  from = "/privacy"
+  to = "/legal.html"
+  status = 200
+
+[[redirects]]
+  from = "/cookies"
+  to = "/legal.html"
+  status = 200
+
+[[redirects]]
+  from = "/acceptable-use"
+  to = "/legal.html"
+  status = 200
+
+[[redirects]]
+  from = "/refunds"
+  to = "/legal.html"
+  status = 200
+
+[[redirects]]
+  from = "/ai"
+  to = "/legal.html"
+  status = 200
+
+[[redirects]]
+  from = "/dpa"
+  to = "/legal.html"
+  status = 200
+
 [[headers]]
   for = "/phone*"
   [headers.values]
