@@ -76,7 +76,7 @@ test('one damaged cart is dropped without costing the others', () => {
   for (const damage of [{ thumb: undefined }, { thumb: 'data:image/png;base64,AAAA' }, { thumb: `data:image/jpeg;base64,${'A'.repeat(70_000)}` }, { row: 'nowhere' }, { row: 'looks' }, { id: 7 }]) {
     assert.deepEqual(readCarts(writeCarts([bad(damage), good])), [good]);
   }
-  assert.deepEqual(readCarts(JSON.stringify({ version: 5, carts: [{ songKey: 'e:0', items: [] }, good, good] })), [good]);
+  assert.deepEqual(readCarts(writeCarts([{ songKey: 'e:0', items: [] }, good, good])), [good]);
 });
 
 test('a cart over the limit is not trusted', () => {
