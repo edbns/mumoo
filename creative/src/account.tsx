@@ -4,6 +4,8 @@ import { BetterAuthReactAdapter } from '@neon/auth/react/adapters';
 import { SignInDialog } from './sign-in-dialog';
 import { Button } from '@/components/ui/button';
 import { UserDropdownMenu } from '@/components/ui/user-dropdown-menu';
+import { PROFILE_CORNER } from '@/components/ui/profile-dot';
+import { AccountPlaceholder, rememberSignedIn } from './account-hint';
 import { ACCOUNT_MENU, type AccountPage } from './account-pages';
 import { PurchaseCredits } from './purchase-credits';
 import { reportProblem } from './report-problem';
@@ -152,11 +154,6 @@ export async function confirmEmailChange(newEmail: string, code: string) {
   await accountFetch('/api/account/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newEmail, code }) });
 }
 
-/** Holds the top-right actions back (`shell.css`) until it is known whether someone is signed in, so they arrive together. */
-export function AccountPending() {
-  return <span className="account-pending" hidden />;
-}
-
 /**
  * The person's place in the corner. Signed out it is the Sign in button (top right, beside the cart); signed in it is
  * their profile icon at the bottom left, which opens the account menu.
@@ -176,6 +173,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   /** Whether it is known yet if anyone is signed in. Later checks (the client repeats them when the window is focused) must not hide the button again. */
   const [known, setKnown] = useState(false);
   useEffect(() => { if (!session.isPending) setKnown(true); }, [session.isPending]);
+  useEffect(() => { if (known) rememberSignedIn(Boolean(user)); }, [known, Boolean(user)]);
 
   // Best effort: without it the menu simply has no amount beside Credit.
   useEffect(() => {
@@ -200,9 +198,9 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     : { label, icon, current: line === page || (line === 'links' && page === 'my-links'), onSelect: () => onNavigate(line) }));
 
   return <>
-    {!known && !user && <AccountPending />}
+    {!known && !user && <AccountPlaceholder onSignIn={() => setOpen(true)} />}
     {known && !user && <Button variant="secondary" onClick={() => setOpen(true)}>Sign in</Button>}
-    {user && <div className="fixed bottom-6 left-6 z-[5]">
+    {user && <div className={PROFILE_CORNER}>
       <UserDropdownMenu email={user.email} groups={groups} onSignOut={() => { void authClient.signOut(); onNavigate('create'); }} />
     </div>}
     <PurchaseCredits open={buying} onClose={() => setBuying(false)} />

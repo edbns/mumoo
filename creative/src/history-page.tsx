@@ -140,8 +140,7 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
   }
 
   return <AccountColumn wide>
-    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-      <h2 className="m-0 text-2xl font-semibold tracking-tight">History</h2>
+    <div className="flex min-h-5 justify-end">
       {storage && <p className="m-0 text-sm text-muted-foreground">{size(Math.max(0, storage.quota - storage.used))} remaining space from {size(storage.quota)}</p>}
     </div>
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}

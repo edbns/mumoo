@@ -32,7 +32,8 @@ import { FileDropzone } from '@/components/ui/file-dropzone';
 import { AnalyzingScreen, type PaintProgress } from './analyzing-screen';
 import { StepNav, type StepNumber } from './step-nav';
 import { ArrowLeftIcon, CheckIcon, XIcon } from 'lucide-react';
-import { PAGE_PATHS, pageAt, type AccountPage } from './account-pages';
+import { AccountPlaceholder } from './account-hint';
+import { PAGE_PATHS, UPLOADS_PATH, pageAt, uploadsAt, type AccountPage } from './account-pages';
 import { LinksNav, ProfileNav, type ProfileTab } from './profile-nav';
 import { ClipPicker } from './clip-picker';
 import { LegalCorner } from './legal-corner';
@@ -56,11 +57,11 @@ function App() {
   const [inCreatives, setInCreatives] = useState(false);
   /** The page being shown: making creatives, or a page of the person's account (the work underneath is kept as it was). */
   const [page, setPage] = useState<AccountPage>(() => pageAt(location.pathname));
+  const [profileTab, setProfileTab] = useState<ProfileTab>(() => (uploadsAt(location.pathname) ? 'uploads' : 'creatives'));
   useEffect(() => {
-    const path = PAGE_PATHS[page] ?? '/';
+    const path = page === 'history' && profileTab === 'uploads' ? UPLOADS_PATH : PAGE_PATHS[page] ?? '/';
     if (location.pathname !== path) history.replaceState(history.state, '', path + location.search + location.hash);
-  }, [page]);
-  const [profileTab, setProfileTab] = useState<ProfileTab>('creatives');
+  }, [page, profileTab]);
   /** Pressing Create Smart Link opens the editor anew, so an edit in progress gives way to the new-link draft. */
   const [linksOpened, setLinksOpened] = useState(0);
   /** The creatives are shown only after the song is analysed and every poster is painted. */
@@ -383,7 +384,7 @@ function App() {
         {page === 'create' && <button type="button" className="link-button" onClick={() => setPage('links')}>Smart links</button>}
         {page !== 'create' && <Button variant="secondary" onClick={() => setPage('create')}><ArrowLeftIcon aria-hidden="true" className="size-4" />Create</Button>}
         <CartButton count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)} />
-        <Suspense fallback={<span className="account-pending" hidden />}><AccountBar page={page} onNavigate={setPage} /></Suspense>
+        <Suspense fallback={<AccountPlaceholder />}><AccountBar page={page} onNavigate={setPage} /></Suspense>
       </div>
     </header>
     <ActionDialog open={askingStartOver} onClose={() => setAskingStartOver(false)} title="Start over with another song?"

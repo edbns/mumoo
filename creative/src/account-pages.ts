@@ -6,10 +6,16 @@ import { HistoryIcon, Link2Icon, ReceiptTextIcon, SettingsIcon, SparklesIcon, Wa
  */
 export type AccountPage = 'create' | 'links' | 'my-links' | 'history' | 'invoices' | 'settings';
 
-/** The pages with their own address, to share and come back to; every other page is at the root. */
-export const PAGE_PATHS: Partial<Record<AccountPage, string>> = { links: '/links', 'my-links': '/links/mine' };
-export const pageAt = (path: string): AccountPage =>
-  (Object.entries(PAGE_PATHS).find(([, at]) => at === path.replace(/\/+$/, ''))?.[0] as AccountPage | undefined) ?? 'create';
+/** Every page but Create has its own address, so a refresh or a shared link comes back to it; Create is at the root. */
+export const PAGE_PATHS: Partial<Record<AccountPage, string>> = {
+  links: '/links', 'my-links': '/links/mine', history: '/media', invoices: '/invoices', settings: '/settings',
+};
+/** Media's second tab, Your uploads. */
+export const UPLOADS_PATH = '/media/uploads';
+const clean = (path: string) => path.replace(/\/+$/, '');
+export const pageAt = (path: string): AccountPage => clean(path) === UPLOADS_PATH ? 'history'
+  : (Object.entries(PAGE_PATHS).find(([, at]) => at === clean(path))?.[0] as AccountPage | undefined) ?? 'create';
+export const uploadsAt = (path: string) => clean(path) === UPLOADS_PATH;
 
 /** A line of the account menu: a page to go to, or the credit, which is only shown on its line. */
 export type MenuLine = AccountPage | 'credit';
@@ -20,7 +26,7 @@ type Entry = { line: MenuLine; label: string; icon: LucideIcon };
 export const ACCOUNT_MENU: readonly (readonly Entry[])[] = [
   [
     { line: 'create', label: 'Create', icon: SparklesIcon },
-    { line: 'history', label: 'History', icon: HistoryIcon },
+    { line: 'history', label: 'Media', icon: HistoryIcon },
     { line: 'links', label: 'Smart Links', icon: Link2Icon },
   ],
   [

@@ -9,7 +9,7 @@ const TABS = [
 
 /** The two kinds of things kept in the history, one of them shown at a time. */
 export function ProfileNav({ current, onSelect }: { current: ProfileTab; onSelect: (tab: ProfileTab) => void }) {
-  return <NotchNav label="History" items={TABS} current={current} onSelect={onSelect} />;
+  return <NotchNav label="Media" items={TABS} current={current} onSelect={onSelect} />;
 }
 
 export type LinksTab = Extract<AccountPage, 'links' | 'my-links'>;

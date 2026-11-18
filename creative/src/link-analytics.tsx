@@ -48,20 +48,21 @@ export default function LinkAnalytics({ item, onBack, onEdit }: { item: Publishe
 
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
 
-    <div className={`grid grid-cols-2 gap-3 lg:grid-cols-4 ${loading ? 'opacity-60' : ''}`}>
+    {loading && !error && <AnalyticsSkeleton />}
+    {!loading && totals && <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <Kpi label="Total visits" value={totals?.views} />
       <Kpi label="Total link clicks" value={totals?.clicks} />
-      <Kpi label="Engagement" value={totals ? `${(totals.engagement * 100).toFixed(1)}%` : undefined} hint="Link clicks per visit" />
-      <Kpi label="Visits from ads" value={totals?.paid_views} hint={totals ? `${percent(totals.paid_views, totals.views)} of visits` : undefined} />
-    </div>
+      <Kpi label="Engagement" value={`${(totals.engagement * 100).toFixed(1)}%`} hint="Link clicks per visit" />
+      <Kpi label="Visits from ads" value={totals?.paid_views} hint={`${percent(totals.paid_views, totals.views)} of visits`} />
+    </div>}
 
-    <Panel title="Timeline">{stats && <Timeline daily={stats.daily} />}</Panel>
+    {!loading && <Panel title="Timeline"><Timeline daily={stats.daily} /></Panel>}
 
-    <div className="flex items-center justify-between gap-3">
+    {!loading && <div className="flex items-center justify-between gap-3">
       <p className="m-0 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Breakdown</p>
       <Segmented label="Count" value={metric} options={[{ value: 'views', label: 'Visits' }, { value: 'clicks', label: 'Link clicks' }]} onChange={setMetric} />
-    </div>
-    {stats && <div className={`grid gap-3 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2 ${loading ? 'opacity-60' : ''}`}>
+    </div>}
+    {!loading && <div className="grid gap-3 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2">
       <Breakdown title="Streaming services" rows={stats.services} metric="clicks" note="Link clicks"
         label={row => <><img src={`/logos/${row.key}.svg`} alt="" className="size-4 shrink-0 object-contain" />{LABELS[row.key as Service] ?? row.key}</>} />
       <Breakdown title="Organic vs ads" rows={stats.traffic} metric={metric} label={row => TRAFFIC[row.key] ?? row.key} />
@@ -72,6 +73,30 @@ export default function LinkAnalytics({ item, onBack, onEdit }: { item: Publishe
       <Breakdown title="Top devices" rows={stats.devices} metric={metric} label={row => row.key} />
       <Breakdown title="Operating systems" rows={stats.systems} metric={metric} label={row => row.key} />
     </div>}
+  </div>;
+}
+
+const pulse = 'animate-pulse rounded-full bg-muted';
+
+/** The page's shape while its figures load, so it arrives whole instead of piece by piece. */
+function AnalyticsSkeleton() {
+  return <div aria-busy="true" aria-label="Loading analytics" className="flex flex-col gap-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {Array.from({ length: 4 }, (_, index) => <div key={index} className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-background p-4 sm:p-5">
+        <span className={`${pulse} h-7 w-16 sm:h-8`} />
+        <span className={`${pulse} h-3.5 w-28`} />
+      </div>)}
+    </div>
+    <div className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-background p-5">
+      <span className={`${pulse} h-4 w-20`} />
+      <span className="animate-pulse rounded-[var(--radius-control)] bg-muted" style={{ height: CHART_HEIGHT }} />
+    </div>
+    <div className="grid gap-3 md:grid-cols-2">
+      {Array.from({ length: 4 }, (_, index) => <div key={index} className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-background p-5">
+        <span className={`${pulse} h-4 w-32`} />
+        {Array.from({ length: 4 }, (_, row) => <span key={row} className={`${pulse} h-3.5`} style={{ width: `${90 - row * 15}%` }} />)}
+      </div>)}
+    </div>
   </div>;
 }
 

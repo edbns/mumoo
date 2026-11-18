@@ -1,8 +1,8 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { LogOutIcon, UserRoundIcon } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { LogOutIcon } from "lucide-react";
+import { ProfileDot } from "@/components/ui/profile-dot";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +34,7 @@ type Props = {
 const itemClass = "cursor-pointer gap-2 p-2 text-sm font-medium text-popover-foreground";
 
 /**
- * 21st.dev "User Profile Dropdown Menu" (shadcnspace), adapted: the trigger is the profile icon ringed in green, the menu
+ * 21st.dev "User Profile Dropdown Menu" (shadcnspace), adapted: the trigger is a black disc ringed in green, the menu
  * opens upwards because the trigger sits at the bottom left, and the header shows the signed-in email.
  */
 export function UserDropdownMenu({ email, groups, onSignOut }: Props) {
@@ -45,11 +45,7 @@ export function UserDropdownMenu({ email, groups, onSignOut }: Props) {
         aria-label="Your account"
         className="cursor-pointer rounded-full bg-transparent p-0 outline-ring focus-visible:outline-2 focus-visible:outline-offset-4"
       >
-        <Avatar className="size-11 ring-2 ring-primary ring-offset-2 ring-offset-background">
-          <AvatarFallback className="bg-card text-foreground">
-            <UserRoundIcon aria-hidden="true" className="size-5" />
-          </AvatarFallback>
-        </Avatar>
+        <ProfileDot />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
@@ -60,11 +56,7 @@ export function UserDropdownMenu({ email, groups, onSignOut }: Props) {
       >
         <DropdownMenuGroup>
           <DropdownMenuLabel className="flex items-center gap-3 px-4 py-3">
-            <Avatar className="size-10 ring-2 ring-primary">
-              <AvatarFallback className="bg-card text-foreground">
-                <UserRoundIcon aria-hidden="true" className="size-5" />
-              </AvatarFallback>
-            </Avatar>
+            <ProfileDot className="size-8 shrink-0" />
             <div className="flex min-w-0 flex-col">
               <span className="text-xs text-muted-foreground">Signed in as</span>
               <span className="truncate text-sm font-medium text-popover-foreground">{email}</span>
