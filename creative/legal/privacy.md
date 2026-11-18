@@ -66,7 +66,7 @@ Data is transferred to the USA, Singapore, and other locations as needed to prov
 - **Uploads and Creatives:** until you delete them, delete the account, or do not visit for 90 days. We email you at 60 and 83 days before automatic deletion. The account itself remains.
 - **Usage signals:** anonymised when the account is deleted.
 - **Song style prints:** kept only if you confirm the genre guess; linked to a song fingerprint, never to a person.
-- **Fan event data:** not stored by us beyond what is necessary for immediate forwarding and short-term statistics.
+- **Fan event data:** anonymous visit and click statistics (no IP address, user agent, cookie or click ID) are kept until the creator deletes the Smart Link or their account. Data forwarded to Meta or TikTok is sent in real time and not kept by us.
 
 ## 8. Your rights
 Depending on your location (including under GDPR, UK GDPR, CCPA/CPRA, and other applicable privacy laws) you may have rights to access, correct, delete, restrict, or port your data, or to object to certain processing. You can delete your account yourself. For other requests contact moo@mumoo.app. We will respond within the time required by applicable law.

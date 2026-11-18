@@ -13,7 +13,7 @@ This short Data Processing Agreement (“DPA”) applies only when a creator (�
 mumoo will forward, on the creator’s instructions, the following data for each visit or click on a Smart Link the creator has connected:
 - IP address
 - Browser / user-agent details
-- Ad click IDs (fbclid, ttclid, gclid)
+- Ad click IDs (fbclid to Meta, ttclid to TikTok)
 - Timestamp and related event data
 
 Forwarding occurs only when the creator has actively connected a Meta Pixel/Conversions API token or TikTok Pixel/Events API token. Tokens are stored encrypted.
