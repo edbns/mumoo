@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ACCEPTED_AUDIO } from '../audio-format';
 import { Button } from '../components/ui/button';
+import { ProgressiveFluxLoader, type ProgressiveFluxPhase } from '../components/ui/progressive-flux-loader';
+import '@fontsource-variable/inter';
 import '../styles/index.css';
 
 /**
@@ -29,9 +31,14 @@ const KINDS = {
   },
 } as const;
 
-type Chosen = { file: File; preview: string; problem: string };
-type State = { step: 'choose' } | { step: 'chosen'; chosen: Chosen[]; dropped: number }
-  | { step: 'sending'; percent: number; count: number } | { step: 'sent'; count: number } | { step: 'failed'; error: string };
+type State = { step: 'choose' } | { step: 'sending'; percent: number; count: number }
+  | { step: 'sent'; count: number; skipped: string[] } | { step: 'failed'; error: string };
+
+const SEND_PHASES: ProgressiveFluxPhase[] = [
+  { at: 0, label: 'Getting ready' },
+  { at: 1, label: 'Sending' },
+  { at: 90, label: 'Almost there' },
+];
 
 /** The computer's own limits (src/uploads.ts, src/audio.ts), checked here so nothing is sent that it would refuse. */
 const MB = 1e6;
@@ -73,9 +80,7 @@ async function problemWith(kind: 'song' | 'picture', file: File, url: string): P
   return '';
 }
 
-const size = (bytes: number) => bytes >= MB ? `${(bytes / MB).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1000))} KB`;
-
-function send(url: string, file: Blob, onProgress: (percent: number) => void) {
+function put(url: string, file: Blob, onProgress: (percent: number) => void) {
   return new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open('PUT', url);
@@ -98,32 +103,28 @@ function Phone() {
     : expired() ? { step: 'failed', error: 'This QR code has expired. Make a new one on your computer.' } : { step: 'choose' });
   const input = useRef<HTMLInputElement>(null);
 
-  const forget = () => { if (state.step === 'chosen') state.chosen.forEach(item => URL.revokeObjectURL(item.preview)); };
-
   /**
-   * The song step takes exactly one file: a good one goes at once, a refused one says why. Pictures are picked together and
-   * shown, each checked against the computer's limits, and the good ones go together when the person says so.
+   * The bar shows the moment files are picked; they are checked against the computer's limits behind it. The song step takes
+   * exactly one file (a refused one says why); of several pictures the good ones go, and the rest are named once they are sent.
    */
   async function pick(list: FileList | null) {
-    const files = [...(list ?? [])];
+    const files = [...(list ?? [])].slice(0, kindName === 'song' ? 1 : MAX_PICTURES);
+    const dropped = (list?.length ?? 0) - files.length;
     if (input.current) input.current.value = '';
     if (!files.length) return;
-    forget();
-    if (kindName === 'song') {
-      const preview = URL.createObjectURL(files[0]);
-      const problem = await problemWith('song', files[0], preview);
-      URL.revokeObjectURL(preview);
-      return problem ? setState({ step: 'failed', error: problem }) : void choose([files[0]]);
-    }
-    const chosen = await Promise.all(files.slice(0, MAX_PICTURES).map(async file => {
-      const preview = URL.createObjectURL(file);
-      return { file, preview, problem: await problemWith('picture', file, preview) };
+    setState({ step: 'sending', percent: 0, count: files.length });
+    const checked = await Promise.all(files.map(async file => {
+      const url = URL.createObjectURL(file);
+      try { return { file, problem: await problemWith(kindName, file, url) }; } finally { URL.revokeObjectURL(url); }
     }));
-    setState({ step: 'chosen', chosen, dropped: Math.max(0, files.length - MAX_PICTURES) });
+    const good = checked.filter(item => !item.problem).map(item => item.file);
+    if (!good.length) return setState({ step: 'failed', error: checked[0].problem });
+    const skipped = checked.filter(item => item.problem).map(item => `${item.file.name}: ${item.problem}`);
+    if (dropped > 0 && kindName === 'picture') skipped.push(`Only the first ${MAX_PICTURES} are sent.`);
+    await send(good, skipped);
   }
 
-  async function choose(files: File[]) {
-    forget();
+  async function send(files: File[], skipped: string[]) {
     const total = files.reduce((sum, file) => sum + file.size, 0) || 1;
     setState({ step: 'sending', percent: 0, count: files.length });
     try {
@@ -135,18 +136,16 @@ function Phone() {
       if (!response.ok || body?.putUrls?.length !== files.length || !body.doneUrl) throw new Error(body?.error ?? 'Sending did not start. Try again.');
       let sent = 0;
       for (const [index, file] of files.entries()) {
-        await send(body.putUrls[index], file, percent => setState({ step: 'sending', percent: Math.round(((sent + (file.size * percent) / 100) / total) * 100), count: files.length }));
+        await put(body.putUrls[index], file, percent => setState({ step: 'sending', percent: Math.max(1, Math.round(((sent + (file.size * percent) / 100) / total) * 100)), count: files.length }));
         sent += file.size;
       }
       // Only now does the computer collect them, so it never takes half of them.
-      await send(body.doneUrl, new Blob([]), () => {});
-      setState({ step: 'sent', count: files.length });
+      await put(body.doneUrl, new Blob([]), () => {});
+      setState({ step: 'sent', count: files.length, skipped });
     } catch (cause) {
       setState({ step: 'failed', error: cause instanceof Error ? cause.message : 'Something went wrong. Try again.' });
     }
   }
-
-  const good = state.step === 'chosen' ? state.chosen.filter(item => !item.problem).map(item => item.file) : [];
 
   return <main className="mx-auto flex min-h-dvh max-w-sm flex-col items-center justify-center gap-6 p-6 text-center">
     <img src="/brand/favicon.png" alt="MUMOO" className="size-12" />
@@ -156,31 +155,20 @@ function Phone() {
       <Button className="h-12 w-full text-base" onClick={() => input.current?.click()}>{kind.button}</Button>
     </>}
     <input ref={input} type="file" accept={kind.accept} multiple={kindName === 'picture'} hidden aria-label={kind.button} onChange={event => void pick(event.target.files)} />
-    {state.step === 'chosen' && <>
-      <ul className="m-0 grid w-full list-none grid-cols-3 gap-2 p-0">
-        {state.chosen.map(item => <li key={item.preview} className="flex flex-col gap-1">
-          {item.file.type.startsWith('video/')
-            ? <video src={`${item.preview}#t=0.1`} className={`aspect-square w-full rounded-md bg-secondary object-cover ${item.problem ? 'opacity-40' : ''}`} playsInline muted preload="metadata" />
-            : <img src={item.preview} alt="" className={`aspect-square w-full rounded-md bg-secondary object-cover ${item.problem ? 'opacity-40' : ''}`} />}
-          <span className={`text-xs ${item.problem ? 'text-destructive' : 'text-muted-foreground'}`}>{item.problem || size(item.file.size)}</span>
-        </li>)}
-      </ul>
-      {state.dropped > 0 && <p className="m-0 text-sm text-muted-foreground">Only the first {MAX_PICTURES} are sent.</p>}
-      <Button className="h-12 w-full text-base" disabled={!good.length} onClick={() => void choose(good)}>
-        {good.length > 1 ? `Send ${good.length} to my computer` : 'Send to my computer'}
-      </Button>
-      <Button variant="secondary" className="h-12 w-full text-base" onClick={() => input.current?.click()}>Choose again</Button>
-    </>}
     {state.step === 'sending' && <>
-      <h1 className="m-0 text-2xl font-semibold">{state.count > 1 ? `Sending ${state.count} files…` : 'Sending…'}</h1>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={state.percent} aria-valuemin={0} aria-valuemax={100}>
-        <div className="h-full bg-primary transition-[width]" style={{ width: `${state.percent}%` }} />
-      </div>
-      <p className="m-0 text-muted-foreground">{state.percent}% · keep this page open</p>
+      <ProgressiveFluxLoader value={state.percent} phases={SEND_PHASES} className="gap-5 [--flux-from:var(--primary)] [--flux-to:#d4ff9a]"
+        textClassName="text-2xl font-semibold text-foreground" barClassName="h-3" />
+      <p className="m-0 text-muted-foreground">
+        {state.count > 1 ? `${state.count} files · ` : ''}{state.percent}%<br />
+        <strong className="font-medium text-foreground">Do not close your browser or this window.</strong>
+      </p>
     </>}
     {state.step === 'sent' && <>
       <h1 className="m-0 text-2xl font-semibold">Sent</h1>
       <p className="m-0 text-muted-foreground">{state.count > 1 ? 'They are' : 'It is'} on {state.count > 1 ? 'their' : 'its'} way to your computer. Carry on there; you can close this page.</p>
+      {state.skipped.length > 0 && <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm text-destructive">
+        {state.skipped.map(reason => <li key={reason}>{reason}</li>)}
+      </ul>}
     </>}
     {state.step === 'failed' && <>
       <h1 className="m-0 text-2xl font-semibold">That did not work</h1>
