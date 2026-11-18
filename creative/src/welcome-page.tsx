@@ -29,9 +29,8 @@ async function lookUp(): Promise<Known> {
 function WelcomePage() {
   const [known, setKnown] = useState<Known | null>(null);
   const [shown, setShown] = useState(0);
-  const [failed, setFailed] = useState(false);
 
-  useEffect(() => { lookUp().then(setKnown, () => setFailed(true)); }, []);
+  useEffect(() => { lookUp().then(setKnown, () => {}); }, []);
 
   useEffect(() => {
     if (!known) return;
@@ -51,18 +50,9 @@ function WelcomePage() {
     <header className="flex items-center justify-between px-6 pt-6 pb-4">
       <a href="/" aria-label="MUMOO"><img src="/brand/mumoo-logo.png" alt="MUMOO" className="h-5" /></a>
     </header>
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-8 px-6 pb-16 text-center">
-      <p className="m-0 text-xs font-medium uppercase tracking-[0.35em] text-muted-foreground">{known?.mine === false ? 'Artists on mumoo' : 'Welcome to mumoo'}</p>
-      <FlipDiskMatrix text={known ? digits : ''} cols={Math.max(31, digits.length * 6 + 5)}
-        label={known ? (known.mine ? `You are artist number ${known.number}` : `${known.number} artists have joined`) : 'Loading'} />
-      <div className="flex min-h-24 flex-col items-center gap-4 transition-opacity duration-500" style={{ opacity: known || failed ? 1 : 0 }}>
-        {failed
-          ? <p className="m-0 text-sm text-muted-foreground">Your number is unavailable right now. Try again in a moment.</p>
-          : known?.mine
-            ? <p className="m-0 text-lg">You are artist <span className="font-semibold text-primary">no. {padded(known.number)}</span>. Your song, its visuals and its lyrics start here.</p>
-            : <p className="m-0 text-lg">{known ? `${known.number.toLocaleString('en')} ${known.number === 1 ? 'artist has' : 'artists have'} joined so far.` : ''} Sign in to get your number.</p>}
-        <Button onClick={() => location.assign('/')}>{known?.mine ? 'Start creating' : 'Get your number'}</Button>
-      </div>
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-8 px-6 pb-16">
+      <FlipDiskMatrix text={known ? digits : ''} cols={Math.max(31, digits.length * 6 + 5)} label={known ? padded(known.number) : 'Loading'} />
+      <Button onClick={() => location.assign('/')}>try it for free, no watermark</Button>
     </main>
     <CookieBanner />
   </div>;
