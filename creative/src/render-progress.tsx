@@ -10,9 +10,9 @@ const PHASES: ProgressiveFluxPhase[] = [
 ];
 
 /** The creatives being made: the phase, the green bar, how many are done, and what to expect. */
-export function RenderProgress({ progress, note }: { progress: DownloadProgress; note: string }) {
+export function RenderProgress({ progress, note, phases = PHASES }: { progress: DownloadProgress; note: string; phases?: ProgressiveFluxPhase[] }) {
   return <div role="status" className="flex flex-col items-center gap-4 rounded-[var(--radius-panel)] bg-background px-5 py-8 text-center">
-    <ProgressiveFluxLoader value={progress.percent} phases={PHASES} className="gap-5 [--flux-from:var(--primary)] [--flux-to:#d4ff9a]"
+    <ProgressiveFluxLoader value={progress.percent} phases={phases} className="gap-5 [--flux-from:var(--primary)] [--flux-to:#d4ff9a]"
       textClassName="text-xl font-semibold text-foreground sm:text-2xl" barClassName="h-3" />
     <p className="m-0 text-sm text-muted-foreground"><span className="text-foreground">{progress.label}</span> · {note}</p>
   </div>;

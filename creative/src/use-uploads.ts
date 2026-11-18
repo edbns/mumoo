@@ -28,6 +28,11 @@ export function useUploads() {
   const waiting = list?.some(item => item.status === 'preparing') ?? false;
   /** The pictures added since this run began: the only ones the rows draw. */
   const [mine, setMine] = useState<ReadonlySet<string>>(new Set());
+  /**
+   * The batch being added: its pictures join `mine` together, only once every one is sent and prepared, so the Director deals
+   * once from all of them rather than starting on the first and dealing again as each arrives.
+   */
+  const [incoming, setIncoming] = useState<{ ids: ReadonlySet<string>; total: number } | null>(null);
 
   /** Takes in a new list. A picture that could not be prepared arrives once, as a failed entry, and becomes the problem. */
   const receive = useCallback((next: Upload[]) => {
@@ -76,6 +81,7 @@ export function useUploads() {
     }
     let known = new Set((list ?? []).map(item => item.id));
     const failed: string[] = [];
+    setIncoming({ ids: new Set(), total: taken.length });
     for (const [index, file] of taken.entries()) {
       const place = { index, total: taken.length };
       setSending(place);
@@ -83,7 +89,7 @@ export function useUploads() {
         const next = await addUpload(file, share => setSending({ ...place, share }));
         const added = next.map(item => item.id).filter(id => !known.has(id));
         known = new Set(next.map(item => item.id));
-        setMine(current => new Set([...current, ...added]));
+        setIncoming(current => current && { ...current, ids: new Set([...current.ids, ...added]) });
         receive(next);
       } catch (cause) {
         failed.push(cause instanceof Error ? cause.message : 'That file could not be added.');
@@ -98,13 +104,38 @@ export function useUploads() {
     }
   }
 
+  // The batch is in once nothing is being sent and none of it is still being prepared (a failed one has left the list).
+  const arrived = incoming && !sending && (list ?? []).every(item => !incoming.ids.has(item.id) || item.status !== 'preparing');
+  useEffect(() => {
+    if (!arrived || !incoming) return;
+    const present = new Set((list ?? []).map(item => item.id));
+    setMine(current => new Set([...current, ...[...incoming.ids].filter(id => present.has(id))]));
+    setIncoming(null);
+  }, [arrived, incoming, list]);
+
+  /** How far the batch has got, 0–100: sending is most of it, then each picture being prepared in the cloud. */
+  const batchPercent = (() => {
+    if (!incoming) return null;
+    const total = Math.max(1, incoming.total);
+    const sent = sending ? sending.index + (sending.share ?? 0) : total;
+    const prepared = (list ?? []).filter(item => incoming.ids.has(item.id) && item.status !== 'preparing').length;
+    return Math.min(99, Math.floor(70 * (sent / total) + 30 * (sending ? 0 : prepared / total)));
+  })();
+
   /** Start over: the rows go back to our own pictures. The person's stay in their account. */
   function clear() {
     setMine(new Set());
   }
 
+  /** Puts pictures already in the account back on the shelf (History keeps them), together, as one batch that is already in. */
+  function reuse(ids: readonly string[]) {
+    setProblem(null);
+    const ready = new Set((list ?? []).filter(item => item.status === 'ready').map(item => item.id));
+    setMine(new Set(ids.filter(id => ready.has(id)).slice(0, MAX_SHELF_PICTURES)));
+  }
+
   const current = (list ?? []).filter(item => mine.has(item.id));
-  return { pending: session.isPending, signedIn, list, current, problem, sending, add, clear };
+  return { pending: session.isPending, signedIn, list, current, problem, sending, batchPercent, add, clear, reuse };
 }
 
 export type Uploads = ReturnType<typeof useUploads>;

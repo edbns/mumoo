@@ -153,7 +153,17 @@ export function localPreviewApi() {
         send(response, 200, { renders });
       }));
       route('/api/invoices', 'GET', signedIn(async (_email, _request, response) => send(response, 200, { invoices: sampleInvoices() })));
-      route('/api/uploads', 'GET', signedIn(async (_email, _request, response) => send(response, 200, { uploads })));
+      // A photo sent here is "prepared" for a few seconds, like the cut-out on our worker, then shown in the colours of its upload.
+      let uploadCount = 0;
+      const readied = () => uploads.map(item => (item.status === 'preparing' && Date.now() >= item.readyAt
+        ? { ...item, status: 'ready', url: samplePicture(['#5b8cff', '#e94bd6', '#ffd23f'][item.n % 3], '#111') } : item));
+      route('/api/uploads', 'GET', signedIn(async (_email, _request, response) => { uploads = readied(); send(response, 200, { uploads }); }));
+      route('/api/uploads', 'POST', signedIn(async (_email, request, response) => {
+        const body = await readBody(request);
+        const n = ++uploadCount;
+        uploads = [...readied(), { id: `preview-new-${n}`, n, kind: 'photo', status: 'preparing', bytes: body.length, createdAt: new Date().toISOString(), readyAt: Date.now() + 3000 }];
+        send(response, 200, { uploads });
+      }));
       route('/api/uploads', 'DELETE', signedIn(async (_email, request, response) => {
         const except = new URL(request.url, 'http://local').searchParams.get('except');
         if (except !== null) uploads = uploads.filter(item => except.split(',').includes(item.id));

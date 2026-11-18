@@ -9,7 +9,7 @@ import type { CartDownload } from './use-cart-download';
 import { friendlyError } from './friendly-error';
 import { PauseIcon, PlayIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { PictureUpload } from './picture-upload';
+import { PictureUpload, UploadProgress } from './picture-upload';
 import type { Upload } from './uploads';
 import type { Uploads } from './use-uploads';
 import { loadDisplayFonts } from './ad-fonts';
@@ -282,7 +282,11 @@ export function CreativesPackStudio({
     dealtKey, learning,
   ]);
   /** The cards on the page, in order: each template's first creative, and the rest of its four where the person asked for more. */
-  const cards = shelf.flatMap(def => view[def.id].slots.slice(0, LEAD).map(slot => ({ def, slot })));
+  // With their own media on the shelf, no card shows ours: not our library, an approved photo, or a look baked on one.
+  const showsOurs = (slot: CreativesPackSlot) => ownPool !== null && !ownFor(slot.row) && ownPoolIds(slot).length === 0
+    && Boolean(slot.effectId || slot.plateId || slot.libraryId || slot.reelIds);
+  const cards = uploads.batchPercent !== null ? []
+    : shelf.flatMap(def => view[def.id].slots.filter(slot => !showsOurs(slot)).slice(0, LEAD).map(slot => ({ def, slot })));
   const pack = cards.map(card => card.slot);
   const allReady = cards.every(card => readyCards.has(card.slot.id));
 
@@ -562,11 +566,12 @@ export function CreativesPackStudio({
       <PictureUpload uploads={uploads} token={token} onChange={stopPlayback} />
       <Button className="shimmer" disabled={!allReady} onClick={refreshShelf} aria-label="Refresh all creatives">Refresh</Button>
     </div>
-    {ownKind && <p className="hint text-center">{ownPool
+    <UploadProgress uploads={uploads} />
+    {ownKind && uploads.batchPercent === null && <p className="hint text-center">{ownPool
       ? (ownKind === 'motion' ? `Your ${ownPool.length} videos or GIFs are shared out over the templates that can use them. Dust and Depth need a photo.` : `Your ${ownPool.length} pictures are shared out over the templates that use a picture.`)
       : ownKind === 'motion' ? 'Your video or GIF is shown on the templates that can use one. Dust and Depth need a photo.' : 'Your photo is shown on the templates that use a picture.'}</p>}
     {!textless && !hasLyrics && <p className="hint text-center" role="status">Approve your synced lyrics, or switch Lyrics off.</p>}
-    {SHELF_ROWS.map(def => view[def.id].note ? <p key={def.id} className="hint text-center" role="status">{view[def.id].note}</p> : null)}
+    {uploads.batchPercent === null && SHELF_ROWS.map(def => view[def.id].note ? <p key={def.id} className="hint text-center" role="status">{view[def.id].note}</p> : null)}
     {cards.length > 0 && <div className="creatives-pack-grid" role="list" aria-busy={!allReady}>
       {cards.map(({ def, slot: item }) => {
         // The cards are shown together, once every one of them is ready.
