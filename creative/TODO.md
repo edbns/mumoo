@@ -29,7 +29,8 @@ Still to do:
 
 ## 4. Smaller things
 - Done: real `/terms` and `/privacy` pages (see "legal pages" below).
-- Landing page (Hirael template 781).
+- Landing page at `mumoo.app/` (the Hirael template is dropped): light, animated, saying clearly that we make visuals and lyrics. To decide: what `/` shows and where Create moves, which songs the demo loops may use, the headline.
+- Done (migration 040): `/welcome`, a flip-disc board with the person's member number (0001, 0002, …). Not yet linked from anywhere: decide whether new accounts land there after their first sign-in.
 - Done (migration 032): change email. Neon's managed sign-in refuses every way of changing an email and has no setting for it, so our server does it (`/api/account/email`, `email-change.mjs`): a 6-digit code to the new address through Resend (10 minutes, 5 tries), then the email changes in `neon_auth."user"` and `app_users`. Same account, so everything made stays; open sessions see the new address at once.
 - Done: delete account completely (Settings → Delete account, typing the email to confirm; `DELETE /api/account`, `delete-account.mjs`). Every file under the person's `uploads/` and `renders/` in storage (also leftovers no row knows), their rows (account, history, pictures, email change), error reports naming them, and their Neon sign-in with its sessions and Google link. Feedback stays as untraceable codes. A token still in use cannot bring the account back.
 - Done: a person's own pictures and clips stay in their account (History → Uploads) until they delete them; they used to be cleared on every visit and on Start over. The shelf still starts empty each run and takes ten at once; the account keeps up to 500 within its storage.

@@ -34,6 +34,6 @@ export async function recordPerson(person) {
     select ${person.id}, ${person.email}
     where exists (select 1 from neon_auth."user" where id::text = ${person.id}) or exists (select 1 from app_users where id = ${person.id})
     on conflict (id) do update set email = excluded.email, last_seen_at = now(), reminded_60_at = null, reminded_83_at = null
-    returning id, email, created_at, last_seen_at`;
+    returning id, email, created_at, last_seen_at, member_no`;
   return row;
 }

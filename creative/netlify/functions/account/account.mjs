@@ -30,6 +30,8 @@ export default async function handler(request) {
   if (!row) return reply(401, { error: 'Sign in to continue.' });
   return reply(200, {
     id: row.id, email: row.email, createdAt: row.created_at, lastSeenAt: row.last_seen_at,
+    // Neon returns bigint as a string.
+    memberNo: row.member_no === null || row.member_no === undefined ? null : Number(row.member_no),
     storage: { used: await usedBytes(person.id), quota: QUOTA_BYTES },
     // Payments are not connected yet, so nobody has credit; this is where the balance will come from.
     credit: { tokens: 0 },

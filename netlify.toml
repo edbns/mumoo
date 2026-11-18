@@ -31,6 +31,12 @@
   to = "/phone.html"
   status = 200
 
+# The member number board.
+[[redirects]]
+  from = "/welcome"
+  to = "/welcome.html"
+  status = 200
+
 # The legal documents (creative/legal/*.md): one page, which shows the document its address names.
 [[redirects]]
   from = "/legal"

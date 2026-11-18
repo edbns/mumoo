@@ -97,6 +97,7 @@ export function localPreviewApi() {
       // The same addresses netlify.toml sends to the legal page.
       server.middlewares.use((request, _response, next) => {
         if (/^\/(legal|terms|privacy|cookies|acceptable-use|refunds|ai|dpa)\/?(\?|$)/.test(request.url ?? '')) request.url = '/legal.html';
+        if (/^\/welcome\/?(\?|$)/.test(request.url ?? '')) request.url = '/welcome.html';
         next();
       });
       const startJob = (result) => {
@@ -142,8 +143,9 @@ export function localPreviewApi() {
         const email = emailOf(request);
         return email ? handler(email, request, response) : send(response, 401, { error: 'Sign in to continue.' });
       };
+      route('/api/members', 'GET', async (_request, response) => send(response, 200, { latest: 128 }));
       route('/api/account', 'GET', signedIn(async (email, _request, response) =>
-        send(response, 200, { email, lastSeenAt: new Date().toISOString(), storage: { used: 1_000_000_000, quota: 5_000_000_000 }, credit: { tokens: 120 } })));
+        send(response, 200, { email, memberNo: 42, lastSeenAt: new Date().toISOString(), storage: { used: 1_000_000_000, quota: 5_000_000_000 }, credit: { tokens: 120 } })));
       let renders = sampleRenders();
       let uploads = sampleUploads();
       const idOf = request => new URL(request.url, 'http://local').searchParams.get('id');
