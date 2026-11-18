@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BarChart3Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { ActionDialog } from '@/components/ui/action-dialog';
 import { Button } from '@/components/ui/button';
 import { authClient, checkSignInCode, sendSignInCode, signInWithGoogle } from './account';
 import type { AccountPage } from './account-pages';
@@ -22,6 +23,8 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
   const [links, setLinks] = useState<Published[] | null>(null);
   const [error, setError] = useState('');
   const [signingIn, setSigningIn] = useState(false);
+  /** The link being asked about, then deleted. */
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(() => new URLSearchParams(location.search).get(LINK_PARAM));
   const signInAddress = useRef('');
 
@@ -49,14 +52,9 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
   }
 
   async function remove(slug: string) {
-    if (!window.confirm(`Delete ${addressOf(slug)}? Anyone who opens it will find nothing, and its analytics go too. This cannot be undone.`)) return;
-    try {
-      await deletePublished(slug);
-      setLinks(current => (current ?? []).filter(other => other.slug !== slug));
-      if (open === slug) show(null);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That did not work. Try again in a moment.');
-    }
+    await deletePublished(slug);
+    setLinks(current => (current ?? []).filter(other => other.slug !== slug));
+    if (open === slug) show(null);
   }
 
   const shown = links ?? (user ? knownLinks(user.id) : null);
@@ -84,8 +82,13 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
     </EmptyState>}
     {opened && <LinkAnalytics item={opened} onBack={() => show(null)} onEdit={() => edit(opened)} />}
     {!opened && shown && shown.length > 0 && <ul className="m-0 flex list-none flex-col gap-3 p-0 animate-in fade-in-0 duration-300">
-      {shown.map(item => <LinkRow key={item.slug} item={item} onOpen={() => show(item.slug)} onEdit={() => edit(item)} onDelete={() => void remove(item.slug)} />)}
+      {shown.map(item => <LinkRow key={item.slug} item={item} onOpen={() => show(item.slug)} onEdit={() => edit(item)} onDelete={() => setDeleting(item.slug)} />)}
     </ul>}
+
+    <ActionDialog open={deleting !== null} onClose={() => setDeleting(null)} destructive
+      title={`Delete ${deleting ? addressOf(deleting).replace(/^https?:\/\//, '') : 'this link'}?`}
+      description="Anyone who opens it will find nothing, and its analytics go too. This cannot be undone."
+      confirmLabel="Delete link" working="Deleting" done="Deleted" onConfirm={() => remove(deleting!)} />
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}
       onSendCode={async email => { await sendSignInCode(email); signInAddress.current = email; }}

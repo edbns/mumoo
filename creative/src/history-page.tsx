@@ -1,6 +1,7 @@
 import { CheckIcon, DownloadIcon, PlayIcon } from 'lucide-react';
 import { MotionConfig, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
+import { ActionDialog, type ReportProgress } from '@/components/ui/action-dialog';
 import { Button } from '@/components/ui/button';
 import { ImageGeneration } from '@/components/ui/image-generation';
 import { Modal } from '@/components/ui/modal';
@@ -128,19 +129,17 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
     } finally { setBusy(false); }
   }
 
-  async function deleteChosen() {
-    setBusy(true); setError('');
+  async function deleteChosen(report: ReportProgress) {
+    const all = chosen;
     try {
-      for (const item of chosen) {
+      for (const [index, item] of all.entries()) {
+        if (all.length > 1) report(index, all.length, `Deleting ${index + 1} of ${all.length}`);
         if (item.kind === 'creative') await accountFetch(`/api/renders?id=${item.id}`, { method: 'DELETE' });
         else await removeUpload(item.id);
       }
+      report(all.length, all.length);
       setSelected(new Set());
-      await load();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That could not be deleted.');
-      await load();
-    } finally { setBusy(false); setConfirming(false); }
+    } finally { await load(); }
   }
 
   return <AccountColumn wide>
@@ -214,13 +213,9 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
       </div>}
     </Modal>
 
-    <Modal open={confirming} onClose={() => setConfirming(false)}
+    <ActionDialog open={confirming} onClose={() => setConfirming(false)} destructive
       title={`Delete ${chosen.length} ${noun}${chosen.length === 1 ? '' : 's'}?`}
-      description="This cannot be undone.">
-      <div className="flex justify-end gap-3">
-        <Button variant="secondary" disabled={busy} onClick={() => setConfirming(false)}>Cancel</Button>
-        <Button variant="destructive" disabled={busy} onClick={() => void deleteChosen()}>Delete</Button>
-      </div>
-    </Modal>
+      description="They are removed from your account and storage. This cannot be undone."
+      confirmLabel="Delete" working="Deleting" done="Deleted" onConfirm={deleteChosen} />
   </AccountColumn>;
 }

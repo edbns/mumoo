@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { ActionDialog } from '@/components/ui/action-dialog';
 import { Button } from '@/components/ui/button';
 import { authClient, confirmEmailChange, deleteAccount, requestEmailChange } from './account';
 import { AccountColumn, AccountSection } from './account-section';
@@ -77,37 +78,21 @@ export default function SettingsPage() {
 function DeleteAccount({ email }: { email: string }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
   const matches = Boolean(email) && typed.trim().toLowerCase() === email.toLowerCase();
-
-  async function remove(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true); setError('');
-    try {
-      await deleteAccount(typed.trim());
-      location.assign('/');
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That did not work. Try again in a moment.');
-      setBusy(false);
-    }
-  }
 
   return <AccountSection label="Delete account">
     <p className="m-0 text-sm text-muted-foreground">Deletes your account and everything in it: your creatives, your pictures and your history. It cannot be undone. Download anything you want to keep first.</p>
-    {!open
-      ? <div className="flex justify-end"><Button variant="destructive" onClick={() => setOpen(true)}>Delete account</Button></div>
-      : <form onSubmit={remove} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-2 text-sm">
-          <span>Type <strong>{email}</strong> to confirm.</span>
-          <input className={field} type="email" autoComplete="off" autoFocus aria-label="Your email, to confirm" value={typed} onChange={event => setTyped(event.target.value)} />
-        </label>
-        <div className="flex items-center justify-between gap-3">
-          <button type="button" className="cursor-pointer bg-transparent p-0 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
-            onClick={() => { setOpen(false); setTyped(''); setError(''); }}>Keep my account</button>
-          <Button type="submit" variant="destructive" disabled={busy || !matches}>{busy ? 'Deleting…' : 'Delete everything'}</Button>
-        </div>
-      </form>}
-    {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
+    <div className="flex justify-end"><Button variant="destructive" onClick={() => { setTyped(''); setOpen(true); }}>Delete account</Button></div>
+    <ActionDialog open={open} onClose={() => setOpen(false)} destructive
+      title="Delete your account?"
+      description="Your creatives, your pictures and your history are deleted for good. This cannot be undone."
+      cancelLabel="Keep my account" confirmLabel="Delete everything" confirmDisabled={!matches}
+      working="Deleting your account" done="Account deleted"
+      onConfirm={() => deleteAccount(typed.trim())} onDone={() => location.assign('/')}>
+      <label className="flex flex-col gap-2 text-sm">
+        <span>Type <strong className="break-all">{email}</strong> to confirm.</span>
+        <input className={field} type="email" autoComplete="off" autoFocus aria-label="Your email, to confirm" value={typed} onChange={event => setTyped(event.target.value)} />
+      </label>
+    </ActionDialog>
   </AccountSection>;
 }

@@ -25,6 +25,7 @@ import { StagingAccess } from './staging-access';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 import { LyricsStudio } from './lyrics-studio';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { ActionDialog } from '@/components/ui/action-dialog';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { FileDropzone } from '@/components/ui/file-dropzone';
@@ -72,6 +73,7 @@ function App() {
   useEffect(() => { void loadProfilePage(); }, []);
   const [songName, setSongName] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
+  const [askingStartOver, setAskingStartOver] = useState(false);
   const downloadRef = useRef<(() => boolean) | null>(null);
   /** What kind of music it is: a style of the directory by the name it was picked as, or (`genreUnknown`) the creator does not know. */
   const [picked, setPicked] = useState<StyleMatch | null>(null);
@@ -258,7 +260,6 @@ function App() {
   }
 
   function startOver() {
-    if (!window.confirm('Start over with another song? Your song and lyrics are cleared. Your cart is kept, and your pictures stay in History.')) return;
     void choose(undefined);
     uploads.clear();
     setPicked(null);
@@ -378,13 +379,16 @@ function App() {
       {page === 'history' && <ProfileNav current={profileTab} onSelect={setProfileTab} />}
       {(page === 'links' || page === 'my-links') && <LinksNav current={page} onSelect={tab => { if (tab === 'links') setLinksOpened(count => count + 1); setPage(tab); }} />}
       <div className="masthead-actions">
-        {page === 'create' && buffer && <button type="button" className="link-button" onClick={startOver}>Start over</button>}
+        {page === 'create' && buffer && <button type="button" className="link-button" onClick={() => setAskingStartOver(true)}>Start over</button>}
         {page === 'create' && <button type="button" className="link-button" onClick={() => setPage('links')}>Smart links</button>}
         {page !== 'create' && <Button variant="secondary" onClick={() => setPage('create')}><ArrowLeftIcon aria-hidden="true" className="size-4" />Create</Button>}
         <CartButton count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)} />
         <Suspense fallback={<span className="account-pending" hidden />}><AccountBar page={page} onNavigate={setPage} /></Suspense>
       </div>
     </header>
+    <ActionDialog open={askingStartOver} onClose={() => setAskingStartOver(false)} title="Start over with another song?"
+      description="Your song and lyrics are cleared. Your cart is kept, and your pictures stay in History."
+      cancelLabel="Keep this song" confirmLabel="Start over" onConfirm={async () => startOver()} />
     {/* Asked wherever the creator is when the guess arrives, until the creatives are shown; closing it is "not sure". */}
     <Modal open={page === 'create' && styleGuess.status === 'asking' && stage !== 'revealed'} onClose={() => answerGuess('unsure')}
       title={styleGuess.status === 'asking' ? <>We think it sounds like {capitalised(styleGuess.style.name)}</> : ''}
