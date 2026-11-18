@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ImageGeneration } from '@/components/ui/image-generation';
 import { Modal } from '@/components/ui/modal';
 import { cn } from '@/lib/utils';
-import { AccountColumn } from './account-section';
+import { AccountColumn, EmptyState } from './account-section';
 import { accountFetch } from './account';
 import { LazyMedia } from './lazy-media';
 import type { ProfileTab } from './profile-nav';
@@ -154,9 +154,9 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
       <p className="m-0 text-sm text-muted-foreground">This can take a few minutes. They appear here when they are ready.</p>
     </div>}
 
-    {items?.length === 0 && <p className="m-0 py-24 text-center text-sm text-muted-foreground">
+    {items?.length === 0 && <EmptyState>
       {tab === 'creatives' ? 'Creatives you download while signed in are kept here.' : 'The photos, videos and GIFs you upload are kept here, private to you, until you delete them.'}
-    </p>}
+    </EmptyState>}
 
     {items && items.length > 0 && <div className="sticky top-4 z-10 flex min-h-12 items-center justify-between gap-3 rounded-full bg-background/80 px-5 py-1.5 backdrop-blur-md">
       <button type="button" className="cursor-pointer bg-transparent p-0 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"

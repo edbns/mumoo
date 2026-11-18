@@ -3,6 +3,7 @@ import { ShoppingBagIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RemoveBadge } from '@/components/ui/remove-badge';
 import { useEffect, useRef } from 'react';
+import { EmptyState } from './account-section';
 import type { CartItem } from './cart';
 import type { DownloadMessage, DownloadProgress } from './use-cart-download';
 
@@ -72,7 +73,7 @@ export function CartPanel({ lines, progress, action, onClose, onRemove }: {
         <Button ref={close} variant="secondary" onClick={onClose}>Close</Button>
       </div>
       {lines.length === 0
-        ? <p className="hint">Add the creatives you like. They stay here, for this song and clip, while you refresh for more.</p>
+        ? <EmptyState>Add the creatives you like. They stay here, for this song and clip, while you refresh for more.</EmptyState>
         : <ul className="m-0 grid list-none grid-cols-4 gap-4 p-0">
           {lines.map(({ item, title, available }) => <li key={item.id} className="flex flex-col gap-2">
             <div className="relative aspect-[9/16] overflow-hidden rounded-[var(--radius)] bg-muted">

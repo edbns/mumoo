@@ -2,7 +2,7 @@ import { DownloadIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { accountFetch } from './account';
-import { AccountColumn, AccountSection } from './account-section';
+import { AccountColumn, AccountSection, EmptyState } from './account-section';
 import { money } from './money';
 
 type Invoice = {
@@ -40,9 +40,9 @@ export default function InvoicesPage() {
       {invoices === null && !error && <div aria-hidden="true" className="flex flex-col gap-3">
         {[0, 1, 2].map(row => <div key={row} className="h-14 animate-pulse rounded-[var(--radius)] bg-muted" />)}
       </div>}
-      {invoices?.length === 0 && <p className="m-0 text-sm text-muted-foreground">
+      {invoices?.length === 0 && <EmptyState className="py-12">
         No payments yet. When you pay, each invoice appears here with what it was for and how much.
-      </p>}
+      </EmptyState>}
       {invoices && invoices.length > 0 && <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {invoices.map(invoice => <li key={invoice.id} className="flex items-center gap-4 rounded-[var(--radius)] bg-muted px-4 py-3">
           <div className="flex min-w-0 flex-1 flex-col">
