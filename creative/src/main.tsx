@@ -397,7 +397,6 @@ function App() {
     </Modal>
     {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
     {download.message && <DownloadNotice message={download.message} onDismiss={download.dismiss} />}
-    <LegalCorner />
     {IS_ALIGNMENT_STAGING && !accessToken && <StagingAccess onAccess={setAccessToken} />}
     {page !== 'create' && <Suspense fallback={null}><ProfilePage key={page === 'links' ? `links-${linksOpened}` : page} page={page} tab={profileTab} progress={download.progress} delivered={delivered} onNavigate={setPage} /></Suspense>}
     {/* The work stays exactly as it was while a page of the account is open: hidden, but still laid out, so its drawings are not cleared and redrawn. */}
@@ -422,7 +421,7 @@ function App() {
               onSelect={file => void choose(file)} onRemove={() => void choose(undefined)} />
             {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
             {!loading && !buffer && <p className="hint">Choose a song at least 15 seconds long to continue. No song file? A video with the song playing works too: a saved TikTok or Reel, a screen recording, or a voice memo.</p>}
-            {IS_ALIGNMENT_STAGING && accessToken && !loading && !buffer && <PhoneUpload token={accessToken} kind="song" onFiles={([file]) => void choose(file)} />}
+            {IS_ALIGNMENT_STAGING && !loading && !buffer && <PhoneUpload token={accessToken} kind="song" onFiles={([file]) => void choose(file)} />}
           </div>
           <div className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-background p-5">
             <Combobox label="What kind of music is it?" placeholder={genreUnknown ? 'Not sure' : 'Type a style: afrobeats, slap house, drill…'}
@@ -500,6 +499,7 @@ function App() {
       audio={buffer} clip={clip} style={style} unknown={genreUnknown} accessToken={accessToken} />}
 
     {page === 'create' && <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>}
+    <LegalCorner />
   </>;
 }
 

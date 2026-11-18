@@ -1,8 +1,9 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { parseMarkdown, type Block, type Inline } from './legal-markdown';
 import { CookieBanner } from './legal-corner';
 import { openCookieSettings } from './consent';
+import '@fontsource-variable/inter';
 import './styles/index.css';
 
 const SOURCES = import.meta.glob<string>('../legal/*.md', { query: '?raw', import: 'default', eager: true });
@@ -49,11 +50,36 @@ function block(node: Block, index: number): ReactNode {
   }
 }
 
-function LegalPage({ slug }: { slug: string }) {
+const slugAt = (path: string) => path.replace(/^\/+|\/+$/g, '').replace(/\.html$/, '');
+const titleOf = (slug: string) => `${LEGAL_DOCUMENTS.find(doc => doc.slug === slug)?.title ?? 'Legal'} · MUMOO`;
+
+function LegalPage() {
+  const [slug, setSlug] = useState(() => slugAt(location.pathname));
   const document = LEGAL_DOCUMENTS.find(doc => doc.slug === slug);
-  return <div className="min-h-svh bg-background text-foreground">
-    <header className="flex items-center justify-between px-6 py-5">
-      <a href="/" aria-label="MUMOO"><img src="/brand/mumoo-logo.png" alt="MUMOO" className="h-6" /></a>
+
+  useEffect(() => { window.document.title = titleOf(slug); }, [slug]);
+  useEffect(() => {
+    const back = () => setSlug(slugAt(location.pathname));
+    window.addEventListener('popstate', back);
+    return () => window.removeEventListener('popstate', back);
+  }, []);
+
+  // Moving between documents stays on this page: no reload, so nothing flashes.
+  const follow = (event: MouseEvent<HTMLDivElement>) => {
+    const link = (event.target as Element).closest('a');
+    if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target) return;
+    const url = new URL(link.href);
+    const next = slugAt(url.pathname);
+    if (url.origin !== location.origin || (next !== 'legal' && !LEGAL_DOCUMENTS.some(doc => doc.slug === next))) return;
+    event.preventDefault();
+    if (next !== slug) history.pushState(null, '', url.pathname);
+    setSlug(next);
+    window.scrollTo({ top: 0 });
+  };
+
+  return <div className="flex flex-1 flex-col text-foreground" onClick={follow}>
+    <header className="flex items-center justify-between px-6 pt-6 pb-4">
+      <a href="/" aria-label="MUMOO"><img src="/brand/mumoo-logo.png" alt="MUMOO" className="h-5" /></a>
       <a href="/" className="text-sm text-muted-foreground hover:text-foreground">Back to MUMOO</a>
     </header>
     <div className="mx-auto grid max-w-5xl gap-10 px-6 pb-24 pt-6 md:grid-cols-[180px_1fr]">
@@ -62,7 +88,7 @@ function LegalPage({ slug }: { slug: string }) {
           className={doc.slug === slug ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}>{doc.label}</a>)}
         <button type="button" onClick={openCookieSettings} className="cursor-pointer rounded-none bg-transparent p-0 text-left text-muted-foreground hover:text-foreground">Cookie settings</button>
       </nav>
-      <article className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
+      <article className="max-w-2xl break-keep text-[15px] leading-relaxed text-muted-foreground">
         {document ? document.blocks.map(block) : <>
           <h1 className="mb-6 text-3xl font-semibold tracking-tight text-foreground">Legal</h1>
           <p className="my-3">The terms and policies for using MUMOO. Questions go to <a href="mailto:moo@mumoo.app" className="text-foreground underline underline-offset-4">moo@mumoo.app</a>.</p>
@@ -76,7 +102,4 @@ function LegalPage({ slug }: { slug: string }) {
   </div>;
 }
 
-const slug = location.pathname.replace(/^\/+|\/+$/g, '').replace(/\.html$/, '');
-const known = LEGAL_DOCUMENTS.find(doc => doc.slug === slug);
-document.title = `${known ? known.title : 'Legal'} · MUMOO`;
-createRoot(document.getElementById('root')!).render(<LegalPage slug={slug} />);
+createRoot(document.getElementById('root')!).render(<LegalPage />);
