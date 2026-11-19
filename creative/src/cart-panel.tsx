@@ -93,7 +93,7 @@ export function CartPanel({ lines, progress, action, onClose, onRemove }: {
           <Button disabled={busy || ready.length === 0} onClick={action.run}>
             Download {ready.length === 1 ? 'MP4' : `${ready.length} creatives`}
           </Button>
-          <p className="hint">We are processing your request. In the meantime, you can continue creating other visuals for your music.</p>
+          {busy && <p className="hint">We are processing your request. In the meantime, you can continue creating other visuals for your music.</p>}
         </>}
         {action.kind === 'go' && <>
           <Button disabled={busy} onClick={action.run}>Go to your creatives</Button>
