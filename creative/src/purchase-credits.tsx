@@ -5,6 +5,7 @@ import { Modal } from '@/components/ui/modal';
 import { PricingInteraction } from '@/components/ui/pricing-interaction';
 import { CREDIT_PACKS, packFor, type CreditPack } from './credit-packs';
 import { accountFetch } from './account';
+import type { Shortfall } from './credit-events';
 
 /** How long the popup waits for Polar to tell our server about the payment before saying it is still on its way. */
 const WAIT_MS = 60_000;
@@ -67,7 +68,7 @@ function Arrived({ checkoutId, onCredits, onClose }: { checkoutId: string; onCre
  * The popup for topping up credit. Choosing a pack opens Polar's checkout; Polar brings the person back with `checkoutId`, and
  * the popup then shows the credits arriving. With `autoBuy` (a pack chosen on the pricing page) the checkout opens straight away.
  */
-export function PurchaseCredits({ open, onClose, initial, autoBuy = false, checkoutId, onCredits }: {
+export function PurchaseCredits({ open, onClose, initial, autoBuy = false, checkoutId, shortfall, onCredits }: {
   open: boolean;
   onClose: () => void;
   /** The pack to choose at first, by its price in dollars (from the pricing page). */
@@ -76,6 +77,8 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
   autoBuy?: boolean;
   /** Set when Polar has just brought the person back from paying. */
   checkoutId?: string;
+  /** Set when a download wanted more videos than the person can make. */
+  shortfall?: Shortfall;
   onCredits: (credits: number) => void;
 }) {
   const [note, setNote] = useState('');
@@ -99,6 +102,11 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
   </Modal>;
   return <Modal open={open} onClose={close} title="Purchase Credits" description="One credit makes one video.">
     <div className="flex flex-col gap-4">
+      {shortfall && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-3 text-sm text-foreground">
+        {shortfall.have === 0
+          ? `You are out of credits. ${shortfall.need === 1 ? 'This video needs' : `These ${shortfall.need} videos need`} ${shortfall.need === 1 ? 'one' : shortfall.need}. Your cart is kept.`
+          : `${shortfall.need} videos need ${shortfall.need} credits, and you have ${shortfall.have}. Buy a pack, or take some out of your cart.`}
+      </p>}
       <PricingInteraction key={initial} packs={CREDIT_PACKS} initial={initial} busy={busy} onChoose={choose} />
       {note && <p role="alert" className="m-0 text-center text-sm text-destructive">{note}</p>}
       <p className="m-0 text-center text-sm text-muted-foreground">One-time purchase, no subscription. Credit never expires. Payment by Polar; tax is added where it applies.</p>

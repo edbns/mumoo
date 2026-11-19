@@ -1,7 +1,7 @@
 import { QUOTA_BYTES, usedBytes } from '../../lib/allowance.mjs';
 import { deleteAccount } from '../../lib/delete-account.mjs';
 import { personFrom, recordPerson } from '../../lib/person.mjs';
-import { creditsOf } from '../../lib/polar.mjs';
+import { allowanceOf } from '../../lib/credits.mjs';
 
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 
@@ -34,7 +34,8 @@ export default async function handler(request) {
     // Neon returns bigint as a string.
     memberNo: row.member_no === null || row.member_no === undefined ? null : Number(row.member_no),
     storage: { used: await usedBytes(person.id), quota: QUOTA_BYTES },
-    credits: await creditsOf(person.id),
+    // Credits (one makes one video), and whether the free first video is still to come.
+    ...await allowanceOf(person.id),
   });
 }
 

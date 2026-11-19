@@ -1,6 +1,7 @@
+import { creditsOf } from '../lib/credits.mjs';
 import { creditsAdded } from '../lib/letters.mjs';
 import { sendMail } from '../lib/mail.mjs';
-import { creditsOf, polarEvent, recordPaid, recordRefund } from '../lib/polar.mjs';
+import { polarEvent, recordPaid, recordRefund } from '../lib/polar.mjs';
 
 const money = (cents, currency) => new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
 

@@ -7,6 +7,7 @@ import { UserDropdownMenu } from '@/components/ui/user-dropdown-menu';
 import { PROFILE_CORNER } from '@/components/ui/profile-dot';
 import { AccountPlaceholder, askSignIn, rememberSignedIn, takeSignInRequests, type SignInReason } from './account-hint';
 import { ACCOUNT_MENU, type AccountPage } from './account-pages';
+import { BUY_CREDITS, CREDITS_CHANGED, type Allowance, type Shortfall } from './credit-events';
 import { PurchaseCredits } from './purchase-credits';
 import { reportProblem } from './report-problem';
 
@@ -44,14 +45,19 @@ export async function accountFetch(path: string, init: RequestInit = {}): Promis
   return response;
 }
 
-/** The person's credits (one makes one video), as our server reports them. Asking also records the visit: the server verifies the token and notes that they were here. */
-async function loadCredits() {
+/**
+ * What the person can still make, as our server reports it: their credits (one makes one video) and whether their free first video
+ * is still to come. Asking also records the visit: the server verifies the token and notes that they were here.
+ */
+export async function loadAllowance(): Promise<Allowance> {
   const response = await accountFetch('/api/account');
-  const { credits } = await response.json() as { credits: number };
-  return credits;
+  const { credits, freeVideo } = await response.json() as Allowance;
+  return { credits, freeVideo };
 }
 
-const creditsLabel = (credits: number) => `${credits.toLocaleString()} ${credits === 1 ? 'credit' : 'credits'}`;
+const allowanceLabel = ({ credits, freeVideo }: Allowance) => (credits === 0 && freeVideo
+  ? '1 free video'
+  : `${credits.toLocaleString()} ${credits === 1 ? 'credit' : 'credits'}`);
 
 /**
  * What the address asks the account corner to do, taken once and removed from it: `?buy=20` (a pack on the pricing page, signed
@@ -187,7 +193,8 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   const user = signedIn ?? (session.isPending ? last : undefined);
   const [open, setOpen] = useState(false);
   const [buying, setBuying] = useState(false);
-  const [credits, setCredits] = useState<number>();
+  const [allowance, setAllowance] = useState<Allowance>();
+  const [shortfall, setShortfall] = useState<Shortfall>();
   const [purchase, setPurchase] = useState(takePurchaseRequest);
   /** The address the code was sent to, which the code is checked against. */
   const address = useRef('');
@@ -198,9 +205,17 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
 
   // Best effort: without it the menu simply has no amount beside Credit.
   useEffect(() => {
-    if (user) loadCredits().then(setCredits, () => undefined);
-    else setCredits(undefined);
+    if (!user) { setAllowance(undefined); return; }
+    const reload = () => { loadAllowance().then(setAllowance, () => undefined); };
+    reload();
+    window.addEventListener(CREDITS_CHANGED, reload);
+    return () => window.removeEventListener(CREDITS_CHANGED, reload);
   }, [user?.id]);
+  useEffect(() => {
+    const open = (event: Event) => { setPurchase(null); setShortfall((event as CustomEvent<Shortfall>).detail); setBuying(true); };
+    window.addEventListener(BUY_CREDITS, open);
+    return () => window.removeEventListener(BUY_CREDITS, open);
+  }, []);
 
   /** A request from the page (pressing Download signed out): its reason is shown, and it is told whether the person signed in. */
   const [reason, setReason] = useState<SignInReason | null>(null);
@@ -245,7 +260,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   }
 
   const groups = ACCOUNT_MENU.map(entries => entries.map(({ line, label, icon }) => line === 'credit'
-    ? { label, icon, aside: credits === undefined ? undefined : creditsLabel(credits), onSelect: () => { setPurchase(null); setBuying(true); } }
+    ? { label, icon, aside: allowance && allowanceLabel(allowance), onSelect: () => { setPurchase(null); setShortfall(undefined); setBuying(true); } }
     : { label, icon, current: line === page || (line === 'links' && page === 'my-links'), onSelect: () => onNavigate(line) }));
 
   return <>
@@ -254,8 +269,9 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     {user && <div className={PROFILE_CORNER}>
       <UserDropdownMenu email={user.email} groups={groups} onSignOut={() => { void authClient.signOut(); onNavigate('create'); }} />
     </div>}
-    <PurchaseCredits open={buying} onClose={() => { setBuying(false); setPurchase(null); }}
-      initial={purchase?.buy} autoBuy={Boolean(purchase?.buy)} checkoutId={purchase?.checkoutId} onCredits={setCredits} />
+    <PurchaseCredits open={buying} onClose={() => { setBuying(false); setPurchase(null); setShortfall(undefined); }}
+      initial={purchase?.buy} autoBuy={Boolean(purchase?.buy)} checkoutId={purchase?.checkoutId} shortfall={shortfall}
+      onCredits={credits => setAllowance(current => ({ freeVideo: current?.freeVideo ?? false, credits }))} />
     {/* One popup for both states, so the welcome after signing in is not cut short when the button changes. */}
     <SignInDialog open={open} onClose={closeSignIn} onSendCode={sendCode} onCheckCode={checkCode} reason={reason}
       onGoogle={async () => { await signInWithGoogle(); signedInHere.current = true; await session.refetch(); }} />

@@ -34,6 +34,7 @@ import { dealSeed, rememberSeen, seenLibrary } from './library-seen';
 import { clockNow } from './pack-screenshot';
 import type { LibraryPicture } from './library-pick';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
+import { askToBuyCredits, creditsChanged, videosLeft } from './credit-events';
 
 function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   if (profile.musicAnalysis.status !== 'ready') return null;
@@ -157,7 +158,7 @@ export function CreativesPackStudio({
   download: CartDownload;
   uploads: Uploads;
   /** Where the app finds this page's download, which needs the music and pictures only this page has. */
-  downloadRef: MutableRefObject<(() => boolean) | null>;
+  downloadRef: MutableRefObject<(() => Promise<boolean>) | null>;
   /** The cart items whose library pictures were removed (comma-separated ids), once the library is known: the cart says so and leaves them out. */
   onGone: (ids: string) => void;
   onPlay: () => void;
@@ -527,9 +528,15 @@ export function CreativesPackStudio({
    * Starts one video per cart item; false when there is nothing to start. Waiting for them, handing over the file and emptying the cart happen in
    * the app, so they survive a refresh and work from any page.
    */
-  function downloadCart(): boolean {
+  async function downloadCart(): Promise<boolean> {
     const items = cart.items.filter(item => pictureFor(item).available);
     if (download.progress !== null || !items.length) return false;
+    // Each video takes a credit (the first is free): with too few, Purchase Credits opens instead and nothing starts.
+    const allowance = await import('./account').then(account => account.loadAllowance()).catch(() => null);
+    if (allowance && videosLeft(allowance) < items.length) {
+      askToBuyCredits({ need: items.length, have: videosLeft(allowance) });
+      return false;
+    }
     onStop(); setPlayingId(null); setError('');
     download.start(songKeyOf(profile.clip.sourceSha256, profile.clip.offsetMs), items, async report => {
       report('Preparing audio…');
@@ -542,13 +549,23 @@ export function CreativesPackStudio({
       const ids: string[] = [];
       for (const item of items) {
         await yieldFrame();
-        ids.push(await submitCloudJob({
-          token,
-          wav,
-          opts: packOpts(item.slot, composition, music, item.lyrics, pictureFor(item).picture),
-          // Never send both: own upload replaces the library picture on this row.
-          ...(item.uploadId ? { uploadId: item.uploadId } : item.ownReel ? { ownReel: true } : item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
-        }));
+        try {
+          ids.push(await submitCloudJob({
+            token,
+            wav,
+            opts: packOpts(item.slot, composition, music, item.lyrics, pictureFor(item).picture),
+            // Never send both: own upload replaces the library picture on this row.
+            ...(item.uploadId ? { uploadId: item.uploadId } : item.ownReel ? { ownReel: true } : item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
+          }));
+        } catch (cause) {
+          // Out of credits part way (spent elsewhere meanwhile): the videos already started are still made.
+          if (!(cause as { noCredits?: boolean }).noCredits) throw cause;
+          askToBuyCredits({ need: items.length - ids.length, have: 0 });
+          if (!ids.length) throw cause;
+          break;
+        } finally {
+          creditsChanged();
+        }
         reportPackFeedback(token, profile, 'download', item.slot, { selectedIds: cart.items.map(held => held.id), generation: item.generation, ownPicture: item.uploadId !== null || Boolean(item.ownReel), place: placeOf(item.slot.row) });
       }
       return ids;

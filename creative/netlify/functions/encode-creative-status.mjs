@@ -1,9 +1,13 @@
 import { validAccess } from '../lib/access.mjs';
+import { releaseVideo } from '../lib/credits.mjs';
 import { personFrom, recordPerson } from '../lib/person.mjs';
 import { saveRender } from '../lib/renders.mjs';
 import { storageReady } from '../lib/storage.mjs';
 
-/** Poll a cloud render job: 202 while running, 200 + MP4 when done. A signed-in person's finished MP4 is also kept in their history. */
+/**
+ * Poll a cloud render job: 202 while running, 200 + MP4 when done. A signed-in person's finished MP4 is also kept in their history.
+ * A render that failed gives its credit back.
+ */
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
 const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const MODAL_STATUS =
@@ -26,6 +30,12 @@ async function keepForPerson(request, jobId, mp4) {
   } catch {
     return 'off';
   }
+}
+
+async function giveBack(request, jobId) {
+  if (!process.env.DATABASE_URL) return;
+  const person = await personFrom(request);
+  if (person) await releaseVideo(person.id, jobId).catch(cause => console.error('credit give back:', cause));
 }
 
 export default async function encodeCreativeStatus(request) {
@@ -66,6 +76,7 @@ export default async function encodeCreativeStatus(request) {
     }
     const result = await response.json().catch(() => null);
     const detail = result?.detail ?? result?.error;
+    await giveBack(request, id);
     if ([400, 401, 410].includes(response.status)) {
       return error(response.status, typeof detail === 'string' ? detail : 'Cloud render could not proceed.');
     }

@@ -1,5 +1,6 @@
 import { validAccess } from '../lib/access.mjs';
-import { personFrom } from '../lib/person.mjs';
+import { confirmVideo, releaseReservation, reserveVideo } from '../lib/credits.mjs';
+import { personFrom, recordPerson } from '../lib/person.mjs';
 import { libraryMedia, libraryReel } from '../lib/library.mjs';
 import { uploadMedia, uploadReel } from '../lib/uploads.mjs';
 import { ownMedia } from '../lib/render-media.mjs';
@@ -7,6 +8,8 @@ import { reelFrom, reelIds } from '../lib/reel.mjs';
 
 /**
  * Submit a cloud render job. Tiny request (≈960 KB WAV + JSON); returns a job id at once.
+ * Every video is made for a signed-in person and takes one credit (`credits.mjs`): their free first video, else one they bought.
+ * Without either it answers 402 and nothing is made. A job the worker does not accept gives the credit back.
  * A person's own picture (`upload` in the meta) is read here from that signed-in person's storage and handed on,
  * so the browser never sends an image, a video or a link.
  */
@@ -36,7 +39,11 @@ export default async function encodeCreative(request) {
     return error(401, 'Staging access is invalid or expired.');
   }
   if (bridgeSecret.length < 32) return error(503, 'Cloud render is not configured.');
+  if (!process.env.DATABASE_URL) return error(503, 'Accounts are unavailable.');
+  const person = await personFrom(request);
+  if (!person || !await recordPerson(person)) return error(401, 'Sign in to make a video.');
 
+  let spend = null;
   try {
     const length = Number(request.headers.get('content-length') || 0);
     if (length > BODY_LIMIT) return error(413, 'Render request is too large.');
@@ -70,8 +77,6 @@ export default async function encodeCreative(request) {
     }
     if (upload !== undefined) {
       if (!UUID.test(upload)) return error(400, 'Invalid picture.');
-      const person = await personFrom(request);
-      if (!person) return error(401, 'Sign in to use your own pictures.');
       const media = await uploadMedia(person.id, upload);
       if (!media) return error(404, 'That picture was not found, or is still being prepared.');
       const sent = ownMedia(scene.opts?.style, media);
@@ -87,9 +92,7 @@ export default async function encodeCreative(request) {
       if (asked.refused) return error(400, asked.refused);
       let found;
       if (ownReel === true) {
-        // A reel of the person's own pictures: only theirs, so they must be signed in.
-        const person = await personFrom(request);
-        if (!person) return error(401, 'Sign in to use your own pictures.');
+        // A reel of the person's own pictures: only theirs.
         found = await uploadReel(person.id, asked.ids);
         if (found.includes(null)) return error(404, 'One of your pictures in that reel was removed, or is still being prepared.');
       } else {
@@ -100,6 +103,8 @@ export default async function encodeCreative(request) {
     }
     outbound.append('meta', JSON.stringify(scene));
 
+    spend = await reserveVideo(person.id);
+    if (!spend) return Response.json({ error: 'You are out of credits. Buy a pack to make this video.', code: 'no_credits' }, { status: 402, headers });
     const response = await fetch(MODAL_SUBMIT, {
       method: 'POST',
       body: outbound,
@@ -109,14 +114,17 @@ export default async function encodeCreative(request) {
     });
     const result = await response.json().catch(() => null);
     if (response.ok && typeof result?.id === 'string') {
-      return Response.json({ id: result.id }, { status: 202, headers });
+      await confirmVideo(person.id, spend.id, result.id);
+      return Response.json({ id: result.id, free: spend.free }, { status: 202, headers });
     }
+    await releaseReservation(person.id, spend.id);
     const detail = result?.detail ?? result?.error;
     if ([400, 401, 413, 429].includes(response.status)) {
       return error(response.status, typeof detail === 'string' ? detail : 'Cloud render could not start.');
     }
     return error(502, 'The cloud render worker could not accept this creative.');
   } catch {
+    if (spend) await releaseReservation(person.id, spend.id).catch(() => undefined);
     return error(504, 'The cloud render worker did not respond in time.');
   }
 }

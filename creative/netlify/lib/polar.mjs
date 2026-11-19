@@ -105,14 +105,3 @@ export async function recordRefund(order) {
   const rows = await db()`update credit_orders set status = 'refunded', refunded_at = now() where id = ${order.id} and status = 'paid' returning id`;
   return rows.length > 0;
 }
-
-/**
- * A person's credits: the videos their paid orders bought, less the videos they have used. Never below zero (a refund after
- * the videos were made would otherwise show a debt).
- */
-export async function creditsOf(userId) {
-  const [row] = await db()`
-    select coalesce((select sum(videos) from credit_orders where user_id = ${userId} and status = 'paid'), 0)
-         - coalesce((select sum(videos) from credit_spends where user_id = ${userId}), 0) as credits`;
-  return Math.max(0, Number(row?.credits ?? 0));
-}

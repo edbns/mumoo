@@ -131,6 +131,7 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
     await sleep(2000);
     response = await send();
   }
+  if (response.status === 402) throw Object.assign(new Error(await errorMessage(response)), { noCredits: true });
   if (!response.ok) throw new Error(await errorMessage(response));
   const result = await response.json().catch(() => null) as { id?: string } | null;
   if (!result?.id) throw new Error('Your creative did not start. Reload and try again.');

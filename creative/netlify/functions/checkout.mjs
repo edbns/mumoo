@@ -1,5 +1,6 @@
 import { db, personFrom, recordPerson } from '../lib/person.mjs';
-import { creditsOf, polar, polarReady, productFor } from '../lib/polar.mjs';
+import { creditsOf } from '../lib/credits.mjs';
+import { polar, polarReady, productFor } from '../lib/polar.mjs';
 
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const CHECKOUT_ID = /^[A-Za-z0-9_-]{8,64}$/;

@@ -103,13 +103,14 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     }
   }
 
-  /** `submit` starts one render per item (in order) and returns their ids; it may report what it is doing. */
+  /** `submit` starts one render per item (in order) and returns their ids, the first ones only if it had to stop; it may report what it is doing. */
   function start(songKey: string, items: readonly CartItem[], submit: (report: (label: string) => void) => Promise<string[]>) {
     if (running.current) return;
     setProgress({ label: 'Starting…', percent: 0 });
     void run(async () => {
       const ids = await submit(label => setProgress({ label, percent: 0 }));
-      const pending: PendingDownload = { songKey, startedAt: Date.now(), jobs: items.map((item, index) => ({ itemId: item.id, jobId: ids[index] })) };
+      // Fewer ids than items when the credits ran out part way: the rest stay in the cart.
+      const pending: PendingDownload = { songKey, startedAt: Date.now(), jobs: items.slice(0, ids.length).map((item, index) => ({ itemId: item.id, jobId: ids[index] })) };
       localStorage.setItem(PENDING_KEY, writePending(pending));
       return pending;
     });

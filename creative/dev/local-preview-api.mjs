@@ -146,7 +146,7 @@ export function localPreviewApi() {
       };
       route('/api/members', 'GET', async (_request, response) => send(response, 200, { latest: 128 }));
       route('/api/account', 'GET', signedIn(async (email, _request, response) =>
-        send(response, 200, { email, memberNo: 42, lastSeenAt: new Date().toISOString(), storage: { used: 1_000_000_000, quota: 5_000_000_000 }, credits: 120 })));
+        send(response, 200, { email, memberNo: 42, lastSeenAt: new Date().toISOString(), storage: { used: 1_000_000_000, quota: 5_000_000_000 }, credits: 120, freeVideo: false })));
       let renders = sampleRenders();
       let uploads = sampleUploads();
       const idOf = request => new URL(request.url, 'http://local').searchParams.get('id');

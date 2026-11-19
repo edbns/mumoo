@@ -76,7 +76,7 @@ function App() {
   const [songName, setSongName] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [askingStartOver, setAskingStartOver] = useState(false);
-  const downloadRef = useRef<(() => boolean) | null>(null);
+  const downloadRef = useRef<(() => Promise<boolean>) | null>(null);
   /** What kind of music it is: a style of the directory by the name it was picked as, or (`genreUnknown`) the creator does not know. */
   const [picked, setPicked] = useState<StyleMatch | null>(null);
   const style = picked?.style;
@@ -373,9 +373,9 @@ function App() {
     const toMedia = () => { setCartOpen(false); setProfileTab('creatives'); setPage('history'); };
     if (uploads.pending) return { kind: 'blocked', reason: 'Checking your account…' };
     if (!uploads.signedIn) return { kind: 'download', run: () => {
-      void askSignIn(DOWNLOAD_SIGN_IN).then(signedIn => { if (signedIn && downloadRef.current?.()) toMedia(); });
+      void askSignIn(DOWNLOAD_SIGN_IN).then(async signedIn => { if (signedIn && await downloadRef.current?.()) toMedia(); });
     } };
-    return { kind: 'download', run: () => { if (downloadRef.current?.()) toMedia(); } };
+    return { kind: 'download', run: () => { void downloadRef.current?.().then(started => { if (started) toMedia(); }); } };
   })();
 
   return <>
