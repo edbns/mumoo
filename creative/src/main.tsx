@@ -213,6 +213,7 @@ function App() {
     setSongCover(null);
     setSongName(file?.name ?? '');
     setInCreatives(false);
+    cart.clearAll();
     setStep(1);
     setLyricsState({ busy: false, dirty: false });
     setLyricsInfo({ origin: 'transcribed' });
@@ -411,19 +412,20 @@ function App() {
       </div>
     </header>
     <ActionDialog open={askingStartOver} onClose={() => setAskingStartOver(false)} title="Start over with another song?"
-      description="Song and lyrics cleared. Chosen videos stay, pictures stay in History."
+      description="Your song, lyrics and chosen videos get cleared. Your uploads stay in Media."
       cancelLabel="Keep this song" confirmLabel="Start over" onConfirm={async () => startOver()} />
     {/* Asked wherever the creator is when the guess arrives, until the creatives are shown; closing it is "not sure". */}
     <Modal open={page === 'create' && styleGuess.status === 'asking' && stage !== 'revealed'} onClose={() => answerGuess('unsure')}
       title={styleGuess.status === 'asking' ? <>Sounds like {capitalised(styleGuess.style.name)}</> : ''}
       closeLabel="Maybe">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="flex items-center justify-between gap-3">
         <Button variant="secondary" onClick={() => answerGuess('unsure')}>Maybe</Button>
         <Button variant="secondary" onClick={() => answerGuess('no')}>No</Button>
         <Button onClick={() => answerGuess('yes')}>Yes</Button>
       </div>
     </Modal>
-    {!cartOpen && <ChosenBar count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)} />}
+    {!cartOpen && <ChosenBar count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)}
+      onClear={page === 'create' && inCreatives && stage === 'revealed' ? cart.clear : undefined} />}
     {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} limit={chosenLimit} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
     <ChooseFewer tooMany={tooMany} onClose={() => setTooMany(null)}
       onBuy={() => { if (tooMany) askToBuyCredits(tooMany); setTooMany(null); }}

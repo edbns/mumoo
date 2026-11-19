@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { FIELD } from '@/components/ui/field';
 import { Reorder, useDragControls } from 'motion/react';
 import { ExternalLinkIcon, EyeIcon, EyeOffIcon, GripVerticalIcon, PauseIcon, PlayIcon, SearchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,7 @@ const CHECK_PAUSE_MS = 400;
 const PHONE_WIDTH = 320;
 const PAGE_WIDTH = 390;
 
-const field = 'h-[var(--control-height-md)] w-full min-w-0 rounded-[var(--radius-control)] bg-muted px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:shadow-[0_0_0_2px_var(--focus-ring)]';
+const field = FIELD;
 
 /** One song to choose: found by its name, or a guess for a Spotify link we were not sure of. */
 type Choice = { key: string; title: string; artist: string | null; cover: string | null; preview: string | null; choose: () => void };

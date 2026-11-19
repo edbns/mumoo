@@ -3,6 +3,7 @@
 // (we email a code, not a link).
 
 import * as React from "react";
+import { FIELD_FOCUS } from '@/components/ui/field';
 import { ArrowRight, Check, LoaderCircle, Mail, ShieldCheck } from "lucide-react";
 
 export type MagicLinkStep = "email" | "code" | "success";
@@ -29,7 +30,7 @@ export type MagicLinkOtpLoginProps = {
   ref?: React.ComponentProps<"div">["ref"];
 };
 
-const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card";
+const FOCUS = FIELD_FOCUS;
 const EASE = "cubic-bezier(.22,1,.36,1)";
 const STEPS = ["email", "code", "success"] as const;
 const STEP_LABELS = ["Email", "Code", "You’re in"];
@@ -293,7 +294,7 @@ export function MagicLinkOtpLogin({
             <h2 id={`${id}-title`} className="text-center text-[27px] font-semibold leading-tight tracking-tight">{title}</h2>
             <p className="mx-auto mt-2 max-w-[280px] text-center text-[13px] leading-5 text-muted-foreground">{lead}</p>
             <label htmlFor={`${id}-email`} className="sr-only">Email address</label>
-            <input id={`${id}-email`} autoFocus type="email" name="email" required autoComplete="email" autoCapitalize="none" spellCheck={false} value={value} disabled={busy} onChange={(event) => { setValue(event.target.value); setLocalError(""); setStatus("idle"); }} placeholder="you@example.com" aria-invalid={failed || undefined} aria-describedby={failed ? `${id}-error` : undefined} className={`mt-6 h-12 w-full rounded-[var(--radius-control)] bg-muted px-3.5 text-sm placeholder:text-muted-foreground disabled:opacity-60 ${FOCUS}`} />
+            <input id={`${id}-email`} autoFocus type="email" name="email" required autoComplete="email" autoCapitalize="none" spellCheck={false} value={value} disabled={busy} onChange={(event) => { setValue(event.target.value); setLocalError(""); setStatus("idle"); }} placeholder="you@example.com" aria-invalid={failed || undefined} aria-describedby={failed ? `${id}-error` : undefined} className={`mt-6 h-12 w-full rounded-[var(--radius-control)] bg-secondary px-3.5 text-sm placeholder:text-muted-foreground disabled:opacity-60 ${FIELD_FOCUS}`} />
             <button type="submit" disabled={busy || !onSendCode} className={`mt-3 flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 ${FOCUS}`}>
               {currentStatus === "sending" ? <><LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />Sending code…</> : <>Email me a code <ArrowRight aria-hidden="true" className="size-4" /></>}
             </button>
@@ -314,7 +315,7 @@ export function MagicLinkOtpLogin({
             <p id={`${id}-code-label`} className="mb-3 mt-4 text-center text-[11px] text-muted-foreground">Enter the code</p>
             <div data-code-fields role="group" aria-labelledby={`${id}-code-label`} aria-describedby={`${id}-code-hint${failed ? ` ${id}-error` : ""}`} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${length}, minmax(0, 1fr))` }}>
               {Array.from({ length }, (_, index) => (
-                <input key={index} ref={(node) => { inputs.current[index] = node; }} data-code-index={index} type="text" inputMode="numeric" autoComplete={index === 0 ? "one-time-code" : "off"} pattern="[0-9]*" name={`code-${index + 1}`} aria-label={`Digit ${index + 1} of ${length}`} aria-invalid={failed || undefined} value={currentCode[index] ?? ""} disabled={busy} onFocus={(event) => event.target.select()} onKeyDown={(event) => codeKey(event, index)} onChange={(event) => { if (!event.target.value) changeCode(currentCode.slice(0, index) + currentCode.slice(index + 1)); else putDigits(event.target.value, index); }} onPaste={(event) => { event.preventDefault(); putDigits(event.clipboardData.getData("text"), index); }} className={`h-14 min-w-0 rounded-[var(--radius-control)] text-center font-mono text-2xl font-medium text-foreground caret-primary disabled:opacity-70 ${failed ? "bg-muted ring-1 ring-destructive/70" : currentCode[index] ? "bg-secondary" : "bg-muted"} ${FOCUS}`} />
+                <input key={index} ref={(node) => { inputs.current[index] = node; }} data-code-index={index} type="text" inputMode="numeric" autoComplete={index === 0 ? "one-time-code" : "off"} pattern="[0-9]*" name={`code-${index + 1}`} aria-label={`Digit ${index + 1} of ${length}`} aria-invalid={failed || undefined} value={currentCode[index] ?? ""} disabled={busy} onFocus={(event) => event.target.select()} onKeyDown={(event) => codeKey(event, index)} onChange={(event) => { if (!event.target.value) changeCode(currentCode.slice(0, index) + currentCode.slice(index + 1)); else putDigits(event.target.value, index); }} onPaste={(event) => { event.preventDefault(); putDigits(event.clipboardData.getData("text"), index); }} className={`h-14 min-w-0 rounded-[var(--radius-control)] text-center font-mono text-2xl font-medium text-foreground caret-primary disabled:opacity-70 ${failed ? "bg-muted ring-1 ring-destructive/70" : currentCode[index] ? "bg-secondary" : "bg-muted"} ${FIELD_FOCUS}`} />
               ))}
             </div>
             <p id={`${id}-code-hint`} className="sr-only">Enter {length} digits. It submits itself when you’re done.</p>

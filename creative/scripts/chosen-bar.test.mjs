@@ -120,13 +120,13 @@ test('the creatives page shows no error text above the creatives, and the previe
   assert.match(studio, /aria-label="Refresh all creatives">Refresh<\/Button>\n    <\/div>\n    <p className="hint text-center">This is just a preview\. Downloads are HD\.<\/p>/);
 });
 
-test('popups: centred text, buttons the same size across the row; the style guess asks Maybe, No or Yes and nothing about learning', () => {
+test('popups: centred text, buttons at their own size set apart left and right; the style guess asks Maybe, No or Yes and nothing about learning', () => {
   const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
   assert.match(read('components/ui/modal.tsx'), /<div className="relative shrink-0 px-10 pb-4 pt-6 text-center">/);
-  assert.match(read('components/ui/action-dialog.tsx'), /<div className="grid grid-cols-2 gap-3">/);
-  assert.match(read('cart-panel.tsx'), /<div className="grid grid-cols-2 gap-3">\s+<Button variant="secondary" onClick=\{onFewer\}>/);
+  assert.match(read('components/ui/action-dialog.tsx'), /<div className="flex items-center justify-between gap-3">/);
+  assert.match(read('cart-panel.tsx'), /<div className="flex items-center justify-between gap-3">\s+<Button variant="secondary" onClick=\{onFewer\}>/);
   const main = read('main.tsx');
-  assert.match(main, /<div className="grid grid-cols-3 gap-3">\s+<Button variant="secondary" onClick=\{\(\) => answerGuess\('unsure'\)\}>Maybe<\/Button>\s+<Button variant="secondary" onClick=\{\(\) => answerGuess\('no'\)\}>No<\/Button>\s+<Button onClick=\{\(\) => answerGuess\('yes'\)\}>Yes<\/Button>/);
+  assert.match(main, /<div className="flex items-center justify-between gap-3">\s+<Button variant="secondary" onClick=\{\(\) => answerGuess\('unsure'\)\}>Maybe<\/Button>\s+<Button variant="secondary" onClick=\{\(\) => answerGuess\('no'\)\}>No<\/Button>\s+<Button onClick=\{\(\) => answerGuess\('yes'\)\}>Yes<\/Button>/);
   assert.doesNotMatch(main, /learn your music/);
   const css = read('styles/shell.css');
   assert.match(css, /\.chosen-bar-dot \{[^}]*width: \.8rem; height: \.8rem;[^}]*background: var\(--destructive\)/);
@@ -138,4 +138,27 @@ test('pricing: centred "Every video comes with", questions that open one by one,
   assert.match(pricing, />Everything you need to know about making a video with MUMOO<\/h2>/);
   assert.match(pricing, /<details key=\{q\}[\s\S]*<summary[\s\S]*ChevronDownIcon/);
   assert.doesNotMatch(pricing, /See the <a|Anything else:|>Questions</);
+});
+
+test('Clear on the bottom bar, on the creatives page only; chosen videos never made are not kept for another visit', () => {
+  const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
+  const bar = (count, onClear) => renderToStaticMarkup(createElement(panel.ChosenBar, { count, progress: null, onOpen: () => {}, onClear }));
+  assert.match(bar(2, () => {}), /aria-label="Clear the chosen videos"/);
+  assert.doesNotMatch(bar(2, undefined), /Clear/);
+  const main = read('main.tsx');
+  assert.match(main, /onClear=\{page === 'create' && inCreatives && stage === 'revealed' \? cart\.clear : undefined\}/);
+  assert.match(main, /setInCreatives\(false\);\n\s+cart\.clearAll\(\);/);
+  const cart = read('cart.ts');
+  assert.match(cart, /sessionStorage\.setItem\(KEY/);
+  assert.match(cart, /localStorage\.removeItem\(KEY\)/);
+  assert.doesNotMatch(cart, /localStorage\.setItem/);
+});
+
+test('one look for every text box and focus ring, and no Help line in the account menu', () => {
+  const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
+  assert.match(read('components/ui/field.ts'), /focus-visible:shadow-\[0_0_0_2px_var\(--focus-ring\)\]/);
+  assert.match(read('settings-page.tsx'), /className=\{POPUP_FIELD\}/);
+  assert.doesNotMatch(read('settings-page.tsx'), /outline-2/);
+  assert.match(read('styles/app.css'), /\.outline-ring:focus-visible \{ outline-color: var\(--focus-ring\); outline-offset: 0; \}/);
+  assert.doesNotMatch(read('account-pages.ts'), /'help'|Help/);
 });

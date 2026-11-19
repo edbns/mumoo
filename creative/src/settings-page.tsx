@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { FIELD, POPUP_FIELD } from '@/components/ui/field';
 import { ActionDialog } from '@/components/ui/action-dialog';
 import { Button } from '@/components/ui/button';
 import { authClient, confirmEmailChange, deleteAccount, requestEmailChange } from './account';
@@ -7,9 +8,7 @@ import { AccountColumn, AccountSection } from './account-section';
 /** How long the confirmation is read before the page reloads. */
 const RELOAD_MS = 2000;
 
-const field = 'h-10 w-full rounded-[var(--radius-control)] bg-muted px-3 text-sm text-foreground outline-ring placeholder:text-muted-foreground focus-visible:outline-2';
 /** In a popup, which is itself the muted grey, a field is drawn in the page's dark so it can be seen before it is clicked. */
-const dialogField = field.replace('bg-muted', 'bg-background');
 
 /** The person's settings: changing the email (with a code sent to the new address, so everything they made stays with them), and deleting the account. */
 export default function SettingsPage() {
@@ -54,13 +53,13 @@ export default function SettingsPage() {
 
       {sentTo === null
         ? <form onSubmit={sendCode} className="flex flex-col gap-3">
-          <input className={field} type="email" required autoComplete="email" aria-label="New email address" placeholder="New email address"
+          <input className={FIELD} type="email" required autoComplete="email" aria-label="New email address" placeholder="New email address"
             value={email} onChange={event => setEmail(event.target.value)} />
           <div className="flex justify-end"><Button type="submit" disabled={busy || !email.trim()}>Send code</Button></div>
         </form>
         : <form onSubmit={confirm} className="flex flex-col gap-3">
           <p className="m-0 text-sm text-muted-foreground">We sent a code to {sentTo}. Enter it to confirm.</p>
-          <input className={`${field} tracking-[0.4em]`} inputMode="numeric" autoComplete="one-time-code" autoFocus required maxLength={6} aria-label="Code from your email" placeholder="000000"
+          <input className={`${FIELD} tracking-[0.4em]`} inputMode="numeric" autoComplete="one-time-code" autoFocus required maxLength={6} aria-label="Code from your email" placeholder="000000"
             value={code} onChange={event => setCode(event.target.value.replace(/\D/g, ''))} />
           <div className="flex items-center justify-between gap-3">
             <button type="button" className="cursor-pointer bg-transparent p-0 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
@@ -91,9 +90,9 @@ function DeleteAccount({ email }: { email: string }) {
       cancelLabel="Keep my account" confirmLabel="Delete everything" confirmDisabled={!matches}
       working="Deleting…"
       onConfirm={() => deleteAccount(typed.trim())} onDone={() => location.assign('/')}>
-      <label className="flex flex-col gap-2 text-sm">
-        <span>Type <strong className="break-all">{email}</strong> to confirm.</span>
-        <input className={dialogField} type="email" autoComplete="off" autoFocus aria-label="Your email, to confirm" placeholder="Your email" value={typed} onChange={event => setTyped(event.target.value)} />
+      <label className="flex flex-col gap-3 text-sm">
+        <span className="text-center text-muted-foreground">Type <strong className="break-all text-foreground">{email}</strong> to confirm.</span>
+        <input className={POPUP_FIELD} type="email" autoComplete="off" autoFocus aria-label="Your email, to confirm" placeholder="Your email" value={typed} onChange={event => setTyped(event.target.value)} />
       </label>
     </ActionDialog>
   </AccountSection>;

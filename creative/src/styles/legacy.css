@@ -144,8 +144,8 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
 .lyrics-edit-label { font-weight: 600; font-size: 13px; color: var(--muted-foreground); margin-bottom: 8px; }
-.lyrics-editor { width: 100%; resize: vertical; padding: 12px 14px; border-radius: var(--radius); background: var(--input); font: inherit; font-size: 17px; line-height: 1.55; color: var(--foreground); }
-.lyrics-editor:focus { outline: 2px solid var(--ring); outline-offset: 1px; }
+.lyrics-editor { width: 100%; resize: vertical; padding: 12px 14px; border: 0; border-radius: var(--radius-control); background: var(--input); font: inherit; font-size: 17px; line-height: 1.55; color: var(--foreground); }
+.lyrics-editor:focus { outline: none; box-shadow: 0 0 0 2px var(--focus-ring); }
 .lyrics-editor-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 6px; font-size: 13px; color: var(--muted-foreground); }
 .lyrics-editor-bar .dirty { color: var(--chart-2); font-weight: 650; }
 .lyrics-more { margin: 4px 0 14px; font-size: 13px; }

@@ -1,3 +1,4 @@
+import { XIcon } from 'lucide-react';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
@@ -32,7 +33,7 @@ export function ChooseFewer({ tooMany, onBuy, onFewer, onClose }: { tooMany: Too
   return <Modal open={tooMany !== null} onClose={onClose} title={`You chose ${videos(need)}`}
     description={free ? 'You can only make 1 free video, or buy credits for the rest.'
       : `You have ${have} ${have === 1 ? 'credit' : 'credits'}. You can only make ${videos(have)}, or buy credits for all of them.`}>
-    <div className="grid grid-cols-2 gap-3">
+    <div className="flex items-center justify-between gap-3">
       <Button variant="secondary" onClick={onFewer}>{free ? 'Get my free video' : `Make ${videos(have)}`}</Button>
       <Button onClick={onBuy}>Buy credits</Button>
     </div>
@@ -46,7 +47,11 @@ export const chosenLabel = (count: number) => (count === 1 ? '1 video = 1 credit
  * The bar at the bottom of the page while videos are chosen: the step notch turned upside down, rising from the bottom edge.
  * Pressing it opens the page where the videos are made. While they are being made it shows how far along they are.
  */
-export function ChosenBar({ count, progress, onOpen }: { count: number; progress: DownloadProgress | null; onOpen: () => void }) {
+export function ChosenBar({ count, progress, onOpen, onClear }: {
+  count: number; progress: DownloadProgress | null; onOpen: () => void;
+  /** Shown on the creatives page only: takes every chosen video out. */
+  onClear?: () => void;
+}) {
   return <MotionConfig reducedMotion="user">
     <AnimatePresence>
       {(count > 0 || progress) && <motion.nav key="chosen" className="step-nav chosen-bar" aria-label="Chosen videos"
@@ -58,6 +63,9 @@ export function ChosenBar({ count, progress, onOpen }: { count: number; progress
             {chosenLabel(count)}
           </motion.button></li>}
           {progress && <li><button type="button" onClick={onOpen} className="tabular-nums">{progress.label} {progress.percent}%</button></li>}
+          {onClear && count > 0 && <li><button type="button" onClick={onClear} className="chosen-bar-clear" aria-label="Clear the chosen videos">
+            <XIcon aria-hidden="true" className="size-3.5" />Clear
+          </button></li>}
         </ol>
       </motion.nav>}
     </AnimatePresence>

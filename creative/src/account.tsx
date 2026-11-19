@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { UserDropdownMenu } from '@/components/ui/user-dropdown-menu';
 import { PROFILE_CORNER } from '@/components/ui/profile-dot';
 import { AccountPlaceholder, askSignIn, rememberSignedIn, takeSignInRequests, type SignInReason } from './account-hint';
-import { ACCOUNT_MENU, HELP_EMAIL, type AccountPage } from './account-pages';
+import { ACCOUNT_MENU, type AccountPage } from './account-pages';
 import { BUY_CREDITS, CREDITS_CHANGED, creditsChanged, type Allowance, type Shortfall } from './credit-events';
 import { InviteFriends } from './invite-friends';
 import { PurchaseCredits } from './purchase-credits';
@@ -274,7 +274,6 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   const groups = ACCOUNT_MENU.map(entries => entries.map(({ line, label, icon }) => line === 'credit'
     ? { label, icon, aside: allowance && allowanceLabel(allowance), onSelect: () => { setPurchase(null); setShortfall(undefined); setBuying(true); } }
     : line === 'invite' ? { label, icon, onSelect: () => setInviting(true) }
-    : line === 'help' ? { label, icon, aside: HELP_EMAIL, onSelect: () => { location.href = `mailto:${HELP_EMAIL}?subject=${encodeURIComponent('Help with MUMOO')}`; } }
     : { label, icon, current: line === page || (line === 'links' && page === 'my-links'), onSelect: () => onNavigate(line) }));
 
   return <>

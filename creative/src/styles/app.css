@@ -58,3 +58,6 @@
       var(--layer-base);
   }
 }
+
+/* Every focus ring is the text boxes' one: thin, soft green, close to the edge (not the bright ring set apart from it). */
+.outline-ring:focus-visible { outline-color: var(--focus-ring); outline-offset: 0; }

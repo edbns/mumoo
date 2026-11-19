@@ -1,4 +1,4 @@
-import { GiftIcon, HistoryIcon, Link2Icon, MailIcon, ReceiptTextIcon, SettingsIcon, SparklesIcon, WalletIcon, type LucideIcon } from 'lucide-react';
+import { GiftIcon, HistoryIcon, Link2Icon, ReceiptTextIcon, SettingsIcon, SparklesIcon, WalletIcon, type LucideIcon } from 'lucide-react';
 
 /**
  * Everything the person can be looking at: making creatives, making a smart link (open signed out too) or their smart links, or one
@@ -17,10 +17,8 @@ export const pageAt = (path: string): AccountPage => clean(path) === UPLOADS_PAT
   : (Object.entries(PAGE_PATHS).find(([, at]) => at === clean(path))?.[0] as AccountPage | undefined) ?? 'create';
 export const uploadsAt = (path: string) => clean(path) === UPLOADS_PATH;
 
-/** A line of the account menu: a page to go to, a popup (the credit, shown on its line, and Invite friends), or Help (an email to us). */
-export type MenuLine = AccountPage | 'credit' | 'invite' | 'help';
-/** Where Help in the account menu writes to. */
-export const HELP_EMAIL = 'moo@mumoo.app';
+/** A line of the account menu: a page to go to, or a popup (the credit, shown on its line, and Invite friends). */
+export type MenuLine = AccountPage | 'credit' | 'invite';
 
 type Entry = { line: MenuLine; label: string; icon: LucideIcon };
 
@@ -36,5 +34,5 @@ export const ACCOUNT_MENU: readonly (readonly Entry[])[] = [
     { line: 'invite', label: 'Invite friends', icon: GiftIcon },
     { line: 'invoices', label: 'Invoices', icon: ReceiptTextIcon },
   ],
-  [{ line: 'settings', label: 'Settings', icon: SettingsIcon }, { line: 'help', label: 'Help', icon: MailIcon }],
+  [{ line: 'settings', label: 'Settings', icon: SettingsIcon }],
 ];

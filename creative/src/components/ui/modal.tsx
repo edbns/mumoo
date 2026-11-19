@@ -471,8 +471,6 @@ export function Modal({
                   </p>
                 ) : null}
               </div>
-
-              {closeButton}
             </div>
             )}
             {children ? (
@@ -482,7 +480,7 @@ export function Modal({
             ) : null}
 
             {/* After the content, so the first thing focused is the content's own first field. */}
-            {bare ? closeButton : null}
+            {closeButton}
 
             {footer ? (
               <div className="flex shrink-0 items-center justify-center gap-2 px-6 pb-6 text-xs text-muted-foreground">

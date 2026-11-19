@@ -4,8 +4,9 @@ import { SHELF_ROWS, type CreativesPackSlot, type ShelfRow } from './creatives-p
 /**
  * The cart: creatives a person liked, kept while they refresh the shelf for more. An item is the card exactly as
  * it was seen (not a video), so nothing is rendered until checkout. One token buys one finished video.
- * It lives in this browser. Each song and clip has its own cart; the last few are kept, so moving the clip window
- * or opening another song never empties another cart.
+ * It lives in this browser tab only (it survives a reload or the trip to sign in, not closing the tab), and it is emptied
+ * when a song is uploaded again or the person starts over: videos chosen and never made are not kept for later.
+ * Each song and clip has its own cart, so moving the clip window never empties another one.
  */
 export const CART_LIMIT = 24;
 /** Carts kept in the browser, one per song and clip; the one touched longest ago is dropped first. */
@@ -126,10 +127,14 @@ export function cardThumbnail(card: HTMLCanvasElement): string {
 
 /** The cart of the song and clip being worked on (empty when there is none), backed by every saved cart. */
 export function useCart(songKey: string) {
-  const [carts, setCarts] = useState(() => readCarts(localStorage.getItem(KEY)));
+  const [carts, setCarts] = useState(() => {
+    // Carts used to be kept for good; any left from then are dropped.
+    try { localStorage.removeItem(KEY); } catch { /* storage blocked */ }
+    try { return readCarts(sessionStorage.getItem(KEY)); } catch { return []; }
+  });
   useEffect(() => {
     try {
-      localStorage.setItem(KEY, writeCarts(carts));
+      sessionStorage.setItem(KEY, writeCarts(carts));
     } catch {
       // The browser is out of room: the cart used longest ago gives way (the newest is always last).
       setCarts(current => (current.length > 1 ? current.slice(1) : current));
@@ -144,6 +149,10 @@ export function useCart(songKey: string) {
     remove: (id: string) => setCarts(current => dropItems(current, songKey, [id])),
     /** Empties creatives from any song's cart, e.g. the ones a finished download was for. */
     removeFrom: (key: string, ids: readonly string[]) => setCarts(current => dropItems(current, key, ids)),
+    /** Empties the cart of the song being worked on. */
+    clear: () => setCarts(current => current.filter(entry => entry.songKey !== songKey)),
+    /** Empties every cart: a new song was uploaded, or the person started over. */
+    clearAll: () => setCarts(current => (current.length ? [] : current)),
   };
 }
 
