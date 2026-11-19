@@ -41,7 +41,7 @@ test('every font is bundled locally with a commercial-friendly licence, and noth
     assert.equal(new Set(catalog.AD_FONTS).size, catalog.AD_FONTS.length);
     const packages = JSON.parse(readFileSync('package.json', 'utf8')).dependencies;
     const source = readFileSync('src/font-catalog.ts', 'utf8');
-    const files = [...source.matchAll(/import\('(@fontsource\/[^']+)'\)/g)].map(match => match[1]);
+    const files = [...source.matchAll(/import\('(@fontsource(?:-variable)?\/[^']+)'\)/g)].map(match => match[1]);
     assert.equal(files.length, catalog.AD_FONTS.length + Object.keys(catalog.FIXED_FACES).length, 'one local file per face');
     for (const file of files) {
       const name = file.split('/').slice(0, 2).join('/');

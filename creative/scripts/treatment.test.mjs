@@ -44,14 +44,14 @@ const music = {
   pace: 'balanced',
 };
 
-test('the nine treatments are on the shelf as their own templates, and Kaleidoscope is gone', () => {
+test('the ten treatments are on the shelf as their own templates, and Kaleidoscope is gone', () => {
   const ids = pack.SHELF_ROWS.map(row => row.id);
-  assert.equal(deal.TREATMENT_IDS.length, 9);
+  assert.equal(deal.TREATMENT_IDS.length, 10);
   assert.ok(!ids.includes('kaleidoscope'));
   for (const id of deal.TREATMENT_IDS) {
     assert.ok(ids.includes(id), id);
     assert.equal(pack.SHELF_ROWS.find(row => row.id === id).picture, 'any');
-    assert.equal(pack.SHELF_ROWS.find(row => row.id === id).lyrics, 'switch');
+    assert.equal(pack.SHELF_ROWS.find(row => row.id === id).lyrics, id === 'screenshot' ? 'always' : 'switch');
   }
   assert.ok(ids.indexOf('photography') < ids.indexOf('triptych'), 'treatments follow Directed');
 });
@@ -169,6 +169,10 @@ const cases = {
   doubleOk: [card({ treatment: 'double', treatmentVariant: 'offset-cut', reel: reelOf({}, { kind: 'clip', shots: [[0, 3000]] }) }), true],
   doubleBadVariant: [card({ treatment: 'double', treatmentVariant: 'random', reel: reelOf({}, {}) }), false],
   withPlate: [card({ plateId: 'x', reel: reelOf({}, {}) }), false],
+  screenshotOk: [card({ treatment: 'screenshot', treatmentVariant: 'dark-white', clock: '21:07', reel: reelOf({}, {}) }), true],
+  screenshotWithoutClock: [card({ treatment: 'screenshot', treatmentVariant: 'screen', reel: reelOf({}, {}) }), false],
+  screenshotBadClock: [card({ treatment: 'screenshot', treatmentVariant: 'screen', clock: '25:00', reel: reelOf({}, {}) }), false],
+  clockOnAnotherTreatment: [card({ clock: '10:13', reel: reelOf({}, {}) }), false],
 };
 
 const python = spawnSync('python3', ['-c', 'import modal'], { encoding: 'utf8' });

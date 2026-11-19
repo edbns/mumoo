@@ -98,4 +98,6 @@ export const FIXED_FACES = {
   'Playfair Display': { weight: 700, italic: true, load: () => import('@fontsource/playfair-display/latin-700-italic.css') },
   /** Typewriter's ink (pack-typewriter.ts). */
   'Special Elite': { weight: 400, italic: false, load: () => import('@fontsource/special-elite/latin-400.css') },
+  /** Screenshot's chat (pack-screenshot.ts), the interface face. */
+  'Inter Variable': { weight: 400, italic: false, load: () => import('@fontsource-variable/inter/index.css') },
 } as const;

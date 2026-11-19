@@ -14,6 +14,7 @@ import type { AdPunchStyle } from './ad-punch';
 import { activePackCopy, packReaction, packWordEnter } from './pack-copy';
 import { createPackScene } from './pack-scenes';
 import { TYPEWRITER_FONT } from './pack-typewriter';
+import { SCREENSHOT_FONT } from './pack-screenshot';
 import { isLiveLook, type LiveLookId } from './live-look-deal';
 import { photoEffectUrl } from './pack-looks';
 import { typeFamilies, type TypeStyleId } from './pack-type';
@@ -82,6 +83,8 @@ export type PackRendererOpts = {
   /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
   treatment?: TreatmentId;
   treatmentVariant?: string;
+  /** Screenshot: the time the card was made ("HH:MM", the person's own clock), so the cloud draws the same phone. */
+  clock?: string;
   /** An edit preset (`edit-presets.ts`) over Directed or a treatment: its cut rhythm, camera, colour and texture, in one of its takes. */
   preset?: PresetId;
   presetTake?: string;
@@ -94,7 +97,7 @@ function familiesFor(opts: PackRendererOpts): string[] {
   if (opts.style === 'pulise') return [opts.font, opts.fontSecondary];
   const recording = opts.preset === 'vhs' && opts.presetTake === 'rec' ? [REC_FONT] : [];
   if (opts.style === 'treatment') {
-    const typed = opts.treatment === 'typewriter' ? [TYPEWRITER_FONT] : [];
+    const typed = opts.treatment === 'typewriter' ? [TYPEWRITER_FONT] : opts.treatment === 'screenshot' ? [SCREENSHOT_FONT] : [];
     return [...(opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [opts.font, opts.fontSecondary]), ...recording, ...typed];
   }
   return [...(opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : []), ...recording];
@@ -448,6 +451,7 @@ export async function createPackRenderer(
           windowFigure,
           treatment: style === 'treatment' ? current.treatment : undefined,
           treatmentVariant: style === 'treatment' ? current.treatmentVariant : undefined,
+          clock: style === 'treatment' ? current.clock : undefined,
         }, app.renderer);
         app.render();
       },

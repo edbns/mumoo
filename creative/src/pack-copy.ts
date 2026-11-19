@@ -59,6 +59,8 @@ export type PackSceneInput = {
   /** A video treatment over the Director's finished reel (`treatment-deal.ts`). */
   treatment?: TreatmentId;
   treatmentVariant?: string;
+  /** Screenshot: the time the card was made ("HH:MM"), on the phone's clock and its messages. */
+  clock?: string;
   /** An edit preset already moved and coloured `background` (pack-preset.ts): it is drawn still, as it is. */
   preset?: PresetId;
 };

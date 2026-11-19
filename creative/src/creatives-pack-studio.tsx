@@ -30,6 +30,7 @@ import { clipToMonoWav, submitCloudJob } from './pack-cloud-export';
 import { LoadingMask } from './loading-mask';
 import { loadPunchPlatesManifest } from './punch-plates';
 import { useLibrary } from './use-library';
+import { clockNow } from './pack-screenshot';
 import type { LibraryPicture } from './library-pick';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 
@@ -106,6 +107,8 @@ function packOpts(
     // A live look goes on a picture (the library's or the person's own), never on a baked effect.
     ...(slot.look && !('effectId' in drawn) ? { look: slot.look } : {}),
     ...(slot.treatment ? { treatment: slot.treatment, treatmentVariant: slot.treatmentVariant } : {}),
+    // Screenshot's phone shows the time on this device when the card is drawn or downloaded.
+    ...(slot.treatment === 'screenshot' ? { clock: clockNow() } : {}),
     ...(slot.preset && !('effectId' in drawn) && !('plateId' in drawn) ? { preset: slot.preset, presetTake: slot.presetTake } : {}),
     ...(slot.cutSeed != null ? { cutSeed: slot.cutSeed } : {}),
     // With lyrics off nothing about the words is used or sent anywhere, not even what they mean.

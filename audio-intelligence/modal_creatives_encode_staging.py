@@ -52,7 +52,7 @@ OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
     "motionShots", "reel", "cutSeed", "look", "inkSet", "windowMode", "windowPalette", "windowAllowed", "windowShape",
-    "treatment", "treatmentVariant", "preset", "presetTake",
+    "treatment", "treatmentVariant", "preset", "presetTake", "clock",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
 # A Director's reel: two to six library pictures or clips the page fetches itself, from links the site made for them (private bucket, signed, short-lived).
@@ -73,7 +73,10 @@ TREATMENTS = {
     "double": {"blend", "screen", "offset-cut", "offset-far"},
     "sideways": {"right", "left", "pillar", "cinema"},
     "typewriter": {"newsprint", "letter", "faded", "yellowed"},
+    "screenshot": {"light-black", "light-white", "dark-white", "screen"},
 }
+# Screenshot's phone clock: the time the person made the card, "HH:MM" on 24 hours.
+CLOCK_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 # Edit presets over Directed and its treatments, with their takes (creative/src/edit-presets.ts; a test keeps these in step).
 PRESETS = {
     "kodak": {"portra-drift", "vision-push", "portra-push", "vision-drift"},
@@ -319,6 +322,8 @@ def parse_meta(raw: str) -> dict:
             raise ValueError("treatment")
     elif "treatment" in opts or "treatmentVariant" in opts:
         raise ValueError("treatment")
+    if (opts.get("treatment") == "screenshot") != ("clock" in opts) or ("clock" in opts and (not isinstance(opts["clock"], str) or not CLOCK_RE.match(opts["clock"]))):
+        raise ValueError("clock")
     # An edit preset goes over Directed (a picture with no look of its own) or a treatment, in one of its takes.
     if "preset" in opts or "presetTake" in opts:
         preset = opts.get("preset")

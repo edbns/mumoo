@@ -14,6 +14,7 @@ import { createTypeLayer, type TimedWord, type TypeFrame } from './pack-type';
 import type { TreatmentId } from './treatment-deal';
 import { FRAME_UV, makeFilter } from './treatment-filter';
 import { createTypewriterPage } from './pack-typewriter';
+import { createScreenshotChat } from './pack-screenshot';
 
 export type TreatmentWorld = {
   root: Container;
@@ -311,6 +312,8 @@ export function createTreatmentWorld(): TreatmentWorld {
   root.addChildAt(doubleLayer, 3);
   const page = createTypewriterPage();
   root.addChildAt(page.root, root.getChildIndex(type.root));
+  const chat = createScreenshotChat();
+  root.addChildAt(chat.root, root.getChildIndex(type.root));
 
   function rt(current: RenderTexture | null, w = WIDTH, h = HEIGHT) {
     return current ?? RenderTexture.create({ width: w, height: h, resolution: 1 });
@@ -465,6 +468,7 @@ export function createTreatmentWorld(): TreatmentWorld {
     panels.visible = false;
     blurred.visible = false;
     page.root.visible = false;
+    chat.root.visible = false;
     backdrop.clear();
   }
 
@@ -550,6 +554,16 @@ export function createTreatmentWorld(): TreatmentWorld {
         treated.filters = [page.paper];
         page.root.visible = true;
         page.update({ cues: input.cues, ms: input.ms, seed: input.layout.seed, variant, lyrics: input.lyrics });
+      } else if (kind === 'screenshot') {
+        // The phone stands over the reel, blurred and dark; its chat is the lyrics.
+        smallRt = rt(smallRt, Math.round(WIDTH / 6), Math.round(HEIGHT / 6));
+        paint(sourceRt, renderer, smallRt, [softly]);
+        blurred.texture = smallRt;
+        blurred.width = WIDTH;
+        blurred.height = HEIGHT;
+        blurred.visible = true;
+        chat.root.visible = true;
+        chat.update({ cues: input.cues, ms: input.ms, seed: input.layout.seed, variant, clock: input.clock });
       } else if (kind === 'double') {
         const look = DOUBLE_LOOK[variant] ?? DOUBLE_LOOK.blend;
         doubleLayer.visible = true;
@@ -573,8 +587,8 @@ export function createTreatmentWorld(): TreatmentWorld {
       }
 
       const style = input.typeStyle ?? 'minimal';
-      // Typewriter's lyrics are typed on its page, not set in the card's type.
-      const words: TimedWord[] = !input.lyrics || !input.phrase || kind === 'typewriter' ? [] : input.words.length
+      // Typewriter's lyrics are typed on its page and Screenshot's are its messages, not set in the card's type.
+      const words: TimedWord[] = !input.lyrics || !input.phrase || kind === 'typewriter' || kind === 'screenshot' ? [] : input.words.length
         ? [...input.words]
         : [{ text: input.phrase, startMs: 0, endMs: 600 }];
       const frame = { ms: input.ms, beat: input.beat, beatIndex: input.beatIndex, energy: input.energy, seed: input.layout.seed, font: input.font, fontSecondary: input.fontSecondary };
@@ -632,6 +646,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       fisheye.filter.destroy();
       grain.filter.destroy();
       page.destroy();
+      chat.destroy();
       type.destroy();
       below.destroy();
       root.destroy({ children: true });

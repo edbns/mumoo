@@ -55,7 +55,8 @@ export type ShelfRowDef = { id: ShelfRow; title: string; lyrics: 'switch' | 'alw
 export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'photography', title: 'Directed', lyrics: 'switch', picture: 'any' },
   // Video treatments: each finishes the Directed reel with one creative pass (gaps, lens, collage, grain…).
-  ...TREATMENT_IDS.map(id => ({ id, title: treatmentTitle(id), lyrics: 'switch' as const, picture: 'any' as const })),
+  // Screenshot is the lyrics as a chat, so it has no switch: without words it is not on the shelf.
+  ...TREATMENT_IDS.map(id => ({ id, title: treatmentTitle(id), lyrics: id === 'screenshot' ? 'always' as const : 'switch' as const, picture: 'any' as const })),
   // One effect per row, each dealt in its different colourings, on pictures of our library or the person's own (a row has no picture to draw until the library has one or they upload theirs).
   { id: 'thermal', title: 'Thermal', lyrics: 'switch', picture: 'any' },
   { id: 'halftone', title: 'Halftone', lyrics: 'switch', picture: 'any' },
@@ -72,7 +73,7 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
 export type OwnKind = 'photo' | 'motion';
 /**
  * The rows of the shelf for a song and the person's own picture. With no words, only the rows that work without them
- * (Window and Pulise are made of the lyrics). With any picture of their own, only the rows that draw a picture
+ * (Window, Pulise and Screenshot are made of the lyrics). With any picture of their own, only the rows that draw a picture
  * (Pulise takes none, so it leaves). With a video or GIF, only the rows that can use one (Dust needs a photo).
  */
 export const rowsFor = (noLyrics: boolean, own: OwnKind | null = null): readonly ShelfRowDef[] =>
@@ -459,6 +460,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     double: () => treatmentRow('double'),
     sideways: () => treatmentRow('sideways'),
     typewriter: () => treatmentRow('typewriter'),
+    screenshot: () => treatmentRow('screenshot'),
     thermal: () => effectRow('thermal'),
     halftone: () => effectRow('halftone'),
     dither: () => effectRow('dither'),

@@ -1,6 +1,6 @@
 /**
  * Treatment Lab — development only (not part of the build). Shows every video treatment side by side on one Directed
- * still, so finishes can be tuned without walking the shelf. `?only=sideways,typewriter` shows only those, `?nolyrics` without words.
+ * still, so finishes can be tuned without walking the shelf. `?only=sideways,typewriter` shows only those, `?nolyrics` without words, `?thumb=540` bigger stills.
  */
 import { Application, ImageSource, Sprite, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
@@ -10,6 +10,7 @@ import { createPresetPass, REC_FONT, type PresetPass } from './pack-preset';
 import { presetFrame } from './preset-motion';
 import { createTreatmentWorld } from './pack-treatment';
 import { TYPEWRITER_FONT } from './pack-typewriter';
+import { SCREENSHOT_FONT } from './pack-screenshot';
 import { TREATMENTS, type TreatmentId } from './treatment-deal';
 import type { PackSceneInput } from './pack-copy';
 
@@ -66,7 +67,7 @@ async function ensure() {
   world = createTreatmentWorld();
   app.stage.addChild(world.root);
   texture = new Texture({ source: new ImageSource({ resource: await photo() ?? PLACEHOLDER }) });
-  await ensureFonts(['Anton', TYPEWRITER_FONT]);
+  await ensureFonts(['Anton', TYPEWRITER_FONT, SCREENSHOT_FONT]);
 }
 
 const LAB_LYRICS = 'I keep on running back to you | every night the city calls my name | hold me close until the morning | we were young and we were wild | dancing on the edge of something | never let the music stop';
@@ -102,6 +103,7 @@ function inputOf(treatment: TreatmentId, variant: string, ms = 2400): PackSceneI
     seed: 42,
     treatment,
     treatmentVariant: variant,
+    clock: '21:07',
   };
 }
 
@@ -154,15 +156,15 @@ async function contactSheet(): Promise<string> {
   const cells: { title: string; url: string }[] = [];
   for (const def of TREATMENTS.filter(entry => !ONLY || ONLY.includes(entry.id))) {
     for (const variant of def.variants) {
-      // Typewriter is shown late in the song, its page well typed, the last phrase half way.
-      cells.push({ title: `${def.title} · ${variant.title}`, url: await still(def.id, variant.id, def.id === 'typewriter' ? 9500 : 2400) });
+      // Typewriter and Screenshot are shown late in the song: the page well typed, the chat well filled, the last message arriving.
+      cells.push({ title: `${def.title} · ${variant.title}`, url: await still(def.id, variant.id, def.id === 'typewriter' || def.id === 'screenshot' ? 9500 : 2400) });
     }
   }
   return sheet(cells);
 }
 
 async function sheet(cells: { title: string; url: string }[]): Promise<string> {
-  const thumbW = 180;
+  const thumbW = Number(params.get('thumb')) || 180;
   const thumbH = Math.round((thumbW * HEIGHT) / WIDTH);
   const columns = 4;
   const gap = 12;

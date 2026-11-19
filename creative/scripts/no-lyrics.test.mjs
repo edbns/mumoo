@@ -18,7 +18,7 @@ test('a song with no words shows only the rows that work without them', () => {
   assert.deepEqual(pack.rowsFor(false).map(row => row.id).filter(id => !pack.rowsFor(false, 'motion').some(row => row.id === id)), ['pulise', 'dust']);
   // Any picture of their own leaves out the templates that draw none (Pulise).
   assert.deepEqual(pack.rowsFor(false).map(row => row.id).filter(id => !pack.rowsFor(false, 'photo').some(row => row.id === id)), ['pulise']);
-  assert.deepEqual(pack.rowsFor(false, 'motion').map(row => row.id), ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window', 'silhouette'], 'a video: no Pulise or Dust');
+  assert.deepEqual(pack.rowsFor(false, 'motion').map(row => row.id), ['photography', ...treatments, 'screenshot', 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window', 'silhouette'], 'a video: no Pulise or Dust');
   assert.deepEqual(pack.rowsFor(true, 'motion').map(row => row.id), ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'silhouette'], 'no lyrics and a video: both rules');
 });
 
