@@ -30,9 +30,9 @@ function saveFile(file: Blob, name: string) {
 
 /**
  * The cart's download, from any page. The studio only submits the render jobs; from then on the job ids are kept in the
- * browser and followed here, so a refresh or a reloaded tab picks the renders up again. When every video is ready the
- * file is handed to the browser, the person is told (on the page, and by the browser if they allowed it) and the items
- * that were downloaded leave the cart. A failure keeps the cart.
+ * browser and followed here, so a refresh or a reloaded tab picks the renders up again. Finished videos are kept in the
+ * person's Media (nothing downloads by itself, unless their storage is full) and the items that were made leave the cart.
+ * A failure keeps the cart.
  */
 export function useCartDownload({ token, cart, onDelivered }: { token: string; cart: Cart; onDelivered: () => void }) {
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
@@ -51,7 +51,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     show();
     const ticking = setInterval(show, 1000);
     // One render failing does not end the wait for the others: the ones that are made are delivered, the rest stay in the cart.
-    type Result = { job: PendingDownload['jobs'][number]; video: Blob } | { job: PendingDownload['jobs'][number]; cause: unknown };
+    type Result = { job: PendingDownload['jobs'][number]; video: Blob | null } | { job: PendingDownload['jobs'][number]; cause: unknown };
     const results = await Promise.all(pending.jobs.map(async (job): Promise<Result> => {
       try {
         return { job, video: await awaitCloudJob(latest.current.token, job.jobId) };
@@ -65,17 +65,24 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     const made = results.flatMap(result => ('video' in result ? [{ job: result.job, video: result.video }] : []));
     const failed = results.flatMap(result => ('cause' in result ? [result.cause] : []));
     if (!made.length) throw failed[0];
-    setProgress({ label: 'Getting your download ready…', percent: 100 });
-    // The renders are done: from here a failure is the download's (the file could not be put together or saved), not a render's.
-    try {
-      const { file, name } = await bundle(made.map(entry => entry.video));
-      saveFile(file, name);
-    } catch (cause) {
-      throw Object.assign(cause instanceof Error ? cause : new Error(String(cause)), { problemKind: 'download' });
+    // Videos kept in Media are downloaded from there when the person wants them; only ones that could not be kept are saved now.
+    const unkept = made.flatMap(entry => (entry.video ? [entry.video] : []));
+    if (unkept.length) {
+      setProgress({ label: 'Getting your download ready…', percent: 100 });
+      // The renders are done: from here a failure is the download's (the file could not be put together or saved), not a render's.
+      try {
+        const { file, name } = await bundle(unkept);
+        saveFile(file, name);
+      } catch (cause) {
+        throw Object.assign(cause instanceof Error ? cause : new Error(String(cause)), { problemKind: 'download' });
+      }
     }
     localStorage.removeItem(PENDING_KEY);
     const delivered = made.map(entry => entry.job.itemId);
-    // Success needs no notice: the person is on their History, where the creatives appear. Only a partial failure is told.
+    // Success needs no notice: the person is on their Media, where the creatives appear. Only a partial failure or full storage is told.
+    if (unkept.length && !failed.length) {
+      setMessage({ kind: 'error', text: `Your Media storage is full, so ${unkept.length === 1 ? 'your new creative was' : `${unkept.length} new creatives were`} downloaded to this computer instead of kept in Media.` });
+    }
     if (failed.length) {
       const reason = friendlyError(failed[0], 'The creatives could not be exported.');
       reportProblem('render', reason);

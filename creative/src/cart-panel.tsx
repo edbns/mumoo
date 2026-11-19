@@ -91,7 +91,7 @@ export function CartPanel({ lines, progress, action, onClose, onRemove }: {
         <p className="m-0 flex justify-between text-sm"><span>Total</span><strong>{ready.length} {ready.length === 1 ? 'token' : 'tokens'}</strong></p>
         {action.kind === 'download' && <>
           <Button disabled={busy || ready.length === 0} onClick={action.run}>
-            Download {ready.length === 1 ? 'MP4' : `${ready.length} creatives`}
+            Make {ready.length === 1 ? 'video' : `${ready.length} videos`}
           </Button>
           {busy && <p className="hint">We are processing your request. In the meantime, you can continue creating other visuals for your music.</p>}
         </>}

@@ -147,7 +147,7 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
     {progress && <RenderProgress progress={progress} note="This can take a few minutes. They appear here when they are ready." />}
 
     {items?.length === 0 && <EmptyState>
-      {tab === 'creatives' ? 'Creatives you download while signed in are kept here.' : 'The photos, videos and GIFs you upload are kept here, private to you, until you delete them.'}
+      {tab === 'creatives' ? 'The videos you make are kept here. Download them whenever you like.' : 'The photos, videos and GIFs you upload are kept here, private to you, until you delete them.'}
     </EmptyState>}
 
     {items && items.length > 0 && <div className="sticky top-4 z-10 flex min-h-12 items-center justify-between gap-3 rounded-full bg-background/80 px-5 py-1.5 backdrop-blur-md">

@@ -138,8 +138,11 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
   return result.id;
 }
 
-/** Poll until the MP4 is ready. Cheap: one tiny GET every 1.5 s, no work on this machine. Aborting the signal stops it. */
-export async function awaitCloudJob(token: string, id: string, signal?: AbortSignal): Promise<Blob> {
+/**
+ * Poll until the MP4 is ready. Cheap: one tiny GET every 1.5 s, no work on this machine. Aborting the signal stops it.
+ * Null when the video was kept in the person's Media; the MP4 itself only when it could not be kept (their storage is full).
+ */
+export async function awaitCloudJob(token: string, id: string, signal?: AbortSignal): Promise<Blob | null> {
   // Signed-in people get the finished video kept in their history; the access token is renewed by `withAccess` whenever it gets old, however long the render takes.
   const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
   const deadline = Date.now() + JOB_TIMEOUT_MS;
@@ -147,7 +150,7 @@ export async function awaitCloudJob(token: string, id: string, signal?: AbortSig
   while (Date.now() < deadline) {
     await sleep(POLL_MS, signal);
     const response = await withAccess(token, access => fetch(`/.netlify/functions/encode-creative-status?id=${encodeURIComponent(id)}`, {
-      headers: { 'x-mumoo-brain-access': access, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+      headers: { 'x-mumoo-brain-access': access, 'x-mumoo-deliver': 'media', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
       signal,
     })).catch(cause => {
       if (signal?.aborted) throw cause;
@@ -161,6 +164,7 @@ export async function awaitCloudJob(token: string, id: string, signal?: AbortSig
     } else missed = 0;
     if (response.status === 202) continue;
     if (!response.ok) throw new Error(await errorMessage(response));
+    if (response.headers.get('X-Mumoo-History') === 'saved' && response.headers.get('Content-Type')?.includes('json')) return null;
     const blob = await response.blob();
     if (blob.size < 1000) throw new Error('Your creative came back empty. Try again.');
     return blob;

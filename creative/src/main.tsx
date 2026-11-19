@@ -365,11 +365,11 @@ function App() {
       };
     }
     if (profile?.musicAnalysis.status === 'pending' || profile?.lyricMeaning?.status === 'pending') {
-      return { kind: 'blocked', reason: 'Finishing the analysis of your music and lyrics. Downloading is possible in a moment.' };
+      return { kind: 'blocked', reason: 'Finishing the analysis of your music and lyrics. You can make your videos in a moment.' };
     }
     if (checkingPictures) return { kind: 'blocked', reason: 'Checking your pictures…' };
-    // Downloading needs an account (the free first video is theirs, and it is kept in Media): signed out, it asks first and then carries on.
-    // Pressing Download takes the person to their Media, where the creatives show up as they are made.
+    // Making videos needs an account (the free first video is theirs, and it is kept in Media): signed out, it asks first and then carries on.
+    // Pressing Make takes the person to their Media, where the videos show up as they are made; nothing downloads by itself.
     const toMedia = () => { setCartOpen(false); setProfileTab('creatives'); setPage('history'); };
     if (uploads.pending) return { kind: 'blocked', reason: 'Checking your account…' };
     if (!uploads.signedIn) return { kind: 'download', run: () => {

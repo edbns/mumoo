@@ -5,7 +5,8 @@ import { saveRender } from '../lib/renders.mjs';
 import { storageReady } from '../lib/storage.mjs';
 
 /**
- * Poll a cloud render job: 202 while running, 200 + MP4 when done. A signed-in person's finished MP4 is also kept in their history.
+ * Poll a cloud render job: 202 while running, 200 + MP4 when done. A signed-in person's finished MP4 is also kept in their history;
+ * with `X-Mumoo-Deliver: media` a kept MP4 is answered with `{status: 'saved'}` instead of the file.
  * A render that failed gives its credit back.
  */
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
@@ -64,6 +65,9 @@ export default async function encodeCreativeStatus(request) {
       const mp4 = await response.arrayBuffer();
       if (mp4.byteLength < 1000) return error(502, 'Cloud render returned an empty file.');
       const kept = await keepForPerson(request, id, mp4);
+      if (kept === 'saved' && request.headers.get('x-mumoo-deliver') === 'media') {
+        return Response.json({ status: 'saved' }, { headers: { ...headers, 'X-Mumoo-History': kept } });
+      }
       return new Response(mp4, {
         status: 200,
         headers: {
