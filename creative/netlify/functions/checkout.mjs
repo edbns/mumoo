@@ -31,16 +31,21 @@ export default async function handler(request) {
     const product = await productFor(body.usd);
     if (!product) return reply(400, { error: 'That pack is not on sale.' });
     const origin = new URL(request.url).origin;
-    const checkout = await polar('/v1/checkouts/', {
+    const open = email => polar('/v1/checkouts/', {
       method: 'POST',
       body: {
         products: [product.id],
         external_customer_id: person.id,
-        customer_email: person.email,
+        ...(email ? { customer_email: email } : {}),
         metadata: { mumoo_user: person.id },
         success_url: `${origin}/?checkout_id={CHECKOUT_ID}`,
         return_url: `${origin}/`,
       },
+    });
+    // Polar refuses an address whose domain it cannot deliver to; the person then types one on Polar's page instead.
+    const checkout = await open(person.email).catch(cause => {
+      if (cause.status === 422 && /customer_email/.test(cause.detail ?? '')) return open(null);
+      throw cause;
     });
     return reply(200, { url: checkout.url });
   } catch (cause) {
