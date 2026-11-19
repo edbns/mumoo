@@ -71,6 +71,8 @@ test('the free video is offered only while it is still to come, and the way to m
   const cta = read('smart-link-cta.tsx');
   assert.match(cta, /\{free \? 'Make my first video free' : 'Create videos for your music'\}/);
   assert.match(cta, /\{free && ' Your first creative is free\.'\}/);
+  assert.match(read('main.tsx'), /onClick=\{\(\) => setStep\(2\)\}>\{freeVideo \? 'Get my free video' : 'Continue'\}<\/Button>/);
+  assert.match(read('use-free-video.ts'), /addEventListener\(CREDITS_CHANGED, check\)/);
   assert.match(read('main.tsx'), /Drop the song file to start\.\{freeVideo && ' Your first creative is free\.'\}/);
   // No placeholder holding the button's room: with the free video used the cards sit right under the text from the start.
   assert.match(read('pricing-page.tsx'), /\{freeLeft && <Button className="mt-2"/);

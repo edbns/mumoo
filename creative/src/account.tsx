@@ -7,7 +7,7 @@ import { UserDropdownMenu } from '@/components/ui/user-dropdown-menu';
 import { PROFILE_CORNER } from '@/components/ui/profile-dot';
 import { AccountPlaceholder, askSignIn, rememberSignedIn, takeSignInRequests, type SignInReason } from './account-hint';
 import { ACCOUNT_MENU, type AccountPage } from './account-pages';
-import { BUY_CREDITS, CREDITS_CHANGED, type Allowance, type Shortfall } from './credit-events';
+import { BUY_CREDITS, CREDITS_CHANGED, creditsChanged, type Allowance, type Shortfall } from './credit-events';
 import { InviteFriends } from './invite-friends';
 import { PurchaseCredits } from './purchase-credits';
 import { claimPendingReferral } from './referral';
@@ -205,6 +205,13 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   const [known, setKnown] = useState(false);
   useEffect(() => { if (!session.isPending) setKnown(true); }, [session.isPending]);
   useEffect(() => { if (known) rememberSignedIn(Boolean(user)); }, [known, Boolean(user)]);
+  // Signing in or out changes whether the free video is still to come, for whatever on the page offers it.
+  const lastUser = useRef(user?.id);
+  useEffect(() => {
+    if (lastUser.current === user?.id) return;
+    lastUser.current = user?.id;
+    creditsChanged();
+  }, [user?.id]);
 
   // Best effort: without it the menu simply has no amount beside Credit.
   // Signed up with a friend's link: the server makes them that friend (it decides whether the account is new enough).

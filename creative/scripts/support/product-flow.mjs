@@ -134,7 +134,7 @@ export async function uploadSong(page, { genre = 'Pop', seconds = 20, name = 'so
   const style = page.getByRole('combobox', { name: 'What kind of music is it?' });
   await style.fill(genre);
   await page.getByRole('option', { name: genre, exact: true }).click();
-  await page.locator('main.desktop').getByRole('button', { name: 'Continue' }).click();
+  await page.locator('main.desktop').getByRole('button', { name: /^(Continue|Get my free video)$/ }).click();
   await page.getByRole('heading', { name: 'Choose your 15 seconds' }).waitFor();
 }
 

@@ -106,6 +106,7 @@ function App() {
   const [songTags, setSongTags] = useState<SongTags>();
   /** The song a smart link handed over ("Make my first video free"), until the creator dismisses it. */
   const [handed, setHanded] = useState<HandedSong | null>(null);
+  /** Until it is made, the first Continue says the video is free, without advertising it anywhere else. */
   const freeVideo = useFreeVideo() === true;
   useEffect(() => {
     if (page !== 'create') return;
@@ -465,7 +466,7 @@ function App() {
           </div>
         </div>
         <div className="mt-6 flex justify-end">
-          <Button disabled={!buffer || !genreValid || loading} onClick={() => setStep(2)}>Continue</Button>
+          <Button disabled={!buffer || !genreValid || loading} onClick={() => setStep(2)}>{freeVideo ? 'Get my free video' : 'Continue'}</Button>
         </div></>}
         {buffer && step === 2 && <>
           <ClipPicker audio={buffer} start={composition.clipStartMs} valid={clipValid} position={position}

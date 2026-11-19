@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { wasSignedIn } from './account-hint';
+import { CREDITS_CHANGED } from './credit-events';
 
 const KEY = 'mumoo-free-video';
 
@@ -19,7 +20,7 @@ export function useFreeVideo(): boolean | null {
   const [free, setFree] = useState<boolean | null>(() => (wasSignedIn() ? lastAnswer() : true));
   useEffect(() => {
     let stopped = false;
-    void import('./account')
+    const check = () => void import('./account')
       .then(async account => {
         if (!(await account.sessionToken().catch(() => null))) return true;
         const { freeVideo } = await account.loadAllowance();
@@ -27,7 +28,10 @@ export function useFreeVideo(): boolean | null {
         return freeVideo;
       })
       .then(answer => { if (!stopped) setFree(answer); }, () => { if (!stopped) setFree(current => current ?? false); });
-    return () => { stopped = true; };
+    check();
+    // Making the free video (or buying credits) changes the answer while the page stays open.
+    window.addEventListener(CREDITS_CHANGED, check);
+    return () => { stopped = true; window.removeEventListener(CREDITS_CHANGED, check); };
   }, []);
   return free;
 }
