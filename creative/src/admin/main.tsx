@@ -1,27 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AlertTriangleIcon, BrainIcon, ImagesIcon, LayoutDashboardIcon, LifeBuoyIcon, LogOutIcon, Music2Icon, type LucideIcon } from 'lucide-react';
+import { AlertTriangleIcon, BrainIcon, ImagesIcon, LayoutDashboardIcon, LogOutIcon, Music2Icon, type LucideIcon } from 'lucide-react';
 import '@fontsource-variable/inter';
 import { authClient, checkSignInCode, sendSignInCode } from '../account';
 import { Button } from '@/components/ui/button';
 import { SignInDialog } from '../sign-in-dialog';
 import { AdminError, loadOverview, type Overview } from './api';
 import { GenreView } from './genre';
-import { HelpView } from './help';
 import { LearningView } from './learning';
 import { LibraryView } from './library';
 import { OverviewView } from './overview';
 import { ProblemsView } from './problems';
 import './admin.css';
 
-type Section = 'overview' | 'library' | 'learning' | 'genre' | 'errors' | 'help';
+type Section = 'overview' | 'library' | 'learning' | 'genre' | 'errors';
 const SECTIONS: { id: Section; label: string; icon: LucideIcon }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboardIcon },
   { id: 'library', label: 'Library', icon: ImagesIcon },
   { id: 'learning', label: 'Learning', icon: BrainIcon },
   { id: 'genre', label: 'Genre training', icon: Music2Icon },
   { id: 'errors', label: 'Errors', icon: AlertTriangleIcon },
-  { id: 'help', label: 'Help chat', icon: LifeBuoyIcon },
 ];
 const sectionFromHash = (): Section => SECTIONS.find(section => `#${section.id}` === window.location.hash)?.id ?? 'overview';
 
@@ -95,7 +93,6 @@ function Admin() {
           className={`flex items-center gap-2.5 rounded-[var(--radius-control)] px-3 py-2 text-sm no-underline transition-colors ${section === id ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`}>
           <Icon className="size-4" aria-hidden="true" />{label}
           {id === 'errors' && overview.problems.unseen > 0 && <span className="ml-auto rounded-full bg-destructive px-1.5 text-xs font-medium text-white">{overview.problems.unseen}</span>}
-          {id === 'help' && overview.help.waiting > 0 && <span className="ml-auto rounded-full bg-destructive px-1.5 text-xs font-medium text-white">{overview.help.waiting}</span>}
         </a>)}
       </nav>
       <div className="mt-auto flex flex-col gap-2">
@@ -109,7 +106,6 @@ function Admin() {
       {section === 'learning' && <LearningView />}
       {section === 'genre' && <GenreView />}
       {section === 'errors' && <ProblemsView onChanged={refresh} />}
-      {section === 'help' && <HelpView onChanged={refresh} />}
     </main>
   </div>;
 }

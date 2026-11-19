@@ -16,13 +16,11 @@ export default async function handler(request) {
         (select count(*)::int from library_items where arrived and status = 'pending') as pending,
         (select count(*)::int from library_items where arrived and status = 'hidden') as hidden,
         (select count(*)::int from problems where seen_at is null) as unseen_problems,
-        (select count(*)::int from support_threads where status = 'waiting') as waiting_help,
         (select count(*)::int from app_users) as people`;
     return reply(200, {
       email: admin.email,
       library: { approved: counts.approved, pending: counts.pending, hidden: counts.hidden },
       problems: { unseen: counts.unseen_problems },
-      help: { waiting: counts.waiting_help },
       people: counts.people,
     });
   } catch (cause) {

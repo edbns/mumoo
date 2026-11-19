@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createAuthClient } from '@neon/auth';
 import { BetterAuthReactAdapter } from '@neon/auth/react/adapters';
 import { SignInDialog } from './sign-in-dialog';
@@ -12,10 +12,6 @@ import { InviteFriends } from './invite-friends';
 import { PurchaseCredits } from './purchase-credits';
 import { claimPendingReferral } from './referral';
 import { reportProblem } from './report-problem';
-
-const SupportChat = lazy(() => import('./support-chat'));
-/** The team's reply email links here, so the chat opens on arrival. */
-const HELP_PARAM = 'help';
 
 /**
  * Neon Auth (managed Better Auth), reached through our own address (/api/neon-auth, passed on to Neon as it is) so its session
@@ -200,7 +196,6 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   const [open, setOpen] = useState(false);
   const [buying, setBuying] = useState(false);
   const [inviting, setInviting] = useState(false);
-  const [helping, setHelping] = useState(() => new URLSearchParams(location.search).has(HELP_PARAM));
   const [allowance, setAllowance] = useState<Allowance>();
   const [shortfall, setShortfall] = useState<Shortfall>();
   const [purchase, setPurchase] = useState(takePurchaseRequest);
@@ -210,13 +205,6 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   const [known, setKnown] = useState(false);
   useEffect(() => { if (!session.isPending) setKnown(true); }, [session.isPending]);
   useEffect(() => { if (known) rememberSignedIn(Boolean(user)); }, [known, Boolean(user)]);
-  useEffect(() => {
-    if (!known || !new URLSearchParams(location.search).has(HELP_PARAM)) return;
-    const url = new URL(location.href);
-    url.searchParams.delete(HELP_PARAM);
-    history.replaceState(history.state, '', url.pathname + url.search + url.hash);
-    if (!user) void askSignIn({ title: 'Sign in to see our reply', lead: 'Your help chat is in your account.' }).then(setHelping);
-  }, [known]);
   // Signing in or out changes whether the free video is still to come, for whatever on the page offers it.
   const lastUser = useRef(user?.id);
   useEffect(() => {
@@ -286,7 +274,6 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   const groups = ACCOUNT_MENU.map(entries => entries.map(({ line, label, icon }) => line === 'credit'
     ? { label, icon, aside: allowance && allowanceLabel(allowance), onSelect: () => { setPurchase(null); setShortfall(undefined); setBuying(true); } }
     : line === 'invite' ? { label, icon, onSelect: () => setInviting(true) }
-    : line === 'help' ? { label, icon, onSelect: () => setHelping(true) }
     : { label, icon, current: line === page || (line === 'links' && page === 'my-links'), onSelect: () => onNavigate(line) }));
 
   return <>
@@ -299,7 +286,6 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
       initial={purchase?.buy} autoBuy={Boolean(purchase?.buy)} checkoutId={purchase?.checkoutId} shortfall={shortfall}
       onCredits={credits => setAllowance(current => ({ freeVideo: current?.freeVideo ?? false, credits }))} />
     {user && <InviteFriends key={user.id} open={inviting} onClose={() => setInviting(false)} userId={user.id} />}
-    {user && helping && <Suspense fallback={null}><SupportChat key={user.id} open onClose={() => setHelping(false)} /></Suspense>}
     {/* One popup for both states, so the welcome after signing in is not cut short when the button changes. */}
     <SignInDialog open={open} onClose={closeSignIn} onSendCode={sendCode} onCheckCode={checkCode} reason={reason}
       onGoogle={async () => { await signInWithGoogle(); signedInHere.current = true; await session.refetch(); }} />

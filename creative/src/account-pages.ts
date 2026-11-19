@@ -1,4 +1,4 @@
-import { GiftIcon, HistoryIcon, LifeBuoyIcon, Link2Icon, ReceiptTextIcon, SettingsIcon, SparklesIcon, WalletIcon, type LucideIcon } from 'lucide-react';
+import { GiftIcon, HistoryIcon, Link2Icon, ReceiptTextIcon, SettingsIcon, SparklesIcon, WalletIcon, type LucideIcon } from 'lucide-react';
 
 /**
  * Everything the person can be looking at: making creatives, making a smart link (open signed out too) or their smart links, or one
@@ -17,12 +17,12 @@ export const pageAt = (path: string): AccountPage => clean(path) === UPLOADS_PAT
   : (Object.entries(PAGE_PATHS).find(([, at]) => at === clean(path))?.[0] as AccountPage | undefined) ?? 'create';
 export const uploadsAt = (path: string) => clean(path) === UPLOADS_PATH;
 
-/** A line of the account menu: a page to go to, or a popup (the credit, shown on its line, Invite friends and Help). */
-export type MenuLine = AccountPage | 'credit' | 'invite' | 'help';
+/** A line of the account menu: a page to go to, or a popup (the credit, shown on its line, and Invite friends). */
+export type MenuLine = AccountPage | 'credit' | 'invite';
 
 type Entry = { line: MenuLine; label: string; icon: LucideIcon };
 
-/** The account menu: the way back to the main page, what they have, their credit, inviting friends and what they paid, then their settings and help. Sign out is separate. */
+/** The account menu: the way back to the main page, what they have, their credit, inviting friends and what they paid, then their settings. Sign out is separate. */
 export const ACCOUNT_MENU: readonly (readonly Entry[])[] = [
   [
     { line: 'create', label: 'Create', icon: SparklesIcon },
@@ -34,5 +34,5 @@ export const ACCOUNT_MENU: readonly (readonly Entry[])[] = [
     { line: 'invite', label: 'Invite friends', icon: GiftIcon },
     { line: 'invoices', label: 'Invoices', icon: ReceiptTextIcon },
   ],
-  [{ line: 'settings', label: 'Settings', icon: SettingsIcon }, { line: 'help', label: 'Help', icon: LifeBuoyIcon }],
+  [{ line: 'settings', label: 'Settings', icon: SettingsIcon }],
 ];
