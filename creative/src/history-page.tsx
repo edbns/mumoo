@@ -7,12 +7,10 @@ import { ImageGeneration } from '@/components/ui/image-generation';
 import { Modal } from '@/components/ui/modal';
 import { cn } from '@/lib/utils';
 import { AccountColumn, EmptyState } from './account-section';
-import { RenderProgress } from './render-progress';
 import { accountFetch } from './account';
 import { LazyMedia } from './lazy-media';
 import type { ProfileTab } from './profile-nav';
 import { listUploads, removeUpload, type Upload } from './uploads';
-import type { DownloadProgress } from './use-cart-download';
 
 type Creative = { id: string; bytes: number; createdAt: string; url: string };
 type Storage = { used: number; quota: number };
@@ -63,7 +61,7 @@ function useMoreOnScroll(total: number, resetKey: string) {
 }
 
 /** Everything the person has kept, as one wide, endlessly scrolling wall: finished creatives or their own uploads, chosen in the notch. */
-export default function HistoryPage({ tab, progress, delivered }: { tab: ProfileTab; progress: DownloadProgress | null; delivered: number }) {
+export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; delivered: number }) {
   const [creatives, setCreatives] = useState<Creative[] | null>(null);
   const [uploads, setUploads] = useState<Upload[] | null>(null);
   const [storage, setStorage] = useState<Storage | null>(null);
@@ -144,7 +142,6 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
       {storage && <p className="m-0 text-sm text-muted-foreground">{size(Math.max(0, storage.quota - storage.used))} remaining space from {size(storage.quota)}</p>}
     </div>
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
-    {progress && <RenderProgress progress={progress} note="This can take a few minutes. They show up here when they’re ready." />}
 
     {items?.length === 0 && <EmptyState>
       {tab === 'creatives' ? 'The videos you make stay here. Download whenever you want.' : 'Photos, videos and GIFs you upload stay here, private to you, until you delete them.'}

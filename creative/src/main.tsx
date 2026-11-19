@@ -385,13 +385,14 @@ function App() {
     }
     if (checkingPictures) return { kind: 'blocked', reason: 'Checking your pictures…' };
     // Making videos needs an account (the free first video is theirs, and it is kept in Media): signed out, it asks first and then carries on.
-    // Pressing Make takes the person to their Media, where the videos show up as they are made; nothing downloads by itself.
+    // Pressing Create takes the person to their Media at once, where the videos show up as they are made; nothing downloads by itself.
+    // Too few credits: the popup that asks opens over Media, and choosing fewer opens the chosen videos page again.
     const toMedia = () => { setCartOpen(false); setProfileTab('creatives'); setPage('history'); };
     if (uploads.pending) return { kind: 'blocked', reason: 'Checking your account…' };
     if (!uploads.signedIn) return { kind: 'download', run: () => {
-      void askSignIn(DOWNLOAD_SIGN_IN).then(async signedIn => { if (signedIn && await downloadRef.current?.()) toMedia(); });
+      void askSignIn(DOWNLOAD_SIGN_IN).then(signedIn => { if (signedIn) { toMedia(); void downloadRef.current?.(); } });
     } };
-    return { kind: 'download', run: () => { void downloadRef.current?.().then(started => { if (started) toMedia(); }); } };
+    return { kind: 'download', run: () => { toMedia(); void downloadRef.current?.(); } };
   })();
 
   return <>
@@ -402,7 +403,7 @@ function App() {
       {page === 'create' && <StepNav current={currentStep} onSelect={goToStep} />}
       {page === 'history' && <ProfileNav current={profileTab} onSelect={setProfileTab} />}
       {(page === 'links' || page === 'my-links') && <LinksNav current={page} onSelect={tab => { if (tab === 'links') setLinksOpened(count => count + 1); setPage(tab); }} />}
-      <div className="masthead-actions">
+      <div className={page === 'history' ? 'masthead-actions scrolls' : 'masthead-actions'}>
         {page === 'create' && buffer && <button type="button" className="link-button" onClick={() => setAskingStartOver(true)}>Start over</button>}
         {page === 'create' && <button type="button" className="link-button" onClick={() => setPage('links')}>Smart links</button>}
         {page !== 'create' && <Button variant="secondary" onClick={() => setPage('create')}><ArrowLeftIcon aria-hidden="true" className="size-4" />Create</Button>}
@@ -429,7 +430,7 @@ function App() {
       onFewer={() => { if (tooMany) setChosenLimit({ have: tooMany.have, free: tooMany.free }); setTooMany(null); setCartOpen(true); }} />
     {download.message && <DownloadNotice message={download.message} onDismiss={download.dismiss} />}
     {IS_ALIGNMENT_STAGING && !accessToken && <StagingAccess onAccess={setAccessToken} />}
-    {page !== 'create' && <Suspense fallback={page === 'links' ? <LinksSkeleton /> : null}><ProfilePage key={page === 'links' ? `links-${linksOpened}` : page} page={page} tab={profileTab} progress={download.progress} delivered={delivered} onNavigate={setPage} /></Suspense>}
+    {page !== 'create' && <Suspense fallback={page === 'links' ? <LinksSkeleton /> : null}><ProfilePage key={page === 'links' ? `links-${linksOpened}` : page} page={page} tab={profileTab} delivered={delivered} onNavigate={setPage} /></Suspense>}
     {/* The work stays exactly as it was while a page of the account is open: hidden, but still laid out, so its drawings are not cleared and redrawn. */}
     <div className={page === 'create' ? 'contents' : 'invisible fixed inset-0 overflow-hidden'} inert={page !== 'create'}>
     {!inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center' : 'desktop trim'}>

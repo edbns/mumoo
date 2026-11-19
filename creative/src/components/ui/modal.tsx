@@ -327,6 +327,8 @@ export type ModalProps = {
   footer?: React.ReactNode;
   /** The content is its own card: the popup adds only the backdrop, a hidden title and the close button. */
   bare?: boolean;
+  /** The title is for screen readers only: the content says enough on its own. */
+  hideTitle?: boolean;
   closeLabel?: string;
   showClose?: boolean;
   closeOnEscape?: boolean;
@@ -347,6 +349,7 @@ export function Modal({
   children,
   footer,
   bare = false,
+  hideTitle = false,
   closeLabel = "Close dialog",
   showClose = true,
   closeOnEscape = true,
@@ -455,7 +458,7 @@ export function Modal({
               <div className="min-w-0 flex-1">
                 <h2
                   id={titleId}
-                  className="text-lg font-semibold tracking-[-0.01em] text-foreground"
+                  className={hideTitle ? "sr-only" : "text-lg font-semibold tracking-[-0.01em] text-foreground"}
                 >
                   {title}
                 </h2>

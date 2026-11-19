@@ -6,7 +6,6 @@ import { useEffect, useRef } from 'react';
 import { EmptyState } from './account-section';
 import type { CartItem } from './cart';
 import type { TooMany } from './credit-events';
-import { RenderProgress } from './render-progress';
 import type { DownloadMessage, DownloadProgress } from './use-cart-download';
 
 export type CartLine = {
@@ -57,7 +56,9 @@ export function ChosenBar({ count, progress, onOpen }: { count: number; progress
             initial={{ scale: 0.92 }} animate={{ scale: 1 }} transition={{ type: 'spring', visualDuration: 0.25, bounce: 0.45 }}>
             {chosenLabel(count)}
           </motion.button></li>}
-          {progress && <li><button type="button" onClick={onOpen} className="tabular-nums">{progress.label} {progress.percent}%</button></li>}
+          {progress && <li><button type="button" onClick={onOpen} className="tabular-nums">
+            <span aria-hidden="true" className="chosen-bar-dot" />{progress.label} {progress.percent}%
+          </button></li>}
         </ol>
       </motion.nav>}
     </AnimatePresence>
@@ -103,7 +104,6 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
             <span className="text-sm text-muted-foreground">{title}</span>
           </li>)}
         </ul>}
-      {progress && <RenderProgress progress={progress} note="This can take a few minutes. You can close this and keep creating." />}
       {lines.length > 0 && <div className="mt-auto flex flex-col gap-3 pt-2">
         <p className="m-0 flex justify-between text-sm"><span>Total</span><strong>{ready.length} {ready.length === 1 ? 'credit' : 'credits'}</strong></p>
         {limit && excess > 0 && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-3 text-sm text-foreground">
@@ -111,9 +111,7 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
           out {videos(excess)} with the × so only {limit.have} {limit.have === 1 ? 'is' : 'are'} left, then make {limit.have === 1 ? 'it' : 'them'}.
         </p>}
         {action.kind === 'download' && <>
-          <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>
-            Make {ready.length === 1 ? 'video' : `${ready.length} videos`}
-          </Button>
+          <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>Create</Button>
           {busy && <p className="hint">We’re working on it. You can keep making other visuals in the meantime.</p>}
         </>}
         {action.kind === 'go' && <>

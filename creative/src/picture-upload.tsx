@@ -90,9 +90,7 @@ export function PictureUpload({ uploads, token, onChange }: {
       <UploadIcon aria-hidden="true" className="-ms-1 size-4 opacity-60" />
       Upload
     </Button>
-    <Modal open={open} onClose={() => setOpen(false)}
-      title="Use your own photos or videos"
-      description={`Pick up to ${MAX_SHELF_PICTURES} at once — each creative uses one of them. By uploading you confirm you own the rights. Videos/GIFs skip the ones that need a photo.`}>
+    <Modal open={open} onClose={() => setOpen(false)} title="Upload your photos or videos" hideTitle>
       {uploads.signedIn
         ? <div className="flex flex-col gap-3">
           <FileDropzone
@@ -102,6 +100,7 @@ export function PictureUpload({ uploads, token, onChange }: {
           hint="JPG, PNG, WebP, MP4, MOV, WebM or GIF"
           buttonLabel="Select files"
           inputLabel="Picture files"
+          note="Only upload media you own."
           onSelectMany={files => void pick(files)}
           />
           {IS_ALIGNMENT_STAGING && token && !sending && <PhoneUpload token={token} kind="picture" onFiles={files => void pick(files)} />}

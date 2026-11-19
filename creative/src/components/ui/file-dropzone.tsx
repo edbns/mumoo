@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { useFileUpload } from '@/components/ui/file-dropzone-utils/use-file-upload'
 
 /** The "File Dropzone" from 21st.dev, for one file (or several, with `onSelectMany`): drop it or pick it, and a chosen file (when the page keeps one) shows in the same place. */
-export function FileDropzone({ accept, icon: Icon, title, hint, buttonLabel, inputLabel, removeLabel, fileName, onSelect, onSelectMany, onRemove }: {
+export function FileDropzone({ accept, icon: Icon, title, hint, buttonLabel, inputLabel, note, removeLabel, fileName, onSelect, onSelectMany, onRemove }: {
   accept: string
   icon: LucideIcon
   title: string
@@ -15,6 +15,8 @@ export function FileDropzone({ accept, icon: Icon, title, hint, buttonLabel, inp
   hint: string
   buttonLabel: string
   inputLabel: string
+  /** A small line under the button. */
+  note?: string
   /** The file that is chosen right now, if the page keeps one; then `removeLabel` and `onRemove` let it be taken away. */
   fileName?: string
   removeLabel?: string
@@ -54,6 +56,7 @@ export function FileDropzone({ accept, icon: Icon, title, hint, buttonLabel, inp
                   <UploadIcon aria-hidden="true" className="-ms-1 size-4 opacity-60" />
                   {buttonLabel}
                 </Button>
+                {note && <p className="text-muted-foreground mt-2 text-xs">{note}</p>}
               </>
             )}
           </div>

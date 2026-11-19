@@ -18,10 +18,12 @@ const chosenPage = (count, limit) => renderToStaticMarkup(createElement(panel.Ca
 test('making only the free video: the chosen videos page says how many to take out, and Make waits until they are', () => {
   const over = chosenPage(3, { have: 1, free: true });
   assert.match(over, /You can make 1 video free\. Take\s+out 2 videos with the × so only 1 is left, then make it\./);
-  assert.match(over, /<button[^>]*disabled=""[^>]*>Make 3 videos/);
+  assert.match(over, /<button[^>]*disabled=""[^>]*>Create<\/button>/);
   const fits = chosenPage(1, { have: 1, free: true });
   assert.doesNotMatch(fits, /Take\s+out/);
-  assert.doesNotMatch(fits, /<button[^>]*disabled=""[^>]*>Make video/);
+  assert.doesNotMatch(fits, /<button[^>]*disabled=""[^>]*>Create/);
+  assert.match(fits, />Create<\/button>/);
+  assert.doesNotMatch(fits, /role="progressbar"|progress/i);
 });
 
 test('making only what the credits cover says how many credits there are', () => {
@@ -77,4 +79,34 @@ test('the free video is offered only while it is still to come, and the way to m
   // No placeholder holding the button's room: with the free video used the cards sit right under the text from the start.
   assert.match(read('pricing-page.tsx'), /\{freeLeft && <Button className="mt-2"/);
   assert.doesNotMatch(read('pricing-page.tsx'), /invisible/);
+});
+
+test('Create goes straight to Media, where the bottom bar blinks beside the percentage and the actions scroll away', () => {
+  const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
+  const main = read('main.tsx');
+  assert.match(main, /return \{ kind: 'download', run: \(\) => \{ toMedia\(\); void downloadRef\.current\?\.\(\); \} \};/);
+  assert.match(main, /if \(signedIn\) \{ toMedia\(\); void downloadRef\.current\?\.\(\); \}/);
+  assert.match(main, /page === 'history' \? 'masthead-actions scrolls'/);
+  assert.doesNotMatch(read('history-page.tsx'), /RenderProgress/);
+  assert.doesNotMatch(read('cart-panel.tsx'), /RenderProgress/);
+  assert.match(read('cart-panel.tsx'), /className="chosen-bar-dot"/);
+  const css = read('styles/shell.css');
+  assert.match(css, /\.masthead-actions\.scrolls \{ position: absolute; \}/);
+  assert.match(css, /prefers-reduced-motion: reduce\) \{ \.chosen-bar-dot \{ animation: none; \}/);
+});
+
+test('the upload popup has no title or long text, only a small line under Select files', () => {
+  const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
+  const upload = read('picture-upload.tsx');
+  assert.doesNotMatch(upload, /Use your own photos or videos|Pick up to/);
+  assert.match(upload, /hideTitle/);
+  assert.match(upload, /note="Only upload media you own\."/);
+  assert.doesNotMatch(read('analyzing-screen.tsx'), /minute or two/);
+});
+
+test('while videos are made the bottom bar shows a blinking dot and the percentage, and nothing else', () => {
+  const bar = progress => renderToStaticMarkup(createElement(panel.ChosenBar, { count: 0, progress, onOpen: () => {} }));
+  const making = bar({ label: 'Making your videos', percent: 42 });
+  assert.match(making, /<span aria-hidden="true" class="chosen-bar-dot"><\/span>Making your videos 42%/);
+  assert.doesNotMatch(bar(null), /chosen-bar-dot/);
 });
