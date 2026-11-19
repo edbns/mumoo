@@ -25,8 +25,8 @@ Still to do:
 ## 3. Payments (last)
 - Done: cost analysis (19 Nov, measured on Modal staging 12–19 Nov; canvas "mumoo cost analysis"). One video, everything included: rendering 3.6¢, reading its song 7¢ shared by every video of that song (lyric meaning 5.8¢, lyrics 0.8¢, music and sound print 0.4¢), a year in Media 0.14¢, app load, email and functions about 0.13¢; so 10.9¢ when the song is read for one video, 6.2¢ at three videos per song, plus about 1¢ of fixed costs at 1,000 videos a month (Netlify, Resend, Neon, R2, domain, Polar's payout: about $14–60 a month). After lowering the lyric meaning `scaledown_window` from 120 to about 20 s, reading a song costs about 3¢ (4.9¢ a video at three per song). Payments are Polar, not Lemon Squeezy. On Polar Starter (5% + 50¢, +1.5% outside the US, Stripe payout about 1.25%) we keep $4.12 / $17.97 / $45.67 of $5 / $20 / $50; Early Member (4% + 40¢, only for organisations created before 27 May 2026) keeps $4.27 / $18.27 / $46.26. New plan from the artist: only $5, $20 and $50, 1 credit = 1 video, aggressive. Proposal: 20 / 100 / 300 videos (25¢ / 20¢ / 17¢ a video), which still earns in the worst case (42% / 34% / 22% margin; 72% / 67% / 61% typical). To decide: the counts, whether signed-out visitors may read songs, and the GPU fix before launch.
 - Polar: the Purchase Credits popup (5 / 20 / 50 USD, 1 credit = 1 video) goes to checkout.
-- Decide the real number of tokens in each pack (now placeholders: 50 / 110 / 180).
-- A webhook adds the tokens and writes the invoice; the real `/api/invoices` and the token balance come from it.
+- Decide how many videos each pack gives (proposed 20 / 100 / 300; the app's placeholders still say 50 / 110 / 180 tokens).
+- A Polar webhook adds the credits and writes the invoice; the real `/api/invoices` and the credit balance come from it.
 
 ## 4. Smaller things
 - Done: real `/terms` and `/privacy` pages (see "legal pages" below).
