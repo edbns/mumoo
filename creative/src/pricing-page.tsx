@@ -1,4 +1,4 @@
-import { CheckIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Button } from '@/components/ui/button';
@@ -107,27 +107,26 @@ function PricingPage() {
         <p className="m-0 text-center text-xs text-muted-foreground">Prices in US dollars. Tax added at checkout where it applies.</p>
       </div>
 
-      <div className="grid gap-10 md:grid-cols-2">
-        <div className="flex flex-col gap-4">
-          <h2 className="m-0 text-lg font-semibold">Every video comes with</h2>
-          <ul className="m-0 flex list-none flex-col gap-3 p-0">
-            {INCLUDED.map(line => <li key={line} className="flex items-start gap-3 text-sm text-muted-foreground">
-              <CheckIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />{line}
-            </li>)}
-          </ul>
-          <p className="m-0 text-sm text-muted-foreground">Smart links for your songs are free, no credits needed.</p>
-        </div>
-        <div className="flex flex-col gap-4">
-          <h2 className="m-0 text-lg font-semibold">Questions</h2>
-          <dl className="m-0 flex flex-col divide-y divide-border border-y border-border">
-            {QUESTIONS.map(({ q, a }) => <div key={q} className="flex flex-col gap-1 py-4">
-              <dt className="text-sm font-medium text-foreground">{q}</dt>
-              <dd className="m-0 text-sm text-muted-foreground">{a}</dd>
-            </div>)}
-          </dl>
-          <p className="m-0 text-xs text-muted-foreground">
-            See the <a href="/terms" className="underline underline-offset-4 hover:text-foreground">Terms</a> and <a href="/refunds" className="underline underline-offset-4 hover:text-foreground">Refund policy</a>. Anything else: <a href="mailto:moo@mumoo.app" className="underline underline-offset-4 hover:text-foreground">moo@mumoo.app</a>.
-          </p>
+      <div className="flex flex-col items-center gap-4 text-center">
+        <h2 className="m-0 text-lg font-semibold">Every video comes with</h2>
+        <ul className="m-0 flex list-none flex-col items-center gap-3 p-0">
+          {INCLUDED.map(line => <li key={line} className="flex items-start gap-3 text-sm text-muted-foreground">
+            <CheckIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />{line}
+          </li>)}
+        </ul>
+        <p className="m-0 text-sm text-muted-foreground">Smart links for your songs are free, no credits needed.</p>
+      </div>
+
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+        <h2 className="m-0 text-center text-lg font-semibold text-balance">Everything you need to know about making a video with MUMOO</h2>
+        <div className="flex flex-col divide-y divide-border border-y border-border">
+          {QUESTIONS.map(({ q, a }) => <details key={q} className="group">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-4 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
+              {q}
+              <ChevronDownIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+            </summary>
+            <p className="m-0 pb-4 text-sm text-muted-foreground">{a}</p>
+          </details>)}
         </div>
       </div>
     </main>

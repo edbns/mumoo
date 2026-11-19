@@ -416,9 +416,9 @@ function App() {
     {/* Asked wherever the creator is when the guess arrives, until the creatives are shown; closing it is "not sure". */}
     <Modal open={page === 'create' && styleGuess.status === 'asking' && stage !== 'revealed'} onClose={() => answerGuess('unsure')}
       title={styleGuess.status === 'asking' ? <>Sounds like {capitalised(styleGuess.style.name)}</> : ''}
-      description="That right? Helps MUMOO learn your music." closeLabel="Not sure">
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="secondary" onClick={() => answerGuess('unsure')}>Not sure</Button>
+      closeLabel="Maybe">
+      <div className="grid grid-cols-3 gap-3">
+        <Button variant="secondary" onClick={() => answerGuess('unsure')}>Maybe</Button>
         <Button variant="secondary" onClick={() => answerGuess('no')}>No</Button>
         <Button onClick={() => answerGuess('yes')}>Yes</Button>
       </div>

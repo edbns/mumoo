@@ -581,7 +581,7 @@
  "99": {
   "text": "Close dialog",
   "places": [
-   "src/components/ui/modal.tsx:350"
+   "src/components/ui/modal.tsx:353"
   ]
  },
  "100": {
@@ -726,248 +726,248 @@
  "123": {
   "text": "Checking your account…",
   "places": [
-   "src/main.tsx:390"
+   "src/main.tsx:391"
   ]
  },
  "124": {
   "text": "MUMOO",
   "places": [
-   "src/main.tsx:400"
+   "src/main.tsx:401"
   ]
  },
  "125": {
   "text": "Back to Create",
   "places": [
-   "src/main.tsx:401"
+   "src/main.tsx:402"
   ]
  },
  "126": {
   "text": "Start over",
   "places": [
-   "src/main.tsx:406"
+   "src/main.tsx:407"
   ]
  },
  "127": {
   "text": "Smart links",
   "places": [
-   "src/main.tsx:407"
+   "src/main.tsx:408"
   ]
  },
  "128": {
   "text": "Create",
   "places": [
-   "src/main.tsx:408"
+   "src/main.tsx:409"
   ]
  },
  "129": {
   "text": "Start over with another song?",
   "places": [
-   "src/main.tsx:412"
+   "src/main.tsx:413"
   ]
  },
  "130": {
   "text": "Song and lyrics cleared. Chosen videos stay, pictures stay in History.",
   "places": [
-   "src/main.tsx:413"
+   "src/main.tsx:414"
   ]
  },
  "131": {
   "text": "Keep this song",
   "places": [
-   "src/main.tsx:414"
+   "src/main.tsx:415"
   ]
  },
  "132": {
   "text": "Sounds like {capitalised}",
   "places": [
-   "src/main.tsx:417"
+   "src/main.tsx:418"
   ]
  },
  "133": {
-  "text": "That right? Helps MUMOO learn your music.",
+  "text": "Maybe",
   "places": [
-   "src/main.tsx:418"
+   "src/main.tsx:419"
   ]
  },
  "134": {
-  "text": "Not sure",
-  "places": [
-   "src/main.tsx:418"
-  ]
- },
- "135": {
   "text": "No",
-  "places": [
-   "src/main.tsx:421"
-  ]
- },
- "136": {
-  "text": "Yes",
   "places": [
    "src/main.tsx:422"
   ]
  },
- "137": {
+ "135": {
+  "text": "Yes",
+  "places": [
+   "src/main.tsx:423"
+  ]
+ },
+ "136": {
   "text": "MUSIC",
   "places": [
-   "src/main.tsx:437"
+   "src/main.tsx:438"
+  ]
+ },
+ "137": {
+  "text": "YOUR CLIP",
+  "places": [
+   "src/main.tsx:438"
   ]
  },
  "138": {
-  "text": "YOUR CLIP",
-  "places": [
-   "src/main.tsx:437"
-  ]
- },
- "139": {
   "text": "Pick your 15 seconds",
   "places": [
-   "src/main.tsx:438",
+   "src/main.tsx:439",
    "src/waveform.tsx:57"
   ]
  },
- "140": {
+ "139": {
   "text": "Drop the song file to start.{…}",
   "places": [
-   "src/main.tsx:446"
+   "src/main.tsx:447"
+  ]
+ },
+ "140": {
+  "text": "First creative is free.",
+  "places": [
+   "src/main.tsx:447"
   ]
  },
  "141": {
-  "text": "First creative is free.",
+  "text": "Not this song",
   "places": [
-   "src/main.tsx:446"
+   "src/main.tsx:449"
   ]
  },
  "142": {
-  "text": "Not this song",
+  "text": "Drop your song here",
   "places": [
-   "src/main.tsx:448"
+   "src/main.tsx:452"
   ]
  },
  "143": {
-  "text": "Drop your song here",
+  "text": "Select song",
   "places": [
-   "src/main.tsx:451"
+   "src/main.tsx:452"
   ]
  },
  "144": {
-  "text": "Select song",
+  "text": "Song file",
   "places": [
-   "src/main.tsx:451"
+   "src/main.tsx:452"
   ]
  },
  "145": {
-  "text": "Song file",
+  "text": "Remove song",
   "places": [
-   "src/main.tsx:451"
+   "src/main.tsx:452"
   ]
  },
  "146": {
-  "text": "Remove song",
+  "text": "Needs to be at least 15 seconds. No song file? A video with the song playing works too (saved TikTok/Reel, screen recording, voice memo).",
   "places": [
-   "src/main.tsx:451"
+   "src/main.tsx:455"
   ]
  },
  "147": {
-  "text": "Needs to be at least 15 seconds. No song file? A video with the song playing works too (saved TikTok/Reel, screen recording, voice memo).",
+  "text": "What kind of music is it?",
   "places": [
-   "src/main.tsx:454"
+   "src/main.tsx:459"
   ]
  },
  "148": {
-  "text": "What kind of music is it?",
+  "text": "Not sure",
   "places": [
-   "src/main.tsx:458"
+   "src/main.tsx:459"
   ]
  },
  "149": {
   "text": "Type a style: afrobeats, slap house, drill…",
   "places": [
-   "src/main.tsx:458"
+   "src/main.tsx:459"
   ]
  },
  "150": {
   "text": "Type a style, or just say you don’t know.",
   "places": [
-   "src/main.tsx:459"
+   "src/main.tsx:460"
   ]
  },
  "151": {
   "text": "Loading styles…",
   "places": [
-   "src/main.tsx:459"
+   "src/main.tsx:460"
   ]
  },
  "152": {
   "text": "{…}I don’t know",
   "places": [
-   "src/main.tsx:461"
+   "src/main.tsx:462"
   ]
  },
  "153": {
   "text": "We’ll go by the sound and the lyrics.",
   "places": [
-   "src/main.tsx:465"
+   "src/main.tsx:466"
   ]
  },
  "154": {
   "text": "Get my free video",
   "places": [
-   "src/main.tsx:469"
+   "src/main.tsx:470"
   ]
  },
  "155": {
   "text": "Continue",
   "places": [
-   "src/main.tsx:469"
+   "src/main.tsx:470"
   ]
  },
  "156": {
   "text": "Changed your mind?",
   "places": [
-   "src/main.tsx:475"
+   "src/main.tsx:476"
   ]
  },
  "157": {
   "text": "Add lyrics instead",
   "places": [
-   "src/main.tsx:476"
+   "src/main.tsx:477"
   ]
  },
  "158": {
   "text": "Back",
   "places": [
-   "src/main.tsx:486"
+   "src/main.tsx:487"
   ]
  },
  "159": {
   "text": "Sync your edits first.",
   "places": [
-   "src/main.tsx:487"
+   "src/main.tsx:488"
   ]
  },
  "160": {
   "text": "My song has no lyrics",
   "places": [
-   "src/main.tsx:488"
+   "src/main.tsx:489"
   ]
  },
  "161": {
   "text": "Pick a valid 15-second range inside the song.",
   "places": [
-   "src/main.tsx:492"
+   "src/main.tsx:493"
   ]
  },
  "162": {
   "text": "Open MUMOO on desktop",
   "places": [
-   "src/main.tsx:532"
+   "src/main.tsx:533"
   ]
  },
  "163": {
   "text": "Use desktop to time lyrics and preview.",
   "places": [
-   "src/main.tsx:532"
+   "src/main.tsx:533"
   ]
  },
  "164": {
@@ -1536,2770 +1536,2716 @@
   ]
  },
  "258": {
-  "text": "Takes a minute or two.",
-  "places": [
-   "src/analyzing-screen.tsx:118"
-  ]
- },
- "259": {
   "text": "Uplifting/Energetic",
   "places": [
    "src/music-intent.ts:5"
   ]
  },
- "260": {
+ "259": {
   "text": "Ambient/Mellow",
   "places": [
    "src/music-intent.ts:7"
   ]
  },
- "261": {
+ "260": {
   "text": "Dark/Cinematic",
   "places": [
    "src/music-intent.ts:8"
   ]
  },
- "262": {
+ "261": {
   "text": "{title}: no approved photos for this yet. Sign in (top right) to use your own.",
   "places": [
-   "src/creatives-pack-studio.tsx:273"
+   "src/creatives-pack-studio.tsx:275"
+  ]
+ },
+ "262": {
+  "text": "{title}: no approved photos yet. Upload a photo{…} to see it.",
+  "places": [
+   "src/creatives-pack-studio.tsx:275"
   ]
  },
  "263": {
-  "text": "{title}: no approved photos yet. Upload a photo{…} to see it.",
+  "text": "{title} uses our library photos and none fit this song yet. Upload your own to see it.",
   "places": [
-   "src/creatives-pack-studio.tsx:273"
+   "src/creatives-pack-studio.tsx:285"
   ]
  },
  "264": {
-  "text": "{title} uses our library photos and none fit this song yet. Upload your own to see it.",
+  "text": "One creative couldn’t be prepared.",
   "places": [
-   "src/creatives-pack-studio.tsx:283"
+   "src/creatives-pack-studio.tsx:398"
   ]
  },
  "265": {
-  "text": "One creative couldn’t be prepared.",
+  "text": "Live preview is down for a moment. Reload and try again.",
   "places": [
-   "src/creatives-pack-studio.tsx:396"
+   "src/creatives-pack-studio.tsx:432"
   ]
  },
  "266": {
-  "text": "Live preview is down for a moment. Reload and try again.",
+  "text": "Preview failed (WebGL).",
   "places": [
-   "src/creatives-pack-studio.tsx:430"
+   "src/creatives-pack-studio.tsx:450"
   ]
  },
  "267": {
-  "text": "Preview failed (WebGL).",
+  "text": "Preparing audio…",
   "places": [
-   "src/creatives-pack-studio.tsx:448"
+   "src/creatives-pack-studio.tsx:547"
   ]
  },
  "268": {
-  "text": "Preparing audio…",
+  "text": "Starting {length} creatives…",
   "places": [
-   "src/creatives-pack-studio.tsx:545"
+   "src/creatives-pack-studio.tsx:552"
   ]
  },
  "269": {
-  "text": "Starting {length} creatives…",
+  "text": "Starting your creative…",
   "places": [
-   "src/creatives-pack-studio.tsx:550"
+   "src/creatives-pack-studio.tsx:552"
   ]
  },
  "270": {
-  "text": "Starting your creative…",
+  "text": "You can pick up to {CART_LIMIT} videos. Remove one to add another.",
   "places": [
-   "src/creatives-pack-studio.tsx:550"
+   "src/creatives-pack-studio.tsx:584"
   ]
  },
  "271": {
-  "text": "Couldn’t read the lyrics, so these match the sound only.",
-  "places": [
-   "src/creatives-pack-studio.tsx:583"
-  ]
- },
- "272": {
-  "text": "You can pick up to {CART_LIMIT} videos. Remove one to add another.",
-  "places": [
-   "src/creatives-pack-studio.tsx:586"
-  ]
- },
- "273": {
-  "text": "This is just a preview. Downloads are HD.",
-  "places": [
-   "src/creatives-pack-studio.tsx:587"
-  ]
- },
- "274": {
-  "text": "No lyrics, so no lyric style on these.",
+  "text": "Lyrics",
   "places": [
    "src/creatives-pack-studio.tsx:588"
   ]
  },
- "275": {
-  "text": "Lyrics",
+ "272": {
+  "text": "Use our media",
+  "places": [
+   "src/creatives-pack-studio.tsx:590"
+  ]
+ },
+ "273": {
+  "text": "Refresh",
   "places": [
    "src/creatives-pack-studio.tsx:592"
   ]
  },
- "276": {
-  "text": "Use our media",
+ "274": {
+  "text": "Refresh all creatives",
+  "places": [
+   "src/creatives-pack-studio.tsx:592"
+  ]
+ },
+ "275": {
+  "text": "This is just a preview. Downloads are HD.",
   "places": [
    "src/creatives-pack-studio.tsx:594"
   ]
  },
- "277": {
-  "text": "Refresh",
+ "276": {
+  "text": "Your {length} videos or GIFs get shared across templates that can use them. Dust and Depth need a photo.",
   "places": [
-   "src/creatives-pack-studio.tsx:596"
+   "src/creatives-pack-studio.tsx:597"
+  ]
+ },
+ "277": {
+  "text": "Your {length} pictures get shared across templates that use photos.",
+  "places": [
+   "src/creatives-pack-studio.tsx:597"
   ]
  },
  "278": {
-  "text": "Refresh all creatives",
+  "text": "Your video or GIF shows on templates that can use one. Dust and Depth need a photo.",
   "places": [
-   "src/creatives-pack-studio.tsx:596"
+   "src/creatives-pack-studio.tsx:598"
   ]
  },
  "279": {
-  "text": "Your {length} videos or GIFs get shared across templates that can use them. Dust and Depth need a photo.",
+  "text": "Your photo shows on templates that use pictures.",
   "places": [
-   "src/creatives-pack-studio.tsx:600"
+   "src/creatives-pack-studio.tsx:598"
   ]
  },
  "280": {
-  "text": "Your {length} pictures get shared across templates that use photos.",
+  "text": "Approve your synced lyrics, or turn Lyrics off.",
   "places": [
-   "src/creatives-pack-studio.tsx:600"
+   "src/creatives-pack-studio.tsx:599"
   ]
  },
  "281": {
-  "text": "Your video or GIF shows on templates that can use one. Dust and Depth need a photo.",
+  "text": "creatives-pack-card{…}{…}",
   "places": [
-   "src/creatives-pack-studio.tsx:601"
+   "src/creatives-pack-studio.tsx:609"
   ]
  },
  "282": {
-  "text": "Your photo shows on templates that use pictures.",
+  "text": "{title} creative, {…}",
   "places": [
-   "src/creatives-pack-studio.tsx:601"
+   "src/creatives-pack-studio.tsx:622"
   ]
  },
  "283": {
-  "text": "Approve your synced lyrics, or turn Lyrics off.",
+  "text": "{…} {title} creative",
   "places": [
-   "src/creatives-pack-studio.tsx:602"
+   "src/creatives-pack-studio.tsx:629"
   ]
  },
  "284": {
-  "text": "creatives-pack-card{…}{…}",
+  "text": "Pause",
   "places": [
-   "src/creatives-pack-studio.tsx:612"
+   "src/creatives-pack-studio.tsx:629"
   ]
  },
  "285": {
-  "text": "{title} creative, {…}",
+  "text": "Play",
   "places": [
-   "src/creatives-pack-studio.tsx:625"
+   "src/creatives-pack-studio.tsx:629"
   ]
  },
  "286": {
-  "text": "{…} {title} creative",
+  "text": "Back",
   "places": [
-   "src/creatives-pack-studio.tsx:632"
+   "src/creatives-pack-studio.tsx:641"
   ]
  },
  "287": {
-  "text": "Pause",
-  "places": [
-   "src/creatives-pack-studio.tsx:632"
-  ]
- },
- "288": {
-  "text": "Play",
-  "places": [
-   "src/creatives-pack-studio.tsx:632"
-  ]
- },
- "289": {
-  "text": "Back",
-  "places": [
-   "src/creatives-pack-studio.tsx:644"
-  ]
- },
- "290": {
   "text": "Sending your media",
   "places": [
    "src/picture-upload.tsx:14"
   ]
  },
- "291": {
+ "288": {
   "text": "Getting it ready",
   "places": [
    "src/picture-upload.tsx:15"
   ]
  },
- "292": {
+ "289": {
   "text": "Almost there",
   "places": [
    "src/picture-upload.tsx:16"
   ]
  },
- "293": {
+ "290": {
   "text": "Sending {…} of {total}",
   "places": [
    "src/picture-upload.tsx:24"
   ]
  },
- "294": {
+ "291": {
   "text": "Preparing in the cloud",
   "places": [
    "src/picture-upload.tsx:25"
   ]
  },
- "295": {
+ "292": {
   "text": "Creatives use your media once everything’s here. Don’t close this window.",
   "places": [
    "src/picture-upload.tsx:27"
   ]
  },
- "296": {
+ "293": {
   "text": "Your uploads",
   "places": [
    "src/picture-upload.tsx:38"
   ]
  },
- "297": {
+ "294": {
   "text": "Or use your uploads",
   "places": [
    "src/picture-upload.tsx:40"
   ]
  },
- "298": {
+ "295": {
   "text": "{length} of {MAX_SHELF_PICTURES}",
   "places": [
    "src/picture-upload.tsx:41"
   ]
  },
- "299": {
+ "296": {
   "text": "Video",
   "places": [
    "src/picture-upload.tsx:48"
   ]
  },
- "300": {
+ "297": {
   "text": "Photo",
   "places": [
    "src/picture-upload.tsx:48"
   ]
  },
- "301": {
+ "298": {
   "text": "Use {…}",
   "places": [
    "src/picture-upload.tsx:61"
   ]
  },
- "302": {
+ "299": {
   "text": "these {length}",
   "places": [
    "src/picture-upload.tsx:61"
   ]
  },
- "303": {
+ "300": {
   "text": "Pick one or more",
   "places": [
    "src/picture-upload.tsx:61"
   ]
  },
- "304": {
+ "301": {
   "text": "Upload",
   "places": [
    "src/picture-upload.tsx:89"
   ]
  },
- "305": {
-  "text": "Use your own photos or videos",
+ "302": {
+  "text": "Upload your photos or videos",
   "places": [
-   "src/picture-upload.tsx:94"
+   "src/picture-upload.tsx:93"
   ]
  },
- "306": {
-  "text": "Pick up to {MAX_SHELF_PICTURES} at once — each creative uses one of them. By uploading you confirm you own the rights. Videos/GIFs skip the ones that need a photo.",
-  "places": [
-   "src/picture-upload.tsx:95"
-  ]
- },
- "307": {
+ "303": {
   "text": "Drop up to {MAX_SHELF_PICTURES} photos, videos or GIFs here",
+  "places": [
+   "src/picture-upload.tsx:99"
+  ]
+ },
+ "304": {
+  "text": "JPG, PNG, WebP, MP4, MOV, WebM or GIF",
+  "places": [
+   "src/picture-upload.tsx:100"
+  ]
+ },
+ "305": {
+  "text": "Select files",
   "places": [
    "src/picture-upload.tsx:101"
   ]
  },
- "308": {
-  "text": "JPG, PNG, WebP, MP4, MOV, WebM or GIF",
+ "306": {
+  "text": "Picture files",
   "places": [
    "src/picture-upload.tsx:102"
   ]
  },
- "309": {
-  "text": "Select files",
+ "307": {
+  "text": "Only upload media you own.",
   "places": [
    "src/picture-upload.tsx:103"
   ]
  },
- "310": {
-  "text": "Picture files",
-  "places": [
-   "src/picture-upload.tsx:104"
-  ]
- },
- "311": {
+ "308": {
   "text": "Sign in (top right) to use your own pictures.",
   "places": [
-   "src/picture-upload.tsx:110"
+   "src/picture-upload.tsx:109"
   ]
  },
- "312": {
+ "309": {
   "text": "Couldn’t read that photo.",
   "places": [
    "src/photo-shrink.ts:7"
   ]
  },
- "313": {
+ "310": {
   "text": "Couldn’t prepare that photo.",
   "places": [
    "src/photo-shrink.ts:13"
   ]
  },
- "314": {
+ "311": {
   "text": "Couldn’t send that file. Try again.",
   "places": [
    "src/uploads.ts:71"
   ]
  },
- "315": {
+ "312": {
   "text": "Couldn’t send the file. Check your connection and try again.",
   "places": [
    "src/uploads.ts:72"
   ]
  },
- "316": {
+ "313": {
   "text": "Videos can be up to {MAX_SECONDS} seconds.",
   "places": [
    "src/uploads.ts:79"
   ]
  },
- "317": {
+ "314": {
   "text": "That photo is bigger than 25 MB.",
   "places": [
    "src/uploads.ts:100"
   ]
  },
- "318": {
+ "315": {
   "text": "Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.",
   "places": [
    "src/uploads.ts:105"
   ]
  },
- "319": {
+ "316": {
   "text": "That {…} is bigger than {…} MB.",
   "places": [
    "src/uploads.ts:106"
   ]
  },
- "320": {
+ "317": {
   "text": "GIF",
   "places": [
    "src/uploads.ts:106"
   ]
  },
- "321": {
+ "318": {
   "text": "Couldn’t prepare that file. Try another.",
   "places": [
    "src/use-uploads.ts:41"
   ]
  },
- "322": {
+ "319": {
   "text": "Your pictures are unavailable right now.",
   "places": [
    "src/use-uploads.ts:51"
   ]
  },
- "323": {
+ "320": {
   "text": "You already have {MAX_SHELF_PICTURES} of your own pictures. Start over to use others.",
   "places": [
    "src/use-uploads.ts:79"
   ]
  },
- "324": {
+ "321": {
   "text": "Couldn’t add that file.",
   "places": [
    "src/use-uploads.ts:95"
   ]
  },
- "325": {
+ "322": {
   "text": "Only {MAX_SHELF_PICTURES} of your own pictures at once, so {left} {…} left out.",
   "places": [
    "src/use-uploads.ts:103"
   ]
  },
- "326": {
+ "323": {
   "text": "{what} couldn’t be loaded{…}. Reload the page or go back to our photos.",
   "places": [
    "src/pack-renderer.ts:125"
   ]
  },
- "327": {
+ "324": {
   "text": "Picture for this Window couldn’t load. Reload the page.",
   "places": [
    "src/pack-renderer.ts:399"
   ]
  },
- "328": {
+ "325": {
   "text": "Reload the page and try again.",
   "places": [
    "src/pack-cloud-export.ts:89"
   ]
  },
- "329": {
+ "326": {
   "text": "Creatives are down for a moment. Reload and try again.",
   "places": [
    "src/pack-cloud-export.ts:90"
   ]
  },
- "330": {
+ "327": {
   "text": "Your creative didn’t start. Reload and try again.",
   "places": [
    "src/pack-cloud-export.ts:137"
   ]
  },
- "331": {
+ "328": {
   "text": "Your creative came back empty. Try again.",
   "places": [
    "src/pack-cloud-export.ts:169"
   ]
  },
- "332": {
+ "329": {
   "text": "Your creative took too long. Try again in a bit.",
   "places": [
    "src/pack-cloud-export.ts:172"
   ]
  },
- "333": {
+ "330": {
   "text": "You chose {videos}",
+  "places": [
+   "src/cart-panel.tsx:32"
+  ]
+ },
+ "331": {
+  "text": "You can only make 1 free video, or buy credits for the rest.",
   "places": [
    "src/cart-panel.tsx:33"
   ]
  },
- "334": {
-  "text": "You can only make 1 free video, or buy credits for the rest.",
+ "332": {
+  "text": "You have {have} {…}. You can only make {videos}, or buy credits for all of them.",
   "places": [
    "src/cart-panel.tsx:34"
   ]
  },
- "335": {
-  "text": "You have {have} {…}. You can only make {videos}, or buy credits for all of them.",
+ "333": {
+  "text": "Get my free video",
   "places": [
-   "src/cart-panel.tsx:35"
+   "src/cart-panel.tsx:36"
+  ]
+ },
+ "334": {
+  "text": "Make {videos}",
+  "places": [
+   "src/cart-panel.tsx:36"
+  ]
+ },
+ "335": {
+  "text": "Buy credits",
+  "places": [
+   "src/cart-panel.tsx:37"
   ]
  },
  "336": {
-  "text": "Get my free video",
+  "text": "Chosen videos",
   "places": [
-   "src/cart-panel.tsx:37"
+   "src/cart-panel.tsx:52"
   ]
  },
  "337": {
-  "text": "Make {videos}",
-  "places": [
-   "src/cart-panel.tsx:37"
-  ]
- },
- "338": {
-  "text": "Buy credits",
-  "places": [
-   "src/cart-panel.tsx:38"
-  ]
- },
- "339": {
-  "text": "Chosen videos",
-  "places": [
-   "src/cart-panel.tsx:53"
-  ]
- },
- "340": {
   "text": "Your chosen videos",
   "places": [
    "src/cart-panel.tsx:87"
   ]
  },
- "341": {
+ "338": {
   "text": "Close",
   "places": [
    "src/cart-panel.tsx:91"
   ]
  },
- "342": {
+ "339": {
   "text": "Pick the creatives you like. They stay here for this song and clip while you refresh for more.",
   "places": [
    "src/cart-panel.tsx:94"
   ]
  },
- "343": {
+ "340": {
   "text": "The picture it used isn’t available anymore.",
   "places": [
    "src/cart-panel.tsx:100"
   ]
  },
- "344": {
+ "341": {
   "text": "Remove {title}",
   "places": [
    "src/cart-panel.tsx:101"
   ]
  },
- "345": {
-  "text": "This can take a few minutes. You can close this and keep creating.",
+ "342": {
+  "text": "Total",
   "places": [
-   "src/cart-panel.tsx:106"
+   "src/cart-panel.tsx:107"
   ]
  },
- "346": {
-  "text": "Total",
+ "343": {
+  "text": "{…} Take out {videos} with the × so only {have} {…} left, then make {…}.",
   "places": [
    "src/cart-panel.tsx:108"
   ]
  },
- "347": {
-  "text": "{…} Take out {videos} with the × so only {have} {…} left, then make {…}.",
+ "344": {
+  "text": "You can make 1 video free.",
   "places": [
    "src/cart-panel.tsx:109"
   ]
  },
- "348": {
-  "text": "You can make 1 video free.",
-  "places": [
-   "src/cart-panel.tsx:110"
-  ]
- },
- "349": {
+ "345": {
   "text": "You have {have} {…}.",
   "places": [
-   "src/cart-panel.tsx:110"
+   "src/cart-panel.tsx:109"
   ]
  },
- "350": {
-  "text": "Make {…}",
+ "346": {
+  "text": "Create",
+  "places": [
+   "src/cart-panel.tsx:113"
+  ]
+ },
+ "347": {
+  "text": "We’re working on it. You can keep making other visuals in the meantime.",
   "places": [
    "src/cart-panel.tsx:114"
   ]
  },
- "351": {
-  "text": "We’re working on it. You can keep making other visuals in the meantime.",
+ "348": {
+  "text": "Go to your creatives",
   "places": [
    "src/cart-panel.tsx:117"
   ]
  },
- "352": {
-  "text": "Go to your creatives",
-  "places": [
-   "src/cart-panel.tsx:120"
-  ]
- },
- "353": {
+ "349": {
   "text": "Videos get made and downloaded from your creatives page.",
   "places": [
-   "src/cart-panel.tsx:121"
+   "src/cart-panel.tsx:118"
   ]
  },
- "354": {
+ "350": {
   "text": "download-notice {kind}",
   "places": [
-   "src/cart-panel.tsx:134"
+   "src/cart-panel.tsx:131"
   ]
  },
- "355": {
+ "351": {
   "text": "Dismiss",
   "places": [
-   "src/cart-panel.tsx:136"
+   "src/cart-panel.tsx:133"
   ]
  },
- "356": {
+ "352": {
   "text": "Couldn’t make a picture of this creative.",
   "places": [
    "src/cart.ts:121"
   ]
  },
- "357": {
+ "353": {
   "text": "Made {done} of {total}",
   "places": [
    "src/use-cart-download.ts:48"
   ]
  },
- "358": {
+ "354": {
   "text": "Making your creative…",
   "places": [
    "src/use-cart-download.ts:48"
   ]
  },
- "359": {
+ "355": {
   "text": "Getting your download ready…",
   "places": [
    "src/use-cart-download.ts:71"
   ]
  },
- "360": {
+ "356": {
   "text": "Media storage is full, so {…} downloaded to this computer instead.",
   "places": [
    "src/use-cart-download.ts:84"
   ]
  },
- "361": {
+ "357": {
   "text": "your new creative was",
   "places": [
    "src/use-cart-download.ts:84"
   ]
  },
- "362": {
+ "358": {
   "text": "Couldn’t export the creatives.",
   "places": [
    "src/use-cart-download.ts:87"
   ]
  },
- "363": {
+ "359": {
   "text": "{…} ready. {…} ({…}) and {…} still chosen: open them from the bar at the bottom to try again.",
   "places": [
    "src/use-cart-download.ts:90"
   ]
  },
- "364": {
+ "360": {
   "text": "Your creative is",
   "places": [
    "src/use-cart-download.ts:90"
   ]
  },
- "365": {
+ "361": {
   "text": "Your {count} creatives are",
   "places": [
    "src/use-cart-download.ts:90"
   ]
  },
- "366": {
+ "362": {
   "text": "{text} Your chosen videos are kept.",
   "places": [
    "src/use-cart-download.ts:106"
   ]
  },
- "367": {
+ "363": {
   "text": "Starting…",
   "places": [
    "src/use-cart-download.ts:116"
   ]
  },
- "368": {
+ "364": {
   "text": "A download that was going didn’t finish.",
   "places": [
    "src/use-cart-download.ts:134"
   ]
  },
- "369": {
+ "365": {
   "text": "Videos that were being made didn’t finish. Your chosen videos are kept — open them from the bottom bar to try again.",
   "places": [
    "src/use-cart-download.ts:135"
   ]
  },
- "370": {
+ "366": {
   "text": "Make a video",
   "places": [
    "src/purchase-credits.tsx:34"
   ]
  },
- "371": {
+ "367": {
   "text": "Thank you",
   "places": [
    "src/purchase-credits.tsx:56"
   ]
  },
- "372": {
+ "368": {
   "text": "{…} videos are in your account{…}. You now have {arrival.credits.toLocaleString} {…}.",
   "places": [
    "src/purchase-credits.tsx:57"
   ]
  },
- "373": {
+ "369": {
   "text": ", {bonus} of them from your friend’s invite",
   "places": [
    "src/purchase-credits.tsx:57"
   ]
  },
- "374": {
+ "370": {
   "text": "Receipt is on its way by email, invoice is in Invoices.",
   "places": [
    "src/purchase-credits.tsx:58"
   ]
  },
- "375": {
+ "371": {
   "text": "Payment is still on its way. Credits show up as soon as it lands. If not within an hour, email moo@mumoo.app.",
   "places": [
    "src/purchase-credits.tsx:60"
   ]
  },
- "376": {
+ "372": {
   "text": "Almost there",
   "places": [
    "src/purchase-credits.tsx:60"
   ]
  },
- "377": {
+ "373": {
   "text": "Payment received",
   "places": [
    "src/purchase-credits.tsx:63"
   ]
  },
- "378": {
+ "374": {
   "text": "Adding your credits…",
   "places": [
    "src/purchase-credits.tsx:64"
   ]
  },
- "379": {
+ "375": {
   "text": "Your purchase",
   "places": [
    "src/purchase-credits.tsx:106"
   ]
  },
- "380": {
+ "376": {
   "text": "Purchase Credits",
   "places": [
    "src/purchase-credits.tsx:109"
   ]
  },
- "381": {
+ "377": {
   "text": "One credit makes one video.",
   "places": [
    "src/purchase-credits.tsx:109"
   ]
  },
- "382": {
+ "378": {
   "text": "You’re out of credits. {…} {…}. Your chosen videos are kept.",
   "places": [
    "src/purchase-credits.tsx:113"
   ]
  },
- "383": {
+ "379": {
   "text": "This video needs",
   "places": [
    "src/purchase-credits.tsx:113"
   ]
  },
- "384": {
+ "380": {
   "text": "These {need} videos need",
   "places": [
    "src/purchase-credits.tsx:113"
   ]
  },
- "385": {
+ "381": {
   "text": "{need} videos need {need} credits and you have {have}. Buy a pack or pick fewer.",
   "places": [
    "src/purchase-credits.tsx:114"
   ]
  },
- "386": {
+ "382": {
   "text": "A friend invited you: your first pack comes with {bonus} extra videos free.",
   "places": [
    "src/purchase-credits.tsx:116"
   ]
  },
- "387": {
+ "383": {
   "text": "One-time purchase, no subscription. Credits never expire. Payment by Polar; tax added where it applies.",
   "places": [
    "src/purchase-credits.tsx:121"
   ]
  },
- "388": {
+ "384": {
   "text": "Credits are non-refundable. See Terms and Refund policy.",
   "places": [
    "src/purchase-credits.tsx:122"
   ]
  },
- "389": {
+ "385": {
   "text": "Terms",
   "places": [
    "src/purchase-credits.tsx:122"
   ]
  },
- "390": {
+ "386": {
   "text": "Refund policy",
   "places": [
    "src/purchase-credits.tsx:122"
   ]
  },
- "391": {
+ "387": {
   "text": "Credit packs",
   "places": [
    "src/components/ui/pricing-interaction.tsx:34"
   ]
  },
- "392": {
+ "388": {
   "text": "Popular",
   "places": [
    "src/components/ui/pricing-interaction.tsx:49"
   ]
  },
- "393": {
+ "389": {
   "text": "${usd} · {perVideo} a video",
   "places": [
    "src/components/ui/pricing-interaction.tsx:52"
   ]
  },
- "394": {
+ "390": {
   "text": "Opening checkout…",
   "places": [
    "src/components/ui/pricing-interaction.tsx:80"
   ]
  },
- "395": {
+ "391": {
   "text": "Buy",
   "places": [
    "src/components/ui/pricing-interaction.tsx:80"
   ]
  },
- "396": {
+ "392": {
   "text": "videos ·",
   "places": [
    "src/components/ui/pricing-interaction.tsx:80"
   ]
  },
- "397": {
+ "393": {
   "text": "USD",
   "places": [
    "src/components/ui/pricing-interaction.tsx:80"
   ]
  },
- "398": {
+ "394": {
   "text": "Browser blocked the copy. Select the link and copy it yourself.",
   "places": [
    "src/invite-friends.tsx:34"
   ]
  },
- "399": {
+ "395": {
   "text": "Make music videos with MUMOO. First pack comes with {videos} extra videos if they use my link.",
   "places": [
    "src/invite-friends.tsx:38"
   ]
  },
- "400": {
+ "396": {
   "text": "Invite friends",
   "places": [
    "src/invite-friends.tsx:43"
   ]
  },
- "401": {
+ "397": {
   "text": "Give {videos} videos, get {videos}.",
   "places": [
    "src/invite-friends.tsx:43"
   ]
  },
- "402": {
+ "398": {
   "text": "Share your link. Friend gets {videos} extra on their first pack, you get {videos} free once they pay.",
   "places": [
    "src/invite-friends.tsx:45"
   ]
  },
- "403": {
+ "399": {
   "text": "Your invite link",
   "places": [
    "src/invite-friends.tsx:49"
   ]
  },
- "404": {
+ "400": {
   "text": "Getting your link…",
   "places": [
    "src/invite-friends.tsx:49"
   ]
  },
- "405": {
+ "401": {
   "text": "Copied",
   "places": [
    "src/invite-friends.tsx:52"
   ]
  },
- "406": {
+ "402": {
   "text": "Copy",
   "places": [
    "src/invite-friends.tsx:52"
   ]
  },
- "407": {
+ "403": {
   "text": "Share your invite link",
   "places": [
    "src/invite-friends.tsx:54"
   ]
  },
- "408": {
+ "404": {
   "text": "bought a pack",
   "places": [
    "src/invite-friends.tsx:62"
   ]
  },
- "409": {
+ "405": {
   "text": "You’ve hit this month’s limit of {cap} rewarded friends. Friends who join still get their {videos} ; your rewards reset on the 1st.",
   "places": [
    "src/invite-friends.tsx:67"
   ]
  },
- "410": {
+ "406": {
   "text": "{thisMonth} of {cap} friends this month have earned you videos. Your friends always get theirs.",
   "places": [
    "src/invite-friends.tsx:68"
   ]
  },
- "411": {
+ "407": {
   "text": "Every template and look on the shelf",
   "places": [
    "src/pricing-page.tsx:17"
   ]
  },
- "412": {
+ "408": {
   "text": "Your lyrics, read and timed to the song",
   "places": [
    "src/pricing-page.tsx:18"
   ]
  },
- "413": {
+ "409": {
   "text": "Cut to the beat of your music",
   "places": [
    "src/pricing-page.tsx:19"
   ]
  },
- "414": {
+ "410": {
   "text": "Vertical 1080×1920 video, ready for Reels, TikTok and Shorts",
   "places": [
    "src/pricing-page.tsx:20"
   ]
  },
- "415": {
+ "411": {
   "text": "No watermark",
   "places": [
    "src/pricing-page.tsx:21"
   ]
  },
- "416": {
+ "412": {
   "text": "Kept in your Media, with 5 GB of room",
   "places": [
    "src/pricing-page.tsx:22"
   ]
  },
- "417": {
+ "413": {
   "text": "What is a credit?",
   "places": [
    "src/pricing-page.tsx:26"
   ]
  },
- "418": {
+ "414": {
   "text": "One credit makes one video. That’s it.",
   "places": [
    "src/pricing-page.tsx:26"
   ]
  },
- "419": {
+ "415": {
   "text": "Is it a subscription?",
   "places": [
    "src/pricing-page.tsx:27"
   ]
  },
- "420": {
+ "416": {
   "text": "Nope. Pay once, credits stay until you use them. They never expire.",
   "places": [
    "src/pricing-page.tsx:27"
   ]
  },
- "421": {
+ "417": {
   "text": "What does the first video cost?",
   "places": [
    "src/pricing-page.tsx:28"
   ]
  },
- "422": {
+ "418": {
   "text": "Nothing. Every new account gets its first video free, no watermark.",
   "places": [
    "src/pricing-page.tsx:28"
   ]
  },
- "423": {
+ "419": {
   "text": "Can I get free videos?",
   "places": [
    "src/pricing-page.tsx:29"
   ]
  },
- "424": {
+ "420": {
   "text": "Yeah. Invite friends from your account menu: they get 10 extra on their first pack, you get 10 free once they pay (up to 20 friends a month).",
   "places": [
    "src/pricing-page.tsx:29"
   ]
  },
- "425": {
+ "421": {
   "text": "Who takes the payment?",
   "places": [
    "src/pricing-page.tsx:30"
   ]
  },
- "426": {
+ "422": {
   "text": "Can I get a refund?",
   "places": [
    "src/pricing-page.tsx:31"
   ]
  },
- "427": {
+ "423": {
   "text": "Credits are non-refundable except where the law says so (like a render that fails and we can’t fix).",
   "places": [
    "src/pricing-page.tsx:31"
   ]
  },
- "428": {
+ "424": {
   "text": "Sign in to buy credits",
   "places": [
    "src/pricing-page.tsx:34"
   ]
  },
- "429": {
+ "425": {
   "text": "Your credits stay in your account.",
   "places": [
    "src/pricing-page.tsx:34"
   ]
  },
- "430": {
+ "426": {
   "text": "MUMOO",
   "places": [
    "src/pricing-page.tsx:77"
   ]
  },
- "431": {
+ "427": {
   "text": "Open MUMOO",
   "places": [
    "src/pricing-page.tsx:78"
   ]
  },
- "432": {
+ "428": {
   "text": "One credit. One video.",
   "places": [
    "src/pricing-page.tsx:82"
   ]
  },
- "433": {
+ "429": {
   "text": "Pay once, no subscription, credits never expire. First video free, no watermark.",
   "places": [
    "src/pricing-page.tsx:83"
   ]
  },
- "434": {
+ "430": {
   "text": "A friend invited you: your first pack comes with 10 extra videos free.",
   "places": [
    "src/pricing-page.tsx:86"
   ]
  },
- "435": {
+ "431": {
   "text": "Make my first video free",
   "places": [
    "src/pricing-page.tsx:87"
   ]
  },
- "436": {
+ "432": {
   "text": "Credit packs",
   "places": [
    "src/pricing-page.tsx:90"
   ]
  },
- "437": {
+ "433": {
   "text": "Popular",
   "places": [
    "src/pricing-page.tsx:94"
   ]
  },
- "438": {
+ "434": {
   "text": "Opening checkout…",
   "places": [
    "src/pricing-page.tsx:102"
   ]
  },
- "439": {
+ "435": {
   "text": "Buy {pack.videos.toLocaleString} videos",
   "places": [
    "src/pricing-page.tsx:102"
   ]
  },
- "440": {
+ "436": {
   "text": "Prices in US dollars. Tax added at checkout where it applies.",
   "places": [
    "src/pricing-page.tsx:107"
   ]
  },
- "441": {
+ "437": {
   "text": "Every video comes with",
   "places": [
-   "src/pricing-page.tsx:112"
+   "src/pricing-page.tsx:111"
   ]
  },
- "442": {
+ "438": {
   "text": "Smart links for your songs are free, no credits needed.",
   "places": [
-   "src/pricing-page.tsx:118"
+   "src/pricing-page.tsx:117"
   ]
  },
- "443": {
-  "text": "Questions",
+ "439": {
+  "text": "Everything you need to know about making a video with MUMOO",
   "places": [
    "src/pricing-page.tsx:121"
   ]
  },
- "444": {
-  "text": "See the Terms and Refund policy. Anything else: moo@mumoo.app.",
-  "places": [
-   "src/pricing-page.tsx:128"
-  ]
- },
- "445": {
-  "text": "Terms",
-  "places": [
-   "src/pricing-page.tsx:129"
-  ]
- },
- "446": {
-  "text": "Refund policy",
-  "places": [
-   "src/pricing-page.tsx:129"
-  ]
- },
- "447": {
-  "text": "moo@mumoo.app",
-  "places": [
-   "src/pricing-page.tsx:129"
-  ]
- },
- "448": {
+ "440": {
   "text": "Couldn’t prepare this picture.",
   "places": [
-   "src/history-page.tsx:47"
+   "src/history-page.tsx:45"
   ]
  },
- "449": {
+ "441": {
   "text": "Preparing…",
   "places": [
-   "src/history-page.tsx:47"
+   "src/history-page.tsx:45"
   ]
  },
- "450": {
+ "442": {
   "text": "History is unavailable right now.",
   "places": [
-   "src/history-page.tsx:86"
+   "src/history-page.tsx:84"
   ]
  },
- "451": {
+ "443": {
   "text": "Couldn’t make the zip. Download them one by one instead.",
   "places": [
-   "src/history-page.tsx:128"
+   "src/history-page.tsx:126"
   ]
  },
- "452": {
-  "text": "This can take a few minutes. They show up here when they’re ready.",
+ "444": {
+  "text": "The videos you make stay here. Download whenever you want.",
   "places": [
    "src/history-page.tsx:147"
   ]
  },
- "453": {
-  "text": "The videos you make stay here. Download whenever you want.",
+ "445": {
+  "text": "Photos, videos and GIFs you upload stay here, private to you, until you delete them.",
   "places": [
-   "src/history-page.tsx:150"
+   "src/history-page.tsx:147"
+  ]
+ },
+ "446": {
+  "text": "Clear selection",
+  "places": [
+   "src/history-page.tsx:153"
+  ]
+ },
+ "447": {
+  "text": "Select all",
+  "places": [
+   "src/history-page.tsx:153"
+  ]
+ },
+ "448": {
+  "text": "Download",
+  "places": [
+   "src/history-page.tsx:157"
+  ]
+ },
+ "449": {
+  "text": "Too many to zip at once. Download one by one.",
+  "places": [
+   "src/history-page.tsx:158"
+  ]
+ },
+ "450": {
+  "text": "Loading",
+  "places": [
+   "src/history-page.tsx:166"
+  ]
+ },
+ "451": {
+  "text": "{…} {noun} from {day}",
+  "places": [
+   "src/history-page.tsx:177"
+  ]
+ },
+ "452": {
+  "text": "Selected",
+  "places": [
+   "src/history-page.tsx:177"
+  ]
+ },
+ "453": {
+  "text": "Select",
+  "places": [
+   "src/history-page.tsx:177"
   ]
  },
  "454": {
-  "text": "Photos, videos and GIFs you upload stay here, private to you, until you delete them.",
+  "text": "Play {noun} from {day}",
   "places": [
-   "src/history-page.tsx:150"
+   "src/history-page.tsx:183"
   ]
  },
  "455": {
-  "text": "Clear selection",
+  "text": "Download {noun} from {day}",
   "places": [
-   "src/history-page.tsx:156"
+   "src/history-page.tsx:187"
   ]
  },
  "456": {
-  "text": "Select all",
+  "text": "Creative",
   "places": [
-   "src/history-page.tsx:156"
+   "src/history-page.tsx:198"
   ]
  },
  "457": {
-  "text": "Download",
+  "text": "Upload",
   "places": [
-   "src/history-page.tsx:160"
+   "src/history-page.tsx:198"
   ]
  },
  "458": {
-  "text": "Too many to zip at once. Download one by one.",
+  "text": "Delete {length} {noun}{…}?",
   "places": [
-   "src/history-page.tsx:161"
+   "src/history-page.tsx:210"
   ]
  },
  "459": {
-  "text": "Loading",
+  "text": "They’re removed from your account and storage. Can’t be undone.",
   "places": [
-   "src/history-page.tsx:169"
+   "src/history-page.tsx:211"
   ]
  },
  "460": {
-  "text": "{…} {noun} from {day}",
+  "text": "Deleting…",
   "places": [
-   "src/history-page.tsx:180"
+   "src/history-page.tsx:212"
   ]
  },
  "461": {
-  "text": "Selected",
-  "places": [
-   "src/history-page.tsx:180"
-  ]
- },
- "462": {
-  "text": "Select",
-  "places": [
-   "src/history-page.tsx:180"
-  ]
- },
- "463": {
-  "text": "Play {noun} from {day}",
-  "places": [
-   "src/history-page.tsx:186"
-  ]
- },
- "464": {
-  "text": "Download {noun} from {day}",
-  "places": [
-   "src/history-page.tsx:190"
-  ]
- },
- "465": {
-  "text": "Creative",
-  "places": [
-   "src/history-page.tsx:201"
-  ]
- },
- "466": {
-  "text": "Upload",
-  "places": [
-   "src/history-page.tsx:201"
-  ]
- },
- "467": {
-  "text": "Delete {length} {noun}{…}?",
-  "places": [
-   "src/history-page.tsx:213"
-  ]
- },
- "468": {
-  "text": "They’re removed from your account and storage. Can’t be undone.",
-  "places": [
-   "src/history-page.tsx:214"
-  ]
- },
- "469": {
-  "text": "Deleting…",
-  "places": [
-   "src/history-page.tsx:215"
-  ]
- },
- "470": {
   "text": "That didn’t work. Try again in a sec.",
   "places": [
    "src/settings-page.tsx:28"
   ]
  },
- "471": {
+ "462": {
   "text": "That’s already your email.",
   "places": [
    "src/settings-page.tsx:35"
   ]
  },
- "472": {
+ "463": {
   "text": "Your email is now {sentTo}. Everything you made is still yours.",
   "places": [
    "src/settings-page.tsx:43"
   ]
  },
- "473": {
+ "464": {
   "text": "Email",
   "places": [
    "src/settings-page.tsx:51"
   ]
  },
- "474": {
+ "465": {
   "text": "Your creatives, uploads and history stay with your account when you change email.",
   "places": [
    "src/settings-page.tsx:53"
   ]
  },
- "475": {
+ "466": {
   "text": "New email address",
   "places": [
    "src/settings-page.tsx:57"
   ]
  },
- "476": {
+ "467": {
   "text": "Send code",
   "places": [
    "src/settings-page.tsx:59"
   ]
  },
- "477": {
+ "468": {
   "text": "We sent a code to {sentTo}. Enter it to confirm.",
   "places": [
    "src/settings-page.tsx:62"
   ]
  },
- "478": {
+ "469": {
   "text": "Code from your email",
   "places": [
    "src/settings-page.tsx:63"
   ]
  },
- "479": {
+ "470": {
   "text": "Use a different email",
   "places": [
    "src/settings-page.tsx:66"
   ]
  },
- "480": {
+ "471": {
   "text": "Confirm",
   "places": [
    "src/settings-page.tsx:68"
   ]
  },
- "481": {
+ "472": {
   "text": "Delete account",
   "places": [
    "src/settings-page.tsx:85"
   ]
  },
- "482": {
+ "473": {
   "text": "Deletes your account and everything in it: creatives, pictures and history. Can’t be undone. Download what you want first.",
   "places": [
    "src/settings-page.tsx:86"
   ]
  },
- "483": {
+ "474": {
   "text": "Delete your account?",
   "places": [
    "src/settings-page.tsx:89"
   ]
  },
- "484": {
+ "475": {
   "text": "Your creatives, pictures and history get deleted for good. Can’t be undone.",
   "places": [
    "src/settings-page.tsx:90"
   ]
  },
- "485": {
+ "476": {
   "text": "Keep my account",
   "places": [
    "src/settings-page.tsx:91"
   ]
  },
- "486": {
+ "477": {
   "text": "Delete everything",
   "places": [
    "src/settings-page.tsx:91"
   ]
  },
- "487": {
+ "478": {
   "text": "Deleting…",
   "places": [
    "src/settings-page.tsx:92"
   ]
  },
- "488": {
+ "479": {
   "text": "Type {email} to confirm.",
   "places": [
    "src/settings-page.tsx:95"
   ]
  },
- "489": {
+ "480": {
   "text": "Your email, to confirm",
   "places": [
    "src/settings-page.tsx:96"
   ]
  },
- "490": {
+ "481": {
   "text": "Your email",
   "places": [
    "src/settings-page.tsx:96"
   ]
  },
- "491": {
+ "482": {
   "text": "Invoice is unavailable right now. Try again in a moment.",
   "places": [
    "src/invoices-page.tsx:26"
   ]
  },
- "492": {
+ "483": {
   "text": "Your invoices are unavailable right now.",
   "places": [
    "src/invoices-page.tsx:46"
   ]
  },
- "493": {
+ "484": {
   "text": "Invoices",
   "places": [
    "src/invoices-page.tsx:50"
   ]
  },
- "494": {
+ "485": {
   "text": "No payments yet. When you pay, each invoice shows up here with what it was for and the amount.",
   "places": [
    "src/invoices-page.tsx:55"
   ]
  },
- "495": {
+ "486": {
   "text": "Paid",
   "places": [
    "src/invoices-page.tsx:65"
   ]
  },
- "496": {
+ "487": {
   "text": "Refunded",
   "places": [
    "src/invoices-page.tsx:65"
   ]
  },
- "497": {
+ "488": {
   "text": "Download invoice {number}",
   "places": [
    "src/invoices-page.tsx:69"
   ]
  },
- "498": {
+ "489": {
   "text": "That didn’t work. Try again in a sec.",
   "places": [
    "src/links-page.tsx:67"
   ]
  },
- "499": {
+ "490": {
   "text": "That song doesn’t match this link’s title. Pick another or fix the details below.",
   "places": [
    "src/links-page.tsx:81"
   ]
  },
- "500": {
+ "491": {
   "text": "Pick your song from the list.",
   "places": [
    "src/links-page.tsx:92"
   ]
  },
- "501": {
+ "492": {
   "text": "Type your song’s name or paste its link.",
   "places": [
    "src/links-page.tsx:93"
   ]
  },
- "502": {
+ "493": {
   "text": "Your link is live",
   "places": [
    "src/links-page.tsx:153"
   ]
  },
- "503": {
+ "494": {
   "text": "Your changes are live",
   "places": [
    "src/links-page.tsx:153"
   ]
  },
- "504": {
+ "495": {
   "text": "Drop it in your bio and posts. Fans get the right app button, and My Smart Links tracks which ones they press.",
   "places": [
    "src/links-page.tsx:155"
   ]
  },
- "505": {
+ "496": {
   "text": "Editing your link",
   "places": [
    "src/links-page.tsx:162"
   ]
  },
- "506": {
+ "497": {
   "text": "Your song",
   "places": [
    "src/links-page.tsx:162"
   ]
  },
- "507": {
+ "498": {
   "text": "Cancel",
   "places": [
    "src/links-page.tsx:163"
   ]
  },
- "508": {
+ "499": {
   "text": "Start again",
   "places": [
    "src/links-page.tsx:163"
   ]
  },
- "509": {
+ "500": {
   "text": "One link for your song that opens in every fan’s app: Spotify, Apple Music, YouTube and more.",
   "places": [
    "src/links-page.tsx:164"
   ]
  },
- "510": {
+ "501": {
   "text": "Your song’s name or link",
   "places": [
    "src/links-page.tsx:169"
   ]
  },
- "511": {
+ "502": {
   "text": "Search your song or paste its Spotify, Apple Music or YouTube link",
   "places": [
    "src/links-page.tsx:169"
   ]
  },
- "512": {
+ "503": {
   "text": "Finding…",
   "places": [
    "src/links-page.tsx:177"
   ]
  },
- "513": {
+ "504": {
   "text": "Find",
   "places": [
    "src/links-page.tsx:177"
   ]
  },
- "514": {
+ "505": {
   "text": "Searching…",
   "places": [
    "src/links-page.tsx:180"
   ]
  },
- "515": {
+ "506": {
   "text": "Nothing found for “{typedName}”. Try artist + title or paste the song’s link.",
   "places": [
    "src/links-page.tsx:181"
   ]
  },
- "516": {
+ "507": {
   "text": "Not sure. Is this your song?",
   "places": [
    "src/links-page.tsx:182"
   ]
  },
- "517": {
+ "508": {
   "text": "Pick your song",
   "places": [
    "src/links-page.tsx:182"
   ]
  },
- "518": {
+ "509": {
   "text": "None of these: I’ll fix the details",
   "places": [
    "src/links-page.tsx:185"
   ]
  },
- "519": {
+ "510": {
   "text": "Title",
   "places": [
    "src/links-page.tsx:187"
   ]
  },
- "520": {
+ "511": {
   "text": "Artist",
   "places": [
    "src/links-page.tsx:190"
   ]
  },
- "521": {
+ "512": {
   "text": "Buttons",
   "places": [
    "src/links-page.tsx:197"
   ]
  },
- "522": {
+ "513": {
   "text": "Drag to change the order. “Search” buttons open a search for your song — paste the direct link to send fans straight there.",
   "places": [
    "src/links-page.tsx:198"
   ]
  },
- "523": {
+ "514": {
   "text": "Address",
   "places": [
    "src/links-page.tsx:208"
   ]
  },
- "524": {
+ "515": {
   "text": "The address stays the same so where you shared it keeps working.",
   "places": [
    "src/links-page.tsx:210"
   ]
  },
- "525": {
+ "516": {
   "text": "Your link’s name",
   "places": [
    "src/links-page.tsx:214"
   ]
  },
- "526": {
+ "517": {
   "text": "m-0 text-sm {…}",
   "places": [
    "src/links-page.tsx:217"
   ]
  },
- "527": {
+ "518": {
   "text": "Choose a name for your link.",
   "places": [
    "src/links-page.tsx:218"
   ]
  },
- "528": {
+ "519": {
   "text": "This name is free.",
   "places": [
    "src/links-page.tsx:218"
   ]
  },
- "529": {
+ "520": {
   "text": "Checking…",
   "places": [
    "src/links-page.tsx:218"
   ]
  },
- "530": {
+ "521": {
   "text": "You’ll sign in to publish.",
   "places": [
    "src/links-page.tsx:222"
   ]
  },
- "531": {
+ "522": {
   "text": "Publishing…",
   "places": [
    "src/links-page.tsx:224"
   ]
  },
- "532": {
+ "523": {
   "text": "Save changes",
   "places": [
    "src/links-page.tsx:224"
   ]
  },
- "533": {
+ "524": {
   "text": "Publish",
   "places": [
    "src/links-page.tsx:224"
   ]
  },
- "534": {
+ "525": {
   "text": "Move {label}: drag or use the up/down arrow keys",
   "places": [
    "src/links-page.tsx:251"
   ]
  },
- "535": {
+ "526": {
   "text": "Song",
   "places": [
    "src/links-page.tsx:257"
   ]
  },
- "536": {
+ "527": {
   "text": "Search",
   "places": [
    "src/links-page.tsx:257"
   ]
  },
- "537": {
+ "528": {
   "text": "Open the {label} link in a new tab",
   "places": [
    "src/links-page.tsx:259"
   ]
  },
- "538": {
+ "529": {
   "text": "Show {label}",
   "places": [
    "src/links-page.tsx:260"
   ]
  },
- "539": {
+ "530": {
   "text": "Hide {label}",
   "places": [
    "src/links-page.tsx:260"
   ]
  },
- "540": {
+ "531": {
   "text": "Choose",
   "places": [
    "src/links-page.tsx:276"
   ]
  },
- "541": {
+ "532": {
   "text": "Pause preview",
   "places": [
    "src/links-page.tsx:283"
   ]
  },
- "542": {
+ "533": {
   "text": "Play preview",
   "places": [
    "src/links-page.tsx:283"
   ]
  },
- "543": {
+ "534": {
   "text": "Preview",
   "places": [
    "src/links-page.tsx:294"
   ]
  },
- "544": {
+ "535": {
   "text": "Your fan page",
   "places": [
    "src/links-page.tsx:296"
   ]
  },
- "545": {
+ "536": {
   "text": "What fans see. Press play to hear the preview.",
   "places": [
    "src/links-page.tsx:299"
   ]
  },
- "546": {
+ "537": {
   "text": "Find your song and your page shows up here.",
   "places": [
    "src/links-page.tsx:299"
   ]
  },
- "547": {
+ "538": {
   "text": "Your name",
   "places": [
    "src/links-page.tsx:304"
   ]
  },
- "548": {
+ "539": {
   "text": "Loading smart links",
   "places": [
    "src/links-skeleton.tsx:8"
   ]
  },
- "549": {
+ "540": {
   "text": "Next: get fans to tap it",
   "places": [
    "src/smart-link-cta.tsx:19"
   ]
  },
- "550": {
+ "541": {
   "text": "Turn “{title}” into scroll-stopping lyric videos.",
   "places": [
    "src/smart-link-cta.tsx:22"
   ]
  },
- "551": {
+ "542": {
   "text": "Upload {…} song and MUMOO makes 9:16 creatives for Reels, TikTok and Shorts in minutes, in the style of your music.{…}",
   "places": [
    "src/smart-link-cta.tsx:23"
   ]
  },
- "552": {
+ "543": {
   "text": "First creative is free.",
   "places": [
    "src/smart-link-cta.tsx:24"
   ]
  },
- "553": {
+ "544": {
   "text": "Make my first video free",
   "places": [
    "src/smart-link-cta.tsx:27"
   ]
  },
- "554": {
+ "545": {
   "text": "Create videos for your music",
   "places": [
    "src/smart-link-cta.tsx:27"
   ]
  },
- "555": {
+ "546": {
   "text": "Listen now",
   "places": [
    "src/smart-link-cta.tsx:50"
   ]
  },
- "556": {
+ "547": {
   "text": "Copied",
   "places": [
    "src/smart-link-parts.tsx:21"
   ]
  },
- "557": {
+ "548": {
   "text": "Copy link",
   "places": [
    "src/smart-link-parts.tsx:21"
   ]
  },
- "558": {
+ "549": {
   "text": "Open link",
   "places": [
    "src/smart-link-parts.tsx:37"
   ]
  },
- "559": {
+ "550": {
   "text": "Apple Music",
   "places": [
    "src/smart-links.ts:11"
   ]
  },
- "560": {
+ "551": {
   "text": "YouTube Music",
   "places": [
    "src/smart-links.ts:11"
   ]
  },
- "561": {
+ "552": {
   "text": "Amazon Music",
   "places": [
    "src/smart-links.ts:12"
   ]
  },
- "562": {
+ "553": {
   "text": "Unavailable right now. Try again in a moment.",
   "places": [
    "src/smart-links.ts:103"
   ]
  },
- "563": {
+ "554": {
   "text": "Ad tracking",
   "places": [
    "src/ad-tracking.tsx:22"
   ]
  },
- "564": {
+ "555": {
   "text": "Hide",
   "places": [
    "src/ad-tracking.tsx:23"
   ]
  },
- "565": {
+ "556": {
   "text": "Show",
   "places": [
    "src/ad-tracking.tsx:23"
   ]
  },
- "566": {
+ "557": {
   "text": "Set up",
   "places": [
    "src/ad-tracking.tsx:23"
   ]
  },
- "567": {
+ "558": {
   "text": "Optional. Running ads? Connect your accounts and every visit + stream click gets sent from our server so they can measure and optimise. No pixel on your page. Ad visits get counted either way.",
   "places": [
    "src/ad-tracking.tsx:24"
   ]
  },
- "568": {
+ "559": {
   "text": "Sends PageView and Mumoo Smart Link Click",
   "places": [
    "src/ad-tracking.tsx:28"
   ]
  },
- "569": {
+ "560": {
   "text": "Pixel ID",
   "places": [
    "src/ad-tracking.tsx:29"
   ]
  },
- "570": {
+ "561": {
   "text": "Conversions API token",
   "places": [
    "src/ad-tracking.tsx:31"
   ]
  },
- "571": {
+ "562": {
   "text": "Tip: Once your link gets its first test click, pick ‘Mumoo Smart Link Click’ as the Conversion Event in Meta Ads Manager.",
   "places": [
    "src/ad-tracking.tsx:32"
   ]
  },
- "572": {
+ "563": {
   "text": "Tip:",
   "places": [
    "src/ad-tracking.tsx:33"
   ]
  },
- "573": {
+ "564": {
   "text": "‘Mumoo Smart Link Click’",
   "places": [
    "src/ad-tracking.tsx:34"
   ]
  },
- "574": {
+ "565": {
   "text": "Sends ViewContent and Mumoo_Smart_Link_Click",
   "places": [
    "src/ad-tracking.tsx:37"
   ]
  },
- "575": {
+ "566": {
   "text": "Events API access token",
   "places": [
    "src/ad-tracking.tsx:40"
   ]
  },
- "576": {
+ "567": {
   "text": "Tip: Once your link gets its first test click, ‘Mumoo_Smart_Link_Click’ shows up in TikTok Events Manager. If TikTok doesn’t offer it as an optimisation event, just pick ViewContent.",
   "places": [
    "src/ad-tracking.tsx:41"
   ]
  },
- "577": {
+ "568": {
   "text": "Google Ads ID",
   "places": [
    "src/ad-tracking.tsx:47"
   ]
  },
- "578": {
+ "569": {
   "text": "e.g. AW-123456789",
   "places": [
    "src/ad-tracking.tsx:47"
   ]
  },
- "579": {
+ "570": {
   "text": "Google Ads clicks get recognised and counted. Sending conversions to Google needs its own API access (coming later).",
   "places": [
    "src/ad-tracking.tsx:49"
   ]
  },
- "580": {
+ "571": {
   "text": "text-xs {…}",
   "places": [
    "src/ad-tracking.tsx:60"
   ]
  },
- "581": {
+ "572": {
   "text": "Not connected",
   "places": [
    "src/ad-tracking.tsx:60"
   ]
  },
- "582": {
+ "573": {
   "text": "Removed when you save",
   "places": [
    "src/ad-tracking.tsx:78"
   ]
  },
- "583": {
+ "574": {
   "text": "Saved · paste to replace",
   "places": [
    "src/ad-tracking.tsx:78"
   ]
  },
- "584": {
+ "575": {
   "text": "Paste your token",
   "places": [
    "src/ad-tracking.tsx:78"
   ]
  },
- "585": {
+ "576": {
   "text": "Keep the saved token",
   "places": [
    "src/ad-tracking.tsx:82"
   ]
  },
- "586": {
+ "577": {
   "text": "Remove token",
   "places": [
    "src/ad-tracking.tsx:82"
   ]
  },
- "587": {
+ "578": {
   "text": "Couldn’t load your links. Try again in a moment.",
   "places": [
    "src/my-links-page.tsx:36"
   ]
  },
- "588": {
+ "579": {
   "text": "Sign in to see your smart links and analytics.",
   "places": [
    "src/my-links-page.tsx:66"
   ]
  },
- "589": {
+ "580": {
   "text": "Sign in",
   "places": [
    "src/my-links-page.tsx:66"
   ]
  },
- "590": {
+ "581": {
   "text": "Loading your smart links",
   "places": [
    "src/my-links-page.tsx:69"
   ]
  },
- "591": {
+ "582": {
   "text": "No smart links yet. Make one for your song — opens in every fan’s app.",
   "places": [
    "src/my-links-page.tsx:79"
   ]
  },
- "592": {
+ "583": {
   "text": "Create Smart Link",
   "places": [
    "src/my-links-page.tsx:80"
   ]
  },
- "593": {
+ "584": {
   "text": "Delete {…}?",
   "places": [
    "src/my-links-page.tsx:89"
   ]
  },
- "594": {
+ "585": {
   "text": "Anyone who opens it finds nothing, and the analytics go too. Can’t be undone.",
   "places": [
    "src/my-links-page.tsx:90"
   ]
  },
- "595": {
+ "586": {
   "text": "Delete link",
   "places": [
    "src/my-links-page.tsx:91"
   ]
  },
- "596": {
+ "587": {
   "text": "Deleting…",
   "places": [
    "src/my-links-page.tsx:91"
   ]
  },
- "597": {
+ "588": {
   "text": "Visits",
   "places": [
    "src/my-links-page.tsx:116",
    "src/link-analytics.tsx:63"
   ]
  },
- "598": {
+ "589": {
   "text": "Clicks",
   "places": [
    "src/my-links-page.tsx:117"
   ]
  },
- "599": {
+ "590": {
   "text": "Engagement",
   "places": [
    "src/my-links-page.tsx:118",
    "src/link-analytics.tsx:55"
   ]
  },
- "600": {
+ "591": {
   "text": "Most pressed",
   "places": [
    "src/my-links-page.tsx:120"
   ]
  },
- "601": {
+ "592": {
   "text": "No clicks yet",
   "places": [
    "src/my-links-page.tsx:121"
   ]
  },
- "602": {
+ "593": {
   "text": "Analytics for {slug}",
   "places": [
    "src/my-links-page.tsx:129"
   ]
  },
- "603": {
+ "594": {
   "text": "Analytics",
   "places": [
    "src/my-links-page.tsx:129"
   ]
  },
- "604": {
+ "595": {
   "text": "Edit {slug}",
   "places": [
    "src/my-links-page.tsx:132",
    "src/link-analytics.tsx:43"
   ]
  },
- "605": {
+ "596": {
   "text": "Delete {slug}",
   "places": [
    "src/my-links-page.tsx:133"
   ]
  },
- "606": {
+ "597": {
   "text": "All time",
   "places": [
    "src/link-analytics.tsx:6"
   ]
  },
- "607": {
+ "598": {
   "text": "Meta ads",
   "places": [
    "src/link-analytics.tsx:9"
   ]
  },
- "608": {
+ "599": {
   "text": "TikTok ads",
   "places": [
    "src/link-analytics.tsx:9"
   ]
  },
- "609": {
+ "600": {
   "text": "Google ads",
   "places": [
    "src/link-analytics.tsx:9"
   ]
  },
- "610": {
+ "601": {
   "text": "Other ads",
   "places": [
    "src/link-analytics.tsx:9"
   ]
  },
- "611": {
+ "602": {
   "text": "Back to My Smart Links",
   "places": [
    "src/link-analytics.tsx:35"
   ]
  },
- "612": {
+ "603": {
   "text": "Range",
   "places": [
    "src/link-analytics.tsx:45"
   ]
  },
- "613": {
+ "604": {
   "text": "Total visits",
   "places": [
    "src/link-analytics.tsx:53"
   ]
  },
- "614": {
+ "605": {
   "text": "Total link clicks",
   "places": [
    "src/link-analytics.tsx:54"
   ]
  },
- "615": {
+ "606": {
   "text": "Link clicks per visit",
   "places": [
    "src/link-analytics.tsx:55"
   ]
  },
- "616": {
+ "607": {
   "text": "Visits from ads",
   "places": [
    "src/link-analytics.tsx:56"
   ]
  },
- "617": {
+ "608": {
   "text": "Timeline",
   "places": [
    "src/link-analytics.tsx:59"
   ]
  },
- "618": {
+ "609": {
   "text": "Breakdown",
   "places": [
    "src/link-analytics.tsx:62"
   ]
  },
- "619": {
+ "610": {
   "text": "Count",
   "places": [
    "src/link-analytics.tsx:63"
   ]
  },
- "620": {
+ "611": {
   "text": "Link clicks",
   "places": [
    "src/link-analytics.tsx:63"
   ]
  },
- "621": {
+ "612": {
   "text": "Streaming services",
   "places": [
    "src/link-analytics.tsx:66"
   ]
  },
- "622": {
+ "613": {
   "text": "Organic vs ads",
   "places": [
    "src/link-analytics.tsx:68"
   ]
  },
- "623": {
+ "614": {
   "text": "Top sources",
   "places": [
    "src/link-analytics.tsx:69"
   ]
  },
- "624": {
+ "615": {
   "text": "Organic visits",
   "places": [
    "src/link-analytics.tsx:69"
   ]
  },
- "625": {
+ "616": {
   "text": "Top countries",
   "places": [
    "src/link-analytics.tsx:70"
   ]
  },
- "626": {
+ "617": {
   "text": "Top browsers",
   "places": [
    "src/link-analytics.tsx:72"
   ]
  },
- "627": {
+ "618": {
   "text": "Top devices",
   "places": [
    "src/link-analytics.tsx:73"
   ]
  },
- "628": {
+ "619": {
   "text": "Operating systems",
   "places": [
    "src/link-analytics.tsx:74"
   ]
  },
- "629": {
+ "620": {
   "text": "Loading analytics",
   "places": [
    "src/link-analytics.tsx:83"
   ]
  },
- "630": {
+ "621": {
   "text": "Nothing in this period yet.",
   "places": [
    "src/link-analytics.tsx:140"
   ]
  },
- "631": {
+ "622": {
   "text": "Show fewer",
   "places": [
    "src/link-analytics.tsx:150"
   ]
  },
- "632": {
+ "623": {
   "text": "Show all {length}",
   "places": [
    "src/link-analytics.tsx:150"
   ]
  },
- "633": {
+ "624": {
   "text": "Clicks / visits",
   "places": [
    "src/link-analytics.tsx:171"
   ]
  },
- "634": {
+ "625": {
   "text": "Visits and link clicks per day, {length} days",
   "places": [
    "src/link-analytics.tsx:187"
   ]
  },
- "635": {
+ "626": {
   "text": "Visits: {views}",
   "places": [
    "src/link-analytics.tsx:197"
   ]
  },
- "636": {
+ "627": {
   "text": "Link clicks: {clicks}",
   "places": [
    "src/link-analytics.tsx:198"
   ]
  },
- "637": {
+ "628": {
   "text": "Clicks / visits: {…}%",
   "places": [
    "src/link-analytics.tsx:199"
   ]
  },
- "638": {
+ "629": {
   "text": "absolute -translate-x-1/2 whitespace-nowrap {…}",
   "places": [
    "src/link-analytics.tsx:207"
   ]
  },
- "639": {
+ "630": {
   "text": "Send your song",
   "places": [
    "src/phone/main.tsx:21"
   ]
  },
- "640": {
+ "631": {
   "text": "Pick the song from your phone. A video with the song playing works too (saved TikTok/Reel or screen recording).",
   "places": [
    "src/phone/main.tsx:22"
   ]
  },
- "641": {
+ "632": {
   "text": "Choose song or video",
   "places": [
    "src/phone/main.tsx:23"
   ]
  },
- "642": {
+ "633": {
   "text": "Send your photos or videos",
   "places": [
    "src/phone/main.tsx:27"
   ]
  },
- "643": {
+ "634": {
   "text": "Pick up to {MAX_PICTURES} photos, videos (up to 60 seconds) or GIFs. By sending them you confirm you own the rights.",
   "places": [
    "src/phone/main.tsx:28"
   ]
  },
- "644": {
+ "635": {
   "text": "Choose photos or videos",
   "places": [
    "src/phone/main.tsx:29"
   ]
  },
- "645": {
+ "636": {
   "text": "Getting ready",
   "places": [
    "src/phone/main.tsx:38"
   ]
  },
- "646": {
+ "637": {
   "text": "Sending",
   "places": [
    "src/phone/main.tsx:39"
   ]
  },
- "647": {
+ "638": {
   "text": "Almost there",
   "places": [
    "src/phone/main.tsx:40"
   ]
  },
- "648": {
+ "639": {
   "text": "GIF",
   "places": [
    "src/phone/main.tsx:47"
   ]
  },
- "649": {
+ "640": {
   "text": "This file is bigger than 200 MB. Pick a shorter one.",
   "places": [
    "src/phone/main.tsx:71"
   ]
  },
- "650": {
+ "641": {
   "text": "This is {…} minutes long. Songs can be up to 10 minutes.",
   "places": [
    "src/phone/main.tsx:72"
   ]
  },
- "651": {
+ "642": {
   "text": "This is {…} seconds long. Needs to be at least 15 seconds.",
   "places": [
    "src/phone/main.tsx:73"
   ]
  },
- "652": {
+ "643": {
   "text": "Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.",
   "places": [
    "src/phone/main.tsx:77"
   ]
  },
- "653": {
+ "644": {
   "text": "This {label} is bigger than {…} MB.",
   "places": [
    "src/phone/main.tsx:78"
   ]
  },
- "654": {
+ "645": {
   "text": "Videos can be up to {MAX_VIDEO_SECONDS} seconds. This one is {Math.round}.",
   "places": [
    "src/phone/main.tsx:79"
   ]
  },
- "655": {
+ "646": {
   "text": "Upload was refused. Try again.",
   "places": [
    "src/phone/main.tsx:90"
   ]
  },
- "656": {
+ "647": {
   "text": "Connection dropped. Try again.",
   "places": [
    "src/phone/main.tsx:91"
   ]
  },
- "657": {
+ "648": {
   "text": "This link isn’t complete. Scan the QR code on your computer again.",
   "places": [
    "src/phone/main.tsx:102"
   ]
  },
- "658": {
+ "649": {
   "text": "This QR code expired. Make a new one on your computer.",
   "places": [
    "src/phone/main.tsx:103"
   ]
  },
- "659": {
+ "650": {
   "text": "Only the first {MAX_PICTURES} get sent.",
   "places": [
    "src/phone/main.tsx:123"
   ]
  },
- "660": {
+ "651": {
   "text": "Sending didn’t start. Try again.",
   "places": [
    "src/phone/main.tsx:136"
   ]
  },
- "661": {
+ "652": {
   "text": "Something went wrong. Try again.",
   "places": [
    "src/phone/main.tsx:146"
   ]
  },
- "662": {
+ "653": {
   "text": "MUMOO",
   "places": [
    "src/phone/main.tsx:151"
   ]
  },
- "663": {
+ "654": {
   "text": "{…}{percent}% Don’t close your browser or this window.",
   "places": [
    "src/phone/main.tsx:161"
   ]
  },
- "664": {
+ "655": {
   "text": "{count} files ·",
   "places": [
    "src/phone/main.tsx:162"
   ]
  },
- "665": {
+ "656": {
   "text": "Don’t close your browser or this window.",
   "places": [
    "src/phone/main.tsx:163"
   ]
  },
- "666": {
+ "657": {
   "text": "Sent",
   "places": [
    "src/phone/main.tsx:167"
   ]
  },
- "667": {
+ "658": {
   "text": "{…} on {…} way to your computer. Keep going there — you can close this page.",
   "places": [
    "src/phone/main.tsx:168"
   ]
  },
- "668": {
+ "659": {
   "text": "They are",
   "places": [
    "src/phone/main.tsx:168"
   ]
  },
- "669": {
+ "660": {
   "text": "It is",
   "places": [
    "src/phone/main.tsx:168"
   ]
  },
- "670": {
+ "661": {
   "text": "That didn’t work",
   "places": [
    "src/phone/main.tsx:174"
   ]
  },
- "671": {
+ "662": {
   "text": "Try again",
   "places": [
    "src/phone/main.tsx:176"
   ]
  },
- "672": {
+ "663": {
   "text": "MUMOO",
   "places": [
    "src/welcome-page.tsx:51"
   ]
  },
- "673": {
+ "664": {
   "text": "Loading",
   "places": [
    "src/welcome-page.tsx:54"
   ]
  },
- "674": {
+ "665": {
   "text": "Ad Forwarding DPA",
   "places": [
    "src/legal-page.tsx:15"
   ]
  },
- "675": {
+ "666": {
   "text": "MUMOO",
   "places": [
    "src/legal-page.tsx:82"
   ]
  },
- "676": {
+ "667": {
   "text": "Back to MUMOO",
   "places": [
    "src/legal-page.tsx:83"
   ]
  },
- "677": {
+ "668": {
   "text": "Legal documents",
   "places": [
    "src/legal-page.tsx:86"
   ]
  },
- "678": {
+ "669": {
   "text": "Cookie settings",
   "places": [
    "src/legal-page.tsx:89"
   ]
  },
- "679": {
+ "670": {
   "text": "Legal",
   "places": [
    "src/legal-page.tsx:93"
   ]
  },
- "680": {
+ "671": {
   "text": "The terms and policies for using MUMOO. Questions go to moo@mumoo.app.",
   "places": [
    "src/legal-page.tsx:94"
   ]
  },
- "681": {
+ "672": {
   "text": "moo@mumoo.app",
   "places": [
    "src/legal-page.tsx:94"
   ]
  },
- "682": {
+ "673": {
   "text": "Listen to {title} by {artist} on {…}.",
   "places": [
    "netlify/lib/fan-page.mjs:68"
   ]
  },
- "683": {
+ "674": {
   "text": "This page is unavailable right now. Try again in a moment.",
   "places": [
    "netlify/functions/fan-page.mjs:36"
   ]
  },
- "684": {
+ "675": {
   "text": "Your code to {what} on MUMOO is {code}.",
   "places": [
    "netlify/lib/letters.mjs:18"
   ]
  },
- "685": {
+ "676": {
   "text": "Works for {minutes} minutes. If you didn’t ask for it, ignore this — nobody can sign in without the code.",
   "places": [
    "netlify/lib/letters.mjs:20"
   ]
  },
- "686": {
+ "677": {
   "text": "Your code to make this your MUMOO email is {code}.",
   "places": [
    "netlify/lib/letters.mjs:26"
   ]
  },
- "687": {
+ "678": {
   "text": "Works for {minutes} minutes. If you didn’t ask for it, ignore this — nothing changes.",
   "places": [
    "netlify/lib/letters.mjs:28"
   ]
  },
- "688": {
+ "679": {
   "text": "Your MUMOO account is deleted",
   "places": [
    "netlify/lib/letters.mjs:33"
   ]
  },
- "689": {
+ "680": {
   "text": "Your MUMOO account has been deleted, as you asked.",
   "places": [
    "netlify/lib/letters.mjs:34"
   ]
  },
- "690": {
+ "681": {
   "text": "Your creatives, uploaded photos/videos/GIFs and history are gone from storage. This email can’t sign in anymore. Signing in again starts a fresh empty account.",
   "places": [
    "netlify/lib/letters.mjs:36"
   ]
  },
- "691": {
+ "682": {
   "text": "If you didn’t ask for this, reply to this email.",
   "places": [
    "netlify/lib/letters.mjs:38"
   ]
  },
- "692": {
+ "683": {
   "text": "Your MUMOO creatives are waiting",
   "places": [
    "netlify/lib/letters.mjs:45"
   ]
  },
- "693": {
+ "684": {
   "text": "Your MUMOO files will be deleted in {left} days",
   "places": [
    "netlify/lib/letters.mjs:45"
   ]
  },
- "694": {
+ "685": {
   "text": "You haven’t been to MUMOO for {days} days.",
   "places": [
    "netlify/lib/letters.mjs:46"
   ]
  },
- "695": {
+ "686": {
   "text": "To keep storage tidy, creatives and uploads get deleted after {deleteDays} days without a visit. That’s in about {left} days.",
   "places": [
    "netlify/lib/letters.mjs:48"
   ]
  },
- "696": {
+ "687": {
   "text": "Sign in at {siteUrl} before then and everything stays. To keep a copy, open History → Select all → Download.",
   "places": [
    "netlify/lib/letters.mjs:50"
   ]
  },
- "697": {
+ "688": {
   "text": "Your MUMOO storage is almost full",
   "places": [
    "netlify/lib/letters.mjs:55"
   ]
  },
- "698": {
+ "689": {
   "text": "Storage is almost full: {size} of {size} used.",
   "places": [
    "netlify/lib/letters.mjs:56"
   ]
  },
- "699": {
+ "690": {
   "text": "When it’s full, new creatives and uploads can’t be saved. Sign in at {siteUrl}, open History, download what you want, then delete to free space.",
   "places": [
    "netlify/lib/letters.mjs:58"
   ]
  },
- "700": {
+ "691": {
   "text": "Your {…} MUMOO videos are ready",
   "places": [
    "netlify/lib/letters.mjs:64"
   ]
  },
- "701": {
+ "692": {
   "text": "Thanks. {videos} video credits are now in your MUMOO account. One credit = one video, they never expire.",
   "places": [
    "netlify/lib/letters.mjs:65"
   ]
  },
- "702": {
+ "693": {
   "text": "Your friend’s invite added {bonus} more, free.",
   "places": [
    "netlify/lib/letters.mjs:66"
   ]
  },
- "703": {
+ "694": {
   "text": "You paid {paid}. You now have {credits} {…}.",
   "places": [
    "netlify/lib/letters.mjs:68"
   ]
  },
- "704": {
+ "695": {
   "text": "Invoice is in Invoices: {siteUrl}/invoices. Payment was taken by Polar so it shows as Polar on your statement.",
   "places": [
    "netlify/lib/letters.mjs:70"
   ]
  },
- "705": {
+ "696": {
   "text": "A friend joined MUMOO: {videos} free videos for you",
   "places": [
    "netlify/lib/letters.mjs:76"
   ]
  },
- "706": {
+ "697": {
   "text": "Someone you invited just bought their first pack, so {videos} free videos are now in your account. Thanks for sharing MUMOO.",
   "places": [
    "netlify/lib/letters.mjs:77"
   ]
  },
- "707": {
+ "698": {
   "text": "You now have {credits} {…}. Make something at {siteUrl}, and find your invite link under Invite friends in your account menu.",
   "places": [
    "netlify/lib/letters.mjs:79"
   ]
  },
- "708": {
+ "699": {
   "text": "Couldn’t send the code.",
   "places": [
    "netlify/functions/auth-email.mjs:27"
   ]
  },
- "709": {
+ "700": {
   "text": "Sign in to continue.",
   "places": [
    "netlify/functions/account-email.mjs:14"
   ]
  },
- "710": {
+ "701": {
   "text": "Check the email address and try again.",
   "places": [
    "netlify/functions/account-email.mjs:16",
    "netlify/lib/email-change.mjs:23"
   ]
  },
- "711": {
+ "702": {
   "text": "That didn’t work. Try again in a moment.",
   "places": [
    "netlify/functions/account-email.mjs:24"
   ]
  },
- "712": {
+ "703": {
   "text": "That’s already your email.",
   "places": [
    "netlify/lib/email-change.mjs:24"
   ]
  },
- "713": {
+ "704": {
   "text": "That email already has a MUMOO account.",
   "places": [
    "netlify/lib/email-change.mjs:27"
   ]
  },
- "714": {
+ "705": {
   "text": "A code was just sent. Wait a moment before asking for another.",
   "places": [
    "netlify/lib/email-change.mjs:30"
   ]
  },
- "715": {
+ "706": {
   "text": "Couldn’t send the code. Try again in a moment.",
   "places": [
    "netlify/lib/email-change.mjs:40"
   ]
  },
- "716": {
+ "707": {
   "text": "That code is wrong or expired.",
   "places": [
    "netlify/lib/email-change.mjs:48"
   ]
  },
- "717": {
+ "708": {
   "text": "Sign in again to continue.",
   "places": [
    "netlify/lib/email-change.mjs:60"
   ]
  },
- "718": {
+ "709": {
   "text": "Sign in to continue.",
   "places": [
    "netlify/functions/account/account.mjs:16",
@@ -4310,226 +4256,226 @@
    "netlify/functions/invoices.mjs:30"
   ]
  },
- "719": {
+ "710": {
   "text": "Type your email exactly as it is shown to confirm.",
   "places": [
    "netlify/functions/account/account.mjs:20"
   ]
  },
- "720": {
+ "711": {
   "text": "Couldn’t fully delete your account. Try again in a moment.",
   "places": [
    "netlify/functions/account/account.mjs:27"
   ]
  },
- "721": {
+ "712": {
   "text": "Unknown checkout.",
   "places": [
    "netlify/functions/checkout.mjs:21"
   ]
  },
- "722": {
+ "713": {
   "text": "Payments aren’t switched on yet.",
   "places": [
    "netlify/functions/checkout.mjs:29"
   ]
  },
- "723": {
+ "714": {
   "text": "Choose a pack.",
   "places": [
    "netlify/functions/checkout.mjs:31"
   ]
  },
- "724": {
+ "715": {
   "text": "That pack isn’t on sale.",
   "places": [
    "netlify/functions/checkout.mjs:35"
   ]
  },
- "725": {
+ "716": {
   "text": "Checkout is unavailable right now. Try again in a moment.",
   "places": [
    "netlify/functions/checkout.mjs:56"
   ]
  },
- "726": {
+ "717": {
   "text": "Sign in to make a video.",
   "places": [
    "netlify/functions/encode-creative.mjs:44"
   ]
  },
- "727": {
+ "718": {
   "text": "Choose one picture.",
   "places": [
    "netlify/functions/encode-creative.mjs:64"
   ]
  },
- "728": {
+ "719": {
   "text": "That picture is kept for a different style.",
   "places": [
    "netlify/functions/encode-creative.mjs:68"
   ]
  },
- "729": {
+ "720": {
   "text": "That picture is no longer in the library.",
   "places": [
    "netlify/functions/encode-creative.mjs:70"
   ]
  },
- "730": {
+ "721": {
   "text": "That picture has no cut-out yet.",
   "places": [
    "netlify/functions/encode-creative.mjs:73",
    "netlify/lib/render-media.mjs:19"
   ]
  },
- "731": {
+ "722": {
   "text": "That picture wasn’t found or is still being prepared.",
   "places": [
    "netlify/functions/encode-creative.mjs:81"
   ]
  },
- "732": {
+ "723": {
   "text": "One of your pictures in that reel was removed or is still being prepared.",
   "places": [
    "netlify/functions/encode-creative.mjs:97"
   ]
  },
- "733": {
+ "724": {
   "text": "A picture of that reel is no longer in the library or has no cut-out yet.",
   "places": [
    "netlify/functions/encode-creative.mjs:100"
   ]
  },
- "734": {
+ "725": {
   "text": "You’re out of credits. Buy a pack to make this video.",
   "places": [
    "netlify/functions/encode-creative.mjs:107"
   ]
  },
- "735": {
+ "726": {
   "text": "Use a JPEG, PNG or WebP photo, or an MP4, MOV, WebM or GIF.",
   "places": [
    "netlify/functions/uploads/uploads.mjs:8"
   ]
  },
- "736": {
+ "727": {
   "text": "That file is too large.",
   "places": [
    "netlify/functions/uploads/uploads.mjs:9"
   ]
  },
- "737": {
+ "728": {
   "text": "Storage is full. Delete some files or creatives to make room.",
   "places": [
    "netlify/functions/uploads/uploads.mjs:10"
   ]
  },
- "738": {
+ "729": {
   "text": "You have {MAX_KEPT_PICTURES} pictures saved. Delete some in History to add more.",
   "places": [
    "netlify/functions/uploads/uploads.mjs:11"
   ]
  },
- "739": {
+ "730": {
   "text": "Uploads are unavailable.",
   "places": [
    "netlify/functions/uploads/uploads.mjs:30"
   ]
  },
- "740": {
+ "731": {
   "text": "Say what the file is and how big.",
   "places": [
    "netlify/functions/uploads/uploads.mjs:39"
   ]
  },
- "741": {
+ "732": {
   "text": "Couldn’t start preparing that photo. Try again.",
   "places": [
    "netlify/functions/uploads/uploads.mjs:45"
   ]
  },
- "742": {
+ "733": {
   "text": "That file hasn’t arrived or couldn’t be prepared.",
   "places": [
    "netlify/functions/uploads/uploads.mjs:52"
   ]
  },
- "743": {
+ "734": {
   "text": "Preparing couldn’t start.",
   "places": [
    "netlify/lib/uploads.mjs:65",
    "netlify/lib/prepare.mjs:18"
   ]
  },
- "744": {
+ "735": {
   "text": "Took too long to prepare. Try again.",
   "places": [
    "netlify/lib/uploads.mjs:130"
   ]
  },
- "745": {
+ "736": {
   "text": "Couldn’t prepare that file. Try another.",
   "places": [
    "netlify/lib/uploads.mjs:130",
    "netlify/lib/prepare.mjs:31"
   ]
  },
- "746": {
+ "737": {
   "text": "Took too long to prepare. Send it again.",
   "places": [
    "netlify/lib/prepare.mjs:31"
   ]
  },
- "747": {
+ "738": {
   "text": "A reel needs between two and eight pictures.",
   "places": [
    "netlify/lib/reel.mjs:13"
   ]
  },
- "748": {
+ "739": {
   "text": "A reel is kept for a different style.",
   "places": [
    "netlify/lib/reel.mjs:14"
   ]
  },
- "749": {
+ "740": {
   "text": "A reel is the card’s only picture.",
   "places": [
    "netlify/lib/reel.mjs:15"
   ]
  },
- "750": {
+ "741": {
   "text": "Dust needs a photo, not a video or GIF.",
   "places": [
    "netlify/lib/render-media.mjs:15"
   ]
  },
- "751": {
+ "742": {
   "text": "Unknown invoice.",
   "places": [
    "netlify/functions/invoices.mjs:45"
   ]
  },
- "752": {
+ "743": {
   "text": "Invoices are unavailable right now.",
   "places": [
    "netlify/functions/invoices.mjs:48"
   ]
  },
- "753": {
+ "744": {
   "text": "Invoice is being prepared. Try again in a minute.",
   "places": [
    "netlify/functions/invoices.mjs:51"
   ]
  },
- "754": {
+ "745": {
   "text": "Invoice is unavailable right now. Try again in a moment.",
   "places": [
    "netlify/functions/invoices.mjs:54"
   ]
  },
- "755": {
+ "746": {
   "text": "Smart links are unavailable.",
   "places": [
    "netlify/functions/links.mjs:25",
@@ -4538,670 +4484,670 @@
    "netlify/functions/links-stats.mjs:10"
   ]
  },
- "756": {
+ "747": {
   "text": "Sign in to publish your link.",
   "places": [
    "netlify/functions/links.mjs:27"
   ]
  },
- "757": {
+ "748": {
   "text": "That link isn’t yours or was already deleted.",
   "places": [
    "netlify/functions/links.mjs:33"
   ]
  },
- "758": {
+ "749": {
   "text": "Choose your link’s name.",
   "places": [
    "netlify/functions/links.mjs:38"
   ]
  },
- "759": {
+ "750": {
   "text": "That didn’t work. Try again in a moment.",
   "places": [
    "netlify/functions/links.mjs:49"
   ]
  },
- "760": {
+ "751": {
   "text": "Paste a song link from Spotify, Apple Music, YouTube or Deezer, or type the song’s name.",
   "places": [
    "netlify/functions/links-lookup.mjs:15"
   ]
  },
- "761": {
+ "752": {
   "text": "Couldn’t find that song. Check the link and try again.",
   "places": [
    "netlify/functions/links-lookup.mjs:19"
   ]
  },
- "762": {
+ "753": {
   "text": "Looking up the song failed. Try again in a moment.",
   "places": [
    "netlify/functions/links-lookup.mjs:24"
   ]
  },
- "763": {
+ "754": {
   "text": "Type your song’s name and artist.",
   "places": [
    "netlify/functions/links-search.mjs:12"
   ]
  },
- "764": {
+ "755": {
   "text": "Searching failed. Try again in a moment.",
   "places": [
    "netlify/functions/links-search.mjs:17"
   ]
  },
- "765": {
+ "756": {
   "text": "Someone already has that name. Try another.",
   "places": [
    "netlify/functions/links-slug.mjs:16",
    "netlify/lib/smart-links.mjs:213"
   ]
  },
- "766": {
+ "757": {
   "text": "Checking the name failed. Try again in a moment.",
   "places": [
    "netlify/functions/links-slug.mjs:19"
   ]
  },
- "767": {
+ "758": {
   "text": "Sign in to see your link’s analytics.",
   "places": [
    "netlify/functions/links-stats.mjs:12"
   ]
  },
- "768": {
+ "759": {
   "text": "Choose 7, 30 or 90 days, or all time.",
   "places": [
    "netlify/functions/links-stats.mjs:17"
   ]
  },
- "769": {
+ "760": {
   "text": "That link isn’t yours or was deleted.",
   "places": [
    "netlify/functions/links-stats.mjs:19",
    "netlify/lib/smart-links.mjs:222"
   ]
  },
- "770": {
+ "761": {
   "text": "Analytics are unavailable right now. Try again in a moment.",
   "places": [
    "netlify/functions/links-stats.mjs:23"
   ]
  },
- "771": {
+ "762": {
   "text": "Use 3 to 40 lowercase letters, numbers and dashes.",
   "places": [
    "netlify/lib/smart-links.mjs:29"
   ]
  },
- "772": {
+ "763": {
   "text": "That name is reserved. Try another.",
   "places": [
    "netlify/lib/smart-links.mjs:30"
   ]
  },
- "773": {
+ "764": {
   "text": "Find your song first.",
   "places": [
    "netlify/lib/smart-links.mjs:66"
   ]
  },
- "774": {
+ "765": {
   "text": "Add the song’s title and artist.",
   "places": [
    "netlify/lib/smart-links.mjs:71"
   ]
  },
- "775": {
+ "766": {
   "text": "Find your song again — its cover or preview didn’t come from a music service.",
   "places": [
    "netlify/lib/smart-links.mjs:74"
   ]
  },
- "776": {
+ "767": {
   "text": "Add at least one button.",
   "places": [
    "netlify/lib/smart-links.mjs:76"
   ]
  },
- "777": {
+ "768": {
   "text": "One of the buttons isn’t a service we know.",
   "places": [
    "netlify/lib/smart-links.mjs:81"
   ]
  },
- "778": {
+ "769": {
   "text": "The {…} button must link to {…} (https://…).",
   "places": [
    "netlify/lib/smart-links.mjs:84"
   ]
  },
- "779": {
+ "770": {
   "text": "Show at least one button.",
   "places": [
    "netlify/lib/smart-links.mjs:87"
   ]
  },
- "780": {
+ "771": {
   "text": "A Meta Pixel ID is 10 to 20 digits (Events Manager → Data sources).",
   "places": [
    "netlify/lib/smart-links.mjs:160"
   ]
  },
- "781": {
+ "772": {
   "text": "A TikTok Pixel ID is letters and digits (Events Manager → Web events).",
   "places": [
    "netlify/lib/smart-links.mjs:161"
   ]
  },
- "782": {
+ "773": {
   "text": "A Google Ads ID looks like AW-123456789.",
   "places": [
    "netlify/lib/smart-links.mjs:162"
   ]
  },
- "783": {
+ "774": {
   "text": "That token doesn’t look right. Copy it again from the platform.",
   "places": [
    "netlify/lib/smart-links.mjs:184"
   ]
  },
- "784": {
+ "775": {
   "text": "Ad tokens can’t be saved yet. Try again later.",
   "places": [
    "netlify/lib/smart-links.mjs:186"
   ]
  },
- "785": {
+ "776": {
   "text": "You have {MAX_LINKS} links. Delete one to make another.",
   "places": [
    "netlify/lib/smart-links.mjs:210"
   ]
  },
- "786": {
+ "777": {
   "text": "Sending from a phone is unavailable.",
   "places": [
    "netlify/functions/phone-handoff.mjs:22"
   ]
  },
- "787": {
+ "778": {
   "text": "This link expired. Make a new QR code on your computer.",
   "places": [
    "netlify/functions/phone-handoff.mjs:28"
   ]
  },
- "788": {
+ "779": {
   "text": "Choose one song or video under 200 MB.",
   "places": [
    "netlify/functions/phone-handoff.mjs:30"
   ]
  },
- "789": {
+ "780": {
   "text": "Choose up to {picture} JPEG, PNG or WebP photos, MP4, MOV or WebM videos, or GIFs.",
   "places": [
    "netlify/functions/phone-handoff.mjs:30"
   ]
  },
- "790": {
+ "781": {
   "text": "Storage didn’t answer. Try again.",
   "places": [
    "netlify/functions/phone-handoff.mjs:55"
   ]
  },
- "791": {
+ "782": {
   "text": "Send only the 15-second clip.",
   "places": [
    "netlify/functions/analyze-music.mjs:26"
   ]
  },
- "792": {
+ "783": {
   "text": "The clip is too large.",
   "places": [
    "netlify/functions/transcribe-lyrics.mjs:32",
    "netlify/functions/style-print.mjs:26"
   ]
  },
- "793": {
+ "784": {
   "text": "Lyrics couldn’t start.",
   "places": [
    "netlify/functions/transcribe-lyrics.mjs:52"
   ]
  },
- "794": {
+ "785": {
   "text": "The lyrics are too long.",
   "places": [
    "netlify/functions/read-lyric-meaning.mjs:30"
   ]
  },
- "795": {
+ "786": {
   "text": "Lyric reading couldn’t start.",
   "places": [
    "netlify/functions/read-lyric-meaning.mjs:41"
   ]
  },
- "796": {
+ "787": {
   "text": "The lyric reading failed.",
   "places": [
    "netlify/functions/read-lyric-meaning-status.mjs:47"
   ]
  },
- "797": {
+ "788": {
   "text": "Directed",
   "places": [
    "src/creatives-pack.ts:57"
   ]
  },
- "798": {
+ "789": {
   "text": "Thermal",
   "places": [
    "src/creatives-pack.ts:62"
   ]
  },
- "799": {
+ "790": {
   "text": "Halftone",
   "places": [
    "src/creatives-pack.ts:63"
   ]
  },
- "800": {
+ "791": {
   "text": "Dither",
   "places": [
    "src/creatives-pack.ts:64"
   ]
  },
- "801": {
+ "792": {
   "text": "ASCII",
   "places": [
    "src/creatives-pack.ts:65"
   ]
  },
- "802": {
+ "793": {
   "text": "Riso",
   "places": [
    "src/creatives-pack.ts:66"
   ]
  },
- "803": {
+ "794": {
   "text": "Window",
   "places": [
    "src/creatives-pack.ts:67"
   ]
  },
- "804": {
+ "795": {
   "text": "Silhouette",
   "places": [
    "src/creatives-pack.ts:69"
   ]
  },
- "805": {
+ "796": {
   "text": "Pulse",
   "places": [
    "src/creatives-pack.ts:70"
   ]
  },
- "806": {
+ "797": {
   "text": "Dust",
   "places": [
    "src/creatives-pack.ts:71"
   ]
  },
- "807": {
+ "798": {
   "text": "Uplifting/Energetic",
   "places": [
    "src/creatives-pack.ts:233"
   ]
  },
- "808": {
+ "799": {
   "text": "Dark/Cinematic",
   "places": [
    "src/creatives-pack.ts:235"
   ]
  },
- "809": {
+ "800": {
   "text": "Ambient/Mellow",
   "places": [
    "src/creatives-pack.ts:236"
   ]
  },
- "810": {
+ "801": {
   "text": "Our library",
   "places": [
    "src/creatives-pack.ts:757"
   ]
  },
- "811": {
+ "802": {
   "text": "Triptych",
   "places": [
    "src/treatment-deal.ts:37"
   ]
  },
- "812": {
+ "803": {
   "text": "Slim gap",
   "places": [
    "src/treatment-deal.ts:39"
   ]
  },
- "813": {
+ "804": {
   "text": "Clear gap",
   "places": [
    "src/treatment-deal.ts:40"
   ]
  },
- "814": {
+ "805": {
   "text": "Wide gap",
   "places": [
    "src/treatment-deal.ts:41"
   ]
  },
- "815": {
+ "806": {
   "text": "Even gap",
   "places": [
    "src/treatment-deal.ts:42"
   ]
  },
- "816": {
+ "807": {
   "text": "Fisheye",
   "places": [
    "src/treatment-deal.ts:47"
   ]
  },
- "817": {
+ "808": {
   "text": "Gentle lens",
   "places": [
    "src/treatment-deal.ts:49"
   ]
  },
- "818": {
+ "809": {
   "text": "Round lens",
   "places": [
    "src/treatment-deal.ts:50"
   ]
  },
- "819": {
+ "810": {
   "text": "Strong lens",
   "places": [
    "src/treatment-deal.ts:51"
   ]
  },
- "820": {
+ "811": {
   "text": "Peephole",
   "places": [
    "src/treatment-deal.ts:52"
   ]
  },
- "821": {
+ "812": {
   "text": "Collage",
   "places": [
    "src/treatment-deal.ts:57"
   ]
  },
- "822": {
+ "813": {
   "text": "Editorial",
   "places": [
    "src/treatment-deal.ts:59"
   ]
  },
- "823": {
+ "814": {
   "text": "Scattered",
   "places": [
    "src/treatment-deal.ts:60"
   ]
  },
- "824": {
+ "815": {
   "text": "Stacked prints",
   "places": [
    "src/treatment-deal.ts:61"
   ]
  },
- "825": {
+ "816": {
   "text": "Cut-outs",
   "places": [
    "src/treatment-deal.ts:62"
   ]
  },
- "826": {
+ "817": {
   "text": "Colored Frame",
   "places": [
    "src/treatment-deal.ts:67"
   ]
  },
- "827": {
+ "818": {
   "text": "Black",
   "places": [
    "src/treatment-deal.ts:69"
   ]
  },
- "828": {
+ "819": {
   "text": "White",
   "places": [
    "src/treatment-deal.ts:70"
   ]
  },
- "829": {
+ "820": {
   "text": "Black wide",
   "places": [
    "src/treatment-deal.ts:71"
   ]
  },
- "830": {
+ "821": {
   "text": "White wide",
   "places": [
    "src/treatment-deal.ts:72"
   ]
  },
- "831": {
+ "822": {
   "text": "Bento Grid",
   "places": [
    "src/treatment-deal.ts:77"
   ]
  },
- "832": {
+ "823": {
   "text": "Hero left",
   "places": [
    "src/treatment-deal.ts:79"
   ]
  },
- "833": {
+ "824": {
   "text": "Hero top",
   "places": [
    "src/treatment-deal.ts:80"
   ]
  },
- "834": {
+ "825": {
   "text": "Mosaic",
   "places": [
    "src/treatment-deal.ts:81"
   ]
  },
- "835": {
+ "826": {
   "text": "Strip",
   "places": [
    "src/treatment-deal.ts:82"
   ]
  },
- "836": {
+ "827": {
   "text": "Film Grain",
   "places": [
    "src/treatment-deal.ts:87"
   ]
  },
- "837": {
+ "828": {
   "text": "Faded",
   "places": [
    "src/treatment-deal.ts:89"
   ]
  },
- "838": {
+ "829": {
   "text": "Home movie",
   "places": [
    "src/treatment-deal.ts:90"
   ]
  },
- "839": {
+ "830": {
   "text": "Old reel",
   "places": [
    "src/treatment-deal.ts:91"
   ]
  },
- "840": {
+ "831": {
   "text": "Warm glow",
   "places": [
    "src/treatment-deal.ts:92"
   ]
  },
- "841": {
+ "832": {
   "text": "Double Exposure",
   "places": [
    "src/treatment-deal.ts:97"
   ]
  },
- "842": {
+ "833": {
   "text": "Soft blend",
   "places": [
    "src/treatment-deal.ts:99"
   ]
  },
- "843": {
+ "834": {
   "text": "Mirrored",
   "places": [
    "src/treatment-deal.ts:100"
   ]
  },
- "844": {
+ "835": {
   "text": "Shifted",
   "places": [
    "src/treatment-deal.ts:101"
   ]
  },
- "845": {
+ "836": {
   "text": "Close-up",
   "places": [
    "src/treatment-deal.ts:102"
   ]
  },
- "846": {
+ "837": {
   "text": "Sideways",
   "places": [
    "src/treatment-deal.ts:107"
   ]
  },
- "847": {
+ "838": {
   "text": "Turn right",
   "places": [
    "src/treatment-deal.ts:109"
   ]
  },
- "848": {
+ "839": {
   "text": "Turn left",
   "places": [
    "src/treatment-deal.ts:110"
   ]
  },
- "849": {
+ "840": {
   "text": "Blurred sides",
   "places": [
    "src/treatment-deal.ts:111"
   ]
  },
- "850": {
+ "841": {
   "text": "Cinema bars",
   "places": [
    "src/treatment-deal.ts:112"
   ]
  },
- "851": {
+ "842": {
   "text": "Typewriter",
   "places": [
    "src/treatment-deal.ts:117"
   ]
  },
- "852": {
+ "843": {
   "text": "Newsprint",
   "places": [
    "src/treatment-deal.ts:119"
   ]
  },
- "853": {
+ "844": {
   "text": "Old letter",
   "places": [
    "src/treatment-deal.ts:120"
   ]
  },
- "854": {
+ "845": {
   "text": "Faded page",
   "places": [
    "src/treatment-deal.ts:121"
   ]
  },
- "855": {
+ "846": {
   "text": "Yellowed",
   "places": [
    "src/treatment-deal.ts:122"
   ]
  },
- "856": {
+ "847": {
   "text": "Screenshot",
   "places": [
    "src/treatment-deal.ts:127"
   ]
  },
- "857": {
+ "848": {
   "text": "Black crayon",
   "places": [
    "src/treatment-deal.ts:129"
   ]
  },
- "858": {
+ "849": {
   "text": "White crayon",
   "places": [
    "src/treatment-deal.ts:130"
   ]
  },
- "859": {
+ "850": {
   "text": "Dark chat",
   "places": [
    "src/treatment-deal.ts:131"
   ]
  },
- "860": {
+ "851": {
   "text": "Full screen",
   "places": [
    "src/treatment-deal.ts:132"
   ]
  },
- "861": {
+ "852": {
   "text": "Raw 16mm",
   "places": [
    "src/edit-presets.ts:42"
   ]
  },
- "862": {
+ "853": {
   "text": "90s Camcorder",
   "places": [
    "src/edit-presets.ts:50"
   ]
  },
- "863": {
+ "854": {
   "text": "Club Pulse",
   "places": [
    "src/edit-presets.ts:57"
   ]
  },
- "864": {
+ "855": {
   "text": "Y2K Digicam",
   "places": [
    "src/edit-presets.ts:65"
   ]
  },
- "865": {
+ "856": {
   "text": "Dreamy",
   "places": [
    "src/edit-presets.ts:72"
   ]
  },
- "866": {
+ "857": {
   "text": "Gritty Mono",
   "places": [
    "src/edit-presets.ts:79"

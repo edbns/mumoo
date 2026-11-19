@@ -422,7 +422,7 @@ export function Modal({
       type="button"
       onClick={onClose}
       aria-label={closeLabel}
-      className={`grid size-8 shrink-0 cursor-pointer place-items-center rounded-[var(--radius-control)] bg-transparent p-0 text-muted-foreground outline-ring transition-colors duration-150 hover:bg-secondary hover:text-foreground focus-visible:outline-2 ${bare ? 'absolute right-3 top-3 z-10' : '-mr-1 -mt-1'}`}
+      className={`grid size-8 shrink-0 cursor-pointer place-items-center rounded-[var(--radius-control)] bg-transparent p-0 text-muted-foreground outline-ring transition-colors duration-150 hover:bg-secondary hover:text-foreground focus-visible:outline-2 absolute right-3 top-3 z-10`}
     >
       {CLOSE_ICON}
     </button>
@@ -454,8 +454,8 @@ export function Modal({
             className={`relative flex w-full flex-col text-foreground outline-none ${bare ? '' : 'overflow-hidden rounded-[var(--radius-panel)] bg-muted shadow-[0_28px_56px_-24px_#000]'} ${className}`}
           >
             {bare ? <h2 id={titleId} className="sr-only">{title}</h2> : (
-            <div className="flex shrink-0 items-start gap-3 px-6 pb-4 pt-6">
-              <div className="min-w-0 flex-1">
+            <div className="relative shrink-0 px-10 pb-4 pt-6 text-center">
+              <div className="min-w-0">
                 <h2
                   id={titleId}
                   className={hideTitle ? "sr-only" : "text-lg font-semibold tracking-[-0.01em] text-foreground"}

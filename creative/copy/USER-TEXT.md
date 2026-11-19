@@ -204,22 +204,22 @@ Rewrite the text after each number, keep the number (like `[12]`) at the start o
 [130] Song and lyrics cleared. Chosen videos stay, pictures stay in History.
 [131] Keep this song
 [132] Sounds like {capitalised}
-[133] That right? Helps MUMOO learn your music.
-[134] Not sure
-[135] No
-[136] Yes
-[137] MUSIC
-[138] YOUR CLIP
-[139] Pick your 15 seconds
-[140] Drop the song file to start.{…}
-[141] First creative is free.
-[142] Not this song
-[143] Drop your song here
-[144] Select song
-[145] Song file
-[146] Remove song
-[147] Needs to be at least 15 seconds. No song file? A video with the song playing works too (saved TikTok/Reel, screen recording, voice memo).
-[148] What kind of music is it?
+[133] Maybe
+[134] No
+[135] Yes
+[136] MUSIC
+[137] YOUR CLIP
+[138] Pick your 15 seconds
+[139] Drop the song file to start.{…}
+[140] First creative is free.
+[141] Not this song
+[142] Drop your song here
+[143] Select song
+[144] Song file
+[145] Remove song
+[146] Needs to be at least 15 seconds. No song file? A video with the song playing works too (saved TikTok/Reel, screen recording, voice memo).
+[147] What kind of music is it?
+[148] Not sure
 [149] Type a style: afrobeats, slap house, drill…
 [150] Type a style, or just say you don’t know.
 [151] Loading styles…
@@ -365,834 +365,825 @@ Rewrite the text after each number, keep the number (like `[12]`) at the start o
 [255] Building your creatives · {done} of {total}
 [256] Getting your creatives ready
 [257] Analysing your song and building creatives
-[258] Takes a minute or two.
 
 ### music-intent
 
-[259] Uplifting/Energetic
-[260] Ambient/Mellow
-[261] Dark/Cinematic
+[258] Uplifting/Energetic
+[259] Ambient/Mellow
+[260] Dark/Cinematic
 
 
 ## Create, step 4: creatives (the shelf of videos)
 
 ### creatives-pack-studio
 
-[262] {title}: no approved photos for this yet. Sign in (top right) to use your own.
-[263] {title}: no approved photos yet. Upload a photo{…} to see it.
-[264] {title} uses our library photos and none fit this song yet. Upload your own to see it.
-[265] One creative couldn’t be prepared.
-[266] Live preview is down for a moment. Reload and try again.
-[267] Preview failed (WebGL).
-[268] Preparing audio…
-[269] Starting {length} creatives…
-[270] Starting your creative…
-[271] Couldn’t read the lyrics, so these match the sound only.
-[272] You can pick up to {CART_LIMIT} videos. Remove one to add another.
-[273] This is just a preview. Downloads are HD.
-[274] No lyrics, so no lyric style on these.
-[275] Lyrics
-[276] Use our media
-[277] Refresh
-[278] Refresh all creatives
-[279] Your {length} videos or GIFs get shared across templates that can use them. Dust and Depth need a photo.
-[280] Your {length} pictures get shared across templates that use photos.
-[281] Your video or GIF shows on templates that can use one. Dust and Depth need a photo.
-[282] Your photo shows on templates that use pictures.
-[283] Approve your synced lyrics, or turn Lyrics off.
-[284] creatives-pack-card{…}{…}
-[285] {title} creative, {…}
-[286] {…} {title} creative
-[287] Pause
-[288] Play
-[289] Back
+[261] {title}: no approved photos for this yet. Sign in (top right) to use your own.
+[262] {title}: no approved photos yet. Upload a photo{…} to see it.
+[263] {title} uses our library photos and none fit this song yet. Upload your own to see it.
+[264] One creative couldn’t be prepared.
+[265] Live preview is down for a moment. Reload and try again.
+[266] Preview failed (WebGL).
+[267] Preparing audio…
+[268] Starting {length} creatives…
+[269] Starting your creative…
+[270] You can pick up to {CART_LIMIT} videos. Remove one to add another.
+[271] Lyrics
+[272] Use our media
+[273] Refresh
+[274] Refresh all creatives
+[275] This is just a preview. Downloads are HD.
+[276] Your {length} videos or GIFs get shared across templates that can use them. Dust and Depth need a photo.
+[277] Your {length} pictures get shared across templates that use photos.
+[278] Your video or GIF shows on templates that can use one. Dust and Depth need a photo.
+[279] Your photo shows on templates that use pictures.
+[280] Approve your synced lyrics, or turn Lyrics off.
+[281] creatives-pack-card{…}{…}
+[282] {title} creative, {…}
+[283] {…} {title} creative
+[284] Pause
+[285] Play
+[286] Back
 
 ### picture-upload
 
-[290] Sending your media
-[291] Getting it ready
-[292] Almost there
-[293] Sending {…} of {total}
-[294] Preparing in the cloud
-[295] Creatives use your media once everything’s here. Don’t close this window.
-[296] Your uploads
-[297] Or use your uploads
-[298] {length} of {MAX_SHELF_PICTURES}
-[299] Video
-[300] Photo
-[301] Use {…}
-[302] these {length}
-[303] Pick one or more
-[304] Upload
-[305] Use your own photos or videos
-[306] Pick up to {MAX_SHELF_PICTURES} at once — each creative uses one of them. By uploading you confirm you own the rights. Videos/GIFs skip the ones that need a photo.
-[307] Drop up to {MAX_SHELF_PICTURES} photos, videos or GIFs here
-[308] JPG, PNG, WebP, MP4, MOV, WebM or GIF
-[309] Select files
-[310] Picture files
-[311] Sign in (top right) to use your own pictures.
+[287] Sending your media
+[288] Getting it ready
+[289] Almost there
+[290] Sending {…} of {total}
+[291] Preparing in the cloud
+[292] Creatives use your media once everything’s here. Don’t close this window.
+[293] Your uploads
+[294] Or use your uploads
+[295] {length} of {MAX_SHELF_PICTURES}
+[296] Video
+[297] Photo
+[298] Use {…}
+[299] these {length}
+[300] Pick one or more
+[301] Upload
+[302] Upload your photos or videos
+[303] Drop up to {MAX_SHELF_PICTURES} photos, videos or GIFs here
+[304] JPG, PNG, WebP, MP4, MOV, WebM or GIF
+[305] Select files
+[306] Picture files
+[307] Only upload media you own.
+[308] Sign in (top right) to use your own pictures.
 
 ### photo-shrink
 
-[312] Couldn’t read that photo.
-[313] Couldn’t prepare that photo.
+[309] Couldn’t read that photo.
+[310] Couldn’t prepare that photo.
 
 ### uploads
 
-[314] Couldn’t send that file. Try again.
-[315] Couldn’t send the file. Check your connection and try again.
-[316] Videos can be up to {MAX_SECONDS} seconds.
-[317] That photo is bigger than 25 MB.
-[318] Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.
-[319] That {…} is bigger than {…} MB.
-[320] GIF
+[311] Couldn’t send that file. Try again.
+[312] Couldn’t send the file. Check your connection and try again.
+[313] Videos can be up to {MAX_SECONDS} seconds.
+[314] That photo is bigger than 25 MB.
+[315] Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.
+[316] That {…} is bigger than {…} MB.
+[317] GIF
 
 ### use-uploads
 
-[321] Couldn’t prepare that file. Try another.
-[322] Your pictures are unavailable right now.
-[323] You already have {MAX_SHELF_PICTURES} of your own pictures. Start over to use others.
-[324] Couldn’t add that file.
-[325] Only {MAX_SHELF_PICTURES} of your own pictures at once, so {left} {…} left out.
+[318] Couldn’t prepare that file. Try another.
+[319] Your pictures are unavailable right now.
+[320] You already have {MAX_SHELF_PICTURES} of your own pictures. Start over to use others.
+[321] Couldn’t add that file.
+[322] Only {MAX_SHELF_PICTURES} of your own pictures at once, so {left} {…} left out.
 
 ### pack-renderer
 
-[326] {what} couldn’t be loaded{…}. Reload the page or go back to our photos.
-[327] Picture for this Window couldn’t load. Reload the page.
+[323] {what} couldn’t be loaded{…}. Reload the page or go back to our photos.
+[324] Picture for this Window couldn’t load. Reload the page.
 
 ### pack-cloud-export
 
-[328] Reload the page and try again.
-[329] Creatives are down for a moment. Reload and try again.
-[330] Your creative didn’t start. Reload and try again.
-[331] Your creative came back empty. Try again.
-[332] Your creative took too long. Try again in a bit.
+[325] Reload the page and try again.
+[326] Creatives are down for a moment. Reload and try again.
+[327] Your creative didn’t start. Reload and try again.
+[328] Your creative came back empty. Try again.
+[329] Your creative took too long. Try again in a bit.
 
 
 ## Chosen videos: the bottom bar, the chosen videos page, making the videos
 
 ### cart-panel
 
-[333] You chose {videos}
-[334] You can only make 1 free video, or buy credits for the rest.
-[335] You have {have} {…}. You can only make {videos}, or buy credits for all of them.
-[336] Get my free video
-[337] Make {videos}
-[338] Buy credits
-[339] Chosen videos
-[340] Your chosen videos
-[341] Close
-[342] Pick the creatives you like. They stay here for this song and clip while you refresh for more.
-[343] The picture it used isn’t available anymore.
-[344] Remove {title}
-[345] This can take a few minutes. You can close this and keep creating.
-[346] Total
-[347] {…} Take out {videos} with the × so only {have} {…} left, then make {…}.
-[348] You can make 1 video free.
-[349] You have {have} {…}.
-[350] Make {…}
-[351] We’re working on it. You can keep making other visuals in the meantime.
-[352] Go to your creatives
-[353] Videos get made and downloaded from your creatives page.
-[354] download-notice {kind}
-[355] Dismiss
+[330] You chose {videos}
+[331] You can only make 1 free video, or buy credits for the rest.
+[332] You have {have} {…}. You can only make {videos}, or buy credits for all of them.
+[333] Get my free video
+[334] Make {videos}
+[335] Buy credits
+[336] Chosen videos
+[337] Your chosen videos
+[338] Close
+[339] Pick the creatives you like. They stay here for this song and clip while you refresh for more.
+[340] The picture it used isn’t available anymore.
+[341] Remove {title}
+[342] Total
+[343] {…} Take out {videos} with the × so only {have} {…} left, then make {…}.
+[344] You can make 1 video free.
+[345] You have {have} {…}.
+[346] Create
+[347] We’re working on it. You can keep making other visuals in the meantime.
+[348] Go to your creatives
+[349] Videos get made and downloaded from your creatives page.
+[350] download-notice {kind}
+[351] Dismiss
 
 ### cart
 
-[356] Couldn’t make a picture of this creative.
+[352] Couldn’t make a picture of this creative.
 
 ### use-cart-download
 
-[357] Made {done} of {total}
-[358] Making your creative…
-[359] Getting your download ready…
-[360] Media storage is full, so {…} downloaded to this computer instead.
-[361] your new creative was
-[362] Couldn’t export the creatives.
-[363] {…} ready. {…} ({…}) and {…} still chosen: open them from the bar at the bottom to try again.
-[364] Your creative is
-[365] Your {count} creatives are
-[366] {text} Your chosen videos are kept.
-[367] Starting…
-[368] A download that was going didn’t finish.
-[369] Videos that were being made didn’t finish. Your chosen videos are kept — open them from the bottom bar to try again.
+[353] Made {done} of {total}
+[354] Making your creative…
+[355] Getting your download ready…
+[356] Media storage is full, so {…} downloaded to this computer instead.
+[357] your new creative was
+[358] Couldn’t export the creatives.
+[359] {…} ready. {…} ({…}) and {…} still chosen: open them from the bar at the bottom to try again.
+[360] Your creative is
+[361] Your {count} creatives are
+[362] {text} Your chosen videos are kept.
+[363] Starting…
+[364] A download that was going didn’t finish.
+[365] Videos that were being made didn’t finish. Your chosen videos are kept — open them from the bottom bar to try again.
 
 
 ## Credits popup, purchase and invite friends
 
 ### purchase-credits
 
-[370] Make a video
-[371] Thank you
-[372] {…} videos are in your account{…}. You now have {arrival.credits.toLocaleString} {…}.
-[373] , {bonus} of them from your friend’s invite
-[374] Receipt is on its way by email, invoice is in Invoices.
-[375] Payment is still on its way. Credits show up as soon as it lands. If not within an hour, email moo@mumoo.app.
-[376] Almost there
-[377] Payment received
-[378] Adding your credits…
-[379] Your purchase
-[380] Purchase Credits
-[381] One credit makes one video.
-[382] You’re out of credits. {…} {…}. Your chosen videos are kept.
-[383] This video needs
-[384] These {need} videos need
-[385] {need} videos need {need} credits and you have {have}. Buy a pack or pick fewer.
-[386] A friend invited you: your first pack comes with {bonus} extra videos free.
-[387] One-time purchase, no subscription. Credits never expire. Payment by Polar; tax added where it applies.
-[388] Credits are non-refundable. See Terms and Refund policy.
-[389] Terms
-[390] Refund policy
+[366] Make a video
+[367] Thank you
+[368] {…} videos are in your account{…}. You now have {arrival.credits.toLocaleString} {…}.
+[369] , {bonus} of them from your friend’s invite
+[370] Receipt is on its way by email, invoice is in Invoices.
+[371] Payment is still on its way. Credits show up as soon as it lands. If not within an hour, email moo@mumoo.app.
+[372] Almost there
+[373] Payment received
+[374] Adding your credits…
+[375] Your purchase
+[376] Purchase Credits
+[377] One credit makes one video.
+[378] You’re out of credits. {…} {…}. Your chosen videos are kept.
+[379] This video needs
+[380] These {need} videos need
+[381] {need} videos need {need} credits and you have {have}. Buy a pack or pick fewer.
+[382] A friend invited you: your first pack comes with {bonus} extra videos free.
+[383] One-time purchase, no subscription. Credits never expire. Payment by Polar; tax added where it applies.
+[384] Credits are non-refundable. See Terms and Refund policy.
+[385] Terms
+[386] Refund policy
 
 ### pricing-interaction
 
-[391] Credit packs
-[392] Popular
-[393] ${usd} · {perVideo} a video
-[394] Opening checkout…
-[395] Buy
-[396] videos ·
-[397] USD
+[387] Credit packs
+[388] Popular
+[389] ${usd} · {perVideo} a video
+[390] Opening checkout…
+[391] Buy
+[392] videos ·
+[393] USD
 
 ### invite-friends
 
-[398] Browser blocked the copy. Select the link and copy it yourself.
-[399] Make music videos with MUMOO. First pack comes with {videos} extra videos if they use my link.
-[400] Invite friends
-[401] Give {videos} videos, get {videos}.
-[402] Share your link. Friend gets {videos} extra on their first pack, you get {videos} free once they pay.
-[403] Your invite link
-[404] Getting your link…
-[405] Copied
-[406] Copy
-[407] Share your invite link
-[408] bought a pack
-[409] You’ve hit this month’s limit of {cap} rewarded friends. Friends who join still get their {videos} ; your rewards reset on the 1st.
-[410] {thisMonth} of {cap} friends this month have earned you videos. Your friends always get theirs.
+[394] Browser blocked the copy. Select the link and copy it yourself.
+[395] Make music videos with MUMOO. First pack comes with {videos} extra videos if they use my link.
+[396] Invite friends
+[397] Give {videos} videos, get {videos}.
+[398] Share your link. Friend gets {videos} extra on their first pack, you get {videos} free once they pay.
+[399] Your invite link
+[400] Getting your link…
+[401] Copied
+[402] Copy
+[403] Share your invite link
+[404] bought a pack
+[405] You’ve hit this month’s limit of {cap} rewarded friends. Friends who join still get their {videos} ; your rewards reset on the 1st.
+[406] {thisMonth} of {cap} friends this month have earned you videos. Your friends always get theirs.
 
 
 ## Pricing page (/pricing)
 
 ### pricing-page
 
-[411] Every template and look on the shelf
-[412] Your lyrics, read and timed to the song
-[413] Cut to the beat of your music
-[414] Vertical 1080×1920 video, ready for Reels, TikTok and Shorts
-[415] No watermark
-[416] Kept in your Media, with 5 GB of room
-[417] What is a credit?
-[418] One credit makes one video. That’s it.
-[419] Is it a subscription?
-[420] Nope. Pay once, credits stay until you use them. They never expire.
-[421] What does the first video cost?
-[422] Nothing. Every new account gets its first video free, no watermark.
-[423] Can I get free videos?
-[424] Yeah. Invite friends from your account menu: they get 10 extra on their first pack, you get 10 free once they pay (up to 20 friends a month).
-[425] Who takes the payment?
-[426] Can I get a refund?
-[427] Credits are non-refundable except where the law says so (like a render that fails and we can’t fix).
-[428] Sign in to buy credits
-[429] Your credits stay in your account.
-[430] MUMOO
-[431] Open MUMOO
-[432] One credit. One video.
-[433] Pay once, no subscription, credits never expire. First video free, no watermark.
-[434] A friend invited you: your first pack comes with 10 extra videos free.
-[435] Make my first video free
-[436] Credit packs
-[437] Popular
-[438] Opening checkout…
-[439] Buy {pack.videos.toLocaleString} videos
-[440] Prices in US dollars. Tax added at checkout where it applies.
-[441] Every video comes with
-[442] Smart links for your songs are free, no credits needed.
-[443] Questions
-[444] See the Terms and Refund policy. Anything else: moo@mumoo.app.
-[445] Terms
-[446] Refund policy
-[447] moo@mumoo.app
+[407] Every template and look on the shelf
+[408] Your lyrics, read and timed to the song
+[409] Cut to the beat of your music
+[410] Vertical 1080×1920 video, ready for Reels, TikTok and Shorts
+[411] No watermark
+[412] Kept in your Media, with 5 GB of room
+[413] What is a credit?
+[414] One credit makes one video. That’s it.
+[415] Is it a subscription?
+[416] Nope. Pay once, credits stay until you use them. They never expire.
+[417] What does the first video cost?
+[418] Nothing. Every new account gets its first video free, no watermark.
+[419] Can I get free videos?
+[420] Yeah. Invite friends from your account menu: they get 10 extra on their first pack, you get 10 free once they pay (up to 20 friends a month).
+[421] Who takes the payment?
+[422] Can I get a refund?
+[423] Credits are non-refundable except where the law says so (like a render that fails and we can’t fix).
+[424] Sign in to buy credits
+[425] Your credits stay in your account.
+[426] MUMOO
+[427] Open MUMOO
+[428] One credit. One video.
+[429] Pay once, no subscription, credits never expire. First video free, no watermark.
+[430] A friend invited you: your first pack comes with 10 extra videos free.
+[431] Make my first video free
+[432] Credit packs
+[433] Popular
+[434] Opening checkout…
+[435] Buy {pack.videos.toLocaleString} videos
+[436] Prices in US dollars. Tax added at checkout where it applies.
+[437] Every video comes with
+[438] Smart links for your songs are free, no credits needed.
+[439] Everything you need to know about making a video with MUMOO
 
 
 ## Profile: History (Media and Uploads)
 
 ### history-page
 
-[448] Couldn’t prepare this picture.
-[449] Preparing…
-[450] History is unavailable right now.
-[451] Couldn’t make the zip. Download them one by one instead.
-[452] This can take a few minutes. They show up here when they’re ready.
-[453] The videos you make stay here. Download whenever you want.
-[454] Photos, videos and GIFs you upload stay here, private to you, until you delete them.
-[455] Clear selection
-[456] Select all
-[457] Download
-[458] Too many to zip at once. Download one by one.
-[459] Loading
-[460] {…} {noun} from {day}
-[461] Selected
-[462] Select
-[463] Play {noun} from {day}
-[464] Download {noun} from {day}
-[465] Creative
-[466] Upload
-[467] Delete {length} {noun}{…}?
-[468] They’re removed from your account and storage. Can’t be undone.
-[469] Deleting…
+[440] Couldn’t prepare this picture.
+[441] Preparing…
+[442] History is unavailable right now.
+[443] Couldn’t make the zip. Download them one by one instead.
+[444] The videos you make stay here. Download whenever you want.
+[445] Photos, videos and GIFs you upload stay here, private to you, until you delete them.
+[446] Clear selection
+[447] Select all
+[448] Download
+[449] Too many to zip at once. Download one by one.
+[450] Loading
+[451] {…} {noun} from {day}
+[452] Selected
+[453] Select
+[454] Play {noun} from {day}
+[455] Download {noun} from {day}
+[456] Creative
+[457] Upload
+[458] Delete {length} {noun}{…}?
+[459] They’re removed from your account and storage. Can’t be undone.
+[460] Deleting…
 
 
 ## Profile: Settings
 
 ### settings-page
 
-[470] That didn’t work. Try again in a sec.
-[471] That’s already your email.
-[472] Your email is now {sentTo}. Everything you made is still yours.
-[473] Email
-[474] Your creatives, uploads and history stay with your account when you change email.
-[475] New email address
-[476] Send code
-[477] We sent a code to {sentTo}. Enter it to confirm.
-[478] Code from your email
-[479] Use a different email
-[480] Confirm
-[481] Delete account
-[482] Deletes your account and everything in it: creatives, pictures and history. Can’t be undone. Download what you want first.
-[483] Delete your account?
-[484] Your creatives, pictures and history get deleted for good. Can’t be undone.
-[485] Keep my account
-[486] Delete everything
-[487] Deleting…
-[488] Type {email} to confirm.
-[489] Your email, to confirm
-[490] Your email
+[461] That didn’t work. Try again in a sec.
+[462] That’s already your email.
+[463] Your email is now {sentTo}. Everything you made is still yours.
+[464] Email
+[465] Your creatives, uploads and history stay with your account when you change email.
+[466] New email address
+[467] Send code
+[468] We sent a code to {sentTo}. Enter it to confirm.
+[469] Code from your email
+[470] Use a different email
+[471] Confirm
+[472] Delete account
+[473] Deletes your account and everything in it: creatives, pictures and history. Can’t be undone. Download what you want first.
+[474] Delete your account?
+[475] Your creatives, pictures and history get deleted for good. Can’t be undone.
+[476] Keep my account
+[477] Delete everything
+[478] Deleting…
+[479] Type {email} to confirm.
+[480] Your email, to confirm
+[481] Your email
 
 
 ## Profile: Invoices
 
 ### invoices-page
 
-[491] Invoice is unavailable right now. Try again in a moment.
-[492] Your invoices are unavailable right now.
-[493] Invoices
-[494] No payments yet. When you pay, each invoice shows up here with what it was for and the amount.
-[495] Paid
-[496] Refunded
-[497] Download invoice {number}
+[482] Invoice is unavailable right now. Try again in a moment.
+[483] Your invoices are unavailable right now.
+[484] Invoices
+[485] No payments yet. When you pay, each invoice shows up here with what it was for and the amount.
+[486] Paid
+[487] Refunded
+[488] Download invoice {number}
 
 
 ## Smart links: Create Smart Link
 
 ### links-page
 
-[498] That didn’t work. Try again in a sec.
-[499] That song doesn’t match this link’s title. Pick another or fix the details below.
-[500] Pick your song from the list.
-[501] Type your song’s name or paste its link.
-[502] Your link is live
-[503] Your changes are live
-[504] Drop it in your bio and posts. Fans get the right app button, and My Smart Links tracks which ones they press.
-[505] Editing your link
-[506] Your song
-[507] Cancel
-[508] Start again
-[509] One link for your song that opens in every fan’s app: Spotify, Apple Music, YouTube and more.
-[510] Your song’s name or link
-[511] Search your song or paste its Spotify, Apple Music or YouTube link
-[512] Finding…
-[513] Find
-[514] Searching…
-[515] Nothing found for “{typedName}”. Try artist + title or paste the song’s link.
-[516] Not sure. Is this your song?
-[517] Pick your song
-[518] None of these: I’ll fix the details
-[519] Title
-[520] Artist
-[521] Buttons
-[522] Drag to change the order. “Search” buttons open a search for your song — paste the direct link to send fans straight there.
-[523] Address
-[524] The address stays the same so where you shared it keeps working.
-[525] Your link’s name
-[526] m-0 text-sm {…}
-[527] Choose a name for your link.
-[528] This name is free.
-[529] Checking…
-[530] You’ll sign in to publish.
-[531] Publishing…
-[532] Save changes
-[533] Publish
-[534] Move {label}: drag or use the up/down arrow keys
-[535] Song
-[536] Search
-[537] Open the {label} link in a new tab
-[538] Show {label}
-[539] Hide {label}
-[540] Choose
-[541] Pause preview
-[542] Play preview
-[543] Preview
-[544] Your fan page
-[545] What fans see. Press play to hear the preview.
-[546] Find your song and your page shows up here.
-[547] Your name
+[489] That didn’t work. Try again in a sec.
+[490] That song doesn’t match this link’s title. Pick another or fix the details below.
+[491] Pick your song from the list.
+[492] Type your song’s name or paste its link.
+[493] Your link is live
+[494] Your changes are live
+[495] Drop it in your bio and posts. Fans get the right app button, and My Smart Links tracks which ones they press.
+[496] Editing your link
+[497] Your song
+[498] Cancel
+[499] Start again
+[500] One link for your song that opens in every fan’s app: Spotify, Apple Music, YouTube and more.
+[501] Your song’s name or link
+[502] Search your song or paste its Spotify, Apple Music or YouTube link
+[503] Finding…
+[504] Find
+[505] Searching…
+[506] Nothing found for “{typedName}”. Try artist + title or paste the song’s link.
+[507] Not sure. Is this your song?
+[508] Pick your song
+[509] None of these: I’ll fix the details
+[510] Title
+[511] Artist
+[512] Buttons
+[513] Drag to change the order. “Search” buttons open a search for your song — paste the direct link to send fans straight there.
+[514] Address
+[515] The address stays the same so where you shared it keeps working.
+[516] Your link’s name
+[517] m-0 text-sm {…}
+[518] Choose a name for your link.
+[519] This name is free.
+[520] Checking…
+[521] You’ll sign in to publish.
+[522] Publishing…
+[523] Save changes
+[524] Publish
+[525] Move {label}: drag or use the up/down arrow keys
+[526] Song
+[527] Search
+[528] Open the {label} link in a new tab
+[529] Show {label}
+[530] Hide {label}
+[531] Choose
+[532] Pause preview
+[533] Play preview
+[534] Preview
+[535] Your fan page
+[536] What fans see. Press play to hear the preview.
+[537] Find your song and your page shows up here.
+[538] Your name
 
 ### links-skeleton
 
-[548] Loading smart links
+[539] Loading smart links
 
 ### smart-link-cta
 
-[549] Next: get fans to tap it
-[550] Turn “{title}” into scroll-stopping lyric videos.
-[551] Upload {…} song and MUMOO makes 9:16 creatives for Reels, TikTok and Shorts in minutes, in the style of your music.{…}
-[552] First creative is free.
-[553] Make my first video free
-[554] Create videos for your music
-[555] Listen now
+[540] Next: get fans to tap it
+[541] Turn “{title}” into scroll-stopping lyric videos.
+[542] Upload {…} song and MUMOO makes 9:16 creatives for Reels, TikTok and Shorts in minutes, in the style of your music.{…}
+[543] First creative is free.
+[544] Make my first video free
+[545] Create videos for your music
+[546] Listen now
 
 ### smart-link-parts
 
-[556] Copied
-[557] Copy link
-[558] Open link
+[547] Copied
+[548] Copy link
+[549] Open link
 
 ### smart-links
 
-[559] Apple Music
-[560] YouTube Music
-[561] Amazon Music
-[562] Unavailable right now. Try again in a moment.
+[550] Apple Music
+[551] YouTube Music
+[552] Amazon Music
+[553] Unavailable right now. Try again in a moment.
 
 ### ad-tracking
 
-[563] Ad tracking
-[564] Hide
-[565] Show
-[566] Set up
-[567] Optional. Running ads? Connect your accounts and every visit + stream click gets sent from our server so they can measure and optimise. No pixel on your page. Ad visits get counted either way.
-[568] Sends PageView and Mumoo Smart Link Click
-[569] Pixel ID
-[570] Conversions API token
-[571] Tip: Once your link gets its first test click, pick ‘Mumoo Smart Link Click’ as the Conversion Event in Meta Ads Manager.
-[572] Tip:
-[573] ‘Mumoo Smart Link Click’
-[574] Sends ViewContent and Mumoo_Smart_Link_Click
-[575] Events API access token
-[576] Tip: Once your link gets its first test click, ‘Mumoo_Smart_Link_Click’ shows up in TikTok Events Manager. If TikTok doesn’t offer it as an optimisation event, just pick ViewContent.
-[577] Google Ads ID
-[578] e.g. AW-123456789
-[579] Google Ads clicks get recognised and counted. Sending conversions to Google needs its own API access (coming later).
-[580] text-xs {…}
-[581] Not connected
-[582] Removed when you save
-[583] Saved · paste to replace
-[584] Paste your token
-[585] Keep the saved token
-[586] Remove token
+[554] Ad tracking
+[555] Hide
+[556] Show
+[557] Set up
+[558] Optional. Running ads? Connect your accounts and every visit + stream click gets sent from our server so they can measure and optimise. No pixel on your page. Ad visits get counted either way.
+[559] Sends PageView and Mumoo Smart Link Click
+[560] Pixel ID
+[561] Conversions API token
+[562] Tip: Once your link gets its first test click, pick ‘Mumoo Smart Link Click’ as the Conversion Event in Meta Ads Manager.
+[563] Tip:
+[564] ‘Mumoo Smart Link Click’
+[565] Sends ViewContent and Mumoo_Smart_Link_Click
+[566] Events API access token
+[567] Tip: Once your link gets its first test click, ‘Mumoo_Smart_Link_Click’ shows up in TikTok Events Manager. If TikTok doesn’t offer it as an optimisation event, just pick ViewContent.
+[568] Google Ads ID
+[569] e.g. AW-123456789
+[570] Google Ads clicks get recognised and counted. Sending conversions to Google needs its own API access (coming later).
+[571] text-xs {…}
+[572] Not connected
+[573] Removed when you save
+[574] Saved · paste to replace
+[575] Paste your token
+[576] Keep the saved token
+[577] Remove token
 
 
 ## Smart links: My Smart Links and analytics
 
 ### my-links-page
 
-[587] Couldn’t load your links. Try again in a moment.
-[588] Sign in to see your smart links and analytics.
-[589] Sign in
-[590] Loading your smart links
-[591] No smart links yet. Make one for your song — opens in every fan’s app.
-[592] Create Smart Link
-[593] Delete {…}?
-[594] Anyone who opens it finds nothing, and the analytics go too. Can’t be undone.
-[595] Delete link
-[596] Deleting…
-[597] Visits
-[598] Clicks
-[599] Engagement
-[600] Most pressed
-[601] No clicks yet
-[602] Analytics for {slug}
-[603] Analytics
-[604] Edit {slug}
-[605] Delete {slug}
+[578] Couldn’t load your links. Try again in a moment.
+[579] Sign in to see your smart links and analytics.
+[580] Sign in
+[581] Loading your smart links
+[582] No smart links yet. Make one for your song — opens in every fan’s app.
+[583] Create Smart Link
+[584] Delete {…}?
+[585] Anyone who opens it finds nothing, and the analytics go too. Can’t be undone.
+[586] Delete link
+[587] Deleting…
+[588] Visits
+[589] Clicks
+[590] Engagement
+[591] Most pressed
+[592] No clicks yet
+[593] Analytics for {slug}
+[594] Analytics
+[595] Edit {slug}
+[596] Delete {slug}
 
 ### link-analytics
 
-[606] All time
-[607] Meta ads
-[608] TikTok ads
-[609] Google ads
-[610] Other ads
-[611] Back to My Smart Links
-[612] Range
-[613] Total visits
-[614] Total link clicks
-[615] Link clicks per visit
-[616] Visits from ads
-[617] Timeline
-[618] Breakdown
-[619] Count
-[620] Link clicks
-[621] Streaming services
-[622] Organic vs ads
-[623] Top sources
-[624] Organic visits
-[625] Top countries
-[626] Top browsers
-[627] Top devices
-[628] Operating systems
-[629] Loading analytics
-[630] Nothing in this period yet.
-[631] Show fewer
-[632] Show all {length}
-[633] Clicks / visits
-[634] Visits and link clicks per day, {length} days
-[635] Visits: {views}
-[636] Link clicks: {clicks}
-[637] Clicks / visits: {…}%
-[638] absolute -translate-x-1/2 whitespace-nowrap {…}
+[597] All time
+[598] Meta ads
+[599] TikTok ads
+[600] Google ads
+[601] Other ads
+[602] Back to My Smart Links
+[603] Range
+[604] Total visits
+[605] Total link clicks
+[606] Link clicks per visit
+[607] Visits from ads
+[608] Timeline
+[609] Breakdown
+[610] Count
+[611] Link clicks
+[612] Streaming services
+[613] Organic vs ads
+[614] Top sources
+[615] Organic visits
+[616] Top countries
+[617] Top browsers
+[618] Top devices
+[619] Operating systems
+[620] Loading analytics
+[621] Nothing in this period yet.
+[622] Show fewer
+[623] Show all {length}
+[624] Clicks / visits
+[625] Visits and link clicks per day, {length} days
+[626] Visits: {views}
+[627] Link clicks: {clicks}
+[628] Clicks / visits: {…}%
+[629] absolute -translate-x-1/2 whitespace-nowrap {…}
 
 
 ## Phone upload page (opened from the QR code)
 
 ### main
 
-[639] Send your song
-[640] Pick the song from your phone. A video with the song playing works too (saved TikTok/Reel or screen recording).
-[641] Choose song or video
-[642] Send your photos or videos
-[643] Pick up to {MAX_PICTURES} photos, videos (up to 60 seconds) or GIFs. By sending them you confirm you own the rights.
-[644] Choose photos or videos
-[645] Getting ready
-[646] Sending
-[647] Almost there
-[648] GIF
-[649] This file is bigger than 200 MB. Pick a shorter one.
-[650] This is {…} minutes long. Songs can be up to 10 minutes.
-[651] This is {…} seconds long. Needs to be at least 15 seconds.
-[652] Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.
-[653] This {label} is bigger than {…} MB.
-[654] Videos can be up to {MAX_VIDEO_SECONDS} seconds. This one is {Math.round}.
-[655] Upload was refused. Try again.
-[656] Connection dropped. Try again.
-[657] This link isn’t complete. Scan the QR code on your computer again.
-[658] This QR code expired. Make a new one on your computer.
-[659] Only the first {MAX_PICTURES} get sent.
-[660] Sending didn’t start. Try again.
-[661] Something went wrong. Try again.
-[662] MUMOO
-[663] {…}{percent}% Don’t close your browser or this window.
-[664] {count} files ·
-[665] Don’t close your browser or this window.
-[666] Sent
-[667] {…} on {…} way to your computer. Keep going there — you can close this page.
-[668] They are
-[669] It is
-[670] That didn’t work
-[671] Try again
+[630] Send your song
+[631] Pick the song from your phone. A video with the song playing works too (saved TikTok/Reel or screen recording).
+[632] Choose song or video
+[633] Send your photos or videos
+[634] Pick up to {MAX_PICTURES} photos, videos (up to 60 seconds) or GIFs. By sending them you confirm you own the rights.
+[635] Choose photos or videos
+[636] Getting ready
+[637] Sending
+[638] Almost there
+[639] GIF
+[640] This file is bigger than 200 MB. Pick a shorter one.
+[641] This is {…} minutes long. Songs can be up to 10 minutes.
+[642] This is {…} seconds long. Needs to be at least 15 seconds.
+[643] Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.
+[644] This {label} is bigger than {…} MB.
+[645] Videos can be up to {MAX_VIDEO_SECONDS} seconds. This one is {Math.round}.
+[646] Upload was refused. Try again.
+[647] Connection dropped. Try again.
+[648] This link isn’t complete. Scan the QR code on your computer again.
+[649] This QR code expired. Make a new one on your computer.
+[650] Only the first {MAX_PICTURES} get sent.
+[651] Sending didn’t start. Try again.
+[652] Something went wrong. Try again.
+[653] MUMOO
+[654] {…}{percent}% Don’t close your browser or this window.
+[655] {count} files ·
+[656] Don’t close your browser or this window.
+[657] Sent
+[658] {…} on {…} way to your computer. Keep going there — you can close this page.
+[659] They are
+[660] It is
+[661] That didn’t work
+[662] Try again
 
 
 ## Welcome page
 
 ### welcome-page
 
-[672] MUMOO
-[673] Loading
+[663] MUMOO
+[664] Loading
 
 
 ## Legal page frame (not the legal texts themselves)
 
 ### legal-page
 
-[674] Ad Forwarding DPA
-[675] MUMOO
-[676] Back to MUMOO
-[677] Legal documents
-[678] Cookie settings
-[679] Legal
-[680] The terms and policies for using MUMOO. Questions go to moo@mumoo.app.
-[681] moo@mumoo.app
+[665] Ad Forwarding DPA
+[666] MUMOO
+[667] Back to MUMOO
+[668] Legal documents
+[669] Cookie settings
+[670] Legal
+[671] The terms and policies for using MUMOO. Questions go to moo@mumoo.app.
+[672] moo@mumoo.app
 
 
 ## Public smart link page (what fans see)
 
 ### fan-page
 
-[682] Listen to {title} by {artist} on {…}.
+[673] Listen to {title} by {artist} on {…}.
 
 ### fan-page
 
-[683] This page is unavailable right now. Try again in a moment.
+[674] This page is unavailable right now. Try again in a moment.
 
 
 ## Emails
 
 ### letters
 
-[684] Your code to {what} on MUMOO is {code}.
-[685] Works for {minutes} minutes. If you didn’t ask for it, ignore this — nobody can sign in without the code.
-[686] Your code to make this your MUMOO email is {code}.
-[687] Works for {minutes} minutes. If you didn’t ask for it, ignore this — nothing changes.
-[688] Your MUMOO account is deleted
-[689] Your MUMOO account has been deleted, as you asked.
-[690] Your creatives, uploaded photos/videos/GIFs and history are gone from storage. This email can’t sign in anymore. Signing in again starts a fresh empty account.
-[691] If you didn’t ask for this, reply to this email.
-[692] Your MUMOO creatives are waiting
-[693] Your MUMOO files will be deleted in {left} days
-[694] You haven’t been to MUMOO for {days} days.
-[695] To keep storage tidy, creatives and uploads get deleted after {deleteDays} days without a visit. That’s in about {left} days.
-[696] Sign in at {siteUrl} before then and everything stays. To keep a copy, open History → Select all → Download.
-[697] Your MUMOO storage is almost full
-[698] Storage is almost full: {size} of {size} used.
-[699] When it’s full, new creatives and uploads can’t be saved. Sign in at {siteUrl}, open History, download what you want, then delete to free space.
-[700] Your {…} MUMOO videos are ready
-[701] Thanks. {videos} video credits are now in your MUMOO account. One credit = one video, they never expire.
-[702] Your friend’s invite added {bonus} more, free.
-[703] You paid {paid}. You now have {credits} {…}.
-[704] Invoice is in Invoices: {siteUrl}/invoices. Payment was taken by Polar so it shows as Polar on your statement.
-[705] A friend joined MUMOO: {videos} free videos for you
-[706] Someone you invited just bought their first pack, so {videos} free videos are now in your account. Thanks for sharing MUMOO.
-[707] You now have {credits} {…}. Make something at {siteUrl}, and find your invite link under Invite friends in your account menu.
+[675] Your code to {what} on MUMOO is {code}.
+[676] Works for {minutes} minutes. If you didn’t ask for it, ignore this — nobody can sign in without the code.
+[677] Your code to make this your MUMOO email is {code}.
+[678] Works for {minutes} minutes. If you didn’t ask for it, ignore this — nothing changes.
+[679] Your MUMOO account is deleted
+[680] Your MUMOO account has been deleted, as you asked.
+[681] Your creatives, uploaded photos/videos/GIFs and history are gone from storage. This email can’t sign in anymore. Signing in again starts a fresh empty account.
+[682] If you didn’t ask for this, reply to this email.
+[683] Your MUMOO creatives are waiting
+[684] Your MUMOO files will be deleted in {left} days
+[685] You haven’t been to MUMOO for {days} days.
+[686] To keep storage tidy, creatives and uploads get deleted after {deleteDays} days without a visit. That’s in about {left} days.
+[687] Sign in at {siteUrl} before then and everything stays. To keep a copy, open History → Select all → Download.
+[688] Your MUMOO storage is almost full
+[689] Storage is almost full: {size} of {size} used.
+[690] When it’s full, new creatives and uploads can’t be saved. Sign in at {siteUrl}, open History, download what you want, then delete to free space.
+[691] Your {…} MUMOO videos are ready
+[692] Thanks. {videos} video credits are now in your MUMOO account. One credit = one video, they never expire.
+[693] Your friend’s invite added {bonus} more, free.
+[694] You paid {paid}. You now have {credits} {…}.
+[695] Invoice is in Invoices: {siteUrl}/invoices. Payment was taken by Polar so it shows as Polar on your statement.
+[696] A friend joined MUMOO: {videos} free videos for you
+[697] Someone you invited just bought their first pack, so {videos} free videos are now in your account. Thanks for sharing MUMOO.
+[698] You now have {credits} {…}. Make something at {siteUrl}, and find your invite link under Invite friends in your account menu.
 
 ### auth-email
 
-[708] Couldn’t send the code.
+[699] Couldn’t send the code.
 
 ### account-email
 
-[709] Sign in to continue.
-[710] Check the email address and try again.
-[711] That didn’t work. Try again in a moment.
+[700] Sign in to continue.
+[701] Check the email address and try again.
+[702] That didn’t work. Try again in a moment.
 
 ### email-change
 
-[712] That’s already your email.
-[713] That email already has a MUMOO account.
-[714] A code was just sent. Wait a moment before asking for another.
-[715] Couldn’t send the code. Try again in a moment.
-[716] That code is wrong or expired.
-[717] Sign in again to continue.
+[703] That’s already your email.
+[704] That email already has a MUMOO account.
+[705] A code was just sent. Wait a moment before asking for another.
+[706] Couldn’t send the code. Try again in a moment.
+[707] That code is wrong or expired.
+[708] Sign in again to continue.
 
 
 ## Messages from the server (shown when something goes wrong)
 
 ### account
 
-[718] Sign in to continue.
-[719] Type your email exactly as it is shown to confirm.
-[720] Couldn’t fully delete your account. Try again in a moment.
+[709] Sign in to continue.
+[710] Type your email exactly as it is shown to confirm.
+[711] Couldn’t fully delete your account. Try again in a moment.
 
 ### checkout
 
-[721] Unknown checkout.
-[722] Payments aren’t switched on yet.
-[723] Choose a pack.
-[724] That pack isn’t on sale.
-[725] Checkout is unavailable right now. Try again in a moment.
+[712] Unknown checkout.
+[713] Payments aren’t switched on yet.
+[714] Choose a pack.
+[715] That pack isn’t on sale.
+[716] Checkout is unavailable right now. Try again in a moment.
 
 ### encode-creative
 
-[726] Sign in to make a video.
-[727] Choose one picture.
-[728] That picture is kept for a different style.
-[729] That picture is no longer in the library.
-[730] That picture has no cut-out yet.
-[731] That picture wasn’t found or is still being prepared.
-[732] One of your pictures in that reel was removed or is still being prepared.
-[733] A picture of that reel is no longer in the library or has no cut-out yet.
-[734] You’re out of credits. Buy a pack to make this video.
+[717] Sign in to make a video.
+[718] Choose one picture.
+[719] That picture is kept for a different style.
+[720] That picture is no longer in the library.
+[721] That picture has no cut-out yet.
+[722] That picture wasn’t found or is still being prepared.
+[723] One of your pictures in that reel was removed or is still being prepared.
+[724] A picture of that reel is no longer in the library or has no cut-out yet.
+[725] You’re out of credits. Buy a pack to make this video.
 
 ### uploads
 
-[735] Use a JPEG, PNG or WebP photo, or an MP4, MOV, WebM or GIF.
-[736] That file is too large.
-[737] Storage is full. Delete some files or creatives to make room.
-[738] You have {MAX_KEPT_PICTURES} pictures saved. Delete some in History to add more.
-[739] Uploads are unavailable.
-[740] Say what the file is and how big.
-[741] Couldn’t start preparing that photo. Try again.
-[742] That file hasn’t arrived or couldn’t be prepared.
+[726] Use a JPEG, PNG or WebP photo, or an MP4, MOV, WebM or GIF.
+[727] That file is too large.
+[728] Storage is full. Delete some files or creatives to make room.
+[729] You have {MAX_KEPT_PICTURES} pictures saved. Delete some in History to add more.
+[730] Uploads are unavailable.
+[731] Say what the file is and how big.
+[732] Couldn’t start preparing that photo. Try again.
+[733] That file hasn’t arrived or couldn’t be prepared.
 
 ### uploads
 
-[743] Preparing couldn’t start.
-[744] Took too long to prepare. Try again.
-[745] Couldn’t prepare that file. Try another.
+[734] Preparing couldn’t start.
+[735] Took too long to prepare. Try again.
+[736] Couldn’t prepare that file. Try another.
 
 ### prepare
 
-[746] Took too long to prepare. Send it again.
+[737] Took too long to prepare. Send it again.
 
 ### reel
 
-[747] A reel needs between two and eight pictures.
-[748] A reel is kept for a different style.
-[749] A reel is the card’s only picture.
+[738] A reel needs between two and eight pictures.
+[739] A reel is kept for a different style.
+[740] A reel is the card’s only picture.
 
 ### render-media
 
-[750] Dust needs a photo, not a video or GIF.
+[741] Dust needs a photo, not a video or GIF.
 
 ### invoices
 
-[751] Unknown invoice.
-[752] Invoices are unavailable right now.
-[753] Invoice is being prepared. Try again in a minute.
-[754] Invoice is unavailable right now. Try again in a moment.
+[742] Unknown invoice.
+[743] Invoices are unavailable right now.
+[744] Invoice is being prepared. Try again in a minute.
+[745] Invoice is unavailable right now. Try again in a moment.
 
 ### links
 
-[755] Smart links are unavailable.
-[756] Sign in to publish your link.
-[757] That link isn’t yours or was already deleted.
-[758] Choose your link’s name.
-[759] That didn’t work. Try again in a moment.
+[746] Smart links are unavailable.
+[747] Sign in to publish your link.
+[748] That link isn’t yours or was already deleted.
+[749] Choose your link’s name.
+[750] That didn’t work. Try again in a moment.
 
 ### links-lookup
 
-[760] Paste a song link from Spotify, Apple Music, YouTube or Deezer, or type the song’s name.
-[761] Couldn’t find that song. Check the link and try again.
-[762] Looking up the song failed. Try again in a moment.
+[751] Paste a song link from Spotify, Apple Music, YouTube or Deezer, or type the song’s name.
+[752] Couldn’t find that song. Check the link and try again.
+[753] Looking up the song failed. Try again in a moment.
 
 ### links-search
 
-[763] Type your song’s name and artist.
-[764] Searching failed. Try again in a moment.
+[754] Type your song’s name and artist.
+[755] Searching failed. Try again in a moment.
 
 ### links-slug
 
-[765] Someone already has that name. Try another.
-[766] Checking the name failed. Try again in a moment.
+[756] Someone already has that name. Try another.
+[757] Checking the name failed. Try again in a moment.
 
 ### links-stats
 
-[767] Sign in to see your link’s analytics.
-[768] Choose 7, 30 or 90 days, or all time.
-[769] That link isn’t yours or was deleted.
-[770] Analytics are unavailable right now. Try again in a moment.
+[758] Sign in to see your link’s analytics.
+[759] Choose 7, 30 or 90 days, or all time.
+[760] That link isn’t yours or was deleted.
+[761] Analytics are unavailable right now. Try again in a moment.
 
 ### smart-links
 
-[771] Use 3 to 40 lowercase letters, numbers and dashes.
-[772] That name is reserved. Try another.
-[773] Find your song first.
-[774] Add the song’s title and artist.
-[775] Find your song again — its cover or preview didn’t come from a music service.
-[776] Add at least one button.
-[777] One of the buttons isn’t a service we know.
-[778] The {…} button must link to {…} (https://…).
-[779] Show at least one button.
-[780] A Meta Pixel ID is 10 to 20 digits (Events Manager → Data sources).
-[781] A TikTok Pixel ID is letters and digits (Events Manager → Web events).
-[782] A Google Ads ID looks like AW-123456789.
-[783] That token doesn’t look right. Copy it again from the platform.
-[784] Ad tokens can’t be saved yet. Try again later.
-[785] You have {MAX_LINKS} links. Delete one to make another.
+[762] Use 3 to 40 lowercase letters, numbers and dashes.
+[763] That name is reserved. Try another.
+[764] Find your song first.
+[765] Add the song’s title and artist.
+[766] Find your song again — its cover or preview didn’t come from a music service.
+[767] Add at least one button.
+[768] One of the buttons isn’t a service we know.
+[769] The {…} button must link to {…} (https://…).
+[770] Show at least one button.
+[771] A Meta Pixel ID is 10 to 20 digits (Events Manager → Data sources).
+[772] A TikTok Pixel ID is letters and digits (Events Manager → Web events).
+[773] A Google Ads ID looks like AW-123456789.
+[774] That token doesn’t look right. Copy it again from the platform.
+[775] Ad tokens can’t be saved yet. Try again later.
+[776] You have {MAX_LINKS} links. Delete one to make another.
 
 ### phone-handoff
 
-[786] Sending from a phone is unavailable.
-[787] This link expired. Make a new QR code on your computer.
-[788] Choose one song or video under 200 MB.
-[789] Choose up to {picture} JPEG, PNG or WebP photos, MP4, MOV or WebM videos, or GIFs.
-[790] Storage didn’t answer. Try again.
+[777] Sending from a phone is unavailable.
+[778] This link expired. Make a new QR code on your computer.
+[779] Choose one song or video under 200 MB.
+[780] Choose up to {picture} JPEG, PNG or WebP photos, MP4, MOV or WebM videos, or GIFs.
+[781] Storage didn’t answer. Try again.
 
 ### analyze-music
 
-[791] Send only the 15-second clip.
+[782] Send only the 15-second clip.
 
 ### transcribe-lyrics
 
-[792] The clip is too large.
-[793] Lyrics couldn’t start.
+[783] The clip is too large.
+[784] Lyrics couldn’t start.
 
 ### read-lyric-meaning
 
-[794] The lyrics are too long.
-[795] Lyric reading couldn’t start.
+[785] The lyrics are too long.
+[786] Lyric reading couldn’t start.
 
 ### read-lyric-meaning-status
 
-[796] The lyric reading failed.
+[787] The lyric reading failed.
 
 
 ## Names shown under each video (templates and looks)
 
 ### creatives-pack
 
-[797] Directed
-[798] Thermal
-[799] Halftone
-[800] Dither
-[801] ASCII
-[802] Riso
-[803] Window
-[804] Silhouette
-[805] Pulse
-[806] Dust
-[807] Uplifting/Energetic
-[808] Dark/Cinematic
-[809] Ambient/Mellow
-[810] Our library
+[788] Directed
+[789] Thermal
+[790] Halftone
+[791] Dither
+[792] ASCII
+[793] Riso
+[794] Window
+[795] Silhouette
+[796] Pulse
+[797] Dust
+[798] Uplifting/Energetic
+[799] Dark/Cinematic
+[800] Ambient/Mellow
+[801] Our library
 
 ### treatment-deal
 
-[811] Triptych
-[812] Slim gap
-[813] Clear gap
-[814] Wide gap
-[815] Even gap
-[816] Fisheye
-[817] Gentle lens
-[818] Round lens
-[819] Strong lens
-[820] Peephole
-[821] Collage
-[822] Editorial
-[823] Scattered
-[824] Stacked prints
-[825] Cut-outs
-[826] Colored Frame
-[827] Black
-[828] White
-[829] Black wide
-[830] White wide
-[831] Bento Grid
-[832] Hero left
-[833] Hero top
-[834] Mosaic
-[835] Strip
-[836] Film Grain
-[837] Faded
-[838] Home movie
-[839] Old reel
-[840] Warm glow
-[841] Double Exposure
-[842] Soft blend
-[843] Mirrored
-[844] Shifted
-[845] Close-up
-[846] Sideways
-[847] Turn right
-[848] Turn left
-[849] Blurred sides
-[850] Cinema bars
-[851] Typewriter
-[852] Newsprint
-[853] Old letter
-[854] Faded page
-[855] Yellowed
-[856] Screenshot
-[857] Black crayon
-[858] White crayon
-[859] Dark chat
-[860] Full screen
+[802] Triptych
+[803] Slim gap
+[804] Clear gap
+[805] Wide gap
+[806] Even gap
+[807] Fisheye
+[808] Gentle lens
+[809] Round lens
+[810] Strong lens
+[811] Peephole
+[812] Collage
+[813] Editorial
+[814] Scattered
+[815] Stacked prints
+[816] Cut-outs
+[817] Colored Frame
+[818] Black
+[819] White
+[820] Black wide
+[821] White wide
+[822] Bento Grid
+[823] Hero left
+[824] Hero top
+[825] Mosaic
+[826] Strip
+[827] Film Grain
+[828] Faded
+[829] Home movie
+[830] Old reel
+[831] Warm glow
+[832] Double Exposure
+[833] Soft blend
+[834] Mirrored
+[835] Shifted
+[836] Close-up
+[837] Sideways
+[838] Turn right
+[839] Turn left
+[840] Blurred sides
+[841] Cinema bars
+[842] Typewriter
+[843] Newsprint
+[844] Old letter
+[845] Faded page
+[846] Yellowed
+[847] Screenshot
+[848] Black crayon
+[849] White crayon
+[850] Dark chat
+[851] Full screen
 
 ### edit-presets
 
-[861] Raw 16mm
-[862] 90s Camcorder
-[863] Club Pulse
-[864] Y2K Digicam
-[865] Dreamy
-[866] Gritty Mono
+[852] Raw 16mm
+[853] 90s Camcorder
+[854] Club Pulse
+[855] Y2K Digicam
+[856] Dreamy
+[857] Gritty Mono

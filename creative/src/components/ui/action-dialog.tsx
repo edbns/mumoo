@@ -53,7 +53,7 @@ export function ActionDialog({
     <div className="flex flex-col gap-4" aria-busy={busy}>
       {children}
       {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
-      <div className="flex justify-end gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <Button variant="secondary" disabled={busy} onClick={onClose}>{cancelLabel}</Button>
         <Button variant={destructive ? 'destructive' : 'default'} disabled={!busy && confirmDisabled} aria-disabled={busy || undefined}
           className={busy ? 'cursor-wait' : undefined} onClick={() => { if (!busy) void confirm(); }}>

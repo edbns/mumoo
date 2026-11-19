@@ -32,7 +32,7 @@ export function ChooseFewer({ tooMany, onBuy, onFewer, onClose }: { tooMany: Too
   return <Modal open={tooMany !== null} onClose={onClose} title={`You chose ${videos(need)}`}
     description={free ? 'You can only make 1 free video, or buy credits for the rest.'
       : `You have ${have} ${have === 1 ? 'credit' : 'credits'}. You can only make ${videos(have)}, or buy credits for all of them.`}>
-    <div className="flex flex-wrap justify-end gap-2">
+    <div className="grid grid-cols-2 gap-3">
       <Button variant="secondary" onClick={onFewer}>{free ? 'Get my free video' : `Make ${videos(have)}`}</Button>
       <Button onClick={onBuy}>Buy credits</Button>
     </div>
