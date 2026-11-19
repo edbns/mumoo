@@ -119,7 +119,7 @@ def parse_body(body) -> tuple[list[str], str | None]:
     return clean, language
 
 
-@app.cls(image=image, gpu="A10G", min_containers=0, max_containers=4, scaledown_window=120, timeout=280)
+@app.cls(image=image, gpu="A10G", min_containers=0, max_containers=4, scaledown_window=20, timeout=280)
 class Reader:
     @modal.enter()
     def load(self):
