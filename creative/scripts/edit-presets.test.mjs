@@ -181,7 +181,7 @@ test('Y2K whips across each cut and zooms out of it, by take', () => {
   assert.ok(Math.sign(into.shiftX) === -Math.sign(out.shiftX), 'the next picture comes in from the other side');
   assert.equal(motion.presetFrame('y2k', 'whip', moment(3000)).whipBlur, 0);
   assert.ok(motion.presetFrame('y2k', 'zoom', moment(2020)).zoom > 1.2);
-  assert.ok(motion.presetFrame('y2k', 'whip', moment(3000)).look.barrel > 0);
+  for (const take of ['whip', 'zoom']) assert.equal(motion.presetFrame('y2k', take, moment(3000)).look.barrel, 0, 'Y2K Digicam has no fisheye');
 });
 
 test('Raw 16mm burns a warm leak on the drop, or once on the loudest bar of a song with none', () => {

@@ -53,6 +53,7 @@ Still to do:
 - Done: sign-in at download. Anyone can make creatives signed out; pressing Download in the cart signed out opens the sign-in popup ("Sign in to download", the free first video, kept in Media) and the download carries on once they are in (`askSignIn` in `account-hint.tsx`, answered by `AccountBar`). Closing it downloads nothing. The Analyzing screen says it takes a minute or two (19 Nov on staging: about 70 s without lyrics, about 2 min with).
 
 - Done: a new treatment, Screenshot (`pack-screenshot.ts`): the 21st.dev great-ui-mobile-mockup redrawn in Pixi (so it exports to video), a chat of the lyrics on both sides over the blurred reel, the contact's photo and name scribbled over in still crayon (Black crayon, White crayon, Dark chat, Full screen), the person's own time on the clock. Only with lyrics. The worker on Modal staging is deployed with it. To check on a real song: how long songs read (one message per phrase, older ones scroll off the top), and whether people want other chat apps (iMessage blue) as more variants.
+- Done: the Y2K Digicam look has a straight lens now (its fisheye bulge is gone in every template that uses the preset); its whip-pans, zooms and beat cuts are unchanged. The Fisheye template keeps its own lens.
 
 ## Brain feedback
 - Done: every play, select, download press and refresh is kept in `brain_feedback` (codes only), against the person when signed in; `nth_download` 1 is their first download (the free one).

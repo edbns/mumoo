@@ -99,9 +99,9 @@ export const LOOKS: Record<PresetId, Record<string, PresetLook>> = {
     neon: look({ exposure: 1.02, contrast: 1.32, saturation: 1.15, crush: 0.07, shadow: [-0.03, 0, 0.07], highlight: [0.06, -0.02, 0.06], vignette: 0.35 }),
     mono: look({ exposure: 1.04, contrast: 1.45, saturation: 0, crush: 0.09, mono: 1, sharpen: 0.35, vignette: 0.35 }),
   },
-  // Early-2000s digicam with the flash on: bright highlights, punchy colour, cool shadows, a wide lens at the edges.
+  // Early-2000s digicam with the flash on: bright highlights, punchy colour, cool shadows; a straight lens (Fisheye is its own template).
   y2k: {
-    digicam: look({ exposure: 1.08, contrast: 1.1, saturation: 1.3, shadow: [-0.02, 0, 0.05], highlight: [0.02, 0.02, 0.03], halation: 0.28, halationTint: [1, 1, 1], barrel: 0.5, vignette: 0.3 }),
+    digicam: look({ exposure: 1.08, contrast: 1.1, saturation: 1.3, shadow: [-0.02, 0, 0.05], highlight: [0.02, 0.02, 0.03], halation: 0.28, halationTint: [1, 1, 1], vignette: 0.3 }),
   },
   // Soft and glowing: pastel or golden hour, low contrast.
   dreamy: {
