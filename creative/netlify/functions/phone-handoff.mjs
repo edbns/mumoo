@@ -25,7 +25,7 @@ export default async function phoneHandoff(request) {
   if (request.method === 'POST' && params.get('step') === 'phone') {
     const { token, files } = await request.json().catch(() => ({}));
     const handoff = handoffFromToken(token, key);
-    if (!handoff) return reply(410, { error: 'This link has expired. Make a new QR code on your computer.' });
+    if (!handoff) return reply(410, { error: 'This link expired. Make a new QR code on your computer.' });
     if (!acceptableFiles(handoff.kind, files)) {
       return reply(415, { error: handoff.kind === 'song' ? 'Choose one song or video under 200 MB.' : `Choose up to ${MAX_HANDOFF_FILES.picture} JPEG, PNG or WebP photos, MP4, MOV or WebM videos, or GIFs.` });
     }
@@ -52,7 +52,7 @@ export default async function phoneHandoff(request) {
     }
   } catch (cause) {
     console.error('phone handoff:', cause);
-    return reply(502, { error: 'Storage did not answer. Try again.' });
+    return reply(502, { error: 'Storage didn’t answer. Try again.' });
   }
   return reply(405, { error: 'Use GET, POST or DELETE.' });
 }

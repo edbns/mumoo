@@ -1,5 +1,5 @@
 /**
- * Sends one plain email from mumoo through Resend. Throws when it cannot, so callers never assume it went.
+ * Sends one plain email from MUMOO through Resend. Throws when it cannot, so callers never assume it went.
  * `once` (an event id) makes a retried request send nothing new: Resend keeps the key for a day.
  */
 export async function sendMail({ to, subject, text, once }) {
@@ -11,7 +11,7 @@ export async function sendMail({ to, subject, text, once }) {
       'Content-Type': 'application/json',
       ...(once ? { 'Idempotency-Key': once } : {}),
     },
-    body: JSON.stringify({ from: 'mumoo <moo@mumoo.app>', to, subject, text }),
+    body: JSON.stringify({ from: 'MUMOO <moo@mumoo.app>', to, subject, text }),
     signal: AbortSignal.timeout(20_000),
   });
   if (!response.ok) throw new Error(`Email was refused (${response.status}).`);

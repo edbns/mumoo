@@ -33,7 +33,7 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
     let live = true;
     setLinks(current => current ?? knownLinks(user.id));
     listLinks(user.id).then(found => { if (live) setLinks(found); },
-      (cause: Error) => { if (live) { setLinks(current => current ?? []); setError(cause.message || 'Your links could not be loaded. Try again in a moment.'); } });
+      (cause: Error) => { if (live) { setLinks(current => current ?? []); setError(cause.message || 'Couldn’t load your links. Try again in a moment.'); } });
     return () => { live = false; };
   }, [user?.id]);
   useEffect(() => { if (user && links) rememberLinks(user.id, links); }, [user?.id, links]);
@@ -64,7 +64,7 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
   return <main className="mx-auto flex w-full max-w-[1120px] flex-1 flex-col gap-4 px-6 pb-24 pt-6">
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
     {!session.isPending && !user && <EmptyState action={<Button onClick={() => setSigningIn(true)}>Sign in</Button>}>
-      Sign in to see your smart links and their analytics.
+      Sign in to see your smart links and analytics.
     </EmptyState>}
     {loading && <ul aria-busy="true" aria-label="Loading your smart links" className="m-0 flex list-none flex-col gap-3 p-0">
       {[0, 1, 2].map(index => <li key={index} className="flex items-center gap-4 rounded-[var(--radius-panel)] bg-background p-4">
@@ -78,7 +78,7 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
     </ul>}
     {user && shown?.length === 0 && !error && <EmptyState
       action={<Button onClick={() => onNavigate('links')}><PlusIcon aria-hidden="true" className="size-4" />Create Smart Link</Button>}>
-      No smart links yet. Make one for your song: one link that opens in every fan’s app.
+      No smart links yet. Make one for your song — opens in every fan’s app.
     </EmptyState>}
     {opened && <LinkAnalytics item={opened} onBack={() => show(null)} onEdit={() => edit(opened)} />}
     {!opened && shown && shown.length > 0 && <ul className="m-0 flex list-none flex-col gap-3 p-0 animate-in fade-in-0 duration-300">
@@ -87,7 +87,7 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
 
     <ActionDialog open={deleting !== null} onClose={() => setDeleting(null)} destructive
       title={`Delete ${deleting ? addressOf(deleting).replace(/^https?:\/\//, '') : 'this link'}?`}
-      description="Anyone who opens it will find nothing, and its analytics go too. This cannot be undone."
+      description="Anyone who opens it finds nothing, and the analytics go too. Can’t be undone."
       confirmLabel="Delete link" working="Deleting…" onConfirm={() => remove(deleting!)} />
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}

@@ -54,7 +54,7 @@ export function Waveform({ audio, start, position, onSelect }: {
   const left = selected / duration * 100;
   const width = DURATION_MS / duration * 100;
   return <div className="relative h-32 cursor-ew-resize touch-none select-none rounded-xl bg-muted px-3 outline-ring focus-visible:outline-2 focus-visible:outline-offset-2"
-    role="slider" tabIndex={0} aria-label="Choose your 15 seconds"
+    role="slider" tabIndex={0} aria-label="Pick your 15 seconds"
     aria-valuemin={0} aria-valuemax={maxStart} aria-valuenow={selected}
     aria-valuetext={`${Math.floor(selected / 1000)} seconds into the song`}
     onKeyDown={onKeyDown}

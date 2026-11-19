@@ -38,7 +38,7 @@ export function useUploads() {
   const receive = useCallback((next: Upload[]) => {
     const failed = next.find(item => item.status === 'failed');
     setList(next.filter(item => item.status !== 'failed'));
-    if (failed) setProblem({ listing: false, message: failed.error ?? 'We could not prepare that file. Try another.' });
+    if (failed) setProblem({ listing: false, message: failed.error ?? 'Couldn’t prepare that file. Try another.' });
   }, []);
 
   const refresh = useCallback(async (alive: () => boolean = () => true) => {
@@ -76,7 +76,7 @@ export function useUploads() {
     const taken = files.slice(0, room);
     setProblem(null);
     if (!taken.length) {
-      setProblem({ listing: false, message: `You already have ${MAX_SHELF_PICTURES} of your own pictures here. Start over to use others.` });
+      setProblem({ listing: false, message: `You already have ${MAX_SHELF_PICTURES} of your own pictures. Start over to use others.` });
       return;
     }
     let known = new Set((list ?? []).map(item => item.id));
@@ -92,7 +92,7 @@ export function useUploads() {
         setIncoming(current => current && { ...current, ids: new Set([...current.ids, ...added]) });
         receive(next);
       } catch (cause) {
-        failed.push(cause instanceof Error ? cause.message : 'That file could not be added.');
+        failed.push(cause instanceof Error ? cause.message : 'Couldn’t add that file.');
       }
     }
     setSending(null);
@@ -100,7 +100,7 @@ export function useUploads() {
     if (failed.length) {
       setProblem({ listing: false, message: taken.length > 1 ? `${failed.length} of ${taken.length} could not be added. ${failed[0]}` : failed[0] });
     } else if (left) {
-      setProblem({ listing: false, message: `Only ${MAX_SHELF_PICTURES} of your own pictures can be used at once, so ${left} ${left > 1 ? 'were' : 'was'} left out.` });
+      setProblem({ listing: false, message: `Only ${MAX_SHELF_PICTURES} of your own pictures at once, so ${left} ${left > 1 ? 'were' : 'was'} left out.` });
     }
   }
 

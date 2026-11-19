@@ -122,7 +122,7 @@ const NOTHING: readonly never[] = [];
 /** Reads a picture into a texture, fresh from the network (`fetchFresh`). */
 export async function loadTexture(url: string, what: string): Promise<Texture> {
   const response = await fetchFresh(url);
-  if (!response?.ok) throw new Error(`${what} could not be loaded${response ? ` (${response.status})` : ''}. Reload the page, or go back to our photography.`);
+  if (!response?.ok) throw new Error(`${what} couldn’t be loaded${response ? ` (${response.status})` : ''}. Reload the page or go back to our photos.`);
   const bitmap = await createImageBitmap(await response.blob()).catch(() => null);
   if (!bitmap) throw new Error(`${what} could not be read as a picture.`);
   return Texture.from(bitmap);
@@ -396,7 +396,7 @@ export async function createPackRenderer(
         let windowPicture: Texture | undefined;
         if (windowMode) {
           windowPicture = motion?.texture ?? photoTexture ?? undefined;
-          if (!windowPicture) throw new Error('The picture for this Window could not be loaded. Reload the page.');
+          if (!windowPicture) throw new Error('Picture for this Window couldn’t load. Reload the page.');
         }
 
         // The preset's pass: the picture through its camera, colour and texture, timed to the edit's cuts and the drums.

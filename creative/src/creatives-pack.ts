@@ -67,14 +67,14 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'window', title: 'Window', lyrics: 'always', picture: 'any' },
   // The song's video inside the still figure of a person, on red, black or white; never for gospel.
   { id: 'silhouette', title: 'Silhouette', lyrics: 'switch', picture: 'any' },
-  { id: 'pulise', title: 'Pulise', lyrics: 'always' },
+  { id: 'pulise', title: 'Pulse', lyrics: 'always' },
   { id: 'dust', title: 'Dust', lyrics: 'switch', picture: 'photo' },
 ];
 /** What the person's own picture is: a photo (with its cut-out), or a video or GIF. */
 export type OwnKind = 'photo' | 'motion';
 /**
  * The rows of the shelf for a song and the person's own picture. With no words, only the rows that work without them
- * (Window, Pulise and Screenshot are made of the lyrics). With any picture of their own, only the rows that draw a picture
+ * (Window, Pulse and Screenshot are made of the lyrics). With any picture of their own, only the rows that draw a picture
  * (Pulise takes none, so it leaves). With a video or GIF, only the rows that can use one (Dust needs a photo).
  */
 export const rowsFor = (noLyrics: boolean, own: OwnKind | null = null): readonly ShelfRowDef[] =>

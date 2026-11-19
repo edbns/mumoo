@@ -31,11 +31,11 @@ export function InviteFriends({ open, onClose, userId }: { open: boolean; onClos
     if (!info) return;
     void navigator.clipboard.writeText(info.link).then(
       () => { setCopied(true); window.setTimeout(() => setCopied(false), COPIED_MS); },
-      () => setError('Your browser did not allow copying. Select the link and copy it yourself.'),
+      () => setError('Browser blocked the copy. Select the link and copy it yourself.'),
     );
   };
   const share = () => {
-    if (info) void navigator.share({ title: 'mumoo', text: `Make videos for your music with mumoo. Your first pack comes with ${info.videos} extra videos with my link.`, url: info.link }).catch(() => undefined);
+    if (info) void navigator.share({ title: 'mumoo', text: `Make music videos with MUMOO. First pack comes with ${info.videos} extra videos if they use my link.`, url: info.link }).catch(() => undefined);
   };
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
   const videos = info?.videos ?? 10;
@@ -43,7 +43,7 @@ export function InviteFriends({ open, onClose, userId }: { open: boolean; onClos
   return <Modal open={open} onClose={onClose} title="Invite friends" description={`Give ${videos} videos, get ${videos}.`}>
     <div className="flex flex-col gap-4">
       <p className="m-0 text-sm text-muted-foreground">
-        Share your link. A friend who signs up with it gets {videos} extra videos on their first pack, and you get {videos} free videos once they have paid.
+        Share your link. Friend gets {videos} extra on their first pack, you get {videos} free once they pay.
       </p>
       <div className="flex items-center gap-2 rounded-[var(--radius-control)] bg-muted py-1 pr-1 pl-4">
         <span className="min-w-0 flex-1 truncate font-mono text-sm text-foreground" aria-label="Your invite link">{info?.link ?? (error ? '' : 'Getting your link…')}</span>
@@ -64,7 +64,7 @@ export function InviteFriends({ open, onClose, userId }: { open: boolean; onClos
         </div>
         <p className="m-0 text-xs text-muted-foreground">
           {info.thisMonth >= info.cap
-            ? `You have reached this month's limit of ${info.cap} rewarded friends. Friends who join now still get their ${videos} videos; your rewards start again on the 1st.`
+            ? `You’ve hit this month’s limit of ${info.cap} rewarded friends. Friends who join still get their ${videos} ; your rewards reset on the 1st.`
             : `${info.thisMonth} of ${info.cap} friends this month have earned you videos. Your friends always get theirs.`}
         </p>
       </>}

@@ -71,14 +71,14 @@ export function cleanLink(input) {
   if (!title || !artist) return { error: 'Add the song’s title and artist.' };
   const cover = input.cover ? httpsOn(input.cover, MEDIA_HOSTS) : null;
   const preview = input.preview ? httpsOn(input.preview, MEDIA_HOSTS) : null;
-  if ((input.cover && !cover) || (input.preview && !preview)) return { error: 'Find your song again: its cover or preview did not come from a music service.' };
+  if ((input.cover && !cover) || (input.preview && !preview)) return { error: 'Find your song again — its cover or preview didn’t come from a music service.' };
   const isrc = typeof input.isrc === 'string' && ISRC.test(input.isrc) ? input.isrc : null;
   if (!Array.isArray(input.services)) return { error: 'Add at least one button.' };
   const seen = new Set();
   const services = [];
   for (const row of input.services) {
     const service = row?.service;
-    if (!SERVICES.includes(service) || seen.has(service)) return { error: 'One of the buttons is not a service we know.' };
+    if (!SERVICES.includes(service) || seen.has(service)) return { error: 'One of the buttons isn’t a service we know.' };
     seen.add(service);
     const url = httpsOn(row.url, SERVICE_HOSTS[service]);
     if (!url) return { error: `The ${LABELS[service]} button must link to ${LABELS[service]} (https://…).` };
@@ -219,7 +219,7 @@ export async function updateLink(userId, slug, input) {
   if (cleaned.error) return { status: 400, error: cleaned.error };
   const [row] = await db()`update smart_links set link = ${JSON.stringify(cleaned.link)}::jsonb, updated_at = now()
     where slug = ${slug} and user_id = ${userId} returning slug, link, created_at, updated_at`;
-  return row ? { link: row } : { status: 404, error: 'That link is not yours, or it was deleted.' };
+  return row ? { link: row } : { status: 404, error: 'That link isn’t yours or was deleted.' };
 }
 
 export async function deleteLink(userId, slug) {

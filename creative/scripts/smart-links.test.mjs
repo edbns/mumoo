@@ -43,7 +43,7 @@ test('a link keeps its buttons in order, each going only to its own service, and
   assert.ok(button('youtube', 'javascript:alert(1)'));
   assert.ok(button('deezer', 'https://user:pass@www.deezer.com/track/1'));
   assert.equal(button('amazon', 'https://music.amazon.co.uk/albums/B1'), undefined, 'an Amazon of another country is Amazon');
-  assert.equal(button('nope', 'https://open.spotify.com/'), 'One of the buttons is not a service we know.');
+  assert.equal(button('nope', 'https://open.spotify.com/'), 'One of the buttons isn’t a service we know.');
   assert.ok(cleanLink({ ...LINK, services: [LINK.services[0], LINK.services[0]] }).error, 'one button per service');
   assert.equal(cleanLink({ ...LINK, services: [{ ...LINK.services[0], hidden: true }] }).error, 'Show at least one button.');
 

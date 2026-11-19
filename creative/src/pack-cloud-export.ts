@@ -86,8 +86,8 @@ export async function clipToMonoWav(audio: AudioBuffer, clipStartMs: number): Pr
 async function errorMessage(response: Response): Promise<string> {
   const result = await response.json().catch(() => null) as { error?: string } | null;
   // The page renews its access by itself; if it still could not, say what to do, not what the gateway called it.
-  if (response.status === 401 && /staging access/i.test(result?.error ?? '')) return 'Please reload the page and try again.';
-  return result?.error || 'Creatives are temporarily unavailable. Reload and try again.';
+  if (response.status === 401 && /staging access/i.test(result?.error ?? '')) return 'Reload the page and try again.';
+  return result?.error || 'Creatives are down for a moment. Reload and try again.';
 }
 
 export type CloudJobInput = {
@@ -134,7 +134,7 @@ export async function submitCloudJob(input: CloudJobInput): Promise<string> {
   if (response.status === 402) throw Object.assign(new Error(await errorMessage(response)), { noCredits: true });
   if (!response.ok) throw new Error(await errorMessage(response));
   const result = await response.json().catch(() => null) as { id?: string } | null;
-  if (!result?.id) throw new Error('Your creative did not start. Reload and try again.');
+  if (!result?.id) throw new Error('Your creative didn’t start. Reload and try again.');
   return result.id;
 }
 
@@ -160,7 +160,7 @@ export async function awaitCloudJob(token: string, id: string, signal?: AbortSig
     if (!response || response.status === 504 || response.status === 503) {
       missed += 1;
       if (missed < MISSED_POLLS) continue;
-      if (!response) throw new Error('Creatives are temporarily unavailable. Reload and try again.');
+      if (!response) throw new Error('Creatives are down for a moment. Reload and try again.');
     } else missed = 0;
     if (response.status === 202) continue;
     if (!response.ok) throw new Error(await errorMessage(response));
@@ -169,5 +169,5 @@ export async function awaitCloudJob(token: string, id: string, signal?: AbortSig
     if (blob.size < 1000) throw new Error('Your creative came back empty. Try again.');
     return blob;
   }
-  throw new Error('Your creative took too long. Try again in a moment.');
+  throw new Error('Your creative took too long. Try again in a bit.');
 }

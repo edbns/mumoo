@@ -16,11 +16,11 @@ export default async function handler(request) {
     const days = Number(params.get('days') ?? 7);
     if (!RANGES.includes(days)) return reply(400, { error: 'Choose 7, 30 or 90 days, or all time.' });
     const rows = await statsRows(person.id, params.get('slug') ?? '', days);
-    if (!rows) return reply(404, { error: 'That link is not yours, or it was deleted.' });
+    if (!rows) return reply(404, { error: 'That link isn’t yours or was deleted.' });
     return reply(200, { stats: summarise(rows, days, new Date().toISOString().slice(0, 10)) });
   } catch (cause) {
     console.error('links stats:', cause);
-    return reply(500, { error: 'The analytics are unavailable right now. Try again in a moment.' });
+    return reply(500, { error: 'Analytics are unavailable right now. Try again in a moment.' });
   }
 }
 

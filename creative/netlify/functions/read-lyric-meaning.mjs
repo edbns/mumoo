@@ -38,7 +38,7 @@ export default async function readLyricMeaning(request) {
     if (response.ok && typeof result?.id === 'string') return Response.json({ id: result.id }, { status: 202, headers });
     const detail = result?.detail ?? result?.error;
     if ([400, 401, 413].includes(response.status)) {
-      return error(response.status, typeof detail === 'string' ? detail : 'The lyric reading could not start.');
+      return error(response.status, typeof detail === 'string' ? detail : 'Lyric reading couldn’t start.');
     }
     return error(502, 'The lyric reading worker could not accept these lyrics.');
   } catch {

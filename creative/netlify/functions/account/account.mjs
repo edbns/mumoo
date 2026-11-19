@@ -24,7 +24,7 @@ export default async function handler(request) {
       return reply(200, { deleted: true });
     } catch (cause) {
       console.error('delete account:', cause);
-      return reply(500, { error: 'Your account could not be deleted completely. Try again in a moment.' });
+      return reply(500, { error: 'Couldn’t fully delete your account. Try again in a moment.' });
     }
   }
   const row = await recordPerson(person);

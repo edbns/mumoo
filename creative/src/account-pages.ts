@@ -30,7 +30,7 @@ export const ACCOUNT_MENU: readonly (readonly Entry[])[] = [
     { line: 'links', label: 'Smart Links', icon: Link2Icon },
   ],
   [
-    { line: 'credit', label: 'Credit', icon: WalletIcon },
+    { line: 'credit', label: 'Credits', icon: WalletIcon },
     { line: 'invite', label: 'Invite friends', icon: GiftIcon },
     { line: 'invoices', label: 'Invoices', icon: ReceiptTextIcon },
   ],

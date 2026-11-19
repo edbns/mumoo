@@ -68,15 +68,15 @@ function send(url: string, file: File, onProgress: (share: number) => void): Pro
     request.open('PUT', url);
     request.setRequestHeader('Content-Type', file.type);
     request.upload.onprogress = event => { if (event.lengthComputable) onProgress(event.loaded / event.total); };
-    request.onload = () => (request.status < 300 ? resolve() : reject(new Error('That file could not be sent. Try again.')));
-    request.onerror = () => reject(new Error('That file could not be sent. Check your connection and try again.'));
+    request.onload = () => (request.status < 300 ? resolve() : reject(new Error('Couldn’t send that file. Try again.')));
+    request.onerror = () => reject(new Error('Couldn’t send the file. Check your connection and try again.'));
     request.send(file);
   });
 }
 
 async function addMotion(file: File, onProgress: (share: number) => void): Promise<Upload[]> {
   const seconds = await videoSeconds(file);
-  if (seconds !== null && seconds > MAX_SECONDS) throw new Error(`Videos can be up to ${MAX_SECONDS} seconds long.`);
+  if (seconds !== null && seconds > MAX_SECONDS) throw new Error(`Videos can be up to ${MAX_SECONDS} seconds.`);
   const reserved = await accountFetch('/api/uploads?kind=motion', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -97,12 +97,12 @@ async function addMotion(file: File, onProgress: (share: number) => void): Promi
  */
 export async function addUpload(file: File, onProgress: (share: number) => void = () => undefined): Promise<Upload[]> {
   if (PHOTO_TYPES.includes(file.type)) {
-    if (file.size > MAX_PHOTO_FILE_BYTES) throw new Error('That photo is larger than 25 MB.');
+    if (file.size > MAX_PHOTO_FILE_BYTES) throw new Error('That photo is bigger than 25 MB.');
     const photo = await shrinkPhoto(file);
     return pictures(await accountFetch('/api/uploads?kind=photo', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: photo }));
   }
   const limit = MOTION_LIMITS[file.type];
   if (!limit) throw new Error('Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.');
-  if (file.size > limit) throw new Error(`That ${file.type === 'image/gif' ? 'GIF' : 'video'} is larger than ${limit / 1e6} MB.`);
+  if (file.size > limit) throw new Error(`That ${file.type === 'image/gif' ? 'GIF' : 'video'} is bigger than ${limit / 1e6} MB.`);
   return addMotion(file, onProgress);
 }

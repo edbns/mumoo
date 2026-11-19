@@ -21,7 +21,7 @@ const refuse = (status, error) => ({ status, error });
 export async function requestEmailChange(person, newEmail) {
   const email = typeof newEmail === 'string' ? newEmail.trim().toLowerCase() : '';
   if (email.length > 254 || !EMAIL.test(email)) return refuse(400, 'Check the email address and try again.');
-  if (email === person.email.toLowerCase()) return refuse(400, 'That is already your email.');
+  if (email === person.email.toLowerCase()) return refuse(400, 'That’s already your email.');
   const sql = db();
   const [taken] = await sql`select 1 from neon_auth."user" where email = ${email} and id::text <> ${person.id}`;
   if (taken) return refuse(409, 'That email already has a MUMOO account.');
@@ -37,7 +37,7 @@ export async function requestEmailChange(person, newEmail) {
   } catch (cause) {
     console.error('email change code:', cause);
     await sql`delete from email_changes where user_id = ${person.id}`;
-    return refuse(502, 'The code could not be sent. Try again in a moment.');
+    return refuse(502, 'Couldn’t send the code. Try again in a moment.');
   }
   return { status: 200 };
 }
@@ -45,7 +45,7 @@ export async function requestEmailChange(person, newEmail) {
 /** Checks the code and changes the email. Returns {status: 200, email} or {status, error} with words to show. */
 export async function confirmEmailChange(person, newEmail, code) {
   const email = typeof newEmail === 'string' ? newEmail.trim().toLowerCase() : '';
-  if (typeof code !== 'string' || !/^\d{6}$/.test(code)) return refuse(400, 'That code is wrong or has expired.');
+  if (typeof code !== 'string' || !/^\d{6}$/.test(code)) return refuse(400, 'That code is wrong or expired.');
   const sql = db();
   // Every try counts before the code is compared, so guesses run out even when they arrive together.
   const [pending] = await sql`
@@ -53,7 +53,7 @@ export async function confirmEmailChange(person, newEmail, code) {
     where user_id = ${person.id} and new_email = ${email} and sent_at > now() - make_interval(mins => ${CODE_MINUTES}) and attempts < ${MOST_TRIES}
     returning code_hash`;
   if (!pending || !timingSafeEqual(Buffer.from(pending.code_hash), Buffer.from(hashOf(person.id, email, code)))) {
-    return refuse(400, 'That code is wrong or has expired.');
+    return refuse(400, 'That code is wrong or expired.');
   }
   try {
     const [changed] = await sql`update neon_auth."user" set email = ${email}, "emailVerified" = true, "updatedAt" = now() where id::text = ${person.id} returning id`;

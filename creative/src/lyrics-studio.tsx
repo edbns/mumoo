@@ -94,7 +94,7 @@ export function LyricsStudio({
       lines = tokenizeLyrics(text);
       const count = lines.reduce((n, line) => n + line.length, 0);
       if (!count) { setError('Type or paste the words you hear first.'); return; }
-      if (count > MAX_LYRIC_WORDS) { setError(`That is ${count} words. A 15-second clip fits up to ${MAX_LYRIC_WORDS}. Keep only what is sung in these 15 seconds.`); return; }
+      if (count > MAX_LYRIC_WORDS) { setError(`That’s ${count} words. 15 seconds only fit ${MAX_LYRIC_WORDS}. Keep just what’s sung here.`); return; }
     }
     const id = ++run.current;
     const controller = new AbortController();
@@ -116,13 +116,13 @@ export function LyricsStudio({
         setPhase(words.length ? 'edit' : 'start');
         setPasting(true);
         setNotice(wasMode === 'transcribe'
-          ? 'We could not hear clear words in these 15 seconds. Try a part with singing, or type the words yourself.'
-          : 'We could not place those words. Check they match what is sung here.');
+          ? 'Couldn’t hear clear words in these 15 seconds. Try a singing part or type them yourself.'
+          : 'Couldn’t place those words. Check they match what’s sung.');
         return;
       }
       apply(result, wasMode);
       if (wasMode === 'sync' && result.words.some(word => word.estimated)) {
-        setNotice('A few words could not be matched to the sound, so their timing is estimated (dotted).');
+        setNotice('A few words didn’t match the sound, so timing is estimated (dotted).');
       }
     } catch (cause) {
       if (id !== run.current || (cause as Error).name === 'AbortError') return;
@@ -138,7 +138,7 @@ export function LyricsStudio({
   const lines = useMemo(() => groupLines(words), [words]);
   const active = words.reduce((found, word, i) => (position >= word.startMs && position < word.endMs + 300 ? i : found), -1);
   /** Nothing chosen means the language is detected from the audio. */
-  const languageSelect = (hideLabel: boolean) => <Combobox hideLabel={hideLabel} label="Language" className="w-56" placeholder="Auto detect language"
+  const languageSelect = (hideLabel: boolean) => <Combobox hideLabel={hideLabel} label="Language" className="w-56" placeholder="Auto-detect language"
     options={LANGUAGE_OPTIONS} value={language === 'auto' ? '' : language} onValueChange={code => setLanguage(code || 'auto')} />;
 
   return <section className="lyrics-panel" aria-labelledby="lyrics-title">
@@ -149,10 +149,10 @@ export function LyricsStudio({
     </div>
 
     {phase === 'start' && <div className="lyrics-start flex flex-col items-center gap-5 text-center">
-      <p className="m-0 max-w-sm">We listen to your 15 seconds and write out the words, in any language.</p>
+      <p className="m-0 max-w-sm">We listen to your 15 seconds and write the words, any language.</p>
       <div className="flex flex-wrap justify-center gap-3">
         <Button onClick={() => void start('transcribe')}>Find the lyrics for me</Button>
-        <Button variant="secondary" onClick={() => setPasting(open => !open)} aria-expanded={pasting}>I'll type them myself</Button>
+        <Button variant="secondary" onClick={() => setPasting(open => !open)} aria-expanded={pasting}>I’ll type them myself</Button>
       </div>
       {pasting && <div className="flex w-full flex-col gap-3 text-left">
         <label>The words sung in these 15 seconds
@@ -169,7 +169,7 @@ export function LyricsStudio({
       <span className="spinner" aria-hidden="true" />
       <div>
         <strong>{label}</strong>
-        <small>{elapsed > 25 ? 'Warming up — the first run takes a little longer.' : 'Usually about 15 seconds.'}</small>
+        <small>{elapsed > 25 ? 'Warming up — first time takes a little longer.' : 'Usually about 15 seconds.'}</small>
       </div>
       <button className="link-button" onClick={cancel}>Cancel</button>
     </div>}

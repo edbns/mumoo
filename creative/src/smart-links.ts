@@ -100,7 +100,7 @@ export function startingDraft(): Draft {
 
 async function answer<T>(response: Response): Promise<T> {
   const body = await response.json().catch(() => null) as (T & { error?: string }) | null;
-  if (!response.ok || !body) throw new Error(body?.error || 'This is unavailable right now. Try again in a moment.');
+  if (!response.ok || !body) throw new Error(body?.error || 'Unavailable right now. Try again in a moment.');
   return body;
 }
 

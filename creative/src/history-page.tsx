@@ -44,7 +44,7 @@ const creativeItem = (creative: Creative): Item => ({ id: creative.id, kind: 'cr
 const uploadItem = (upload: Upload): Item => ({
   id: upload.id, kind: 'upload', bytes: upload.bytes, createdAt: upload.createdAt,
   picture: upload.url, play: upload.motionUrl, download: upload.motionUrl ?? upload.url, extension: upload.motionUrl ? 'mp4' : 'jpg',
-  ...(upload.url ? {} : { note: upload.status === 'failed' ? upload.error ?? 'This picture could not be prepared.' : 'Preparing…' }),
+  ...(upload.url ? {} : { note: upload.status === 'failed' ? upload.error ?? 'Couldn’t prepare this picture.' : 'Preparing…' }),
 });
 
 /** Shows the list a page at a time: the next page appears just before the person reaches the end, so scrolling never stops. */
@@ -83,7 +83,7 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
       ]);
       setCreatives(renders.renders); setUploads(pictures); setStorage(account.storage); setError('');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Your history is unavailable right now.');
+      setError(cause instanceof Error ? cause.message : 'History is unavailable right now.');
     }
   }
   // Opened, and again whenever a download has just been delivered, so the new creatives appear.
@@ -125,7 +125,7 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 30000);
     } catch {
-      setError('The zip could not be made. Download them one by one instead.');
+      setError('Couldn’t make the zip. Download them one by one instead.');
     } finally { setBusy(false); }
   }
 
@@ -144,10 +144,10 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
       {storage && <p className="m-0 text-sm text-muted-foreground">{size(Math.max(0, storage.quota - storage.used))} remaining space from {size(storage.quota)}</p>}
     </div>
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
-    {progress && <RenderProgress progress={progress} note="This can take a few minutes. They appear here when they are ready." />}
+    {progress && <RenderProgress progress={progress} note="This can take a few minutes. They show up here when they’re ready." />}
 
     {items?.length === 0 && <EmptyState>
-      {tab === 'creatives' ? 'The videos you make are kept here. Download them whenever you like.' : 'The photos, videos and GIFs you upload are kept here, private to you, until you delete them.'}
+      {tab === 'creatives' ? 'The videos you make stay here. Download whenever you want.' : 'Photos, videos and GIFs you upload stay here, private to you, until you delete them.'}
     </EmptyState>}
 
     {items && items.length > 0 && <div className="sticky top-4 z-10 flex min-h-12 items-center justify-between gap-3 rounded-full bg-background/80 px-5 py-1.5 backdrop-blur-md">
@@ -158,7 +158,7 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
       <div className="flex items-center gap-3">
         {chosen.length > 0 && <span className="text-sm text-muted-foreground" role="status">{chosen.length} selected</span>}
         <Button variant="secondary" disabled={busy || chosen.length === 0 || chosen.every(item => !item.download) || (chosen.length > 1 && chosenBytes > ZIP_LIMIT)}
-          title={chosen.length > 1 && chosenBytes > ZIP_LIMIT ? 'Too much to zip at once. Download them one by one.' : undefined}
+          title={chosen.length > 1 && chosenBytes > ZIP_LIMIT ? 'Too many to zip at once. Download one by one.' : undefined}
           onClick={() => void downloadChosen()}>Download</Button>
         <Button variant="destructive" disabled={busy || chosen.length === 0} onClick={() => setConfirming(true)}>Delete</Button>
       </div>
@@ -211,7 +211,7 @@ export default function HistoryPage({ tab, progress, delivered }: { tab: Profile
 
     <ActionDialog open={confirming} onClose={() => setConfirming(false)} destructive
       title={`Delete ${chosen.length} ${noun}${chosen.length === 1 ? '' : 's'}?`}
-      description="They are removed from your account and storage. This cannot be undone."
+      description="They’re removed from your account and storage. Can’t be undone."
       confirmLabel="Delete" working="Deleting…" onConfirm={deleteChosen} />
   </AccountColumn>;
 }

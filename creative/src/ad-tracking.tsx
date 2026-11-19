@@ -22,8 +22,7 @@ export function AdTracking({ ids, saved, tokens, onIds, onTokens }: {
   return <AccountSection label="Ad tracking" aside={<button type="button" className={`${textButton} inline-flex items-center gap-1`} aria-expanded={open}
     onClick={() => setOpen(!open)}>{open ? 'Hide' : connected ? 'Show' : 'Set up'}<ChevronDownIcon aria-hidden="true" className={`size-4 transition-transform ${open ? 'rotate-180' : ''}`} /></button>}>
     <p className="m-0 text-sm text-muted-foreground">
-      Optional. Running ads? Connect your accounts and every visit and stream click is sent to them from our server, so they can
-      measure and optimise your campaigns. No pixel is added to your page. Ad visits are recognised and counted either way.
+      Optional. Running ads? Connect your accounts and every visit + stream click gets sent from our server so they can measure and optimise. No pixel on your page. Ad visits get counted either way.
     </p>
     {open && <div className="flex flex-col gap-3">
       <Platform name="Meta" status={ids.meta_pixel_id && has('meta_capi_token') ? 'Sends PageView and Mumoo Smart Link Click' : null}>
@@ -31,8 +30,8 @@ export function AdTracking({ ids, saved, tokens, onIds, onTokens }: {
           onChange={event => onIds({ ...ids, meta_pixel_id: event.target.value.trim() })} /></Labelled>
         <Token label="Conversions API token" field="meta_capi_token" saved={saved.meta_capi_token} tokens={tokens} onTokens={onTokens} />
         <p className="m-0 rounded-[var(--radius-control)] bg-muted px-3 py-2 text-xs text-muted-foreground sm:col-span-2">
-          <span className="font-semibold text-foreground">Tip:</span> Once your link receives its first test click, select
-          <span className="font-semibold text-foreground"> ‘Mumoo Smart Link Click’ </span>as your Conversion Event in Meta Ads Manager.
+          <span className="font-semibold text-foreground">Tip:</span> Once your link gets its first test click, pick
+          <span className="font-semibold text-foreground"> ‘Mumoo Smart Link Click’ </span>as the Conversion Event in Meta Ads Manager.
         </p>
       </Platform>
       <Platform name="TikTok" status={ids.tiktok_pixel_id && has('tiktok_events_token') ? 'Sends ViewContent and Mumoo_Smart_Link_Click' : null}>
@@ -40,14 +39,14 @@ export function AdTracking({ ids, saved, tokens, onIds, onTokens }: {
           onChange={event => onIds({ ...ids, tiktok_pixel_id: event.target.value.trim() })} /></Labelled>
         <Token label="Events API access token" field="tiktok_events_token" saved={saved.tiktok_events_token} tokens={tokens} onTokens={onTokens} />
         <p className="m-0 rounded-[var(--radius-control)] bg-muted px-3 py-2 text-xs text-muted-foreground sm:col-span-2">
-          <span className="font-semibold text-foreground">Tip:</span> Once your link receives its first test click, ‘Mumoo_Smart_Link_Click’ appears in
-          TikTok Events Manager. If TikTok doesn’t offer it as an optimisation event for your campaign, choose ViewContent.
+          <span className="font-semibold text-foreground">Tip:</span> Once your link gets its first test click, ‘Mumoo_Smart_Link_Click’ shows up in
+          TikTok Events Manager. If TikTok doesn’t offer it as an optimisation event, just pick ViewContent.
         </p>
       </Platform>
       <Platform name="Google Ads" status={null}>
         <Labelled label="Google Ads ID"><input className={field} value={ids.google_ads_id} placeholder="e.g. AW-123456789"
           onChange={event => onIds({ ...ids, google_ads_id: event.target.value.trim() })} /></Labelled>
-        <p className="m-0 self-end text-xs text-muted-foreground">Google Ads clicks are recognised and counted. Sending conversions to Google needs its own API access, coming later.</p>
+        <p className="m-0 self-end text-xs text-muted-foreground">Google Ads clicks get recognised and counted. Sending conversions to Google needs its own API access (coming later).</p>
       </Platform>
     </div>}
   </AccountSection>;

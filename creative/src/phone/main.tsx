@@ -19,13 +19,13 @@ const MAX_PICTURES = 10;
 const KINDS = {
   song: {
     title: 'Send your song',
-    text: 'Pick the song from your phone. A video with the song playing works too: a saved TikTok or Reel, or a screen recording.',
+    text: 'Pick the song from your phone. A video with the song playing works too (saved TikTok/Reel or screen recording).',
     button: 'Choose song or video',
     accept: `${ACCEPTED_AUDIO},video/*`,
   },
   picture: {
     title: 'Send your photos or videos',
-    text: `Pick up to ${MAX_PICTURES} photos, videos (up to 60 seconds each) or GIFs for your creatives, all at once. By sending them you confirm you own the rights to them.`,
+    text: `Pick up to ${MAX_PICTURES} photos, videos (up to 60 seconds) or GIFs. By sending them you confirm you own the rights.`,
     button: 'Choose photos or videos',
     accept: 'image/jpeg,image/png,image/webp,image/gif,image/*,video/mp4,video/quicktime,video/webm,video/*',
   },
@@ -68,15 +68,15 @@ function seconds(file: File, url: string): Promise<number | null> {
 async function problemWith(kind: 'song' | 'picture', file: File, url: string): Promise<string> {
   const length = await seconds(file, url);
   if (kind === 'song') {
-    if (file.size > MAX_SONG_BYTES) return 'This file is larger than 200 MB. Choose a shorter one.';
+    if (file.size > MAX_SONG_BYTES) return 'This file is bigger than 200 MB. Pick a shorter one.';
     if (length !== null && length > MAX_SONG_SECONDS) return `This is ${Math.round(length / 60)} minutes long. Songs can be up to 10 minutes.`;
-    if (length !== null && length < 14.5) return `This is ${Math.floor(length * 10) / 10} seconds long. Choose one at least 15 seconds long.`;
+    if (length !== null && length < 14.5) return `This is ${Math.floor(length * 10) / 10} seconds long. Needs to be at least 15 seconds.`;
     return '';
   }
   const limit = PICTURE_LIMITS[file.type];
-  if (!limit) return 'Choose a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.';
-  if (file.size > limit.bytes) return `This ${limit.label} is larger than ${Math.round(limit.bytes / MB)} MB.`;
-  if (limit.label === 'video' && length !== null && length > MAX_VIDEO_SECONDS) return `Videos can be up to ${MAX_VIDEO_SECONDS} seconds long. This one is ${Math.round(length)}.`;
+  if (!limit) return 'Use a JPEG, PNG or WebP photo, an MP4, MOV or WebM video, or a GIF.';
+  if (file.size > limit.bytes) return `This ${limit.label} is bigger than ${Math.round(limit.bytes / MB)} MB.`;
+  if (limit.label === 'video' && length !== null && length > MAX_VIDEO_SECONDS) return `Videos can be up to ${MAX_VIDEO_SECONDS} seconds. This one is ${Math.round(length)}.`;
   return '';
 }
 
@@ -87,8 +87,8 @@ function put(url: string, file: Blob, onProgress: (percent: number) => void) {
     // Stored with the file, so the computer knows what arrived.
     if (file.type) request.setRequestHeader('Content-Type', file.type);
     request.upload.onprogress = event => { if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100)); };
-    request.onload = () => (request.status >= 200 && request.status < 300 ? resolve() : reject(new Error('The upload was refused. Try again.')));
-    request.onerror = () => reject(new Error('The connection dropped. Try again.'));
+    request.onload = () => (request.status >= 200 && request.status < 300 ? resolve() : reject(new Error('Upload was refused. Try again.')));
+    request.onerror = () => reject(new Error('Connection dropped. Try again.'));
     request.send(file);
   });
 }
@@ -99,8 +99,8 @@ function Phone() {
   const kind = KINDS[kindName];
   const expired = () => Number(token.split('.')[1]) * 1000 < Date.now();
   const [state, setState] = useState<State>(() => !TOKEN.test(token)
-    ? { step: 'failed', error: 'This link is not complete. Scan the QR code on your computer again.' }
-    : expired() ? { step: 'failed', error: 'This QR code has expired. Make a new one on your computer.' } : { step: 'choose' });
+    ? { step: 'failed', error: 'This link isn’t complete. Scan the QR code on your computer again.' }
+    : expired() ? { step: 'failed', error: 'This QR code expired. Make a new one on your computer.' } : { step: 'choose' });
   const input = useRef<HTMLInputElement>(null);
 
   /**
@@ -120,7 +120,7 @@ function Phone() {
     const good = checked.filter(item => !item.problem).map(item => item.file);
     if (!good.length) return setState({ step: 'failed', error: checked[0].problem });
     const skipped = checked.filter(item => item.problem).map(item => `${item.file.name}: ${item.problem}`);
-    if (dropped > 0 && kindName === 'picture') skipped.push(`Only the first ${MAX_PICTURES} are sent.`);
+    if (dropped > 0 && kindName === 'picture') skipped.push(`Only the first ${MAX_PICTURES} get sent.`);
     await send(good, skipped);
   }
 
@@ -133,7 +133,7 @@ function Phone() {
         body: JSON.stringify({ token, files: files.map(file => ({ type: file.type, bytes: file.size })) }),
       });
       const body = await response.json().catch(() => null) as { putUrls?: string[]; doneUrl?: string; error?: string } | null;
-      if (!response.ok || body?.putUrls?.length !== files.length || !body.doneUrl) throw new Error(body?.error ?? 'Sending did not start. Try again.');
+      if (!response.ok || body?.putUrls?.length !== files.length || !body.doneUrl) throw new Error(body?.error ?? 'Sending didn’t start. Try again.');
       let sent = 0;
       for (const [index, file] of files.entries()) {
         await put(body.putUrls[index], file, percent => setState({ step: 'sending', percent: Math.max(1, Math.round(((sent + (file.size * percent) / 100) / total) * 100)), count: files.length }));
@@ -160,18 +160,18 @@ function Phone() {
         textClassName="text-2xl font-semibold text-foreground" barClassName="h-3" />
       <p className="m-0 text-muted-foreground">
         {state.count > 1 ? `${state.count} files · ` : ''}{state.percent}%<br />
-        <strong className="font-medium text-foreground">Do not close your browser or this window.</strong>
+        <strong className="font-medium text-foreground">Don’t close your browser or this window.</strong>
       </p>
     </>}
     {state.step === 'sent' && <>
       <h1 className="m-0 text-2xl font-semibold">Sent</h1>
-      <p className="m-0 text-muted-foreground">{state.count > 1 ? 'They are' : 'It is'} on {state.count > 1 ? 'their' : 'its'} way to your computer. Carry on there; you can close this page.</p>
+      <p className="m-0 text-muted-foreground">{state.count > 1 ? 'They are' : 'It is'} on {state.count > 1 ? 'their' : 'its'} way to your computer. Keep going there — you can close this page.</p>
       {state.skipped.length > 0 && <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm text-destructive">
         {state.skipped.map(reason => <li key={reason}>{reason}</li>)}
       </ul>}
     </>}
     {state.step === 'failed' && <>
-      <h1 className="m-0 text-2xl font-semibold">That did not work</h1>
+      <h1 className="m-0 text-2xl font-semibold">That didn’t work</h1>
       <p className="m-0 text-muted-foreground" role="alert">{state.error}</p>
       {TOKEN.test(token) && !expired() && <Button className="h-12 w-full text-base" onClick={() => setState({ step: 'choose' })}>Try again</Button>}
     </>}

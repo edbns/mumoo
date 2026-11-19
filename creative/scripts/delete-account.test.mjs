@@ -38,7 +38,7 @@ test('deleting an account removes every file, row and the sign-in, and the brain
     await deleteAccount({ id, email }, async (mail) => { letters.push(mail); });
     assert.equal(letters.length, 1, 'they are told it is done');
     assert.equal(letters[0].to, email);
-    assert.equal(letters[0].subject, 'Your mumoo account is deleted');
+    assert.equal(letters[0].subject, 'Your MUMOO account is deleted');
     assert.ok(!letters[0].text.includes(email), 'the letter does not show their address');
 
     for (const key of keys) assert.equal(await objectSize(key), null, `${key} is gone`);

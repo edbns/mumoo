@@ -25,7 +25,7 @@ export function useFileUpload({ accept, onSelect, onSelectMany }: { accept: stri
     const files = [...(list ?? [])].slice(0, onSelectMany ? undefined : 1)
     if (!files.length) return
     const allowed = files.filter((file) => matchesAccept(file, accept))
-    setErrors(allowed.length < files.length ? [files.length > 1 ? 'Some of these files are not supported.' : 'This file type is not supported.'] : [])
+    setErrors(allowed.length < files.length ? [files.length > 1 ? 'Some of these files aren’t supported.' : 'This file type isn’t supported.'] : [])
     if (!allowed.length) return
     if (onSelectMany) onSelectMany(allowed)
     else onSelect?.(allowed[0])

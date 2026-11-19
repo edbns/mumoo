@@ -26,13 +26,13 @@ export function CookieBanner() {
       <div className="flex flex-col gap-1.5">
         <CookieConsentTitle>We use cookies</CookieConsentTitle>
         <CookieConsentDescription>
-          Necessary cookies keep you signed in. With your permission we&rsquo;d also use analytics to see how MUMOO is used.{' '}
+          Necessary cookies keep you signed in. Analytics help us see how people use MUMOO (only if you say yes).{' '}
           <CookieConsentLink href="/cookies">Cookie policy</CookieConsentLink>
         </CookieConsentDescription>
       </div>
       <CookieConsentCategories>
         <CookieConsentCategory id="necessary" name="Necessary" description="Sign-in, security, and remembering this choice." required />
-        <CookieConsentCategory id="analytics" name="Analytics" description="Google Analytics: pages visited and features used, counted together." />
+        <CookieConsentCategory id="analytics" name="Analytics" description="Google Analytics: pages and features used (all counted together)." />
       </CookieConsentCategories>
       <CookieConsentActions>
         <CookieConsentAcceptAll />

@@ -78,7 +78,7 @@ export default async function encodeCreative(request) {
     if (upload !== undefined) {
       if (!UUID.test(upload)) return error(400, 'Invalid picture.');
       const media = await uploadMedia(person.id, upload);
-      if (!media) return error(404, 'That picture was not found, or is still being prepared.');
+      if (!media) return error(404, 'That picture wasn’t found or is still being prepared.');
       const sent = ownMedia(scene.opts?.style, media);
       if (sent.refused) return error(400, sent.refused);
       if (sent.parts.photo) outbound.append('photo', new Blob([sent.parts.photo], { type: 'image/jpeg' }), 'photo.jpg');
@@ -94,17 +94,17 @@ export default async function encodeCreative(request) {
       if (ownReel === true) {
         // A reel of the person's own pictures: only theirs.
         found = await uploadReel(person.id, asked.ids);
-        if (found.includes(null)) return error(404, 'One of your pictures in that reel was removed, or is still being prepared.');
+        if (found.includes(null)) return error(404, 'One of your pictures in that reel was removed or is still being prepared.');
       } else {
         found = await libraryReel(asked.ids);
-        if (found.includes(null)) return error(404, 'A picture of that reel is no longer in the library, or has no cut-out yet.');
+        if (found.includes(null)) return error(404, 'A picture of that reel is no longer in the library or has no cut-out yet.');
       }
       scene.opts = { ...scene.opts, reel: reelFrom(found) };
     }
     outbound.append('meta', JSON.stringify(scene));
 
     spend = await reserveVideo(person.id);
-    if (!spend) return Response.json({ error: 'You are out of credits. Buy a pack to make this video.', code: 'no_credits' }, { status: 402, headers });
+    if (!spend) return Response.json({ error: 'You’re out of credits. Buy a pack to make this video.', code: 'no_credits' }, { status: 402, headers });
     const response = await fetch(MODAL_SUBMIT, {
       method: 'POST',
       body: outbound,

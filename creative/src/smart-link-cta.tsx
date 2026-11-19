@@ -21,8 +21,7 @@ export function AdsNextStep({ published, onStart }: { published: Published; onSt
       </p>
       <p className="m-0 text-lg font-semibold leading-snug">Turn “{title}” into scroll-stopping lyric videos.</p>
       <p className="m-0 text-sm text-muted-foreground">
-        Upload {artist ? `${artist}’s` : 'your'} song and mumoo makes 9:16 creatives for Reels, TikTok and Shorts in minutes, in the
-        style of your music.{free && ' Your first creative is free.'}
+        Upload {artist ? `${artist}’s` : 'your'} song and MUMOO makes 9:16 creatives for Reels, TikTok and Shorts in minutes, in the style of your music.{free && ' First creative is free.'}
       </p>
       <Button className="shimmer relative h-[var(--control-height-md)] overflow-hidden px-5" onClick={onStart}>
         {free ? 'Make my first video free' : 'Create videos for your music'}<ArrowRightIcon aria-hidden="true" className="size-4" />

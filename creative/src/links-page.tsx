@@ -64,7 +64,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
   async function run(kind: NonNullable<typeof busy>, work: () => Promise<void>) {
     setBusy(kind); setError('');
     try { await work(); } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That did not work. Try again in a moment.');
+      setError(cause instanceof Error ? cause.message : 'That didn’t work. Try again in a sec.');
     } finally { setBusy(null); }
   }
 
@@ -78,7 +78,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
     player.stop();
     void run(kind, async () => {
       const song = await lookupSong(url, pick);
-      if (pick && !song.confident) throw new Error('That song does not have this link’s title. Pick another, or correct the details below.');
+      if (pick && !song.confident) throw new Error('That song doesn’t match this link’s title. Pick another or fix the details below.');
       const fields = fieldsOf(url, song);
       change(current => ({ ...current, link: fields, candidates: song.confident ? null : song.candidates ?? [],
         slug: current.editing ? current.slug : suggestSlug(fields.artist, fields.title) }));
@@ -89,8 +89,8 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
     event.preventDefault();
     const url = asLink(draft.url);
     if (url) lookUp('find', url);
-    else if (found.results?.[0]) setError('Pick your song from the list below.');
-    else if (typedName.length < 2) setError('Type your song’s name, or paste its link.');
+    else if (found.results?.[0]) setError('Pick your song from the list.');
+    else if (typedName.length < 2) setError('Type your song’s name or paste its link.');
   }
 
   function edit(fields: Partial<LinkFields>) {
@@ -152,7 +152,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
       <div className="flex min-w-0 flex-col gap-4">
         {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
           <AddressLine slug={published.slug} />
-          <p className="m-0 text-sm text-muted-foreground">Put it in your bio and posts. Every fan gets the button for the app they use, and My Smart Links counts which ones they press.</p>
+          <p className="m-0 text-sm text-muted-foreground">Drop it in your bio and posts. Fans get the right app button, and My Smart Links tracks which ones they press.</p>
           <AdsNextStep published={published} onStart={() => {
             handSong({ title: published.link.title, artist: published.link.artist, cover: published.link.cover });
             onNavigate('create');
@@ -166,7 +166,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
             <label className="m-0 flex h-[var(--control-height-md)] min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-control)] bg-muted px-3 font-normal focus-within:shadow-[0_0_0_2px_var(--focus-ring)]">
               <SearchIcon className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden />
               <input className="h-full w-full min-w-0 bg-transparent p-0 text-sm text-foreground outline-none placeholder:text-muted-foreground" type="text"
-                aria-label="Your song’s name or link" placeholder="Search your song, or paste its Spotify, Apple Music or YouTube link" autoComplete="off" spellCheck={false}
+                aria-label="Your song’s name or link" placeholder="Search your song or paste its Spotify, Apple Music or YouTube link" autoComplete="off" spellCheck={false}
                 value={draft.url} onChange={event => { setError(''); change(current => ({ ...current, url: event.target.value, link: null, candidates: null })); }}
                 onPaste={event => {
                   const pasted = asLink(event.clipboardData.getData('text'));
@@ -178,11 +178,11 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
             </Button>
           </form>}
           {!link && typedName.length >= 2 && found.state !== 'done' && <p className="m-0 text-sm text-muted-foreground">{found.state === 'failed' ? found.error : 'Searching…'}</p>}
-          {!link && found.state === 'done' && !found.results?.length && <p className="m-0 text-sm text-muted-foreground">Nothing found for “{typedName}”. Try the artist and the title, or paste the song’s link.</p>}
-          {choices && choices.length > 0 && <SongChoices title={link ? 'We weren’t sure. Is this your song?' : 'Pick your song'} choices={choices}
+          {!link && found.state === 'done' && !found.results?.length && <p className="m-0 text-sm text-muted-foreground">Nothing found for “{typedName}”. Try artist + title or paste the song’s link.</p>}
+          {choices && choices.length > 0 && <SongChoices title={link ? 'Not sure. Is this your song?' : 'Pick your song'} choices={choices}
             busy={busy !== null} player={player} />}
           {link && draft.candidates && draft.candidates.length > 0 &&
-            <button type="button" className={`${textButton} self-start`} onClick={() => change(current => ({ ...current, candidates: null }))}>None of these: I’ll correct the details</button>}
+            <button type="button" className={`${textButton} self-start`} onClick={() => change(current => ({ ...current, candidates: null }))}>None of these: I’ll fix the details</button>}
           {link && <div className="grid gap-3 sm:grid-cols-2">
             <label className="m-0 flex flex-col gap-1.5 text-xs font-normal text-muted-foreground">Title
               <input className={field} value={link.title} maxLength={200} onChange={event => edit({ title: event.target.value })} />
@@ -195,7 +195,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
         </AccountSection>
 
         {link && <AccountSection label="Buttons">
-          <p className="m-0 text-sm text-muted-foreground">Drag to change the order. “Search” buttons open a search for your song on that service: paste your song’s own link there to send fans straight to it.</p>
+          <p className="m-0 text-sm text-muted-foreground">Drag to change the order. “Search” buttons open a search for your song — paste the direct link to send fans straight there.</p>
           <Reorder.Group axis="y" values={link.services} onReorder={services => edit({ services })} className="m-0 flex list-none flex-col gap-2 p-0">
             {link.services.map(row => <ServiceEditor key={row.service} row={row}
               onChange={changes => setRow(row.service, changes)} onMove={by => move(row.service, by)} />)}
@@ -207,7 +207,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
 
         {link && <AccountSection label="Address">
           {draft.editing
-            ? <><AddressLine slug={draft.editing} /><p className="m-0 text-sm text-muted-foreground">The address stays the same, so where you shared it keeps working.</p></>
+            ? <><AddressLine slug={draft.editing} /><p className="m-0 text-sm text-muted-foreground">The address stays the same so where you shared it keeps working.</p></>
             : <>
               <label className="m-0 flex h-[var(--control-height-md)] items-center gap-0 rounded-[var(--radius-control)] bg-muted pl-3 text-sm font-normal text-muted-foreground focus-within:shadow-[0_0_0_2px_var(--focus-ring)]">
                 <span className="shrink-0">{location.host}/l/</span>
@@ -248,7 +248,7 @@ function ServiceEditor({ row, onChange, onMove }: { row: ServiceRow; onChange: (
   }
   return <Reorder.Item value={row} dragListener={false} dragControls={drag}
     className={`relative flex items-center gap-2 rounded-[var(--radius-control)] bg-card p-1.5 ${row.hidden ? 'opacity-50' : ''}`}>
-    <button type="button" className={`${iconButton} cursor-grab touch-none active:cursor-grabbing`} aria-label={`Move ${label}: drag, or use the up and down arrow keys`}
+    <button type="button" className={`${iconButton} cursor-grab touch-none active:cursor-grabbing`} aria-label={`Move ${label}: drag or use the up/down arrow keys`}
       onPointerDown={event => drag.start(event)} onKeyDown={keys}><GripVerticalIcon className="size-4" /></button>
     <img src={`/logos/${row.service}.svg`} alt="" className="size-6 shrink-0 object-contain" draggable={false} />
     <span className="w-28 shrink-0 truncate text-sm font-medium">{label}</span>
@@ -296,7 +296,7 @@ function PhonePreview({ link, slug, onReady }: { link: LinkFields | null; slug: 
       <iframe title="Your fan page" srcDoc={html} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" onLoad={onReady}
         className="block origin-top-left border-0" style={{ width: PAGE_WIDTH, height: PAGE_WIDTH * SCREEN_RATIO, transform: `scale(${scale})` }} />
     </Iphone16Pro>
-    <p className="m-0 text-center text-xs text-muted-foreground">{link ? 'What fans see. Press play to hear your preview.' : 'Find your song, and your page appears here.'}</p>
+    <p className="m-0 text-center text-xs text-muted-foreground">{link ? 'What fans see. Press play to hear the preview.' : 'Find your song and your page shows up here.'}</p>
   </aside>;
 }
 

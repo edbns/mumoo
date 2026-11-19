@@ -84,7 +84,7 @@ export default async function encodeCreativeStatus(request) {
     if ([400, 401, 410].includes(response.status)) {
       return error(response.status, typeof detail === 'string' ? detail : 'Cloud render could not proceed.');
     }
-    return error(502, 'The cloud render failed. Try again.');
+    return error(502, 'Cloud render failed. Try again.');
   } catch {
     return error(504, 'The cloud render worker did not respond in time.');
   }

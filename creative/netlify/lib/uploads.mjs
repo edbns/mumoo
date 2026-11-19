@@ -62,7 +62,7 @@ async function startPreparing(userId, id, kind) {
     signal: AbortSignal.timeout(25_000),
   });
   const result = await response.json().catch(() => null);
-  if (!response.ok || typeof result?.id !== 'string') throw new Error('Preparing could not start.');
+  if (!response.ok || typeof result?.id !== 'string') throw new Error('Preparing couldn’t start.');
   await db()`update uploads set job_id = ${result.id} where id = ${id}`;
 }
 
@@ -127,7 +127,7 @@ async function settle(userId, row) {
   }).catch(() => null);
   if (!response || response.status === 202 || (response.status >= 500 && response.status !== 502)) return null;
   const result = response.ok ? await response.json().catch(() => null) : null;
-  if (!result) return failed(response.status === 410 ? 'That took too long to prepare. Try again.' : 'We could not prepare that file. Try another.');
+  if (!result) return failed(response.status === 410 ? 'Took too long to prepare. Try again.' : 'Couldn’t prepare that file. Try another.');
   if (!result.ok) return failed(result.error);
   // A photo keeps its JPEG next to the new mask; a video or GIF keeps only the prepared clip and poster.
   const total = Object.values(result.bytes).reduce((sum, size) => sum + size, row.kind === 'photo' ? row.bytes : 0);

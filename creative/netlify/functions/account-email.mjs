@@ -21,7 +21,7 @@ export default async function handler(request) {
     return outcome.error ? reply(outcome.status, { error: outcome.error }) : reply(200, { email: outcome.email ?? null });
   } catch (cause) {
     console.error('account email:', cause);
-    return reply(500, { error: 'That did not work. Try again in a moment.' });
+    return reply(500, { error: 'That didn’t work. Try again in a moment.' });
   }
 }
 

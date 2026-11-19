@@ -26,13 +26,13 @@ export default async function handler(request) {
     return reply(200, { status: 'paid', videos: order.videos, bonus: Number(order.bonus), credits: await creditsOf(person.id) });
   }
 
-  if (!polarReady()) return reply(503, { error: 'Payments are not switched on yet.' });
+  if (!polarReady()) return reply(503, { error: 'Payments aren’t switched on yet.' });
   const body = await request.json().catch(() => null);
   if (!body || typeof body.usd !== 'number') return reply(400, { error: 'Choose a pack.' });
   if (!await recordPerson(person)) return reply(401, { error: 'Sign in to continue.' });
   try {
     const product = await productFor(body.usd);
-    if (!product) return reply(400, { error: 'That pack is not on sale.' });
+    if (!product) return reply(400, { error: 'That pack isn’t on sale.' });
     const origin = new URL(request.url).origin;
     const open = email => polar('/v1/checkouts/', {
       method: 'POST',
@@ -53,7 +53,7 @@ export default async function handler(request) {
     return reply(200, { url: checkout.url });
   } catch (cause) {
     console.error('checkout:', cause.message, cause.detail ?? '');
-    return reply(502, { error: 'The checkout is unavailable right now. Try again in a moment.' });
+    return reply(502, { error: 'Checkout is unavailable right now. Try again in a moment.' });
   }
 }
 

@@ -23,7 +23,7 @@ async function openInvoice(id: string) {
   const tab = window.open('about:blank', '_blank');
   try {
     const result = await (await accountFetch(`/api/invoices?id=${encodeURIComponent(id)}`)).json() as { url?: string; error?: string };
-    if (!result.url) throw new Error(result.error || 'Your invoice is unavailable right now. Try again in a moment.');
+    if (!result.url) throw new Error(result.error || 'Invoice is unavailable right now. Try again in a moment.');
     if (tab) tab.location.href = result.url;
     else location.assign(result.url);
   } catch (cause) {
@@ -53,7 +53,7 @@ export default function InvoicesPage() {
         {[0, 1, 2].map(row => <div key={row} className="h-14 animate-pulse rounded-[var(--radius)] bg-muted" />)}
       </div>}
       {invoices?.length === 0 && <EmptyState className="py-12">
-        No payments yet. When you pay, each invoice appears here with what it was for and how much.
+        No payments yet. When you pay, each invoice shows up here with what it was for and the amount.
       </EmptyState>}
       {invoices && invoices.length > 0 && <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {invoices.map(invoice => <li key={invoice.id} className="flex items-center gap-4 rounded-[var(--radius)] bg-muted px-4 py-3">

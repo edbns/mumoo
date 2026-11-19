@@ -89,7 +89,7 @@ export function AnalyzingScreen({ profile, progress, ready, onDone }: { profile:
   const percent = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 p-6" role="status" aria-label="Analysing your song and building your creatives">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 p-6" role="status" aria-label="Analysing your song and building creatives">
       <div className="inline-flex h-[74px] items-center gap-3 rounded-full bg-muted/60 pl-[9px] pr-10">
         <span className="[&_canvas]:!size-14 [&_canvas]:bg-transparent">
           <ThinkingOrb state="composing" size={64} theme="dark" />
@@ -115,7 +115,7 @@ export function AnalyzingScreen({ profile, progress, ready, onDone }: { profile:
           <motion.div className="h-full rounded-full bg-primary" initial={false} animate={{ width: `${percent}%` }} transition={{ duration: 0.4, ease: 'easeOut' }} />
         </div>
         <p className="text-sm text-muted-foreground">{stageText(profile, progress)}</p>
-        <p className="text-xs text-muted-foreground/70">This takes a minute or two.</p>
+        <p className="text-xs text-muted-foreground/70">Takes a minute or two.</p>
       </div>
     </main>
   );

@@ -25,14 +25,14 @@ export default function SettingsPage() {
   async function run(work: () => Promise<void>) {
     setBusy(true); setError(''); setNotice('');
     try { await work(); } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That did not work. Try again in a moment.');
+      setError(cause instanceof Error ? cause.message : 'That didn’t work. Try again in a sec.');
     } finally { setBusy(false); }
   }
 
   function sendCode(event: FormEvent) {
     event.preventDefault();
     const next = email.trim();
-    if (next.toLowerCase() === current.toLowerCase()) { setError('That is already your email.'); return; }
+    if (next.toLowerCase() === current.toLowerCase()) { setError('That’s already your email.'); return; }
     void run(async () => { await requestEmailChange(next); setSentTo(next); setCode(''); });
   }
 
@@ -50,7 +50,7 @@ export default function SettingsPage() {
   return <AccountColumn>
     <AccountSection label="Email">
       <p className="m-0 text-sm">{current}</p>
-      <p className="m-0 text-sm text-muted-foreground">Your creatives, uploads and history stay with your account when you change your email.</p>
+      <p className="m-0 text-sm text-muted-foreground">Your creatives, uploads and history stay with your account when you change email.</p>
 
       {sentTo === null
         ? <form onSubmit={sendCode} className="flex flex-col gap-3">
@@ -83,11 +83,11 @@ function DeleteAccount({ email }: { email: string }) {
   const matches = Boolean(email) && typed.trim().toLowerCase() === email.toLowerCase();
 
   return <AccountSection label="Delete account">
-    <p className="m-0 text-sm text-muted-foreground">Deletes your account and everything in it: your creatives, your pictures and your history. It cannot be undone. Download anything you want to keep first.</p>
+    <p className="m-0 text-sm text-muted-foreground">Deletes your account and everything in it: creatives, pictures and history. Can’t be undone. Download what you want first.</p>
     <div className="flex justify-end"><Button variant="destructive" onClick={() => { setTyped(''); setOpen(true); }}>Delete account</Button></div>
     <ActionDialog open={open} onClose={() => setOpen(false)} destructive
       title="Delete your account?"
-      description="Your creatives, your pictures and your history are deleted for good. This cannot be undone."
+      description="Your creatives, pictures and history get deleted for good. Can’t be undone."
       cancelLabel="Keep my account" confirmLabel="Delete everything" confirmDisabled={!matches}
       working="Deleting…"
       onConfirm={() => deleteAccount(typed.trim())} onDone={() => location.assign('/')}>

@@ -36,7 +36,7 @@ export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle,
     return () => window.clearTimeout(timer);
   }, [step, onClose]);
 
-  return <Modal open={open} onClose={onClose} bare maxWidth={420} maxHeight="calc(100vh - 3rem)" title="Sign in or create an account">
+  return <Modal open={open} onClose={onClose} bare maxWidth={420} maxHeight="calc(100vh - 3rem)" title="Sign in or make an account">
     <MagicLinkOtpLogin
       appName="MUMOO"
       logo={<img src="/brand/mumoo-logo.png" alt="" className="h-3.5 w-auto" />}
@@ -47,6 +47,6 @@ export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle,
       onGoogle={onGoogle}
       {...(reason ? { title: reason.title, lead: reason.lead } : {})}
     />
-    {!hideTerms && <p className="mt-4 text-center text-xs text-muted-foreground">By continuing, you agree to our <a className="text-foreground underline underline-offset-4" href={TERMS_URL} target="_blank" rel="noreferrer">Terms of Service</a> and <a className="text-foreground underline underline-offset-4" href={PRIVACY_URL} target="_blank" rel="noreferrer">Privacy Policy</a>.</p>}
+    {!hideTerms && <p className="mt-4 text-center text-xs text-muted-foreground">By continuing you agree to our <a className="text-foreground underline underline-offset-4" href={TERMS_URL} target="_blank" rel="noreferrer">Terms</a> and <a className="text-foreground underline underline-offset-4" href={PRIVACY_URL} target="_blank" rel="noreferrer">Privacy Policy</a>.</p>}
   </Modal>;
 }

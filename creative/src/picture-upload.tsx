@@ -24,7 +24,7 @@ export function UploadProgress({ uploads }: { uploads: Uploads }) {
     ? (sending.total > 1 ? `Sending ${sending.index + 1} of ${sending.total}` : 'Sending')
     : 'Preparing in the cloud';
   return <RenderProgress phases={UPLOAD_PHASES} progress={{ percent: batchPercent, label }}
-    note="Your creatives are made from your media once all of it is here. Do not close this window." />;
+    note="Creatives use your media once everything’s here. Don’t close this window." />;
 }
 
 /** What the person uploaded before (kept in History → Uploads), to tick and put back on the shelf together. */
@@ -92,7 +92,7 @@ export function PictureUpload({ uploads, token, onChange }: {
     </Button>
     <Modal open={open} onClose={() => setOpen(false)}
       title="Use your own photos or videos"
-      description={`Pick up to ${MAX_SHELF_PICTURES} at once; each creative is drawn from one of them. By uploading you confirm you own the rights to them. Only videos or GIFs leave out the creatives that need a photo.`}>
+      description={`Pick up to ${MAX_SHELF_PICTURES} at once — each creative uses one of them. By uploading you confirm you own the rights. Videos/GIFs skip the ones that need a photo.`}>
       {uploads.signedIn
         ? <div className="flex flex-col gap-3">
           <FileDropzone

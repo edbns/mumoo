@@ -81,10 +81,10 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     const delivered = made.map(entry => entry.job.itemId);
     // Success needs no notice: the person is on their Media, where the creatives appear. Only a partial failure or full storage is told.
     if (unkept.length && !failed.length) {
-      setMessage({ kind: 'error', text: `Your Media storage is full, so ${unkept.length === 1 ? 'your new creative was' : `${unkept.length} new creatives were`} downloaded to this computer instead of kept in Media.` });
+      setMessage({ kind: 'error', text: `Media storage is full, so ${unkept.length === 1 ? 'your new creative was' : `${unkept.length} new creatives were`} downloaded to this computer instead.` });
     }
     if (failed.length) {
-      const reason = friendlyError(failed[0], 'The creatives could not be exported.');
+      const reason = friendlyError(failed[0], 'Couldn’t export the creatives.');
       reportProblem('render', reason);
       const count = made.length;
       setMessage({ kind: 'error', text: `${count === 1 ? 'Your creative is' : `Your ${count} creatives are`} ready. ${failed.length === 1 ? '1 could not be made' : `${failed.length} could not be made`} (${reason.replace(/\.$/, '')}) and ${failed.length === 1 ? 'is' : 'are'} still chosen: open them from the bar at the bottom to try again.` });
@@ -101,7 +101,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
       await follow(await begin());
     } catch (cause) {
       localStorage.removeItem(PENDING_KEY);
-      const text = friendlyError(cause, 'The creatives could not be exported.');
+      const text = friendlyError(cause, 'Couldn’t export the creatives.');
       reportProblem((cause as { problemKind?: 'download' }).problemKind ?? 'render', text);
       setMessage({ kind: 'error', text: `${text} Your chosen videos are kept.` });
     } finally {
@@ -131,8 +131,8 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     const pending = readPending(raw);
     if (!pending || expired(pending, Date.now(), JOB_TIMEOUT_MS)) {
       localStorage.removeItem(PENDING_KEY);
-      reportProblem('download', 'A download that was in progress did not finish.');
-      setMessage({ kind: 'error', text: 'Videos that were being made did not finish. Your chosen videos are kept: open them from the bar at the bottom to try again.' });
+      reportProblem('download', 'A download that was going didn’t finish.');
+      setMessage({ kind: 'error', text: 'Videos that were being made didn’t finish. Your chosen videos are kept — open them from the bottom bar to try again.' });
       return;
     }
     void run(async () => pending);

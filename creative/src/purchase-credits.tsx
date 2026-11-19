@@ -54,11 +54,11 @@ function Arrived({ checkoutId, onCredits, onClose }: { checkoutId: string; onCre
   }, [checkoutId]);
 
   if (arrival && arrival !== 'late' && arrival.status === 'paid') return <Outcome mark={<CheckIcon className="size-6" />} title="Thank you" onClose={onClose}>
-    <p className="m-0">{(arrival.videos + (arrival.bonus ?? 0)).toLocaleString()} videos are in your account{arrival.bonus ? `, ${arrival.bonus} of them from your friend's invite` : ''}. You now have {arrival.credits.toLocaleString()} {arrival.credits === 1 ? 'credit' : 'credits'}.</p>
-    <p className="m-0 mt-1">Your receipt is on its way by email, and the invoice is in Invoices.</p>
+    <p className="m-0">{(arrival.videos + (arrival.bonus ?? 0)).toLocaleString()} videos are in your account{arrival.bonus ? `, ${arrival.bonus} of them from your friend’s invite` : ''}. You now have {arrival.credits.toLocaleString()} {arrival.credits === 1 ? 'credit' : 'credits'}.</p>
+    <p className="m-0 mt-1">Receipt is on its way by email, invoice is in Invoices.</p>
   </Outcome>;
   if (arrival === 'late') return <Outcome mark={<ClockIcon className="size-6" />} title="Almost there" onClose={onClose}>
-    Your payment is still on its way to us. Your credits appear as soon as it arrives; if they do not within an hour, write to moo@mumoo.app.
+    Payment is still on its way. Credits show up as soon as it lands. If not within an hour, email moo@mumoo.app.
   </Outcome>;
   return <Outcome mark={<LoaderCircleIcon className="size-6 animate-spin" />} title="Payment received">
     <span role="status">Adding your credits…</span>
@@ -110,16 +110,16 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
     <div className="flex flex-col gap-4">
       {shortfall && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-3 text-sm text-foreground">
         {shortfall.have === 0
-          ? `You are out of credits. ${shortfall.need === 1 ? 'This video needs' : `These ${shortfall.need} videos need`} ${shortfall.need === 1 ? 'one' : shortfall.need}. Your chosen videos are kept.`
-          : `${shortfall.need} videos need ${shortfall.need} credits, and you have ${shortfall.have}. Buy a pack, or choose fewer videos.`}
+          ? `You’re out of credits. ${shortfall.need === 1 ? 'This video needs' : `These ${shortfall.need} videos need`} ${shortfall.need === 1 ? 'one' : shortfall.need}. Your chosen videos are kept.`
+          : `${shortfall.need} videos need ${shortfall.need} credits and you have ${shortfall.have}. Buy a pack or pick fewer.`}
       </p>}
       {bonus > 0 && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-3 text-sm text-foreground">
-        A friend invited you: your first pack comes with {bonus} extra videos, free.
+        A friend invited you: your first pack comes with {bonus} extra videos free.
       </p>}
       <PricingInteraction key={initial} packs={CREDIT_PACKS} initial={initial} busy={busy} onChoose={choose} />
       {note && <p role="alert" className="m-0 text-center text-sm text-destructive">{note}</p>}
-      <p className="m-0 text-center text-sm text-muted-foreground">One-time purchase, no subscription. Credit never expires. Payment by Polar; tax is added where it applies.</p>
-      <p className="m-0 text-center text-xs text-muted-foreground">Credits are non-refundable. See the <a href="/terms" className="underline underline-offset-4 hover:text-foreground">Terms</a> and <a href="/refunds" className="underline underline-offset-4 hover:text-foreground">Refund policy</a>.</p>
+      <p className="m-0 text-center text-sm text-muted-foreground">One-time purchase, no subscription. Credits never expire. Payment by Polar; tax added where it applies.</p>
+      <p className="m-0 text-center text-xs text-muted-foreground">Credits are non-refundable. See <a href="/terms" className="underline underline-offset-4 hover:text-foreground">Terms</a> and <a href="/refunds" className="underline underline-offset-4 hover:text-foreground">Refund policy</a>.</p>
     </div>
   </Modal>;
 }

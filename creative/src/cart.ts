@@ -118,7 +118,7 @@ export function cardThumbnail(card: HTMLCanvasElement): string {
   small.width = THUMB_WIDTH;
   small.height = THUMB_HEIGHT;
   const context = small.getContext('2d');
-  if (!context) throw new Error('A picture of this creative could not be made.');
+  if (!context) throw new Error('Couldn’t make a picture of this creative.');
   context.imageSmoothingQuality = 'high';
   context.drawImage(card, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
   return small.toDataURL('image/jpeg', 0.7);

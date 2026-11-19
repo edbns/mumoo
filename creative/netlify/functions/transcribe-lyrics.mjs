@@ -49,7 +49,7 @@ export default async function transcribeLyrics(request) {
     if (response.ok && typeof result?.id === 'string') return Response.json({ id: result.id }, { status: 202, headers });
     const detail = result?.detail ?? result?.error;
     if ([400, 401, 413, 429].includes(response.status)) {
-      return error(response.status, typeof detail === 'string' ? detail : 'Lyrics could not start.');
+      return error(response.status, typeof detail === 'string' ? detail : 'Lyrics couldn’t start.');
     }
     return error(502, 'The lyrics worker could not accept this clip.');
   } catch {

@@ -48,10 +48,10 @@ export default async function handler(request) {
   if (!polarReady()) return reply(503, { error: 'Invoices are unavailable right now.' });
   try {
     const url = await invoiceUrl(id);
-    return url ? reply(200, { url }) : reply(202, { error: 'Your invoice is being prepared. Try again in a minute.' });
+    return url ? reply(200, { url }) : reply(202, { error: 'Invoice is being prepared. Try again in a minute.' });
   } catch (cause) {
     console.error('invoice:', cause.message, cause.detail ?? '');
-    return reply(502, { error: 'Your invoice is unavailable right now. Try again in a moment.' });
+    return reply(502, { error: 'Invoice is unavailable right now. Try again in a moment.' });
   }
 }
 

@@ -44,7 +44,7 @@ import { useFreeVideo } from './use-free-video';
 import './styles/index.css';
 
 // Sign-in pulls in the auth client; it loads beside the page instead of in front of it.
-const DOWNLOAD_SIGN_IN = { title: 'Sign in to download', lead: 'Your first video is free, with no watermark. It is also kept in your Media.' };
+const DOWNLOAD_SIGN_IN = { title: 'Sign in to download', lead: 'First video is free, no watermark. It also stays in your Media.' };
 const AccountBar = lazy(() => import('./account').then(module => ({ default: module.AccountBar })));
 const loadProfilePage = () => import('./profile-page');
 const ProfilePage = lazy(loadProfilePage);
@@ -375,13 +375,13 @@ function App() {
       // The chosen videos outlive a refresh, the song's details do not: they are made from the creatives, which need the song finished first.
       const backTo = (target: 1 | 2) => () => { setCartOpen(false); setPage('create'); stop(); setStep(target); };
       return !genreValid
-        ? { kind: 'blocked', reason: 'Before these videos can be made, say what kind of music your song is.', fix: { label: 'Finish your song', run: backTo(1) } }
+        ? { kind: 'blocked', reason: 'Tell us the vibe before we make the videos.', fix: { label: 'Finish your song', run: backTo(1) } }
         : { kind: 'blocked', fix: { label: 'Finish your lyrics', run: backTo(2) },
-          reason: !noLyrics && composition.cues.length === 0 ? 'Before these videos can be made, add and sync your lyrics, or say the song has no lyrics.'
-            : 'Before these videos can be made, finish syncing your lyrics.' };
+          reason: !noLyrics && composition.cues.length === 0 ? 'Add and sync lyrics, or just say the song has none.'
+            : 'Finish syncing your lyrics first.' };
     }
     if (profile?.musicAnalysis.status === 'pending' || profile?.lyricMeaning?.status === 'pending') {
-      return { kind: 'blocked', reason: 'Finishing the analysis of your music and lyrics. You can make your videos in a moment.' };
+      return { kind: 'blocked', reason: 'Almost done analysing. Videos ready in a moment.' };
     }
     if (checkingPictures) return { kind: 'blocked', reason: 'Checking your pictures…' };
     // Making videos needs an account (the free first video is theirs, and it is kept in Media): signed out, it asks first and then carries on.
@@ -410,12 +410,12 @@ function App() {
       </div>
     </header>
     <ActionDialog open={askingStartOver} onClose={() => setAskingStartOver(false)} title="Start over with another song?"
-      description="Your song and lyrics are cleared. Your chosen videos are kept, and your pictures stay in History."
+      description="Song and lyrics cleared. Chosen videos stay, pictures stay in History."
       cancelLabel="Keep this song" confirmLabel="Start over" onConfirm={async () => startOver()} />
     {/* Asked wherever the creator is when the guess arrives, until the creatives are shown; closing it is "not sure". */}
     <Modal open={page === 'create' && styleGuess.status === 'asking' && stage !== 'revealed'} onClose={() => answerGuess('unsure')}
-      title={styleGuess.status === 'asking' ? <>We think it sounds like {capitalised(styleGuess.style.name)}</> : ''}
-      description="Is that right? Your answer helps MUMOO learn your music." closeLabel="Not sure">
+      title={styleGuess.status === 'asking' ? <>Sounds like {capitalised(styleGuess.style.name)}</> : ''}
+      description="That right? Helps MUMOO learn your music." closeLabel="Not sure">
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="secondary" onClick={() => answerGuess('unsure')}>Not sure</Button>
         <Button variant="secondary" onClick={() => answerGuess('no')}>No</Button>
@@ -435,7 +435,7 @@ function App() {
     {!inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center' : 'desktop trim'}>
       <section>
         <p className="eyebrow mb-6">0{step} / {step === 1 ? 'MUSIC' : 'YOUR CLIP'}</p>
-        {step === 2 && <h1>Choose your 15 seconds</h1>}
+        {step === 2 && <h1>Pick your 15 seconds</h1>}
         {step === 1 && <>
         <div className="grid gap-5 md:grid-cols-2">
           <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-background p-5">
@@ -443,7 +443,7 @@ function App() {
               {handed.cover ? <img src={handed.cover} alt="" className="size-11 shrink-0 rounded-[6px] object-cover" /> : <span className="size-11 shrink-0 rounded-[6px] bg-muted" />}
               <p className="m-0 min-w-0 flex-1 text-sm">
                 <span className="block truncate font-semibold">{handed.title}{handed.artist ? ` · ${handed.artist}` : ''}</span>
-                <span className="block text-muted-foreground">Drop the song file to start.{freeVideo && ' Your first creative is free.'}</span>
+                <span className="block text-muted-foreground">Drop the song file to start.{freeVideo && ' First creative is free.'}</span>
               </p>
               <button type="button" aria-label="Not this song" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={() => setHanded(null)}><XIcon aria-hidden="true" className="size-4" /></button>
@@ -451,12 +451,12 @@ function App() {
             <FileDropzone accept={ACCEPTED_AUDIO} icon={Music2Icon} title="Drop your song here" hint={ACCEPTED_LABEL} buttonLabel="Select song" inputLabel="Song file" removeLabel="Remove song" fileName={songName || undefined}
               onSelect={file => void choose(file)} onRemove={() => void choose(undefined)} />
             {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
-            {!loading && !buffer && <p className="hint">Choose a song at least 15 seconds long to continue. No song file? A video with the song playing works too: a saved TikTok or Reel, a screen recording, or a voice memo.</p>}
+            {!loading && !buffer && <p className="hint">Needs to be at least 15 seconds. No song file? A video with the song playing works too (saved TikTok/Reel, screen recording, voice memo).</p>}
             {IS_ALIGNMENT_STAGING && !loading && !buffer && <PhoneUpload token={accessToken} kind="song" onFiles={([file]) => void choose(file)} />}
           </div>
           <div className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-background p-5">
             <Combobox label="What kind of music is it?" placeholder={genreUnknown ? 'Not sure' : 'Type a style: afrobeats, slap house, drill…'}
-              disabled={genreUnknown} search={searchOptions} emptyMessage={searchStyles ? 'Type a style, or say you don’t know.' : 'Loading styles…'}
+              disabled={genreUnknown} search={searchOptions} emptyMessage={searchStyles ? 'Type a style, or just say you don’t know.' : 'Loading styles…'}
               options={picked ? [styleOption(picked)] : []} value={picked?.label ?? ''} onValueChange={chooseStyle} />
             <Button variant={genreUnknown ? 'default' : 'secondary'} aria-pressed={genreUnknown} className="h-[var(--control-height-md)] w-full"
               onClick={() => { setGenreUnknown(unknown => !unknown); setPicked(null); }}>
@@ -489,7 +489,7 @@ function App() {
             <Button className={noLyrics ? 'ml-auto' : undefined} disabled={!canContinue} onClick={() => openCreatives(true)}>Continue</Button>
           </div>
         </>}
-        {step === 2 && (error || (buffer && !clipValid)) && <p role="alert">{error || 'Choose a valid 15-second range inside the song.'}</p>}
+        {step === 2 && (error || (buffer && !clipValid)) && <p role="alert">{error || 'Pick a valid 15-second range inside the song.'}</p>}
       </section>
     </main> : profile && buffer && (
       <div className="relative flex flex-1 flex-col">
@@ -529,7 +529,7 @@ function App() {
     {buffer && clipValid && IS_ALIGNMENT_STAGING && inCreatives && <StylePrintRunner key={`${composition.sourceSha256}:${composition.clipStartMs}:${style?.name ?? '?'}`}
       audio={buffer} clip={clip} style={style} unknown={genreUnknown} accessToken={accessToken} />}
 
-    {page === 'create' && <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use a desktop browser to time lyrics and preview your music visual.</p></main>}
+    {page === 'create' && <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use desktop to time lyrics and preview.</p></main>}
     <LegalCorner />
   </>;
 }

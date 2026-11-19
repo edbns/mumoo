@@ -22,38 +22,38 @@ const LETTERS = {
   'referral earned': referralEarned(10, 15, SITE),
 };
 
-test('every letter is from mumoo in lowercase, never says app, and shows no address or name', () => {
+test('every letter is from MUMOO in capitals, never says app, and shows no address or name', () => {
   for (const [name, { subject, text }] of Object.entries(LETTERS)) {
     const all = `${subject}\n${text}`.replace(SITE, 'SITE');
-    assert.match(all, /mumoo/, name);
-    assert.doesNotMatch(all, /MUMOO|Mumoo|\bapp\b/, `${name} writes mumoo in lowercase and never "app"`);
+    assert.match(all, /MUMOO/, name);
+    assert.doesNotMatch(all, /\bmumoo\b(?!\.app)|Mumoo|\bapp\b/, `${name} writes MUMOO in capitals and never "app"`);
     assert.doesNotMatch(all, /@|\bHi\b|\bDear\b/, `${name} greets nobody and shows no address`);
-    assert.match(text, /\nmumoo$/, `${name} is signed mumoo`);
+    assert.match(text, /\nMUMOO$/, `${name} is signed MUMOO`);
   }
 });
 
 test('the receipt says what was added and paid, and where the invoice is', () => {
   const { subject, text } = LETTERS['credits added'];
-  assert.equal(subject, 'Your 100 mumoo videos are ready');
+  assert.equal(subject, 'Your 100 MUMOO videos are ready');
   assert.match(text, /You paid \$20\.00\. You now have 120 credits\./);
   assert.match(text, /https:\/\/mumoo-staging\.netlify\.app\/invoices/);
 });
 
 test('an invited friend\'s receipt counts the invite, and the inviter is told what they earned', () => {
   const friend = LETTERS['credits added with an invite'];
-  assert.equal(friend.subject, 'Your 30 mumoo videos are ready');
-  assert.match(friend.text, /20 video credits are now in your mumoo account/);
-  assert.match(friend.text, /Your friend's invite added 10 more, free\./);
+  assert.equal(friend.subject, 'Your 30 MUMOO videos are ready');
+  assert.match(friend.text, /20 video credits are now in your MUMOO account/);
+  assert.match(friend.text, /Your friend’s invite added 10 more, free\./);
   assert.doesNotMatch(LETTERS['credits added'].text, /invite/);
   const inviter = LETTERS['referral earned'];
-  assert.equal(inviter.subject, 'A friend joined mumoo: 10 free videos for you');
+  assert.equal(inviter.subject, 'A friend joined MUMOO: 10 free videos for you');
   assert.match(inviter.text, /You now have 15 credits\./);
   assert.match(inviter.text, /Invite friends/);
 });
 
 test('a code is in the subject', () => {
-  assert.equal(LETTERS['sign-in code'].subject, '123456 is your mumoo code');
-  assert.equal(LETTERS['email change code'].subject, '654321 is your mumoo code');
+  assert.equal(LETTERS['sign-in code'].subject, '123456 is your MUMOO code');
+  assert.equal(LETTERS['email change code'].subject, '654321 is your MUMOO code');
   assert.match(LETTERS['password code'].text, /reset your password/);
 });
 
@@ -71,7 +71,7 @@ function signed(body, privateKey, kid, timestamp = Date.now()) {
   return new Headers({ 'x-neon-signature': `${header}..${signature}`, 'x-neon-signature-kid': kid, 'x-neon-timestamp': String(timestamp) });
 }
 
-test('the sign-in webhook mails Neon\'s code from mumoo, once per event, and only when Neon signed it', async () => {
+test('the sign-in webhook mails Neon\'s code from MUMOO, once per event, and only when Neon signed it', async () => {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
   const kid = `test-${randomUUID()}`;
   const saved = { jwks: process.env.NEON_AUTH_JWKS_URL, resend: process.env.RESEND_API_KEY, fetch: globalThis.fetch };
@@ -92,8 +92,8 @@ test('the sign-in webhook mails Neon\'s code from mumoo, once per event, and onl
 
     assert.equal((await post(event, signed(event, privateKey, kid))).status, 200);
     assert.equal(sent.length, 1);
-    assert.deepEqual([sent[0].from, sent[0].to, sent[0].subject, sent[0].once], ['mumoo <moo@mumoo.app>', 'someone@example.com', '482913 is your mumoo code', 'neon-evt-1']);
-    assert.match(sent[0].text, /works for 5 minutes/);
+    assert.deepEqual([sent[0].from, sent[0].to, sent[0].subject, sent[0].once], ['MUMOO <moo@mumoo.app>', 'someone@example.com', '482913 is your MUMOO code', 'neon-evt-1']);
+    assert.match(sent[0].text, /Works for 5 minutes/);
     assert.ok(!sent[0].text.includes('someone@example.com'));
 
     const forged = event.replace('482913', '000000');

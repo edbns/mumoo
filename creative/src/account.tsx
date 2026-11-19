@@ -38,11 +38,11 @@ export async function sessionToken(): Promise<string | null> {
 /** One request to our own API as the signed-in person. Throws the server's own words when it refuses. */
 export async function accountFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = await sessionToken();
-  if (!token) throw new Error('Sign in to continue.');
+  if (!token) throw new Error('Sign in to keep going.');
   const response = await fetch(path, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token}` } });
   if (!response.ok) {
     const result = await response.json().catch(() => null) as { error?: string } | null;
-    throw new Error(result?.error || 'This is unavailable right now. Try again in a moment.');
+    throw new Error(result?.error || 'Not available right now. Give it a sec and try again.');
   }
   return response;
 }
@@ -86,7 +86,7 @@ async function attempt(run: () => Outcome, mistake: string) {
     result = await run();
   } catch (cause) {
     const status = (cause as { status?: number }).status;
-    throw new Error(status && status < 500 ? mistake : 'Sign in is unavailable right now. Try again in a moment.');
+    throw new Error(status && status < 500 ? mistake : 'Sign-in is down for a moment. Try again soon.');
   }
   if (result.error) throw new Error(mistake);
 }
@@ -94,9 +94,9 @@ async function attempt(run: () => Outcome, mistake: string) {
 /** Sends the sign-in code to `email`. Fails with the words to show, and tells the admin's error log. */
 export async function sendSignInCode(email: string) {
   try {
-    await attempt(() => emailCode.emailOtp.sendVerificationOtp({ email, type: 'sign-in' }), 'Check the email address and try again.');
+    await attempt(() => emailCode.emailOtp.sendVerificationOtp({ email, type: 'sign-in' }), 'Check that email and try again.');
   } catch (cause) {
-    reportProblem('sign_in', `Could not send the code: ${(cause as Error).message}`, { email, signedOut: true });
+    reportProblem('sign_in', `Couldn’t send the code: ${(cause as Error).message}`, { email, signedOut: true });
     throw cause;
   }
 }
@@ -104,7 +104,7 @@ export async function sendSignInCode(email: string) {
 /** Signs in with the code that was sent to `email`. Fails with the words to show, and tells the admin's error log. */
 export async function checkSignInCode(email: string, otp: string) {
   try {
-    await attempt(() => emailCode.signIn.emailOtp({ email, otp }), 'That code is wrong or has expired.');
+    await attempt(() => emailCode.signIn.emailOtp({ email, otp }), 'Wrong code or it expired.');
   } catch (cause) {
     reportProblem('sign_in', `Code not accepted: ${(cause as Error).message}`, { email, signedOut: true });
     throw cause;
@@ -123,14 +123,14 @@ const GOOGLE_MINUTES = 5;
  */
 export async function signInWithGoogle() {
   const popup = window.open('about:blank', 'mumoo-google', 'width=500,height=700,popup=yes');
-  if (!popup) throw new Error('Your browser blocked the Google window. Allow popups for this site, or sign in with your email.');
+  if (!popup) throw new Error('Your browser blocked the Google window. Allow popups or just use email.');
   try {
     const { data, error } = await authClient.signIn.social({ provider: 'google', callbackURL: GOOGLE_BACK(), errorCallbackURL: GOOGLE_BACK(), disableRedirect: true });
-    if (error || !data?.url) throw new Error('Google sign-in is unavailable right now. Try again in a moment.');
+    if (error || !data?.url) throw new Error('Google sign-in is down right now. Try again in a bit.');
     popup.location.href = data.url;
   } catch (cause) {
     popup.close();
-    reportProblem('sign_in', `Google sign-in did not start: ${(cause as Error).message}`, { signedOut: true });
+    reportProblem('sign_in', `Google sign-in didn’t start: ${(cause as Error).message}`, { signedOut: true });
     throw cause;
   }
   const verifier = await new Promise<string | null>((resolve, reject) => {
@@ -139,11 +139,11 @@ export async function signInWithGoogle() {
       if (event.origin !== location.origin || event.source !== popup || event.data?.type !== 'neon-auth:oauth-complete') return;
       done(() => resolve(typeof event.data.verifier === 'string' ? event.data.verifier : null));
     };
-    const watch = setInterval(() => { if (popup.closed) done(() => reject(new Error('The Google window was closed before you signed in.'))); }, 500);
-    const limit = setTimeout(() => done(() => { popup.close(); reject(new Error('Google sign-in took too long. Try again.')); }), GOOGLE_MINUTES * 60_000);
+    const watch = setInterval(() => { if (popup.closed) done(() => reject(new Error('You closed the Google window before signing in.'))); }, 500);
+    const limit = setTimeout(() => done(() => { popup.close(); reject(new Error('Google took too long. Try again.')); }), GOOGLE_MINUTES * 60_000);
     window.addEventListener('message', onMessage);
   });
-  if (!verifier) throw new Error('Google did not sign you in. Try again, or sign in with your email.');
+  if (!verifier) throw new Error('Google didn’t sign you in. Try again or use email.');
   // The SDK reads the verifier from the address bar on its next session check, trades it for the session, and removes it.
   const url = new URL(location.href);
   url.searchParams.set('neon_auth_session_verifier', verifier);
@@ -153,7 +153,7 @@ export async function signInWithGoogle() {
     url.searchParams.delete('neon_auth_session_verifier');
     history.replaceState(history.state, '', url.href);
     reportProblem('sign_in', 'Google sign-in returned no session', { signedOut: true });
-    throw new Error('Google sign-in did not finish. Try again, or sign in with your email.');
+    throw new Error('Google sign-in didn’t finish. Try again or use email.');
   }
 }
 
@@ -250,7 +250,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     if (purchase.checkoutId) { setPurchase(null); return; }
     if (askedToBuy.current === purchase) return;
     askedToBuy.current = purchase;
-    void askSignIn({ title: 'Sign in to buy credits', lead: 'Your credits are kept in your account.' })
+    void askSignIn({ title: 'Sign in to buy credits', lead: 'Your credits stay in your account.' })
       .then(signedIn => { if (!signedIn) setPurchase(null); });
   }, [purchase, known, Boolean(user)]);
 

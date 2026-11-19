@@ -16,7 +16,7 @@ export default async function handler(request) {
   try {
     const pick = typeof body?.pick === 'string' && PICK.test(body.pick) ? body.pick : null;
     const song = await lookupSongKept(url, fetch, pick);
-    const answer = song ? reply(200, { song }) : reply(404, { error: 'We could not find that song. Check the link and try again.' });
+    const answer = song ? reply(200, { song }) : reply(404, { error: 'Couldn’t find that song. Check the link and try again.' });
     if (song?.source.startsWith('spotify:')) answer.headers.set('X-Spotify-Api', spotifyState);
     return answer;
   } catch (cause) {

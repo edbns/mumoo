@@ -40,7 +40,7 @@ export function ActionDialog({
       await onConfirm();
       onClose(); onDone?.();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That did not work. Try again in a moment.');
+      setError(cause instanceof Error ? cause.message : 'That didn’t work. Try again in a sec.');
       setBusy(false);
     }
   }

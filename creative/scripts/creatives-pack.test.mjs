@@ -54,7 +54,7 @@ test('the shelf is twelve rows of four, in order, each card distinct', async () 
       const treatments = ['triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'sideways', 'typewriter', 'screenshot'];
       assert.equal(slots.length, 40 + 28 + thermal + ascii + silhouette, genre);
       assert.deepEqual([...new Set(slots.map(slot => slot.row))], ['photography', ...treatments, ...(thermal ? ['thermal'] : []), 'halftone', 'dither', ...(ascii ? ['ascii'] : []), 'riso', 'window', ...(silhouette ? ['silhouette'] : []), 'pulise', 'dust'], 'rows come in order');
-      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Directed', 'Triptych', 'Fisheye', 'Collage', 'Colored Frame', 'Bento Grid', 'Film Grain', 'Double Exposure', 'Sideways', 'Typewriter', 'Screenshot', 'Thermal', 'Halftone', 'Dither', 'ASCII', 'Riso', 'Window', 'Silhouette', 'Pulise', 'Dust']);
+      assert.deepEqual(pack.SHELF_ROWS.map(row => row.title), ['Directed', 'Triptych', 'Fisheye', 'Collage', 'Colored Frame', 'Bento Grid', 'Film Grain', 'Double Exposure', 'Sideways', 'Typewriter', 'Screenshot', 'Thermal', 'Halftone', 'Dither', 'ASCII', 'Riso', 'Window', 'Silhouette', 'Pulse', 'Dust']);
       for (const row of ['photography', ...treatments, 'halftone', 'dither', 'riso', 'window', 'pulise', 'dust']) assert.equal(slots.filter(slot => slot.row === row).length, 4, `${genre} ${row}`);
       assert.equal(slots.filter(slot => slot.row === 'thermal').length, thermal, `${genre} thermal`);
       assert.equal(slots.filter(slot => slot.row === 'ascii').length, ascii, `${genre} ascii`);

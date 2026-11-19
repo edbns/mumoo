@@ -270,7 +270,7 @@ export function CreativesPackStudio({
       if (plates === null || library === null) {
         return [def.id, { slots: [], note: '' }];
       } else if (!plates.some(plate => plate.cutout) && !libraryCutouts && !(def.id === 'riso' && libraryRisoMotion)) {
-        return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? `${def.title}: we have no approved photos for this yet. Sign in (top right) to use your own.` : `${def.title}: we have no approved photos for this yet. Upload a photo${def.id === 'riso' ? ', video or GIF' : ''} to see it.` }];
+        return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? `${def.title}: no approved photos for this yet. Sign in (top right) to use your own.` : `${def.title}: no approved photos yet. Upload a photo${def.id === 'riso' ? ', video or GIF' : ''} to see it.` }];
       }
     }
     // Our photography is dealt once it knows what our library holds and which approved photo it may draw a look on.
@@ -280,7 +280,7 @@ export function CreativesPackStudio({
     if (!textless && !hasLyrics) return [def.id, { slots: [], note: '' }];
     const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, libraryFor(def.id), (isLookRow(def.id) || isTreatmentRow(def.id) || isWindowRow(def.id)) && Boolean(ownFor(def.id)), learning, deal);
     // The looks and treatments are drawn on our library pictures, so with none for this song they say so instead of vanishing.
-    const note = !slots.length && (isLookRow(def.id) || isTreatmentRow(def.id) || def.id === 'window') && !ownPool ? `${def.title} is drawn on pictures from our library, and none fits this song yet. Upload your own picture to see it here.` : '';
+    const note = !slots.length && (isLookRow(def.id) || isTreatmentRow(def.id) || def.id === 'window') && !ownPool ? `${def.title} uses our library photos and none fit this song yet. Upload your own to see it.` : '';
     return [def.id, { slots, note }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, creatorKey, lyricKey,
@@ -393,7 +393,7 @@ export function CreativesPackStudio({
           try {
             await blitPackFrame(canvas, packOpts(slot, base, impact, withLyrics, latest.current.pictureOf(def.id, slot)), posterAt(base, impact, withLyrics));
           } catch (cause) {
-            if (!cancelled) setError(`${def.title}: ${friendlyError(cause, 'One creative could not be prepared.')}`);
+            if (!cancelled) setError(`${def.title}: ${friendlyError(cause, 'One creative couldn’t be prepared.')}`);
           }
           await yieldFrame();
         }
@@ -427,7 +427,7 @@ export function CreativesPackStudio({
       void blitPackFrame(canvas, opts, frame)
         .catch((cause) => {
           if (alive) {
-            setError(friendlyError(cause, 'Live preview is temporarily unavailable. Reload and try again.'));
+            setError(friendlyError(cause, 'Live preview is down for a moment. Reload and try again.'));
           }
         })
         .finally(() => { painting = false; });
@@ -580,12 +580,12 @@ export function CreativesPackStudio({
 
   return <main className="desktop trim flex-1 content-start">
     {!token && !IS_ALIGNMENT_STAGING && <p role="alert">Staging access is unavailable.</p>}
-    {profile.lyricMeaning?.status === 'error' && <p className="hint">We could not read what your lyrics say, so these are matched to the sound alone.</p>}
+    {profile.lyricMeaning?.status === 'error' && <p className="hint">Couldn’t read the lyrics, so these match the sound only.</p>}
     {error && <p role="alert">{error}</p>}
     {playbackError && <p role="alert">{playbackError}</p>}
-    {cart.full && <p role="status" className="hint">You can choose up to {CART_LIMIT} videos. Take one out to add another.</p>}
-    <p className="hint text-center">This is only a preview. Your downloads are in HD.</p>
-    {noLyrics && <p className="hint text-center">Your song has no lyrics, so there is no lyric type on these.</p>}
+    {cart.full && <p role="status" className="hint">You can pick up to {CART_LIMIT} videos. Remove one to add another.</p>}
+    <p className="hint text-center">This is just a preview. Downloads are HD.</p>
+    {noLyrics && <p className="hint text-center">No lyrics, so no lyric style on these.</p>}
     <div className="flex flex-wrap items-center justify-end gap-3 rounded-[var(--radius-panel)] bg-background p-5">
       {!noLyrics && <label className="lyrics-switch">
         <input type="checkbox" role="switch" checked={lyricsSwitch} onChange={event => { stopPlayback(); setLyricsSwitch(event.target.checked); }} />
@@ -597,9 +597,9 @@ export function CreativesPackStudio({
     </div>
     <UploadProgress uploads={uploads} />
     {ownKind && uploads.batchPercent === null && <p className="hint text-center">{ownPool
-      ? (ownKind === 'motion' ? `Your ${ownPool.length} videos or GIFs are shared out over the templates that can use them. Dust and Depth need a photo.` : `Your ${ownPool.length} pictures are shared out over the templates that use a picture.`)
-      : ownKind === 'motion' ? 'Your video or GIF is shown on the templates that can use one. Dust and Depth need a photo.' : 'Your photo is shown on the templates that use a picture.'}</p>}
-    {!textless && !hasLyrics && <p className="hint text-center" role="status">Approve your synced lyrics, or switch Lyrics off.</p>}
+      ? (ownKind === 'motion' ? `Your ${ownPool.length} videos or GIFs get shared across templates that can use them. Dust and Depth need a photo.` : `Your ${ownPool.length} pictures get shared across templates that use photos.`)
+      : ownKind === 'motion' ? 'Your video or GIF shows on templates that can use one. Dust and Depth need a photo.' : 'Your photo shows on templates that use pictures.'}</p>}
+    {!textless && !hasLyrics && <p className="hint text-center" role="status">Approve your synced lyrics, or turn Lyrics off.</p>}
     {uploads.batchPercent === null && SHELF_ROWS.map(def => view[def.id].note ? <p key={def.id} className="hint text-center" role="status">{view[def.id].note}</p> : null)}
     {cards.length > 0 && <div className="creatives-pack-grid" role="list" aria-busy={!allReady}>
       {cards.map(({ def, slot: item }) => {

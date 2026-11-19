@@ -24,7 +24,7 @@ export default async function handler(request) {
     return reply(200, { sent: true });
   } catch (cause) {
     console.error('sign-in code:', cause);
-    return reply(502, { error: 'The code could not be sent.' });
+    return reply(502, { error: 'Couldn’t send the code.' });
   }
 }
 

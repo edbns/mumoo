@@ -61,10 +61,10 @@ export function PhoneUpload({ token, kind, onFiles }: { token: string; kind: Pho
     try {
       const response = await withAccess(token, access => fetch(`${API}?kind=${kind}`, { method: 'POST', headers: { 'x-mumoo-brain-access': access } }));
       const body = await response.json().catch(() => null) as (Handoff & { error?: string }) | null;
-      if (!response.ok || !body?.id) throw new Error(body?.error ?? 'The QR code could not be made. Try again.');
+      if (!response.ok || !body?.id) throw new Error(body?.error ?? 'Couldn’t make the QR code. Try again.');
       setState({ step: 'waiting', handoff: body });
     } catch (cause) {
-      setState({ step: 'failed', error: cause instanceof Error ? cause.message : 'The QR code could not be made. Try again.' });
+      setState({ step: 'failed', error: cause instanceof Error ? cause.message : 'Couldn’t make the QR code. Try again.' });
     }
   }
 
@@ -93,7 +93,7 @@ export function PhoneUpload({ token, kind, onFiles }: { token: string; kind: Pho
         const missed = urls.length - files.length;
         setState(!missed ? { step: 'idle' } : {
           step: 'failed',
-          error: files.length ? `${missed} of ${urls.length} could not be opened here. Send ${missed > 1 ? 'those' : 'that one'} again.` : 'It arrived but could not be opened here. Send it again.',
+          error: files.length ? `${missed} of ${urls.length} couldn’t open here. Send ${missed > 1 ? 'those' : 'that one'} again.` : 'It arrived but couldn’t open. Send it again.',
         });
       } finally {
         remove(token, waiting.id);
@@ -125,11 +125,11 @@ export function PhoneUpload({ token, kind, onFiles }: { token: string; kind: Pho
   return <div className="flex flex-col items-center gap-3 rounded-[var(--radius-control)] bg-secondary p-4 text-center">
     {state.step === 'waiting' && <>
       <QrCode text={state.handoff.phoneUrl} />
-      <p className="m-0 text-sm">Scan with your phone's camera, then {COPY[kind].ask}. It opens here.</p>
-      <p className="m-0 text-xs text-muted-foreground">The code works for 15 minutes. Waiting for your phone…</p>
+      <p className="m-0 text-sm">Scan with your phone’s camera, then {COPY[kind].ask}. Opens here.</p>
+      <p className="m-0 text-xs text-muted-foreground">Code works for 15 minutes. Waiting for your phone…</p>
     </>}
     {state.step === 'receiving' && <p className="m-0 text-sm" role="status">{state.count > 1 ? `${state.count} files arrived. Opening ${state.index + 1} of ${state.count}…` : 'It arrived. Opening it…'}</p>}
-    {state.step === 'expired' && <p className="m-0 text-sm">The code expired. Make a new one to try again.</p>}
+    {state.step === 'expired' && <p className="m-0 text-sm">Code expired. Make a new one.</p>}
     {state.step === 'failed' && <p className="m-0 text-sm" role="alert">{state.error}</p>}
     <div className="flex gap-2">
       {(state.step === 'expired' || state.step === 'failed') && <Button onClick={() => void start()}>New code</Button>}

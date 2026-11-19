@@ -4,9 +4,9 @@ import type { DownloadProgress } from './use-cart-download';
 const PHASES: ProgressiveFluxPhase[] = [
   { at: 0, label: 'Warming up' },
   { at: 8, label: 'Drawing every frame' },
-  { at: 50, label: 'Putting it to your song' },
+  { at: 50, label: 'Syncing it to your song' },
   { at: 82, label: 'Almost there' },
-  { at: 100, label: 'Getting your download' },
+  { at: 100, label: 'Getting your download ready' },
 ];
 
 /** The creatives being made: the phase, the green bar, how many are done, and what to expect. */

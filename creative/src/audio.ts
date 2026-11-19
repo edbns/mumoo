@@ -56,14 +56,14 @@ function toMono(buffer: AudioBuffer): AudioBuffer {
 }
 
 export async function decodeAudio(bytes: ArrayBuffer, probedMs?: number): Promise<AudioBuffer> {
-  if (bytes.byteLength > MAX_FILE_BYTES) throw new Error('This file is too large. Use a song under 200 MB.');
+  if (bytes.byteLength > MAX_FILE_BYTES) throw new Error('File’s too big. Keep it under 200 MB.');
   const format = sniffAudioFormat(bytes);
-  if (!format) throw new Error(`This file type is not supported. Use ${ACCEPTED_LABEL}.`);
+  if (!format) throw new Error(`File type not supported. Use ${ACCEPTED_LABEL}.`);
   if (probedMs !== undefined && probedMs > MAX_SOURCE_MS) {
-    throw new Error(`This song is ${Math.round(probedMs / 60_000)} minutes long. Use a song up to ${MAX_SOURCE_MS / 60_000} minutes, or trim it first.`);
+    throw new Error(`This one’s ${Math.round(probedMs / 60_000)} minutes long. Max is ${MAX_SOURCE_MS / 60_000} minutes — trim it first.`);
   }
   if (probedMs === undefined && bytes.byteLength > MAX_UNKNOWN_DURATION_BYTES) {
-    throw new Error('This file is too large to open safely. Export a shorter MP3 or WAV and try again.');
+    throw new Error('Too big to open safely. Export a shorter MP3 or WAV.');
   }
   const context = new OfflineAudioContext(1, 1, DECODE_RATE);
   let decoded: AudioBuffer;
@@ -72,10 +72,10 @@ export async function decodeAudio(bytes: ArrayBuffer, probedMs?: number): Promis
   } catch {
     throw new Error(
       format === 'wav'
-        ? 'This WAV could not be decoded.'
+        ? 'Couldn’t decode this WAV.'
         // MP4 and MOV videos sniff as M4A: name no format the person did not choose.
-        : format === 'm4a' ? 'Your browser could not read the sound in this file. Try another file, or export it as MP3 or WAV.'
-        : `Your browser could not read this ${format.toUpperCase()} file. Try exporting it as MP3 or WAV.`,
+        : format === 'm4a' ? 'Browser couldn’t read the sound. Try another file or export as MP3/WAV.'
+        : `Browser couldn’t read this ${format.toUpperCase()} file. Try exporting as MP3 or WAV.`,
     );
   }
   if (decoded.duration * 1000 > MAX_SOURCE_MS) {

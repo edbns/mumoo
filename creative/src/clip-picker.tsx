@@ -28,6 +28,6 @@ export function ClipPicker({ audio, start, valid, position, playing, onPlay, onS
       </Button>
     </div>
     <Waveform audio={audio} start={start} position={position} onSelect={onSelect} />
-    <p className="m-0 mt-3 text-center text-xs text-muted-foreground">Drag the highlighted window to choose your 15 seconds.</p>
+    <p className="m-0 mt-3 text-center text-xs text-muted-foreground">Drag the highlighted window to pick your 15 seconds.</p>
   </div>;
 }

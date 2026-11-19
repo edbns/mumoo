@@ -69,8 +69,8 @@ async function call(url: string, init: RequestInit): Promise<Response> {
   } catch (cause) {
     if ((cause as Error).name === 'AbortError') throw cause;
     throw new LyricsError(
-      navigator.onLine === false ? 'You appear to be offline. Check your connection and try again.'
-        : 'Could not reach the lyrics service. Check your connection and try again.',
+      navigator.onLine === false ? 'Looks like you’re offline. Check your connection and try again.'
+        : 'Couldn’t reach the lyrics service. Check connection and try again.',
       true,
     );
   }
@@ -79,7 +79,7 @@ async function call(url: string, init: RequestInit): Promise<Response> {
 async function failure(response: Response): Promise<LyricsError> {
   const body = await response.json().catch(() => null) as { error?: string } | null;
   return new LyricsError(
-    body?.error ?? 'Lyrics are temporarily unavailable. Try again in a moment.',
+    body?.error ?? 'Lyrics are down for a moment. Try again soon.',
     response.status >= 500 || response.status === 410,
   );
 }
@@ -93,7 +93,7 @@ export async function submitLyricsJob({ token, wav, lines, language, signal }: J
   }));
   if (!response.ok) throw await failure(response);
   const body = await response.json().catch(() => null) as { id?: string } | null;
-  if (!body?.id) throw new LyricsError('Lyrics did not start. Reload and try again.');
+  if (!body?.id) throw new LyricsError('Lyrics didn’t start. Reload and try again.');
   return body.id;
 }
 
@@ -145,7 +145,7 @@ export async function awaitLyricsJob(token: string, id: string, signal?: AbortSi
     if (!response.ok) throw await failure(response);
     return parseLyricsResult(await response.json().catch(() => null));
   }
-  throw new LyricsError('This is taking longer than usual. Try again in a moment.');
+  throw new LyricsError('Taking longer than usual. Try again in a bit.');
 }
 
 /** Submit and wait. One automatic retry for transient failures, so a worker restart never reaches the user. */

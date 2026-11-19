@@ -15,7 +15,7 @@ export async function startPrepare(source, puts, kind = 'motion') {
     signal: AbortSignal.timeout(25_000),
   });
   const result = await response.json().catch(() => null);
-  if (!response.ok || typeof result?.id !== 'string') throw new Error('Preparing could not start.');
+  if (!response.ok || typeof result?.id !== 'string') throw new Error('Preparing couldn’t start.');
   return result.id;
 }
 
@@ -28,7 +28,7 @@ export async function askPrepare(job) {
   }).catch(() => null);
   if (!response || response.status === 202 || (response.status >= 500 && response.status !== 502)) return { working: true };
   const result = response.ok ? await response.json().catch(() => null) : null;
-  if (!result) return { failed: response.status === 410 ? 'That took too long to prepare. Send it again.' : 'We could not prepare that file. Try another.' };
-  if (!result.ok) return { failed: typeof result.error === 'string' ? result.error : 'We could not prepare that file. Try another.' };
+  if (!result) return { failed: response.status === 410 ? 'Took too long to prepare. Send it again.' : 'Couldn’t prepare that file. Try another.' };
+  if (!result.ok) return { failed: typeof result.error === 'string' ? result.error : 'Couldn’t prepare that file. Try another.' };
   return { done: result };
 }

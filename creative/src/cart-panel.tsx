@@ -31,8 +31,8 @@ const videos = (count: number) => `${count} ${count === 1 ? 'video' : 'videos'}`
 export function ChooseFewer({ tooMany, onBuy, onFewer, onClose }: { tooMany: TooMany | null; onBuy: () => void; onFewer: () => void; onClose: () => void }) {
   const { need = 0, have = 0, free = false } = tooMany ?? {};
   return <Modal open={tooMany !== null} onClose={onClose} title={`You chose ${videos(need)}`}
-    description={free ? 'You can make only 1 video for free, or buy credits to make all your videos.'
-      : `You have ${have} ${have === 1 ? 'credit' : 'credits'}. You can make only ${videos(have)}, or buy credits to make all your videos.`}>
+    description={free ? 'You can only make 1 free video, or buy credits for the rest.'
+      : `You have ${have} ${have === 1 ? 'credit' : 'credits'}. You can only make ${videos(have)}, or buy credits for all of them.`}>
     <div className="flex flex-wrap justify-end gap-2">
       <Button variant="secondary" onClick={onFewer}>{free ? 'Get my free video' : `Make ${videos(have)}`}</Button>
       <Button onClick={onBuy}>Buy credits</Button>
@@ -41,7 +41,7 @@ export function ChooseFewer({ tooMany, onBuy, onFewer, onClose }: { tooMany: Too
 }
 
 /** What the bar says: one credit makes one video, so the count is the price. */
-export const chosenLabel = (count: number) => (count === 1 ? '1 Video = 1 credit' : `${count} Videos = ${count} credits`);
+export const chosenLabel = (count: number) => (count === 1 ? '1 video = 1 credit' : `${count} videos = ${count} credits`);
 
 /**
  * The bar at the bottom of the page while videos are chosen: the step notch turned upside down, rising from the bottom edge.
@@ -91,13 +91,13 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
         <Button ref={close} variant="secondary" onClick={onClose}>Close</Button>
       </div>
       {lines.length === 0
-        ? <EmptyState>Choose the creatives you like. They stay here, for this song and clip, while you refresh for more.</EmptyState>
+        ? <EmptyState>Pick the creatives you like. They stay here for this song and clip while you refresh for more.</EmptyState>
         : <ul className="m-0 grid list-none grid-cols-4 gap-4 p-0">
           {lines.map(({ item, title, available }) => <li key={item.id} className="flex flex-col gap-2">
             <div className="relative aspect-[9/16] overflow-hidden rounded-[var(--radius)] bg-muted">
               {available
                 ? <img className="size-full object-cover" src={item.thumb} alt="" />
-                : <p className="m-0 grid size-full place-items-center p-4 text-center text-sm text-muted-foreground">The picture it used is no longer available.</p>}
+                : <p className="m-0 grid size-full place-items-center p-4 text-center text-sm text-muted-foreground">The picture it used isn’t available anymore.</p>}
               <RemoveBadge label={`Remove ${title}`} disabled={busy} onClick={() => onRemove(item.id)} />
             </div>
             <span className="text-sm text-muted-foreground">{title}</span>
@@ -107,18 +107,18 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
       {lines.length > 0 && <div className="mt-auto flex flex-col gap-3 pt-2">
         <p className="m-0 flex justify-between text-sm"><span>Total</span><strong>{ready.length} {ready.length === 1 ? 'credit' : 'credits'}</strong></p>
         {limit && excess > 0 && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-3 text-sm text-foreground">
-          {limit.free ? 'You can make 1 video for free.' : `You have ${limit.have} ${limit.have === 1 ? 'credit' : 'credits'}.`} Take
+          {limit.free ? 'You can make 1 video free.' : `You have ${limit.have} ${limit.have === 1 ? 'credit' : 'credits'}.`} Take
           out {videos(excess)} with the × so only {limit.have} {limit.have === 1 ? 'is' : 'are'} left, then make {limit.have === 1 ? 'it' : 'them'}.
         </p>}
         {action.kind === 'download' && <>
           <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>
             Make {ready.length === 1 ? 'video' : `${ready.length} videos`}
           </Button>
-          {busy && <p className="hint">We are processing your request. In the meantime, you can continue creating other visuals for your music.</p>}
+          {busy && <p className="hint">We’re working on it. You can keep making other visuals in the meantime.</p>}
         </>}
         {action.kind === 'go' && <>
           <Button disabled={busy} onClick={action.run}>Go to your creatives</Button>
-          <p className="hint">Videos are made and downloaded from your creatives page.</p>
+          <p className="hint">Videos get made and downloaded from your creatives page.</p>
         </>}
         {action.kind === 'blocked' && <>
           {action.fix && <Button onClick={action.fix.run}>{action.fix.label}</Button>}

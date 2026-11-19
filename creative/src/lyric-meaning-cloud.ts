@@ -24,17 +24,17 @@ async function readLyricMeaning(token: string, lines: string[], language: string
     body: JSON.stringify({ lines, language: language ?? null }),
   }));
   const { id } = (await submitted.json().catch(() => null) ?? {}) as { id?: string };
-  if (!submitted.ok || !id) throw new Error('The lyric reading did not start.');
+  if (!submitted.ok || !id) throw new Error('Lyric reading didn’t start.');
   const deadline = Date.now() + JOB_TIMEOUT_MS;
   while (Date.now() < deadline) {
     await sleep(POLL_MS, signal);
     const response = await withAccess(token, access => fetch(`/.netlify/functions/read-lyric-meaning-status?id=${encodeURIComponent(id)}`, { headers: { 'x-mumoo-brain-access': access }, signal }));
     if (response.status === 202) continue;
     const meaning = response.ok ? parseLyricMeaning(await response.json().catch(() => null)) : null;
-    if (!meaning) throw new Error('The lyric reading failed.');
+    if (!meaning) throw new Error('Lyric reading failed.');
     return meaning;
   }
-  throw new Error('The lyric reading took too long.');
+  throw new Error('Lyric reading took too long.');
 }
 
 /**

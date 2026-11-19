@@ -40,8 +40,8 @@ function isTime(value: unknown): value is number {
 export function validate(value: unknown, sourceDurationMs: number): asserts value is Composition {
   if (!Number.isFinite(sourceDurationMs) || sourceDurationMs < DURATION_MS) {
     throw new Error(Number.isFinite(sourceDurationMs) && sourceDurationMs > 0
-      ? `This song is ${Math.floor(sourceDurationMs / 100) / 10} seconds long. Choose one at least 15 seconds long.`
-      : 'Choose a song at least 15 seconds long.');
+      ? `Song is ${Math.floor(sourceDurationMs / 100) / 10} seconds. Need at least 15.`
+      : 'Pick a song that’s at least 15 seconds.');
   }
   if (!value || typeof value !== 'object') throw new Error('Invalid composition.');
   const { sourceSha256, clipStartMs, cues } = value as Composition;
@@ -49,15 +49,15 @@ export function validate(value: unknown, sourceDurationMs: number): asserts valu
     throw new Error('Invalid source audio identity.');
   }
   if (!isTime(clipStartMs) || clipStartMs > sourceDurationMs - DURATION_MS) {
-    throw new Error('Select a 15-second range inside the song using whole milliseconds.');
+    throw new Error('Select a 15-second range (whole milliseconds).');
   }
-  if (!Array.isArray(cues) || cues.length > 120) throw new Error('Use up to 120 lyric cues.');
+  if (!Array.isArray(cues) || cues.length > 120) throw new Error('Up to 120 lyric cues.');
   let previousEnd = 0;
   for (const cue of cues) {
     if (!cue || typeof cue.text !== 'string' || [...cue.text].length > 48 || !cue.text.trim() ||
         !isTime(cue.startMs) || !isTime(cue.endMs) ||
         cue.startMs < previousEnd || cue.startMs >= cue.endMs || cue.endMs > DURATION_MS) {
-      throw new Error('Lyric words must have text and ascending, non-overlapping times inside the clip.');
+      throw new Error('Words need text and non-overlapping times that go in order inside the clip.');
     }
     previousEnd = cue.endMs;
   }

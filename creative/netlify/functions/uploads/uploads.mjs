@@ -7,7 +7,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const REFUSALS = {
   format: [415, 'Use a JPEG, PNG or WebP photo, or an MP4, MOV, WebM or GIF.'],
   size: [413, 'That file is too large.'],
-  full: [409, 'Your storage is full. Delete some files or creatives to make room.'],
+  full: [409, 'Storage is full. Delete some files or creatives to make room.'],
   many: [409, `You have ${MAX_KEPT_PICTURES} pictures saved. Delete some in History to add more.`],
 };
 const refuse = (reason) => reply(...REFUSALS[reason]);
@@ -42,14 +42,14 @@ export default async function handler(request) {
     }
     if (Number(request.headers.get('content-length') || 0) > MAX_PHOTO_BYTES) return refuse('size');
     const result = await guarded(saveUpload(person.id, new Uint8Array(await request.arrayBuffer())), { failed: true });
-    if (result.failed) return reply(502, { error: 'We could not start preparing that photo. Try again.' });
+    if (result.failed) return reply(502, { error: 'Couldn’t start preparing that photo. Try again.' });
     return result.refused ? refuse(result.refused) : pictures(201, person.id);
   }
   const id = params.get('id') ?? '';
   if (!UUID.test(id)) return reply(400, { error: 'Invalid id.' });
   if (request.method === 'PUT') {
     const started = await guarded(motionArrived(person.id, id), false);
-    return started ? pictures(202, person.id) : reply(404, { error: 'That file has not arrived, or could not be prepared.' });
+    return started ? pictures(202, person.id) : reply(404, { error: 'That file hasn’t arrived or couldn’t be prepared.' });
   }
   return (await removeUpload(person.id, id)) ? pictures(200, person.id) : reply(404, { error: 'Not found.' });
 }

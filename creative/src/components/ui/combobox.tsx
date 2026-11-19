@@ -91,7 +91,7 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
       onValueChange,
       description,
       placeholder = "Search or select…",
-      emptyMessage = "No matches found",
+      emptyMessage = "Nothing matched",
       id,
       className,
       disabled,

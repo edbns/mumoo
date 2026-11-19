@@ -81,7 +81,7 @@ test('a picture shown in an <img> first can still be drawn, and one that cannot 
     await page.evaluate(src => new Promise(resolve => { const img = new Image(); img.onload = img.onerror = resolve; img.src = src; document.body.append(img); }), link);
     assert.ok(await brightness(link) > 20, 'the card shows the picture, not black');
 
-    await assert.rejects(brightness(`${files.url}/missing.jpg`), /The photo could not be loaded \(403\)/);
+    await assert.rejects(brightness(`${files.url}/missing.jpg`), /The photo couldn’t be loaded \(403\)/);
   } finally {
     await chrome.close();
     await site.close();

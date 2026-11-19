@@ -32,7 +32,7 @@ export type MagicLinkOtpLoginProps = {
 const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card";
 const EASE = "cubic-bezier(.22,1,.36,1)";
 const STEPS = ["email", "code", "success"] as const;
-const STEP_LABELS = ["Email", "Code", "You're in"];
+const STEP_LABELS = ["Email", "Code", "You’re in"];
 const digitsOnly = (value: string, length: number) => value.replace(/[^0-9]/g, "").slice(0, length);
 
 function Envelope() {
@@ -198,7 +198,7 @@ export function MagicLinkOtpLogin({
       else changeStep("code");
     } catch (cause) {
       if (!mounted.current || token !== request.current) return;
-      setLocalError(cause instanceof Error && cause.message ? cause.message : resend ? "Couldn't resend. Please try again." : "Couldn't send the code. Please try again.");
+      setLocalError(cause instanceof Error && cause.message ? cause.message : resend ? "Couldn’t resend. Try again." : "Couldn’t send the code. Try again.");
       setStatus("error");
     } finally {
       if (mounted.current && token === request.current) pending.current = false;
@@ -217,7 +217,7 @@ export function MagicLinkOtpLogin({
       changeStep("success");
     } catch (cause) {
       if (!mounted.current || token !== request.current) return;
-      setLocalError(cause instanceof Error && cause.message ? cause.message : "Couldn't sign in with Google. Please try again.");
+      setLocalError(cause instanceof Error && cause.message ? cause.message : "Couldn’t sign in with Google. Try again.");
       setStatus("error");
     } finally {
       if (mounted.current) setGoogling(false);
@@ -242,10 +242,10 @@ export function MagicLinkOtpLogin({
         const result = await onVerifyCode(currentCode);
         if (!mounted.current || token !== request.current) return;
         if (result === true) changeStep("success");
-        else { setLocalError("That code didn't work. Try again."); setStatus("error"); }
+        else { setLocalError("That code didn’t work. Try again."); setStatus("error"); }
       } catch (cause) {
         if (!mounted.current || token !== request.current) return;
-        setLocalError(cause instanceof Error && cause.message ? cause.message : "Couldn't verify that code. Please try again.");
+        setLocalError(cause instanceof Error && cause.message ? cause.message : "Couldn’t verify the code. Try again.");
         setStatus("error");
       } finally {
         if (mounted.current && token === request.current) pending.current = false;
@@ -303,7 +303,7 @@ export function MagicLinkOtpLogin({
                 {googling ? <><LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />Waiting for Google…</> : <><GoogleMark />Continue with Google</>}
               </button>
             </>}
-            {failed && <p id={`${id}-error`} role="alert" className="mt-3 text-xs leading-5 text-destructive">{message || "Something went wrong. Please try again."}</p>}
+            {failed && <p id={`${id}-error`} role="alert" className="mt-3 text-xs leading-5 text-destructive">{message || "Something went wrong. Try again."}</p>}
           </form>
         ) : currentStep === "code" ? (
           <div aria-busy={busy}>
@@ -317,9 +317,9 @@ export function MagicLinkOtpLogin({
                 <input key={index} ref={(node) => { inputs.current[index] = node; }} data-code-index={index} type="text" inputMode="numeric" autoComplete={index === 0 ? "one-time-code" : "off"} pattern="[0-9]*" name={`code-${index + 1}`} aria-label={`Digit ${index + 1} of ${length}`} aria-invalid={failed || undefined} value={currentCode[index] ?? ""} disabled={busy} onFocus={(event) => event.target.select()} onKeyDown={(event) => codeKey(event, index)} onChange={(event) => { if (!event.target.value) changeCode(currentCode.slice(0, index) + currentCode.slice(index + 1)); else putDigits(event.target.value, index); }} onPaste={(event) => { event.preventDefault(); putDigits(event.clipboardData.getData("text"), index); }} className={`h-14 min-w-0 rounded-[var(--radius-control)] text-center font-mono text-2xl font-medium text-foreground caret-primary disabled:opacity-70 ${failed ? "bg-muted ring-1 ring-destructive/70" : currentCode[index] ? "bg-secondary" : "bg-muted"} ${FOCUS}`} />
               ))}
             </div>
-            <p id={`${id}-code-hint`} className="sr-only">Enter {length} digits. Your code is submitted automatically when complete.</p>
+            <p id={`${id}-code-hint`} className="sr-only">Enter {length} digits. It submits itself when you’re done.</p>
             <div className="flex min-h-8 items-center justify-center pt-1 text-center text-[11px] leading-4">
-              {failed ? <p id={`${id}-error`} role="alert" className="font-medium text-destructive">{message || "That code didn't work. Try again."}</p> : <p className="flex items-center gap-1.5 text-muted-foreground">{currentStatus === "verifying" ? <><LoaderCircle aria-hidden="true" className="size-3.5 motion-safe:animate-spin" />Verifying your code…</> : <>Your code signs you in automatically</>}</p>}
+              {failed ? <p id={`${id}-error`} role="alert" className="font-medium text-destructive">{message || "That code didn’t work. Try again."}</p> : <p className="flex items-center gap-1.5 text-muted-foreground">{currentStatus === "verifying" ? <><LoaderCircle aria-hidden="true" className="size-3.5 motion-safe:animate-spin" />Checking your code…</> : <>Code signs you in automatically</>}</p>}
             </div>
             <div className="flex items-center justify-between gap-3 text-xs">
               <button type="button" disabled={busy} onClick={() => { request.current += 1; pending.current = false; changeCode(""); changeStep("email"); }} className={`cursor-pointer rounded bg-transparent px-0.5 py-1.5 text-muted-foreground underline decoration-secondary underline-offset-4 hover:text-foreground disabled:opacity-50 ${FOCUS}`}>Change email</button>
@@ -343,7 +343,7 @@ export function MagicLinkOtpLogin({
           return <li key={item} aria-current={active ? "step" : undefined} className={`flex items-center gap-1.5 text-[10px] ${active || done ? "text-foreground" : "text-muted-foreground"}`}><span className={`flex size-4 items-center justify-center rounded-full text-[9px] ${active ? "bg-primary text-primary-foreground" : done ? "bg-secondary text-foreground" : "bg-muted"}`}>{done ? <Check className="size-2.5" aria-hidden="true" /> : index + 1}</span>{STEP_LABELS[index]}</li>;
         })}
       </ol>
-      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{currentStep === "success" ? successTitle : googling ? "Signing in with Google" : currentStatus === "sending" ? "Sending your code" : currentStatus === "verifying" ? "Verifying your code" : currentStep === "code" ? `Check your inbox at ${value}. Enter your ${length}-digit code.` : "Enter your email to get a code."}</p>
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{currentStep === "success" ? successTitle : googling ? "Signing in with Google" : currentStatus === "sending" ? "Sending your code" : currentStatus === "verifying" ? "Checking your code" : currentStep === "code" ? `Check your inbox at ${value}. Enter your ${length}-digit code.` : "Enter your email to get a code."}</p>
     </div>
   );
 }
