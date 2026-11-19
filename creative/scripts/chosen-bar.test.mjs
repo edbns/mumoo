@@ -1,11 +1,43 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
 const panel = await server.ssrLoadModule('/src/cart-panel.tsx');
 await server.close();
+
+const line = id => ({ item: { id, thumb: '' }, title: `Video ${id}`, available: true });
+const chosenPage = (count, limit) => renderToStaticMarkup(createElement(panel.CartPanel, {
+  lines: Array.from({ length: count }, (_, index) => line(String(index))), progress: null, limit,
+  action: { kind: 'download', run: () => {} }, onClose: () => {}, onRemove: () => {},
+}));
+
+test('making only the free video: the chosen videos page says how many to take out, and Make waits until they are', () => {
+  const over = chosenPage(3, { have: 1, free: true });
+  assert.match(over, /You can make 1 video for free\. Take\s+out 2 videos with the × so only 1 is left, then make it\./);
+  assert.match(over, /<button[^>]*disabled=""[^>]*>Make 3 videos/);
+  const fits = chosenPage(1, { have: 1, free: true });
+  assert.doesNotMatch(fits, /Take\s+out/);
+  assert.doesNotMatch(fits, /<button[^>]*disabled=""[^>]*>Make video/);
+});
+
+test('making only what the credits cover says how many credits there are', () => {
+  assert.match(chosenPage(5, { have: 2, free: false }), /You have 2 credits\. Take\s+out 3 videos with the × so only 2 are left, then make them\./);
+  assert.doesNotMatch(chosenPage(2, null), /Take\s+out/);
+});
+
+test('too many chosen with some left to make: the choice is offered first, Purchase Credits only with none left', () => {
+  const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
+  const fewer = read('cart-panel.tsx');
+  assert.match(fewer, /'You can make only 1 video for free, or buy credits to make all your videos\.'/);
+  assert.match(fewer, /'Get my free video'/);
+  assert.match(fewer, />Buy credits</);
+  const studio = read('creatives-pack-studio.tsx');
+  assert.match(studio, /if \(have === 0\) askToBuyCredits\(\{ need: items\.length, have \}\);\s+else askToChooseFewer\(/);
+});
 
 test('the bottom bar says what the chosen videos cost, one credit a video', () => {
   assert.equal(panel.chosenLabel(1), '1 Video = 1 credit');

@@ -1,9 +1,9 @@
 import { CheckIcon } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { accountFetch, checkSignInCode, sendSignInCode, sessionToken, signInWithGoogle } from './account';
+import { accountFetch, checkSignInCode, loadAllowance, sendSignInCode, sessionToken, signInWithGoogle } from './account';
 import { CREDIT_PACKS, perVideo, type CreditPack } from './credit-packs';
 import { LegalCorner } from './legal-corner';
 import { checkout } from './purchase-credits';
@@ -45,6 +45,13 @@ function PricingPage() {
   const wanted = useRef<CreditPack | null>(null);
   const signedIn = useRef(false);
   const address = useRef('');
+  /** Whether the free first video is still to come: signed out it is (signing up gives it); once made, the offer goes. Null until known. */
+  const [freeLeft, setFreeLeft] = useState<boolean | null>(null);
+  useEffect(() => {
+    void sessionToken().catch(() => null)
+      .then(token => (token ? loadAllowance().then(allowance => allowance.freeVideo) : true))
+      .then(setFreeLeft, () => setFreeLeft(true));
+  }, []);
 
   const open = async (pack: CreditPack) => {
     setNote('');
@@ -82,7 +89,8 @@ function PricingPage() {
           Pay once, no subscription, and your credits never expire. Your first video is free, with no watermark.
         </p>
         {invited && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-2 text-sm text-foreground">A friend invited you: your first pack comes with 10 extra videos, free.</p>}
-        <Button className="mt-2" onClick={() => location.assign('/')}>Make my first video free</Button>
+        {freeLeft !== false && <Button className={cn('mt-2', freeLeft === null && 'invisible')} aria-hidden={freeLeft === null || undefined}
+          tabIndex={freeLeft === null ? -1 : undefined} onClick={() => location.assign('/')}>Make my first video free</Button>}
       </div>
 
       <div role="group" aria-label="Credit packs" className="flex flex-col gap-4">

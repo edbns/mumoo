@@ -34,7 +34,7 @@ import { dealSeed, rememberSeen, seenLibrary } from './library-seen';
 import { clockNow } from './pack-screenshot';
 import type { LibraryPicture } from './library-pick';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
-import { askToBuyCredits, creditsChanged, videosLeft } from './credit-events';
+import { askToBuyCredits, askToChooseFewer, creditsChanged, videosLeft } from './credit-events';
 
 function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   if (profile.musicAnalysis.status !== 'ready') return null;
@@ -531,10 +531,13 @@ export function CreativesPackStudio({
   async function downloadCart(): Promise<boolean> {
     const items = cart.items.filter(item => pictureFor(item).available);
     if (download.progress !== null || !items.length) return false;
-    // Each video takes a credit (the first is free): with too few, Purchase Credits opens instead and nothing starts.
+    // Each video takes a credit (the first is free): with too few nothing starts. With none, Purchase Credits opens; with some, the
+    // person picks between buying more and making only as many as they can.
     const allowance = await import('./account').then(account => account.loadAllowance()).catch(() => null);
     if (allowance && videosLeft(allowance) < items.length) {
-      askToBuyCredits({ need: items.length, have: videosLeft(allowance) });
+      const have = videosLeft(allowance);
+      if (have === 0) askToBuyCredits({ need: items.length, have });
+      else askToChooseFewer({ need: items.length, have, free: allowance.credits === 0 });
       return false;
     }
     onStop(); setPlayingId(null); setError('');

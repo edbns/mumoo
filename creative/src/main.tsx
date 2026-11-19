@@ -15,7 +15,8 @@ import { useLyricMeaning } from './lyric-meaning-cloud';
 import { CreativesPackStudio } from './creatives-pack-studio';
 import { SHELF_ROWS } from './creatives-pack';
 import { ownIdsOf, useCart, songKeyOf } from './cart';
-import { CartPanel, ChosenBar, DownloadNotice, type CartAction, type CartLine } from './cart-panel';
+import { CartPanel, ChooseFewer, ChosenBar, DownloadNotice, type CartAction, type CartLine, type ChosenLimit } from './cart-panel';
+import { TOO_MANY_CHOSEN, askToBuyCredits, type TooMany } from './credit-events';
 import { useCartDownload } from './use-cart-download';
 import { useUploads } from './use-uploads';
 import { forgetSession } from './forget-session';
@@ -77,6 +78,15 @@ function App() {
   useEffect(() => { void loadProfilePage(); }, []);
   const [songName, setSongName] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
+  const [tooMany, setTooMany] = useState<TooMany | null>(null);
+  const [chosenLimit, setChosenLimit] = useState<ChosenLimit | null>(null);
+  useEffect(() => {
+    const ask = (event: Event) => setTooMany((event as CustomEvent<TooMany>).detail);
+    window.addEventListener(TOO_MANY_CHOSEN, ask);
+    return () => window.removeEventListener(TOO_MANY_CHOSEN, ask);
+  }, []);
+  // The limit holds while the chosen videos page is open; pressing Make again asks again.
+  useEffect(() => { if (!cartOpen) setChosenLimit(null); }, [cartOpen]);
   const [askingStartOver, setAskingStartOver] = useState(false);
   const downloadRef = useRef<(() => Promise<boolean>) | null>(null);
   /** What kind of music it is: a style of the directory by the name it was picked as, or (`genreUnknown`) the creator does not know. */
@@ -359,12 +369,13 @@ function App() {
   const cartAction: CartAction = (() => {
     if (!inCreatives) {
       if (canContinue) return { kind: 'go', run: () => { setCartOpen(false); openCreatives(true); } };
-      return {
-        kind: 'blocked',
-        reason: !genreValid ? 'Say what kind of music it is to reach your creatives.'
-          : !noLyrics && composition.cues.length === 0 ? 'Add and sync your lyrics, or say the song has no lyrics, to reach your creatives.'
-          : 'Finish syncing your lyrics to reach your creatives.',
-      };
+      // The chosen videos outlive a refresh, the song's details do not: they are made from the creatives, which need the song finished first.
+      const backTo = (target: 1 | 2) => () => { setCartOpen(false); setPage('create'); stop(); setStep(target); };
+      return !genreValid
+        ? { kind: 'blocked', reason: 'Before these videos can be made, say what kind of music your song is.', fix: { label: 'Finish your song', run: backTo(1) } }
+        : { kind: 'blocked', fix: { label: 'Finish your lyrics', run: backTo(2) },
+          reason: !noLyrics && composition.cues.length === 0 ? 'Before these videos can be made, add and sync your lyrics, or say the song has no lyrics.'
+            : 'Before these videos can be made, finish syncing your lyrics.' };
     }
     if (profile?.musicAnalysis.status === 'pending' || profile?.lyricMeaning?.status === 'pending') {
       return { kind: 'blocked', reason: 'Finishing the analysis of your music and lyrics. You can make your videos in a moment.' };
@@ -409,7 +420,10 @@ function App() {
       </div>
     </Modal>
     {!cartOpen && <ChosenBar count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)} />}
-    {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
+    {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} limit={chosenLimit} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
+    <ChooseFewer tooMany={tooMany} onClose={() => setTooMany(null)}
+      onBuy={() => { if (tooMany) askToBuyCredits(tooMany); setTooMany(null); }}
+      onFewer={() => { if (tooMany) setChosenLimit({ have: tooMany.have, free: tooMany.free }); setTooMany(null); setCartOpen(true); }} />
     {download.message && <DownloadNotice message={download.message} onDismiss={download.dismiss} />}
     {IS_ALIGNMENT_STAGING && !accessToken && <StagingAccess onAccess={setAccessToken} />}
     {page !== 'create' && <Suspense fallback={page === 'links' ? <LinksSkeleton /> : null}><ProfilePage key={page === 'links' ? `links-${linksOpened}` : page} page={page} tab={profileTab} progress={download.progress} delivered={delivered} onNavigate={setPage} /></Suspense>}

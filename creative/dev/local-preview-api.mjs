@@ -145,8 +145,11 @@ export function localPreviewApi() {
         return email ? handler(email, request, response) : send(response, 401, { error: 'Sign in to continue.' });
       };
       route('/api/members', 'GET', async (_request, response) => send(response, 200, { latest: 128 }));
-      route('/api/account', 'GET', signedIn(async (email, _request, response) =>
-        send(response, 200, { email, memberNo: 42, lastSeenAt: new Date().toISOString(), storage: { used: 1_000_000_000, quota: 5_000_000_000 }, credits: 120, freeVideo: false })));
+      // A new person's credits can be tried with the cookie `preview_allowance=<credits>:<1 when the free video is still to come>`.
+      route('/api/account', 'GET', signedIn(async (email, request, response) => {
+        const [credits = '120', free = '0'] = (/(?:^|;\s*)preview_allowance=(\d+):([01])/.exec(request.headers.cookie ?? '') ?? []).slice(1);
+        send(response, 200, { email, memberNo: 42, lastSeenAt: new Date().toISOString(), storage: { used: 1_000_000_000, quota: 5_000_000_000 }, credits: Number(credits), freeVideo: free === '1' });
+      }));
       let renders = sampleRenders();
       let uploads = sampleUploads();
       const idOf = request => new URL(request.url, 'http://local').searchParams.get('id');

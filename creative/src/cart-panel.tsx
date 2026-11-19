@@ -1,9 +1,11 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { RemoveBadge } from '@/components/ui/remove-badge';
 import { useEffect, useRef } from 'react';
 import { EmptyState } from './account-section';
 import type { CartItem } from './cart';
+import type { TooMany } from './credit-events';
 import { RenderProgress } from './render-progress';
 import type { DownloadMessage, DownloadProgress } from './use-cart-download';
 
@@ -18,7 +20,25 @@ export type CartLine = {
 export type CartAction =
   | { kind: 'download'; run: () => void }
   | { kind: 'go'; run: () => void }
-  | { kind: 'blocked'; reason: string };
+  | { kind: 'blocked'; reason: string; fix?: { label: string; run: () => void } };
+
+/** How many of the chosen videos the person can make, after choosing to make only those (`free`: just their free first video). */
+export type ChosenLimit = { have: number; free: boolean };
+
+const videos = (count: number) => `${count} ${count === 1 ? 'video' : 'videos'}`;
+
+/** More videos chosen than the person can make: buy credits, or make only as many as they can and take the others out. */
+export function ChooseFewer({ tooMany, onBuy, onFewer, onClose }: { tooMany: TooMany | null; onBuy: () => void; onFewer: () => void; onClose: () => void }) {
+  const { need = 0, have = 0, free = false } = tooMany ?? {};
+  return <Modal open={tooMany !== null} onClose={onClose} title={`You chose ${videos(need)}`}
+    description={free ? 'You can make only 1 video for free, or buy credits to make all your videos.'
+      : `You have ${have} ${have === 1 ? 'credit' : 'credits'}. You can make only ${videos(have)}, or buy credits to make all your videos.`}>
+    <div className="flex flex-wrap justify-end gap-2">
+      <Button variant="secondary" onClick={onFewer}>{free ? 'Get my free video' : `Make ${videos(have)}`}</Button>
+      <Button onClick={onBuy}>Buy credits</Button>
+    </div>
+  </Modal>;
+}
 
 /** What the bar says: one credit makes one video, so the count is the price. */
 export const chosenLabel = (count: number) => (count === 1 ? '1 Video = 1 credit' : `${count} Videos = ${count} credits`);
@@ -45,15 +65,18 @@ export function ChosenBar({ count, progress, onOpen }: { count: number; progress
 }
 
 /** The chosen videos, full screen over a slightly see-through backdrop: every one for this song and clip in rows, what they cost and one place to make them. */
-export function CartPanel({ lines, progress, action, onClose, onRemove }: {
+export function CartPanel({ lines, progress, action, limit = null, onClose, onRemove }: {
   lines: CartLine[];
   progress: DownloadProgress | null;
   action: CartAction;
+  /** Set once the person chose to make only the videos they can: Make waits until the others are taken out. */
+  limit?: ChosenLimit | null;
   onClose: () => void;
   onRemove: (id: string) => void;
 }) {
   const ready = lines.filter(line => line.available);
   const busy = progress !== null;
+  const excess = limit ? ready.length - limit.have : 0;
   const close = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     close.current?.focus();
@@ -83,8 +106,12 @@ export function CartPanel({ lines, progress, action, onClose, onRemove }: {
       {progress && <RenderProgress progress={progress} note="This can take a few minutes. You can close this and keep creating." />}
       {lines.length > 0 && <div className="mt-auto flex flex-col gap-3 pt-2">
         <p className="m-0 flex justify-between text-sm"><span>Total</span><strong>{ready.length} {ready.length === 1 ? 'credit' : 'credits'}</strong></p>
+        {limit && excess > 0 && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-3 text-sm text-foreground">
+          {limit.free ? 'You can make 1 video for free.' : `You have ${limit.have} ${limit.have === 1 ? 'credit' : 'credits'}.`} Take
+          out {videos(excess)} with the × so only {limit.have} {limit.have === 1 ? 'is' : 'are'} left, then make {limit.have === 1 ? 'it' : 'them'}.
+        </p>}
         {action.kind === 'download' && <>
-          <Button disabled={busy || ready.length === 0} onClick={action.run}>
+          <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>
             Make {ready.length === 1 ? 'video' : `${ready.length} videos`}
           </Button>
           {busy && <p className="hint">We are processing your request. In the meantime, you can continue creating other visuals for your music.</p>}
@@ -93,7 +120,10 @@ export function CartPanel({ lines, progress, action, onClose, onRemove }: {
           <Button disabled={busy} onClick={action.run}>Go to your creatives</Button>
           <p className="hint">Videos are made and downloaded from your creatives page.</p>
         </>}
-        {action.kind === 'blocked' && <p className="hint">{action.reason}</p>}
+        {action.kind === 'blocked' && <>
+          {action.fix && <Button onClick={action.fix.run}>{action.fix.label}</Button>}
+          <p className="hint">{action.reason}</p>
+        </>}
       </div>}
     </div>
   </motion.aside>;

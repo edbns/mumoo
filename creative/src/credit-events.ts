@@ -12,3 +12,9 @@ export const BUY_CREDITS = 'mumoo:buy-credits';
 export const creditsChanged = () => window.dispatchEvent(new Event(CREDITS_CHANGED));
 /** Opens Purchase Credits from anywhere, saying how many more videos the person wanted than they can make. */
 export const askToBuyCredits = (shortfall: Shortfall) => window.dispatchEvent(new CustomEvent<Shortfall>(BUY_CREDITS, { detail: shortfall }));
+
+/** More videos were chosen than the person can make, and they can make some (`free`: the only one is their free first video). */
+export type TooMany = Shortfall & { free: boolean };
+export const TOO_MANY_CHOSEN = 'mumoo:too-many-chosen';
+/** Asks whether to buy credits or make only the videos they can, instead of going straight to Purchase Credits. */
+export const askToChooseFewer = (tooMany: TooMany) => window.dispatchEvent(new CustomEvent<TooMany>(TOO_MANY_CHOSEN, { detail: tooMany }));
