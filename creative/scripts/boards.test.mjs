@@ -151,6 +151,40 @@ test('a board of 53 clips is walked: no clip on two cards of a Refresh, none fro
   } finally { await server.close(); }
 });
 
+test('each time the same song is made it deals its own reels, on the board, and what the person saw waits for the rest', async () => {
+  const { server, pack } = await load();
+  try {
+    const items = [...filed('b', 'block-party', 100), ...filed('m', 'main-stage', 40)];
+    const hand = deal => pack.recommendRow('photography', profile(), 0, [], items, false, {}, deal).flatMap(slot => slot.reelIds ?? []);
+    const first = hand({ seed: 'one' });
+    assert.deepEqual(hand({ seed: 'one' }), first, 'one deal stays the same while the person looks');
+    assert.ok(first.filter(id => hand({ seed: 'two' }).includes(id)).length < first.length / 2, 'another time, or another person: mostly other clips');
+    let seen = [];
+    const remembered = () => new Map(seen.map((id, at) => [id, (at + 1) / seen.length]));
+    for (let time = 0; time < 3; time++) {
+      const ids = hand({ seed: `time${time}`, seen: remembered() });
+      assert.ok(ids.every(id => id.startsWith('b')), 'never off the board');
+      assert.ok(ids.every(id => !seen.includes(id)), `time ${time + 1} shows a clip the person already saw`);
+      seen = [...seen, ...ids];
+    }
+    const fourth = hand({ seed: 'time3', seen: remembered() });
+    const back = fourth.filter(id => seen.includes(id));
+    assert.ok(back.every(id => seen.indexOf(id) < 64), 'once the board is used up, the clips seen longest ago come back first');
+  } finally { await server.close(); }
+});
+
+test('within a board, the clips that show what the song is about lead', async () => {
+  const { server, pack } = await load();
+  try {
+    const party = filed('p', 'block-party', 20, { tags: ['party'] });
+    const plain = filed('q', 'block-party', 80);
+    const hands = Array.from({ length: 10 }, (_, k) => pack.recommendRow('photography', profile(), 0, [], [...party, ...plain], false, {}, { seed: `s${k}` }).flatMap(slot => slot.reelIds ?? []));
+    const share = hands.flat().filter(id => id.startsWith('p')).length / hands.flat().length;
+    assert.ok(share > 0.35, `party clips are ${Math.round(share * 100)}% of the reels, a fifth of the board`);
+    assert.ok(share < 0.9, 'and the others still get their turn');
+  } finally { await server.close(); }
+});
+
 test('a card may name a board the server knows, and no other', () => {
   const body = board => ({
     version: 1, event: 'play', clipSha256: 'a'.repeat(64), primaryGenre: 'Pop', subGenre: null, vibe: null, lane: 'party', language: null,

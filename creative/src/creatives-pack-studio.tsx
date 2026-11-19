@@ -3,7 +3,7 @@ import { DURATION_MS, FPS, playheadFrame, type Composition, type ImpactMusic } f
 import { songAccents } from './pack-director';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
-import { isLookRow, isTreatmentRow, recommendRow, rowsFor, shelfOrder, SHELF_ROWS, type CreativesPackSlot, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
+import { isLookRow, isTreatmentRow, recommendRow, rowsFor, shelfOrder, SHELF_ROWS, type CreativesPackSlot, type Deal, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
 import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
 import { friendlyError } from './friendly-error';
@@ -30,6 +30,7 @@ import { clipToMonoWav, submitCloudJob } from './pack-cloud-export';
 import { LoadingMask } from './loading-mask';
 import { loadPunchPlatesManifest } from './punch-plates';
 import { useLibrary } from './use-library';
+import { dealSeed, rememberSeen, seenLibrary } from './library-seen';
 import { clockNow } from './pack-screenshot';
 import type { LibraryPicture } from './library-pick';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
@@ -211,6 +212,8 @@ export function CreativesPackStudio({
   };
   // Our approved library fills the shelf until the person uses their own pictures.
   const { items: library, learning } = useLibrary();
+  // This visit's own deal, and what this person was shown before it (read once, so the shelf never reshuffles while they look).
+  const [deal] = useState<Deal>(() => ({ seed: dealSeed(), seen: seenLibrary() }));
   /**
    * The templates on the shelf now: a video or GIF leaves out the ones that need a photo, no lyrics the ones made of them. Their order
    * is learned from what people download in songs like this one (`shelfOrder`), the same each time for the same song.
@@ -274,7 +277,7 @@ export function CreativesPackStudio({
     // The looks, treatments and Window are dealt once it knows what our library holds.
     if ((isLookRow(def.id) || isTreatmentRow(def.id) || isWindowRow(def.id)) && dealt === null && !own) return [def.id, { slots: [], note: '' }];
     if (!textless && !hasLyrics) return [def.id, { slots: [], note: '' }];
-    const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, libraryFor(def.id), (isLookRow(def.id) || isTreatmentRow(def.id) || isWindowRow(def.id)) && Boolean(ownFor(def.id)), learning);
+    const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, libraryFor(def.id), (isLookRow(def.id) || isTreatmentRow(def.id) || isWindowRow(def.id)) && Boolean(ownFor(def.id)), learning, deal);
     // The looks and treatments are drawn on our library pictures, so with none for this song they say so instead of vanishing.
     const note = !slots.length && (isLookRow(def.id) || isTreatmentRow(def.id) || def.id === 'window') && !ownPool ? `${def.title} is drawn on pictures from our library, and none fits this song yet. Upload your own picture to see it here.` : '';
     return [def.id, { slots, note }];
@@ -298,6 +301,9 @@ export function CreativesPackStudio({
   const songKey = `${profile.clip.sourceSha256}|${cueKey}|${music?.beatsMs.join(',') ?? ''}`;
   const cardKey = (slot: CreativesPackSlot) => `${songKey}|${lyricsOn()}|${pictureIds}|${slot.id}:${slot.grade ? Object.values(slot.grade).join(',') : ''}`;
   const cardKeys = cards.map(card => cardKey(card.slot)).join('\n');
+  // The library pictures on the cards in view, so the next creatives start with ones this person has not seen.
+  const shownIds = pack.flatMap(slot => slot.reelIds ?? (slot.libraryId ? [slot.libraryId] : [])).filter(id => library?.some(item => item.id === id)).join(',');
+  useEffect(() => { rememberSeen(shownIds ? shownIds.split(',') : []); }, [shownIds]);
 
   const getPositionRef = useRef(getPosition ?? (() => position));
   getPositionRef.current = getPosition ?? (() => position);

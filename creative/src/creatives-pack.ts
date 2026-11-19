@@ -22,7 +22,7 @@ import { coverFit } from './look-fit';
 import type { CoverRead } from './cover-palette';
 import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
 import { coloursFor } from './genre-guide';
-import { colourFit, inLane, learnedNudge, libraryFit, pickLibrary, showing, usualRate, type Learned, type LibraryPicture, type LibraryWanted } from './library-pick';
+import { colourFit, inLane, learnedNudge, libraryFit, pickLibrary, showing, usualRate, wantsOf, type Learned, type LibraryPicture, type LibraryWanted } from './library-pick';
 import { boardForRow, songBoards } from './boards';
 import {
   dealTreatments,
@@ -331,14 +331,59 @@ export function mixed(ranked: readonly LibraryPicture[], count: number): Library
 const BOARD_REEL_MIN = 4;
 
 /**
- * A reel from a mood board chosen for the song: every picture on it fits, so the board is walked in one seeded order of the song, each
- * card taking the next pictures and each Refresh going on where the last stopped. Nothing repeats until the whole board has been used,
- * and a reel is shorter (down to `BOARD_REEL_MIN`) when that lets one Refresh share no picture with the one before it.
+ * Who a deal is for. `seed` is drawn afresh each time a person makes creatives, so the same song deals other reels each time and to
+ * each person (without it, the song alone seeds the deal, as in the tests). `seen` is how recently this person was shown each library
+ * picture (1 newest, `library-seen.ts`): those wait until the pictures they have not seen had their turn, the oldest first.
  */
-function boardReel(items: readonly LibraryPicture[], song: string, generation: number, card: number): LibraryPicture[] {
-  const order = seededOrder(items, `${song}:board-reel`, item => item.id);
+export type Deal = { seed?: string; seen?: ReadonlyMap<string, number> };
+
+/** How much the best fit for the song leads the board's order, against the seeded draw (0…`BOARD_DRAW`) that keeps each deal its own. */
+const BOARD_FIT = 0.6;
+const BOARD_DRAW = 1;
+/** More than fit and draw together: a picture the person saw lately comes after every one they have not. */
+const SEEN_WAIT = 3;
+
+/**
+ * The board in the order this deal walks it: the pictures that show most of what the song wants lead (its themes, mood, genre looks
+ * and colours, `libraryFit`), nudged by what people kept (`learnedNudge`), with a seeded draw so no two deals walk it alike, and the
+ * pictures the person saw lately last. Each run of `size` shows different things where it can (`mixed`), so a reel is not eight cars.
+ */
+function boardOrder(items: readonly LibraryPicture[], wanted: LibraryWanted, song: string, size: number, seen: Deal['seen']): LibraryPicture[] {
+  const wants = wantsOf(wanted);
+  const fits = new Map(items.map(item => [item.id, libraryFit(item, wanted, wants)]));
+  // A picture kept for another genre stays off this song's reels while the board has enough without it.
+  const allowed = items.filter(item => fits.get(item.id) !== null);
+  const pool = allowed.length >= BOARD_REEL_MIN ? allowed : items;
+  const best = Math.max(0, ...pool.map(item => fits.get(item.id) ?? 0));
+  const usual = usualRate(pool);
+  const learning = pool.some(item => item.learned);
+  const score = (item: LibraryPicture) => (best > 0 ? BOARD_FIT * (fits.get(item.id) ?? 0) / best : 0)
+    + (learning ? learnedNudge(item.learned, usual, `${song}:${item.id}`) : 0)
+    + BOARD_DRAW * hashPick(`${song}:board-draw`, item.id, 99991) / 99991
+    - (seen?.has(item.id) ? SEEN_WAIT + seen.get(item.id)! : 0);
+  const scores = new Map(pool.map(item => [item.id, score(item)]));
+  let rest = [...pool].sort((a, b) => scores.get(b.id)! - scores.get(a.id)! || (a.id < b.id ? -1 : 1));
+  const order: LibraryPicture[] = [];
+  const wasSeen = (item: LibraryPicture) => Boolean(seen?.has(item.id));
+  while (rest.length) {
+    // Variety is looked for among pictures as fresh as the next one: it never brings a seen picture ahead of an unseen one.
+    const near = rest.slice(0, size * 3).filter(item => wasSeen(item) === wasSeen(rest[0]));
+    const run = mixed(near, Math.min(size, near.length));
+    order.push(...run);
+    rest = rest.filter(item => !run.includes(item));
+  }
+  return order;
+}
+
+/**
+ * A reel from a mood board chosen for the song: every picture on it fits the scene, so the board is walked in this deal's order
+ * (`boardOrder`), each card taking the next pictures and each Refresh going on where the last stopped. Nothing repeats until the
+ * whole board has been used, and a reel is shorter (down to `BOARD_REEL_MIN`) when that lets one Refresh share no picture with the one before it.
+ */
+function boardReel(items: readonly LibraryPicture[], wanted: LibraryWanted, song: string, generation: number, card: number, seen: Deal['seen']): LibraryPicture[] {
+  const size = Math.max(BOARD_REEL_MIN, Math.min(REEL_POOL, Math.floor(items.length / (2 * ROW_SIZE))));
+  const order = boardOrder(items, wanted, song, size, seen);
   if (order.length <= BOARD_REEL_MIN) return order;
-  const size = Math.max(BOARD_REEL_MIN, Math.min(REEL_POOL, Math.floor(order.length / (2 * ROW_SIZE))));
   const at = (step: number) => order[step % order.length];
   const start = (generation * ROW_SIZE + card) * size;
   const pool = Array.from({ length: Math.min(size, order.length) }, (_, step) => at(start + step));
@@ -363,8 +408,8 @@ function boardReel(items: readonly LibraryPicture[], song: string, generation: n
  * pictures rotating look like a loop), from enough fits (`REEL_ENOUGH`). Each card of a row (`card`) and each Refresh takes the next
  * eight of a seeded order of them.
  */
-export function reelPool(items: readonly LibraryPicture[], wanted: LibraryWanted, song: string, generation: number, card = 0, board = false): LibraryPicture[] {
-  if (board) return boardReel(items, song, generation, card);
+export function reelPool(items: readonly LibraryPicture[], wanted: LibraryWanted, song: string, generation: number, card = 0, board = false, seen?: Deal['seen']): LibraryPicture[] {
+  if (board) return boardReel(items, wanted, song, generation, card, seen);
   const ranked = pickLibrary(items, wanted, song, 0, items.length);
   const fits = new Map(ranked.map(item => [item.id, libraryFit(item, wanted) ?? 0]));
   const best = Math.max(0, ...fits.values());
@@ -373,7 +418,8 @@ export function reelPool(items: readonly LibraryPicture[], wanted: LibraryWanted
   const good = close.length >= REEL_ENOUGH ? close : ranked.filter(item => (fits.get(item.id) ?? 0) >= REEL_GOOD * best);
   const turn = (generation * ROW_SIZE + card) * REEL_POOL;
   const walk = good.length ? Math.floor(turn / good.length) : 0;
-  const order = seededOrder(good, `${song}:reel:${walk}`, item => item.id);
+  const drawn = seededOrder(good, `${song}:reel:${walk}`, item => item.id);
+  const order = seen ? [...drawn].sort((a, b) => (seen.get(a.id) ?? 0) - (seen.get(b.id) ?? 0)) : drawn;
   const start = order.length ? turn % order.length : 0;
   // Variety is looked for among the next few only: across the whole board the same few tagged pictures would win every time.
   const mix = mixed([...order.slice(start), ...order.slice(0, start)].slice(0, REEL_ENOUGH * 2), REEL_POOL);
@@ -411,26 +457,27 @@ export function reeled(slot: CreativesPackSlot, pool: readonly LibraryPicture[],
  * the person's one picture is drawn on every card instead of our library.
  */
 export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], pool: readonly LibraryPicture[] = [], ownPicture = false,
-  learning: ShelfLearning = {}): CreativesPackSlot[] {
+  learning: ShelfLearning = {}, deal: Deal = {}): CreativesPackSlot[] {
   const { intent, meaning, lane, genre } = readSong(profile);
+  const song = deal.seed ? `${profile.clip.sourceSha256}:${deal.seed}` : profile.clip.sourceSha256;
   // What people did with each picture, for songs in this lane first (`inLane`).
   const library = pool.some(item => item.learnedLanes) ? pool.map(item => ({ ...item, learned: inLane(item.learned, item.learnedLanes?.[lane]) })) : pool;
   const cover = profile.creator.cover?.value ?? null;
-  const seed = `${profile.clip.sourceSha256}:${generation}:${lane}:${row}`;
+  const seed = `${song}:${generation}:${lane}:${row}`;
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
   // Dust draws library photos that have a cut-out; Riso those, or library videos/GIFs; with none, our approved photos.
   const wanted = libraryWanted(profile, meaning, genre, intent);
   // Every template but Pulise and Dust shows the Directed card's video in its place: the same board, pictures and reel.
   const directedRow = row === 'photography' || isTreatmentId(row) || isLookRow(row) || row === 'riso' || row === 'window' || row === 'silhouette';
-  const directedSeed = `${profile.clip.sourceSha256}:${generation}:${lane}:photography`;
+  const directedSeed = `${song}:${generation}:${lane}:photography`;
   const { board, from } = rowLibrary(directedRow ? 'photography' : row, profile, wanted, library);
   const cutOut = (item: LibraryPicture) => item.kind === 'photo' && Boolean(item.cutoutUrl);
-  const cutOutLibrary = pickLibrary(from(cutOut), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
-  const risoLibrary = pickLibrary(from(risoCapable), wanted, profile.clip.sourceSha256, 0, 50).map(item => item.id);
+  const cutOutLibrary = pickLibrary(from(cutOut), wanted, song, 0, 50).map(item => item.id);
+  const risoLibrary = pickLibrary(from(risoCapable), wanted, song, 0, 50).map(item => item.id);
   const photos: PhotoSources = { plateIds: cutOutPlates, libraryIds: cutOutLibrary };
   const risoPhotos: PhotoSources = { plateIds: cutOutPlates, libraryIds: risoLibrary };
   /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
-  const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, pickLibrary(from(), wanted, `${profile.clip.sourceSha256}:${family}`, generation, ROW_SIZE), ownPicture);
+  const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, pickLibrary(from(), wanted, `${song}:${family}`, generation, ROW_SIZE), ownPicture);
   // Directed and its treatments are cut and finished in the preset the song's genre calls for; each Refresh may take the next that fits.
   const preset = presetAt({ genre, subGenre: profile.creator.subGenre?.value, style: profile.creator.style?.name }, generation);
   const withPreset = (slots: CreativesPackSlot[]) => slots.map((slot, index) => ({
@@ -440,13 +487,13 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     preset,
     presetTake: takeAt(preset, generation, index),
   }));
-  const treatmentRow = (kind: TreatmentId) => withPreset(treatmentSlots(kind, lane, intent, seed, directedSeed, pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE), ownPicture));
+  const treatmentRow = (kind: TreatmentId) => withPreset(treatmentSlots(kind, lane, intent, seed, directedSeed, pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture));
   const slots = {
     photography: () => {
       const cards = photographySlots(
         lane, intent, seed,
-        dealEffects(lane, meaning, cover, `${profile.clip.sourceSha256}:${lane}`, generation),
-        pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE),
+        dealEffects(lane, meaning, cover, `${song}:${lane}`, generation),
+        pickLibrary(from(), wanted, song, generation, ROW_SIZE),
       );
       // A baked effect is already a finished look: only cards of our library's pictures are cut in the preset.
       return cards.some(card => card.effectId) ? cards : withPreset(cards);
@@ -466,15 +513,15 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     dither: () => effectRow('dither'),
     ascii: () => effectRow('ascii'),
     riso: () => risoSlots(lane, intent, seed, risoPhotos),
-    window: () => windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE), ownPicture ? [] : plates),
-    silhouette: () => (GOSPEL_GENRE.test(`${genre} ${profile.creator.subGenre?.value ?? ''}`.toLowerCase()) ? [] : windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, profile.clip.sourceSha256, generation, ROW_SIZE), ownPicture ? [] : plates, dealSilhouette(seed, TYPE_ALLOW[lane]))),
+    window: () => windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates),
+    silhouette: () => (GOSPEL_GENRE.test(`${genre} ${profile.creator.subGenre?.value ?? ''}`.toLowerCase()) ? [] : windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates, dealSilhouette(seed, TYPE_ALLOW[lane]))),
     pulise: () => puliseSlots(lane, intent, seed),
     dust: () => dustSlots(lane, intent, seed, cover?.hue, photos),
   }[row]();
   // Card i of every such template is edited by the Director from the same pool as Directed's card i, once there are two or more pictures to edit.
   const onBoard = (items: readonly LibraryPicture[]) => Boolean(board) && (items[0]?.boards ?? []).some(id => items.every(item => item.boards?.includes(id)));
   const pictures = from();
-  const poolOf = directedRow && !ownPicture ? (card: number) => reelPool(pictures, wanted, profile.clip.sourceSha256, generation, card, onBoard(pictures)) : () => [];
+  const poolOf = directedRow && !ownPicture ? (card: number) => reelPool(pictures, wanted, song, generation, card, onBoard(pictures), deal.seen) : () => [];
   // Each card is edited from its own pictures, and opens on one no card before it opened on.
   const opened = new Set<string>();
   const edited = slots.map((slot, index) => {
