@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { MagicLinkOtpLogin, type MagicLinkStep } from '@/components/ui/magic-link-otp-login';
 import { Modal } from '@/components/ui/modal';
+import type { SignInReason } from './account-hint';
 
 /** Where the legal pages will live. */
 const TERMS_URL = '/terms';
@@ -9,8 +10,10 @@ const PRIVACY_URL = '/privacy';
 const WELCOME_MS = 1400;
 
 /** The sign-in popup: email, then the code we sent to it, then a short welcome. Or Google, when `onGoogle` is given. */
-export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle, hideTerms = false }: {
+export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle, reason, hideTerms = false }: {
   open: boolean;
+  /** Why it was opened (pressing Download), said in place of the usual heading. */
+  reason?: SignInReason | null;
   /** The admin page is not for the public, so it has no terms line. */
   hideTerms?: boolean;
   onClose: () => void;
@@ -42,6 +45,7 @@ export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle,
       onResend={onSendCode}
       onVerifyCode={onCheckCode}
       onGoogle={onGoogle}
+      {...(reason ? { title: reason.title, lead: reason.lead } : {})}
     />
     {!hideTerms && <p className="mt-4 text-center text-xs text-muted-foreground">By continuing, you agree to our <a className="text-foreground underline underline-offset-4" href={TERMS_URL} target="_blank" rel="noreferrer">Terms of Service</a> and <a className="text-foreground underline underline-offset-4" href={PRIVACY_URL} target="_blank" rel="noreferrer">Privacy Policy</a>.</p>}
   </Modal>;

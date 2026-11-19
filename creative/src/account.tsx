@@ -5,7 +5,7 @@ import { SignInDialog } from './sign-in-dialog';
 import { Button } from '@/components/ui/button';
 import { UserDropdownMenu } from '@/components/ui/user-dropdown-menu';
 import { PROFILE_CORNER } from '@/components/ui/profile-dot';
-import { AccountPlaceholder, rememberSignedIn } from './account-hint';
+import { AccountPlaceholder, rememberSignedIn, takeSignInRequests, type SignInReason } from './account-hint';
 import { ACCOUNT_MENU, type AccountPage } from './account-pages';
 import { PurchaseCredits } from './purchase-credits';
 import { reportProblem } from './report-problem';
@@ -181,7 +181,24 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     else setCredit(undefined);
   }, [user?.id]);
 
-  const closeSignIn = useCallback(() => setOpen(false), []);
+  /** A request from the page (pressing Download signed out): its reason is shown, and it is told whether the person signed in. */
+  const [reason, setReason] = useState<SignInReason | null>(null);
+  const asked = useRef<((signedIn: boolean) => void) | null>(null);
+  const signedInHere = useRef(false);
+  useEffect(() => takeSignInRequests(({ done, ...why }) => {
+    asked.current?.(false);
+    asked.current = done;
+    signedInHere.current = false;
+    setReason(why);
+    setOpen(true);
+  }), []);
+  const openSignIn = () => { setReason(null); signedInHere.current = false; setOpen(true); };
+
+  const closeSignIn = useCallback(() => {
+    setOpen(false);
+    asked.current?.(signedInHere.current);
+    asked.current = null;
+  }, []);
 
   async function sendCode(email: string) {
     await sendSignInCode(email);
@@ -190,6 +207,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
 
   async function checkCode(otp: string) {
     await checkSignInCode(address.current, otp);
+    signedInHere.current = true;
     return true;
   }
 
@@ -198,14 +216,14 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     : { label, icon, current: line === page || (line === 'links' && page === 'my-links'), onSelect: () => onNavigate(line) }));
 
   return <>
-    {!known && !user && <AccountPlaceholder onSignIn={() => setOpen(true)} />}
-    {known && !user && <Button variant="secondary" onClick={() => setOpen(true)}>Sign in</Button>}
+    {!known && !user && <AccountPlaceholder onSignIn={openSignIn} />}
+    {known && !user && <Button variant="secondary" onClick={openSignIn}>Sign in</Button>}
     {user && <div className={PROFILE_CORNER}>
       <UserDropdownMenu email={user.email} groups={groups} onSignOut={() => { void authClient.signOut(); onNavigate('create'); }} />
     </div>}
     <PurchaseCredits open={buying} onClose={() => setBuying(false)} />
     {/* One popup for both states, so the welcome after signing in is not cut short when the button changes. */}
-    <SignInDialog open={open} onClose={closeSignIn} onSendCode={sendCode} onCheckCode={checkCode}
-      onGoogle={async () => { await signInWithGoogle(); await session.refetch(); }} />
+    <SignInDialog open={open} onClose={closeSignIn} onSendCode={sendCode} onCheckCode={checkCode} reason={reason}
+      onGoogle={async () => { await signInWithGoogle(); signedInHere.current = true; await session.refetch(); }} />
   </>;
 }

@@ -50,6 +50,8 @@ Still to do:
 - Done: the page loads in one go (the account corner from a hint of last time instead of after the sign-in check), History is now Media (no page title, menu "Media"), profile pages keep their address on refresh, Smart Link analytics load behind a skeleton, the profile button is a smaller black disc with the green ring, inside the layer.
 - To do (small): the analytics timeline's left scale reads 1, 1, 0 when a link has no visits (the half mark rounds up); show 0.5 or only whole marks. The analytics figures themselves take as long as `/api/links/stats` does; if that feels slow on real links, look at its query.
 
+- Done: sign-in at download. Anyone can make creatives signed out; pressing Download in the cart signed out opens the sign-in popup ("Sign in to download", the free first video, kept in Media) and the download carries on once they are in (`askSignIn` in `account-hint.tsx`, answered by `AccountBar`). Closing it downloads nothing. The Analyzing screen says it takes a minute or two (19 Nov on staging: about 70 s without lyrics, about 2 min with).
+
 ## Brain feedback
 - Done: every play, select, download press and refresh is kept in `brain_feedback` (codes only), against the person when signed in; `nth_download` 1 is their first download (the free one).
 - Done (migration 023): the whole reel and the Director's seed, preview watch time (`watch`), finished downloads (`delivered`, copied from the card's own download press), and the song's other moods, themes, drive and key. Admin → Learning reads it per row, look, vibe, mood and library picture.

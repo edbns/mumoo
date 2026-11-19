@@ -115,6 +115,7 @@ export function AnalyzingScreen({ profile, progress, ready, onDone }: { profile:
           <motion.div className="h-full rounded-full bg-primary" initial={false} animate={{ width: `${percent}%` }} transition={{ duration: 0.4, ease: 'easeOut' }} />
         </div>
         <p className="text-sm text-muted-foreground">{stageText(profile, progress)}</p>
+        <p className="text-xs text-muted-foreground/70">This takes a minute or two.</p>
       </div>
     </main>
   );

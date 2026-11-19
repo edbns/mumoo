@@ -32,7 +32,7 @@ import { FileDropzone } from '@/components/ui/file-dropzone';
 import { AnalyzingScreen, type PaintProgress } from './analyzing-screen';
 import { StepNav, type StepNumber } from './step-nav';
 import { ArrowLeftIcon, CheckIcon, XIcon } from 'lucide-react';
-import { AccountPlaceholder } from './account-hint';
+import { AccountPlaceholder, askSignIn } from './account-hint';
 import { PAGE_PATHS, UPLOADS_PATH, pageAt, uploadsAt, type AccountPage } from './account-pages';
 import { LinksNav, ProfileNav, type ProfileTab } from './profile-nav';
 import { ClipPicker } from './clip-picker';
@@ -40,6 +40,7 @@ import { LegalCorner } from './legal-corner';
 import './styles/index.css';
 
 // Sign-in pulls in the auth client; it loads beside the page instead of in front of it.
+const DOWNLOAD_SIGN_IN = { title: 'Sign in to download', lead: 'Your first video is free, with no watermark. It is also kept in your Media.' };
 const AccountBar = lazy(() => import('./account').then(module => ({ default: module.AccountBar })));
 const loadProfilePage = () => import('./profile-page');
 const ProfilePage = lazy(loadProfilePage);
@@ -367,8 +368,14 @@ function App() {
       return { kind: 'blocked', reason: 'Finishing the analysis of your music and lyrics. Downloading is possible in a moment.' };
     }
     if (checkingPictures) return { kind: 'blocked', reason: 'Checking your pictures…' };
-    // Pressing Download takes a signed-in person to their History, where the creatives show up as they are made.
-    return { kind: 'download', run: () => { if (downloadRef.current?.() && uploads.signedIn) { setCartOpen(false); setProfileTab('creatives'); setPage('history'); } } };
+    // Downloading needs an account (the free first video is theirs, and it is kept in Media): signed out, it asks first and then carries on.
+    // Pressing Download takes the person to their Media, where the creatives show up as they are made.
+    const toMedia = () => { setCartOpen(false); setProfileTab('creatives'); setPage('history'); };
+    if (uploads.pending) return { kind: 'blocked', reason: 'Checking your account…' };
+    if (!uploads.signedIn) return { kind: 'download', run: () => {
+      void askSignIn(DOWNLOAD_SIGN_IN).then(signedIn => { if (signedIn && downloadRef.current?.()) toMedia(); });
+    } };
+    return { kind: 'download', run: () => { if (downloadRef.current?.()) toMedia(); } };
   })();
 
   return <>
