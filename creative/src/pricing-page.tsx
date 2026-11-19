@@ -1,13 +1,14 @@
 import { CheckIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { sessionToken } from './account';
+import { accountFetch, checkSignInCode, sendSignInCode, sessionToken, signInWithGoogle } from './account';
 import { CREDIT_PACKS, perVideo, type CreditPack } from './credit-packs';
 import { LegalCorner } from './legal-corner';
 import { checkout } from './purchase-credits';
-import { keepReferral, pendingReferral } from './referral';
+import { claimPendingReferral, keepReferral, pendingReferral } from './referral';
+import { SignInDialog } from './sign-in-dialog';
 import '@fontsource-variable/inter';
 import './styles/index.css';
 
@@ -29,25 +30,46 @@ const QUESTIONS = [
   { q: 'Can I get a refund?', a: 'Credits are non-refundable, except where the law requires it, for example a render that fails and that we cannot fix.' },
 ];
 
+const BUY_SIGN_IN = { title: 'Sign in to buy credits', lead: 'Your credits are kept in your account.' };
+
 /**
- * /pricing: what MUMOO costs, for anyone, before they sign in. Signed in, Buy opens Polar's checkout straight away; signed out it
- * goes to the app, which asks them to sign in and then opens the checkout.
+ * /pricing: what MUMOO costs, for anyone, before they sign in. Buy opens Polar's checkout straight away; signed out, the sign-in
+ * popup opens here first and the checkout follows as soon as they are in.
  */
 function PricingPage() {
   const [opening, setOpening] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [invited] = useState(() => pendingReferral() !== null);
-  const buy = async (pack: CreditPack) => {
+  const [signingIn, setSigningIn] = useState(false);
+  /** The pack chosen before signing in, bought once they are in. */
+  const wanted = useRef<CreditPack | null>(null);
+  const signedIn = useRef(false);
+  const address = useRef('');
+
+  const open = async (pack: CreditPack) => {
     setNote('');
     setOpening(pack.usd);
     try {
-      if (!await sessionToken().catch(() => null)) { location.assign(`/?buy=${pack.usd}`); return; }
+      // A friend's invite is claimed before paying, so this first pack gets its extra videos.
+      await claimPendingReferral(accountFetch);
       await checkout(pack);
     } catch (cause) {
       setOpening(null);
       setNote((cause as Error).message);
     }
   };
+  const buy = async (pack: CreditPack) => {
+    if (await sessionToken().catch(() => null)) { await open(pack); return; }
+    wanted.current = pack;
+    signedIn.current = false;
+    setSigningIn(true);
+  };
+  const closeSignIn = useCallback(() => {
+    setSigningIn(false);
+    const pack = wanted.current;
+    wanted.current = null;
+    if (pack && signedIn.current) void open(pack);
+  }, []);
   return <div className="flex flex-1 flex-col text-foreground">
     <header className="flex items-center justify-between px-6 pt-6 pb-4">
       <a href="/" aria-label="MUMOO"><img src="/brand/mumoo-logo.png" alt="MUMOO" className="h-5" /></a>
@@ -108,6 +130,10 @@ function PricingPage() {
       </div>
     </main>
     <LegalCorner />
+    <SignInDialog open={signingIn} onClose={closeSignIn} reason={BUY_SIGN_IN}
+      onSendCode={async email => { await sendSignInCode(email); address.current = email; }}
+      onCheckCode={async code => { await checkSignInCode(address.current, code); signedIn.current = true; return true; }}
+      onGoogle={async () => { await signInWithGoogle(); signedIn.current = true; }} />
   </div>;
 }
 

@@ -51,3 +51,12 @@ export async function claimPendingReferral(accountFetch: Fetch) {
 export async function loadReferral(accountFetch: Fetch): Promise<ReferralInfo> {
   return (await accountFetch('/api/referral')).json() as Promise<ReferralInfo>;
 }
+
+/** The person's link never changes, so the last answer is kept per account and shown at once while a fresh one loads. */
+const savedKey = (userId: string) => `mumoo-invite:${userId}`;
+export function savedReferral(userId: string): ReferralInfo | null {
+  try { return JSON.parse(localStorage.getItem(savedKey(userId)) ?? 'null') as ReferralInfo | null; } catch { return null; }
+}
+export function saveReferral(userId: string, info: ReferralInfo) {
+  try { localStorage.setItem(savedKey(userId), JSON.stringify(info)); } catch { /* storage unavailable: loaded each time */ }
+}

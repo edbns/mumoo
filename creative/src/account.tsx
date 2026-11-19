@@ -278,7 +278,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     <PurchaseCredits open={buying} onClose={() => { setBuying(false); setPurchase(null); setShortfall(undefined); }}
       initial={purchase?.buy} autoBuy={Boolean(purchase?.buy)} checkoutId={purchase?.checkoutId} shortfall={shortfall}
       onCredits={credits => setAllowance(current => ({ freeVideo: current?.freeVideo ?? false, credits }))} />
-    <InviteFriends open={inviting} onClose={() => setInviting(false)} />
+    {user && <InviteFriends key={user.id} open={inviting} onClose={() => setInviting(false)} userId={user.id} />}
     {/* One popup for both states, so the welcome after signing in is not cut short when the button changes. */}
     <SignInDialog open={open} onClose={closeSignIn} onSendCode={sendCode} onCheckCode={checkCode} reason={reason}
       onGoogle={async () => { await signInWithGoogle(); signedInHere.current = true; await session.refetch(); }} />

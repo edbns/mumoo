@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { accountFetch } from './account';
-import { loadReferral, type ReferralInfo } from './referral';
+import { loadReferral, savedReferral, saveReferral, type ReferralInfo } from './referral';
 
 const COPIED_MS = 1500;
 
@@ -15,15 +15,17 @@ function Figure({ value, label }: { value: number; label: string }) {
 }
 
 /** Invite friends: the person's own link to share, what each side gets, and how their invites are doing. */
-export function InviteFriends({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [info, setInfo] = useState<ReferralInfo | null>(null);
+export function InviteFriends({ open, onClose, userId }: { open: boolean; onClose: () => void; userId: string }) {
+  const [info, setInfo] = useState<ReferralInfo | null>(() => savedReferral(userId));
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!open) return;
     setError('');
-    loadReferral(accountFetch).then(setInfo, cause => setError((cause as Error).message));
-  }, [open]);
+    const saved = savedReferral(userId);
+    if (saved) setInfo(saved);
+    loadReferral(accountFetch).then(fresh => { setInfo(fresh); saveReferral(userId, fresh); }, cause => { if (!saved) setError((cause as Error).message); });
+  }, [open, userId]);
 
   const copy = () => {
     if (!info) return;
