@@ -8,6 +8,8 @@ import { AccountColumn, AccountSection } from './account-section';
 const RELOAD_MS = 2000;
 
 const field = 'h-10 w-full rounded-[var(--radius-control)] bg-muted px-3 text-sm text-foreground outline-ring placeholder:text-muted-foreground focus-visible:outline-2';
+/** In a popup, which is itself the muted grey, a field is drawn in the page's dark so it can be seen before it is clicked. */
+const dialogField = field.replace('bg-muted', 'bg-background');
 
 /** The person's settings: changing the email (with a code sent to the new address, so everything they made stays with them), and deleting the account. */
 export default function SettingsPage() {
@@ -91,7 +93,7 @@ function DeleteAccount({ email }: { email: string }) {
       onConfirm={() => deleteAccount(typed.trim())} onDone={() => location.assign('/')}>
       <label className="flex flex-col gap-2 text-sm">
         <span>Type <strong className="break-all">{email}</strong> to confirm.</span>
-        <input className={field} type="email" autoComplete="off" autoFocus aria-label="Your email, to confirm" value={typed} onChange={event => setTyped(event.target.value)} />
+        <input className={dialogField} type="email" autoComplete="off" autoFocus aria-label="Your email, to confirm" placeholder="Your email" value={typed} onChange={event => setTyped(event.target.value)} />
       </label>
     </ActionDialog>
   </AccountSection>;
