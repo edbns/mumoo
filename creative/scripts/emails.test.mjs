@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { QUOTA_BYTES } from '../netlify/lib/allowance.mjs';
-import { accountDeleted, creditsAdded, emailChangeCode, inactivityReminder, signInCode, storageAlmostFull } from '../netlify/lib/letters.mjs';
+import { accountDeleted, creditsAdded, emailChangeCode, inactivityReminder, referralEarned, signInCode, storageAlmostFull } from '../netlify/lib/letters.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import { warnFullStorage } from '../netlify/lib/storage-warning.mjs';
 
@@ -18,6 +18,8 @@ const LETTERS = {
   'inactivity, late': inactivityReminder(83, 90, SITE),
   'storage almost full': storageAlmostFull(4.6e9, QUOTA_BYTES, SITE),
   'credits added': creditsAdded(100, 120, '$20.00', SITE),
+  'credits added with an invite': creditsAdded(20, 30, '$5.00', SITE, 10),
+  'referral earned': referralEarned(10, 15, SITE),
 };
 
 test('every letter is from mumoo in lowercase, never says app, and shows no address or name', () => {
@@ -35,6 +37,18 @@ test('the receipt says what was added and paid, and where the invoice is', () =>
   assert.equal(subject, 'Your 100 mumoo videos are ready');
   assert.match(text, /You paid \$20\.00\. You now have 120 credits\./);
   assert.match(text, /https:\/\/mumoo-staging\.netlify\.app\/invoices/);
+});
+
+test('an invited friend\'s receipt counts the invite, and the inviter is told what they earned', () => {
+  const friend = LETTERS['credits added with an invite'];
+  assert.equal(friend.subject, 'Your 30 mumoo videos are ready');
+  assert.match(friend.text, /20 video credits are now in your mumoo account/);
+  assert.match(friend.text, /Your friend's invite added 10 more, free\./);
+  assert.doesNotMatch(LETTERS['credits added'].text, /invite/);
+  const inviter = LETTERS['referral earned'];
+  assert.equal(inviter.subject, 'A friend joined mumoo: 10 free videos for you');
+  assert.match(inviter.text, /You now have 15 credits\./);
+  assert.match(inviter.text, /Invite friends/);
 });
 
 test('a code is in the subject', () => {

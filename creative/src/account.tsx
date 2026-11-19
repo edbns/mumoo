@@ -8,7 +8,9 @@ import { PROFILE_CORNER } from '@/components/ui/profile-dot';
 import { AccountPlaceholder, askSignIn, rememberSignedIn, takeSignInRequests, type SignInReason } from './account-hint';
 import { ACCOUNT_MENU, type AccountPage } from './account-pages';
 import { BUY_CREDITS, CREDITS_CHANGED, type Allowance, type Shortfall } from './credit-events';
+import { InviteFriends } from './invite-friends';
 import { PurchaseCredits } from './purchase-credits';
+import { claimPendingReferral } from './referral';
 import { reportProblem } from './report-problem';
 
 /**
@@ -193,6 +195,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   const user = signedIn ?? (session.isPending ? last : undefined);
   const [open, setOpen] = useState(false);
   const [buying, setBuying] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const [allowance, setAllowance] = useState<Allowance>();
   const [shortfall, setShortfall] = useState<Shortfall>();
   const [purchase, setPurchase] = useState(takePurchaseRequest);
@@ -204,6 +207,8 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   useEffect(() => { if (known) rememberSignedIn(Boolean(user)); }, [known, Boolean(user)]);
 
   // Best effort: without it the menu simply has no amount beside Credit.
+  // Signed up with a friend's link: the server makes them that friend (it decides whether the account is new enough).
+  useEffect(() => { if (user) void claimPendingReferral(accountFetch); }, [user?.id]);
   useEffect(() => {
     if (!user) { setAllowance(undefined); return; }
     const reload = () => { loadAllowance().then(setAllowance, () => undefined); };
@@ -261,6 +266,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
 
   const groups = ACCOUNT_MENU.map(entries => entries.map(({ line, label, icon }) => line === 'credit'
     ? { label, icon, aside: allowance && allowanceLabel(allowance), onSelect: () => { setPurchase(null); setShortfall(undefined); setBuying(true); } }
+    : line === 'invite' ? { label, icon, onSelect: () => setInviting(true) }
     : { label, icon, current: line === page || (line === 'links' && page === 'my-links'), onSelect: () => onNavigate(line) }));
 
   return <>
@@ -272,6 +278,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     <PurchaseCredits open={buying} onClose={() => { setBuying(false); setPurchase(null); setShortfall(undefined); }}
       initial={purchase?.buy} autoBuy={Boolean(purchase?.buy)} checkoutId={purchase?.checkoutId} shortfall={shortfall}
       onCredits={credits => setAllowance(current => ({ freeVideo: current?.freeVideo ?? false, credits }))} />
+    <InviteFriends open={inviting} onClose={() => setInviting(false)} />
     {/* One popup for both states, so the welcome after signing in is not cut short when the button changes. */}
     <SignInDialog open={open} onClose={closeSignIn} onSendCode={sendCode} onCheckCode={checkCode} reason={reason}
       onGoogle={async () => { await signInWithGoogle(); signedInHere.current = true; await session.refetch(); }} />

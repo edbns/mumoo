@@ -83,7 +83,7 @@ const accountOf = order => order?.customer?.external_id || order?.metadata?.mumo
 
 /**
  * Records a paid order once (Polar may send the same event again), which adds its videos to the person's credits. An order for
- * an account deleted since is left out. Returns the account's id and email when this event recorded it for the first time.
+ * an account deleted since is left out. Returns the account's id and email, and whether this event recorded it for the first time.
  */
 export async function recordPaid(order) {
   const userId = accountOf(order);
@@ -96,7 +96,7 @@ export async function recordPaid(order) {
     where exists (select 1 from app_users where id = ${userId})
     on conflict (id) do update set invoice_number = coalesce(excluded.invoice_number, credit_orders.invoice_number)
     returning (xmax = 0) as first, (select email from app_users where id = ${userId}) as email`;
-  return rows[0]?.first ? { userId, email: rows[0].email, videos } : null;
+  return rows[0] ? { userId, email: rows[0].email, videos, first: rows[0].first } : null;
 }
 
 /** A fully refunded order takes its videos back. A partial refund leaves the credits as they are (it is settled by hand). */

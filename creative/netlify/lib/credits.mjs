@@ -1,7 +1,7 @@
 import { db } from './person.mjs';
 
 /**
- * Credits: one makes one video. A person has the videos their paid orders bought (`credit_orders`), less the videos they made
+ * Credits: one makes one video. A person has the videos their paid orders bought (`credit_orders`) and were given (`credit_bonuses`: referrals), less the videos they made
  * (`credit_spends`); every account's first video is free and costs none. A render takes its credit when it starts, and gives it
  * back if it fails.
  */
@@ -13,6 +13,7 @@ const STALE = '10 minutes';
 export async function allowanceOf(userId) {
   const [row] = await db()`
     select coalesce((select sum(videos) from credit_orders where user_id = ${userId} and status = 'paid'), 0)
+         + coalesce((select sum(videos) from credit_bonuses where user_id = ${userId} and revoked_at is null), 0)
          - coalesce((select sum(videos) from credit_spends where user_id = ${userId} and not free
              and (render_id is not null or created_at > now() - ${STALE}::interval)), 0) as credits,
          not exists (select 1 from credit_spends where user_id = ${userId} and free
@@ -35,6 +36,7 @@ export async function reserveVideo(userId) {
     sql`
       with state as (
         select coalesce((select sum(videos) from credit_orders where user_id = ${userId} and status = 'paid'), 0)
+         + coalesce((select sum(videos) from credit_bonuses where user_id = ${userId} and revoked_at is null), 0)
              - coalesce((select sum(videos) from credit_spends where user_id = ${userId} and not free), 0) as credits,
              exists (select 1 from credit_spends where user_id = ${userId} and free) as free_used
       )

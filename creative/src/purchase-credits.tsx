@@ -6,12 +6,13 @@ import { PricingInteraction } from '@/components/ui/pricing-interaction';
 import { CREDIT_PACKS, packFor, type CreditPack } from './credit-packs';
 import { accountFetch } from './account';
 import type { Shortfall } from './credit-events';
+import { loadReferral } from './referral';
 
 /** How long the popup waits for Polar to tell our server about the payment before saying it is still on its way. */
 const WAIT_MS = 60_000;
 const POLL_MS = 2_000;
 
-type Arrival = { status: 'pending' } | { status: 'paid'; videos: number; credits: number };
+type Arrival = { status: 'pending' } | { status: 'paid'; videos: number; bonus?: number; credits: number };
 
 /** Sends the person to Polar's checkout for `pack`. Fails with the words to show. */
 export async function checkout(pack: CreditPack) {
@@ -53,7 +54,7 @@ function Arrived({ checkoutId, onCredits, onClose }: { checkoutId: string; onCre
   }, [checkoutId]);
 
   if (arrival && arrival !== 'late' && arrival.status === 'paid') return <Outcome mark={<CheckIcon className="size-6" />} title="Thank you" onClose={onClose}>
-    <p className="m-0">{arrival.videos.toLocaleString()} videos are in your account. You now have {arrival.credits.toLocaleString()} {arrival.credits === 1 ? 'credit' : 'credits'}.</p>
+    <p className="m-0">{(arrival.videos + (arrival.bonus ?? 0)).toLocaleString()} videos are in your account{arrival.bonus ? `, ${arrival.bonus} of them from your friend's invite` : ''}. You now have {arrival.credits.toLocaleString()} {arrival.credits === 1 ? 'credit' : 'credits'}.</p>
     <p className="m-0 mt-1">Your receipt is on its way by email, and the invoice is in Invoices.</p>
   </Outcome>;
   if (arrival === 'late') return <Outcome mark={<ClockIcon className="size-6" />} title="Almost there" onClose={onClose}>
@@ -83,6 +84,11 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
 }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  /** Videos a friend's invite adds to this person's first pack. */
+  const [bonus, setBonus] = useState(0);
+  useEffect(() => {
+    if (open && !checkoutId) loadReferral(accountFetch).then(info => setBonus(info.firstPackBonus), () => setBonus(0));
+  }, [open, checkoutId]);
   const choose = (pack: CreditPack) => {
     setNote('');
     setBusy(true);
@@ -106,6 +112,9 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
         {shortfall.have === 0
           ? `You are out of credits. ${shortfall.need === 1 ? 'This video needs' : `These ${shortfall.need} videos need`} ${shortfall.need === 1 ? 'one' : shortfall.need}. Your cart is kept.`
           : `${shortfall.need} videos need ${shortfall.need} credits, and you have ${shortfall.have}. Buy a pack, or take some out of your cart.`}
+      </p>}
+      {bonus > 0 && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-3 text-sm text-foreground">
+        A friend invited you: your first pack comes with {bonus} extra videos, free.
       </p>}
       <PricingInteraction key={initial} packs={CREDIT_PACKS} initial={initial} busy={busy} onChoose={choose} />
       {note && <p role="alert" className="m-0 text-center text-sm text-destructive">{note}</p>}

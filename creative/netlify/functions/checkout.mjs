@@ -8,7 +8,7 @@ const CHECKOUT_ID = /^[A-Za-z0-9_-]{8,64}$/;
 /**
  * POST /api/checkout with {usd} — opens Polar's checkout for that pack, for the signed-in person, and returns its {url}. Polar
  * brings them back to `/?checkout_id=…`; the credits are added when Polar's webhook says the order is paid (`polar-webhook.mjs`).
- * GET /api/checkout?id=… — whether that checkout's payment has reached us yet, and the person's credits.
+ * GET /api/checkout?id=… — whether that checkout's payment has reached us yet, the videos it added (and a friend's invite with it), and the person's credits.
  */
 export default async function handler(request) {
   if (request.method !== 'GET' && request.method !== 'POST') return reply(405, { error: 'Use GET or POST.' });
@@ -19,9 +19,11 @@ export default async function handler(request) {
   if (request.method === 'GET') {
     const id = new URL(request.url).searchParams.get('id') ?? '';
     if (!CHECKOUT_ID.test(id)) return reply(400, { error: 'Unknown checkout.' });
-    const [order] = await db()`select videos from credit_orders where checkout_id = ${id} and user_id = ${person.id} and status = 'paid' limit 1`;
+    const [order] = await db()`
+      select o.videos, coalesce((select sum(b.videos) from credit_bonuses b where b.order_id = o.id and b.user_id = o.user_id and b.revoked_at is null), 0) as bonus
+      from credit_orders o where o.checkout_id = ${id} and o.user_id = ${person.id} and o.status = 'paid' limit 1`;
     if (!order) return reply(200, { status: 'pending' });
-    return reply(200, { status: 'paid', videos: order.videos, credits: await creditsOf(person.id) });
+    return reply(200, { status: 'paid', videos: order.videos, bonus: Number(order.bonus), credits: await creditsOf(person.id) });
   }
 
   if (!polarReady()) return reply(503, { error: 'Payments are not switched on yet.' });

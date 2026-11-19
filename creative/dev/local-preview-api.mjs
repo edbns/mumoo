@@ -168,8 +168,15 @@ export function localPreviewApi() {
         send(response, 200, { url: `/?checkout_id=${previewCheckout.id}` });
       }));
       route('/api/checkout', 'GET', signedIn(async (_email, request, response) => (previewCheckout?.id === idOf(request) && Date.now() >= previewCheckout.readyAt
-        ? send(response, 200, { status: 'paid', videos: previewCheckout.videos, credits: 120 + previewCheckout.videos })
+        ? send(response, 200, { status: 'paid', videos: previewCheckout.videos, bonus: previewInvited ? 10 : 0, credits: 120 + previewCheckout.videos + (previewInvited ? 10 : 0) })
         : send(response, 200, { status: 'pending' }))));
+      // Invites: someone arriving with any ?ref= is that friend once signed in, so the first pack shows its 10 extra videos.
+      let previewInvited = false;
+      route('/api/referral', 'POST', signedIn(async (_email, request, response) => { await body(request); previewInvited = true; send(response, 200, { result: 'joined' }); }));
+      route('/api/referral', 'GET', signedIn(async (_email, request, response) => send(response, 200, {
+        code: 'preview8', link: `http://${request.headers.host}/?ref=preview8`, joined: 3, bought: 2, thisMonth: 2, earned: 20, cap: 20, videos: 10,
+        firstPackBonus: previewInvited ? 10 : 0,
+      })));
       // A photo sent here is "prepared" for a few seconds, like the cut-out on our worker, then shown in the colours of its upload.
       let uploadCount = 0;
       const readied = () => uploads.map(item => (item.status === 'preparing' && Date.now() >= item.readyAt

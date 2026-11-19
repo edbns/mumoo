@@ -60,12 +60,22 @@ export function storageAlmostFull(used, quota, siteUrl) {
 }
 
 /** After a pack is paid for: what it added and where the invoice is. `paid` is the amount as the person reads it ("$20.00"). */
-export function creditsAdded(videos, credits, paid, siteUrl) {
-  return letter(`Your ${videos} mumoo videos are ready`, [
+export function creditsAdded(videos, credits, paid, siteUrl, bonus = 0) {
+  return letter(`Your ${videos + bonus} mumoo videos are ready`, [
     `Thank you. ${videos} video credits are now in your mumoo account: one credit makes one video, and they never expire.`,
+    ...(bonus ? [`Your friend's invite added ${bonus} more, free.`] : []),
     '',
     `You paid ${paid}. You now have ${credits} ${credits === 1 ? 'credit' : 'credits'}.`,
     '',
     `Your invoice is in Invoices: ${siteUrl}/invoices. The payment was taken by Polar, our payment partner, so it shows as Polar on your statement.`,
+  ]);
+}
+
+/** Someone the person invited bought their first pack, and it earned the person `videos` free videos. */
+export function referralEarned(videos, credits, siteUrl) {
+  return letter(`A friend joined mumoo: ${videos} free videos for you`, [
+    `Someone you invited to mumoo just bought their first pack, so ${videos} free videos are now in your account. Thank you for sharing mumoo.`,
+    '',
+    `You now have ${credits} ${credits === 1 ? 'credit' : 'credits'}. Make something at ${siteUrl}, and find your invite link under Invite friends in your account menu.`,
   ]);
 }

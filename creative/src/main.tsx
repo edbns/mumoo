@@ -37,6 +37,7 @@ import { PAGE_PATHS, UPLOADS_PATH, pageAt, uploadsAt, type AccountPage } from '.
 import { LinksNav, ProfileNav, type ProfileTab } from './profile-nav';
 import { ClipPicker } from './clip-picker';
 import { LegalCorner } from './legal-corner';
+import { keepReferral } from './referral';
 import './styles/index.css';
 
 // Sign-in pulls in the auth client; it loads beside the page instead of in front of it.
@@ -519,4 +520,7 @@ reportUncaughtErrors();
 // The Google sign-in popup, back on our site: starting the auth SDK is all it needs (it hands the session to the page that opened it, and closes).
 const googlePopup = Boolean(window.opener) && new URLSearchParams(location.search).has('neon_popup');
 if (googlePopup) void import('./account');
-else createRoot(document.getElementById('root')!).render(<CrashGuard><App /></CrashGuard>);
+else {
+  keepReferral();
+  createRoot(document.getElementById('root')!).render(<CrashGuard><App /></CrashGuard>);
+}

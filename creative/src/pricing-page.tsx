@@ -7,6 +7,7 @@ import { sessionToken } from './account';
 import { CREDIT_PACKS, perVideo, type CreditPack } from './credit-packs';
 import { LegalCorner } from './legal-corner';
 import { checkout } from './purchase-credits';
+import { keepReferral, pendingReferral } from './referral';
 import '@fontsource-variable/inter';
 import './styles/index.css';
 
@@ -23,6 +24,7 @@ const QUESTIONS = [
   { q: 'What is a credit?', a: 'One credit makes one video. There are no other units to work out.' },
   { q: 'Is it a subscription?', a: 'No. You pay once for a pack, and the credits stay in your account until you use them. They never expire.' },
   { q: 'What does the first video cost?', a: 'Nothing. Every new account makes its first video free, with no watermark, so you can see what you get before you pay.' },
+  { q: 'Can I get free videos?', a: 'Yes. Invite friends from your account menu: a friend who signs up with your link gets 10 extra videos on their first pack, and you get 10 free videos once they have paid (for up to 20 friends a month).' },
   { q: 'Who takes the payment?', a: 'Polar (polar.sh), our payment partner, takes the payment and adds tax where it applies. We never see your card. Each invoice is in Invoices in your account.' },
   { q: 'Can I get a refund?', a: 'Credits are non-refundable, except where the law requires it, for example a render that fails and that we cannot fix.' },
 ];
@@ -34,6 +36,7 @@ const QUESTIONS = [
 function PricingPage() {
   const [opening, setOpening] = useState<number | null>(null);
   const [note, setNote] = useState('');
+  const [invited] = useState(() => pendingReferral() !== null);
   const buy = async (pack: CreditPack) => {
     setNote('');
     setOpening(pack.usd);
@@ -56,6 +59,7 @@ function PricingPage() {
         <p className="m-0 max-w-xl text-base text-balance text-muted-foreground">
           Pay once, no subscription, and your credits never expire. Your first video is free, with no watermark.
         </p>
+        {invited && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-2 text-sm text-foreground">A friend invited you: your first pack comes with 10 extra videos, free.</p>}
         <Button className="mt-2" onClick={() => location.assign('/')}>Make my first video free</Button>
       </div>
 
@@ -107,4 +111,5 @@ function PricingPage() {
   </div>;
 }
 
+keepReferral();
 createRoot(document.getElementById('root')!).render(<PricingPage />);
