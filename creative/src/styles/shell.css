@@ -33,3 +33,11 @@
 @media (prefers-reduced-motion: reduce) { .chosen-bar-dot, .chosen-bar-dot::after { animation: none; } }
 /* On Media the actions scroll away with the page, so they never cover a card's buttons. */
 .masthead-actions.scrolls { position: absolute; }
+
+/* The help chat's "thinking" dots. */
+.support-typing { display: inline-flex; gap: 3px; }
+.support-typing i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: support-typing 1.2s ease-in-out infinite; }
+.support-typing i:nth-child(2) { animation-delay: .15s; }
+.support-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes support-typing { 0%, 60%, 100% { opacity: .3; translate: 0 0; } 30% { opacity: 1; translate: 0 -2px; } }
+@media (prefers-reduced-motion: reduce) { .support-typing i { animation: none; } }

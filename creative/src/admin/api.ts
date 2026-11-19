@@ -37,6 +37,8 @@ export type Overview = {
   email: string;
   library: { approved: number; pending: number; hidden: number };
   problems: { unseen: number };
+  /** Help chats waiting for the team. */
+  help: { waiting: number };
   people: number;
 };
 
@@ -90,6 +92,15 @@ export const loadLibrary = () => adminFetch<Library>('library');
 export const loadLearning = (days: number) => adminFetch<Learning>(`learning?days=${days}`);
 export const loadProblems = () => adminFetch<{ problems: Problem[]; unseen: number }>('problems');
 export const markProblemSeen = (problem: number) => adminFetch<{ problems: Problem[]; unseen: number }>(`problems?id=${problem}`, { method: 'PATCH' });
+export type HelpStatus = 'helper' | 'waiting' | 'answered';
+export type HelpThread = { userId: string; email: string; status: HelpStatus; flagged: boolean; flags: number; last: string | null; updatedAt: string };
+export type HelpMessage = { id: number; author: 'person' | 'helper' | 'team'; text: string; flagged: boolean; at: string };
+export type HelpConversation = { userId: string; email: string; status: HelpStatus; flagged: boolean; messages: HelpMessage[] };
+const user = (userId: string) => `user=${encodeURIComponent(userId)}`;
+export const loadHelp = () => adminFetch<{ waiting: number; threads: HelpThread[] }>('support');
+export const loadHelpThread = (userId: string) => adminFetch<HelpConversation>(`support?${user(userId)}`);
+export const replyHelp = (userId: string, reply: string) => adminFetch<HelpConversation>(`support?${user(userId)}`, json('POST', { reply }));
+export const closeHelp = (userId: string) => adminFetch<HelpConversation>(`support?${user(userId)}`, { method: 'PATCH' });
 export const markAllSeen = () => adminFetch<{ problems: Problem[]; unseen: number }>('problems?all=1', { method: 'PATCH' });
 
 export type Change = Partial<{ status: 'approved' | 'hidden'; attitudes: string[]; tags: string[]; genre: string; subGenre: string; boards: string[]; notBoards: string[]; note: string }>;

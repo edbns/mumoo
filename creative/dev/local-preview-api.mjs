@@ -5,6 +5,7 @@ import { PICK, lookupSong, parseSource, searchSongs } from '../netlify/lib/song-
 import { summarise } from '../netlify/lib/link-stats.mjs';
 import { adClick } from '../netlify/lib/traffic-source.mjs';
 import { parseAgent } from '../netlify/lib/user-agent.mjs';
+import * as support from '../netlify/lib/support.mjs';
 
 /**
  * Stand-ins for the staging servers, so every screen can be used and designed on the local dev server.
@@ -180,6 +181,30 @@ export function localPreviewApi() {
         code: 'preview8', link: `http://${request.headers.host}/?ref=preview8`, joined: 3, bought: 2, thisMonth: 2, earned: 20, cap: 20, videos: 10,
         firstPackBonus: previewInvited ? 10 : 0,
       })));
+      // Help chat: the real matching and rule checks, kept in memory. What needs our model "thinks" for a few seconds, then is not sure.
+      const help = { status: 'helper', messages: [], thinkingUntil: 0, n: 0 };
+      const helpSays = (author, text) => help.messages.push({ id: ++help.n, author, text, at: new Date().toISOString() });
+      const helpNow = () => {
+        if (help.thinkingUntil && Date.now() >= help.thinkingUntil) { help.thinkingUntil = 0; helpSays('helper', support.FIXED.unsure); }
+        return { status: help.status, thinking: Boolean(help.thinkingUntil), messages: help.messages };
+      };
+      route('/api/support', 'GET', signedIn(async (_email, _request, response) => send(response, 200, helpNow())));
+      route('/api/support', 'POST', signedIn(async (_email, request, response) => {
+        const { message, team } = await body(request);
+        if (team) { if (help.status !== 'waiting') helpSays('helper', support.FIXED.human); help.status = 'waiting'; return send(response, 200, helpNow()); }
+        const text = typeof message === 'string' ? message.trim() : '';
+        if (!text) return send(response, 400, { error: 'Type a message first.' });
+        if (support.hasLink(text)) return send(response, 400, { error: 'Links can’t be sent here. Just say it in words.' });
+        helpSays('person', text);
+        if (help.status !== 'helper') return send(response, 200, helpNow());
+        const plain = support.steers(text) ? null : support.matchAnswer(text);
+        if (support.steers(text)) helpSays('helper', support.FIXED.off_topic);
+        else if (plain?.text) helpSays('helper', plain.text);
+        else if (plain?.account === 'credits') helpSays('helper', 'You have 120 credits. One credit makes one video.');
+        else if (plain) helpSays('helper', 'You have 6 videos in Media, the newest from Nov 19. New ones show up in Media when they’re done, and the bar at the bottom shows how far along they are. If one fails, its credit comes back on its own.');
+        else help.thinkingUntil = Date.now() + 3000;
+        send(response, 200, helpNow());
+      }));
       // A photo sent here is "prepared" for a few seconds, like the cut-out on our worker, then shown in the colours of its upload.
       let uploadCount = 0;
       const readied = () => uploads.map(item => (item.status === 'preparing' && Date.now() >= item.readyAt
