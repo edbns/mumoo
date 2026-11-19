@@ -51,6 +51,12 @@
   to = "/phone.html"
   status = 200
 
+# The public pricing page: what MUMOO costs, before anyone signs in.
+[[redirects]]
+  from = "/pricing"
+  to = "/pricing.html"
+  status = 200
+
 # The member number board.
 [[redirects]]
   from = "/welcome"

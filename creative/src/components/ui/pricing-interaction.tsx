@@ -1,29 +1,32 @@
 import NumberFlow from "@number-flow/react";
 import * as React from "react";
+import { perVideo, type CreditPack } from "@/credit-packs";
 import { cn } from "@/lib/utils";
-
-export type CreditPack = {
-  usd: number;
-  tokens: number;
-  /** Marks the pack most people take. */
-  popular?: boolean;
-};
 
 const CARD = "5rem";
 const GAP = "0.75rem";
 
 /**
- * 21st.dev "Pricing Interaction", adapted: it sells credit packs (one price each, no plans or periods), in the theme's
+ * 21st.dev "Pricing Interaction", adapted: it sells credit packs (one price each, no plans or periods; 1 credit = 1 video), in the theme's
  * colours. The outline slides to the pack chosen, and the button's amounts roll to match.
  */
 export function PricingInteraction({
   packs,
+  initial,
+  busy = false,
   onChoose,
 }: {
   packs: readonly CreditPack[];
+  /** The pack chosen at first (its price in dollars); otherwise the popular one. */
+  initial?: number;
+  /** While the checkout is being opened: the button waits. */
+  busy?: boolean;
   onChoose: (pack: CreditPack) => void;
 }) {
-  const [active, setActive] = React.useState(Math.max(0, packs.findIndex((pack) => pack.popular)));
+  const [active, setActive] = React.useState(() => {
+    const at = packs.findIndex((pack) => (initial ? pack.usd === initial : pack.popular));
+    return Math.max(0, at);
+  });
   const chosen = packs[active];
 
   return (
@@ -41,12 +44,12 @@ export function PricingInteraction({
           >
             <span className="flex flex-col items-start gap-0.5">
               <span className="flex items-center gap-2 text-xl font-semibold text-foreground">
-                {pack.tokens.toLocaleString()} tokens
+                {pack.videos.toLocaleString()} videos
                 {pack.popular && (
                   <span className="rounded-lg bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">Popular</span>
                 )}
               </span>
-              <span className="text-sm text-muted-foreground">${pack.usd}</span>
+              <span className="text-sm text-muted-foreground">${pack.usd} · {perVideo(pack)} a video</span>
             </span>
             <span
               aria-hidden="true"
@@ -70,9 +73,11 @@ export function PricingInteraction({
       <button
         type="button"
         onClick={() => onChoose(chosen)}
-        className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-full bg-primary p-3 text-lg font-semibold text-primary-foreground transition-transform duration-300 active:scale-95"
+        disabled={busy}
+        aria-busy={busy}
+        className="flex w-full cursor-pointer disabled:cursor-wait disabled:opacity-70 items-center justify-center gap-1.5 rounded-full bg-primary p-3 text-lg font-semibold text-primary-foreground transition-transform duration-300 active:scale-95"
       >
-        Buy <NumberFlow value={chosen.tokens} /> tokens · $<NumberFlow value={chosen.usd} />
+        {busy ? "Opening checkout…" : <>Buy <NumberFlow value={chosen.videos} /> videos · <NumberFlow value={chosen.usd} format={{ style: "currency", currency: "USD", maximumFractionDigits: 0 }} /></>}
       </button>
     </div>
   );

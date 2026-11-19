@@ -6,6 +6,7 @@ import {
 import { CONSENT_KEY, COOKIE_SETTINGS_EVENT, openCookieSettings, readConsent } from './consent';
 
 export const LEGAL_LINKS = [
+  { href: '/pricing', label: 'Pricing' },
   { href: '/terms', label: 'Terms' },
   { href: '/privacy', label: 'Privacy' },
   { href: '/cookies', label: 'Cookies' },

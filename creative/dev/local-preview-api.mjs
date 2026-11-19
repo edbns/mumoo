@@ -57,9 +57,9 @@ const sampleUploads = () => [
 ];
 
 const sampleInvoices = () => [
-  { id: 'preview-invoice-1', number: 'MUM-0003', createdAt: '2026-11-09T18:04:00Z', description: 'Creatives pack · 4 videos in HD', amount: 1200, currency: 'USD', status: 'paid', url: '#' },
-  { id: 'preview-invoice-2', number: 'MUM-0002', createdAt: '2026-11-03T11:30:00Z', description: 'Credit top-up', amount: 2000, currency: 'USD', status: 'paid', url: '#' },
-  { id: 'preview-invoice-3', number: 'MUM-0001', createdAt: '2026-10-28T09:15:00Z', description: 'Creatives pack · 2 videos in HD', amount: 600, currency: 'USD', status: 'refunded', url: '#' },
+  { id: 'preview-invoice-1', number: 'MUM-0003', createdAt: '2026-11-09T18:04:00Z', description: '100 video credits', amount: 2000, currency: 'USD', status: 'paid' },
+  { id: 'preview-invoice-2', number: 'MUM-0002', createdAt: '2026-11-03T11:30:00Z', description: '20 video credits', amount: 500, currency: 'USD', status: 'paid' },
+  { id: 'preview-invoice-3', number: 'MUM-0001', createdAt: '2026-10-28T09:15:00Z', description: '20 video credits', amount: 500, currency: 'USD', status: 'refunded' },
 ];
 
 const b64 = value => Buffer.from(value).toString('base64url');
@@ -98,6 +98,7 @@ export function localPreviewApi() {
       server.middlewares.use((request, _response, next) => {
         if (/^\/(legal|terms|privacy|cookies|acceptable-use|refunds|ai|dpa)\/?(\?|$)/.test(request.url ?? '')) request.url = '/legal.html';
         if (/^\/welcome\/?(\?|$)/.test(request.url ?? '')) request.url = '/welcome.html';
+        if (/^\/pricing\/?(\?|$)/.test(request.url ?? '')) request.url = '/pricing.html';
         next();
       });
       const startJob = (result) => {
@@ -145,7 +146,7 @@ export function localPreviewApi() {
       };
       route('/api/members', 'GET', async (_request, response) => send(response, 200, { latest: 128 }));
       route('/api/account', 'GET', signedIn(async (email, _request, response) =>
-        send(response, 200, { email, memberNo: 42, lastSeenAt: new Date().toISOString(), storage: { used: 1_000_000_000, quota: 5_000_000_000 }, credit: { tokens: 120 } })));
+        send(response, 200, { email, memberNo: 42, lastSeenAt: new Date().toISOString(), storage: { used: 1_000_000_000, quota: 5_000_000_000 }, credits: 120 })));
       let renders = sampleRenders();
       let uploads = sampleUploads();
       const idOf = request => new URL(request.url, 'http://local').searchParams.get('id');
@@ -154,7 +155,21 @@ export function localPreviewApi() {
         renders = renders.filter(item => item.id !== idOf(request));
         send(response, 200, { renders });
       }));
-      route('/api/invoices', 'GET', signedIn(async (_email, _request, response) => send(response, 200, { invoices: sampleInvoices() })));
+      route('/api/invoices', 'GET', signedIn(async (_email, request, response) => (idOf(request)
+        ? send(response, 202, { error: 'Invoices come from Polar, which the local preview does not reach.' })
+        : send(response, 200, { invoices: sampleInvoices() }))));
+      // Checkout without Polar: "paying" returns straight away, as Polar does after a test card.
+      const PACK_VIDEOS = { 5: 20, 20: 100, 50: 300 };
+      let previewCheckout = null;
+      route('/api/checkout', 'POST', signedIn(async (_email, request, response) => {
+        const { usd } = await body(request);
+        if (!PACK_VIDEOS[usd]) return send(response, 400, { error: 'That pack is not on sale.' });
+        previewCheckout = { id: `local-checkout-${Date.now()}`, videos: PACK_VIDEOS[usd], readyAt: Date.now() + READY_AFTER_MS };
+        send(response, 200, { url: `/?checkout_id=${previewCheckout.id}` });
+      }));
+      route('/api/checkout', 'GET', signedIn(async (_email, request, response) => (previewCheckout?.id === idOf(request) && Date.now() >= previewCheckout.readyAt
+        ? send(response, 200, { status: 'paid', videos: previewCheckout.videos, credits: 120 + previewCheckout.videos })
+        : send(response, 200, { status: 'pending' }))));
       // A photo sent here is "prepared" for a few seconds, like the cut-out on our worker, then shown in the colours of its upload.
       let uploadCount = 0;
       const readied = () => uploads.map(item => (item.status === 'preparing' && Date.now() >= item.readyAt

@@ -21,7 +21,7 @@ function preloadInterfaceFont() {
   };
 }
 
-// Six entries: the app, the cloud-only frame renderer used by the Modal worker, the admin page (/admin), the page a phone sends the song from (/phone), the legal documents (/terms, /privacy, … and /legal), and the member number board (/welcome).
+// Seven entries: the app, the cloud-only frame renderer used by the Modal worker, the admin page (/admin), the page a phone sends the song from (/phone), the legal documents (/terms, /privacy, … and /legal), the member number board (/welcome) and the public pricing page (/pricing).
 export default defineConfig({
   plugins: [tailwindcss(), localPreviewApi(), preloadInterfaceFont()],
   // `@/` is the source folder, which is what components installed from 21st.dev expect.
@@ -35,6 +35,7 @@ export default defineConfig({
         phone: fileURLToPath(new URL('./phone.html', import.meta.url)),
         legal: fileURLToPath(new URL('./legal.html', import.meta.url)),
         welcome: fileURLToPath(new URL('./welcome.html', import.meta.url)),
+        pricing: fileURLToPath(new URL('./pricing.html', import.meta.url)),
       },
     },
   },

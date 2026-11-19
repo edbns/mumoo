@@ -5,7 +5,7 @@ import { SignInDialog } from './sign-in-dialog';
 import { Button } from '@/components/ui/button';
 import { UserDropdownMenu } from '@/components/ui/user-dropdown-menu';
 import { PROFILE_CORNER } from '@/components/ui/profile-dot';
-import { AccountPlaceholder, rememberSignedIn, takeSignInRequests, type SignInReason } from './account-hint';
+import { AccountPlaceholder, askSignIn, rememberSignedIn, takeSignInRequests, type SignInReason } from './account-hint';
 import { ACCOUNT_MENU, type AccountPage } from './account-pages';
 import { PurchaseCredits } from './purchase-credits';
 import { reportProblem } from './report-problem';
@@ -44,11 +44,31 @@ export async function accountFetch(path: string, init: RequestInit = {}): Promis
   return response;
 }
 
-/** The person's credit in tokens, as our server reports it. Asking also records the visit: the server verifies the token and notes that they were here. */
-async function loadCredit() {
+/** The person's credits (one makes one video), as our server reports them. Asking also records the visit: the server verifies the token and notes that they were here. */
+async function loadCredits() {
   const response = await accountFetch('/api/account');
-  const { credit } = await response.json() as { credit: { tokens: number } };
-  return `${credit.tokens.toLocaleString()} ${credit.tokens === 1 ? 'token' : 'tokens'}`;
+  const { credits } = await response.json() as { credits: number };
+  return credits;
+}
+
+const creditsLabel = (credits: number) => `${credits.toLocaleString()} ${credits === 1 ? 'credit' : 'credits'}`;
+
+/**
+ * What the address asks the account corner to do, taken once and removed from it: `?buy=20` (a pack on the pricing page) opens
+ * Purchase Credits on that pack, `?checkout_id=…` (Polar bringing the person back after paying) shows the credits arriving.
+ */
+let purchaseRequest: { buy?: number; checkoutId?: string } | null | undefined;
+function takePurchaseRequest() {
+  if (purchaseRequest !== undefined) return purchaseRequest;
+  purchaseRequest = null;
+  const url = new URL(location.href);
+  const buy = Number(url.searchParams.get('buy')) || undefined;
+  const checkoutId = url.searchParams.get('checkout_id') || undefined;
+  if (!buy && !checkoutId) return null;
+  url.searchParams.delete('buy');
+  url.searchParams.delete('checkout_id');
+  history.replaceState(history.state, '', url.href);
+  return (purchaseRequest = { buy, checkoutId });
 }
 
 /** Runs one request to Neon Auth. The client throws on a rejected request: a 4xx is the person's mistake, anything else is ours. Fails with the words to show. */
@@ -167,7 +187,8 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   const user = signedIn ?? (session.isPending ? last : undefined);
   const [open, setOpen] = useState(false);
   const [buying, setBuying] = useState(false);
-  const [credit, setCredit] = useState<string>();
+  const [credits, setCredits] = useState<number>();
+  const [purchase, setPurchase] = useState(takePurchaseRequest);
   /** The address the code was sent to, which the code is checked against. */
   const address = useRef('');
   /** Whether it is known yet if anyone is signed in. Later checks (the client repeats them when the window is focused) must not hide the button again. */
@@ -177,8 +198,8 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
 
   // Best effort: without it the menu simply has no amount beside Credit.
   useEffect(() => {
-    if (user) loadCredit().then(setCredit, () => undefined);
-    else setCredit(undefined);
+    if (user) loadCredits().then(setCredits, () => undefined);
+    else setCredits(undefined);
   }, [user?.id]);
 
   /** A request from the page (pressing Download signed out): its reason is shown, and it is told whether the person signed in. */
@@ -193,6 +214,18 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     setOpen(true);
   }), []);
   const openSignIn = () => { setReason(null); signedInHere.current = false; setOpen(true); };
+
+  // Buying needs an account, as the credits are kept in it: signed out, the person is asked to sign in first (once).
+  const askedToBuy = useRef<typeof purchase>(null);
+  useEffect(() => {
+    if (!purchase || !known) return;
+    if (user) { setBuying(true); return; }
+    if (purchase.checkoutId) { setPurchase(null); return; }
+    if (askedToBuy.current === purchase) return;
+    askedToBuy.current = purchase;
+    void askSignIn({ title: 'Sign in to buy credits', lead: 'Your credits are kept in your account.' })
+      .then(signedIn => { if (!signedIn) setPurchase(null); });
+  }, [purchase, known, Boolean(user)]);
 
   const closeSignIn = useCallback(() => {
     setOpen(false);
@@ -212,7 +245,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
   }
 
   const groups = ACCOUNT_MENU.map(entries => entries.map(({ line, label, icon }) => line === 'credit'
-    ? { label, icon, aside: credit, onSelect: () => setBuying(true) }
+    ? { label, icon, aside: credits === undefined ? undefined : creditsLabel(credits), onSelect: () => { setPurchase(null); setBuying(true); } }
     : { label, icon, current: line === page || (line === 'links' && page === 'my-links'), onSelect: () => onNavigate(line) }));
 
   return <>
@@ -221,7 +254,8 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     {user && <div className={PROFILE_CORNER}>
       <UserDropdownMenu email={user.email} groups={groups} onSignOut={() => { void authClient.signOut(); onNavigate('create'); }} />
     </div>}
-    <PurchaseCredits open={buying} onClose={() => setBuying(false)} />
+    <PurchaseCredits open={buying} onClose={() => { setBuying(false); setPurchase(null); }}
+      initial={purchase?.buy} checkoutId={purchase?.checkoutId} onCredits={setCredits} />
     {/* One popup for both states, so the welcome after signing in is not cut short when the button changes. */}
     <SignInDialog open={open} onClose={closeSignIn} onSendCode={sendCode} onCheckCode={checkCode} reason={reason}
       onGoogle={async () => { await signInWithGoogle(); signedInHere.current = true; await session.refetch(); }} />

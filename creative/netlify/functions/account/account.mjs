@@ -1,11 +1,12 @@
 import { QUOTA_BYTES, usedBytes } from '../../lib/allowance.mjs';
 import { deleteAccount } from '../../lib/delete-account.mjs';
 import { personFrom, recordPerson } from '../../lib/person.mjs';
+import { creditsOf } from '../../lib/polar.mjs';
 
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 
 /**
- * GET /api/account — who is signed in, how much of their storage is used and their credit in tokens. Also records that they were here (powers history and reminders).
+ * GET /api/account — who is signed in, how much of their storage is used and their credits (one makes one video). Also records that they were here (powers history and reminders).
  * DELETE /api/account with {email} — deletes the account completely (`deleteAccount`); the person types their email to confirm.
  */
 export default async function handler(request) {
@@ -33,8 +34,7 @@ export default async function handler(request) {
     // Neon returns bigint as a string.
     memberNo: row.member_no === null || row.member_no === undefined ? null : Number(row.member_no),
     storage: { used: await usedBytes(person.id), quota: QUOTA_BYTES },
-    // Payments are not connected yet, so nobody has credit; this is where the balance will come from.
-    credit: { tokens: 0 },
+    credits: await creditsOf(person.id),
   });
 }
 
