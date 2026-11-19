@@ -2,6 +2,7 @@ import { ArrowRightIcon, SparklesIcon } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { Button } from '@/components/ui/button';
 import type { Published } from './smart-links';
+import { useFreeVideo } from './use-free-video';
 
 const WORD_STEP_S = 0.45;
 
@@ -11,6 +12,7 @@ const WORD_STEP_S = 0.45;
  */
 export function AdsNextStep({ published, onStart }: { published: Published; onStart: () => void }) {
   const { title, artist } = published.link;
+  const free = useFreeVideo() === true;
   return <div className="grid items-center gap-5 rounded-[var(--radius-control)] bg-card p-4 sm:grid-cols-[auto_minmax(0,1fr)]">
     <AdMockup published={published} />
     <div className="flex min-w-0 flex-col items-start gap-3">
@@ -20,10 +22,10 @@ export function AdsNextStep({ published, onStart }: { published: Published; onSt
       <p className="m-0 text-lg font-semibold leading-snug">Turn “{title}” into scroll-stopping lyric videos.</p>
       <p className="m-0 text-sm text-muted-foreground">
         Upload {artist ? `${artist}’s` : 'your'} song and mumoo makes 9:16 creatives for Reels, TikTok and Shorts in minutes, in the
-        style of your music. Your first creative is free.
+        style of your music.{free && ' Your first creative is free.'}
       </p>
       <Button className="shimmer relative h-[var(--control-height-md)] overflow-hidden px-5" onClick={onStart}>
-        Make my first video free<ArrowRightIcon aria-hidden="true" className="size-4" />
+        {free ? 'Make my first video free' : 'Create videos for your music'}<ArrowRightIcon aria-hidden="true" className="size-4" />
       </Button>
     </div>
   </div>;

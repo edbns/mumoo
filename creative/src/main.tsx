@@ -40,6 +40,7 @@ import { ClipPicker } from './clip-picker';
 import { LegalCorner } from './legal-corner';
 import { keepReferral } from './referral';
 import { LinksSkeleton } from './links-skeleton';
+import { useFreeVideo } from './use-free-video';
 import './styles/index.css';
 
 // Sign-in pulls in the auth client; it loads beside the page instead of in front of it.
@@ -105,6 +106,7 @@ function App() {
   const [songTags, setSongTags] = useState<SongTags>();
   /** The song a smart link handed over ("Make my first video free"), until the creator dismisses it. */
   const [handed, setHanded] = useState<HandedSong | null>(null);
+  const freeVideo = useFreeVideo() === true;
   useEffect(() => {
     if (page !== 'create') return;
     const song = takeHandedSong();
@@ -440,7 +442,7 @@ function App() {
               {handed.cover ? <img src={handed.cover} alt="" className="size-11 shrink-0 rounded-[6px] object-cover" /> : <span className="size-11 shrink-0 rounded-[6px] bg-muted" />}
               <p className="m-0 min-w-0 flex-1 text-sm">
                 <span className="block truncate font-semibold">{handed.title}{handed.artist ? ` · ${handed.artist}` : ''}</span>
-                <span className="block text-muted-foreground">Drop the song file to start. Your first creative is free.</span>
+                <span className="block text-muted-foreground">Drop the song file to start.{freeVideo && ' Your first creative is free.'}</span>
               </p>
               <button type="button" aria-label="Not this song" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={() => setHanded(null)}><XIcon aria-hidden="true" className="size-4" /></button>

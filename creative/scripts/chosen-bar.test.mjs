@@ -65,3 +65,14 @@ test('the profile icon is at the top right, its menu opening downwards', () => {
   const menu = readFileSync(new URL('../src/components/ui/user-dropdown-menu.tsx', import.meta.url), 'utf8');
   assert.match(menu, /side="bottom"/);
 });
+
+test('the free video is offered only while it is still to come, and the way to make videos stays', () => {
+  const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
+  const cta = read('smart-link-cta.tsx');
+  assert.match(cta, /\{free \? 'Make my first video free' : 'Create videos for your music'\}/);
+  assert.match(cta, /\{free && ' Your first creative is free\.'\}/);
+  assert.match(read('main.tsx'), /Drop the song file to start\.\{freeVideo && ' Your first creative is free\.'\}/);
+  // No placeholder holding the button's room: with the free video used the cards sit right under the text from the start.
+  assert.match(read('pricing-page.tsx'), /\{freeLeft && <Button className="mt-2"/);
+  assert.doesNotMatch(read('pricing-page.tsx'), /invisible/);
+});
