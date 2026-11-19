@@ -1,10 +1,7 @@
 import { cn } from "@/lib/utils";
 
-/**
- * Where the profile button sits: the bottom left of the rounded layer, as far in from its edges as the top-right actions
- * (`.masthead-actions`), so it stays clear of the layer's corner.
- */
-export const PROFILE_CORNER = "fixed bottom-8 left-10 z-[5]";
+/** Where the profile button sits: last of the top-right actions (`.masthead-actions`). */
+export const PROFILE_CORNER = "flex";
 
 /** The signed-in person: a black disc ringed in the theme's green. */
 export function ProfileDot({ className }: { className?: string }) {

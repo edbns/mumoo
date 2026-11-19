@@ -87,7 +87,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
       const reason = friendlyError(failed[0], 'The creatives could not be exported.');
       reportProblem('render', reason);
       const count = made.length;
-      setMessage({ kind: 'error', text: `${count === 1 ? 'Your creative is' : `Your ${count} creatives are`} ready. ${failed.length === 1 ? '1 could not be made' : `${failed.length} could not be made`} (${reason.replace(/\.$/, '')}) and ${failed.length === 1 ? 'is' : 'are'} still in your cart: press Download to try again.` });
+      setMessage({ kind: 'error', text: `${count === 1 ? 'Your creative is' : `Your ${count} creatives are`} ready. ${failed.length === 1 ? '1 could not be made' : `${failed.length} could not be made`} (${reason.replace(/\.$/, '')}) and ${failed.length === 1 ? 'is' : 'are'} still chosen: open them from the bar at the bottom to try again.` });
     }
     latest.current.cart.removeFrom(pending.songKey, delivered);
     reportDelivered(latest.current.token, pending.songKey.split(':')[0], delivered);
@@ -103,7 +103,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
       localStorage.removeItem(PENDING_KEY);
       const text = friendlyError(cause, 'The creatives could not be exported.');
       reportProblem((cause as { problemKind?: 'download' }).problemKind ?? 'render', text);
-      setMessage({ kind: 'error', text: `${text} Your cart is kept.` });
+      setMessage({ kind: 'error', text: `${text} Your chosen videos are kept.` });
     } finally {
       running.current = false;
       setProgress(null);
@@ -132,7 +132,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     if (!pending || expired(pending, Date.now(), JOB_TIMEOUT_MS)) {
       localStorage.removeItem(PENDING_KEY);
       reportProblem('download', 'A download that was in progress did not finish.');
-      setMessage({ kind: 'error', text: 'A download that was in progress did not finish. Your cart is kept, press Download to try again.' });
+      setMessage({ kind: 'error', text: 'Videos that were being made did not finish. Your chosen videos are kept: open them from the bar at the bottom to try again.' });
       return;
     }
     void run(async () => pending);

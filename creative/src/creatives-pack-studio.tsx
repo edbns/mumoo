@@ -580,7 +580,7 @@ export function CreativesPackStudio({
     {profile.lyricMeaning?.status === 'error' && <p className="hint">We could not read what your lyrics say, so these are matched to the sound alone.</p>}
     {error && <p role="alert">{error}</p>}
     {playbackError && <p role="alert">{playbackError}</p>}
-    {cart.full && <p role="status" className="hint">Your cart is full ({CART_LIMIT}). Take one out to add another.</p>}
+    {cart.full && <p role="status" className="hint">You can choose up to {CART_LIMIT} videos. Take one out to add another.</p>}
     <p className="hint text-center">This is only a preview. Your downloads are in HD.</p>
     {noLyrics && <p className="hint text-center">Your song has no lyrics, so there is no lyric type on these.</p>}
     <div className="flex flex-wrap items-center justify-end gap-3 rounded-[var(--radius-panel)] bg-background p-5">
@@ -619,7 +619,7 @@ export function CreativesPackStudio({
                 className="creatives-pack-select"
                 disabled={!ready || (!inCart && cart.full)}
                 aria-pressed={inCart}
-                aria-label={`${def.title} creative, ${inCart ? 'in your cart' : 'add to your cart'}`}
+                aria-label={`${def.title} creative, ${inCart ? 'chosen' : 'choose it'}`}
                 onClick={() => toggleCart(item)}
               />
               <button

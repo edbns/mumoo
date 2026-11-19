@@ -11,6 +11,7 @@ import { AdTracking } from './ad-tracking';
 import { AdsNextStep } from './smart-link-cta';
 import { handSong } from './song-handoff';
 import { SignInDialog } from './sign-in-dialog';
+import { LinksSkeleton } from './links-skeleton';
 import { AddressLine, Cover, iconButton, textButton } from './smart-link-parts';
 import {
   EMPTY_DRAFT, LABELS, SERVICES, addressOf, asLink, checkSlug, fieldsOf, isSearch, listLinks, lookupSong, publishDraft, saveDraft,
@@ -143,7 +144,10 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
       ? found.results.map((result: SearchResult) => ({ key: result.url, ...result, choose: () => lookUp('pick', result.url) }))
       : null;
 
-  return <main className={`mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6 transition-opacity duration-300 ${phoneReady ? 'opacity-100' : 'opacity-0'}`}>
+  return <main className="relative mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6">
+    {/* Cross-fades with the page, so there is never a blank moment between the two. */}
+    <LinksSkeleton hidden={phoneReady} className={`pointer-events-none absolute inset-x-0 top-0 transition-opacity duration-300 ${phoneReady ? 'opacity-0' : 'opacity-100'}`} />
+    <div className={`flex flex-col gap-4 transition-opacity duration-300 ${phoneReady ? 'opacity-100' : 'opacity-0'}`}>
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-4">
         {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
@@ -224,6 +228,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
       </div>
 
       <PhonePreview link={link} slug={draft.editing ?? draft.slug} onReady={() => setPhoneReady(true)} />
+    </div>
     </div>
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}

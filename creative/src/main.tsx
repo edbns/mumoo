@@ -15,7 +15,7 @@ import { useLyricMeaning } from './lyric-meaning-cloud';
 import { CreativesPackStudio } from './creatives-pack-studio';
 import { SHELF_ROWS } from './creatives-pack';
 import { ownIdsOf, useCart, songKeyOf } from './cart';
-import { CartButton, CartPanel, DownloadNotice, type CartAction, type CartLine } from './cart-panel';
+import { CartPanel, ChosenBar, DownloadNotice, type CartAction, type CartLine } from './cart-panel';
 import { useCartDownload } from './use-cart-download';
 import { useUploads } from './use-uploads';
 import { forgetSession } from './forget-session';
@@ -38,6 +38,7 @@ import { LinksNav, ProfileNav, type ProfileTab } from './profile-nav';
 import { ClipPicker } from './clip-picker';
 import { LegalCorner } from './legal-corner';
 import { keepReferral } from './referral';
+import { LinksSkeleton } from './links-skeleton';
 import './styles/index.css';
 
 // Sign-in pulls in the auth client; it loads beside the page instead of in front of it.
@@ -354,7 +355,7 @@ function App() {
         : !gone.has(item.id),
     };
   });
-  // Videos are made from the creatives page, which has the music analysis and the pictures; elsewhere the cart leads there.
+  // Videos are made from the creatives page, which has the music analysis and the pictures; elsewhere the chosen videos page leads there.
   const cartAction: CartAction = (() => {
     if (!inCreatives) {
       if (canContinue) return { kind: 'go', run: () => { setCartOpen(false); openCreatives(true); } };
@@ -391,12 +392,11 @@ function App() {
         {page === 'create' && buffer && <button type="button" className="link-button" onClick={() => setAskingStartOver(true)}>Start over</button>}
         {page === 'create' && <button type="button" className="link-button" onClick={() => setPage('links')}>Smart links</button>}
         {page !== 'create' && <Button variant="secondary" onClick={() => setPage('create')}><ArrowLeftIcon aria-hidden="true" className="size-4" />Create</Button>}
-        <CartButton count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)} />
         <Suspense fallback={<AccountPlaceholder />}><AccountBar page={page} onNavigate={setPage} /></Suspense>
       </div>
     </header>
     <ActionDialog open={askingStartOver} onClose={() => setAskingStartOver(false)} title="Start over with another song?"
-      description="Your song and lyrics are cleared. Your cart is kept, and your pictures stay in History."
+      description="Your song and lyrics are cleared. Your chosen videos are kept, and your pictures stay in History."
       cancelLabel="Keep this song" confirmLabel="Start over" onConfirm={async () => startOver()} />
     {/* Asked wherever the creator is when the guess arrives, until the creatives are shown; closing it is "not sure". */}
     <Modal open={page === 'create' && styleGuess.status === 'asking' && stage !== 'revealed'} onClose={() => answerGuess('unsure')}
@@ -408,10 +408,11 @@ function App() {
         <Button onClick={() => answerGuess('yes')}>Yes</Button>
       </div>
     </Modal>
+    {!cartOpen && <ChosenBar count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)} />}
     {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
     {download.message && <DownloadNotice message={download.message} onDismiss={download.dismiss} />}
     {IS_ALIGNMENT_STAGING && !accessToken && <StagingAccess onAccess={setAccessToken} />}
-    {page !== 'create' && <Suspense fallback={null}><ProfilePage key={page === 'links' ? `links-${linksOpened}` : page} page={page} tab={profileTab} progress={download.progress} delivered={delivered} onNavigate={setPage} /></Suspense>}
+    {page !== 'create' && <Suspense fallback={page === 'links' ? <LinksSkeleton /> : null}><ProfilePage key={page === 'links' ? `links-${linksOpened}` : page} page={page} tab={profileTab} progress={download.progress} delivered={delivered} onNavigate={setPage} /></Suspense>}
     {/* The work stays exactly as it was while a page of the account is open: hidden, but still laid out, so its drawings are not cleared and redrawn. */}
     <div className={page === 'create' ? 'contents' : 'invisible fixed inset-0 overflow-hidden'} inert={page !== 'create'}>
     {!inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center' : 'desktop trim'}>

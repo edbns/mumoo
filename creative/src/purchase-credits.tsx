@@ -110,8 +110,8 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
     <div className="flex flex-col gap-4">
       {shortfall && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-3 text-sm text-foreground">
         {shortfall.have === 0
-          ? `You are out of credits. ${shortfall.need === 1 ? 'This video needs' : `These ${shortfall.need} videos need`} ${shortfall.need === 1 ? 'one' : shortfall.need}. Your cart is kept.`
-          : `${shortfall.need} videos need ${shortfall.need} credits, and you have ${shortfall.have}. Buy a pack, or take some out of your cart.`}
+          ? `You are out of credits. ${shortfall.need === 1 ? 'This video needs' : `These ${shortfall.need} videos need`} ${shortfall.need === 1 ? 'one' : shortfall.need}. Your chosen videos are kept.`
+          : `${shortfall.need} videos need ${shortfall.need} credits, and you have ${shortfall.have}. Buy a pack, or choose fewer videos.`}
       </p>}
       {bonus > 0 && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-3 text-sm text-foreground">
         A friend invited you: your first pack comes with {bonus} extra videos, free.

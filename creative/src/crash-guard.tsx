@@ -21,7 +21,7 @@ export class CrashGuard extends Component<{ children: ReactNode }, { error: Erro
     if (!error) return this.props.children;
     return <main role="alert" style={{ padding: '4rem 1.5rem', maxWidth: 560, margin: '0 auto', color: '#fff', fontFamily: 'sans-serif' }}>
       <h1 style={{ fontSize: '1.5rem' }}>Something went wrong on this page</h1>
-      <p>Your cart is kept. Reload to start again.</p>
+      <p>Your chosen videos are kept. Reload to start again.</p>
       <p style={{ opacity: 0.6, fontSize: '0.85rem', wordBreak: 'break-word' }}>{error.message}</p>
       <button type="button" onClick={() => location.reload()} style={{ padding: '0.75rem 1.25rem', borderRadius: 999, border: 0, background: '#2bff2b', color: '#000', fontWeight: 600 }}>Reload</button>
     </main>;

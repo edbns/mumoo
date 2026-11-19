@@ -1,5 +1,4 @@
-import { animate, AnimatePresence, MotionConfig, motion, useReducedMotion } from 'motion/react';
-import { ShoppingBagIcon } from 'lucide-react';
+import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { RemoveBadge } from '@/components/ui/remove-badge';
 import { useEffect, useRef } from 'react';
@@ -15,41 +14,37 @@ export type CartLine = {
   available: boolean;
 };
 
-/** What the cart offers at the bottom, depending on where the person is: download, go to where that is possible, or why not yet. */
+/** What the chosen videos page offers at the bottom, depending on where the person is: make them, go to where that is possible, or why not yet. */
 export type CartAction =
   | { kind: 'download'; run: () => void }
   | { kind: 'go'; run: () => void }
   | { kind: 'blocked'; reason: string };
 
-/** The cart in the page header, on every page: a bag that tilts on hover and hops when something is added, with the count popping in on it. */
-export function CartButton({ count, progress, onOpen }: { count: number; progress: DownloadProgress | null; onOpen: () => void }) {
-  const bag = useRef<HTMLSpanElement>(null);
-  const before = useRef(count);
-  const reduceMotion = useReducedMotion();
-  useEffect(() => {
-    if (count > before.current && bag.current && !reduceMotion) void animate(bag.current, { y: [0, -6, 0], rotate: [0, -14, 10, 0] }, { duration: 0.5 });
-    before.current = count;
-  }, [count, reduceMotion]);
+/** What the bar says: one credit makes one video, so the count is the price. */
+export const chosenLabel = (count: number) => (count === 1 ? '1 Video = 1 credit' : `${count} Videos = ${count} credits`);
+
+/**
+ * The bar at the bottom of the page while videos are chosen: the step notch turned upside down, rising from the bottom edge.
+ * Pressing it opens the page where the videos are made. While they are being made it shows how far along they are.
+ */
+export function ChosenBar({ count, progress, onOpen }: { count: number; progress: DownloadProgress | null; onOpen: () => void }) {
   return <MotionConfig reducedMotion="user">
-    <motion.button type="button" onClick={onOpen} whileHover="hover" whileTap={{ scale: 0.92 }}
-      className="relative inline-flex h-9 min-w-9 cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] bg-secondary p-0 px-2.5 text-secondary-foreground outline-ring transition-colors hover:bg-secondary/80 focus-visible:outline-2 focus-visible:outline-offset-2"
-      aria-label={`Cart, ${count} ${count === 1 ? 'creative' : 'creatives'}${progress ? `, ${progress.label}` : ''}`}>
-      <span ref={bag} className="inline-flex">
-        <motion.span className="inline-flex" variants={{ hover: { rotate: [0, -12, 8, 0], transition: { duration: 0.45 } } }}>
-          <ShoppingBagIcon aria-hidden="true" className="size-[18px]" />
-        </motion.span>
-      </span>
-      {progress && <span className="text-xs tabular-nums" aria-hidden="true">{progress.percent}%</span>}
-      <AnimatePresence initial={false}>
-        {count > 0 && <motion.span key={count} initial={{ scale: 0.3 }} animate={{ scale: 1 }} exit={{ scale: 0.3, opacity: 0 }}
-          transition={{ type: 'spring', visualDuration: 0.3, bounce: 0.45 }}
-          className="absolute -top-1.5 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none text-primary-foreground">{count}</motion.span>}
-      </AnimatePresence>
-    </motion.button>
+    <AnimatePresence>
+      {(count > 0 || progress) && <motion.nav key="chosen" className="step-nav chosen-bar" aria-label="Chosen videos"
+        initial={{ y: '110%' }} animate={{ y: 0 }} exit={{ y: '110%' }} transition={{ type: 'spring', visualDuration: 0.35, bounce: 0.2 }}>
+        <ol>
+          {count > 0 && <li><motion.button key={count} type="button" aria-current="step" onClick={onOpen}
+            initial={{ scale: 0.92 }} animate={{ scale: 1 }} transition={{ type: 'spring', visualDuration: 0.25, bounce: 0.45 }}>
+            {chosenLabel(count)}
+          </motion.button></li>}
+          {progress && <li><button type="button" onClick={onOpen} className="tabular-nums">{progress.label} {progress.percent}%</button></li>}
+        </ol>
+      </motion.nav>}
+    </AnimatePresence>
   </MotionConfig>;
 }
 
-/** The cart, full screen over a slightly see-through backdrop: every liked creative for this song and clip in rows, what it costs and one place to get them. */
+/** The chosen videos, full screen over a slightly see-through backdrop: every one for this song and clip in rows, what they cost and one place to make them. */
 export function CartPanel({ lines, progress, action, onClose, onRemove }: {
   lines: CartLine[];
   progress: DownloadProgress | null;
@@ -66,29 +61,28 @@ export function CartPanel({ lines, progress, action, onClose, onRemove }: {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  return <motion.aside className="fixed inset-0 z-10 overflow-y-auto bg-background/90 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Your cart"
+  return <motion.aside className="fixed inset-0 z-10 overflow-y-auto bg-background/90 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Your chosen videos"
     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
     <div className="mx-auto flex min-h-full w-full max-w-[914px] flex-col gap-6 px-6 py-8">
-      <div className="flex items-center justify-between">
-        <h2 className="m-0 text-lg font-semibold">Your cart</h2>
+      <div className="flex items-center justify-end">
         <Button ref={close} variant="secondary" onClick={onClose}>Close</Button>
       </div>
       {lines.length === 0
-        ? <EmptyState>Add the creatives you like. They stay here, for this song and clip, while you refresh for more.</EmptyState>
+        ? <EmptyState>Choose the creatives you like. They stay here, for this song and clip, while you refresh for more.</EmptyState>
         : <ul className="m-0 grid list-none grid-cols-4 gap-4 p-0">
           {lines.map(({ item, title, available }) => <li key={item.id} className="flex flex-col gap-2">
             <div className="relative aspect-[9/16] overflow-hidden rounded-[var(--radius)] bg-muted">
               {available
                 ? <img className="size-full object-cover" src={item.thumb} alt="" />
                 : <p className="m-0 grid size-full place-items-center p-4 text-center text-sm text-muted-foreground">The picture it used is no longer available.</p>}
-              <RemoveBadge label={`Remove ${title} from your cart`} disabled={busy} onClick={() => onRemove(item.id)} />
+              <RemoveBadge label={`Remove ${title}`} disabled={busy} onClick={() => onRemove(item.id)} />
             </div>
             <span className="text-sm text-muted-foreground">{title}</span>
           </li>)}
         </ul>}
-      {progress && <RenderProgress progress={progress} note="This can take a few minutes. You can close this panel and keep creating." />}
+      {progress && <RenderProgress progress={progress} note="This can take a few minutes. You can close this and keep creating." />}
       {lines.length > 0 && <div className="mt-auto flex flex-col gap-3 pt-2">
-        <p className="m-0 flex justify-between text-sm"><span>Total</span><strong>{ready.length} {ready.length === 1 ? 'token' : 'tokens'}</strong></p>
+        <p className="m-0 flex justify-between text-sm"><span>Total</span><strong>{ready.length} {ready.length === 1 ? 'credit' : 'credits'}</strong></p>
         {action.kind === 'download' && <>
           <Button disabled={busy || ready.length === 0} onClick={action.run}>
             Make {ready.length === 1 ? 'video' : `${ready.length} videos`}

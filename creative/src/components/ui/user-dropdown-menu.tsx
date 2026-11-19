@@ -35,7 +35,7 @@ const itemClass = "cursor-pointer gap-2 p-2 text-sm font-medium text-popover-for
 
 /**
  * 21st.dev "User Profile Dropdown Menu" (shadcnspace), adapted: the trigger is a black disc ringed in green, the menu
- * opens upwards because the trigger sits at the bottom left, and the header shows the signed-in email.
+ * opens downwards from the top right, and the header shows the signed-in email.
  */
 export function UserDropdownMenu({ email, groups, onSignOut }: Props) {
   return (
@@ -49,8 +49,8 @@ export function UserDropdownMenu({ email, groups, onSignOut }: Props) {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        side="top"
-        align="start"
+        side="bottom"
+        align="end"
         sideOffset={12}
         className="w-64 rounded-2xl border-0 shadow-2xl shadow-black/60"
       >
