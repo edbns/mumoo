@@ -51,14 +51,13 @@ export function ChosenBar({ count, progress, onOpen }: { count: number; progress
     <AnimatePresence>
       {(count > 0 || progress) && <motion.nav key="chosen" className="step-nav chosen-bar" aria-label="Chosen videos"
         initial={{ y: '110%' }} animate={{ y: 0 }} exit={{ y: '110%' }} transition={{ type: 'spring', visualDuration: 0.35, bounce: 0.2 }}>
+        <span aria-hidden="true" className="chosen-bar-dot" />
         <ol>
           {count > 0 && <li><motion.button key={count} type="button" aria-current="step" onClick={onOpen}
             initial={{ scale: 0.92 }} animate={{ scale: 1 }} transition={{ type: 'spring', visualDuration: 0.25, bounce: 0.45 }}>
             {chosenLabel(count)}
           </motion.button></li>}
-          {progress && <li><button type="button" onClick={onOpen} className="tabular-nums">
-            <span aria-hidden="true" className="chosen-bar-dot" />{progress.label} {progress.percent}%
-          </button></li>}
+          {progress && <li><button type="button" onClick={onOpen} className="tabular-nums">{progress.label} {progress.percent}%</button></li>}
         </ol>
       </motion.nav>}
     </AnimatePresence>

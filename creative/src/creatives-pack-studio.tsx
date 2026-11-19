@@ -33,7 +33,6 @@ import { useLibrary } from './use-library';
 import { dealSeed, rememberSeen, seenLibrary } from './library-seen';
 import { clockNow } from './pack-screenshot';
 import type { LibraryPicture } from './library-pick';
-import { IS_ALIGNMENT_STAGING } from './staging-alignment';
 import { askToBuyCredits, askToChooseFewer, creditsChanged, videosLeft } from './credit-events';
 
 function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
@@ -152,6 +151,7 @@ export function CreativesPackStudio({
   position: number;
   getPosition?: () => number;
   playing: boolean;
+  /** Kept out of sight: what went wrong is written to the console, never over the creatives. */
   playbackError: string;
   /** The cart and the download live in the app, so they are the same on every page. */
   cart: Cart;
@@ -172,6 +172,8 @@ export function CreativesPackStudio({
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [fontReady, setFontReady] = useState(false);
   const [error, setError] = useState('');
+  useEffect(() => { if (error) console.warn('[creatives]', error); }, [error]);
+  useEffect(() => { if (playbackError) console.warn('[creatives] playback', playbackError); }, [playbackError]);
   /** One Refresh for the whole shelf deals every template again. */
   const [controls, setControls] = useState(FRESH_ROWS);
   /** One Lyrics switch for the whole shelf: off, the templates made of the lyrics leave it and none of the rest shows words. */
@@ -579,13 +581,7 @@ export function CreativesPackStudio({
   useEffect(() => () => { downloadRef.current = null; }, []);
 
   return <main className="desktop trim flex-1 content-start">
-    {!token && !IS_ALIGNMENT_STAGING && <p role="alert">Staging access is unavailable.</p>}
-    {profile.lyricMeaning?.status === 'error' && <p className="hint">Couldn’t read the lyrics, so these match the sound only.</p>}
-    {error && <p role="alert">{error}</p>}
-    {playbackError && <p role="alert">{playbackError}</p>}
-    {cart.full && <p role="status" className="hint">You can pick up to {CART_LIMIT} videos. Remove one to add another.</p>}
-    <p className="hint text-center">This is just a preview. Downloads are HD.</p>
-    {noLyrics && <p className="hint text-center">No lyrics, so no lyric style on these.</p>}
+    {cart.full && <p role="status" className="hint text-center">You can pick up to {CART_LIMIT} videos. Remove one to add another.</p>}
     <div className="flex flex-wrap items-center justify-end gap-3 rounded-[var(--radius-panel)] bg-background p-5">
       {!noLyrics && <label className="lyrics-switch">
         <input type="checkbox" role="switch" checked={lyricsSwitch} onChange={event => { stopPlayback(); setLyricsSwitch(event.target.checked); }} />
@@ -595,6 +591,7 @@ export function CreativesPackStudio({
       <PictureUpload uploads={uploads} token={token} onChange={stopPlayback} />
       <Button className="shimmer" disabled={!allReady} onClick={refreshShelf} aria-label="Refresh all creatives">Refresh</Button>
     </div>
+    <p className="hint text-center">This is just a preview. Downloads are HD.</p>
     <UploadProgress uploads={uploads} />
     {ownKind && uploads.batchPercent === null && <p className="hint text-center">{ownPool
       ? (ownKind === 'motion' ? `Your ${ownPool.length} videos or GIFs get shared across templates that can use them. Dust and Depth need a photo.` : `Your ${ownPool.length} pictures get shared across templates that use photos.`)

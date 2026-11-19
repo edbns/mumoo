@@ -92,7 +92,8 @@ test('Create goes straight to Media, where the bottom bar blinks beside the perc
   assert.match(read('cart-panel.tsx'), /className="chosen-bar-dot"/);
   const css = read('styles/shell.css');
   assert.match(css, /\.masthead-actions\.scrolls \{ position: absolute; \}/);
-  assert.match(css, /prefers-reduced-motion: reduce\) \{ \.chosen-bar-dot \{ animation: none; \}/);
+  assert.match(css, /prefers-reduced-motion: reduce\) \{ \.chosen-bar-dot, \.chosen-bar-dot::after \{ animation: none; \}/);
+  assert.match(css, /\.chosen-bar \{ position: fixed; z-index: 15;/);
 });
 
 test('the upload popup has no title or long text, only a small line under Select files', () => {
@@ -104,9 +105,17 @@ test('the upload popup has no title or long text, only a small line under Select
   assert.doesNotMatch(read('analyzing-screen.tsx'), /minute or two/);
 });
 
-test('while videos are made the bottom bar shows a blinking dot and the percentage, and nothing else', () => {
-  const bar = progress => renderToStaticMarkup(createElement(panel.ChosenBar, { count: 0, progress, onOpen: () => {} }));
-  const making = bar({ label: 'Making your videos', percent: 42 });
-  assert.match(making, /<span aria-hidden="true" class="chosen-bar-dot"><\/span>Making your videos 42%/);
-  assert.doesNotMatch(bar(null), /chosen-bar-dot/);
+test('the bottom bar has its blinking dot whenever it shows: while choosing and while the videos are made', () => {
+  const bar = (count, progress) => renderToStaticMarkup(createElement(panel.ChosenBar, { count, progress, onOpen: () => {} }));
+  assert.match(bar(2, null), /class="chosen-bar-dot"/);
+  const making = bar(0, { label: 'Making your videos', percent: 42 });
+  assert.match(making, /class="chosen-bar-dot"/);
+  assert.match(making, />Making your videos 42%</);
+  assert.equal(bar(0, null), '');
+});
+
+test('the creatives page shows no error text above the creatives, and the preview line sits under Lyrics and Refresh', () => {
+  const studio = readFileSync(new URL('../src/creatives-pack-studio.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(studio, /\{error && <p|\{playbackError && <p|no lyric style|Staging access is unavailable/);
+  assert.match(studio, /aria-label="Refresh all creatives">Refresh<\/Button>\n    <\/div>\n    <p className="hint text-center">This is just a preview\. Downloads are HD\.<\/p>/);
 });
