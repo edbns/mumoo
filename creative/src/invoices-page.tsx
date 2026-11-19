@@ -67,7 +67,7 @@ export default function InvoicesPage() {
           <span className="w-20 text-right text-sm font-medium tabular-nums">{money(invoice.amount, invoice.currency)}</span>
           <button type="button" onClick={() => openInvoice(invoice.id).catch(cause => setError((cause as Error).message))}
             aria-label={`Download invoice ${invoice.number}`}
-            className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-secondary text-secondary-foreground outline-ring transition-colors hover:bg-secondary/70 focus-visible:outline-2">
+            className="flex size-8 shrink-0 cursor-pointer items-center p-0 justify-center rounded-full bg-secondary text-secondary-foreground outline-ring transition-colors hover:bg-secondary/70 focus-visible:outline-2">
             <DownloadIcon aria-hidden="true" className="size-4" />
           </button>
         </li>)}

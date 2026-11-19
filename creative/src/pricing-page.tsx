@@ -1,9 +1,12 @@
 import { CheckIcon } from 'lucide-react';
+import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { CREDIT_PACKS, perVideo } from './credit-packs';
+import { sessionToken } from './account';
+import { CREDIT_PACKS, perVideo, type CreditPack } from './credit-packs';
 import { LegalCorner } from './legal-corner';
+import { checkout } from './purchase-credits';
 import '@fontsource-variable/inter';
 import './styles/index.css';
 
@@ -24,8 +27,24 @@ const QUESTIONS = [
   { q: 'Can I get a refund?', a: 'Credits are non-refundable, except where the law requires it, for example a render that fails and that we cannot fix.' },
 ];
 
-/** /pricing: what MUMOO costs, for anyone, before they sign in. Buying goes to the app, which asks them to sign in first. */
+/**
+ * /pricing: what MUMOO costs, for anyone, before they sign in. Signed in, Buy opens Polar's checkout straight away; signed out it
+ * goes to the app, which asks them to sign in and then opens the checkout.
+ */
 function PricingPage() {
+  const [opening, setOpening] = useState<number | null>(null);
+  const [note, setNote] = useState('');
+  const buy = async (pack: CreditPack) => {
+    setNote('');
+    setOpening(pack.usd);
+    try {
+      if (!await sessionToken().catch(() => null)) { location.assign(`/?buy=${pack.usd}`); return; }
+      await checkout(pack);
+    } catch (cause) {
+      setOpening(null);
+      setNote((cause as Error).message);
+    }
+  };
   return <div className="flex flex-1 flex-col text-foreground">
     <header className="flex items-center justify-between px-6 pt-6 pb-4">
       <a href="/" aria-label="MUMOO"><img src="/brand/mumoo-logo.png" alt="MUMOO" className="h-5" /></a>
@@ -51,11 +70,12 @@ function PricingPage() {
             <span className="text-sm text-muted-foreground">{perVideo(pack)} a video</span>
           </div>
           <Button variant={pack.popular ? 'default' : 'secondary'} className="mt-auto w-full rounded-full"
-            onClick={() => location.assign(`/?buy=${pack.usd}`)}>
-            Buy {pack.videos.toLocaleString()} videos
+            disabled={opening !== null} aria-busy={opening === pack.usd} onClick={() => void buy(pack)}>
+            {opening === pack.usd ? 'Opening checkout…' : `Buy ${pack.videos.toLocaleString()} videos`}
           </Button>
         </div>)}
         </div>
+        {note && <p role="alert" className="m-0 text-center text-sm text-destructive">{note}</p>}
         <p className="m-0 text-center text-xs text-muted-foreground">Prices in US dollars. Tax is added at checkout where it applies.</p>
       </div>
 

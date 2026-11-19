@@ -58,3 +58,14 @@ export function storageAlmostFull(used, quota, siteUrl) {
     `When it is full, new creatives and uploads cannot be saved. Sign in at ${siteUrl}, open History, download what you want to keep, then delete it to make room.`,
   ]);
 }
+
+/** After a pack is paid for: what it added and where the invoice is. `paid` is the amount as the person reads it ("$20.00"). */
+export function creditsAdded(videos, credits, paid, siteUrl) {
+  return letter(`Your ${videos} mumoo videos are ready`, [
+    `Thank you. ${videos} video credits are now in your mumoo account: one credit makes one video, and they never expire.`,
+    '',
+    `You paid ${paid}. You now have ${credits} ${credits === 1 ? 'credit' : 'credits'}.`,
+    '',
+    `Your invoice is in Invoices: ${siteUrl}/invoices. The payment was taken by Polar, our payment partner, so it shows as Polar on your statement.`,
+  ]);
+}

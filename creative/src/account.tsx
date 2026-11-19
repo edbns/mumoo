@@ -54,8 +54,8 @@ async function loadCredits() {
 const creditsLabel = (credits: number) => `${credits.toLocaleString()} ${credits === 1 ? 'credit' : 'credits'}`;
 
 /**
- * What the address asks the account corner to do, taken once and removed from it: `?buy=20` (a pack on the pricing page) opens
- * Purchase Credits on that pack, `?checkout_id=…` (Polar bringing the person back after paying) shows the credits arriving.
+ * What the address asks the account corner to do, taken once and removed from it: `?buy=20` (a pack on the pricing page, signed
+ * out) opens that pack's checkout once the person has signed in, `?checkout_id=…` (Polar bringing the person back after paying) shows the credits arriving.
  */
 let purchaseRequest: { buy?: number; checkoutId?: string } | null | undefined;
 function takePurchaseRequest() {
@@ -255,7 +255,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
       <UserDropdownMenu email={user.email} groups={groups} onSignOut={() => { void authClient.signOut(); onNavigate('create'); }} />
     </div>}
     <PurchaseCredits open={buying} onClose={() => { setBuying(false); setPurchase(null); }}
-      initial={purchase?.buy} checkoutId={purchase?.checkoutId} onCredits={setCredits} />
+      initial={purchase?.buy} autoBuy={Boolean(purchase?.buy)} checkoutId={purchase?.checkoutId} onCredits={setCredits} />
     {/* One popup for both states, so the welcome after signing in is not cut short when the button changes. */}
     <SignInDialog open={open} onClose={closeSignIn} onSendCode={sendCode} onCheckCode={checkCode} reason={reason}
       onGoogle={async () => { await signInWithGoogle(); signedInHere.current = true; await session.refetch(); }} />

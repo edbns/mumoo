@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { QUOTA_BYTES } from '../netlify/lib/allowance.mjs';
-import { accountDeleted, emailChangeCode, inactivityReminder, signInCode, storageAlmostFull } from '../netlify/lib/letters.mjs';
+import { accountDeleted, creditsAdded, emailChangeCode, inactivityReminder, signInCode, storageAlmostFull } from '../netlify/lib/letters.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import { warnFullStorage } from '../netlify/lib/storage-warning.mjs';
 
@@ -17,6 +17,7 @@ const LETTERS = {
   'inactivity, early': inactivityReminder(60, 90, SITE),
   'inactivity, late': inactivityReminder(83, 90, SITE),
   'storage almost full': storageAlmostFull(4.6e9, QUOTA_BYTES, SITE),
+  'credits added': creditsAdded(100, 120, '$20.00', SITE),
 };
 
 test('every letter is from mumoo in lowercase, never says app, and shows no address or name', () => {
@@ -27,6 +28,13 @@ test('every letter is from mumoo in lowercase, never says app, and shows no addr
     assert.doesNotMatch(all, /@|\bHi\b|\bDear\b/, `${name} greets nobody and shows no address`);
     assert.match(text, /\nmumoo$/, `${name} is signed mumoo`);
   }
+});
+
+test('the receipt says what was added and paid, and where the invoice is', () => {
+  const { subject, text } = LETTERS['credits added'];
+  assert.equal(subject, 'Your 100 mumoo videos are ready');
+  assert.match(text, /You paid \$20\.00\. You now have 120 credits\./);
+  assert.match(text, /https:\/\/mumoo-staging\.netlify\.app\/invoices/);
 });
 
 test('a code is in the subject', () => {
