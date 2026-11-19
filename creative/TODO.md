@@ -23,6 +23,7 @@ Still to do:
 - Shows in the admin dashboard.
 
 ## 3. Payments (last)
+- Done: cost analysis (19 Nov, measured on Modal staging 12–19 Nov). Rendering one 15 s video costs about 3.6¢ (10 parallel pieces of 4 CPU, about 45 s). Reading a song with lyrics costs about 7¢, mostly the lyric meaning A10G sitting 120 s idle after each song (with 20 s idle: about 3¢). A downloaded video costs 4–11¢ in all, depending on how many videos share its song. Lemon Squeezy keeps 5% + 50¢ + 1.5% outside the US, and a payout to a non-US bank costs 1%, so we keep $4.13 / $8.76 / $13.39 of the $5 / $10 / $15 packs. Fixed costs are about $12–58 a month: Netlify, Resend, Neon, R2 and the domain; Modal Starter's $30 of free use covers its share. Proposal: 1 video = 10 tokens, so the packs give 5 / 11 / 18 videos at an 86–92% margin; the first video stays free (about 11¢ each); referral gives 20 tokens to each side when the friend buys (at most 42¢). To do before launch: lower the lyric meaning `scaledown_window` from 120 to about 20 s; Resend Pro once sign-ins pass 100 a day; decide whether signed-out visitors may read songs (7¢ each with no download).
 - Lemon Squeezy: the Purchase Credits popup (5 / 10 / 15 USD) goes to checkout.
 - Decide the real number of tokens in each pack (now placeholders: 50 / 110 / 180).
 - A webhook adds the tokens and writes the invoice; the real `/api/invoices` and the token balance come from it.
