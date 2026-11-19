@@ -79,6 +79,20 @@ test('each treatment deals four variants, deterministic from the seed, and never
   }
 });
 
+test('Screenshot always opens on Full screen (light chat, no phone, no background), whatever the song, hand or Learning', () => {
+  const kept = { kept: 50, downloaded: 50, shown: 60 };
+  const learning = { cards: { screenshot: { 'dark-white': kept, 'light-black': kept, 'light-white': kept } } };
+  for (let generation = 0; generation < 12; generation++) {
+    for (const sha of ['a'.repeat(64), 'c'.repeat(64), 'd'.repeat(64)]) {
+      for (const deal of [{}, { seed: `s${generation}` }]) {
+        const row = pack.recommendRow('screenshot', profile(sha), generation, [], LIBRARY, false, learning, deal);
+        assert.equal(row[0].treatmentVariant, 'screen', `${sha.slice(0, 1)} ${generation}`);
+        assert.equal(new Set(row.map(slot => slot.treatmentVariant)).size, 4);
+      }
+    }
+  }
+});
+
 test('treatments never change the Director\'s plan: same assets, music and cut seed yield the same segments', () => {
   const assets = [
     { kind: 'photo' },

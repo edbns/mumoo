@@ -134,6 +134,9 @@ export const TREATMENTS: readonly TreatmentDef[] = [
   },
 ];
 
+/** The variant a row always opens on, whatever the hand or Learning: the look the artist chose as the template's own. */
+export const TREATMENT_LEAD: Partial<Record<TreatmentId, string>> = { screenshot: 'screen' };
+
 const BY_ID = new Map(TREATMENTS.map(entry => [entry.id, entry]));
 
 export const treatmentTitle = (id: TreatmentId) => BY_ID.get(id)!.title;
@@ -155,6 +158,7 @@ function hashPick(seed: string, salt: string, modulo: number) {
  */
 export function dealTreatments(_lane: MoodLane, seed: string, count: number, kind: TreatmentId): string[] {
   const variants = [...treatmentVariants(kind)];
-  const ordered = variants.sort((a, b) => hashPick(seed, a.id, 99991) - hashPick(seed, b.id, 99991));
+  const lead = TREATMENT_LEAD[kind];
+  const ordered = variants.sort((a, b) => Number(b.id === lead) - Number(a.id === lead) || hashPick(seed, a.id, 99991) - hashPick(seed, b.id, 99991));
   return Array.from({ length: count }, (_, index) => ordered[index % ordered.length].id);
 }

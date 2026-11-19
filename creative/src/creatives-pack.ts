@@ -28,6 +28,7 @@ import {
   dealTreatments,
   isTreatmentId,
   TREATMENT_IDS,
+  TREATMENT_LEAD,
   treatmentTitle,
   treatmentVariants,
   type TreatmentId,
@@ -545,7 +546,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   });
   const grade = moodGrade(meaning);
   const graded = grade && !UNGRADED.includes(row) ? coloured.map(slot => ({ ...slot, grade })) : coloured;
-  return learnedLead(graded, cardsInLane(learning, lane, row), seed);
+  return isTreatmentId(row) && TREATMENT_LEAD[row] ? graded : learnedLead(graded, cardsInLane(learning, lane, row), seed);
 }
 
 /** What people did with each kind of card of `row`, for songs in `lane` first. */
