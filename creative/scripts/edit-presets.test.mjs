@@ -226,6 +226,39 @@ test('Gritty Mono shakes on bass hits, and is black and white', () => {
   assert.equal(still.look.mono, 1);
 });
 
+test('Club Pulse and Y2K pulse the lens on a bass hit, at most three times a second; the calmer presets never do', () => {
+  assert.ok(motion.presetFrame('strobe', 'neon-white', moment(BARS[1] + 20)).pulse > 0.4);
+  assert.ok(motion.presetFrame('y2k', 'whip', moment(BARS[1] + 20)).pulse > 0.4);
+  assert.equal(motion.presetFrame('strobe', 'neon-white', moment(BARS[1] + 400)).pulse, 0);
+  for (const id of ['kodak', 'vhs', 'dreamy', 'mono']) {
+    const take = presets.presetDef(id).takes[0];
+    assert.equal(motion.presetFrame(id, take, moment(BARS[1] + 20)).pulse, 0, id);
+  }
+  // Bass every 100 ms: a pulse starts only every third of a second.
+  const fast = Array.from({ length: 30 }, (_, i) => i * 100);
+  assert.deepEqual(motion.spaced(fast, 1000 / 3).slice(0, 4), [0, 400, 800, 1200]);
+  const pulsing = Array.from({ length: 300 }, (_, i) => motion.presetFrame('strobe', 'neon-white', moment(i * 10, { music: { ...MUSIC, heavyMs: fast } })).pulse);
+  const starts = pulsing.filter((value, i) => value > 0 && !(pulsing[i - 1] > 0)).length;
+  assert.ok(starts <= 9, `${starts} pulses in three seconds`);
+});
+
+test('Club Pulse and Y2K ramp the clip: fast in on the cut, slow into the next one; the others play it straight', () => {
+  for (const id of ['strobe', 'y2k']) {
+    const segments = plan(id).filter(segment => ASSETS[segment.asset].kind === 'clip');
+    assert.ok(segments.length && segments.every(segment => segment.ramp), id);
+  }
+  for (const id of ['kodak', 'vhs', 'dreamy', 'mono']) assert.ok(plan(id).every(segment => !segment.ramp), id);
+  const speed = (t, length) => (director.rampedMs(t + 10, length) - director.rampedMs(t, length)) / 10;
+  assert.ok(Math.abs(speed(20, 1000) - director.RAMP_FAST) < 1e-9, 'snaps in fast on the hit');
+  assert.ok(Math.abs(speed(500, 1000) - 1) < 1e-9, 'plays at speed in between');
+  assert.ok(Math.abs(speed(950, 1000) - director.RAMP_SLOW) < 1e-9, 'slows into the next cut');
+  // Continuous: no jump in the picture where the speed changes; a short cut keeps the shape.
+  for (const length of [300, 1000]) for (let t = 1; t < length; t += 1) assert.ok(director.rampedMs(t, length) > director.rampedMs(t - 1, length));
+  const segment = { atMs: 1000, endMs: 2000, asset: 0, startMs: 0, pieceEndMs: 5000, fromMs: 0, zoom: [1, 1], ramp: true };
+  assert.equal(director.clipMsAt(segment, 1100), 100 * director.RAMP_FAST);
+  assert.equal(director.clipMsAt({ ...segment, ramp: undefined }, 1100), 100);
+});
+
 test('a moment is drawn the same every time (preview and cloud agree)', () => {
   for (const def of presets.PRESETS) for (const take of def.takes) {
     assert.deepEqual(motion.presetFrame(def.id, take, moment(5123)), motion.presetFrame(def.id, take, moment(5123)), `${def.id}/${take}`);
