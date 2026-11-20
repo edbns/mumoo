@@ -1,3 +1,4 @@
+import { PauseIcon, PlayIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   LYRIC_LANGUAGES, MAX_LYRIC_WORDS, clipToWav16k, groupLines, languageName,
@@ -171,7 +172,7 @@ export function LyricsStudio({
         <strong>{label}</strong>
         <small>{elapsed > 25 ? 'Warming up — first time takes a little longer.' : 'Usually about 15 seconds.'}</small>
       </div>
-      <button className="link-button" onClick={cancel}>Cancel</button>
+      <button type="button" className="link-button" onClick={cancel}>Cancel</button>
     </div>}
 
     {phase === 'edit' && <>
@@ -180,19 +181,21 @@ export function LyricsStudio({
         value={text} onChange={event => { setText(event.target.value); setError(''); }} spellCheck={false} />
       <div className="lyrics-editor-bar">
         <span className={dirty ? 'dirty' : ''}>{dirty ? 'Edited — sync again to update the timing.' : `${words.length} words timed`}</span>
-        <button className={dirty ? 'primary-accent' : 'secondary'} disabled={!dirty} onClick={() => void start('sync')}>Sync again</button>
+        <Button variant={dirty ? 'default' : 'secondary'} disabled={!dirty} onClick={() => void start('sync')}>Sync again</Button>
       </div>
       <details className="lyrics-more">
         <summary>Wrong language?</summary>
         <div className="lyrics-more-body">
           {languageSelect(false)}
-          <button className="secondary" onClick={() => void start('transcribe')}>Listen again (replaces your edits)</button>
+          <Button variant="secondary" onClick={() => void start('transcribe')}>Listen again (replaces your edits)</Button>
         </div>
       </details>
 
       <div className="lyrics-preview" aria-label="Lyrics timing preview">
         <div className="lyrics-preview-bar">
-          <button className="round-play" onClick={onPlay} aria-label={playing ? 'Pause' : 'Play the 15 seconds'}>{playing ? '❚❚' : '▶'}</button>
+          <button type="button" className="round-play" onClick={onPlay} aria-label={playing ? 'Pause' : 'Play the 15 seconds'}>
+            {playing ? <PauseIcon aria-hidden="true" className="size-4 fill-current" /> : <PlayIcon aria-hidden="true" className="size-4 fill-current" />}
+          </button>
           <span>{clock(position)} / 0:15</span>
         </div>
         <div className={dirty ? 'lyrics-lines stale' : 'lyrics-lines'}>

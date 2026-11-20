@@ -113,7 +113,7 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
         </ul>}
       {lines.length > 0 && <div className="mt-auto flex flex-col gap-3 pt-2">
         <p className="m-0 flex justify-between text-sm"><span>Total</span><strong>{ready.length} {ready.length === 1 ? 'credit' : 'credits'}</strong></p>
-        {limit && excess > 0 && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-3 text-sm text-foreground">
+        {limit && excess > 0 && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-primary/10 px-4 py-3 text-sm text-foreground">
           {limit.free ? 'You can make 1 video free.' : `You have ${limit.have} ${limit.have === 1 ? 'credit' : 'credits'}.`} Take
           out {videos(excess)} with the × so only {limit.have} {limit.have === 1 ? 'is' : 'are'} left, then make {limit.have === 1 ? 'it' : 'them'}.
         </p>}

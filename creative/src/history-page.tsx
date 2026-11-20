@@ -1,4 +1,4 @@
-import { CheckIcon, DownloadIcon, PlayIcon } from 'lucide-react';
+import { CheckIcon, DownloadIcon, PlayIcon, Trash2Icon } from 'lucide-react';
 import { MotionConfig, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ui/action-dialog';
@@ -31,6 +31,17 @@ function save(url: string) {
   link.href = url;
   link.download = '';
   link.click();
+}
+
+/** How much of the account's room is used, as a short line and a thin bar. */
+function StorageMeter({ used, quota }: { used: number; quota: number }) {
+  const share = quota > 0 ? Math.min(1, used / quota) : 0;
+  return <div className="flex items-center gap-3 text-sm text-muted-foreground" role="status">
+    <span>{size(used)} of {size(quota)} used</span>
+    <span aria-hidden="true" className="h-1.5 w-24 overflow-hidden rounded-full bg-secondary">
+      <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(2, share * 100)}%` }} />
+    </span>
+  </div>;
 }
 
 function size(bytes: number) {
@@ -138,9 +149,6 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
   }
 
   return <AccountColumn wide>
-    <div className="flex min-h-5 justify-end">
-      {storage && <p className="m-0 text-sm text-muted-foreground">{size(Math.max(0, storage.quota - storage.used))} remaining space from {size(storage.quota)}</p>}
-    </div>
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
 
     {items?.length === 0 && <EmptyState>
@@ -148,17 +156,16 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
     </EmptyState>}
 
     {items && items.length > 0 && <div className="sticky top-4 z-10 flex min-h-12 items-center justify-between gap-3 rounded-full bg-background/80 px-5 py-1.5 backdrop-blur-md">
-      <button type="button" className="cursor-pointer bg-transparent p-0 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
-        onClick={() => setSelected(chosen.length === items.length ? new Set() : new Set(items.map(item => item.id)))}>
+      <Button variant="secondary" onClick={() => setSelected(chosen.length === items.length ? new Set() : new Set(items.map(item => item.id)))}>
         {chosen.length === items.length ? 'Clear selection' : 'Select all'}
-      </button>
-      <div className="flex items-center gap-3">
-        {chosen.length > 0 && <span className="text-sm text-muted-foreground" role="status">{chosen.length} selected</span>}
+      </Button>
+      {chosen.length === 0 ? storage && <StorageMeter used={storage.used} quota={storage.quota} /> : <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground" role="status">{chosen.length} selected</span>
         <Button variant="secondary" disabled={busy || chosen.length === 0 || chosen.every(item => !item.download) || (chosen.length > 1 && chosenBytes > ZIP_LIMIT)}
           title={chosen.length > 1 && chosenBytes > ZIP_LIMIT ? 'Too many to zip at once. Download one by one.' : undefined}
-          onClick={() => void downloadChosen()}>Download</Button>
-        <Button variant="destructive" disabled={busy || chosen.length === 0} onClick={() => setConfirming(true)}>Delete</Button>
-      </div>
+          onClick={() => void downloadChosen()}><DownloadIcon aria-hidden="true" />Download</Button>
+        <Button variant="destructive" disabled={busy} onClick={() => setConfirming(true)}><Trash2Icon aria-hidden="true" />Delete</Button>
+      </div>}
     </div>}
 
     {items === null && !error && <div aria-hidden="true" className="min-h-12" />}
@@ -171,7 +178,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
         {items.slice(0, shown).map(item => {
           const on = selected.has(item.id);
           return <li key={item.id}
-            className={cn('relative aspect-[9/16] overflow-hidden rounded-[var(--radius)] bg-muted transition-shadow duration-200', on && 'shadow-[0_0_0_2px_var(--primary)]')}>
+            className={cn('group relative aspect-[9/16] overflow-hidden rounded-[var(--radius)] bg-muted transition-shadow duration-200', on && 'shadow-[0_0_0_2px_var(--primary)]')}>
             {(item.video || item.picture) && <LazyMedia video={item.video} picture={item.picture} />}
             {item.note && <p className="m-0 grid size-full place-items-center p-3 text-center text-sm text-muted-foreground">{item.note}</p>}
             <button type="button" aria-pressed={on} aria-label={`${on ? 'Selected' : 'Select'} ${noun} from ${day(item.createdAt)}`} onClick={() => toggle(item.id)}
@@ -185,7 +192,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
               <PlayIcon aria-hidden="true" className="ml-0.5 size-5 fill-current" />
             </button>}
             {item.download && <a href={item.download} download="" aria-label={`Download ${noun} from ${day(item.createdAt)}`}
-              className="absolute top-2 right-2 z-10 flex size-8 items-center justify-center rounded-full bg-black/60 text-white outline-ring transition-colors hover:bg-black/80 focus-visible:outline-2">
+              className="absolute top-2 right-2 z-10 flex size-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 outline-ring transition-[opacity,background-color] group-hover:opacity-100 hover:bg-black/80 focus-visible:opacity-100 focus-visible:outline-2">
               <DownloadIcon aria-hidden="true" className="size-4" />
             </a>}
           </li>;

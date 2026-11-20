@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ArrowLeftIcon, PencilIcon } from 'lucide-react';
-import { CopyButton, Cover, OpenButton, iconButton } from './smart-link-parts';
+import { CopyButton, Cover, OpenButton, iconButton, textButton } from './smart-link-parts';
 import { LABELS, addressOf, linkStats, type LinkStats, type Published, type Service, type Tally } from './smart-links';
 
 const RANGES = [{ days: 7, label: '7 days' }, { days: 30, label: '30 days' }, { days: 90, label: '90 days' }, { days: 0, label: 'All time' }] as const;
@@ -146,7 +146,7 @@ function Breakdown({ title, rows, metric, label, note }: {
       </li>)}
     </ol>}
     {counted.length > SHOWN_ROWS && <button type="button" onClick={() => setAll(!all)}
-      className="cursor-pointer self-start bg-transparent p-0 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
+      className={`${textButton} self-start`}>
       {all ? 'Show fewer' : `Show all ${counted.length}`}
     </button>}
   </Panel>;

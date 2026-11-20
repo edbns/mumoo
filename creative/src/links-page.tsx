@@ -90,8 +90,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
     event.preventDefault();
     const url = asLink(draft.url);
     if (url) lookUp('find', url);
-    else if (found.results?.[0]) setError('Pick your song from the list.');
-    else if (typedName.length < 2) setError('Type your song’s name or paste its link.');
+    else if (!found.results?.[0] && typedName.length < 2) setError('Type your song’s name or paste its link.');
   }
 
   function edit(fields: Partial<LinkFields>) {

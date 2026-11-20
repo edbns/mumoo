@@ -1,0 +1,39 @@
+---
+description: MUMOO UI standards (buttons, corners, focus, layout) so every page, modal and component looks like one product
+globs: creative/src/**/*.tsx,creative/src/**/*.css
+alwaysApply: false
+---
+
+# MUMOO UI standards
+
+Keep the look; make the pieces the same. Never restyle the brand (black layer, green `--primary`, orange `--destructive`, Inter) to fix one screen.
+
+## Tokens, not one-off values
+- Panels, cards, pop-ups, menus: `rounded-[var(--radius-panel)]` (12px). Buttons and fields: `rounded-[var(--radius-control)]`. Thumbnails: `rounded-[var(--radius)]`. Only chips, avatars, badges and round icon buttons are `rounded-full`.
+- Heights: `h-[var(--control-height-md)]` (44px) for fields and main buttons, `size="sm"` (32px) for small actions. No `h-12` or pill buttons.
+- Colours from the theme only (`bg-background`, `bg-card`, `bg-muted`, `bg-secondary`, `text-muted-foreground`, `primary`, `destructive`). No hex values in components.
+- Focus: the soft `var(--focus-ring)` (2px). Inside a scroll box use an inset shadow, `focus-visible:shadow-[inset_0_0_0_2px_var(--focus-ring)]`, so it isn't clipped.
+- Pop-ups and menus: `bg-muted`, no border, `shadow-[0_28px_56px_-24px_#000]`.
+- Fields: import `FIELD` / `POPUP_FIELD` from `@/components/ui/field`. Don't copy the class string.
+
+## Buttons
+- An action is always a `<Button>`, never underlined text. Underlines are only for links inside a sentence (Terms, Cookie policy).
+```tsx
+// ❌ <button className="bg-transparent p-0 underline">Start again</button>
+// ✅ <Button variant="secondary" size="sm">Start again</Button>   (or the `textButton` class from smart-link-parts)
+```
+- One `default` (green) button per area, for the main next step. Everything else is `secondary`.
+- Deleting: `variant="destructive"` with `<Trash2Icon aria-hidden="true" />`, always confirmed in an `ActionDialog destructive`. For an account, the person types their email.
+- Icons in buttons are Lucide (no text glyphs like ▶ or ❚❚). Button sizes them to 16px.
+- Show an action only when it can happen: e.g. Download and Delete appear once something is selected, instead of sitting there disabled.
+
+## Layout
+- In a two-column row, boxes keep their own height (`items-start`). One side growing (the phone QR, a hint) must not stretch the other.
+- A single-step screen is centred top to bottom (`flex-1 content-center` with equal top and bottom padding).
+- Status like storage goes in the bar it belongs to, as one quiet line (meter: text plus a thin bar). Don't add a separate row for it.
+- On cards, extra controls (download) show on hover. Selection and play stay visible.
+- Prompts are muted text. Red (`text-destructive`) is only for real errors.
+
+## Before calling it done
+- Run `npm run dev` and sign in with `/dev-login`. Look at the page and any pop-up it opens. Run `npm test`.
+- Don't commit or deploy until the artist has seen it locally and said yes.

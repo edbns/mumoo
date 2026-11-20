@@ -134,6 +134,17 @@ export function localPreviewApi() {
         response.setHeader('Set-Cookie', `${SESSION_COOKIE}=${b64(newEmail)}; Path=/; SameSite=Lax`);
         send(response, 200, { success: true });
       });
+      // One click to be signed in for trying the screens: /dev-login (as test@mumoo.test), or /dev-login?email=…&credits=0&free=1.
+      route('/dev-login', 'GET', async (request, response) => {
+        const params = new URL(request.url, 'http://local').searchParams;
+        const email = params.get('email') || 'test@mumoo.test';
+        const credits = /^\d+$/.test(params.get('credits') ?? '') ? params.get('credits') : '120';
+        const free = params.get('free') === '1' ? '1' : '0';
+        response.statusCode = 302;
+        response.setHeader('Set-Cookie', [`${SESSION_COOKIE}=${b64(email)}; Path=/; SameSite=Lax`, `preview_allowance=${credits}:${free}; Path=/; SameSite=Lax`]);
+        response.setHeader('Location', '/');
+        response.end();
+      });
       route('/dev-auth/sign-out', 'POST', async (_request, response) => {
         response.setHeader('Set-Cookie', `${SESSION_COOKIE}=; Path=/; Max-Age=0`);
         send(response, 200, { success: true });
@@ -291,6 +302,12 @@ export function localPreviewApi() {
         problems = problems.map(item => params.get('all') === '1' || String(item.id) === params.get('id') ? { ...item, seen: true } : item);
         send(response, 200, problemsNow());
       }));
+      // Send from your phone: a QR code that points at the phone page; nothing ever arrives from a phone here, so it keeps waiting.
+      route('/api/phone-handoff', 'POST', async (request, response) => send(response, 200, {
+        id: `local-handoff-${Date.now()}`, phoneUrl: `http://${request.headers.host}/phone.html#local-preview`, expiresAt: Date.now() + 15 * 60_000,
+      }));
+      route('/api/phone-handoff', 'GET', async (_request, response) => send(response, 202, { status: 'waiting' }));
+      route('/api/phone-handoff', 'DELETE', async (_request, response) => send(response, 200, {}));
       route('/api/report-problem', 'POST', async (_request, response) => send(response, 202, { ok: true }));
 
       // Smart links: the real lookup and search (public song data from Deezer and Apple, nothing of the person's; without Spotify's

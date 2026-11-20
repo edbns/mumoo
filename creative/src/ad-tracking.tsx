@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronDownIcon } from 'lucide-react';
 import { AccountSection } from './account-section';
+import { FIELD } from './components/ui/field';
 import { textButton } from './smart-link-parts';
 import type { AdIds, AdTokens, TokenField } from './smart-links';
 
-const field = 'h-[var(--control-height-md)] w-full min-w-0 rounded-[var(--radius-control)] bg-muted px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:shadow-[0_0_0_2px_var(--focus-ring)]';
+const field = FIELD;
 
 /**
  * The link's own ad accounts, in Create Smart Link and saved with the link. Visits and stream clicks are then sent to them from our
@@ -19,7 +20,7 @@ export function AdTracking({ ids, saved, tokens, onIds, onTokens }: {
   const [open, setOpen] = useState(connected);
   const has = (token: TokenField) => tokens[token] === undefined ? saved[token] : Boolean(tokens[token]);
 
-  return <AccountSection label="Ad tracking" aside={<button type="button" className={`${textButton} inline-flex items-center gap-1`} aria-expanded={open}
+  return <AccountSection label="Ad tracking" aside={<button type="button" className={textButton} aria-expanded={open}
     onClick={() => setOpen(!open)}>{open ? 'Hide' : connected ? 'Show' : 'Set up'}<ChevronDownIcon aria-hidden="true" className={`size-4 transition-transform ${open ? 'rotate-180' : ''}`} /></button>}>
     <p className="m-0 text-sm text-muted-foreground">
       Optional. Running ads? Connect your accounts and every visit + stream click gets sent from our server so they can measure and optimise. No pixel on your page. Ad visits get counted either way.
@@ -78,7 +79,7 @@ function Token({ label, field: name, saved, tokens, onTokens }: {
       placeholder={removed ? 'Removed when you save' : saved ? 'Saved · paste to replace' : 'Paste your token'}
       onChange={event => set(event.target.value || undefined)} />
     {saved && <button type="button" onClick={() => set(removed ? undefined : null)}
-      className="cursor-pointer self-start bg-transparent p-0 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground">
+      className={`${textButton} self-start`}>
       {removed ? 'Keep the saved token' : 'Remove token'}
     </button>}
   </Labelled>;

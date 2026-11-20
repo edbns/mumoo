@@ -31,7 +31,7 @@ function Outcome({ mark, title, children, onClose }: { mark: ReactNode; title: s
       <p className="m-0 text-xl font-semibold text-foreground">{title}</p>
       <div className="m-0 text-sm text-balance text-muted-foreground">{children}</div>
     </div>
-    {onClose && <Button className="mt-2 w-full rounded-full" onClick={onClose}>Make a video</Button>}
+    {onClose && <Button className="mt-2 w-full" onClick={onClose}>Make a video</Button>}
   </div>;
 }
 
@@ -108,12 +108,12 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
   </Modal>;
   return <Modal open={open} onClose={close} title="Purchase Credits" description="One credit makes one video.">
     <div className="flex flex-col gap-4">
-      {shortfall && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-3 text-sm text-foreground">
+      {shortfall && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-primary/10 px-4 py-3 text-sm text-foreground">
         {shortfall.have === 0
           ? `You’re out of credits. ${shortfall.need === 1 ? 'This video needs' : `These ${shortfall.need} videos need`} ${shortfall.need === 1 ? 'one' : shortfall.need}. Your chosen videos are kept.`
           : `${shortfall.need} videos need ${shortfall.need} credits and you have ${shortfall.have}. Buy a pack or pick fewer.`}
       </p>}
-      {bonus > 0 && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-3 text-sm text-foreground">
+      {bonus > 0 && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-primary/10 px-4 py-3 text-sm text-foreground">
         A friend invited you: your first pack comes with {bonus} extra videos free.
       </p>}
       <PricingInteraction key={initial} packs={CREDIT_PACKS} initial={initial} busy={busy} onChoose={choose} />

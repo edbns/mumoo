@@ -48,6 +48,7 @@ Email: every letter is in `netlify/lib/letters.mjs` and goes out through Resend 
 | Area | Files |
 | --- | --- |
 | App | `main.tsx`, `waveform.tsx`, `lyrics-studio.tsx`, `creatives-pack-studio.tsx` |
+| One look | Colours from `styles/theme.css`, shared sizes in `styles/app.css` (`--radius-panel` and `--radius-control` 12px for panels, popups, fields and buttons; `--control-height-md`; `--focus-ring`, the soft thin green every focus ring uses, `.outline-ring` and the page-wide `:focus-visible`). Text boxes take `FIELD` / `POPUP_FIELD` from `components/ui/field.ts`; buttons are `components/ui/button.tsx` (no pill buttons); popups, the account menu and the cookie banner are the same grey (`bg-muted`) with no border. Video cards keep the small `--radius`. |
 | Song in | `audio-format.ts`, `cover-palette.ts`, `audio.ts`, `lyric-text.ts`, `lyrics-cloud.ts`, `lyric-meaning-cloud.ts`, `music-analysis-runner.tsx`, `creative-profile.ts` |
 | Brain | `creatives-pack.ts`, `look-fit.ts`, `music-intent.ts`, `lyric-meaning.ts`, `mood-grade.ts`, `pack-feedback.ts` |
 | Look and motion | `pack-*.ts` (renderer, scenes, type, copy, looks), `ad-fonts.ts`, `ad-punch.ts` (style catalog), `lyric-motion.ts`, `punch-plates.ts` |

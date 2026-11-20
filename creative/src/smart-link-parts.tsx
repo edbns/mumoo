@@ -5,7 +5,8 @@ import { addressOf } from './smart-links';
 const COPIED_MS = 1500;
 
 export const iconButton = 'grid size-9 shrink-0 cursor-pointer place-items-center rounded-[var(--radius-control)] bg-transparent p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30';
-export const textButton = 'cursor-pointer bg-transparent p-0 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground';
+/** A small secondary button (the same as `<Button variant="secondary" size="sm">`), for actions beside a heading or under a field. */
+export const textButton = 'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-control)] bg-secondary px-3 text-sm font-medium text-secondary-foreground outline-ring transition-colors hover:bg-secondary/80 focus-visible:outline-2';
 
 /** The song's cover on its grey square, fading in once it has loaded rather than popping in. */
 export function Cover({ src, size }: { src: string | null; size: string }) {

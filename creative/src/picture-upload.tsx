@@ -47,7 +47,7 @@ function EarlierUploads({ uploads, onUse }: { uploads: Uploads; onUse: (ids: str
           <button type="button" aria-pressed={on} onClick={() => toggle(item.id)}
             aria-label={`${item.kind === 'motion' ? 'Video' : 'Photo'} from ${new Date(item.createdAt).toLocaleDateString()}`}
             className={cn('relative block aspect-square w-full overflow-hidden rounded-xl bg-secondary p-0 outline-none transition',
-              'focus-visible:ring-2 focus-visible:ring-primary', on ? 'ring-2 ring-primary' : 'opacity-80 hover:opacity-100')}>
+              'focus-visible:shadow-[0_0_0_2px_var(--focus-ring)]', on ? 'ring-2 ring-primary' : 'opacity-80 hover:opacity-100')}>
             <img src={item.url} alt="" loading="lazy" className="size-full object-cover" />
             {item.kind === 'motion' && <PlayIcon aria-hidden="true" className="absolute bottom-1.5 left-1.5 size-3.5 fill-white text-white drop-shadow" />}
             {on && <span className="absolute top-1.5 right-1.5 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground">

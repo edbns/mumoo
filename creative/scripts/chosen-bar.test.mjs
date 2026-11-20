@@ -91,7 +91,7 @@ test('Create goes straight to Media, where the bottom bar blinks beside the perc
   assert.doesNotMatch(read('cart-panel.tsx'), /RenderProgress/);
   assert.match(read('cart-panel.tsx'), /className="chosen-bar-dot"/);
   const css = read('styles/shell.css');
-  assert.match(css, /\.masthead-actions\.scrolls \{ position: absolute; \}/);
+  assert.match(css, /\.masthead-actions\.scrolls \{ position: absolute; top: 1rem; right: 1\.5rem; \}/);
   assert.match(css, /prefers-reduced-motion: reduce\) \{ \.chosen-bar-dot, \.chosen-bar-dot::after \{ animation: none; \}/);
   assert.match(css, /\.chosen-bar \{ position: fixed; z-index: 15;/);
 });
@@ -161,4 +161,31 @@ test('one look for every text box and focus ring, and no Help line in the accoun
   assert.doesNotMatch(read('settings-page.tsx'), /outline-2/);
   assert.match(read('styles/app.css'), /\.outline-ring:focus-visible \{ outline-color: var\(--focus-ring\); outline-offset: 0; \}/);
   assert.doesNotMatch(read('account-pages.ts'), /'help'|Help/);
+});
+
+test('one look across pages: soft focus everywhere, 12px corners and 2px green rings on pricing, no pill buttons, old buttons gone from Lyrics', () => {
+  const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
+  assert.match(read('styles/legacy.css'), /:focus-visible \{ outline: 2px solid var\(--focus-ring\); outline-offset: 2px; \}/);
+  for (const file of ['pricing-page.tsx', 'components/ui/pricing-interaction.tsx', 'purchase-credits.tsx']) {
+    const source = read(file);
+    assert.doesNotMatch(source, /rounded-(2xl|3xl)|\[3px\]|w-full rounded-full/, file);
+  }
+  assert.doesNotMatch(read('components/ui/cookie-consent.tsx'), /border border-border/);
+  const lyrics = read('lyrics-studio.tsx');
+  assert.doesNotMatch(lyrics, /className=\{?['"](primary-accent|secondary)|'❚❚'|'▶'/);
+  assert.match(lyrics, /<Button variant=\{dirty \? 'default' : 'secondary'\}/);
+});
+
+test('actions are buttons, not underlined text; Media keeps one tidy bar; the style box keeps its own height', () => {
+  const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
+  for (const file of ['main.tsx', 'history-page.tsx', 'settings-page.tsx', 'link-analytics.tsx', 'ad-tracking.tsx', 'smart-link-parts.tsx']) {
+    assert.doesNotMatch(read(file), /bg-transparent p-0 text-(sm|xs) text-muted-foreground underline/, file);
+  }
+  const main = read('main.tsx');
+  assert.match(main, /<Button variant="secondary" onClick=\{\(\) => setPage\('links'\)\}><Link2Icon/);
+  assert.match(main, /<div className="grid items-start gap-5 md:grid-cols-2">/);
+  const media = read('history-page.tsx');
+  assert.match(media, /chosen\.length === 0 \? storage && <StorageMeter/);
+  assert.match(media, /opacity-0 outline-ring transition-\[opacity,background-color\] group-hover:opacity-100/);
+  assert.doesNotMatch(read('styles/legacy.css'), /\.link-button \{[^}]*underline/);
 });

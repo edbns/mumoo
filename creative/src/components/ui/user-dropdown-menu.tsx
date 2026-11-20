@@ -52,7 +52,7 @@ export function UserDropdownMenu({ email, groups, onSignOut }: Props) {
         side="bottom"
         align="end"
         sideOffset={12}
-        className="w-64 rounded-2xl border-0 shadow-2xl shadow-black/60"
+        className="w-64 rounded-[var(--radius-panel)] border-0 bg-muted shadow-[0_28px_56px_-24px_#000]"
       >
         <DropdownMenuGroup>
           <DropdownMenuLabel className="flex items-center gap-3 px-4 py-3">

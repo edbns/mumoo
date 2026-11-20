@@ -83,21 +83,21 @@ function PricingPage() {
         <p className="m-0 max-w-xl text-base text-balance text-muted-foreground">
           Pay once, no subscription, credits never expire. First video free, no watermark.
         </p>
-        {invited && <p role="status" className="m-0 rounded-[var(--radius)] bg-primary/10 px-4 py-2 text-sm text-foreground">A friend invited you: your first pack comes with 10 extra videos free.</p>}
+        {invited && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-primary/10 px-4 py-2 text-sm text-foreground">A friend invited you: your first pack comes with 10 extra videos free.</p>}
         {freeLeft && <Button className="mt-2" onClick={() => location.assign('/')}>Make my first video free</Button>}
       </div>
 
       <div role="group" aria-label="Credit packs" className="flex flex-col gap-4">
         <div className="grid gap-4 md:grid-cols-3">
         {CREDIT_PACKS.map(pack => <div key={pack.usd}
-          className={cn('relative flex flex-col gap-6 rounded-3xl bg-muted p-6', pack.popular && 'outline-[3px] outline-primary')}>
-          {pack.popular && <span className="absolute top-6 right-6 rounded-lg bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">Popular</span>}
+          className={cn('relative flex flex-col gap-6 rounded-[var(--radius-panel)] bg-muted p-6', pack.popular && 'outline-2 outline-primary')}>
+          {pack.popular && <span className="absolute top-6 right-6 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">Popular</span>}
           <div className="flex flex-col gap-1">
             <span className="text-sm text-muted-foreground">{pack.videos.toLocaleString()} videos</span>
             <span className="text-4xl font-semibold tracking-tight tabular-nums">${pack.usd}</span>
             <span className="text-sm text-muted-foreground">{perVideo(pack)} a video</span>
           </div>
-          <Button variant={pack.popular ? 'default' : 'secondary'} className="mt-auto w-full rounded-full"
+          <Button variant={pack.popular ? 'default' : 'secondary'} className="mt-auto w-full"
             disabled={opening !== null} aria-busy={opening === pack.usd} onClick={() => void buy(pack)}>
             {opening === pack.usd ? 'Opening checkout…' : `Buy ${pack.videos.toLocaleString()} videos`}
           </Button>

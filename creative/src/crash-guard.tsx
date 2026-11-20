@@ -23,7 +23,7 @@ export class CrashGuard extends Component<{ children: ReactNode }, { error: Erro
       <h1 style={{ fontSize: '1.5rem' }}>Something went wrong on this page</h1>
       <p>Your chosen videos are still here. Reload to keep going.</p>
       <p style={{ opacity: 0.6, fontSize: '0.85rem', wordBreak: 'break-word' }}>{error.message}</p>
-      <button type="button" onClick={() => location.reload()} style={{ padding: '0.75rem 1.25rem', borderRadius: 999, border: 0, background: '#2bff2b', color: '#000', fontWeight: 600 }}>Reload</button>
+      <button type="button" onClick={() => location.reload()} style={{ padding: '0.75rem 1.25rem', borderRadius: 12, border: 0, background: '#2fe92b', color: '#000', fontWeight: 600 }}>Reload</button>
     </main>;
   }
 }

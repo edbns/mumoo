@@ -33,4 +33,4 @@
 @keyframes chosen-wave { from { scale: 1; opacity: .6; } to { scale: 2.8; opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .chosen-bar-dot, .chosen-bar-dot::after { animation: none; } }
 /* On Media the actions scroll away with the page, so they never cover a card's buttons. */
-.masthead-actions.scrolls { position: absolute; }
+.masthead-actions.scrolls { position: absolute; top: 1rem; right: 1.5rem; }

@@ -32,7 +32,7 @@ import { Modal } from '@/components/ui/modal';
 import { FileDropzone } from '@/components/ui/file-dropzone';
 import { AnalyzingScreen, type PaintProgress } from './analyzing-screen';
 import { StepNav, type StepNumber } from './step-nav';
-import { ArrowLeftIcon, CheckIcon, XIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, Link2Icon, RotateCcwIcon, XIcon } from 'lucide-react';
 import { AccountPlaceholder, askSignIn } from './account-hint';
 import { PAGE_PATHS, UPLOADS_PATH, pageAt, uploadsAt, type AccountPage } from './account-pages';
 import { LinksNav, ProfileNav, type ProfileTab } from './profile-nav';
@@ -405,8 +405,8 @@ function App() {
       {page === 'history' && <ProfileNav current={profileTab} onSelect={setProfileTab} />}
       {(page === 'links' || page === 'my-links') && <LinksNav current={page} onSelect={tab => { if (tab === 'links') setLinksOpened(count => count + 1); setPage(tab); }} />}
       <div className={page === 'history' ? 'masthead-actions scrolls' : 'masthead-actions'}>
-        {page === 'create' && buffer && <button type="button" className="link-button" onClick={() => setAskingStartOver(true)}>Start over</button>}
-        {page === 'create' && <button type="button" className="link-button" onClick={() => setPage('links')}>Smart links</button>}
+        {page === 'create' && buffer && <Button variant="secondary" onClick={() => setAskingStartOver(true)}><RotateCcwIcon aria-hidden="true" className="size-4" />Start over</Button>}
+        {page === 'create' && <Button variant="secondary" onClick={() => setPage('links')}><Link2Icon aria-hidden="true" className="size-4" />Smart links</Button>}
         {page !== 'create' && <Button variant="secondary" onClick={() => setPage('create')}><ArrowLeftIcon aria-hidden="true" className="size-4" />Create</Button>}
         <Suspense fallback={<AccountPlaceholder />}><AccountBar page={page} onNavigate={setPage} /></Suspense>
       </div>
@@ -435,12 +435,12 @@ function App() {
     {page !== 'create' && <Suspense fallback={page === 'links' ? <LinksSkeleton /> : null}><ProfilePage key={page === 'links' ? `links-${linksOpened}` : page} page={page} tab={profileTab} delivered={delivered} onNavigate={setPage} /></Suspense>}
     {/* The work stays exactly as it was while a page of the account is open: hidden, but still laid out, so its drawings are not cleared and redrawn. */}
     <div className={page === 'create' ? 'contents' : 'invisible fixed inset-0 overflow-hidden'} inert={page !== 'create'}>
-    {!inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center' : 'desktop trim'}>
+    {!inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center py-8' : 'desktop trim'}>
       <section>
         <p className="eyebrow mb-6">0{step} / {step === 1 ? 'MUSIC' : 'YOUR CLIP'}</p>
         {step === 2 && <h1>Pick your 15 seconds</h1>}
         {step === 1 && <>
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid items-start gap-5 md:grid-cols-2">
           <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-background p-5">
             {handed && !buffer && <div className="flex items-center gap-3 rounded-[var(--radius-control)] bg-card p-3">
               {handed.cover ? <img src={handed.cover} alt="" className="size-11 shrink-0 rounded-[6px] object-cover" /> : <span className="size-11 shrink-0 rounded-[6px] bg-muted" />}

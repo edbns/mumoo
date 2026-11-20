@@ -33,7 +33,7 @@ export function FileDropzone({ accept, icon: Icon, title, hint, buttonLabel, inp
       <div className="relative">
         <div
           className={cn(
-            'has-[input:focus-visible]:ring-ring/60 relative flex min-h-52 flex-col items-center justify-center overflow-hidden rounded-xl bg-muted p-4 transition-colors has-[input:focus-visible]:ring-2',
+            'relative flex min-h-52 flex-col items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-muted p-4 transition-colors has-[input:focus-visible]:shadow-[0_0_0_2px_var(--focus-ring)]',
             isDragging && 'bg-secondary',
           )}
           onDragEnter={handleDragEnter}

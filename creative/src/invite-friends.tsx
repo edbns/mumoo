@@ -8,7 +8,7 @@ import { loadReferral, savedReferral, saveReferral, type ReferralInfo } from './
 const COPIED_MS = 1500;
 
 function Figure({ value, label }: { value: number; label: string }) {
-  return <div className="flex flex-col items-center gap-1 rounded-[var(--radius)] bg-muted px-3 py-3 text-center">
+  return <div className="flex flex-col items-center gap-1 rounded-[var(--radius-control)] bg-muted px-3 py-3 text-center">
     <span className="text-xl font-semibold text-foreground tabular-nums">{value.toLocaleString()}</span>
     <span className="text-xs text-muted-foreground">{label}</span>
   </div>;

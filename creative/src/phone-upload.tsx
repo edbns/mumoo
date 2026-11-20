@@ -122,7 +122,7 @@ export function PhoneUpload({ token, kind, onFiles }: { token: string; kind: Pho
       <SmartphoneIcon aria-hidden="true" className="size-4" /> Send from your phone
     </Button>;
   }
-  return <div className="flex flex-col items-center gap-3 rounded-[var(--radius-control)] bg-secondary p-4 text-center">
+  return <div className="flex flex-col items-center gap-3 rounded-[var(--radius-control)] bg-muted p-4 text-center">
     {state.step === 'waiting' && <>
       <QrCode text={state.handoff.phoneUrl} />
       <p className="m-0 text-sm">Scan with your phone’s camera, then {COPY[kind].ask}. Opens here.</p>
@@ -133,7 +133,7 @@ export function PhoneUpload({ token, kind, onFiles }: { token: string; kind: Pho
     {state.step === 'failed' && <p className="m-0 text-sm" role="alert">{state.error}</p>}
     <div className="flex gap-2">
       {(state.step === 'expired' || state.step === 'failed') && <Button onClick={() => void start()}>New code</Button>}
-      {state.step !== 'receiving' && <Button variant="ghost" onClick={() => setState({ step: 'idle' })}>Close</Button>}
+      {state.step !== 'receiving' && <Button variant="secondary" onClick={() => setState({ step: 'idle' })}>Close</Button>}
     </div>
   </div>;
 }

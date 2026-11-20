@@ -39,14 +39,14 @@ export function PricingInteraction({
             role="radio"
             aria-checked={index === active}
             onClick={() => setActive(index)}
-            className="flex w-full cursor-pointer items-center justify-between rounded-2xl bg-muted px-5 text-left outline-ring focus-visible:outline-2"
+            className="flex w-full cursor-pointer items-center justify-between rounded-[var(--radius-panel)] bg-muted px-5 text-left outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--focus-ring)]"
             style={{ height: CARD }}
           >
             <span className="flex flex-col items-start gap-0.5">
               <span className="flex items-center gap-2 text-xl font-semibold text-foreground">
                 {pack.videos.toLocaleString()} videos
                 {pack.popular && (
-                  <span className="rounded-lg bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">Popular</span>
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">Popular</span>
                 )}
               </span>
               <span className="text-sm text-muted-foreground">${pack.usd} · {perVideo(pack)} a video</span>
@@ -66,7 +66,7 @@ export function PricingInteraction({
         ))}
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute top-0 left-0 w-full rounded-2xl border-[3px] border-primary transition-transform duration-300"
+          className="pointer-events-none absolute top-0 left-0 w-full rounded-[var(--radius-panel)] border-2 border-primary transition-transform duration-300"
           style={{ height: CARD, transform: `translateY(calc(${active} * (${CARD} + ${GAP})))` }}
         />
       </div>
@@ -75,7 +75,7 @@ export function PricingInteraction({
         onClick={() => onChoose(chosen)}
         disabled={busy}
         aria-busy={busy}
-        className="flex w-full cursor-pointer disabled:cursor-wait disabled:opacity-70 items-center justify-center gap-1.5 rounded-full bg-primary p-3 text-lg font-semibold text-primary-foreground transition-transform duration-300 active:scale-95"
+        className="flex h-[var(--control-height-md)] w-full cursor-pointer items-center justify-center gap-1.5 rounded-[var(--radius-control)] bg-primary px-4 text-sm font-medium text-primary-foreground outline-ring transition-colors hover:bg-primary/90 focus-visible:outline-2 disabled:cursor-wait disabled:opacity-70"
       >
         {busy ? "Opening checkout…" : <>Buy <NumberFlow value={chosen.videos} /> videos · <NumberFlow value={chosen.usd} format={{ style: "currency", currency: "USD", maximumFractionDigits: 0 }} /></>}
       </button>

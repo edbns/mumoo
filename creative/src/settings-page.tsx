@@ -1,3 +1,4 @@
+import { Trash2Icon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { FIELD, POPUP_FIELD } from '@/components/ui/field';
 import { ActionDialog } from '@/components/ui/action-dialog';
@@ -62,8 +63,7 @@ export default function SettingsPage() {
           <input className={`${FIELD} tracking-[0.4em]`} inputMode="numeric" autoComplete="one-time-code" autoFocus required maxLength={6} aria-label="Code from your email" placeholder="000000"
             value={code} onChange={event => setCode(event.target.value.replace(/\D/g, ''))} />
           <div className="flex items-center justify-between gap-3">
-            <button type="button" className="cursor-pointer bg-transparent p-0 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
-              onClick={() => { setSentTo(null); setError(''); }}>Use a different email</button>
+            <Button variant="secondary" size="sm" onClick={() => { setSentTo(null); setError(''); }}>Use a different email</Button>
             <Button type="submit" disabled={busy || code.length !== 6}>Confirm</Button>
           </div>
         </form>}
@@ -83,7 +83,7 @@ function DeleteAccount({ email }: { email: string }) {
 
   return <AccountSection label="Delete account">
     <p className="m-0 text-sm text-muted-foreground">Deletes your account and everything in it: creatives, pictures and history. Can’t be undone. Download what you want first.</p>
-    <div className="flex justify-end"><Button variant="destructive" onClick={() => { setTyped(''); setOpen(true); }}>Delete account</Button></div>
+    <div className="flex justify-end"><Button variant="destructive" onClick={() => { setTyped(''); setOpen(true); }}><Trash2Icon aria-hidden="true" />Delete account</Button></div>
     <ActionDialog open={open} onClose={() => setOpen(false)} destructive
       title="Delete your account?"
       description="Your creatives, pictures and history get deleted for good. Can’t be undone."

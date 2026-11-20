@@ -116,7 +116,7 @@ const CookieConsent = ({ storageKey, open, onOpenChange, defaultPreferences, onC
         data-expanded={expanded ? '' : undefined}
         onKeyDown={onKeyDown}
         className={cn(
-          'fixed bottom-4 end-4 z-50 flex w-[calc(100%-2rem)] max-w-xs flex-col gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-lg',
+          'fixed bottom-4 end-4 z-50 flex w-[calc(100%-2rem)] max-w-xs flex-col gap-3 rounded-[var(--radius-panel)] bg-muted p-4 text-foreground shadow-[0_28px_56px_-24px_#000]',
           'animate-in fade-in-0 slide-in-from-bottom-4 duration-300 motion-reduce:animate-none',
           className,
         )}
@@ -154,7 +154,7 @@ const CookieConsentManage = ({ className, children = 'Manage', ...props }: React
 /** Shows its categories only while the banner is expanded; they stay mounted so Accept all and Reject all know every category. */
 const CookieConsentCategories = ({ className, ...props }: React.ComponentProps<'div'>) => {
   const { expanded } = useCookieConsent();
-  return <div data-slot="cookie-consent-categories" hidden={!expanded} className={cn('flex flex-col divide-y divide-border rounded-md border border-border bg-background', className)} {...props} />;
+  return <div data-slot="cookie-consent-categories" hidden={!expanded} className={cn('flex flex-col divide-y divide-border rounded-[var(--radius-control)] bg-secondary', className)} {...props} />;
 };
 
 interface CookieConsentCategoryProps extends Omit<React.ComponentProps<'div'>, 'children'> {
