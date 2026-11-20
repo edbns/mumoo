@@ -5,7 +5,8 @@ import { personFrom, recordPerson } from '../lib/person.mjs';
 
 const SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const ORIGIN = 'https://mumoo-staging.netlify.app';
-const LIMIT = 4096;
+// A "shown" note carries every card of a hand (about 20, a reel each).
+const LIMIT = 24_576;
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
 
 async function processRequest(request) {

@@ -450,13 +450,19 @@ export async function listApproved() {
 const LEARNED_DAYS = 90;
 
 /**
- * How much a play was worth, 0…1: a card that was downloaded (put in the cart, then delivered) counts in full, one only put in the
- * cart a third. Downloads are what people really wanted.
+ * What the brain learns from is downloads: a card that was downloaded counts in full, one only put in the chosen videos and never
+ * downloaded a quarter. Plays count for nothing: we make videos to download, not to watch on our page.
  */
-const won = (selects, delivered) => Math.round(((selects + 2 * delivered) / 3) * 100) / 100;
+const CHOSEN_ONLY = 0.25;
+const won = (selects, delivered) => Math.round((delivered + CHOSEN_ONLY * Math.max(0, selects - delivered)) * 100) / 100;
+/**
+ * Out of how many cards people were shown. Hands are told as "shown" since migration 046; before that only plays were kept, and a
+ * play is a card that was shown, so the larger of the two stands in while the older days are still counted.
+ */
+const offered = (shown, plays) => Math.max(shown, plays);
 
 /**
- * For each library picture, how often a card drawn from it was played (`shown`) and how much of that was kept (`won`, see above).
+ * For each library picture, how often a card drawn from it was shown (`shown`) and how much of that was downloaded (`won`, see above).
  * A reel counts for every picture in it. Cards drawn on the person's own picture say nothing about ours. Counts only, never who.
  * Also the same per lane the brain chose for the song (`learnedLanes`), so a picture people download for party songs leads there.
  * `{ learned, learnedLanes }` per id. Learning must never stop the library from loading: without the table, or on any error, nothing is learned.
@@ -464,22 +470,22 @@ const won = (selects, delivered) => Math.round(((selects + 2 * delivered) / 3) *
 export async function learnedCounts() {
   try {
     const rows = await db()`
-      select id, lane, count(*) filter (where event = 'play')::int as shown,
+      select id, lane, count(*) filter (where event = 'shown')::int as shown, count(*) filter (where event = 'play')::int as plays,
         count(*) filter (where event = 'select')::int as selects, count(*) filter (where event = 'delivered')::int as delivered
       from (
         select event, lane, unnest(coalesce(reel_ids, array[library_id])) as id from brain_feedback
-        where created_at > now() - make_interval(days => ${LEARNED_DAYS}) and event in ('play', 'select', 'delivered')
+        where created_at > now() - make_interval(days => ${LEARNED_DAYS}) and event in ('shown', 'play', 'select', 'delivered')
           and (library_id is not null or reel_ids is not null) and own_picture is not true
       ) used
       group by id, lane`;
     const counts = new Map();
     for (const row of rows) {
-      const entry = counts.get(row.id) ?? { learned: { shown: 0, selects: 0, delivered: 0 }, learnedLanes: {} };
-      entry.learned.shown += row.shown; entry.learned.selects += row.selects; entry.learned.delivered += row.delivered;
-      if (row.lane) entry.learnedLanes[row.lane] = { shown: row.shown, won: won(row.selects, row.delivered) };
+      const entry = counts.get(row.id) ?? { learned: zero(), learnedLanes: {} };
+      tallyInto(entry.learned, row);
+      if (row.lane) entry.learnedLanes[row.lane] = learnedOf(row);
       counts.set(row.id, entry);
     }
-    for (const entry of counts.values()) entry.learned = { shown: entry.learned.shown, won: won(entry.learned.selects, entry.learned.delivered) };
+    for (const entry of counts.values()) entry.learned = learnedOf(entry.learned);
     return counts;
   } catch (cause) {
     console.error('learned counts:', cause);
@@ -487,8 +493,15 @@ export async function learnedCounts() {
   }
 }
 
+const zero = () => ({ shown: 0, plays: 0, selects: 0, delivered: 0 });
+function tallyInto(to, row) {
+  to.shown += row.shown; to.plays += row.plays; to.selects += row.selects; to.delivered += row.delivered;
+}
+/** What the page's nudges read: out of how many cards shown (`shown`), how much was downloaded (`won`). */
+export const learnedOf = counts => ({ shown: offered(counts.shown, counts.plays), won: won(counts.selects, counts.delivered) });
+
 /**
- * What the shelf learns from, as for pictures (how often played, `shown`, and how much of that was kept, `won`), over the same days:
+ * What the shelf learns from, as for pictures (how often shown, `shown`, and how much of that was downloaded, `won`), over the same days:
  *   cards: for each row of the shelf, each kind of card it deals (the `look` feedback keeps: a treatment's variant, a Window palette,
  *          a Silhouette figure, a Riso ink set, a live look). `{ [row]: { [kind]: counts } }`
  *   rows:  each row (template) as a whole, which orders the shelf. `{ [row]: counts }`
@@ -498,30 +511,23 @@ export async function learnedCounts() {
 export async function learnedShelf() {
   try {
     const rows = await db()`
-      select lane, row_id, look, count(*) filter (where event = 'play')::int as shown,
+      select lane, row_id, look, count(*) filter (where event = 'shown')::int as shown, count(*) filter (where event = 'play')::int as plays,
         count(*) filter (where event = 'select')::int as selects, count(*) filter (where event = 'delivered')::int as delivered
       from brain_feedback
-      where created_at > now() - make_interval(days => ${LEARNED_DAYS}) and event in ('play', 'select', 'delivered') and row_id is not null
+      where created_at > now() - make_interval(days => ${LEARNED_DAYS}) and event in ('shown', 'play', 'select', 'delivered') and row_id is not null
       group by lane, row_id, look`;
     const shelf = { cards: {}, rows: {}, lanes: {} };
-    const add = (to, row) => {
-      const counts = (to[row.row_id] ??= { shown: 0, selects: 0, delivered: 0 });
-      counts.shown += row.shown; counts.selects += row.selects; counts.delivered += row.delivered;
-    };
-    const addCard = (to, row) => {
-      const counts = ((to[row.row_id] ??= {})[row.look] ??= { shown: 0, selects: 0, delivered: 0 });
-      counts.shown += row.shown; counts.selects += row.selects; counts.delivered += row.delivered;
-    };
+    const add = (to, row) => tallyInto((to[row.row_id] ??= zero()), row);
+    const addCard = (to, row) => tallyInto(((to[row.row_id] ??= {})[row.look] ??= zero()), row);
     for (const row of rows) {
       const lane = row.lane ? (shelf.lanes[row.lane] ??= { cards: {}, rows: {} }) : null;
       add(shelf.rows, row);
       if (lane) add(lane.rows, row);
       if (row.look) { addCard(shelf.cards, row); if (lane) addCard(lane.cards, row); }
     }
-    const done = counts => ({ shown: counts.shown, won: won(counts.selects, counts.delivered) });
     const finish = ({ cards, rows: byRow }) => ({
-      cards: Object.fromEntries(Object.entries(cards).map(([row, kinds]) => [row, Object.fromEntries(Object.entries(kinds).map(([kind, counts]) => [kind, done(counts)]))])),
-      rows: Object.fromEntries(Object.entries(byRow).map(([row, counts]) => [row, done(counts)])),
+      cards: Object.fromEntries(Object.entries(cards).map(([row, kinds]) => [row, Object.fromEntries(Object.entries(kinds).map(([kind, counts]) => [kind, learnedOf(counts)]))])),
+      rows: Object.fromEntries(Object.entries(byRow).map(([row, counts]) => [row, learnedOf(counts)])),
     });
     return { ...finish(shelf), lanes: Object.fromEntries(Object.entries(shelf.lanes).map(([lane, part]) => [lane, finish(part)])) };
   } catch (cause) {

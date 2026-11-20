@@ -1,5 +1,5 @@
 import type { CreativeProfileV1 } from './creative-profile';
-import type { CreativesPackSlot, ShelfRow } from './creatives-pack';
+import type { CreativesPackSlot } from './creatives-pack';
 import { cardKind, readSong } from './creatives-pack';
 import { freshAccess } from './staging-token';
 
@@ -46,6 +46,33 @@ async function send(token: string, body: unknown) {
   }).catch(() => undefined);
 }
 
+/** The card as the brain keeps it: codes only. */
+function slotFacts(slot: CreativesPackSlot, ownPicture: boolean | undefined) {
+  const libraryId = slot.libraryId ?? slot.reelIds?.[0];
+  const kind = cardKind(slot);
+  // The whole reel, and the seed the Director cut it with, only when the reel was really drawn (not under the person's own picture).
+  const reel = slot.reelIds && !ownPicture ? { reelIds: slot.reelIds, ...(slot.cutSeed !== undefined ? { cutSeed: slot.cutSeed } : {}) } : {};
+  return {
+    id: slot.id,
+    style: slot.style,
+    font: slot.font,
+    fontSecondary: slot.fontSecondary,
+    ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
+    ...(slot.effectId ? { effectId: slot.effectId } : {}),
+    // A reel is told by the picture it opens on, the one the Director leads with.
+    ...(libraryId ? { libraryId } : {}),
+    // The kind of card within its row (`cardKind`: a treatment's variant, a Window palette and Silhouette figure, a Riso ink set, a
+    // live look), which the row's lead learns from. A live look only when it was really drawn: on a library picture or the person's own.
+    ...(kind && (kind !== slot.look || libraryId || ownPicture) ? { look: kind } : {}),
+    ...reel,
+    ...(slot.preset ? { preset: slot.preset, presetTake: slot.presetTake } : {}),
+    // The mood board its pictures came from, unless the person's own picture took their place.
+    ...(slot.board && !ownPicture ? { board: slot.board } : {}),
+    // How well its picture carries the genre's colours: ours only, never the person's own.
+    ...(slot.colourFit !== undefined && !ownPicture ? { colourFit: slot.colourFit } : {}),
+  };
+}
+
 /** Fire-and-forget learning signal for the brain (taste loop): a card was played, put in the cart, or downloaded. */
 export function reportPackFeedback(
   token: string,
@@ -55,34 +82,12 @@ export function reportPackFeedback(
   extras?: { selectedIds?: string[]; generation?: number; ownPicture?: boolean; watchMs?: number; place?: number },
 ) {
   if (!token) return;
-  const libraryId = slot.libraryId ?? slot.reelIds?.[0];
-  const kind = cardKind(slot);
-  // The whole reel, and the seed the Director cut it with, only when the reel was really drawn (not under the person's own picture).
-  const reel = slot.reelIds && !extras?.ownPicture ? { reelIds: slot.reelIds, ...(slot.cutSeed !== undefined ? { cutSeed: slot.cutSeed } : {}) } : {};
   void send(token, {
     ...songFacts(profile),
     event,
     ...(extras?.watchMs !== undefined && { watchMs: extras.watchMs }),
     row: slot.row,
-    slot: {
-      id: slot.id,
-      style: slot.style,
-      font: slot.font,
-      fontSecondary: slot.fontSecondary,
-      ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
-      ...(slot.effectId ? { effectId: slot.effectId } : {}),
-      // A reel is told by the picture it opens on, the one the Director leads with.
-      ...(libraryId ? { libraryId } : {}),
-      // The kind of card within its row (`cardKind`: a treatment's variant, a Window palette and Silhouette figure, a Riso ink set, a
-      // live look), which the row's lead learns from. A live look only when it was really drawn: on a library picture or the person's own.
-      ...(kind && (kind !== slot.look || libraryId || extras?.ownPicture) ? { look: kind } : {}),
-      ...reel,
-      ...(slot.preset ? { preset: slot.preset, presetTake: slot.presetTake } : {}),
-      // The mood board its pictures came from, unless the person's own picture took their place.
-      ...(slot.board && !extras?.ownPicture ? { board: slot.board } : {}),
-      // How well its picture carries the genre's colours: ours only, never the person's own.
-      ...(slot.colourFit !== undefined && !extras?.ownPicture ? { colourFit: slot.colourFit } : {}),
-    },
+    slot: slotFacts(slot, extras?.ownPicture),
     ...(extras?.ownPicture !== undefined && { ownPicture: extras.ownPicture }),
     ...(extras?.selectedIds && { selectedIds: extras.selectedIds.slice(0, 32) }),
     ...(extras?.generation !== undefined && { generation: extras.generation }),
@@ -103,8 +108,29 @@ export function reportDelivered(token: string, clipSha256: string, slotIds: read
   void send(token, { version: 1, event: 'delivered', clipSha256, slotIds: slotIds.slice(0, 20) });
 }
 
-/** A row was rolled again: the hand it showed was not what the person wanted. `generation` is the count it moves to. */
-export function reportRefresh(token: string, profile: CreativeProfileV1, row: ShelfRow, generation: number) {
+/** Refresh was pressed: one press for the whole shelf (`row` is "shelf"), none of the hand it showed was wanted. `generation` is the count it moves to. */
+export function reportRefresh(token: string, profile: CreativeProfileV1, generation: number) {
   if (!token) return;
-  void send(token, { ...songFacts(profile), event: 'refresh', row, generation });
+  void send(token, { ...songFacts(profile), event: 'refresh', row: 'shelf', generation });
+}
+
+/** The most cards one "shown" note carries: every template's card of one hand, with room to spare. */
+export const MOST_SHOWN = 32;
+
+export type ShownCard = { slot: CreativesPackSlot; place?: number; ownPicture: boolean };
+
+/**
+ * A hand reached the person's screen: every card in it, once. What the brain learns is downloads out of these, so a template
+ * people download without ever pressing play gets its full due, and one shown often and never downloaded is told apart.
+ */
+export function reportShown(token: string, profile: CreativeProfileV1, cards: readonly ShownCard[], generation: number) {
+  if (!token || !cards.length) return;
+  void send(token, {
+    ...songFacts(profile),
+    event: 'shown',
+    generation,
+    cards: cards.slice(0, MOST_SHOWN).map(({ slot, place, ownPicture }) => ({
+      row: slot.row, ownPicture, ...(place !== undefined ? { place } : {}), slot: slotFacts(slot, ownPicture),
+    })),
+  });
 }

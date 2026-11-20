@@ -17,7 +17,7 @@ import { loadDisplayFonts } from './ad-fonts';
 import { deriveMusicIntent } from './music-intent';
 import { musicHits } from './music-hits';
 import { presetTitle } from './edit-presets';
-import { reportPackFeedback, reportRefresh, reportWatch } from './pack-feedback';
+import { reportPackFeedback, reportRefresh, reportShown, reportWatch } from './pack-feedback';
 import {
   PREVIEW_HEIGHT,
   PREVIEW_WIDTH,
@@ -337,6 +337,19 @@ export function CreativesPackStudio({
     return () => { alive = false; };
   }, [cueKey]);
 
+  // Each hand is told once it is on the screen, every card drawn: the brain learns downloads out of the cards people were shown.
+  const toldShown = useRef(new Set<string>());
+  const shownFacts = useRef({ token, profile, controls, ownCard, placeOf, cards });
+  shownFacts.current = { token, profile, controls, ownCard, placeOf, cards };
+  useEffect(() => {
+    if (!allReady || !cards.length) return;
+    const { token: access, profile: song, controls: rows, ownCard: isOwn, placeOf: placed, cards: inView } = shownFacts.current;
+    const fresh = inView.filter(card => !toldShown.current.has(card.slot.id));
+    if (!fresh.length) return;
+    fresh.forEach(card => toldShown.current.add(card.slot.id));
+    reportShown(access, song, fresh.map(({ slot }) => ({ slot, place: placed(slot.row), ownPicture: isOwn(slot) })), rows[fresh[0].slot.row].generation);
+  }, [allReady, cardKeys]);
+
   // How long each card's preview is watched: told once, when it stops, another card starts, the shelf goes or the page closes.
   const watchFacts = useRef({ token, profile, controls, ownCard, placeOf });
   watchFacts.current = { token, profile, controls, ownCard, placeOf };
@@ -470,8 +483,8 @@ export function CreativesPackStudio({
   /** One Refresh for the whole shelf: every template deals a new creative. */
   function refreshShelf() {
     stopPlayback();
-    // One report for the whole shelf (not one per template), filed under the first template.
-    if (shelf[0]) reportRefresh(token, profile, shelf[0].id, controls[shelf[0].id].generation + 1);
+    // One report for the whole shelf, not one per template.
+    if (shelf[0]) reportRefresh(token, profile, controls[shelf[0].id].generation + 1);
     setControls(current => Object.fromEntries(SHELF_ROWS.map(def => [def.id, { generation: current[def.id].generation + 1 }])) as Record<ShelfRow, RowControls>);
   }
 

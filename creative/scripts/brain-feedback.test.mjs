@@ -52,6 +52,43 @@ test('the fuller telling: the whole reel and its seed, the watch, the delivery, 
   }
 });
 
+const shown = (cards, over = {}) => {
+  const { slot, row, ownPicture, ...song } = card();
+  void slot; void row; void ownPicture;
+  return { ...song, event: 'shown', cards, ...over };
+};
+const shownCard = (row, over = {}) => ({ row, ownPicture: false, place: 0, slot: { ...card().slot, id: `ad-${row}-x`, ...over } });
+
+test('a hand that reached the screen is told once, every card in it; Refresh is one press for the whole shelf', () => {
+  assert.equal(validFeedback(shown([shownCard('photography'), shownCard('typewriter', { look: 'paper-1' }), shownCard('dust', { libraryId: undefined })])), true);
+  assert.equal(validFeedback({ ...card({ event: 'refresh', row: 'shelf' }), slot: undefined }), true);
+  for (const bad of [
+    shown([]), shown(Array.from({ length: 33 }, (_, i) => shownCard(`r${i}`))), shown([{ ...shownCard('dust'), ownPicture: 'no' }]),
+    shown([{ ...shownCard('dust'), place: 40 }]), shown([{ ...shownCard('dust'), slot: undefined }]), shown([shownCard('dust', { libraryId: 'x' })]),
+    shown([{ ...shownCard('dust'), row: 'x'.repeat(30) }]), shown('dust'),
+  ]) assert.equal(validFeedback(bad), false, JSON.stringify(bad).slice(0, 120));
+});
+
+test('the brain learns downloads out of the cards shown; plays count for nothing', async () => {
+  const { learnedOf } = await import('../netlify/lib/library.mjs');
+  assert.deepEqual(learnedOf({ shown: 100, plays: 30, selects: 0, delivered: 4 }), { shown: 100, won: 4 });
+  assert.deepEqual(learnedOf({ shown: 100, plays: 0, selects: 6, delivered: 2 }), { shown: 100, won: 3 }, 'chosen and never downloaded: a quarter each');
+  assert.deepEqual(learnedOf({ shown: 100, plays: 90, selects: 0, delivered: 0 }), learnedOf({ shown: 100, plays: 0, selects: 0, delivered: 0 }), 'plays add nothing');
+  assert.deepEqual(learnedOf({ shown: 0, plays: 12, selects: 0, delivered: 1 }), { shown: 12, won: 1 }, 'days before hands were told: a play stands in for a card shown');
+});
+
+test('a hand is kept as one row per card', { skip: !READY, timeout: 60000 }, async () => {
+  const sql = db();
+  const body = shown([shownCard('photography', { reelIds: [randomUUID(), randomUUID()] }), shownCard('typewriter', { look: 'paper-1' })], { generation: 3 });
+  try {
+    assert.equal(await storeFeedback(body, null), true);
+    const rows = await sql`select event, row_id, look, generation, reel_ids, shelf_place from brain_feedback where clip_sha256 = ${body.clipSha256} order by id`;
+    assert.deepEqual(rows.map(row => [row.event, row.row_id, row.generation]), [['shown', 'photography', 3], ['shown', 'typewriter', 3]]);
+    assert.equal(rows[0].reel_ids.length, 2);
+    assert.equal(rows[1].look, 'paper-1');
+  } finally { await sql`delete from brain_feedback where clip_sha256 = ${body.clipSha256}`; }
+});
+
 async function withPerson(run) {
   const sql = db();
   const userId = `test-${randomUUID()}`;

@@ -41,7 +41,8 @@ export type Overview = {
 };
 
 /** What people did with one kind of thing (a row, a look, a picture…) over the period. */
-export type Tally = { key: string; plays: number; selects: number; downloads: number; delivered: number; refreshes: number; avgWatchMs: number };
+/** `shown`: cards that reached a person's screen (told since hands are reported); `delivered`: downloaded videos that reached them. */
+export type Tally = { key: string; shown: number; plays: number; selects: number; downloads: number; delivered: number; refreshes: number; avgWatchMs: number };
 export type LearningEvent = {
   at: string; event: string; row: string | null; look: string | null; vibe: string | null; lane: string | null;
   mood: string | null; genre: string | null; watchMs: number | null; nthDownload: number | null;
@@ -50,6 +51,8 @@ export type Learning = {
   days: number;
   totals: Tally & { songs: number };
   rows: Tally[];
+  /** Each template in the period just before this one, for the trend. */
+  earlier: { key: string; shown: number; plays: number; delivered: number }[];
   /** Each kind of card of each row (`row · kind`: a treatment variant, Window palette, Silhouette figure, Riso ink, live look), most downloaded first. */
   cards: Tally[];
   /** Each row in each lane the brain chose for the song (`row · lane`), most downloaded first: the shelf's order is learned per lane. */

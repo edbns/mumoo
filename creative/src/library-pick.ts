@@ -68,10 +68,11 @@ export function inLane(all: Learned | undefined, lane: Learned | undefined): Lea
   return shown > 0 ? { shown: Math.round(shown * 100) / 100, won: Math.round(won * 100) / 100 } : undefined;
 }
 
-/** A picture with no history is taken as this many plays at the library's usual rate: a few plays never swing it far. */
+/** A picture with no history is taken as this many cards shown at the library's usual rate: a few never swing it far. */
 const PRIOR_PLAYS = 20;
-const LEARNED_WEIGHT = 1.5;
-/** Below the least a tagged thing counts (0.5): what people kept only orders pictures that fit the song about equally well. */
+/** Downloading at twice the usual rate is worth this much (a nudge is relative: a few downloads in a hundred cards shown is a good rate). */
+const LEARNED_WEIGHT = 0.2;
+/** Below the least a tagged thing counts (0.5): what people downloaded only orders pictures that fit the song about equally well. */
 const MOST_LEARNED = 0.3;
 
 /** What the brain knows of the song that the library cares about. */
@@ -233,17 +234,20 @@ export function showing(item: LibraryPicture): string[] {
   return [...item.tags.map(tag => tag.trim().toLowerCase()), ...clear];
 }
 
-/** The library's usual rate of keeping a card it was played on; a library nobody has used yet keeps one in ten. */
+/** The library's usual rate of downloading a card it was shown on; a library nobody has used yet: three in a hundred. */
 export function usualRate(items: readonly Pick<LibraryPicture, 'learned'>[]): number {
   let shown = 0;
   let won = 0;
   for (const item of items) { shown += item.learned?.shown ?? 0; won += item.learned?.won ?? 0; }
-  return (won + 1) / (shown + 10);
+  return (won + 0.3) / (shown + 10);
 }
 
+/** Below this the usual rate is taken as this, so a library with almost no downloads yet does not swing on one. */
+const LEAST_USUAL = 0.01;
+
 /**
- * A small, seeded nudge from what people kept: a draw from how often this picture's cards are kept, against the library's usual rate.
- * Each song draws again, so a picture with little history still gets its turns (exploration) and one that is kept often leads more
+ * A small, seeded nudge from what people downloaded: a draw from how often this picture's cards are downloaded, against the library's usual rate.
+ * Each song draws again, so a picture with little history still gets its turns (exploration) and one that is downloaded often leads more
  * (exploitation). The same `draw` always gives the same nudge, so Refresh walks one order and a hand never reshuffles under the person.
  */
 export function learnedNudge(learned: LibraryPicture['learned'], usual: number, draw: string): number {
@@ -255,7 +259,7 @@ export function learnedNudge(learned: LibraryPicture['learned'], usual: number, 
   const u = (hash(`${draw}:u`) + 1) / 4294967297;
   const v = hash(`${draw}:v`) / 4294967296;
   const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-  return Math.max(-MOST_LEARNED, Math.min(MOST_LEARNED, (rate + spread * z - usual) * LEARNED_WEIGHT));
+  return Math.max(-MOST_LEARNED, Math.min(MOST_LEARNED, ((rate + spread * z - usual) / Math.max(usual, LEAST_USUAL)) * LEARNED_WEIGHT));
 }
 
 /**

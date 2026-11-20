@@ -382,7 +382,7 @@ test('a big mood board is walked: every card and every Refresh is edited from ne
   } finally { await server.close(); }
 });
 
-test('what people kept nudges the order a little: never past a better fit, the same for the same song, and new pictures still get turns', async () => {
+test('what people downloaded nudges the order a little: never past a better fit, the same for the same song, and new pictures still get turns', async () => {
   const { server, pick } = await load();
   try {
     const usual = 0.1;
@@ -399,7 +399,14 @@ test('what people kept nudges the order a little: never past a better fit, the s
     // A new picture is drawn around the usual rate: sometimes ahead, sometimes behind, so it gets its turns.
     const fresh = Array.from({ length: 40 }, (_, i) => pick.learnedNudge(undefined, usual, `song${i}`));
     assert.ok(fresh.some(n => n > 0) && fresh.some(n => n < 0));
-    assert.ok(Math.abs(pick.usualRate([item('x', { learned: { shown: 90, won: 9 } })]) - 0.1) < 1e-9);
+    assert.ok(Math.abs(pick.usualRate([item('x', { learned: { shown: 90, won: 9.7 } })]) - 0.1) < 1e-9);
+    assert.ok(Math.abs(pick.usualRate([]) - 0.03) < 1e-9, 'nothing learned yet: three downloads in a hundred cards shown');
+    // Downloads out of cards shown are small numbers: a picture downloaded at twice the usual 2% leads one at the usual rate.
+    const rare = 0.02;
+    const twice = { shown: 2000, won: 80 };
+    const usualOne = { shown: 2000, won: 40 };
+    const leadsRare = ['a', 'b', 'c', 'd', 'e'].filter(draw => pick.learnedNudge(twice, rare, draw) > pick.learnedNudge(usualOne, rare, draw) + 0.1);
+    assert.equal(leadsRare.length, 5, 'at small rates the nudge still tells them apart');
 
     // Two pictures that fit the same: the one people keep leads for most songs. Showing more of what the song wants still beats any history.
     const wanted = { attitude: 'love', genre: 'Pop', subGenre: '' };

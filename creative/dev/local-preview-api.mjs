@@ -245,6 +245,22 @@ export function localPreviewApi() {
         email: ADMIN, people: 3, problems: { unseen: problems.filter(item => !item.seen).length },
         library: { approved: library.filter(item => item.status === 'approved').length, pending: library.filter(item => item.status === 'pending').length, hidden: library.filter(item => item.status === 'hidden').length },
       })));
+      // A made-up month of what people did, so the Learning tab has something to show.
+      const tally = (key, shown, plays, selects, delivered, over = {}) => ({ key, shown, plays, selects, downloads: delivered, delivered, refreshes: 0, avgWatchMs: plays ? 4200 : 0, ...over });
+      route('/api/admin/learning', 'GET', adminOnly(async (request, response) => send(response, 200, {
+        days: Number(new URL(request.url, 'http://local').searchParams.get('days')) || 30,
+        totals: { ...tally('all', 2400, 610, 150, 84), refreshes: 96, songs: 41 },
+        rows: [tally('typewriter', 140, 52, 19, 14), tally('photography', 140, 60, 14, 9), tally('riso', 140, 31, 9, 6), tally('window', 140, 40, 8, 5),
+          tally('triptych', 140, 22, 6, 4), tally('halftone', 140, 20, 5, 3), tally('dust', 120, 18, 4, 3), tally('ascii', 140, 25, 3, 2), tally('double', 140, 14, 2, 1),
+          tally('sideways', 140, 12, 1, 0), tally('pulise', 120, 9, 1, 0), tally('screenshot', 20, 6, 2, 1)],
+        earlier: [{ key: 'typewriter', shown: 120, plays: 40, delivered: 6 }, { key: 'photography', shown: 130, plays: 55, delivered: 10 }, { key: 'sideways', shown: 120, plays: 15, delivered: 3 }, { key: 'riso', shown: 110, plays: 30, delivered: 4 }],
+        cards: [tally('typewriter · paper-cream', 40, 20, 8, 7), tally('typewriter · paper-grey', 35, 14, 5, 4), tally('photography · burn', 30, 15, 5, 4), tally('riso · tokyo', 35, 10, 4, 3)],
+        rowLanes: [tally('typewriter · party', 60, 25, 10, 8), tally('photography · quiet', 50, 20, 5, 4)],
+        places: [tally('0', 140, 60, 14, 9), tally('1', 140, 52, 19, 14)],
+        looks: [], vibes: [], moods: [], pictures: [], boards: [], colours: [], boardGenres: [],
+        genre: { prints: { songs: 12, creator: 8, confirmed: 3, seeded: 1 }, unknowns: 4, answers: [] },
+        recent: [{ at: '2026-11-20T11:00:00Z', event: 'delivered', row: 'typewriter', look: 'paper-cream', vibe: 'Party', lane: 'party', mood: 'fun', genre: 'Pop', watchMs: null, nthDownload: null }],
+      })));
       // What the creatives may draw: approved items only, with just what the brain needs.
       route('/api/library', 'GET', async (_request, response) => send(response, 200, {
         items: library.filter(item => item.status === 'approved' && !item.hidden && item.kind === 'photo')

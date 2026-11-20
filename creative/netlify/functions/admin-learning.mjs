@@ -3,9 +3,10 @@ import { db } from '../lib/person.mjs';
 
 /**
  * GET /api/admin/learning?days=30: what people did with the creatives (brain_feedback), summed up for reading. Counts and codes only:
- * which rows, kinds of card, looks, vibes, library pictures and genre colour matches are played, watched, kept and downloaded. Never who did it, never any words.
- * Rows, cards and pictures come most downloaded first: downloads are what the shelf learns from (`learnedShelf`, `learnedCounts`),
- * overall and per lane.
+ * which rows, kinds of card, looks, vibes, library pictures and genre colour matches are shown, played, watched, chosen and downloaded. Never who did it,
+ * never any words. Rows, cards and pictures come most downloaded first: downloads out of the cards shown are what the shelf learns from
+ * (`learnedShelf`, `learnedCounts`), overall and per lane. `templates` sets each template's period beside the one before it, so a template
+ * that stops working shows.
  */
 const DAYS = [7, 30, 90];
 const COLOUR_ORDER = ['strong', 'some', 'weak', 'none'];
@@ -20,6 +21,7 @@ export default async function handler(request) {
     const sql = db();
     const since = sql`created_at > now() - make_interval(days => ${days})`;
     const tally = sql`
+      count(*) filter (where event = 'shown')::int as shown,
       count(*) filter (where event = 'play')::int as plays,
       count(*) filter (where event = 'select')::int as selects,
       count(*) filter (where event = 'download')::int as downloads,
@@ -27,7 +29,13 @@ export default async function handler(request) {
       count(*) filter (where event = 'refresh')::int as refreshes,
       coalesce(round(avg(watch_ms) filter (where event = 'watch'))::int, 0) as avg_watch_ms`;
     const [totals] = await sql`select ${tally}, count(distinct clip_sha256)::int as songs from brain_feedback where ${since}`;
-    const rows = await sql`select row_id as key, ${tally} from brain_feedback where ${since} and row_id is not null group by row_id order by delivered desc, plays desc, key`;
+    const rows = await sql`select row_id as key, ${tally} from brain_feedback where ${since} and row_id is not null and event <> 'refresh' group by row_id order by delivered desc, shown desc, key`;
+    // Each template now and in the period just before, for the trend.
+    const before = sql`created_at <= now() - make_interval(days => ${days}) and created_at > now() - make_interval(days => ${2 * days})`;
+    const earlier = await sql`
+      select row_id as key, count(*) filter (where event = 'shown')::int as shown, count(*) filter (where event = 'play')::int as plays,
+        count(*) filter (where event = 'delivered')::int as delivered
+      from brain_feedback where ${before} and row_id is not null and event in ('shown', 'play', 'delivered') group by row_id`;
     const cards = await sql`
       select row_id || ' · ' || look as key, ${tally} from brain_feedback where ${since} and row_id is not null and look is not null and event <> 'refresh'
       group by 1 order by delivered desc, selects desc, plays desc, key limit 40`;
@@ -73,11 +81,12 @@ export default async function handler(request) {
         coalesce(sum(count) filter (where answer = 'unsure'), 0)::int as unsure
       from style_guess_answers where day > current_date - ${days}::int group by style having sum(count) > 0
       order by sum(count) desc, style limit 30`;
-    const shape = list => list.map(({ key, plays, selects, downloads, delivered, refreshes, avg_watch_ms: avgWatchMs }) => ({ key, plays, selects, downloads, delivered, refreshes, avgWatchMs }));
+    const shape = list => list.map(({ key, shown, plays, selects, downloads, delivered, refreshes, avg_watch_ms: avgWatchMs }) => ({ key, shown, plays, selects, downloads, delivered, refreshes, avgWatchMs }));
     return reply(200, {
       days,
       totals: { ...shape([{ key: 'all', ...totals }])[0], songs: totals.songs },
       rows: shape(rows),
+      earlier: earlier.map(({ key, shown, plays, delivered }) => ({ key, shown, plays, delivered })),
       cards: shape(cards),
       rowLanes: shape(rowLanes),
       places: shape(places),
