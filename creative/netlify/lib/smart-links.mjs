@@ -17,7 +17,8 @@ export const RESERVED = new Set([
   'create', 'credit', 'credits', 'dashboard', 'delete', 'docs', 'download', 'downloads', 'edit', 'email', 'explore', 'faq',
   'favicon', 'help', 'history', 'home', 'index', 'invoices', 'legal', 'link', 'links', 'login', 'logout', 'mail', 'moo', 'mumoo',
   'new', 'null', 'oauth', 'official', 'phone', 'pricing', 'privacy', 'profile', 'register', 'render', 'renders', 'robots',
-  'search', 'security', 'settings', 'signin', 'signup', 'sitemap', 'staff', 'static', 'status', 'support', 'team', 'terms',
+  'search', 'security', 'settings', 'smart-links', 'my-smart-links', 'terms-of-service', 'privacy-policy', 'cookie-policy',
+  'acceptable-use-policy', 'refund-policy', 'ai-disclosure', 'data-processing-agreement', 'media', 'welcome', 'signin', 'signup', 'sitemap', 'staff', 'static', 'status', 'support', 'team', 'terms',
   'test-media', 'undefined', 'upload', 'uploads', 'www',
 ]);
 /** How many links one person may publish. */

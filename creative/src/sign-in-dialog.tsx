@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { MagicLinkOtpLogin, type MagicLinkStep } from '@/components/ui/magic-link-otp-login';
 import { Modal } from '@/components/ui/modal';
 import type { SignInReason } from './account-hint';
+import { LEGAL_PATHS } from './site-paths';
 
-/** Where the legal pages will live. */
-const TERMS_URL = '/terms';
-const PRIVACY_URL = '/privacy';
+const TERMS_URL = LEGAL_PATHS.terms;
+const PRIVACY_URL = LEGAL_PATHS.privacy;
 /** How long "You're in" stays on screen before the popup closes by itself. */
 const WELCOME_MS = 1400;
 

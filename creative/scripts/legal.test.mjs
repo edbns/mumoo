@@ -7,7 +7,7 @@ const server = await createServer({ server: { middlewareMode: true, hmr: false }
 const { parseInline, parseMarkdown } = await server.ssrLoadModule('/src/legal-markdown.ts');
 await server.close();
 
-const SLUGS = ['terms', 'privacy', 'cookies', 'acceptable-use', 'refunds', 'ai', 'dpa'];
+const SLUGS = ['terms-of-service', 'privacy-policy', 'cookie-policy', 'acceptable-use-policy', 'refund-policy', 'ai-disclosure', 'data-processing-agreement'];
 
 test('every legal document has its own address, in netlify.toml and the dev server', () => {
   const files = readdirSync(new URL('../legal/', import.meta.url)).filter(name => name.endsWith('.md')).map(name => name.replace(/\.md$/, '')).sort();
@@ -19,7 +19,9 @@ test('every legal document has its own address, in netlify.toml and the dev serv
     assert.match(toml, new RegExp(`from = "/${slug}"\\n  to = "/legal.html"`), slug);
     assert.match(dev, new RegExp(`[|(]${slug}[|)]`), slug);
   }
-  for (const slug of SLUGS) assert.match(page, new RegExp(`'${slug}'`), slug);
+  const paths = readFileSync(new URL('../src/site-paths.ts', import.meta.url), 'utf8');
+  for (const slug of SLUGS) assert.match(paths, new RegExp(`'/${slug}'`), slug);
+  assert.match(page, /Object\.values\(LEGAL_PATHS\)/);
 });
 
 test('the published documents start with their title and carry no draft notes', () => {

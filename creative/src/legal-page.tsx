@@ -3,16 +3,18 @@ import { createRoot } from 'react-dom/client';
 import { parseMarkdown, type Block, type Inline } from './legal-markdown';
 import { CookieBanner } from './legal-corner';
 import { openCookieSettings } from './consent';
+import { LEGAL_PATHS } from './site-paths';
 import '@fontsource-variable/inter';
 import './styles/index.css';
 
 const SOURCES = import.meta.glob<string>('../legal/*.md', { query: '?raw', import: 'default', eager: true });
 
-const LEGAL_DOCUMENTS = ['terms', 'privacy', 'cookies', 'acceptable-use', 'refunds', 'ai', 'dpa'].map(slug => {
+/** Each document is `legal/<slug>.md`, at `/<slug>`. */
+const LEGAL_DOCUMENTS = Object.values(LEGAL_PATHS).map(path => path.slice(1)).map(slug => {
   const blocks = parseMarkdown(SOURCES[`../legal/${slug}.md`]);
   const heading = blocks.find(block => block.kind === 'heading');
   const title = heading?.kind === 'heading' ? heading.children.map(plain).join('') : slug;
-  return { slug, title, label: slug === 'dpa' ? 'Ad Forwarding DPA' : title, blocks };
+  return { slug, title, label: `/${slug}` === LEGAL_PATHS.dpa ? 'Ad Forwarding DPA' : title, blocks };
 });
 
 function plain(node: Inline): string {

@@ -96,7 +96,7 @@ export function localPreviewApi() {
       });
       // The same addresses netlify.toml sends to the legal page.
       server.middlewares.use((request, _response, next) => {
-        if (/^\/(legal|terms|privacy|cookies|acceptable-use|refunds|ai|dpa)\/?(\?|$)/.test(request.url ?? '')) request.url = '/legal.html';
+        if (/^\/(legal|terms-of-service|privacy-policy|cookie-policy|acceptable-use-policy|refund-policy|ai-disclosure|data-processing-agreement)\/?(\?|$)/.test(request.url ?? '')) request.url = '/legal.html';
         if (/^\/welcome\/?(\?|$)/.test(request.url ?? '')) request.url = '/welcome.html';
         if (/^\/pricing\/?(\?|$)/.test(request.url ?? '')) request.url = '/pricing.html';
         next();

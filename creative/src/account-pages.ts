@@ -8,7 +8,12 @@ export type AccountPage = 'create' | 'links' | 'my-links' | 'history' | 'invoice
 
 /** Every page but Create has its own address, so a refresh or a shared link comes back to it; Create is at the root. */
 export const PAGE_PATHS: Partial<Record<AccountPage, string>> = {
-  links: '/links', 'my-links': '/links/mine', history: '/media', invoices: '/invoices', settings: '/settings',
+  links: '/smart-links', 'my-links': '/my-smart-links', history: '/media', invoices: '/invoices', settings: '/settings',
+};
+/** What the browser tab (and a search result) calls each page. */
+export const PAGE_TITLES: Record<AccountPage, string> = {
+  create: 'MUMOO — Music Videos', links: 'Create a Smart Link · MUMOO', 'my-links': 'My Smart Links · MUMOO',
+  history: 'Media · MUMOO', invoices: 'Invoices · MUMOO', settings: 'Settings · MUMOO',
 };
 /** Media's second tab, Your uploads. */
 export const UPLOADS_PATH = '/media/uploads';

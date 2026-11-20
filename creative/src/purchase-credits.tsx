@@ -6,6 +6,7 @@ import { PricingInteraction } from '@/components/ui/pricing-interaction';
 import { CREDIT_PACKS, packFor, type CreditPack } from './credit-packs';
 import { accountFetch } from './account';
 import type { Shortfall } from './credit-events';
+import { LEGAL_PATHS } from './site-paths';
 import { loadReferral } from './referral';
 
 /** How long the popup waits for Polar to tell our server about the payment before saying it is still on its way. */
@@ -119,7 +120,7 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
       <PricingInteraction key={initial} packs={CREDIT_PACKS} initial={initial} busy={busy} onChoose={choose} />
       {note && <p role="alert" className="m-0 text-center text-sm text-destructive">{note}</p>}
       <p className="m-0 text-center text-sm text-muted-foreground">One-time purchase, no subscription. Credits never expire. Payment by Polar; tax added where it applies.</p>
-      <p className="m-0 text-center text-xs text-muted-foreground">Credits are non-refundable. See <a href="/terms" className="underline underline-offset-4 hover:text-foreground">Terms</a> and <a href="/refunds" className="underline underline-offset-4 hover:text-foreground">Refund policy</a>.</p>
+      <p className="m-0 text-center text-xs text-muted-foreground">Credits are non-refundable. See <a href={LEGAL_PATHS.terms} className="underline underline-offset-4 hover:text-foreground">Terms</a> and <a href={LEGAL_PATHS.refunds} className="underline underline-offset-4 hover:text-foreground">Refund policy</a>.</p>
     </div>
   </Modal>;
 }

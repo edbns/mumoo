@@ -34,6 +34,10 @@ Keep the look; make the pieces the same. Never restyle the brand (black layer, g
 - On cards, extra controls (download) show on hover. Selection and play stay visible.
 - Prompts are muted text. Red (`text-destructive`) is only for real errors.
 
+## Page addresses
+- Plain, lowercase, dash-separated words that say what the page is, matching its title: `/smart-links`, `/my-smart-links`, `/terms-of-service`, `/privacy-policy`. No abbreviations (`/dpa`, `/links/mine`).
+- An address lives in one place (`PAGE_PATHS` in `account-pages.ts`, `LEGAL_PATHS` in `site-paths.ts`) and is imported. Don't type `href="/…"` for our own pages. Each page sets a title (`PAGE_TITLES`). A new address also goes in `netlify.toml`, the dev server and the reserved smart-link names.
+
 ## Before calling it done
 - Run `npm run dev` and sign in with `/dev-login`. Look at the page and any pop-up it opens. Run `npm test`.
 - Don't commit or deploy until the artist has seen it locally and said yes.

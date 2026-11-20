@@ -4,13 +4,14 @@ import {
   CookieConsentDescription, CookieConsentLink, CookieConsentManage, CookieConsentRejectAll, CookieConsentSave, CookieConsentTitle,
 } from '@/components/ui/cookie-consent';
 import { CONSENT_KEY, COOKIE_SETTINGS_EVENT, openCookieSettings, readConsent } from './consent';
+import { LEGAL_INDEX, LEGAL_PATHS, PRICING_PATH } from './site-paths';
 
 export const LEGAL_LINKS = [
-  { href: '/pricing', label: 'Pricing' },
-  { href: '/terms', label: 'Terms' },
-  { href: '/privacy', label: 'Privacy' },
-  { href: '/cookies', label: 'Cookies' },
-  { href: '/legal', label: 'Legal' },
+  { href: PRICING_PATH, label: 'Pricing' },
+  { href: LEGAL_PATHS.terms, label: 'Terms' },
+  { href: LEGAL_PATHS.privacy, label: 'Privacy' },
+  { href: LEGAL_PATHS.cookies, label: 'Cookies' },
+  { href: LEGAL_INDEX, label: 'Legal' },
 ];
 
 export function CookieBanner() {
@@ -27,7 +28,7 @@ export function CookieBanner() {
         <CookieConsentTitle>We use cookies</CookieConsentTitle>
         <CookieConsentDescription>
           Necessary cookies keep you signed in. Analytics help us see how people use MUMOO (only if you say yes).{' '}
-          <CookieConsentLink href="/cookies">Cookie policy</CookieConsentLink>
+          <CookieConsentLink href={LEGAL_PATHS.cookies}>Cookie policy</CookieConsentLink>
         </CookieConsentDescription>
       </div>
       <CookieConsentCategories>

@@ -16,12 +16,12 @@
 
 # Smart links: the editor is a page of the app, at its own address.
 [[redirects]]
-  from = "/links"
+  from = "/smart-links"
   to = "/index.html"
   status = 200
 
 [[redirects]]
-  from = "/links/mine"
+  from = "/my-smart-links"
   to = "/index.html"
   status = 200
 
@@ -70,37 +70,37 @@
   status = 200
 
 [[redirects]]
-  from = "/terms"
+  from = "/terms-of-service"
   to = "/legal.html"
   status = 200
 
 [[redirects]]
-  from = "/privacy"
+  from = "/privacy-policy"
   to = "/legal.html"
   status = 200
 
 [[redirects]]
-  from = "/cookies"
+  from = "/cookie-policy"
   to = "/legal.html"
   status = 200
 
 [[redirects]]
-  from = "/acceptable-use"
+  from = "/acceptable-use-policy"
   to = "/legal.html"
   status = 200
 
 [[redirects]]
-  from = "/refunds"
+  from = "/refund-policy"
   to = "/legal.html"
   status = 200
 
 [[redirects]]
-  from = "/ai"
+  from = "/ai-disclosure"
   to = "/legal.html"
   status = 200
 
 [[redirects]]
-  from = "/dpa"
+  from = "/data-processing-agreement"
   to = "/legal.html"
   status = 200
 
