@@ -129,25 +129,23 @@ test('a reel is edited from its row\'s board only, the card names it, and with n
   } finally { await server.close(); }
 });
 
-test('a board of 53 clips is walked: no clip on two cards of a Refresh, none from the Refresh before, every clip used', async () => {
+test('the song\'s footage is walked across the shelf: its board first, no clip on two templates, none from the Refresh before', async () => {
   const { server, pack } = await load();
   try {
-    const items = [...filed('b', 'block-party', 53), ...filed('m', 'main-stage', 40)];
-    const refresh = generation => pack.recommendRow('photography', profile(), generation, [], items).map(slot => slot.reelIds ?? []);
-    const used = new Set();
+    const items = [...filed('b', 'block-party', 53), ...filed('m', 'main-stage', 300)];
+    const shelf = pack.SHELF_ROWS.map(def => def.id).filter(row => !['pulise', 'dust'].includes(row));
+    const refresh = generation => shelf.map(row => pack.recommendRow(row, profile(), generation, [], items)[0].reelIds ?? []);
     let before = new Set();
-    for (let generation = 0; generation < 6; generation++) {
+    for (let generation = 0; generation < 2; generation++) {
       const reels = refresh(generation);
       const ids = reels.flat();
       assert.ok(reels.every(reel => reel.length >= 4), `Refresh ${generation}: a reel of ${reels.map(reel => reel.length)}`);
-      assert.ok(ids.every(id => id.startsWith('b')), `Refresh ${generation} leaves the board`);
-      assert.equal(new Set(ids).size, ids.length, `Refresh ${generation}: a clip on two cards`);
+      assert.equal(new Set(ids).size, ids.length, `Refresh ${generation}: a clip on two templates`);
       assert.ok(ids.every(id => !before.has(id)), `Refresh ${generation} repeats a clip of the Refresh before`);
-      ids.forEach(id => used.add(id));
+      if (generation === 0) assert.equal(ids.filter(id => id.startsWith('b')).length, 53, 'the song\'s own board is shown first, all of it');
       before = new Set(ids);
     }
-    assert.equal(used.size, 53, 'every clip on the board gets its turn');
-    assert.deepEqual(refresh(2), refresh(2), 'seeded: the same Refresh deals the same reels');
+    assert.deepEqual(refresh(1), refresh(1), 'seeded: the same Refresh deals the same reels');
   } finally { await server.close(); }
 });
 
@@ -178,10 +176,11 @@ test('within a board, the clips that show what the song is about lead', async ()
   try {
     const party = filed('p', 'block-party', 20, { tags: ['party'] });
     const plain = filed('q', 'block-party', 80);
-    const hands = Array.from({ length: 10 }, (_, k) => pack.recommendRow('photography', profile(), 0, [], [...party, ...plain], false, {}, { seed: `s${k}` }).flatMap(slot => slot.reelIds ?? []));
-    const share = hands.flat().filter(id => id.startsWith('p')).length / hands.flat().length;
-    assert.ok(share > 0.35, `party clips are ${Math.round(share * 100)}% of the reels, a fifth of the board`);
-    assert.ok(share < 0.9, 'and the others still get their turn');
+    const reels = Array.from({ length: 10 }, (_, k) => pack.recommendRow('photography', profile(), 0, [], [...party, ...plain], false, {}, { seed: `s${k}` })[0].reelIds ?? []);
+    const share = reels.flat().filter(id => id.startsWith('p')).length / reels.flat().length;
+    assert.ok(share > 0.35, `party clips are ${Math.round(share * 100)}% of the first reel, a fifth of the board`);
+    const later = Array.from({ length: 10 }, (_, k) => pack.recommendRow('typewriter', profile(), 0, [], [...party, ...plain], false, {}, { seed: `s${k}` })[0].reelIds ?? []);
+    assert.ok(later.flat().some(id => id.startsWith('q')), 'and the others still get their turn');
   } finally { await server.close(); }
 });
 

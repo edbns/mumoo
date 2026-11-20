@@ -320,7 +320,12 @@ function rowLibrary(row: ShelfRow, profile: CreativeProfileV1, wanted: LibraryWa
     }
     return all;
   };
-  return { board, from };
+  /** The Director's footage: the row's board, the other boards that fit the song, then the rest of the library. */
+  const footage = () => [
+    ...(board ? [board, ...others] : []).map(choice => library.filter(item => item.boards?.includes(choice.id))).filter(group => group.length),
+    library,
+  ];
+  return { board, from, footage };
 }
 
 /** How many library pictures a Director's reel is edited from, and how many of them are clips when the library has that many (video sells). */
@@ -469,6 +474,90 @@ export function reelPool(items: readonly LibraryPicture[], wanted: LibraryWanted
   return edited;
 }
 
+/** The templates the Director edits a reel for. Each takes its own place in a Refresh's hand, so no two show the same pictures. */
+const directedRows = (): readonly ShelfRow[] => SHELF_ROWS.map(def => def.id)
+  .filter(row => row === 'photography' || isTreatmentId(row) || isLookRow(row) || row === 'riso' || row === 'window' || row === 'silhouette');
+
+/**
+ * Everything the Director may edit for this song in the order a deal walks it: the board chosen for the song, then the other boards
+ * that fit it, then the rest of the library that suits it (`boardOrder` keeps another genre's pictures out), each walked with fit,
+ * learning, the deal's own draw and what the person saw lately. Every run of `size` carries clips (video sells) in the share the
+ * footage has them, at least `REEL_CLIPS` where it can. Each lap round the footage is drawn afresh (`lap`).
+ */
+function footageOrder(groups: readonly (readonly LibraryPicture[])[], wanted: LibraryWanted, song: string, size: number, seen: Deal['seen']): LibraryPicture[] {
+  const taken = new Set<string>();
+  const walked = groups.flatMap((group, at) => {
+    // The rest of the library: a picture kept for another genre stays out while two others suit the song.
+    const suits = at === groups.length - 1 ? group.filter(item => libraryFit(item, wanted) !== null) : group;
+    const fresh = (suits.length >= 2 ? suits : group).filter(item => !taken.has(item.id));
+    fresh.forEach(item => taken.add(item.id));
+    return fresh.length ? boardOrder(fresh, wanted, song, size, seen) : [];
+  });
+  const clips = walked.filter(isClip);
+  const stills = walked.filter(item => !isClip(item));
+  const perRun = Math.min(size, Math.max(REEL_CLIPS, Math.round(size * clips.length / Math.max(1, walked.length))));
+  const order: LibraryPicture[] = [];
+  while (clips.length || stills.length) {
+    const wantClips = Math.min(clips.length, stills.length ? perRun : size);
+    const run = clips.splice(0, wantClips);
+    run.push(...stills.splice(0, size - run.length));
+    if (run.length < size) run.push(...clips.splice(0, size - run.length));
+    order.push(...run);
+  }
+  return order;
+}
+
+/** Each template asks for the same footage: it is walked once per library, visit (`seen`) and Refresh size. */
+const footageCache = new WeakMap<object, WeakMap<object, Map<string, LibraryPicture[]>>>();
+const NOT_SEEN = {};
+
+/**
+ * The reel for card `place` of Refresh `generation`, when each Refresh deals `hand` cards: the next `size` pictures of the footage,
+ * so every template on the shelf is edited from pictures no other shows, and each Refresh goes on past everything the last one showed.
+ */
+function footageReel(library: readonly LibraryPicture[], groups: readonly (readonly LibraryPicture[])[], wanted: LibraryWanted, song: string,
+  generation: number, place: number, hand: number, seen: Deal['seen']): LibraryPicture[] {
+  const total = new Set(groups.flat().map(item => item.id)).size;
+  if (total < 2) return [];
+  const onBoards = new Set(groups.slice(0, -1).flat().map(item => item.id)).size || total;
+  // One Refresh's hand is drawn from the song's boards alone where they hold enough; shorter reels before weaker fits.
+  const size = Math.min(REEL_POOL, total, Math.max(BOARD_REEL_MIN, Math.floor(onBoards / hand)));
+  const card = generation * hand + place;
+  const firstLap = footageOf(library, groups, wanted, song, size, seen, 0);
+  // Footage too small for a reel of its own per template: the templates share as little as it allows, each opening on another picture.
+  const small = firstLap.length < hand * size;
+  const start = card * (small ? Math.max(1, Math.floor(firstLap.length / hand)) : size);
+  const lap = small ? 0 : Math.floor(start / firstLap.length);
+  const order = lap ? footageOf(library, groups, wanted, `${song}:lap${lap}`, size, seen, lap) : firstLap;
+  const from = start % order.length;
+  const reel = Array.from({ length: Math.min(size, order.length) }, (_, step) => order[(from + step) % order.length]);
+  // Too few clips to give every template its own: the templates share them, last in the reel, so each still opens on its own picture.
+  const clips = order.filter(isClip);
+  let have = reel.filter(isClip).length;
+  for (let step = 0; step < clips.length && have < Math.min(REEL_CLIPS, clips.length); step++) {
+    const clip = clips[(card + step) % clips.length];
+    const still = reel.map(isClip).lastIndexOf(false);
+    if (still <= 0 || reel.includes(clip)) continue;
+    reel[still] = clip;
+    have += 1;
+  }
+  return reel;
+}
+
+function footageOf(library: readonly LibraryPicture[], groups: readonly (readonly LibraryPicture[])[], wanted: LibraryWanted, song: string,
+  size: number, seen: Deal['seen'], lap: number): LibraryPicture[] {
+  const key = `${song}|${size}|${lap}|${JSON.stringify(wanted)}|${groups.map(group => group.length).join(',')}`;
+  let bySeen = footageCache.get(library);
+  if (!bySeen) footageCache.set(library, bySeen = new WeakMap());
+  let cached = bySeen.get(seen ?? NOT_SEEN);
+  if (!cached) bySeen.set(seen ?? NOT_SEEN, cached = new Map());
+  const hit = cached.get(key);
+  if (hit) return hit;
+  const order = footageOrder(groups, wanted, song, size, seen);
+  cached.set(key, order);
+  return order;
+}
+
 /** A card that is edited from the pool instead of drawn from one picture. Each card of a row opens on a different picture. With fewer than two pictures it stays as it was. */
 export function reeled(slot: CreativesPackSlot, pool: readonly LibraryPicture[], index: number): CreativesPackSlot {
   if (pool.length < 2) return slot;
@@ -498,10 +587,11 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
   // Riso draws library photos that have a cut-out, or library videos/GIFs; with none, our approved photos.
   const wanted = libraryWanted(profile, meaning, genre, intent);
-  // Every template but Pulise and Dust shows the Directed card's video in its place: the same board, pictures and reel.
-  const directedRow = row === 'photography' || isTreatmentId(row) || isLookRow(row) || row === 'riso' || row === 'window' || row === 'silhouette';
-  const directedSeed = `${song}:${generation}:${lane}:photography`;
-  const { board, from } = rowLibrary(directedRow ? 'photography' : row, profile, wanted, library);
+  // Every template but Pulise and Dust is edited by the Director from the song's footage, each from pictures no other template shows.
+  const directed = directedRows();
+  const place = directed.indexOf(row);
+  const directedRow = place >= 0;
+  const { board, from, footage } = rowLibrary(directedRow ? 'photography' : row, profile, wanted, library);
   const risoLibrary = pickLibrary(from(risoCapable), wanted, song, 0, 50).map(item => item.id);
   const risoPhotos: PhotoSources = { plateIds: cutOutPlates, libraryIds: risoLibrary };
   /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
@@ -515,7 +605,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     preset,
     presetTake: takeAt(preset, generation, index),
   }));
-  const treatmentRow = (kind: TreatmentId) => withPreset(treatmentSlots(kind, lane, intent, seed, turn, directedSeed, pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture));
+  const treatmentRow = (kind: TreatmentId) => withPreset(treatmentSlots(kind, lane, intent, seed, turn, pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture));
   const slots = {
     photography: () => {
       const cards = photographySlots(
@@ -546,19 +636,11 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     pulise: () => puliseSlots(lane, intent, seed, turn),
     dust: () => dustSlots(lane, intent, seed, turn, cover?.hue),
   }[row]();
-  // Card i of every such template is edited by the Director from the same pool as Directed's card i, once there are two or more pictures to edit.
-  const onBoard = (items: readonly LibraryPicture[]) => Boolean(board) && (items[0]?.boards ?? []).some(id => items.every(item => item.boards?.includes(id)));
-  const pictures = from();
-  const poolOf = directedRow && !ownPicture ? (card: number) => reelPool(pictures, wanted, song, generation, card, onBoard(pictures), deal.seen) : () => [];
-  // Each card is edited from its own pictures, and opens on one no card before it opened on.
-  const opened = new Set<string>();
-  const edited = slots.map((slot, index) => {
-    const pool = poolOf(index);
-    if (pool.length < 2) return slot;
-    const turn = Array.from({ length: pool.length }, (_, step) => index + step).find(at => !opened.has(pool[at % pool.length].id)) ?? index;
-    opened.add(pool[turn % pool.length].id);
-    return reeled(slot, pool, turn);
-  });
+  // The template's own reel, once there are two or more pictures to edit. The shelf shows one card per template (the lead, after
+  // learning has put its favourite first); the others are edited from the same pictures, each opening on another.
+  const reel = directedRow && !ownPicture ? footageReel(pool, footage(), wanted, song, generation, place, directed.length, deal.seen) : [];
+  const ordered = isTreatmentId(row) && TREATMENT_LEAD[row] ? slots : learnedLead(slots, cardsInLane(learning, lane, row), seed);
+  const edited = reel.length < 2 ? ordered : ordered.map((slot, index) => reeled(slot, reel, index));
   // A card tells its board only when it really draws a library picture from it.
   const filed = (slot: CreativesPackSlot) => board && [slot.libraryId, ...(slot.reelIds ?? [])].some(id => id && library.find(item => item.id === id)?.boards?.includes(board.id));
   const boarded = board ? edited.map(slot => (filed(slot) ? { ...slot, board: board.id } : slot)) : edited;
@@ -572,8 +654,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     return fit === undefined ? slot : { ...slot, colourFit: fit };
   });
   const grade = moodGrade(meaning);
-  const graded = grade && !UNGRADED.includes(row) ? coloured.map(slot => ({ ...slot, grade })) : coloured;
-  return isTreatmentId(row) && TREATMENT_LEAD[row] ? graded : learnedLead(graded, cardsInLane(learning, lane, row), seed);
+  return grade && !UNGRADED.includes(row) ? coloured.map(slot => ({ ...slot, grade })) : coloured;
 }
 
 /** What people did with each kind of card of `row`, for songs in `lane` first. */
@@ -810,10 +891,10 @@ export const isLookRow = (row: ShelfRow): row is LookFamily => isLookFamily(row)
 export const isTreatmentRow = (row: ShelfRow): row is TreatmentId => isTreatmentId(row);
 
 /**
- * Four cards of one treatment: card N is Directed card N (the same pictures, reel and cut, from `directedSeed`) finished with a
- * different variant, each with its own lyric type. With no library picture and no own picture the row is empty.
+ * Four cards of one treatment, each finished with a different variant and its own lyric type and cut (the Director edits the
+ * treatment's own reel in `recommendRow`). With no library picture and no own picture the row is empty.
  */
-function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, turn: Turn, directedSeed: string, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
+function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, turn: Turn, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
   const cards: (LibraryPicture | null)[] = ownPicture ? Array.from({ length: ROW_SIZE }, () => null) : picks.slice(0, ROW_SIZE);
   const variants = dealTreatments(lane, seed, cards.length, kind);
   if (!cards.length || variants.length !== cards.length) return [];
@@ -835,7 +916,7 @@ function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1
       ...finishOf(index),
       treatment: kind,
       treatmentVariant: variant,
-      cutSeed: hashPick(directedSeed, 'cut', 250_000) * 4 + index,
+      cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
     };
   });
 }

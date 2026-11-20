@@ -116,7 +116,7 @@ test('the same song gets the same order; Refresh moves on to the next hand and w
   } finally { await server.close(); }
 });
 
-test('Dust draws nothing from the library; Riso prints the Directed reel and falls back to our approved photo', async () => {
+test('Dust draws nothing from the library; Riso prints a reel of its own and falls back to our approved photo', async () => {
   const { server, pack } = await load();
   try {
     const person = profile('Pop', 'Indie Pop');
@@ -133,7 +133,9 @@ test('Dust draws nothing from the library; Riso prints the Directed reel and fal
     const riso = pack.recommendRow('riso', person, 0, plates, library);
     const directed = pack.recommendRow('photography', person, 0, plates, library);
     assert.equal(riso.length, 4);
-    assert.deepEqual(riso.map(slot => slot.reelIds), directed.map(slot => slot.reelIds), 'Riso prints the Directed card’s reel in its place');
+    const ours = new Set(library.map(entry => entry.id));
+    assert.ok(riso.every(slot => slot.reelIds?.length >= 2 && slot.reelIds.every(id => ours.has(id))), 'Riso prints a reel of the library');
+    assert.notEqual(riso[0].reelIds[0], directed[0].reelIds[0], 'opening on another picture than the Directed card');
     assert.ok(riso.every(slot => !slot.plateId && !slot.libraryId && slot.cutSeed !== undefined));
 
     for (const row of ['riso']) {
@@ -144,7 +146,7 @@ test('Dust draws nothing from the library; Riso prints the Directed reel and fal
   } finally { await server.close(); }
 });
 
-test('Window shows the Directed reel through the word, one library picture as it is, or our approved photo when there is no library', async () => {
+test('Window shows a reel of its own through the word, one library picture as it is, or our approved photo when there is no library', async () => {
   const { server, pack } = await load();
   try {
     const person = profile('Pop', 'Indie Pop');
@@ -153,7 +155,7 @@ test('Window shows the Directed reel through the word, one library picture as it
     const library = [item('p1'), item('p2'), clip('c1'), clip('c2')];
     const cards = pack.recommendRow('window', person, 0, plates, library);
     assert.equal(cards.length, 4);
-    assert.deepEqual(cards.map(card => card.reelIds), pack.recommendRow('photography', person, 0, plates, library).map(card => card.reelIds), 'the Directed card’s reel, card for card');
+    assert.ok(cards.every(card => card.reelIds?.length >= 2 && card.reelIds.every(id => library.some(entry => entry.id === id))), 'a reel of the library');
     assert.ok(cards.every(card => card.windowMode === 'plain' && !card.libraryId && !card.plateId && !card.effectId));
     assert.deepEqual(cards, pack.recommendRow('window', person, 0, plates, library), 'the same deal every time');
     const alone = pack.recommendRow('window', person, 0, plates, [clip('c1')]);

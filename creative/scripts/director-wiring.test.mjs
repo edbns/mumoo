@@ -82,15 +82,27 @@ test('a reel is never made of stills alone when the library has a clip', () => {
   }
 });
 
-test('every template but Pulise and Dust shows the Directed card\'s reel in its place, Refresh after Refresh', () => {
-  const big = [...LIBRARY, ...Array.from({ length: 16 }, (_, i) => photo(20 + i)), clip(40), clip(41)];
-  for (const generation of [0, 1, 5]) {
-    const directed = pack.recommendRow('photography', profile(), generation, [], big, false).map(slot => slot.reelIds);
-    for (const row of REEL_ROWS) {
-      const slots = pack.recommendRow(row, profile(), generation, [], big, false);
-      slots.forEach((slot, card) => assert.deepEqual(slot.reelIds, directed[card], `${row} card ${card} on Refresh ${generation}`));
-    }
+test('every template on the shelf is edited from pictures no other shows, with clips, and each Refresh brings new ones', () => {
+  const big = [...Array.from({ length: 180 }, (_, i) => photo(100 + i)), ...Array.from({ length: 120 }, (_, i) => clip(400 + i))];
+  const clips = new Set(big.filter(item => item.kind !== 'photo').map(item => item.id));
+  const shelf = pack.SHELF_ROWS.map(def => def.id).filter(row => !['pulise', 'dust'].includes(row));
+  let before = new Set();
+  for (const generation of [0, 1]) {
+    const leads = shelf.map(row => pack.recommendRow(row, profile(), generation, [], big, false)[0]);
+    const ids = leads.flatMap(slot => slot.reelIds);
+    assert.ok(leads.every(slot => slot.reelIds.length >= 4), `Refresh ${generation}: every template is a reel`);
+    assert.equal(new Set(ids).size, ids.length, `Refresh ${generation}: a picture on two templates`);
+    assert.ok(ids.every(id => !before.has(id)), `Refresh ${generation} repeats a picture of the Refresh before`);
+    assert.ok(leads.every(slot => slot.reelIds.filter(id => clips.has(id)).length >= 3), 'video sells: every reel has clips');
+    assert.equal(new Set(leads.map(slot => slot.cutSeed)).size, leads.length, 'and each is cut its own way');
+    before = new Set(ids);
   }
+});
+
+test('with too few pictures for a reel each, every template still opens on another picture', () => {
+  const few = [...LIBRARY, ...Array.from({ length: 22 }, (_, i) => photo(20 + i)), clip(60), clip(61)];
+  const openings = REEL_ROWS.map(row => pack.recommendRow(row, profile(), 0, [], few, false)[0].reelIds[0]);
+  assert.equal(new Set(openings).size, openings.length);
 });
 
 test('with fewer than two pictures, or the person’s own, a card is not a reel', () => {

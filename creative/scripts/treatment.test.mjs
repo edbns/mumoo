@@ -113,14 +113,14 @@ test('treatments never change the Director\'s plan: same assets, music and cut s
   assert.ok(directed.every(segment => Number.isFinite(segment.atMs) && segment.endMs > segment.atMs));
 });
 
-test('treatment card N finishes Directed card N: the same pictures, reel order and cut', () => {
+// That no two templates share pictures is in director-wiring.test (it needs a library bigger than this one).
+test('each treatment is a reel cut its own way, not the Directed card’s', () => {
   for (const generation of [0, 1, 5]) {
-    const directed = pack.recommendRow('photography', profile(), generation, [], LIBRARY, false);
+    const [directed] = pack.recommendRow('photography', profile(), generation, [], LIBRARY, false);
     for (const kind of deal.TREATMENT_IDS) {
       const treated = pack.recommendRow(kind, profile(), generation, [], LIBRARY, false);
-      assert.deepEqual(treated.map(slot => slot.reelIds), directed.map(slot => slot.reelIds), `${kind} reel @${generation}`);
-      assert.deepEqual(treated.map(slot => slot.cutSeed), directed.map(slot => slot.cutSeed), `${kind} cut @${generation}`);
-      assert.deepEqual(treated.map(slot => slot.board), directed.map(slot => slot.board), `${kind} board @${generation}`);
+      assert.ok(treated.every(slot => slot.reelIds?.length >= 2), `${kind} is a reel @${generation}`);
+      assert.notEqual(treated[0].cutSeed, directed.cutSeed, `${kind} cut @${generation}`);
     }
   }
 });
