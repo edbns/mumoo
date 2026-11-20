@@ -116,7 +116,7 @@ test('the same song gets the same order; Refresh moves on to the next hand and w
   } finally { await server.close(); }
 });
 
-test('Dust is dealt from library cut-out photos; Riso prints the Directed reel; both fall back to our approved photos', async () => {
+test('Dust draws nothing from the library; Riso prints the Directed reel and falls back to our approved photo', async () => {
   const { server, pack } = await load();
   try {
     const person = profile('Pop', 'Indie Pop');
@@ -127,8 +127,8 @@ test('Dust is dealt from library cut-out photos; Riso prints the Directed reel; 
 
     const dust = pack.recommendRow('dust', person, 0, plates, library);
     assert.equal(dust.length, 4);
-    assert.ok(dust.every(slot => ['p1', 'p2'].includes(slot.libraryId) && !slot.plateId), 'Dust: only photos with a cut-out, never a video or an uncut photo');
-    assert.equal(new Set(dust.map(slot => slot.libraryId)).size, 2, 'Dust: both photos are used');
+    assert.ok(dust.every(slot => !slot.libraryId && !slot.plateId && !slot.reelIds), 'Dust: the lyrics alone');
+    assert.deepEqual(dust, pack.recommendRow('dust', person, 0, [], []), 'Dust is dealt the same with or without pictures');
 
     const riso = pack.recommendRow('riso', person, 0, plates, library);
     const directed = pack.recommendRow('photography', person, 0, plates, library);
@@ -136,7 +136,7 @@ test('Dust is dealt from library cut-out photos; Riso prints the Directed reel; 
     assert.deepEqual(riso.map(slot => slot.reelIds), directed.map(slot => slot.reelIds), 'Riso prints the Directed card’s reel in its place');
     assert.ok(riso.every(slot => !slot.plateId && !slot.libraryId && slot.cutSeed !== undefined));
 
-    for (const row of ['riso', 'dust']) {
+    for (const row of ['riso']) {
       const none = pack.recommendRow(row, person, 0, plates, [item('uncut')]);
       assert.ok(none.every(slot => slot.plateId === 'burnnet-woman-1547507-1920' && !slot.libraryId), `${row}: with nothing usable in the library it uses our approved photo`);
       assert.ok(pack.recommendRow(row, person, 0, [], []).every(slot => !slot.plateId && !slot.libraryId), `${row}: with no photo at all the card waits for the person's own`);
@@ -194,12 +194,8 @@ test('Our photography is dealt from the library only; baked effects stand in jus
     assert.notDeepEqual(full.map(slot => slot.id), again.map(slot => slot.id), 'Refresh brings other cards');
     assert.notDeepEqual(full.map(slot => slot.cutSeed), again.map(slot => slot.cutSeed), 'Refresh edits them another way');
 
-    for (const row of ['pulise']) {
+    for (const row of ['pulise', 'dust']) {
       assert.deepEqual(pack.recommendRow(row, person, 0, [{ id: 'burnnet-woman-1547507-1920', cutout: true }], library), pack.recommendRow(row, person, 0, [{ id: 'burnnet-woman-1547507-1920', cutout: true }]), `${row} does not use the library`);
-    }
-    // Plain library photos without a cut-out do not change Dust: it still uses plates. Riso prints the Directed reel of them.
-    for (const row of ['dust']) {
-      assert.deepEqual(pack.recommendRow(row, person, 0, [{ id: 'burnnet-woman-1547507-1920', cutout: true }], library), pack.recommendRow(row, person, 0, [{ id: 'burnnet-woman-1547507-1920', cutout: true }]), `${row} ignores uncut library photos`);
     }
   } finally { await server.close(); }
 });

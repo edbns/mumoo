@@ -183,7 +183,7 @@ async function prepareItem(row) {
 }
 
 /**
- * A ready photo also gets its subject cut out (Riso and Dust draw from it). The photo is usable before that, in Our photography; a photo
+ * A ready photo also gets its subject cut out (Riso draws from it). The photo is usable before that, in Our photography; a photo
  * the worker cannot cut is tried three times and then left alone. Never throws.
  */
 async function cutOut(row) {

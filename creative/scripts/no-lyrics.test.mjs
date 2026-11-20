@@ -10,14 +10,12 @@ await server.close();
 
 test('a song with no words shows only the rows that work without them', () => {
   const treatments = ['triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'sideways', 'typewriter'];
-  assert.deepEqual(pack.rowsFor(true).map(row => row.id), ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'silhouette', 'dust']);
+  assert.deepEqual(pack.rowsFor(true).map(row => row.id), ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'silhouette']);
   assert.ok(pack.rowsFor(true).every(row => row.lyrics === 'switch'), 'none of them is made of the lyrics');
   assert.deepEqual(pack.rowsFor(false).map(row => row.id), pack.SHELF_ROWS.map(row => row.id), 'with words, every row');
   assert.ok(pack.rowsFor(true).length < pack.rowsFor(false).length);
-  // A video or GIF leaves out the templates that need a photo; a photo (or none) leaves them in.
-  assert.deepEqual(pack.rowsFor(false).map(row => row.id).filter(id => !pack.rowsFor(false, 'motion').some(row => row.id === id)), ['pulise', 'dust']);
-  // Any picture of their own leaves out the templates that draw none (Pulise).
-  assert.deepEqual(pack.rowsFor(false).map(row => row.id).filter(id => !pack.rowsFor(false, 'photo').some(row => row.id === id)), ['pulise']);
+  // Any picture of their own, photo or video, leaves out the templates that draw none (Pulise and Dust).
+  for (const kind of ['photo', 'motion']) assert.deepEqual(pack.rowsFor(false).map(row => row.id).filter(id => !pack.rowsFor(false, kind).some(row => row.id === id)), ['pulise', 'dust'], kind);
   assert.deepEqual(pack.rowsFor(false, 'motion').map(row => row.id), ['photography', ...treatments, 'screenshot', 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window', 'silhouette'], 'a video: no Pulise or Dust');
   assert.deepEqual(pack.rowsFor(true, 'motion').map(row => row.id), ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'silhouette'], 'no lyrics and a video: both rules');
 });

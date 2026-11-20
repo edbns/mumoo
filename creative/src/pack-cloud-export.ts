@@ -96,7 +96,7 @@ export type CloudJobInput = {
   wav: Uint8Array;
   /** Exactly what the shelf preview renders — the cloud draws the same scene, frame for frame. */
   opts: PackRendererOpts;
-  /** Dust and Filter draw the signed-in person's own picture: its id in their storage. The server fetches it. */
+  /** A card drawn on the signed-in person's own picture: its id in their storage. The server fetches it. */
   uploadId?: string;
   /** Our photography draws an approved library picture: its id. The server reads it from the library. */
   libraryId?: string;

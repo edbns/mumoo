@@ -5,7 +5,7 @@
  *
  * Looks (Shaders.com recipes) are baked OFFLINE by the Look Lab into static JPEGs;
  * this file only loads them as textures. No WebGPU / Shaders in the browser.
- * A person's own picture (Dust, Our photography) is loaded from `photoUrl`: a link in the browser, a page the worker serves in the cloud.
+ * A person's own picture (Our photography, Riso, Window, the treatments) is loaded from `photoUrl`: a link in the browser, a page the worker serves in the cloud.
  */
 import { Application, Assets, ColorMatrixFilter, Rectangle, Texture, type WebGLRenderer } from 'pixi.js';
 import { DURATION_MS, HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
@@ -20,7 +20,7 @@ import { photoEffectUrl } from './pack-looks';
 import { typeFamilies, type TypeStyleId } from './pack-type';
 import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
-import { dustWordAt, sampleDust, type DustPoints } from './pack-dust';
+import { airDust, dustWordAt, type DustPoints } from './pack-dust';
 import { loadMotion, type Motion } from './pack-motion';
 import { clearReelPictures, loadReel, reelKey, type Reel, type ReelSource } from './pack-reel';
 import { planCuts, sourceMsAt, type Cut, type Shot } from './pack-cuts';
@@ -48,11 +48,11 @@ export type PackRendererOpts = {
   layout: AdLayout;
   cues: readonly LyricCue[];
   music: ImpactMusic | null;
-  /** Dust, Riso and Window: an approved photo (and its cut-out), found the same way in the browser and in the cloud. */
+  /** Riso and Window: an approved photo (and its cut-out), found the same way in the browser and in the cloud. Dust takes no picture at all. */
   plateId?: string;
   /** Our photography and Window: one baked effect on our approved photo, found the same way. */
   effectId?: string;
-  /** Or the person's own picture, which replaces ours. Dust: a photo with its cut-out mask. Riso: a photo with its cut-out, or a clip printed whole-frame. Our photography: a photo, or a clip drawn plain. Window: a photo with its cut-out (used only when the card has her in front), or a clip drawn plain. */
+  /** Or the person's own picture, which replaces ours. Riso: a photo with its cut-out, or a clip printed whole-frame. Our photography: a photo, or a clip drawn plain. Window: a photo with its cut-out (used only when the card has her in front), or a clip drawn plain. */
   photoUrl?: string;
   cutoutUrl?: string;
   motionUrl?: string;
@@ -170,7 +170,6 @@ export async function createPackRenderer(
   let cuts: Cut[] = [];
   let cutsKey = '';
   let dustPoints: DustPoints | null = null;
-  let dustKey = '';
   let risoPhoto: RisoPhoto | null = null;
   let risoKey = '';
   const figures = new Map<string, Texture>();
@@ -196,7 +195,6 @@ export async function createPackRenderer(
     clearReelPictures();
     cutsKey = '';
     dustPoints = null;
-    dustKey = '';
     risoPhoto = null;
     risoKey = '';
     for (const texture of figures.values()) texture.destroy(true);
@@ -308,7 +306,8 @@ export async function createPackRenderer(
         if (style === 'riso' && !current.inkSet) throw new Error('Riso needs an ink set.');
         // Riso on a clip is whole-frame: no cut-out.
         const risoMotion = style === 'riso' && Boolean(current.motionUrl || reelled);
-        const cutOut = style === 'dust' || (style === 'riso' && !risoMotion);
+        if (style === 'dust' && (current.plateId || current.effectId || current.photoUrl || current.cutoutUrl || current.motionUrl || current.reel)) throw new Error('Dust is drawn from the lyrics alone.');
+        const cutOut = style === 'riso' && !risoMotion;
         const ownPicture = cutOut || ownBackdrop || windowOwn || risoMotion;
         // Our photography can also draw our approved photo itself (with a live look on it). Treatments never use a plate.
         const photoUrl = (cutOut || windowOwn || style === 'filter') && current.plateId ? plateUrl(current.plateId) : current.photoUrl;
@@ -361,17 +360,8 @@ export async function createPackRenderer(
           }
         }
 
-        // Dust: the picture is read into grains once, then every frame is a function of the clock.
-        if (style === 'dust') {
-          const picture = photoTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
-          const mask = cutoutTexture?.source.resource as (CanvasImageSource & { width: number; height: number }) | undefined;
-          if (!picture || !mask) throw new Error('Dust needs a photo and its cut-out.');
-          const key = `${photoUrl}|${cutoutUrl}`;
-          if (dustKey !== key || !dustPoints) {
-            dustPoints = sampleDust(picture, mask);
-            dustKey = key;
-          }
-        }
+        // Dust: its air is made once, then every frame is a function of the clock.
+        if (style === 'dust') dustPoints ??= airDust();
         // Riso photo: read into one light-and-silhouette map once. Riso clip: refresh a whole-frame lightness map each frame.
         if (style === 'riso') {
           if (risoMotion) {

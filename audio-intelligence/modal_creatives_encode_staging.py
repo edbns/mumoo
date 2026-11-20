@@ -71,7 +71,7 @@ TREATMENTS = {
     "bento": {"hero-left", "hero-top", "mosaic", "strip"},
     "grain": {"fine", "classic", "heavy", "halation"},
     "double": {"blend", "screen", "offset-cut", "offset-far"},
-    "sideways": {"right", "left", "pillar", "cinema"},
+    "sideways": {"pillar"},
     "typewriter": {"newsprint", "letter", "faded", "yellowed"},
     "screenshot": {"light-black", "light-white", "dark-white", "screen"},
 }
@@ -96,8 +96,6 @@ WINDOW_SCREENS = {"plain": {"black", "off-white"}, "silhouette": {"red", "black"
 # The figures of creative/public/silhouettes (creative/src/silhouette.ts).
 WINDOW_SHAPES = {"man-cap", "woman-hair", "man-wide", "woman-wide", "woman-curls", "man-hood", "woman-head", "man-head"}
 WINDOW_KEYS = ("windowMode", "windowPalette", "windowAllowed")
-# Styles drawn from a person cut out of a photo: an approved plate (`plateId`) or the person's own photo and cut-out mask.
-CUT_OUT_STYLES = {"dust", "riso"}
 # Lyric type styles and display fonts the page knows (creative/src/pack-type.ts, font-catalog.ts; a test keeps these in step).
 TYPE_STYLES = {
     "typewriter", "karaoke", "stack", "minimal", "editorial", "outline",
@@ -418,11 +416,13 @@ def window_media(opts: dict, media: dict[str, bytes]) -> set[str]:
 
 
 def check_media(opts: dict, media: dict[str, bytes]) -> None:
-    """Dust and Riso are drawn from an approved photo (`plateId`) and Our photography (style "filter") from that photo (`plateId`, with a live look) or one baked effect on it
-    (`effectId`); the page loads either from the site itself. All three can instead be drawn from the person's own picture:
-    Dust a photo with its cut-out mask, Riso a photo with its cut-out or a clip (whole-frame print), Our photography a photo or a clip.
-    Window has its own rules (`window_media`). Nothing else takes a picture. A reel takes no media at all:
+    """Riso is drawn from an approved photo (`plateId`) and Our photography (style "filter") from that photo (`plateId`, with a live look) or one baked effect on it
+    (`effectId`); the page loads either from the site itself. Both can instead be drawn from the person's own picture:
+    Riso a photo with its cut-out or a clip (whole-frame print), Our photography a photo or a clip.
+    Window has its own rules (`window_media`). Dust and Pulse are the lyrics alone. Nothing else takes a picture. A reel takes no media at all:
     the page fetches its pictures itself. Raises ValueError when the media sent is not exactly what the card needs."""
+    if opts["style"] in ("dust", "pulise") and ({"plateId", "effectId", "reel"} & set(opts) or media):
+        raise ValueError("media")
     if "reel" in opts:
         if media:
             raise ValueError("media")
@@ -442,7 +442,8 @@ def check_media(opts: dict, media: dict[str, bytes]) -> None:
             if not named:
                 wanted = {"photo"} if "photo" in media else {"motion"}
         else:
-            approved = {"dust": "plateId", "riso": "plateId"}.get(opts["style"])
+            # Dust is the lyrics alone: no picture of any kind. Riso is our approved photo, or the person's photo and cut-out, or a clip.
+            approved = {"riso": "plateId"}.get(opts["style"])
             if approved and approved not in named:
                 if opts["style"] == "riso" and "motion" in media:
                     wanted = {"motion"}

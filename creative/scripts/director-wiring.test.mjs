@@ -54,7 +54,7 @@ test('several of the person\'s own pictures are dealt like the library, and noth
   // As the page deals them: no feeling, no genre, no tags of their own.
   const own = [photo(11), photo(12), clip(13)].map(item => ({ ...item, attitudes: ['neutral'] }));
   const ids = new Set(own.map(item => item.id));
-  for (const row of [...REEL_ROWS, 'dust']) {
+  for (const row of REEL_ROWS) {
     const slots = pack.recommendRow(row, profile(), 0, [], own, false);
     assert.ok(slots.length > 0, row);
     for (const slot of slots) {

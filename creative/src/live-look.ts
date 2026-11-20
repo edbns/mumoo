@@ -5,7 +5,20 @@
 import { Filter, GlProgram, UniformGroup } from 'pixi.js';
 import type { AsciiLookId, DitherLookId, HalftoneLookId, HeatLookId, LiveLookId } from './live-look-deal';
 import { ASCII_STYLES, DITHER_STYLES, HALFTONE_STYLES, LOOK_ROUGHNESS, LOOK_STOPS, MIN_SPREAD } from './live-look-ramp';
-import { ASCII_GLYPHS, ASCII_PICTURE, ASCII_RAMPS } from './ascii-styles';
+import {
+  ASCII_CELL_ASPECT,
+  ASCII_EDGE,
+  ASCII_EDGE_RAMPS,
+  ASCII_EDGES,
+  ASCII_GAMMA,
+  ASCII_GLOW,
+  ASCII_GLYPHS,
+  ASCII_PICTURE,
+  ASCII_PICTURE_FLOOR,
+  ASCII_RAMPS,
+  ASCII_TONE,
+  asciiGlows,
+} from './ascii-styles';
 import { DITHER_PICTURE } from './dither-styles';
 
 /** What a look needs to know about this moment. `range`: how cold and how hot the picture reads (0-1), which a look stretches over its ramp. */
@@ -303,17 +316,23 @@ function ditherLook(id: DitherLookId): LiveLook {
 }
 
 /**
- * ASCII: the picture rebuilt from 5×7 bitmap characters (no font). A grid of cells reads brightness (3 taps), picks a glyph from the
- * colouring's ramp, and draws it in ink on paper. Beat steps bright cells up the ramp; optional rain scrolls columns.
+ * ASCII: the picture rebuilt from 5×7 bitmap characters (no font). Each cell reads its part of the picture, its tone picks a glyph from the
+ * colouring's ramp, and where the picture has an edge the cell draws the edge's own stroke (| / - \) so outlines read as drawn, not as a screen.
+ * Glyphs glow by brightness over a soft, dim copy of the picture. The characters shimmer (bright cells trade glyphs a few times a second),
+ * every beat sends a ripple out from the middle that lifts the cells it crosses, and optional rain scrolls columns. All of it from the clock.
  */
 const asciiSource = (id: AsciiLookId) => {
   const style = ASCII_STYLES[id];
   const cols = style.cols ?? 80;
   const ramp = ASCII_RAMPS[style.ramp];
-  const glyphs = ramp.map(name => ASCII_GLYPHS[name]);
+  const edges = ASCII_EDGE_RAMPS.includes(style.ramp);
+  const glyphs = [...ramp, ...(edges ? ASCII_EDGES : [])].map(name => ASCII_GLYPHS[name]);
   const vec = (rgb: readonly number[]) => `vec3(${rgb.map(f).join(', ')})`;
   const pictureInk = style.ink === 'picture';
-  const inkExpr = pictureInk ? 'sampleRgb' : vec(style.ink as readonly [number, number, number]);
+  const glows = asciiGlows(style);
+  const inkExpr = pictureInk
+    ? `sampleRgb / max(max(sampleRgb.r, max(sampleRgb.g, sampleRgb.b)), ${f(ASCII_PICTURE_FLOOR)}) * glow`
+    : glows ? `min(${vec(style.ink as readonly [number, number, number])} * glow, vec3(1.0))` : vec(style.ink as readonly [number, number, number]);
   const paperExpr = vec(style.paper);
   // No dynamic array indexing (some WebGL paths black out): pick the row with ifs, then the bit with ifs.
   const glyphSelect = glyphs.map((rows, index) => `
@@ -353,6 +372,10 @@ float bright(vec3 rgb) {
   return dot(rgb, vec3(0.299, 0.587, 0.114));
 }
 
+float hash3(vec3 p) {
+  return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+}
+
 bool glyphOn(int gid, int gx, int gy) {
   ${glyphSelect}
   return false;
@@ -362,7 +385,7 @@ void main(void) {
   vec4 centre = texture(uTexture, vTextureCoord);
   float cols = ${f(cols)};
   float cellW = uInputSize.x / cols;
-  float cellH = cellW * 2.0;
+  float cellH = cellW * ${f(ASCII_CELL_ASPECT)};
   vec2 px = vTextureCoord * uInputSize.xy;
   float col = floor(px.x / cellW);
   float row = floor(px.y / cellH);
@@ -371,18 +394,39 @@ void main(void) {
   row = mod(row + rain, floor(uInputSize.y / cellH) + 1.0);
   ` : ''}
   vec2 middle = vec2((col + 0.5) * cellW, (floor(px.y / cellH) + 0.5) * cellH) * uInputSize.zw;
-  vec2 reach = vec2(cellW, cellH) * 0.18 * uInputSize.zw;
-  vec3 sampleRgb = seen(middle) * 0.5 + seen(middle + vec2(reach.x, 0.0)) * 0.25 + seen(middle - vec2(reach.x, 0.0)) * 0.25;
-  float light = bright(sampleRgb);
+  vec2 cell = vec2(cellW, cellH) * uInputSize.zw;
+  vec2 reach = cell * 0.25;
+  vec3 sampleRgb = (seen(middle + vec2(reach.x, reach.y)) + seen(middle + vec2(-reach.x, reach.y)) + seen(middle + vec2(reach.x, -reach.y)) + seen(middle - reach)) * 0.25;
+  vec3 east = seen(middle + vec2(cell.x, 0.0));
+  vec3 west = seen(middle - vec2(cell.x, 0.0));
+  vec3 south = seen(middle + vec2(0.0, cell.y));
+  vec3 north = seen(middle - vec2(0.0, cell.y));
+  float light = pow(smoothstep(${f(ASCII_TONE[0])}, ${f(ASCII_TONE[1])}, bright(sampleRgb)), ${f(ASCII_GAMMA)});
   float tone = ${style.invert ? '1.0 - light' : 'light'};
-  // Bright cells step up the ramp on the beat.
-  float steps = ${f(glyphs.length - 1)};
-  float x = clamp(tone, 0.0, 1.0) * steps + uBeat * (0.6 + 1.1 * uEnergy) * step(0.55, tone);
+  float steps = ${f(ramp.length - 1)};
+  // Shimmer: lit cells trade their glyph for a neighbour on the ramp a few times a second.
+  float tick = floor(uTime * 7.0);
+  float shimmer = (hash3(vec3(col, row, tick)) - 0.5) * 0.9 * smoothstep(0.25, 0.9, tone);
+  // The beat's ripple: a ring that leaves the middle as the beat fades and lifts the cells it crosses.
+  vec2 fromMiddle = (vTextureCoord - 0.5) * vec2(1.0, uInputSize.y / uInputSize.x);
+  float ring = uBeat * exp(-pow((length(fromMiddle) - (1.0 - uBeat) * 0.95) / 0.07, 2.0)) * (0.5 + 0.5 * uEnergy);
+  float x = clamp(tone, 0.0, 1.0) * steps + shimmer + ring * 2.5;
   int gid = int(clamp(floor(x + 0.5), 0.0, steps));
+  ${edges ? `
+  // An edge draws its own stroke: the gradient's direction picks | / - or \\.
+  float slopeX = bright(east) - bright(west);
+  float slopeY = bright(south) - bright(north);
+  if (length(vec2(slopeX, slopeY)) > ${f(ASCII_EDGE)} && tone > 0.12) {
+    float turn = mod(atan(slopeY, slopeX) + 0.3927, 3.14159) / 0.7854;
+    gid = ${ramp.length} + int(clamp(floor(turn), 0.0, 3.0));
+  }
+  ` : ''}
   vec2 local = vec2(fract(px.x / cellW), fract(px.y / cellH));
   // Slight letterboxing so glyphs do not touch cell edges.
-  vec2 inset = (local - 0.08) / 0.84;
-  vec3 paper = mix(${paperExpr}, seen(vTextureCoord), ${f(ASCII_PICTURE)});
+  vec2 inset = (local - vec2(0.1, 0.07)) / vec2(0.8, 0.86);
+  vec3 soft = (sampleRgb * 2.0 + east + west + south + north) / 6.0;
+  vec3 paper = mix(${paperExpr}, soft, ${f(ASCII_PICTURE)});
+  float glow = min(1.0, ${f(ASCII_GLOW[0])} + ${f(ASCII_GLOW[1])} * tone) + ring * 0.6;
   vec3 ink = ${inkExpr};
   if (inset.x < 0.0 || inset.y < 0.0 || inset.x > 1.0 || inset.y > 1.0) {
     finalColor = vec4(paper, 1.0) * centre.a;

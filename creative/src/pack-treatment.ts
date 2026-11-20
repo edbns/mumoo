@@ -269,15 +269,10 @@ const DOUBLE_LOOK: Record<string, { zoom: number; flip: boolean; shift: number; 
 };
 
 /**
- * Sideways: the card is a landscape video turned a quarter (`turn`, 1 clockwise), so the viewer turns their head or phone. The landscape
- * frame is the reel cut to its shape (`cover`), the whole upright picture between blurred sides (`pillar`), or a cinema strip (`cinema`).
+ * Sideways: the card is a landscape video turned a quarter clockwise, so the viewer turns their head or phone. The landscape frame is the
+ * whole upright picture between blurred sides of itself.
  */
-const SIDEWAYS: Record<string, { turn: 1 | -1; fit: 'cover' | 'pillar' | 'cinema' }> = {
-  right: { turn: 1, fit: 'cover' },
-  left: { turn: -1, fit: 'cover' },
-  pillar: { turn: 1, fit: 'pillar' },
-  cinema: { turn: -1, fit: 'cinema' },
-};
+const SIDEWAYS_TURN = 1;
 /** Sideways' lyrics, turned with the picture, keep this far from the landscape frame's ends and its top and bottom. */
 const TURNED_SIDE = 120;
 const TURNED_PAD = 90;
@@ -421,11 +416,10 @@ export function createTreatmentWorld(): TreatmentWorld {
   }
 
   /** Built in the landscape frame (HEIGHT wide, WIDTH tall); `update` turns the panels onto the card. */
-  function buildSideways(variant: string, source: RenderTexture, textures: Texture[]): Look {
-    const look = SIDEWAYS[variant] ?? SIDEWAYS.right;
+  function buildSideways(source: RenderTexture, textures: Texture[]): Look {
     const w = HEIGHT;
     const h = WIDTH;
-    if (look.fit === 'pillar' && smallRt) {
+    if (smallRt) {
       const band = (smallRt.width * h) / w;
       const blur = new Texture({ source: smallRt.source, frame: new Rectangle(0, Math.round((smallRt.height - band) / 2), smallRt.width, Math.max(1, Math.round(band))) });
       textures.push(blur);
@@ -433,16 +427,12 @@ export function createTreatmentWorld(): TreatmentWorld {
       sides.width = w;
       sides.height = h;
       sides.alpha = 0.75;
-      const upright = Math.round((h * WIDTH) / HEIGHT);
-      const sprite = piece(source, new Rectangle(0, 0, WIDTH, HEIGHT), upright, h, textures);
-      sprite.position.set((w - upright) / 2, 0);
-      panels.addChild(sides, sprite);
-    } else {
-      const strip = look.fit === 'cinema' ? Math.round(w / 2.39) : h;
-      const sprite = piece(source, coverCrop(w, strip, 0.5, 0.45), w, strip, textures);
-      sprite.position.set(0, (h - strip) / 2);
-      panels.addChild(sprite);
+      panels.addChild(sides);
     }
+    const upright = Math.round((h * WIDTH) / HEIGHT);
+    const sprite = piece(source, new Rectangle(0, 0, WIDTH, HEIGHT), upright, h, textures);
+    sprite.position.set((w - upright) / 2, 0);
+    panels.addChild(sprite);
     return { backdrop: BLACK };
   }
 
@@ -455,7 +445,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       : kind === 'collage' ? buildCollage(variant, source, textures)
         : kind === 'bento' ? buildBento(variant, source, textures)
           : kind === 'frame' ? buildFrame(variant, source, textures)
-            : kind === 'sideways' ? buildSideways(variant, source, textures)
+            : kind === 'sideways' ? buildSideways(source, textures)
               : { backdrop: BLACK };
     built = { key, look, textures };
     return look;
@@ -496,7 +486,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       paint(texture, renderer, sourceRt);
       const energy = input.energy;
       const sliced = kind === 'triptych' || kind === 'collage' || kind === 'bento' || kind === 'frame' || kind === 'sideways';
-      const turn = kind === 'sideways' ? (SIDEWAYS[variant] ?? SIDEWAYS.right).turn : 0;
+      const turn = kind === 'sideways' ? SIDEWAYS_TURN : 0;
       panels.pivot.set(turn ? HEIGHT / 2 : 0, turn ? WIDTH / 2 : 0);
       panels.position.set(turn ? WIDTH / 2 : 0, turn ? HEIGHT / 2 : 0);
       panels.rotation = (turn * Math.PI) / 2;
@@ -507,7 +497,7 @@ export function createTreatmentWorld(): TreatmentWorld {
         panels.visible = true;
         backdrop.rect(0, 0, WIDTH, HEIGHT);
         backdrop.fill({ color: look.backdrop === 'blur' ? BLACK : look.backdrop });
-        if (look.backdrop === 'blur' || (kind === 'sideways' && variant === 'pillar')) paint(sourceRt, renderer, smallRt, [softly]);
+        if (look.backdrop === 'blur' || kind === 'sideways') paint(sourceRt, renderer, smallRt, [softly]);
         if (look.backdrop === 'blur') {
           blurred.texture = smallRt;
           blurred.width = WIDTH;

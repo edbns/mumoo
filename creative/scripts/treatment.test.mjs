@@ -56,13 +56,15 @@ test('the ten treatments are on the shelf as their own templates, and Kaleidosco
   assert.ok(ids.indexOf('photography') < ids.indexOf('triptych'), 'treatments follow Directed');
 });
 
-test('each treatment deals four variants, deterministic from the seed, and never changes the Director plan fields', () => {
+test('each treatment deals four cards over its variants, deterministic from the seed, and never changes the Director plan fields', () => {
   for (const kind of deal.TREATMENT_IDS) {
     const a = pack.recommendRow(kind, profile(), 0, [], LIBRARY, false);
     const b = pack.recommendRow(kind, profile(), 0, [], LIBRARY, false);
+    // Sideways has one variant only (an upright video on blurred sides): turned full-frame, a vertical video always loses the head.
+    const variants = Math.min(4, deal.TREATMENTS.find(def => def.id === kind).variants.length);
     assert.equal(a.length, 4, kind);
     assert.deepEqual(a.map(slot => slot.treatmentVariant), b.map(slot => slot.treatmentVariant), `${kind} seed`);
-    assert.equal(new Set(a.map(slot => slot.treatmentVariant)).size, 4, `${kind} four variants`);
+    assert.equal(new Set(a.map(slot => slot.treatmentVariant)).size, variants, `${kind} variants`);
     for (const slot of a) {
       assert.equal(slot.style, 'treatment');
       assert.equal(slot.treatment, kind);
@@ -75,7 +77,7 @@ test('each treatment deals four variants, deterministic from the seed, and never
     const refreshed = pack.recommendRow(kind, profile(), 1, [], LIBRARY, false);
     // Refresh changes the hand (card ids include the generation seed); the four variants stay a full deal of the treatment.
     assert.notDeepEqual(a.map(slot => slot.id), refreshed.map(slot => slot.id), `${kind} refresh`);
-    assert.equal(new Set(refreshed.map(slot => slot.treatmentVariant)).size, 4, `${kind} refresh variants`);
+    assert.equal(new Set(refreshed.map(slot => slot.treatmentVariant)).size, variants, `${kind} refresh variants`);
   }
 });
 

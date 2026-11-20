@@ -42,7 +42,7 @@ export type PackSceneInput = {
   look?: LiveLookId;
   /** False when the person switched lyrics off: no words anywhere, only the picture. */
   lyrics: boolean;
-  /** Dust: the photo as grains, every beat, and the lyric word now on screen (null when none). */
+  /** Dust: its air as grains, every beat, and the lyric word now on screen (null when none). */
   dustPoints?: DustPoints | null;
   beatsMs: readonly number[];
   downbeatsMs: readonly number[];

@@ -66,7 +66,7 @@ test('the shelf is twelve rows of four, in order, each card distinct', async () 
       assert.equal(new Set(photography.map(slot => slot.typeStyle)).size, 4, `${genre} photography repeats a type style`);
       assert.ok(photography.every(slot => slot.colors === undefined && slot.filter === undefined && (slot.plateId === undefined) !== (slot.effectId === undefined)), 'photography is drawn from a baked effect or our photo, never both');
       assert.ok(photography.every(slot => !slot.look), 'Our photography carries no live look: each effect has its own row');
-      assert.ok(slots.filter(slot => slot.row === 'dust').every(slot => slot.plateId === 'burnnet-woman-1547507-1920'), 'Dust is drawn from the approved photo');
+      assert.ok(slots.filter(slot => slot.row === 'dust').every(slot => !slot.plateId && !slot.libraryId && !slot.effectId && !slot.reel && slot.colors), 'Dust is the lyrics alone, in its colours');
       const pulise = slots.filter(slot => slot.row === 'pulise');
       assert.equal(new Set(pulise.map(slot => slot.layout.cut)).size, 4, `${genre} Pulise cards open on the same colour`);
       assert.equal(new Set(slots.map(slot => slot.id)).size, slots.length, `${genre} repeats an id`);
@@ -74,13 +74,15 @@ test('the shelf is twelve rows of four, in order, each card distinct', async () 
   } finally { await server.close(); }
 });
 
-test('Dust only uses approved photos that have a cut-out, and waits for the person\'s own when there are none', async () => {
+test('Dust needs no photo of ours: it deals four cards with or without approved photos', async () => {
   const { server, pack } = await load();
   try {
     const person = profile('Pop');
-    const plates = [{ id: 'no-mask', cutout: false }, { id: 'with-mask', cutout: true }];
-    assert.ok(pack.recommendRow('dust', person, 0, plates).every(slot => slot.plateId === 'with-mask'));
-    assert.ok(pack.recommendRow('dust', person, 0, [{ id: 'no-mask', cutout: false }]).every(slot => slot.plateId === undefined));
+    for (const plates of [[], [{ id: 'with-mask', cutout: true }]]) {
+      const dust = pack.recommendRow('dust', person, 0, plates);
+      assert.equal(dust.length, 4);
+      assert.ok(dust.every(slot => slot.plateId === undefined && slot.libraryId === undefined));
+    }
     assert.equal(pack.recommendRow('photography', person, 0, []).length, 4, 'photography needs no approved photo of ours');
   } finally { await server.close(); }
 });
@@ -324,17 +326,18 @@ test('rows say what they own: lyrics switch, which picture they take, and Pulise
     assert.equal(rows.pulise.lyrics, 'always');
     assert.equal(rows.pulise.picture, undefined, 'Pulise takes no picture');
     for (const row of ['spray', 'doodle']) assert.equal(rows[row], undefined, `${row} is off the shelf`);
-    assert.equal(rows.dust.picture, 'photo', 'Dust needs a photo');
+    assert.equal(rows.dust.picture, undefined, 'Dust takes no picture');
+    assert.equal(rows.dust.lyrics, 'always', 'Dust is the lyrics');
     const treatments = ['triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'sideways', 'typewriter'];
     assert.equal(rows.screenshot.picture, 'any', 'Screenshot blurs any picture behind the chat');
     assert.equal(rows.screenshot.lyrics, 'always', 'the chat is the lyrics');
     for (const row of ['photography', ...treatments, 'riso', 'window', 'thermal', 'halftone', 'dither', 'ascii']) assert.equal(rows[row].picture, 'any', `${row} takes a photo, video or GIF`);
     assert.equal(rows.window.lyrics, 'always', 'the word is the window');
-    for (const row of ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'dust']) assert.equal(rows[row].lyrics, 'switch', row);
+    for (const row of ['photography', ...treatments, 'thermal', 'halftone', 'dither', 'ascii', 'riso']) assert.equal(rows[row].lyrics, 'switch', row);
   } finally { await server.close(); }
 });
 
-test('Riso deals four ink sets and four heavy faces, the same photo as Dust, and every refresh deals them again', async () => {
+test('Riso deals four ink sets and four heavy faces on the approved photo, and every refresh deals them again', async () => {
   const { server, pack } = await load();
   try {
     const { RISO_INK_SETS } = await server.ssrLoadModule('/src/riso-look.ts');

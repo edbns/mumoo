@@ -1,9 +1,8 @@
 /**
- * Dust — a photo breaks into thousands of grains that fly toward the viewer on every beat and settle back.
- * The picture is sampled once into grains (where each sits, how bright the photo was there). From then on a
- * grain's place is a pure function of the clock and the beat times, so the shelf preview and the cloud render
- * draw the same frame. Two colours rule the look: the ground and the dust; the photo's own light and shadow
- * only decide how much of the dust colour each grain gets.
+ * Dust — the lyrics alone, made of dust. Each sung word is thousands of grains in the middle of the card that every beat throws toward the
+ * viewer and that settle back into the word; loose dust hangs in the air around it and the bar's first beat stirs it hardest. No picture.
+ * A grain's place is a pure function of the clock and the beat times, so the shelf preview and the cloud render draw the same frame.
+ * Two colours rule the look: the ground and the dust.
  */
 import { Buffer, BufferUsage, Container, Geometry, Graphics, Mesh, Shader, Sprite, Texture } from 'pixi.js';
 import { DURATION_MS, HEIGHT, WIDTH } from './composition';
@@ -12,17 +11,17 @@ import { META_SAFE_BOTTOM } from './ad-punch';
 import { cssFont, displayFace, type AdFont } from './ad-fonts';
 import { fitPackLines } from './pack-text';
 
-/** How many grains the subject is made of. Enough that the face reads as a photo at rest. */
-export const DUST_GRAINS = 90_000;
+/** How many grains of loose dust hang in the air. */
+export const AIR_GRAINS = 14_000;
 const BEATS = 8;
 
 export type DustPoints = {
-  /** x, y (canvas px), three random numbers, and the photo's brightness there: 6 floats a grain. */
+  /** x, y (canvas px), three random numbers, and how much of the dust colour the grain takes: 6 floats a grain. */
   data: Float32Array;
   count: number;
 };
 
-/** A small deterministic generator: the same photo always breaks the same way. */
+/** A small deterministic generator: the air and every word always break the same way. */
 function generator(seed: number) {
   let state = seed >>> 0;
   return () => {
@@ -34,62 +33,14 @@ function generator(seed: number) {
   };
 }
 
-/**
- * Turns a photo into grains. The photo is fitted to cover the frame and its cut-out `mask` keeps the grains on
- * the subject. A mask that finds almost nothing (a landscape, a pattern) means there is no subject, so the whole
- * frame turns to dust.
- */
-export function sampleDust(
-  image: CanvasImageSource & { width: number; height: number },
-  mask: CanvasImageSource & { width: number; height: number },
-  grains = DUST_GRAINS,
-): DustPoints {
-  const scale = 0.5;
-  const w = Math.round(WIDTH * scale);
-  const h = Math.round(HEIGHT * scale);
-  const read = (picture: CanvasImageSource & { width: number; height: number }) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) throw new Error('Canvas 2D is unavailable.');
-    const cover = Math.max(w / picture.width, h / picture.height);
-    ctx.drawImage(picture, (w - picture.width * cover) / 2, (h - picture.height * cover) / 2, picture.width * cover, picture.height * cover);
-    return ctx.getImageData(0, 0, w, h).data;
-  };
-  const pixels = read(image);
-  const cut = read(mask);
-  const at = (x: number, y: number) => (Math.min(h - 1, Math.max(0, y)) * w + Math.min(w - 1, Math.max(0, x))) * 4;
-
-  let found = 0;
-  for (let i = 0; i < cut.length; i += 16) if (cut[i] > 127) found++;
-  const subject = found / (cut.length / 16) >= 0.08 ? (i: number) => cut[i] > 127 : () => true;
-  let covered = 0;
-  for (let i = 0; i < pixels.length; i += 16) if (subject(i)) covered++;
-  const share = Math.max(0.05, covered / (pixels.length / 16));
-  const step = Math.sqrt((WIDTH * HEIGHT * share) / grains);
-
+/** The loose dust in the air: grains anywhere on the card, most of them faint, a few bright motes. The same every time. */
+export function airDust(grains = AIR_GRAINS): DustPoints {
   const random = generator(0x6d75);
-  const kept: number[] = [];
-  const light: number[] = [];
-  for (let y = step / 2; y < HEIGHT; y += step) {
-    for (let x = step / 2; x < WIDTH; x += step) {
-      const gx = x + (random() - 0.5) * step;
-      const gy = y + (random() - 0.5) * step;
-      const i = at(Math.round(gx * scale), Math.round(gy * scale));
-      if (!subject(i)) continue;
-      const brightness = (0.2126 * pixels[i] + 0.7152 * pixels[i + 1] + 0.0722 * pixels[i + 2]) / 255;
-      kept.push(gx, gy, random(), random(), random(), brightness);
-      light.push(brightness);
-    }
+  const data = new Float32Array(grains * 6);
+  for (let n = 0; n < grains; n++) {
+    data.set([random() * WIDTH, random() * HEIGHT, random(), random(), random(), random() ** 2.2], n * 6);
   }
-  // Stretch the photo's range so a flat or dark photo still uses the whole dust colour.
-  const sorted = [...light].sort((a, b) => a - b);
-  const low = sorted[Math.floor(sorted.length * 0.04)] ?? 0;
-  const high = sorted[Math.floor(sorted.length * 0.97)] ?? 1;
-  const data = new Float32Array(kept);
-  for (let n = 5; n < data.length; n += 6) data[n] = Math.min(1, Math.max(0, (data[n] - low) / Math.max(0.05, high - low)));
-  return { data, count: data.length / 6 };
+  return { data, count: grains };
 }
 
 const VERTEX = `#version 300 es
@@ -125,9 +76,9 @@ void main() {
   // How far this grain has flown toward the viewer. Most barely move; a deep few surge past the camera.
   float travel = 0.0;
   float sway = 0.0;
-  // A photo grain is mostly shallow with a few deep ones; every grain of a word is deep enough to be seen flying.
+  // A grain of air is mostly shallow with a few deep ones; every grain of a word is deep enough to be seen flying.
   float depth = mix(0.015 + 0.985 * pow(aRand.z, 4.0), 0.35 + 0.65 * aRand.z, uWord);
-  // The burst spreads out from the middle of the picture like a ring.
+  // The burst spreads out from the middle of the card like a ring.
   float ripple = length(aOrigin - uFocus) / 1100.0 * 0.12;
   for (int k = 0; k < ${BEATS}; k++) {
     float age = uAges[k] - ripple - aRand.z * 0.04;
@@ -137,7 +88,7 @@ void main() {
     sway += push * (hash(aRand.x * 91.0 + uIds[k] * 7.3) - 0.5);
   }
   // A word arrives from the viewer (uEnter falls from 1) and leaves toward them (uExit rises to 1).
-  // A word comes in and goes out a shorter way than a photo grain, so on a fast song it never leaves the frame.
+  // A word comes in and goes out a shorter way than a grain of air, so on a fast song it never leaves the frame.
   travel += (uEnter * mix(1.1, 0.5, uWord) + uExit * mix(1.7, 0.8, uWord)) * depth;
   // Coming closer: the grain slides away from the focus point, grows, and softens.
   vec2 out_ = aOrigin - uFocus;
@@ -149,7 +100,7 @@ void main() {
   mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
   gl_Position = vec4((mvp * vec3(place, 1.0)).xy, 0.0, 1.0);
   float light = pow(smoothstep(0.0, 1.0, aRand.w), 0.8);
-  // On a light ground the dust is the ink: the photo's shadows get it, so the picture still reads as a photo.
+  // On a light ground the dust is the ink: the fainter a grain of air, the more of it it takes, so the air reads on both grounds.
   float tone = mix(mix(light, 1.0 - light, uInvert), 1.0, uWord);
   float near = smoothstep(0.15, 1.1, travel);
   float alpha = mix(0.3, 1.0, tone) * (1.0 - 0.6 * near) * (1.0 - uExit) * (1.0 - 0.7 * uEnter);
@@ -189,12 +140,14 @@ function glow() {
 }
 
 /** The biggest a lyric word is set, and the widest it may be: a word thrown at the viewer on a fast beat must still sit inside the frame. */
-const WORD_SIZE = 200;
-const WORD_WIDTH = 800;
+const WORD_SIZE = 240;
+const WORD_WIDTH = 840;
 
-/** Where the lyric word sits: low in the frame, clear of the platform's buttons and caption. */
-const WORD_Y = Math.min(HEIGHT * 0.8, META_SAFE_BOTTOM - 120);
-export const WORD_GRAINS = 24_000;
+/** Where the lyric word sits: the middle of the card, a little high, well clear of the platform's buttons and caption. */
+const WORD_Y = Math.min(HEIGHT * 0.47, META_SAFE_BOTTOM - 240);
+export const WORD_GRAINS = 26_000;
+/** How hard the beat throws the word's grains, against the air's 1: enough that the word bursts and re-forms, little enough that it is read. */
+const WORD_POWER = 0.3;
 
 /** Turns one lyric word into grains, fitted on one line. Cached by the caller: the same word always gives the same grains. */
 export function sampleWord(text: string, font: AdFont, grains = WORD_GRAINS): DustPoints {
@@ -300,19 +253,6 @@ function grainLayer(points: DustPoints, word: boolean) {
   };
 }
 
-function gradient(stops: [number, string][], width: number, height: number) {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D is unavailable.');
-  const fill = width > height ? ctx.createLinearGradient(0, 0, width, 0) : ctx.createLinearGradient(0, 0, 0, height);
-  for (const [at, color] of stops) fill.addColorStop(at, color);
-  ctx.fillStyle = fill;
-  ctx.fillRect(0, 0, width, height);
-  return Texture.from(canvas);
-}
-
 export type DustWord = {
   text: string;
   startMs: number;
@@ -334,13 +274,13 @@ export type DustInput = {
   ms: number;
   /** Every beat in the clip, in ms. */
   beatsMs: readonly number[];
-  /** The first beat of each bar, in ms: these scatter the picture hardest. */
+  /** The first beat of each bar, in ms: these scatter the dust hardest. */
   downbeatsMs?: readonly number[];
   /** 0–1 pulse of the latest beat. */
   beat: number;
   colors: DustColors;
   font: AdFont;
-  /** The lyric word to show as dust. Absent means lyrics are off (or nothing is sung yet): the photo stands alone. */
+  /** The lyric word to show as dust. Absent before the first word is sung: the air alone. */
   word?: DustWord | null;
   /** How hard each beat scatters the grains; 1 is the designed amount. */
   power?: number;
@@ -360,16 +300,11 @@ export function createDustWorld(points: DustPoints): DustWorld {
   const ground = new Graphics();
   const halo = new Sprite(glow());
   halo.anchor.set(0.5);
-  halo.position.set(WIDTH / 2, HEIGHT * 0.42);
-  const photo = grainLayer(points, false);
-  // Calms the photo behind the lyric so the word stays readable; coloured by the ground, so it belongs to the template.
-  const scrim = new Sprite(gradient([[0, 'rgba(255,255,255,0)'], [1, 'rgba(255,255,255,0.88)']], 2, 256));
-  scrim.width = WIDTH;
-  scrim.height = HEIGHT * 0.42;
-  scrim.position.set(0, HEIGHT - scrim.height);
+  halo.position.set(WIDTH / 2, WORD_Y);
+  const air = grainLayer(points, false);
   const empty: DustPoints = { data: new Float32Array(6), count: 0 };
   const lyric = grainLayer(empty, true);
-  root.addChild(ground, halo, photo.mesh, scrim, lyric.mesh);
+  root.addChild(ground, halo, air.mesh, lyric.mesh);
 
   const words = new Map<string, DustPoints>();
   let shown = '';
@@ -383,7 +318,7 @@ export function createDustWorld(points: DustPoints): DustWorld {
       const index = last - k;
       layer.ages[k] = index >= 0 ? (ms - beatsMs[index]) / 1000 : 0;
       layer.ids[k] = index;
-      // The bar's first beat breaks the picture up hard; the others only ruffle it.
+      // The bar's first beat breaks the dust up hard; the others only ruffle it.
       layer.strength[k] = index >= 0 && (input.downbeatsMs ?? []).some(d => Math.abs(d - beatsMs[index]) < 45) ? 1 : 0.22;
     }
     // Whatever the tempo, the nearer grains have come home by the next beat; the far ones linger like dust in air.
@@ -406,8 +341,8 @@ export function createDustWorld(points: DustPoints): DustWorld {
     root,
     update(input) {
       const { colors } = input;
-      beats(photo, input, 1);
-      photo.flush();
+      beats(air, input, 1);
+      air.flush();
 
       const key = `${colors.ground}${colors.dust}`;
       if (key !== painted) {
@@ -416,13 +351,11 @@ export function createDustWorld(points: DustPoints): DustWorld {
         ground.rect(0, 0, WIDTH, HEIGHT);
         ground.fill({ color: colors.ground });
         halo.tint = colors.dust;
-        scrim.tint = colors.ground;
       }
       halo.alpha = 0.16 + input.beat * 0.2;
       halo.scale.set(5.2 + input.beat * 0.5);
 
       const word = input.word;
-      scrim.visible = Boolean(word);
       lyric.mesh.visible = Boolean(word);
       if (!word) return;
       const id = `${input.font}|${word.text}`;
@@ -432,8 +365,8 @@ export function createDustWorld(points: DustPoints): DustWorld {
         if (!grains) { grains = sampleWord(word.text, input.font); words.set(id, grains); }
         lyric.load(grains);
       }
-      // The word is made of dust, drawn in the dust colour and barely moved by the beat so it stays on the picture and readable.
-      beats(lyric, input, 0.06);
+      // The word is made of dust, drawn in the dust colour: the beat bursts it toward the viewer and it settles back before the next.
+      beats(lyric, input, WORD_POWER);
       const age = Math.max(0, (input.ms - word.startMs) / 1000);
       const leaves = word.nextStartMs - word.endMs >= LEAVE_GAP_MS;
       Object.assign(lyric.uniforms, {
@@ -443,7 +376,7 @@ export function createDustWorld(points: DustPoints): DustWorld {
       lyric.flush();
     },
     destroy() {
-      photo.destroy();
+      air.destroy();
       lyric.destroy();
       root.destroy({ children: true });
     },

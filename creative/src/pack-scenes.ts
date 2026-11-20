@@ -27,7 +27,7 @@ export function createPackScene(): PackScene {
   // Our photography: a picture behind the lyric type.
   const picture = createPictureWorld();
   const pulise = createPuliseWorld();
-  // The dust world is built from the photo's grains, so it exists once a photo has been read.
+  // The dust world is built from its air, made the first time a Dust card is drawn.
   let dust: { points: DustPoints; world: DustWorld } | null = null;
   const dustLayer = new Container();
   // Riso and Window are built for one card (its seed, and Riso its photo) and given back as soon as another style or card is drawn:
@@ -40,7 +40,7 @@ export function createPackScene(): PackScene {
   root.addChild(picture.root, pulise.root, dustLayer, printLayer, treatment.root);
 
   function updateDust(input: PackSceneInput) {
-    if (!input.dustPoints || !input.colors) throw new Error('Dust needs a photo and its two colours.');
+    if (!input.dustPoints || !input.colors) throw new Error('Dust needs its air and its two colours.');
     if (dust?.points !== input.dustPoints) {
       dust?.world.destroy();
       dust = { points: input.dustPoints, world: createDustWorld(input.dustPoints) };

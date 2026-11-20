@@ -63,7 +63,7 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   };
 }
 
-/** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Dust a photo and its cut-out, Riso a photo with cut-out or a clip, Our photography and Window a photo or a clip. */
+/** The links a shelf card needs to draw the person's own picture (instead of our approved photo): Riso a photo with cut-out or a clip, Our photography and Window a photo or a clip. */
 type Picture = Pick<PackRendererOpts, 'photoUrl' | 'cutoutUrl' | 'motionUrl' | 'motionShots' | 'reel'>;
 
 function drawingFrom(upload: Pick<Upload, 'url' | 'cutoutUrl' | 'motionUrl' | 'shots'> | null): Picture | undefined {
@@ -119,7 +119,7 @@ function packOpts(
     cues: lyrics ? composition.cues : [],
     music,
     lyrics,
-    // Our approved photo (Dust, Riso) or its baked effect (Our photography), unless the person chose their own picture, which replaces it.
+    // Our approved photo (Riso) or its baked effect (Our photography), unless the person chose their own picture, which replaces it.
     ...drawn,
   };
 }
@@ -235,11 +235,11 @@ export function CreativesPackStudio({
   const dealt = ownPool ?? library;
   /** Window and Silhouette: the song's picture seen through the lyrics, or through a figure. */
   const isWindowRow = (row: ShelfRow) => row === 'window' || row === 'silhouette';
-  // Riso and Window show the Directed reel of our library; Dust draws only cut-out photos.
+  // Riso and Window show the Directed reel of our library; Dust draws no picture.
   const libraryFor = (row: ShelfRow) => {
     // Live-look, treatment, Window and Silhouette rows deal from our library; a picture of the person's own is drawn on all four cards instead (see `recommendRow`).
     if (isLookRow(row) || isTreatmentRow(row) || isWindowRow(row)) return dealt ?? [];
-    return (row === 'photography' || row === 'riso' || row === 'dust') && !own ? dealt ?? [] : [];
+    return (row === 'photography' || row === 'riso') && !own ? dealt ?? [] : [];
   };
   /** Our approved photos, which the person's own pictures replace. */
   const platesFor = ownPool ? [] : plates ?? [];
@@ -269,12 +269,12 @@ export function CreativesPackStudio({
   const view = useMemo(() => Object.fromEntries(SHELF_ROWS.map((def): [ShelfRow, RowView] => {
     // Not on the shelf now (made of the lyrics and there are none, or needs a photo and the picture is a video): nothing is dealt, drawn or paid for.
     if (!shelf.some(item => item.id === def.id)) return [def.id, { slots: [], note: '' }];
-    // Dust and Depth need cut-out photos; Riso also accepts library videos/GIFs (and the person's own video).
-    if ((def.id === 'dust' || def.id === 'riso') && !own && !ownPool) {
+    // Riso needs cut-out photos or library videos/GIFs (or the person's own picture).
+    if (def.id === 'riso' && !own && !ownPool) {
       if (plates === null || library === null) {
         return [def.id, { slots: [], note: '' }];
-      } else if (!plates.some(plate => plate.cutout) && !libraryCutouts && !(def.id === 'riso' && libraryRisoMotion)) {
-        return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? `${def.title}: no approved photos for this yet. Sign in (top right) to use your own.` : `${def.title}: no approved photos yet. Upload a photo${def.id === 'riso' ? ', video or GIF' : ''} to see it.` }];
+      } else if (!plates.some(plate => plate.cutout) && !libraryCutouts && !libraryRisoMotion) {
+        return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? `${def.title}: no approved photos for this yet. Sign in (top right) to use your own.` : `${def.title}: no approved photos yet. Upload a photo, video or GIF to see it.` }];
       }
     }
     // Our photography is dealt once it knows what our library holds and which approved photo it may draw a look on.
@@ -596,8 +596,8 @@ export function CreativesPackStudio({
     <p className="hint text-center">This is just a preview. Downloads are HD.</p>
     <UploadProgress uploads={uploads} />
     {ownKind && uploads.batchPercent === null && <p className="hint text-center">{ownPool
-      ? (ownKind === 'motion' ? `Your ${ownPool.length} videos or GIFs get shared across templates that can use them. Dust and Depth need a photo.` : `Your ${ownPool.length} pictures get shared across templates that use photos.`)
-      : ownKind === 'motion' ? 'Your video or GIF shows on templates that can use one. Dust and Depth need a photo.' : 'Your photo shows on templates that use pictures.'}</p>}
+      ? (ownKind === 'motion' ? `Your ${ownPool.length} videos or GIFs get shared across templates that can use them.` : `Your ${ownPool.length} pictures get shared across templates that use photos.`)
+      : ownKind === 'motion' ? 'Your video or GIF shows on templates that can use one.' : 'Your photo shows on templates that use pictures.'}</p>}
     {!textless && !hasLyrics && <p className="hint text-center" role="status">Approve your synced lyrics, or turn Lyrics off.</p>}
     {uploads.batchPercent === null && SHELF_ROWS.map(def => view[def.id].note ? <p key={def.id} className="hint text-center" role="status">{view[def.id].note}</p> : null)}
     {cards.length > 0 && <div className="creatives-pack-grid" role="list" aria-busy={!allReady}>

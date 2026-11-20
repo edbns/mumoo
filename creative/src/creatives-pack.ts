@@ -48,12 +48,10 @@ export type ShelfRow = 'photography' | LookFamily | TreatmentId | 'riso' | 'wind
  * The shelf is rows of four. A row is a kind of creative, and it owns its controls so that changing one row
  * never redraws (or re-renders) another:
  *   lyrics  'switch': the row has its own Lyrics on/off. 'always': made of the lyrics, so there is no switch.
- *   picture the row draws a picture, ours until the person uploads their own (the shelf has one upload for all of them).
- *           'photo': only a photo will do (Dust stands the person's cut-out in front), so a video leaves the row off the shelf.
- *           'any': a photo, video or GIF.
+ *   picture the row draws a picture ('any': a photo, video or GIF), ours until the person uploads their own (the shelf has one upload for all of them).
  * The shelf shows one creative of each row. Every row has its own Refresh, and "More" deals the rest of its four.
  */
-export type ShelfRowDef = { id: ShelfRow; title: string; lyrics: 'switch' | 'always'; picture?: 'photo' | 'any' };
+export type ShelfRowDef = { id: ShelfRow; title: string; lyrics: 'switch' | 'always'; picture?: 'any' };
 export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'photography', title: 'Directed', lyrics: 'switch', picture: 'any' },
   // Video treatments: each finishes the Directed reel with one creative pass (gaps, lens, collage, grain…).
@@ -69,17 +67,18 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
   // The song's video inside the still figure of a person, on red, black or white; never for gospel.
   { id: 'silhouette', title: 'Silhouette', lyrics: 'switch', picture: 'any' },
   { id: 'pulise', title: 'Pulse', lyrics: 'always' },
-  { id: 'dust', title: 'Dust', lyrics: 'switch', picture: 'photo' },
+  // The lyrics alone, made of dust: no picture to choose or wait for.
+  { id: 'dust', title: 'Dust', lyrics: 'always' },
 ];
 /** What the person's own picture is: a photo (with its cut-out), or a video or GIF. */
 export type OwnKind = 'photo' | 'motion';
 /**
  * The rows of the shelf for a song and the person's own picture. With no words, only the rows that work without them
- * (Window, Pulse and Screenshot are made of the lyrics). With any picture of their own, only the rows that draw a picture
- * (Pulise takes none, so it leaves). With a video or GIF, only the rows that can use one (Dust needs a photo).
+ * (Window, Pulse, Dust and Screenshot are made of the lyrics). With any picture of their own, only the rows that draw a picture
+ * (Pulise and Dust take none, so they leave).
  */
 export const rowsFor = (noLyrics: boolean, own: OwnKind | null = null): readonly ShelfRowDef[] =>
-  SHELF_ROWS.filter(def => !(noLyrics && def.lyrics === 'always') && !(own && !def.picture) && !(own === 'motion' && def.picture === 'photo'));
+  SHELF_ROWS.filter(def => !(noLyrics && def.lyrics === 'always') && !(own && !def.picture));
 const ROW_SIZE = 4;
 
 export type CreativesPackSlot = {
@@ -94,7 +93,7 @@ export type CreativesPackSlot = {
   layout: AdLayout;
   /** Dust: the two colours of this card. */
   colors?: DustColors;
-  /** Dust, Riso and Window: the approved photo this card is drawn from, until the person uses their own. */
+  /** Riso and Window: the approved photo this card is drawn from, until the person uses their own. */
   plateId?: string;
   /** Riso: the ink set of this card (`RISO_INK_SETS` id). */
   inkSet?: string;
@@ -286,13 +285,13 @@ const withColours = (genre: string, subGenre: string) => {
   return colours ? { colours } : {};
 };
 
-/** An approved photo; `cutout` says it also has the mask Dust needs. */
+/** An approved photo; `cutout` says it also has the mask Riso's person print needs. */
 export type PlateRef = { id: string; cutout: boolean };
 
 /** Riso and Window are drawn in the inks and screen colours they were dealt: a mood grade over them would recolour the design. */
 const UNGRADED: readonly ShelfRow[] = ['riso', 'window', 'silhouette'];
 
-/** Riso: a cut-out photo (person print) or a video/GIF (whole-frame print). Dust stays cut-out photos only. */
+/** Riso: a cut-out photo (person print) or a video/GIF (whole-frame print). */
 const risoCapable = (item: LibraryPicture) => (item.kind === 'photo' ? Boolean(item.cutoutUrl) : Boolean(item.motionUrl));
 
 /** The library pictures a row of single pictures is dealt for this song and Refresh, best fitting first. */
@@ -308,7 +307,7 @@ const BOARD_ENOUGH = 2;
 /**
  * Where one row's library pictures come from: the mood board the brain chose for this row (`boardForRow`), or the whole library
  * while the song has no filled board. `from(capable)` gives the pictures the row can draw; when its board has too few of them
- * (Dust wants cut-out photos) the next board that fits the song stands in, and the whole library only when none has them.
+ * (Riso wants cut-out photos or clips) the next board that fits the song stands in, and the whole library only when none has them.
  */
 function rowLibrary(row: ShelfRow, profile: CreativeProfileV1, wanted: LibraryWanted, library: readonly LibraryPicture[]) {
   const board = boardForRow(row, wanted, library, profile.clip.sourceSha256);
@@ -484,7 +483,7 @@ export function reeled(slot: CreativesPackSlot, pool: readonly LibraryPicture[],
 
 /**
  * One row of the shelf for this song. `generation` is that row's own Refresh count. `plates` are the approved
- * photos Dust and Riso are drawn from (the person's own picture, if any, replaces them in the app); `ownPicture` says
+ * photos Riso is drawn from (the person's own picture, if any, replaces them in the app); `ownPicture` says
  * the person's one picture is drawn on every card instead of our library.
  */
 export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generation: number, plates: readonly PlateRef[] = [], pool: readonly LibraryPicture[] = [], ownPicture = false,
@@ -497,16 +496,13 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const seed = `${song}:${generation}:${lane}:${row}`;
   const turn: Turn = { song: `${song}:${lane}`, at: Math.max(0, SHELF_ROWS.findIndex(def => def.id === row)) + generation };
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
-  // Dust draws library photos that have a cut-out; Riso those, or library videos/GIFs; with none, our approved photos.
+  // Riso draws library photos that have a cut-out, or library videos/GIFs; with none, our approved photos.
   const wanted = libraryWanted(profile, meaning, genre, intent);
   // Every template but Pulise and Dust shows the Directed card's video in its place: the same board, pictures and reel.
   const directedRow = row === 'photography' || isTreatmentId(row) || isLookRow(row) || row === 'riso' || row === 'window' || row === 'silhouette';
   const directedSeed = `${song}:${generation}:${lane}:photography`;
   const { board, from } = rowLibrary(directedRow ? 'photography' : row, profile, wanted, library);
-  const cutOut = (item: LibraryPicture) => item.kind === 'photo' && Boolean(item.cutoutUrl);
-  const cutOutLibrary = pickLibrary(from(cutOut), wanted, song, 0, 50).map(item => item.id);
   const risoLibrary = pickLibrary(from(risoCapable), wanted, song, 0, 50).map(item => item.id);
-  const photos: PhotoSources = { plateIds: cutOutPlates, libraryIds: cutOutLibrary };
   const risoPhotos: PhotoSources = { plateIds: cutOutPlates, libraryIds: risoLibrary };
   /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
   const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, turn, pickLibrary(from(), wanted, `${song}:${family}`, generation, ROW_SIZE), ownPicture);
@@ -548,7 +544,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     window: () => windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates),
     silhouette: () => (GOSPEL_GENRE.test(`${genre} ${profile.creator.subGenre?.value ?? ''}`.toLowerCase()) ? [] : windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates, dealSilhouette(seed, TYPE_ALLOW[lane]))),
     pulise: () => puliseSlots(lane, intent, seed, turn),
-    dust: () => dustSlots(lane, intent, seed, turn, cover?.hue, photos),
+    dust: () => dustSlots(lane, intent, seed, turn, cover?.hue),
   }[row]();
   // Card i of every such template is edited by the Director from the same pool as Directed's card i, once there are two or more pictures to edit.
   const onBoard = (items: readonly LibraryPicture[]) => Boolean(board) && (items[0]?.boards ?? []).some(id => items.every(item => item.boards?.includes(id)));
@@ -649,7 +645,7 @@ function cardColors(seed: string, index: number, coverHue: number | null | undef
   return dustColors(hashPick(seed, `colors:${index}`, 1_000_000), coverHue != null && index < 2 ? coverHue : undefined);
 }
 
-/** Where Riso and Dust get their photo: library photos that have a cut-out, else our approved photos. */
+/** Where Riso gets its picture: library photos that have a cut-out or library clips, else our approved photos. */
 type PhotoSources = { plateIds: readonly string[]; libraryIds: readonly string[] };
 
 /** With more photos the seed deals a different one to each card; with none the card waits for the person's own. Library photos come first. */
@@ -659,12 +655,12 @@ function dealt({ plateIds, libraryIds }: PhotoSources, seed: string, index: numb
   return { plateId: seededOrder(plateIds, seed, id => id)[index % plateIds.length] };
 }
 
-function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, turn: Turn, coverHue: number | null | undefined, photos: PhotoSources): CreativesPackSlot[] {
+/** Four Dust cards: the lyrics alone, made of dust, each card in its own two colours and its own heavy capital face. */
+function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, turn: Turn, coverHue: number | null | undefined): CreativesPackSlot[] {
   const faces = dealFaces(lane, intent, seed, turn, 'dust', HEAVY_CAPS_ROW);
   return faces.map((face, index) => ({
     ...adPunchSlot('dust', index, intent, seed, lane, 'dust', face),
     colors: cardColors(seed, index, coverHue),
-    ...dealt(photos, seed, index),
   }));
 }
 

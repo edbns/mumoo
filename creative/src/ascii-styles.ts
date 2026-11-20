@@ -131,15 +131,40 @@ export const ASCII_STYLES: Record<AsciiLookId, AsciiStyle> = {
 const clamp = (x: number) => Math.min(1, Math.max(0, x));
 const luma = (r: number, g: number, b: number) => (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 
-/** How much of the picture itself shows behind the characters (the paper is this much picture), so ASCII reads as a look on the picture. */
-export const ASCII_PICTURE = 0.45;
+/** How much of the picture shows behind the characters, softened (the paper is this much picture): enough for depth, little enough that the characters draw it. */
+export const ASCII_PICTURE = 0.2;
+/** Cells are this many times taller than wide, so a 5×7 glyph keeps its own proportions. */
+export const ASCII_CELL_ASPECT = 1.5;
+/** The brightness range the ramp is spread over: the darkest shadows are empty, the brightest highlights the densest glyph. */
+export const ASCII_TONE: readonly [number, number] = [0.08, 0.85];
+/** Lifts the middle tones (skin, cloth) so a face is drawn in characters, not lost to the shadows. */
+export const ASCII_GAMMA = 0.72;
+/** How bright a glyph glows at the dark and the light end (ink × (a + b × tone)), on a dark paper. */
+export const ASCII_GLOW: readonly [number, number] = [0.5, 0.65];
+/** The picture's own colour as ink is lifted to full strength; a cell this dark or darker stays dark. */
+export const ASCII_PICTURE_FLOOR = 0.2;
+/** How sharp a change across one cell draws an edge stroke instead of a tone glyph. */
+export const ASCII_EDGE = 0.24;
+/** The edge strokes, in the order the gradient's direction picks them: across, rising, along, falling. */
+export const ASCII_EDGES: readonly GlyphId[] = ['pipe', 'slash', 'dash', 'backslash'];
+/** Ramps that draw edges: the character ramps. Blocks, dots and binary are a pattern of their own. */
+export const ASCII_EDGE_RAMPS: readonly AsciiRamp[] = ['density', 'slash', 'mumoo'];
+
+/** Glyphs glow by brightness only on a dark paper: on paper the ink is dark and stays so. */
+export const asciiGlows = (style: AsciiStyle) => luma(style.paper[0] * 255, style.paper[1] * 255, style.paper[2] * 255) < 0.5;
+
+const smooth = (low: number, high: number, x: number) => {
+  const t = clamp((x - low) / (high - low));
+  return t * t * (3 - 2 * t);
+};
 
 /**
- * A pixel of ASCII as it averages over a cell (0-255 in and out): paper mixed toward ink by the ramp's average coverage at this brightness.
+ * A pixel of ASCII as it averages over a cell (0-255 in and out): the softened paper mixed toward the glowing ink by the ramp's average
+ * coverage at this tone, as the shader draws it without its shimmer, ripple and edge strokes.
  */
 export function asciiAverage(look: AsciiLookId, r: number, g: number, b: number): [number, number, number] {
   const style = ASCII_STYLES[look];
-  const light = luma(r, g, b);
+  const light = smooth(ASCII_TONE[0], ASCII_TONE[1], luma(r, g, b)) ** ASCII_GAMMA;
   const tone = style.invert ? 1 - light : light;
   const coverage = ASCII_COVERAGE[style.ramp];
   const x = tone * (coverage.length - 1);
@@ -148,6 +173,9 @@ export function asciiAverage(look: AsciiLookId, r: number, g: number, b: number)
   const dens = coverage[i]! + (coverage[i + 1]! - coverage[i]!) * t;
   const picture = [clamp(r / 255), clamp(g / 255), clamp(b / 255)] as Rgb;
   const paper = style.paper.map((p, c) => p + (picture[c]! - p) * ASCII_PICTURE);
-  const ink = style.ink === 'picture' ? picture : style.ink;
+  const glow = Math.min(1, ASCII_GLOW[0] + ASCII_GLOW[1] * tone);
+  const ink = style.ink === 'picture'
+    ? picture.map(v => clamp(v / Math.max(...picture, ASCII_PICTURE_FLOOR) * glow))
+    : asciiGlows(style) ? style.ink.map(v => clamp(v * glow)) : style.ink;
   return [0, 1, 2].map(c => clamp(paper[c]! + (ink[c]! - paper[c]!) * dens) * 255) as [number, number, number];
 }

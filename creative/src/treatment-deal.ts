@@ -27,8 +27,8 @@ export type TreatmentVariant = { id: string; title: string };
 export type TreatmentDef = {
   id: TreatmentId;
   title: string;
-  /** Four finishes so a Refresh deals four cards that look different. */
-  variants: readonly [TreatmentVariant, TreatmentVariant, TreatmentVariant, TreatmentVariant];
+  /** Its finishes, so a Refresh deals cards that look different; a treatment with one finish deals it on every card. */
+  variants: readonly [TreatmentVariant, ...TreatmentVariant[]];
 };
 
 export const TREATMENTS: readonly TreatmentDef[] = [
@@ -105,12 +105,8 @@ export const TREATMENTS: readonly TreatmentDef[] = [
   {
     id: 'sideways',
     title: 'Sideways',
-    variants: [
-      { id: 'right', title: 'Turn right' },
-      { id: 'left', title: 'Turn left' },
-      { id: 'pillar', title: 'Blurred sides' },
-      { id: 'cinema', title: 'Cinema bars' },
-    ],
+    // Only the whole upright picture between blurred sides: cut to a landscape shape, a portrait video loses the head.
+    variants: [{ id: 'pillar', title: 'Blurred sides' }],
   },
   {
     id: 'typewriter',
