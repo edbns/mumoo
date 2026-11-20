@@ -7,7 +7,7 @@
  */
 import type { FontNeed } from './ad-fonts';
 
-export const FX_STYLES = ['bounce', 'wave', 'glitch', 'rotate', 'stretch', 'split', 'wipe', 'flicker', 'zoom', 'scatter', 'jitter', 'echo', 'slide', 'tilt'] as const;
+export const FX_STYLES = ['bounce', 'wave', 'glitch', 'rotate', 'stretch', 'split', 'wipe', 'flicker', 'zoom', 'scatter', 'jitter', 'echo', 'slide', 'tilt', 'rise', 'glow', 'drift'] as const;
 export type FxStyleId = (typeof FX_STYLES)[number];
 
 /** What a style moves (letters or whole words) and what it asks of the font. */
@@ -28,6 +28,9 @@ export const FX_TRAITS: Record<FxStyleId, FxTraits> = {
   tilt: { unit: 'word', needs: [] },
   zoom: { unit: 'word', needs: ['heavy'] },
   echo: { unit: 'word', needs: ['heavy'] },
+  rise: { unit: 'word', needs: [] },
+  glow: { unit: 'word', needs: [] },
+  drift: { unit: 'letter', needs: ['letters'] },
 };
 
 /** Single-word styles keep the replaced word on screen this long while it leaves; every exit below finishes sooner. */
@@ -295,5 +298,40 @@ export const FX: Record<FxStyleId, (u: PieceInput) => Placement> = {
     const p = clamp01(u.ageMs / 280);
     const s = 1.7 - 0.7 * easeOutBack(p);
     return place({ sx: s, sy: s, rot: (1 - p) * 0.12 * (u.word % 2 ? 1 : -1), y: -power(u) * u.size * 0.02, alpha: clamp01(u.ageMs / 70) });
+  },
+
+  /** Calm: each word floats up into place as it fades in, slowly, and the beat only lifts it a breath. */
+  rise(u) {
+    if (u.ageMs < 0) return hidden;
+    return place({
+      y: (1 - easeOutCubic(u.ageMs / 640)) * u.size * 0.35 - power(u) * u.size * 0.015,
+      alpha: clamp01(u.ageMs / 420),
+      tone: u.active ? 'accent' : 'ink',
+    });
+  },
+
+  /** Calm: each word lights up inside a soft halo that settles as it is sung and breathes with the beat. */
+  glow(u) {
+    if (u.ageMs < 0) return hidden;
+    const p = easeOutCubic(u.ageMs / 520);
+    const s = 0.96 + 0.04 * p;
+    return place({
+      sx: s,
+      sy: s,
+      alpha: clamp01(u.ageMs / 360),
+      layers: [ink({ tone: 'accent', grow: 1.05 + 0.05 * (1 - p), alpha: (u.active ? 0.34 : 0.14) + 0.3 * (1 - p) + power(u) * 0.12 }), ink()],
+    });
+  },
+
+  /** Calm: letters settle into place one after another, like dust coming to rest. */
+  drift(u) {
+    const t = u.ageMs - u.index * 45;
+    if (t < 0) return hidden;
+    return place({
+      y: (1 - easeOutCubic(t / 560)) * u.size * 0.18,
+      x: (1 - easeOutCubic(t / 560)) * u.size * 0.06 * (u.index % 2 ? 1 : -1),
+      alpha: clamp01(t / 280),
+      tone: u.active ? 'accent' : 'ink',
+    });
   },
 };

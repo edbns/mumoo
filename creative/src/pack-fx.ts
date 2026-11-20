@@ -24,6 +24,9 @@ const BLOCKS: Partial<Record<FxStyleId, Block>> = {
   jitter: { start: 140, width: 880, lines: 4, gap: 1.05, y: 0.5 },
   slide: { start: 130, width: 900, lines: 4, gap: 1.05, y: 0.5 },
   tilt: { start: 160, width: 820, lines: 3, gap: 1, y: 0.5, left: true, turn: -0.1 },
+  rise: { start: 140, width: 880, lines: 4, gap: 1.1, y: 0.5 },
+  glow: { start: 140, width: 860, lines: 3, gap: 1.1, y: 0.5 },
+  drift: { start: 130, width: 900, lines: 4, gap: 1.05, y: 0.5 },
 };
 
 /** Room around a piece's box so a clip never cuts off its overhang or its shadow. */
@@ -49,15 +52,19 @@ export function createFxPainter(): FxPainter {
     return boxes;
   }
 
-  function drawLayer(label: string, layer: Layer, size: number, width: number, face: FaceStyle, frame: TypeFrame) {
+  /** `tone`: the layer's colour, or `onBox` for letters on the box of the word being sung. */
+  function drawLayer(label: string, layer: Layer, tone: Layer['tone'] | 'onBox', size: number, width: number, face: FaceStyle, frame: TypeFrame) {
     const holder = new Container();
     holder.position.set(layer.dx, layer.dy);
     const text = makeText(label, {
       size,
       face,
-      color: layer.tone === 'accent' ? frame.accent : frame.ink,
+      color: tone === 'onBox' ? frame.onAccent ?? frame.shadow : tone === 'accent' ? frame.accent : frame.ink,
       shadow: frame.shadow,
       alpha: layer.alpha,
+      finish: tone === 'onBox' ? 'solid' : frame.finish,
+      glow: tone === 'accent' ? frame.ink : frame.accent,
+      flat: tone === 'onBox',
     });
     text.scale.set(layer.grow);
     holder.addChild(text);
@@ -78,15 +85,30 @@ export function createFxPainter(): FxPainter {
     return holder;
   }
 
-  /** One letter or word, put where its placement says. Nothing is made for a piece that is not visible. */
-  function piece(label: string, at: { x: number; y: number }, width: number, p: Placement, size: number, face: FaceStyle, frame: TypeFrame) {
+  /**
+   * One letter or word, put where its placement says. Nothing is made for a piece that is not visible. `lit`: part of the word
+   * being sung; a style that gives it no colour of its own has it take the accent, and a whole word takes the box in the box finish.
+   */
+  function piece(label: string, at: { x: number; y: number }, width: number, p: Placement, size: number, face: FaceStyle, frame: TypeFrame, lit = false, whole = false) {
     if (p.alpha <= 0.01) return null;
     const node = new Container();
     node.position.set(at.x + p.x, at.y + p.y);
     node.rotation = p.rot;
     node.scale.set(p.sx, p.sy);
     node.alpha = p.alpha;
-    for (const layer of p.layers) node.addChild(drawLayer(label, layer, size, width, face, frame));
+    const promote = lit && !p.layers.some(layer => layer.tone === 'accent');
+    const boxed = lit && whole && frame.finish === 'box';
+    if (boxed) {
+      const box = new Graphics();
+      const padX = size * 0.16;
+      box.roundRect(-width / 2 - padX, -size * 0.56, width + padX * 2, size * 1.1, size * 0.18);
+      box.fill({ color: frame.accent });
+      node.addChild(box);
+    }
+    for (const layer of p.layers) {
+      const tone = boxed && (promote || layer.tone === 'ink') ? 'onBox' : promote ? 'accent' : layer.tone;
+      node.addChild(drawLayer(label, layer, tone, size, width, face, frame));
+    }
     return node;
   }
 
@@ -127,7 +149,8 @@ export function createFxPainter(): FxPainter {
           ? letters(face, fit.size, item.text).map(box => ({ label: box.char, x: item.x + box.x + box.w / 2, w: box.w }))
           : [{ label: item.text, x: item.x + item.w / 2, w: item.w }];
         parts.forEach((part, index) => {
-          const node = piece(part.label, { x: part.x + indent, y }, part.w, FX[style](input(index, parts.length)), fit.size, face, frame);
+          const node = piece(part.label, { x: part.x + indent, y }, part.w, FX[style](input(index, parts.length)), fit.size, face, frame,
+            item.index === active, traits.unit !== 'letter');
           if (node) group.addChild(node);
         });
       }

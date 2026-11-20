@@ -1,5 +1,5 @@
 /**
- * Lyric type system — twenty styles, driven by word-level timing.
+ * Lyric type system — twenty-three styles, driven by word-level timing.
  * Deterministic: output depends only on the frame inputs (shelf and cloud agree).
  *
  *  typewriter  characters appear with a blinking caret
@@ -9,7 +9,7 @@
  *  editorial   serif italic, lines slide up through a mask
  *  outline     hollow letters that fill as each word lands
  *  + the motion styles of lyric-fx.ts (bounce, wave, glitch, rotate, stretch, split, wipe, flicker, zoom,
- *    scatter, jitter, echo, slide, tilt), drawn by pack-fx.ts
+ *    scatter, jitter, echo, slide, tilt, and the calm rise, glow, drift), drawn by pack-fx.ts
  */
 import { Container, Graphics } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
@@ -17,7 +17,7 @@ import { displayFace, setCase, type AdFont, type FaceStyle, type FontNeed } from
 import { FIXED_FACES } from './font-catalog';
 import { FX_STYLES, FX_TRAITS, type FxStyleId } from './lyric-fx';
 import { createFxPainter } from './pack-fx';
-import { activeIndex, clamp01, easeOut, layoutWords, makeText, measure, type TimedWord, type TypeFrame } from './type-kit';
+import { activeIndex, clamp01, easeOut, finishedWord, layoutWords, measure, type TimedWord, type TypeFrame } from './type-kit';
 
 export type { TimedWord, TypeFrame };
 
@@ -100,13 +100,7 @@ export function createTypeLayer(): TypeLayer {
         const started = frame.ms >= word.startMs;
         const isActive = item.index === active;
         const pop = isActive ? 1 + 0.06 * (1 - easeOut((frame.ms - word.startMs) / 180)) : 1;
-        const t = makeText(item.text, {
-          size: fit.size,
-          face,
-          shadow: frame.shadow,
-          color: isActive ? frame.accent : frame.ink,
-          alpha: started ? 1 : 0.3,
-        });
+        const t = finishedWord(item.text, { size: fit.size, face, alpha: started ? 1 : 0.3 }, frame, isActive);
         t.position.set(item.x + item.w / 2, y);
         t.scale.set(pop);
         group.addChild(t);
@@ -138,7 +132,7 @@ export function createTypeLayer(): TypeLayer {
         text += part;
       });
       if (text) {
-        const t = makeText(text, { size: fit.size, face, shadow: frame.shadow, color: frame.ink, anchorX: 0 });
+        const t = finishedWord(text, { size: fit.size, face, anchorX: 0 }, frame);
         t.position.set(x0, y);
         group.addChild(t);
       }
@@ -150,7 +144,7 @@ export function createTypeLayer(): TypeLayer {
     const at = caret ?? { x: -fit.lines[0].width / 2, y: -total / 2 + fit.lineHeight / 2 };
     if (blinkOn) {
       const bar = new Graphics();
-      bar.rect(at.x + fit.size * 0.06, at.y - fit.size * 0.46, Math.max(6, fit.size * 0.1), fit.size * 0.92);
+      bar.rect(at.x + fit.size * 0.06, at.y - fit.size * 0.42, Math.max(4, fit.size * 0.05), fit.size * 0.84);
       bar.fill({ color: frame.accent });
       group.addChild(bar);
     }
@@ -166,27 +160,29 @@ export function createTypeLayer(): TypeLayer {
     const size = Math.min(380, (920 / Math.max(1, measure(face, 100, label))) * 100);
     const slam = 1 + 0.28 * (1 - easeOut((frame.ms - word.startMs) / 150));
     const group = new Container();
-    const main = makeText(label, { size, face, shadow: frame.shadow, color: frame.ink });
+    // The word fills with its colour from the left as it is sung.
+    const sung = easeOut((frame.ms - word.startMs) / Math.max(120, word.endMs - word.startMs));
+    const width = measure(face, size, label);
+    const main = new Container();
     main.scale.set(slam);
+    main.addChild(finishedWord(label, { size, face }, frame));
+    const lit = finishedWord(label, { size, face }, frame, true);
+    const reach = new Graphics();
+    reach.rect(-width / 2 - size * 0.3, -size, (width + size * 0.6) * sung, size * 2);
+    reach.fill({ color: '#ffffff' });
+    lit.mask = reach;
+    main.addChild(reach, lit);
     group.addChild(main);
-
-    const barW = measure(face, size, label) * easeOut((frame.ms - word.startMs) / Math.max(120, word.endMs - word.startMs));
-    const bar = new Graphics();
-    bar.rect(-measure(face, size, label) / 2, size * 0.58, barW, Math.max(10, size * 0.05));
-    bar.fill({ color: frame.accent });
-    group.addChild(bar);
 
     // Previous words, smaller and fading, stacked above.
     for (let k = 1; k <= 2; k++) {
       const prev = frame.words[active - k];
       if (!prev) break;
-      const t = makeText(caseFor('stack', prev.text, frame.fontSecondary), {
+      const t = finishedWord(caseFor('stack', prev.text, frame.fontSecondary), {
         size: Math.max(44, size * (k === 1 ? 0.34 : 0.24)),
         face,
-        shadow: frame.shadow,
-        color: frame.ink,
         alpha: k === 1 ? 0.42 : 0.2,
-      });
+      }, frame);
       t.position.set(0, -size * (0.62 + k * 0.3));
       group.addChild(t);
     }
@@ -200,6 +196,7 @@ export function createTypeLayer(): TypeLayer {
     const labels = frame.words.map(w => caseFor('minimal', w.text, frame.font));
     const fit = layoutWords(labels, face, 80, 820, 3, 1.4);
     const start = frame.words[0]?.startMs ?? 0;
+    const active = activeIndex(frame.words, frame.ms);
     const group = new Container();
     const total = fit.lines.length * fit.lineHeight;
     fit.lines.forEach((line, row) => {
@@ -207,16 +204,11 @@ export function createTypeLayer(): TypeLayer {
       const lead = Math.min(...line.items.map(item => frame.words[item.index].startMs), start + row * 220);
       const a = easeOut((frame.ms - lead) / 360);
       for (const item of line.items) {
-        const t = makeText(item.text, { size: fit.size, face, shadow: frame.shadow, color: frame.ink, alpha: a });
+        const t = finishedWord(item.text, { size: fit.size, face, alpha: a }, frame, item.index === active);
         t.position.set(item.x + item.w / 2, y + (1 - a) * 14);
         group.addChild(t);
       }
     });
-    const rule = new Graphics();
-    const ruleA = easeOut((frame.ms - start) / 500);
-    rule.rect(-48, -total / 2 - fit.size * 0.95, 96 * ruleA, 4);
-    rule.fill({ color: frame.accent, alpha: ruleA });
-    group.addChild(rule);
     group.position.set(WIDTH / 2, HEIGHT * 0.68);
     root.addChild(group);
   }
@@ -234,12 +226,7 @@ export function createTypeLayer(): TypeLayer {
       const slide = easeOut((frame.ms - start - row * 120) / 420);
       const lineBox = new Container();
       for (const item of line.items) {
-        const t = makeText(item.text, {
-          size: fit.size,
-          face,
-          shadow: frame.shadow,
-          color: item.index === active ? frame.accent : frame.ink,
-        });
+        const t = finishedWord(item.text, { size: fit.size, face }, frame, item.index === active);
         t.position.set(item.x + item.w / 2, y + (1 - slide) * fit.lineHeight * 1.05);
         lineBox.addChild(t);
       }
@@ -250,12 +237,6 @@ export function createTypeLayer(): TypeLayer {
       lineBox.mask = mask;
       group.addChild(lineBox);
     });
-    const ruleW = 520 * easeOut((frame.ms - start) / 600);
-    const rules = new Graphics();
-    rules.rect(-ruleW / 2, -total / 2 - fit.size * 0.7, ruleW, 3);
-    rules.rect(-ruleW / 2, total / 2 + fit.size * 0.62, ruleW, 3);
-    rules.fill({ color: frame.accent });
-    group.addChild(rules);
     group.position.set(WIDTH / 2, HEIGHT * 0.5);
     root.addChild(group);
   }
@@ -272,15 +253,9 @@ export function createTypeLayer(): TypeLayer {
       for (const item of line.items) {
         const word = frame.words[item.index];
         const filled = frame.ms >= word.startMs;
-        const flash = item.index === active && frame.ms - word.startMs < 140;
-        const t = makeText(item.text, {
-          size: fit.size,
-          face,
-          shadow: frame.shadow,
-          color: flash ? frame.accent : frame.ink,
-          hollow: !filled,
-          stroke: { color: flash ? frame.accent : frame.ink, width: Math.max(4, fit.size * 0.035) },
-        });
+        const lit = item.index === active;
+        const edge = lit ? (frame.finish === 'box' ? frame.onAccent ?? frame.shadow : frame.accent) : frame.ink;
+        const t = finishedWord(item.text, { size: fit.size, face, hollow: !filled, stroke: { color: edge, width: Math.max(4, fit.size * 0.035) } }, frame, lit);
         t.position.set(item.x + item.w / 2, y);
         group.addChild(t);
       }

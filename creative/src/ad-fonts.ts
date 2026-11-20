@@ -56,14 +56,17 @@ export function fontsForLane(lane: MoodLane, needs: readonly FontNeed[] = []): r
 /**
  * One face per card of a row, `needs[i]` being what card i's type asks for. The row is dealt from a seeded order
  * (the vibe's moods first) and each card takes a face from a mood the row has not used yet, so the four cards do
- * not share a face, and share a mood only when the lane has fewer moods than cards.
+ * not share a face, and share a mood only when the lane has fewer moods than cards. `turn` steps the order on by a row of
+ * faces (the vibe's moods still first), so the next row down the shelf and each Refresh open on faces the last did not.
  */
-export function dealFonts(lane: MoodLane, vibe: IntentVibe | null, seed: string, salt: string, needs: readonly (readonly FontNeed[])[]): AdFont[] {
+export function dealFonts(lane: MoodLane, vibe: IntentVibe | null, seed: string, salt: string, needs: readonly (readonly FontNeed[])[], turn = 0): AdFont[] {
   const led = vibe ? VIBE_MOODS[vibe] : [];
-  const order = [...fontsForLane(lane)].sort((a, b) => {
-    const lead = Number(hasMood(b, led)) - Number(hasMood(a, led));
-    return lead || hashPick(seed, `font:${salt}:${a}`, 99991) - hashPick(seed, `font:${salt}:${b}`, 99991);
-  });
+  const sorted = [...fontsForLane(lane)].sort((a, b) => hashPick(seed, `font:${salt}:${a}`, 99991) - hashPick(seed, `font:${salt}:${b}`, 99991));
+  const step = (fonts: AdFont[]) => {
+    const at = fonts.length ? (turn * needs.length) % fonts.length : 0;
+    return [...fonts.slice(at), ...fonts.slice(0, at)];
+  };
+  const order = [...step(sorted.filter(font => hasMood(font, led))), ...step(sorted.filter(font => !hasMood(font, led)))];
   const used = new Set<AdFont>();
   const moods = new Set<FontMood>();
   return needs.map(need => {

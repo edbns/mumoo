@@ -7,8 +7,12 @@ import type { LiveLookId } from './live-look-deal';
 import { heatSource, lookPixel } from './live-look-ramp';
 
 export type TexturePalette = {
-  /** Highest-contrast ink against the text zone. */
+  /** Highest-contrast ink against the text zone: plain off-white or near-black (`typeColours` tints it for the lyrics). */
   ink: string;
+  /** Whether the ink is the light one. */
+  light: boolean;
+  /** The picture's dominant saturated hue (0-360), or null when it has none (black and white, grey). */
+  hue: number | null;
   /** Dominant saturated hue of the image, adjusted to stay legible. */
   accent: string;
   /** Scrim laid under the type when the text zone is busy or low-contrast. */
@@ -142,8 +146,10 @@ export function analyzeTexture(texture: Texture, look?: LiveLookId): TexturePale
   // Accent: dominant saturated hue, nudged until it clears 3:1 against the text zone.
   const best = bins.reduce((a, b) => (b.w > a.w ? b : a));
   let accent: string;
+  let hue: number | null = null;
   if (best.w > 0.5) {
     const [h, saturation, lightness] = rgbToHsl(best.r / best.w, best.g / best.w, best.b / best.w);
+    hue = h;
     const s = Math.max(0.55, saturation);
     let l = lightness;
     for (let step = 0; step < 14; step++) {
@@ -156,7 +162,51 @@ export function analyzeTexture(texture: Texture, look?: LiveLookId): TexturePale
     accent = ink; // a truly monochrome image: accent is the ink itself
   }
 
-  const palette: TexturePalette = { ink, accent, scrim, luma: meanLum, range };
+  const palette: TexturePalette = { ink, light: inkIsWhite, hue, accent, scrim, luma: meanLum, range };
   cache.set(key, palette);
   return palette;
+}
+
+export type TypeColours = {
+  ink: string;
+  accent: string;
+  /** Opposite of the ink, for the soft shadow and the sticker's edge. */
+  shadow: string;
+  /** Letters readable on the accent (the box finish). */
+  onAccent: string;
+};
+
+const typeCache = new WeakMap<TexturePalette, Map<string, TypeColours>>();
+
+/** `colour` made lighter (on a light ink) or darker until it clears `min`:1 against the text zone. */
+function legible(h: number, s: number, l: number, luma: number, lightInk: boolean, min: number): string | null {
+  for (let step = 0; step < 24; step++) {
+    const [r, g, b] = hslToRgb(h, s, l);
+    if (contrast(relLum(r, g, b), luma) >= min) return hex(r, g, b);
+    l = lightInk ? Math.min(0.97, l + 0.03) : Math.max(0.04, l - 0.03);
+  }
+  return null;
+}
+
+/**
+ * The lyric's colours on a picture: the ink tinted toward the picture's own hue (or, on a picture with no colour, toward
+ * `moodAccent`, the song's colour, which then is the accent too), still clearing 4.5:1 against the text zone, else plain.
+ * Pure: the same palette and mood colour always give the same colours, in the browser and in the cloud.
+ */
+export function typeColours(palette: TexturePalette, moodAccent?: string): TypeColours {
+  const key = moodAccent ?? '';
+  let byMood = typeCache.get(palette);
+  const cached = byMood?.get(key);
+  if (cached) return cached;
+  const mood = palette.hue === null && moodAccent ? rgbToHsl(...parse(moodAccent)) : null;
+  const hue = palette.hue ?? mood?.[0] ?? null;
+  const ink = hue === null ? palette.ink
+    : legible(hue, palette.light ? 0.32 : 0.42, palette.light ? 0.93 : 0.11, palette.luma, palette.light, 4.5) ?? palette.ink;
+  const accent = mood ? legible(mood[0], Math.max(0.55, mood[1]), mood[2], palette.luma, palette.light, 3) ?? palette.accent : palette.accent;
+  const accentLum = relLum(...parse(accent));
+  const onAccent = contrast(accentLum, relLum(...parse(BLACK))) >= contrast(accentLum, relLum(...parse(WHITE))) ? BLACK : WHITE;
+  const colours = { ink, accent, shadow: palette.light ? '#000000' : '#ffffff', onAccent };
+  if (!byMood) typeCache.set(palette, byMood = new Map());
+  byMood.set(key, colours);
+  return colours;
 }

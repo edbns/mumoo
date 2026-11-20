@@ -31,6 +31,8 @@ test('the cloud worker accepts exactly the fonts and type styles the page knows'
   try {
     assert.deepEqual(workerSet('FONTS').sort(), [...catalog.AD_FONTS].sort());
     assert.deepEqual(workerSet('TYPE_STYLES').sort(), [...type.TYPE_STYLES].sort());
+    const { TYPE_FINISHES } = await server.ssrLoadModule('/src/type-finish.ts');
+    assert.deepEqual(workerSet('TYPE_FINISHES').sort(), [...TYPE_FINISHES].sort());
   } finally { await server.close(); }
 });
 

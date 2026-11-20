@@ -50,7 +50,7 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
-    "cues", "music", "fallbackText", "plateId", "typeStyle", "grade", "lyrics", "colors", "effectId",
+    "cues", "music", "fallbackText", "plateId", "typeStyle", "typeFinish", "typeAccent", "grade", "lyrics", "colors", "effectId",
     "motionShots", "reel", "cutSeed", "look", "inkSet", "windowMode", "windowPalette", "windowAllowed", "windowShape",
     "treatment", "treatmentVariant", "preset", "presetTake", "clock",
 }
@@ -102,7 +102,11 @@ CUT_OUT_STYLES = {"dust", "riso"}
 TYPE_STYLES = {
     "typewriter", "karaoke", "stack", "minimal", "editorial", "outline",
     "bounce", "wave", "glitch", "rotate", "stretch", "split", "wipe", "flicker",
-    "zoom", "scatter", "jitter", "echo", "slide", "tilt",
+    "zoom", "scatter", "jitter", "echo", "slide", "tilt", "rise", "glow", "drift",
+}
+# How a card's lyric letters are finished (creative/src/type-finish.ts; a test keeps these in step).
+TYPE_FINISHES = {
+    "solid", "gradient", "box", "sticker",
 }
 FONTS = {
     "Anton", "Bebas Neue", "Archivo Black", "Dela Gothic One", "Big Shoulders Display", "League Gothic", "Staatliches",
@@ -371,6 +375,10 @@ def parse_meta(raw: str) -> dict:
                         raise ValueError("reel")
     if "typeStyle" in opts and opts["typeStyle"] not in TYPE_STYLES:
         raise ValueError("typeStyle")
+    if "typeFinish" in opts and ("typeStyle" not in opts or opts["typeFinish"] not in TYPE_FINISHES):
+        raise ValueError("typeFinish")
+    if "typeAccent" in opts and ("typeStyle" not in opts or not isinstance(opts["typeAccent"], str) or not HEX_RE.match(opts["typeAccent"])):
+        raise ValueError("typeAccent")
     grade = opts.get("grade")
     if grade is not None:
         if not isinstance(grade, dict) or set(grade) != set(GRADE_RANGES):

@@ -18,6 +18,7 @@ import effectsData from '../punch-plates/effects/effects.json';
 import { laneFromMeaning, leansDeep, type LyricAttitude, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
+import { FINISH_ALLOW, MOOD_ACCENTS, type TypeFinish } from './type-finish';
 import { coverFit } from './look-fit';
 import type { CoverRead } from './cover-palette';
 import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
@@ -120,6 +121,9 @@ export type CreativesPackSlot = {
   preset?: PresetId;
   presetTake?: string;
   typeStyle?: TypeStyleId;
+  /** How the lyric letters are finished (type-finish.ts), and the song's colour for a picture with none. Solid, and no colour, when absent. */
+  typeFinish?: TypeFinish;
+  typeAccent?: string;
   /** What the lyrics do to the colours and the beat. Absent when the words change nothing. */
   grade?: MoodGrade;
   /** The mood board (`boards.ts`) the row's library pictures were dealt from. Absent while the song has no filled board. */
@@ -162,22 +166,48 @@ export function moodLane(intent: MusicIntentV1 | null, genre: string): MoodLane 
  * Order is a preference, the seed rotates which style leads.
  */
 export const TYPE_ALLOW: Record<MoodLane, readonly TypeStyleId[]> = {
-  gospel: ['editorial', 'minimal', 'typewriter', 'karaoke', 'slide', 'wipe', 'wave'],
-  quiet: ['minimal', 'editorial', 'typewriter', 'karaoke', 'slide', 'wipe', 'wave', 'jitter'],
+  gospel: ['editorial', 'minimal', 'typewriter', 'karaoke', 'slide', 'wipe', 'wave', 'rise', 'glow', 'drift'],
+  quiet: ['minimal', 'editorial', 'typewriter', 'karaoke', 'slide', 'wipe', 'wave', 'jitter', 'rise', 'glow', 'drift'],
   dark: ['typewriter', 'outline', 'minimal', 'editorial', 'glitch', 'flicker', 'wipe', 'split', 'scatter', 'zoom'],
   techno: ['stack', 'outline', 'karaoke', 'typewriter', 'glitch', 'stretch', 'split', 'zoom', 'flicker', 'scatter', 'echo', 'bounce'],
   party: ['stack', 'karaoke', 'outline', 'typewriter', 'bounce', 'stretch', 'rotate', 'zoom', 'echo', 'wave', 'tilt', 'scatter', 'jitter', 'slide'],
   general: TYPE_STYLES,
 };
 
+/**
+ * Where a row stands in the song's deal: `song` seeds one order of each choice for the whole shelf, and `at` is the row's
+ * place on the shelf plus its own Refresh count.
+ */
+type Turn = { song: string; at: number };
+
+/**
+ * Card `index` of the row at `turn`, from the song's one order of `items`. Each row down the shelf and each Refresh leads
+ * with the next one, so a Refresh shows every one before any comes back and neighbouring rows lead differently. A row's
+ * cards are spread across the order, so after a Refresh none of them repeats while the order has at least two per card.
+ */
+function inTurn<T>(items: readonly T[], turn: Turn, salt: string, key: (item: T) => string) {
+  const order = seededOrder(items, `${turn.song}:${salt}`, key);
+  const spread = Math.max(1, Math.floor(order.length / ROW_SIZE));
+  return (index: number) => order[(turn.at + index * spread) % order.length];
+}
+
+const typeDeal = (lane: MoodLane, turn: Turn) => inTurn(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), turn, 'type', id => id);
+
+/** Each card's lyric finish and mood colour, dealt from the song's mood like its type, so they too change on every row and Refresh. */
+function finishDeal(lane: MoodLane, turn: Turn) {
+  const finishes = inTurn(FINISH_ALLOW[lane], turn, 'finish', finish => finish);
+  const colours = inTurn(MOOD_ACCENTS[lane], turn, 'mood-colour', colour => colour);
+  return (index: number): { typeFinish: TypeFinish; typeAccent: string } => ({ typeFinish: finishes(index), typeAccent: colours(index) });
+}
+
 /** Dust, Pulise and Riso draw capitals from thick strokes, so their faces must be heavy and set in caps. */
 const HEAVY_CAPS_ROW: readonly (readonly FontNeed[])[] = Array.from({ length: ROW_SIZE }, () => ['heavy', 'caps']);
 
 type Faces = { font: AdFont; fontSecondary: AdFont };
 
-/** The faces of one row of cards: none shared, each able to do what its card's type asks (`needs[i]` for card i). */
-function dealFaces(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, row: ShelfRow, needs: readonly (readonly FontNeed[])[]): Faces[] {
-  return dealFonts(lane, intent?.vibe ?? null, seed, row, needs).map((font, index) => ({
+/** The faces of one row of cards: none shared, each able to do what its card's type asks (`needs[i]` for card i), stepped on with the row's turn. */
+function dealFaces(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, turn: Turn, row: ShelfRow, needs: readonly (readonly FontNeed[])[]): Faces[] {
+  return dealFonts(lane, intent?.vibe ?? null, turn.song, 'shelf', needs, turn.at).map((font, index) => ({
     font,
     fontSecondary: pickSecondaryFont(font, seed, `${row}:${index}`, fontsForLane(lane, needs[index])),
   }));
@@ -465,6 +495,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const library = pool.some(item => item.learnedLanes) ? pool.map(item => ({ ...item, learned: inLane(item.learned, item.learnedLanes?.[lane]) })) : pool;
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${song}:${generation}:${lane}:${row}`;
+  const turn: Turn = { song: `${song}:${lane}`, at: Math.max(0, SHELF_ROWS.findIndex(def => def.id === row)) + generation };
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
   // Dust draws library photos that have a cut-out; Riso those, or library videos/GIFs; with none, our approved photos.
   const wanted = libraryWanted(profile, meaning, genre, intent);
@@ -478,7 +509,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const photos: PhotoSources = { plateIds: cutOutPlates, libraryIds: cutOutLibrary };
   const risoPhotos: PhotoSources = { plateIds: cutOutPlates, libraryIds: risoLibrary };
   /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
-  const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, pickLibrary(from(), wanted, `${song}:${family}`, generation, ROW_SIZE), ownPicture);
+  const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, turn, pickLibrary(from(), wanted, `${song}:${family}`, generation, ROW_SIZE), ownPicture);
   // Directed and its treatments are cut and finished in the preset the song's genre calls for; each Refresh may take the next that fits.
   const preset = presetAt({ genre, subGenre: profile.creator.subGenre?.value, style: profile.creator.style?.name }, generation);
   const withPreset = (slots: CreativesPackSlot[]) => slots.map((slot, index) => ({
@@ -488,11 +519,11 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     preset,
     presetTake: takeAt(preset, generation, index),
   }));
-  const treatmentRow = (kind: TreatmentId) => withPreset(treatmentSlots(kind, lane, intent, seed, directedSeed, pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture));
+  const treatmentRow = (kind: TreatmentId) => withPreset(treatmentSlots(kind, lane, intent, seed, turn, directedSeed, pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture));
   const slots = {
     photography: () => {
       const cards = photographySlots(
-        lane, intent, seed,
+        lane, intent, seed, turn,
         dealEffects(lane, meaning, cover, `${song}:${lane}`, generation),
         pickLibrary(from(), wanted, song, generation, ROW_SIZE),
       );
@@ -513,11 +544,11 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     halftone: () => effectRow('halftone'),
     dither: () => effectRow('dither'),
     ascii: () => effectRow('ascii'),
-    riso: () => risoSlots(lane, intent, seed, risoPhotos),
+    riso: () => risoSlots(lane, intent, seed, turn, risoPhotos),
     window: () => windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates),
     silhouette: () => (GOSPEL_GENRE.test(`${genre} ${profile.creator.subGenre?.value ?? ''}`.toLowerCase()) ? [] : windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates, dealSilhouette(seed, TYPE_ALLOW[lane]))),
-    pulise: () => puliseSlots(lane, intent, seed),
-    dust: () => dustSlots(lane, intent, seed, cover?.hue, photos),
+    pulise: () => puliseSlots(lane, intent, seed, turn),
+    dust: () => dustSlots(lane, intent, seed, turn, cover?.hue, photos),
   }[row]();
   // Card i of every such template is edited by the Director from the same pool as Directed's card i, once there are two or more pictures to edit.
   const onBoard = (items: readonly LibraryPicture[]) => Boolean(board) && (items[0]?.boards ?? []).some(id => items.every(item => item.boards?.includes(id)));
@@ -628,8 +659,8 @@ function dealt({ plateIds, libraryIds }: PhotoSources, seed: string, index: numb
   return { plateId: seededOrder(plateIds, seed, id => id)[index % plateIds.length] };
 }
 
-function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, coverHue: number | null | undefined, photos: PhotoSources): CreativesPackSlot[] {
-  const faces = dealFaces(lane, intent, seed, 'dust', HEAVY_CAPS_ROW);
+function dustSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, turn: Turn, coverHue: number | null | undefined, photos: PhotoSources): CreativesPackSlot[] {
+  const faces = dealFaces(lane, intent, seed, turn, 'dust', HEAVY_CAPS_ROW);
   return faces.map((face, index) => ({
     ...adPunchSlot('dust', index, intent, seed, lane, 'dust', face),
     colors: cardColors(seed, index, coverHue),
@@ -644,8 +675,8 @@ const sentence = (text: string) => `${text[0].toUpperCase()}${text.slice(1)}`;
  * capital face and its own scatter of the words. Library cut-out photos or clips (or our approved photos) until the
  * person uses their own. `cutSeed` makes each card cut a video differently on the beat.
  */
-function risoSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, photos: PhotoSources): CreativesPackSlot[] {
-  const faces = dealFaces(lane, intent, seed, 'riso', HEAVY_CAPS_ROW);
+function risoSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, turn: Turn, photos: PhotoSources): CreativesPackSlot[] {
+  const faces = dealFaces(lane, intent, seed, turn, 'riso', HEAVY_CAPS_ROW);
   const sets = seededOrder(RISO_INK_SETS, seed, set => set.id);
   return faces.map((face, index) => ({
     ...adPunchSlot('riso', index, intent, seed, lane, 'riso', face),
@@ -740,14 +771,14 @@ function dealEffects(lane: MoodLane, meaning: LyricMeaning | null, cover: CoverR
  * (as many as there are, up to four), or our approved photo with one of four baked effects (or the person's own picture). A card that carries a live look
  * is drawn from a single picture (a library photo, or our approved photo while the library is short) or one video played straight through, never an edit of cuts.
  */
-function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, effects: readonly PhotoEffect[], picks: readonly LibraryPicture[]): CreativesPackSlot[] {
-  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
-  const typeOf = (index: number) => types[index % types.length];
+function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, turn: Turn, effects: readonly PhotoEffect[], picks: readonly LibraryPicture[]): CreativesPackSlot[] {
+  const typeOf = typeDeal(lane, turn);
   // The library is the source. Baked effects (the older, fixed looks) are only for a song nothing in the library fits, so the row is never empty.
   const cards = picks.length
     ? picks.slice(0, ROW_SIZE).map(pick => ({ pick }))
     : effects.slice(0, ROW_SIZE).map(effect => ({ effect }));
-  const faces = dealFaces(lane, intent, seed, 'photography', cards.map((_, index) => typeNeeds(typeOf(index))));
+  const faces = dealFaces(lane, intent, seed, turn, 'photography', cards.map((_, index) => typeNeeds(typeOf(index))));
+  const finishOf = finishDeal(lane, turn);
   const hand = hashPick(seed, 'gen', 997).toString(36);
   return cards.map((card, index) => ({
     ...adPunchSlot('filter', index, intent, seed, lane, 'photography', faces[index]),
@@ -765,6 +796,7 @@ function photographySlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: st
         effectId: card.effect.id,
       }),
     typeStyle: typeOf(index),
+    ...finishOf(index),
     cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
   }));
 }
@@ -785,13 +817,13 @@ export const isTreatmentRow = (row: ShelfRow): row is TreatmentId => isTreatment
  * Four cards of one treatment: card N is Directed card N (the same pictures, reel and cut, from `directedSeed`) finished with a
  * different variant, each with its own lyric type. With no library picture and no own picture the row is empty.
  */
-function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, directedSeed: string, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
+function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, turn: Turn, directedSeed: string, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
   const cards: (LibraryPicture | null)[] = ownPicture ? Array.from({ length: ROW_SIZE }, () => null) : picks.slice(0, ROW_SIZE);
   const variants = dealTreatments(lane, seed, cards.length, kind);
   if (!cards.length || variants.length !== cards.length) return [];
-  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:treatment`, id => id);
-  const typeOf = (index: number) => types[index % types.length];
-  const faces = dealFaces(lane, intent, seed, kind, cards.map((_, index) => typeNeeds(typeOf(index))));
+  const typeOf = typeDeal(lane, turn);
+  const faces = dealFaces(lane, intent, seed, turn, kind, cards.map((_, index) => typeNeeds(typeOf(index))));
+  const finishOf = finishDeal(lane, turn);
   const hand = hashPick(seed, 'gen', 997).toString(36);
   const titles = treatmentVariants(kind);
   return cards.map((pick, index) => {
@@ -804,6 +836,7 @@ function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1
       reason: pick ? `${lane} · library · ${pick.attitudes.join('+')} · ${typeOf(index)} · ${kind}:${variant}` : `${lane} · own picture · ${typeOf(index)} · ${kind}:${variant}`,
       ...(pick ? { libraryId: pick.id } : {}),
       typeStyle: typeOf(index),
+      ...finishOf(index),
       treatment: kind,
       treatmentVariant: variant,
       cutSeed: hashPick(directedSeed, 'cut', 250_000) * 4 + index,
@@ -811,14 +844,14 @@ function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1
   });
 }
 
-function lookSlots(family: LookFamily, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
+function lookSlots(family: LookFamily, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, turn: Turn, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
   const row: ShelfRow = family;
   const cards: (LibraryPicture | null)[] = ownPicture ? Array.from({ length: ROW_SIZE }, () => null) : picks.slice(0, ROW_SIZE);
   const looks = dealLooks(lane, cards.length, family);
   if (!cards.length || looks.some(look => !look)) return [];
-  const types = seededOrder(TYPE_ALLOW[lane].filter(id => TYPE_STYLES.includes(id)), `${seed}:filter`, id => id);
-  const typeOf = (index: number) => types[index % types.length];
-  const faces = dealFaces(lane, intent, seed, row, cards.map((_, index) => typeNeeds(typeOf(index))));
+  const typeOf = typeDeal(lane, turn);
+  const faces = dealFaces(lane, intent, seed, turn, row, cards.map((_, index) => typeNeeds(typeOf(index))));
+  const finishOf = finishDeal(lane, turn);
   const hand = hashPick(seed, 'gen', 997).toString(36);
   return cards.map((pick, index) => ({
     ...adPunchSlot('filter', index, intent, seed, lane, row, faces[index]),
@@ -827,14 +860,15 @@ function lookSlots(family: LookFamily, lane: MoodLane, intent: MusicIntentV1 | n
     reason: pick ? `${lane} · library · ${pick.attitudes.join('+')} · ${typeOf(index)} · ${looks[index]}` : `${lane} · own picture · ${typeOf(index)} · ${looks[index]}`,
     ...(pick ? { libraryId: pick.id } : {}),
     typeStyle: typeOf(index),
+    ...finishOf(index),
     look: looks[index]!,
     cutSeed: hashPick(seed, 'cut', 250_000) * 4 + index,
   }));
 }
 
 /** Four Pulise cards: each its own face, each opening on a different colour. */
-function puliseSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string): CreativesPackSlot[] {
-  const faces = dealFaces(lane, intent, seed, 'pulise', HEAVY_CAPS_ROW);
+function puliseSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string, turn: Turn): CreativesPackSlot[] {
+  const faces = dealFaces(lane, intent, seed, turn, 'pulise', HEAVY_CAPS_ROW);
   return faces.map((face, index) => {
     const slot = adPunchSlot('pulise', index, intent, seed, lane, 'pulise', face);
     return { ...slot, layout: { ...slot.layout, cut: index } };

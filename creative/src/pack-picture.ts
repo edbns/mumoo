@@ -7,7 +7,7 @@
 import { Container, Graphics, Sprite, Text } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
 import { LOOK_DOWN_MESSAGE } from './pack-looks';
-import { analyzeTexture } from './pack-palette';
+import { analyzeTexture, typeColours } from './pack-palette';
 import type { PackSceneInput } from './pack-copy';
 import { createLiveLook, type LiveLook } from './live-look';
 import type { LiveLookId } from './live-look-deal';
@@ -115,9 +115,8 @@ export function createPictureWorld(): PictureWorld {
         beatIndex: input.beatIndex,
         energy: input.energy,
         seed: input.layout.seed,
-        ink: palette.ink,
-        accent: palette.accent,
-        shadow: palette.ink.toLowerCase() === '#f7f4ee' ? '#000000' : '#ffffff',
+        ...typeColours(palette, input.typeAccent),
+        finish: input.typeFinish,
         font: input.font,
         fontSecondary: input.fontSecondary,
       });

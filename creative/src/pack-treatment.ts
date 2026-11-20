@@ -8,7 +8,7 @@
  */
 import { BlurFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, type Filter, type Renderer } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
-import { analyzeTexture } from './pack-palette';
+import { analyzeTexture, typeColours } from './pack-palette';
 import type { PackSceneInput } from './pack-copy';
 import { createTypeLayer, type TimedWord, type TypeFrame } from './pack-type';
 import type { TreatmentId } from './treatment-deal';
@@ -591,7 +591,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       const words: TimedWord[] = !input.lyrics || !input.phrase || kind === 'typewriter' || kind === 'screenshot' ? [] : input.words.length
         ? [...input.words]
         : [{ text: input.phrase, startMs: 0, endMs: 600 }];
-      const frame = { ms: input.ms, beat: input.beat, beatIndex: input.beatIndex, energy: input.energy, seed: input.layout.seed, font: input.font, fontSecondary: input.fontSecondary };
+      const frame = { ms: input.ms, beat: input.beat, beatIndex: input.beatIndex, energy: input.energy, seed: input.layout.seed, font: input.font, fontSecondary: input.fontSecondary, finish: input.typeFinish };
 
       if (kind === 'frame') {
         // The phrase is shared out over the two bands of solid colour: its first half above the video, the rest below; never over the video.
@@ -620,12 +620,12 @@ export function createTreatmentWorld(): TreatmentWorld {
       below.root.scale.set(1);
       below.paint(style, { ...frame, words: [], ink: LIGHT, accent: LIGHT, shadow: '#000000' });
       const onBlack = kind === 'fisheye';
+      const colours = typeColours(palette, input.typeAccent);
       type.paint(style, {
         ...frame,
         words,
-        ink: onBlack ? LIGHT : palette.ink,
-        accent: onBlack ? (light(palette.accent) ? palette.accent : LIGHT) : palette.accent,
-        shadow: onBlack || palette.ink.toLowerCase() === LIGHT ? '#000000' : '#ffffff',
+        ...colours,
+        ...(onBlack ? { ink: LIGHT, accent: light(colours.accent) ? colours.accent : LIGHT, shadow: '#000000', onAccent: '#0d0d12' } : {}),
       });
       if (turn) {
         // Sideways: the lyrics turn with the picture, centred and fitted in the landscape frame.

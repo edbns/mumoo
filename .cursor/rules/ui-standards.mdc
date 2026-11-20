@@ -38,6 +38,11 @@ Keep the look; make the pieces the same. Never restyle the brand (black layer, g
 - Plain, lowercase, dash-separated words that say what the page is, matching its title: `/smart-links`, `/my-smart-links`, `/terms-of-service`, `/privacy-policy`. No abbreviations (`/dpa`, `/links/mine`).
 - An address lives in one place (`PAGE_PATHS` in `account-pages.ts`, `LEGAL_PATHS` in `site-paths.ts`) and is imported. Don't type `href="/…"` for our own pages. Each page sets a title (`PAGE_TITLES`). A new address also goes in `netlify.toml`, the dev server and the reserved smart-link names.
 
+## Lyrics on creatives
+- No underline or rule bars. The word being sung changes colour (accent), or sits in its box on the box finish.
+- Ink is tinted from the footage and the accent comes from the footage. The mood colour is used only when the footage has no hue. Text must reach 4.5:1 contrast and the accent 3:1 (`typeColours` in `pack-palette.ts`).
+- One finish per card, dealt by mood lane (`type-finish.ts`). Quiet and gospel use only solid or gradient. A new finish also goes in the worker's `TYPE_FINISHES`.
+
 ## Before calling it done
 - Run `npm run dev` and sign in with `/dev-login`. Look at the page and any pop-up it opens. Run `npm test`.
 - Don't commit or deploy until the artist has seen it locally and said yes.

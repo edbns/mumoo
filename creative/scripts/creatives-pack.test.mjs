@@ -167,6 +167,47 @@ test('the cover colours lead the effects, and sad words never sit on a bright on
   } finally { await server.close(); }
 });
 
+test('every lyric card gets a finish and a mood colour, calm songs only solid or gradient, the same song the same deal', async () => {
+  const { server, pack } = await load();
+  try {
+    const finishes = ['solid', 'gradient', 'box', 'sticker'];
+    for (const genre of ['Gospel', 'Slap House', 'Afrobeats', 'Drill']) {
+      const lyricCards = shelf(pack, profile(genre)).filter(slot => slot.typeStyle && !slot.windowMode);
+      assert.ok(lyricCards.length > 0, genre);
+      for (const slot of lyricCards) {
+        assert.ok(finishes.includes(slot.typeFinish), `${genre} ${slot.id}: ${slot.typeFinish}`);
+        assert.match(slot.typeAccent, /^#[0-9a-f]{6}$/, `${genre} ${slot.id}`);
+      }
+      assert.deepEqual(shelf(pack, profile(genre)).map(slot => slot.typeFinish), shelf(pack, profile(genre)).map(slot => slot.typeFinish), genre);
+    }
+    for (const slot of shelf(pack, profile('Gospel')).filter(slot => slot.typeFinish)) assert.ok(['solid', 'gradient'].includes(slot.typeFinish), slot.typeFinish);
+    const club = new Set(shelf(pack, profile('Slap House')).map(slot => slot.typeFinish).filter(Boolean));
+    assert.ok(club.size >= 3, `club songs get only ${[...club]}`);
+  } finally { await server.close(); }
+});
+
+test('Refresh shows every lyric style of the mood before one comes back, and neighbouring rows lead differently', async () => {
+  const { server, pack } = await load();
+  try {
+    for (const [genre, lane] of [['Gospel', 'gospel'], ['Ambient', 'quiet'], ['Slap House', 'techno'], ['Pop', 'general']]) {
+      const person = profile(genre);
+      const styles = pack.TYPE_ALLOW[lane].length;
+      const row = generation => recommend(pack, 'halftone', person, generation);
+      const leads = Array.from({ length: styles }, (_, generation) => row(generation)[0].typeStyle);
+      assert.equal(new Set(leads).size, styles, `${genre} Refresh repeats a style before showing all ${styles}: ${leads}`);
+      for (let generation = 0; generation < 6; generation++) {
+        const before = row(generation);
+        const after = row(generation + 1);
+        if (styles >= 8) assert.ok(after.every(slot => !before.some(card => card.typeStyle === slot.typeStyle)), `${genre} #${generation} Refresh keeps a style`);
+        assert.notEqual(after[0].font, before[0].font, `${genre} #${generation} Refresh keeps the face`);
+        assert.notEqual(`${after[0].typeFinish} ${after[0].typeAccent}`, `${before[0].typeFinish} ${before[0].typeAccent}`, `${genre} #${generation} Refresh keeps the finish and colour`);
+      }
+      const shelfLeads = ['photography', 'triptych', 'fisheye', 'collage', 'frame'].map(id => recommend(pack, id, person)[0].typeStyle);
+      for (let at = 1; at < shelfLeads.length; at++) assert.notEqual(shelfLeads[at], shelfLeads[at - 1], `${genre}: neighbouring rows lead with ${shelfLeads[at]}`);
+    }
+  } finally { await server.close(); }
+});
+
 test('the brain matches type to mood (gospel is never stack/outline, club never minimal)', async () => {
   const { server, pack } = await load();
   try {
