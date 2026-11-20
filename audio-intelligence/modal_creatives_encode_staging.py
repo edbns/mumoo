@@ -113,6 +113,7 @@ FONTS = {
     "Lobster", "Kaushan Script", "Fredoka", "Baloo 2", "Nunito", "Abril Fatface", "DM Serif Display", "Bodoni Moda",
     "Gloock", "Rozha One", "Fraunces", "UnifrakturCook", "Pirata One", "Metal Mania", "Audiowide", "Rubik Mono One",
     "Orbitron", "Oxanium", "Chakra Petch", "Zen Dots", "Wallpoet", "Rubik Glitch", "Press Start 2P", "Silkscreen",
+    "Syne", "Unbounded", "Krona One",
 }
 # What the lyrics do to colour and beat hits: five numbers, each inside the range the app can produce.
 GRADE_RANGES = {"saturation": (0.55, 1.15), "warmth": (-1, 1), "brightness": (0.8, 1), "contrast": (1, 1.1), "calm": (0, 1)}

@@ -51,6 +51,8 @@ export type PresetFrame = {
   leakX: number;
   /** The tracking band jumping on a heavy hit (tape). */
   tear: number;
+  /** A bass hit's lens pulse (0..1): the colours split outward from the middle and the picture blurs towards it. */
+  pulse: number;
   /** The camcorder's REC display, or null. */
   rec: { blink: boolean; time: string; date: string } | null;
 };
@@ -171,6 +173,16 @@ const SHAKE_MS = 170;
 const JITTER_MS = FRAME_MS * 2;
 const WHIP_MS = 110;
 const ZOOM_MS = 220;
+const PULSE_MS = 180;
+/** A lens pulse starts at most three times a second, however fast the bass hits (the photosensitivity limit). */
+const PULSE_GAP_MS = 1000 / 3;
+
+/** The hits of `list` at least `gapMs` after the last one kept. */
+export function spaced(list: readonly number[] | undefined, gapMs: number): number[] {
+  const kept: number[] = [];
+  for (const at of list ?? []) if (!kept.length || at - kept[kept.length - 1] >= gapMs) kept.push(at);
+  return kept;
+}
 
 /** A camcorder's clock: the time of day runs with the song, the date is the card's own, in the late nineties. */
 function recDisplay(ms: number, seed: number) {
@@ -194,7 +206,7 @@ export function presetFrame(preset: PresetId, take: string, moment: PresetMoment
   const t = ms / 1000;
   const frame: PresetFrame = {
     look: lookOf(preset, take), zoom: 1, shiftX: 0, shiftY: 0, rotate: 0, whipBlur: 0, zoomBlur: 0,
-    flash: 0, leak: 0, leakX: 0.5, tear: 0, rec: null,
+    flash: 0, leak: 0, leakX: 0.5, tear: 0, pulse: 0, rec: null,
   };
   const { along, index } = piece(cutsMs, ms);
   const hit = (list: readonly number[] | undefined, within: number) => {
@@ -269,6 +281,11 @@ export function presetFrame(preset: PresetId, take: string, moment: PresetMoment
     frame.zoom = 1.05 + 0.06 * along;
     frame.shiftX = Math.cos(angle) * 0.018 * (along - 0.5);
     frame.shiftY = Math.sin(angle) * 0.018 * (along - 0.5);
+  }
+  if (preset === 'strobe' || preset === 'y2k') {
+    // The club and party cuts: the lens pulses on each heavy bass hit, harder when the music is.
+    const bass = hit(spaced(music?.heavyMs, PULSE_GAP_MS), PULSE_MS);
+    if (bass) frame.pulse = (1 - bass.since / PULSE_MS) ** 2 * (0.5 + 0.5 * energy);
   } else if (preset === 'mono') {
     frame.zoom = 1.05;
     // The camera shakes on each bass hit.

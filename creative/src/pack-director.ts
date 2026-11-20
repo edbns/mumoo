@@ -26,6 +26,8 @@ export type Segment = {
   fromMs: number;
   /** Photos: the slow push (or pull) over the piece, as a scale from the start to the end. Clips: no move. */
   zoom: readonly [from: number, to: number];
+  /** Clips of a velocity edit: the clip snaps in fast on the cut and slows down into the next one (`rampedMs`). */
+  ramp?: boolean;
 };
 
 export type DirectorMusic = {
@@ -304,7 +306,7 @@ export function planReel(assets: readonly ReelAsset[], music: DirectorMusic | nu
       }
       picked.used = choice + 1;
       const [startMs, pieceEndMs] = all[choice];
-      segments.push({ atMs, endMs, asset, startMs, pieceEndMs, fromMs: startMs, zoom: [1, 1] });
+      segments.push({ atMs, endMs, asset, startMs, pieceEndMs, fromMs: startMs, zoom: [1, 1], ...(rhythm?.ramp ? { ramp: true } : {}) });
     } else {
       segments.push({ atMs, endMs, asset, startMs: 0, pieceEndMs: 0, fromMs: 0, zoom: k % 2 === 0 ? [1, 1.12] : [1.12, 1] });
     }
@@ -319,8 +321,26 @@ export function segmentAt(segments: readonly Segment[], ms: number): Segment {
   return found;
 }
 
+/** A velocity edit: the clip plays `RAMP_FAST` times as fast for the first `RAMP_IN_MS` of a cut and `RAMP_SLOW` as fast for its last `RAMP_OUT_MS`. */
+export const RAMP_FAST = 2.2;
+export const RAMP_SLOW = 0.35;
+const RAMP_IN_MS = 220;
+const RAMP_OUT_MS = 320;
+
+/** How much of its clip a velocity-edited cut `lengthMs` long has played `t` ms in. A short cut keeps the same shape, scaled down. */
+export function rampedMs(t: number, lengthMs: number): number {
+  const scale = Math.min(1, lengthMs * 0.6 / (RAMP_IN_MS + RAMP_OUT_MS));
+  const head = RAMP_IN_MS * scale;
+  const tail = RAMP_OUT_MS * scale;
+  const middle = Math.max(0, lengthMs - head - tail);
+  if (t < head) return t * RAMP_FAST;
+  if (t < head + middle) return head * RAMP_FAST + (t - head);
+  return head * RAMP_FAST + middle + (t - head - middle) * RAMP_SLOW;
+}
+
 /** Where in its clip a segment plays at `ms` of the song. A piece shorter than its cut loops. */
 export function clipMsAt(segment: Segment, ms: number): number {
   const length = Math.max(1, segment.pieceEndMs - segment.startMs);
-  return segment.startMs + ((segment.fromMs - segment.startMs + (ms - segment.atMs)) % length);
+  const played = segment.ramp ? rampedMs(ms - segment.atMs, Math.max(1, segment.endMs - segment.atMs)) : ms - segment.atMs;
+  return segment.startMs + ((segment.fromMs - segment.startMs + played) % length);
 }

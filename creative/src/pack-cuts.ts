@@ -15,16 +15,20 @@ export type Cut = {
   startMs: number;
   endMs: number;
   fromMs: number;
+  /** A velocity edit (`clipMsAt`): when in the song this piece ends. */
+  ramp?: { untilMs: number };
 };
 
 export function planCuts(shots: readonly Shot[], beatsMs: readonly number[], seed: number, durationMs: number, music?: Omit<DirectorMusic, 'beatsMs' | 'energy'> & Partial<Pick<DirectorMusic, 'energy'>> | null, rhythm?: PresetRhythm): Cut[] {
   const direction: DirectorMusic = { ...music, beatsMs, energy: music?.energy ?? [] };
-  return planReel([{ kind: 'clip', shots }], direction, seed, durationMs, rhythm).map(({ atMs, startMs, pieceEndMs, fromMs }) => ({ atMs, startMs, endMs: pieceEndMs, fromMs }));
+  return planReel([{ kind: 'clip', shots }], direction, seed, durationMs, rhythm).map(({ atMs, endMs, startMs, pieceEndMs, fromMs, ramp }) => ({
+    atMs, startMs, endMs: pieceEndMs, fromMs, ...(ramp ? { ramp: { untilMs: endMs } } : {}),
+  }));
 }
 
 /** Where in the video the picture comes from at `ms` of the song. A piece shorter than its slot loops. */
 export function sourceMsAt(cuts: readonly Cut[], ms: number): number {
   let cut = cuts[0];
   for (const candidate of cuts) if (candidate.atMs <= ms) cut = candidate;
-  return clipMsAt({ atMs: cut.atMs, endMs: 0, asset: 0, startMs: cut.startMs, pieceEndMs: cut.endMs, fromMs: cut.fromMs, zoom: [1, 1] }, ms);
+  return clipMsAt({ atMs: cut.atMs, endMs: cut.ramp?.untilMs ?? 0, asset: 0, startMs: cut.startMs, pieceEndMs: cut.endMs, fromMs: cut.fromMs, zoom: [1, 1], ramp: Boolean(cut.ramp) }, ms);
 }

@@ -45,6 +45,9 @@ export const DISPLAY_FACES = {
   'Barlow Condensed': face(800, ['brutal', 'clean'], { heavy: true }, () => import('@fontsource/barlow-condensed/latin-800.css')),
   'Oswald': face(400, ['clean'], {}, () => import('@fontsource/oswald/latin-400.css')),
   'Teko': face(700, ['clean', 'techno'], {}, () => import('@fontsource/teko/latin-700.css')),
+  'Syne': face(800, ['clean', 'brutal'], { heavy: true }, () => import('@fontsource/syne/latin-800.css')),
+  'Unbounded': face(800, ['clean', 'retro'], { heavy: true }, () => import('@fontsource/unbounded/latin-800.css')),
+  'Krona One': face(400, ['clean', 'brutal'], { heavy: true }, () => import('@fontsource/krona-one/latin-400.css')),
   // Retro and playful
   'Shrikhand': face(400, ['retro'], { heavy: true }, () => import('@fontsource/shrikhand/latin-400.css')),
   'Chango': face(400, ['retro', 'round'], { heavy: true }, () => import('@fontsource/chango/latin-400.css')),

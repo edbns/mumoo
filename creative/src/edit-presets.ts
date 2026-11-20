@@ -22,6 +22,8 @@ type Cutting = { on: 'beats' | 'snares' | 'hits' | 'bars'; every?: number | read
 export type PresetRhythm = Cutting & {
   fast?: Cutting;
   fastAfterDrop?: boolean;
+  /** A velocity edit: each clip slows down into the cut and snaps in fast on the hit (`clipMsAt`). */
+  ramp?: boolean;
 };
 
 export type PresetTransition = 'cut' | 'dissolve' | 'whip' | 'zoom';
@@ -62,7 +64,7 @@ export const PRESETS: readonly PresetDef[] = [
     title: 'Club Pulse',
     // Hard, fast electronic music only. Latin trap is Y2K Digicam.
     genres: [/techno/, /drum ?(and|&|n) ?bass|\bdnb\b/, /dubstep|riddim/, /(?<!latin )\btrap\b/, /\bedm\b/],
-    rhythm: { on: 'beats', every: 2, minMs: 700, maxMs: 1400, fast: { on: 'beats', every: 1, minMs: 300, maxMs: 800 } },
+    rhythm: { on: 'beats', every: 2, minMs: 700, maxMs: 1400, fast: { on: 'beats', every: 1, minMs: 300, maxMs: 800 }, ramp: true },
     // Cool neon or crisp black and white; a white or a black flash on the drops.
     takes: ['neon-white', 'mono-black', 'neon-black', 'mono-white'],
   },
@@ -71,7 +73,7 @@ export const PRESETS: readonly PresetDef[] = [
     title: 'Y2K Digicam',
     genres: [/\btrap\b/, /(?<!uk )drill/, /hyperpop/, /k-?pop|j-?pop/, /dancehall/, /brazilian funk|funk carioca|baile funk/,
       /reggaeton|dembow|salsa|bachata|latin pop|traditional latin/, /corridos/],
-    rhythm: { on: 'hits', minMs: 500, maxMs: 1000 },
+    rhythm: { on: 'hits', minMs: 500, maxMs: 1000, ramp: true },
     takes: ['whip', 'zoom'],
   },
   {

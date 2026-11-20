@@ -67,6 +67,7 @@ uniform float uFlash;
 uniform float uLeak;
 uniform float uLeakX;
 uniform float uTear;
+uniform float uPulse;
 
 vec2 frameMax() { return uOutputFrame.zw * uInputSize.zw; }
 vec2 mirrored(vec2 n) { return 1.0 - abs(1.0 - mod(n, 2.0)); }
@@ -98,12 +99,13 @@ void main(void) {
   vec2 s = camera(n) + vec2(dx, 0.0);
 
   vec3 c;
-  float moving = abs(uWhip) + uZoomBlur;
+  float zoomBlur = uZoomBlur + uPulse * 0.018;
+  float moving = abs(uWhip) + zoomBlur;
   if (moving > 0.0005) {
     vec3 sum = vec3(0.0);
     for (int i = 0; i < 9; i++) {
       float k = float(i) / 8.0 - 0.5;
-      sum += pick(s + vec2(k * abs(uWhip), 0.0) + (s - 0.5) * k * uZoomBlur);
+      sum += pick(s + vec2(k * abs(uWhip), 0.0) + (s - 0.5) * k * zoomBlur);
     }
     c = sum / 9.0;
   } else if (uSoften > 0.0) {
@@ -115,6 +117,12 @@ void main(void) {
     vec2 o = vec2(uChroma / 1080.0, 0.0);
     c.r = mix(c.r, pick(s + o).r, 0.85);
     c.b = mix(c.b, pick(s - o).b, 0.85);
+  }
+  if (uPulse > 0.0) {
+    // Colours split outward from the middle, most at the edges, as a lens does.
+    vec2 spread = (s - 0.5) * uPulse * 0.022;
+    c.r = pick(s + spread).r;
+    c.b = pick(s - spread).b;
   }
   if (uSharpen > 0.0) {
     vec2 px = vec2(1.5 / 1080.0, 1.5 / 1920.0);
@@ -165,7 +173,7 @@ const NAMES = [
   'uTime', 'uSeed', 'uAspect', 'uZoom', 'uShiftX', 'uShiftY', 'uRotate', 'uWhip', 'uZoomBlur', 'uBarrel',
   'uExposure', 'uContrast', 'uSaturation', 'uLift', 'uCrush', 'uShR', 'uShG', 'uShB', 'uHiR', 'uHiG', 'uHiB', 'uMono',
   'uHalation', 'uHaR', 'uHaG', 'uHaB', 'uGrain', 'uGrainSize', 'uChroma', 'uTracking', 'uScan', 'uSoften', 'uSharpen',
-  'uVignette', 'uFlash', 'uLeak', 'uLeakX', 'uTear',
+  'uVignette', 'uFlash', 'uLeak', 'uLeakX', 'uTear', 'uPulse',
 ] as const;
 
 /** The REC display's face: a pixel face of the catalogue, loaded with the card's own (pack-renderer.ts). */
@@ -230,7 +238,7 @@ export function createPresetPass(): PresetPass {
         uHalation: look.halation, uHaR: look.halationTint[0], uHaG: look.halationTint[1], uHaB: look.halationTint[2],
         uGrain: look.grain, uGrainSize: look.grainSize, uChroma: look.chroma, uTracking: look.tracking, uScan: look.scan,
         uSoften: look.soften, uSharpen: look.sharpen, uVignette: look.vignette,
-        uFlash: frame.flash, uLeak: frame.leak, uLeakX: frame.leakX, uTear: frame.tear,
+        uFlash: frame.flash, uLeak: frame.leak, uLeakX: frame.leakX, uTear: frame.tear, uPulse: frame.pulse,
       });
       sprite.texture = picture;
       sprite.width = WIDTH;
