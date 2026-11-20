@@ -6,7 +6,8 @@ import { posterFrame } from './lyric-motion';
 import { isLookRow, isTreatmentRow, recommendRow, rowsFor, shelfOrder, SHELF_ROWS, type CreativesPackSlot, type Deal, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
 import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
-import { friendlyError } from './friendly-error';
+import { quietError } from './friendly-error';
+import { reportProblem } from './report-problem';
 import { PauseIcon, PlayIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PictureUpload, UploadProgress } from './picture-upload';
@@ -397,7 +398,10 @@ export function CreativesPackStudio({
           try {
             await blitPackFrame(canvas, packOpts(slot, base, impact, withLyrics, latest.current.pictureOf(def.id, slot)), posterAt(base, impact, withLyrics));
           } catch (cause) {
-            if (!cancelled) setError(`${def.title}: ${friendlyError(cause, 'One creative couldn’t be prepared.')}`);
+            if (!cancelled) {
+              reportProblem('render', `${def.title} preview: ${(cause as Error)?.message ?? String(cause)}`);
+              setError(quietError(cause, `One ${def.title} card couldn’t be drawn. Refresh to try again.`));
+            }
           }
           await yieldFrame();
         }
@@ -422,6 +426,7 @@ export function CreativesPackStudio({
     const opts = packOpts(playingSlot, composition, music, withLyrics, picture);
     let painting = false;
     let lastFrame = -1;
+    let reported = false;
     setMotionLive(true);
 
     const paint = (frame: number) => {
@@ -431,7 +436,9 @@ export function CreativesPackStudio({
       void blitPackFrame(canvas, opts, frame)
         .catch((cause) => {
           if (alive) {
-            setError(friendlyError(cause, 'Live preview is down for a moment. Reload and try again.'));
+            if (!reported) reportProblem('render', `Live preview: ${(cause as Error)?.message ?? String(cause)}`);
+            reported = true;
+            setError(quietError(cause, 'Live preview is down for a moment. Reload and try again.'));
           }
         })
         .finally(() => { painting = false; });
@@ -449,7 +456,7 @@ export function CreativesPackStudio({
       // The card goes back to its own poster. Drawing is queued after the last live frame, so a late frame can never land on top of it.
       if (!leaving.current) {
         void blitPackFrame(canvas, packOpts(playingSlot, composition, music, withLyrics, picture), posterAt(composition, music, withLyrics))
-          .catch(cause => setError(friendlyError(cause, 'Preview failed (WebGL).')));
+          .catch(cause => setError(quietError(cause, 'This preview couldn’t be drawn. Reload and try again.')));
       }
     };
   }, [allReady, fontReady, playing, playingSlot?.id, cardKeys, composition, music]);

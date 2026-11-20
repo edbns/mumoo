@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { ProgressiveFluxLoader, type ProgressiveFluxPhase } from '../components/ui/progressive-flux-loader';
 import '@fontsource-variable/inter';
 import '../styles/index.css';
+import { friendlyError } from '../friendly-error';
 
 /**
  * The page a phone opens from a QR code on the computer: the song step's (a song or a video with it) or the creatives'
@@ -143,7 +144,7 @@ function Phone() {
       await put(body.doneUrl, new Blob([]), () => {});
       setState({ step: 'sent', count: files.length, skipped });
     } catch (cause) {
-      setState({ step: 'failed', error: cause instanceof Error ? cause.message : 'Something went wrong. Try again.' });
+      setState({ step: 'failed', error: friendlyError(cause, 'Something went wrong. Try again.') });
     }
   }
 

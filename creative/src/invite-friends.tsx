@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { accountFetch } from './account';
 import { loadReferral, savedReferral, saveReferral, type ReferralInfo } from './referral';
+import { friendlyError } from './friendly-error';
 
 const COPIED_MS = 1500;
 
@@ -24,7 +25,7 @@ export function InviteFriends({ open, onClose, userId }: { open: boolean; onClos
     setError('');
     const saved = savedReferral(userId);
     if (saved) setInfo(saved);
-    loadReferral(accountFetch).then(fresh => { setInfo(fresh); saveReferral(userId, fresh); }, cause => { if (!saved) setError((cause as Error).message); });
+    loadReferral(accountFetch).then(fresh => { setInfo(fresh); saveReferral(userId, fresh); }, cause => { if (!saved) setError(friendlyError(cause, 'Your invite link is unavailable right now. Try again soon.')); });
   }, [open, userId]);
 
   const copy = () => {

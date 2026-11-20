@@ -2,6 +2,7 @@ import { LoaderCircle } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
+import { friendlyError } from '../../friendly-error';
 
 /**
  * A question in the site's own popup. Once confirmed, its button shows the work going on ("Deleting…") and the popup cannot be
@@ -40,7 +41,7 @@ export function ActionDialog({
       await onConfirm();
       onClose(); onDone?.();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That didn’t work. Try again in a sec.');
+      setError(friendlyError(cause, 'That didn’t work. Try again in a sec.'));
       setBusy(false);
     }
   }

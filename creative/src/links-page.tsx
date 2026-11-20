@@ -19,6 +19,7 @@ import {
   searchSongs, startingDraft, suggestSlug,
   type AdTokens, type Draft, type LinkFields, type Published, type SearchResult, type ServiceRow,
 } from './smart-links';
+import { friendlyError } from './friendly-error';
 
 /** How long typing rests before a name is checked or searched. */
 const CHECK_PAUSE_MS = 400;
@@ -65,7 +66,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
   async function run(kind: NonNullable<typeof busy>, work: () => Promise<void>) {
     setBusy(kind); setError('');
     try { await work(); } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That didn’t work. Try again in a sec.');
+      setError(friendlyError(cause, 'That didn’t work. Try again in a sec.'));
     } finally { setBusy(null); }
   }
 
@@ -332,7 +333,7 @@ function useSongSearch(name: string) {
     const stop = new AbortController();
     const timer = window.setTimeout(() => {
       searchSongs(name, stop.signal).then(results => setState({ name, results }),
-        (cause: Error) => { if (!stop.signal.aborted) setState({ name, error: cause.message }); });
+        (cause: Error) => { if (!stop.signal.aborted) setState({ name, error: friendlyError(cause, 'Search is down for a moment. Try again soon.') }); });
     }, CHECK_PAUSE_MS);
     return () => { stop.abort(); window.clearTimeout(timer); };
   }, [name]);
@@ -357,7 +358,7 @@ function useSlugCheck(name: string) {
     if (!name) return;
     let live = true;
     const timer = window.setTimeout(() => {
-      checkSlug(name).then(result => { if (live) setState({ name, ...result }); }, (cause: Error) => { if (live) setState({ name, free: false, error: cause.message }); });
+      checkSlug(name).then(result => { if (live) setState({ name, ...result }); }, (cause: Error) => { if (live) setState({ name, free: false, error: friendlyError(cause, 'Couldn’t check that name. Try again in a sec.') }); });
     }, CHECK_PAUSE_MS);
     return () => { live = false; window.clearTimeout(timer); };
   }, [name]);

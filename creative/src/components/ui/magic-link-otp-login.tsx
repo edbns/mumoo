@@ -5,6 +5,7 @@
 import * as React from "react";
 import { FIELD_FOCUS } from '@/components/ui/field';
 import { ArrowRight, Check, LoaderCircle, Mail, ShieldCheck } from "lucide-react";
+import { friendlyError } from '../../friendly-error';
 
 export type MagicLinkStep = "email" | "code" | "success";
 export type MagicLinkStatus = "idle" | "sending" | "verifying" | "error";
@@ -199,7 +200,7 @@ export function MagicLinkOtpLogin({
       else changeStep("code");
     } catch (cause) {
       if (!mounted.current || token !== request.current) return;
-      setLocalError(cause instanceof Error && cause.message ? cause.message : resend ? "Couldn’t resend. Try again." : "Couldn’t send the code. Try again.");
+      setLocalError(friendlyError(cause, resend ? "Couldn’t resend. Try again." : "Couldn’t send the code. Try again."));
       setStatus("error");
     } finally {
       if (mounted.current && token === request.current) pending.current = false;
@@ -218,7 +219,7 @@ export function MagicLinkOtpLogin({
       changeStep("success");
     } catch (cause) {
       if (!mounted.current || token !== request.current) return;
-      setLocalError(cause instanceof Error && cause.message ? cause.message : "Couldn’t sign in with Google. Try again.");
+      setLocalError(friendlyError(cause, "Couldn’t sign in with Google. Try again."));
       setStatus("error");
     } finally {
       if (mounted.current) setGoogling(false);
@@ -246,7 +247,7 @@ export function MagicLinkOtpLogin({
         else { setLocalError("That code didn’t work. Try again."); setStatus("error"); }
       } catch (cause) {
         if (!mounted.current || token !== request.current) return;
-        setLocalError(cause instanceof Error && cause.message ? cause.message : "Couldn’t verify the code. Try again.");
+        setLocalError(friendlyError(cause, "Couldn’t verify the code. Try again."));
         setStatus("error");
       } finally {
         if (mounted.current && token === request.current) pending.current = false;

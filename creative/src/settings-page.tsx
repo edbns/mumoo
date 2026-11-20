@@ -5,6 +5,7 @@ import { ActionDialog } from '@/components/ui/action-dialog';
 import { Button } from '@/components/ui/button';
 import { authClient, confirmEmailChange, deleteAccount, requestEmailChange } from './account';
 import { AccountColumn, AccountSection } from './account-section';
+import { friendlyError } from './friendly-error';
 
 /** How long the confirmation is read before the page reloads. */
 const RELOAD_MS = 2000;
@@ -25,7 +26,7 @@ export default function SettingsPage() {
   async function run(work: () => Promise<void>) {
     setBusy(true); setError(''); setNotice('');
     try { await work(); } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That didn’t work. Try again in a sec.');
+      setError(friendlyError(cause, 'That didn’t work. Try again in a sec.'));
     } finally { setBusy(false); }
   }
 

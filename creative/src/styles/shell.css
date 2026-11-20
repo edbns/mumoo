@@ -2,8 +2,8 @@
 .masthead { position: relative; display: flex; justify-content: center; min-height: 2.75rem; padding: 0 1.5rem; }
 .masthead-logo { position: absolute; top: 1.5rem; left: 1.5rem; display: block; height: 1.25rem; width: auto; padding: 0; background: none; border-radius: 0; }
 .masthead-logo img { display: block; height: 100%; width: auto; }
-/* Inside the layer's rounded corner (the body's 1rem gap plus the logo's 1.5rem inset), centred on the logo's line. */
-.masthead-actions { position: fixed; z-index: 9; top: 2rem; right: 2.5rem; display: flex; align-items: center; gap: .75rem; transition: opacity .25s; }
+/* Centred on the logo's line, and scrolling away with the page like the logo, so they never cover the work or a card's buttons. */
+.masthead-actions { position: absolute; z-index: 9; top: 1rem; right: 1.5rem; display: flex; align-items: center; gap: .75rem; transition: opacity .25s; }
 /* Until the sign-in check answers (1.5 s at most), so Sign in does not arrive after the rest and push it aside. */
 
 /* The notch is the page's black, so it reads as part of the page edge; the two ears curve it into the top of the layer. */
@@ -32,5 +32,3 @@
 @keyframes chosen-blink { 50% { opacity: .45; } }
 @keyframes chosen-wave { from { scale: 1; opacity: .6; } to { scale: 2.8; opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .chosen-bar-dot, .chosen-bar-dot::after { animation: none; } }
-/* On Media the actions scroll away with the page, so they never cover a card's buttons. */
-.masthead-actions.scrolls { position: absolute; top: 1rem; right: 1.5rem; }

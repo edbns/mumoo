@@ -7,6 +7,7 @@ import {
 import { tokenizeLyrics } from './lyric-text';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
+import { friendlyError } from './friendly-error';
 
 type Phase = 'start' | 'working' | 'edit';
 
@@ -127,7 +128,7 @@ export function LyricsStudio({
       }
     } catch (cause) {
       if (id !== run.current || (cause as Error).name === 'AbortError') return;
-      setError(cause instanceof Error ? cause.message : 'Something went wrong. Try again.');
+      setError(friendlyError(cause, 'Lyrics are down for a moment. Try again soon.'));
       setPhase(words.length ? 'edit' : 'start');
     }
   }

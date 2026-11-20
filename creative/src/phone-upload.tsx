@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { encode } from 'uqr';
 import { Button } from './components/ui/button';
 import { withAccess } from './staging-token';
+import { friendlyError } from './friendly-error';
 
 /**
  * "Send from your phone": a QR code that opens /phone, where the person picks the file on their phone. The site does not
@@ -64,7 +65,7 @@ export function PhoneUpload({ token, kind, onFiles }: { token: string; kind: Pho
       if (!response.ok || !body?.id) throw new Error(body?.error ?? 'Couldn’t make the QR code. Try again.');
       setState({ step: 'waiting', handoff: body });
     } catch (cause) {
-      setState({ step: 'failed', error: cause instanceof Error ? cause.message : 'Couldn’t make the QR code. Try again.' });
+      setState({ step: 'failed', error: friendlyError(cause, 'Couldn’t make the QR code. Try again.') });
     }
   }
 

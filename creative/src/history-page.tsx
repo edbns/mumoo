@@ -11,6 +11,7 @@ import { accountFetch } from './account';
 import { LazyMedia } from './lazy-media';
 import type { ProfileTab } from './profile-nav';
 import { listUploads, removeUpload, type Upload } from './uploads';
+import { friendlyError } from './friendly-error';
 
 type Creative = { id: string; bytes: number; createdAt: string; url: string };
 type Storage = { used: number; quota: number };
@@ -92,7 +93,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
       ]);
       setCreatives(renders.renders); setUploads(pictures); setStorage(account.storage); setError('');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'History is unavailable right now.');
+      setError(friendlyError(cause, 'Your media is unavailable right now. Try again soon.'));
     }
   }
   // Opened, and again whenever a download has just been delivered, so the new creatives appear.

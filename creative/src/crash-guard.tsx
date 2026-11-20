@@ -2,8 +2,8 @@ import { Component, type ReactNode } from 'react';
 import { reportProblem } from './report-problem';
 
 /**
- * Without this, one error while a page draws leaves a black screen with nothing to read. It shows what happened, lets the person
- * start again (the cart is kept), and tells our server, so the admin's problem list names the error.
+ * Without this, one error while a page draws leaves a black screen with nothing to read. It says something went wrong (never the
+ * error itself), lets the person start again (the cart is kept), and tells our server, so the admin's problem list names the error.
  */
 export class CrashGuard extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
@@ -22,7 +22,6 @@ export class CrashGuard extends Component<{ children: ReactNode }, { error: Erro
     return <main role="alert" style={{ padding: '4rem 1.5rem', maxWidth: 560, margin: '0 auto', color: '#fff', fontFamily: 'sans-serif' }}>
       <h1 style={{ fontSize: '1.5rem' }}>Something went wrong on this page</h1>
       <p>Your chosen videos are still here. Reload to keep going.</p>
-      <p style={{ opacity: 0.6, fontSize: '0.85rem', wordBreak: 'break-word' }}>{error.message}</p>
       <button type="button" onClick={() => location.reload()} style={{ padding: '0.75rem 1.25rem', borderRadius: 12, border: 0, background: '#2fe92b', color: '#000', fontWeight: 600 }}>Reload</button>
     </main>;
   }

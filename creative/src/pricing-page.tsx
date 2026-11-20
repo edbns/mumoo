@@ -1,4 +1,4 @@
-import { CheckIcon, ChevronDownIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,16 @@ import { checkout } from './purchase-credits';
 import { claimPendingReferral, keepReferral, pendingReferral } from './referral';
 import { SignInDialog } from './sign-in-dialog';
 import { useFreeVideo } from './use-free-video';
+import { friendlyError } from './friendly-error';
 import '@fontsource-variable/inter';
 import './styles/index.css';
+
+/** Back to the MUMOO page the person came from; opened from elsewhere (a link, a new tab), to MUMOO itself. */
+function goBack() {
+  const fromMumoo = document.referrer !== '' && new URL(document.referrer).origin === location.origin;
+  if (fromMumoo && history.length > 1) history.back();
+  else location.assign('/');
+}
 
 const INCLUDED = [
   'Every template and look on the shelf',
@@ -57,7 +65,7 @@ function PricingPage() {
       await checkout(pack);
     } catch (cause) {
       setOpening(null);
-      setNote((cause as Error).message);
+      setNote(friendlyError(cause, 'Checkout didn’t open. Try again in a moment.'));
     }
   };
   const buy = async (pack: CreditPack) => {
@@ -75,7 +83,7 @@ function PricingPage() {
   return <div className="flex flex-1 flex-col text-foreground">
     <header className="flex items-center justify-between px-6 pt-6 pb-4">
       <a href="/" aria-label="MUMOO"><img src="/brand/mumoo-logo.png" alt="MUMOO" className="h-5" /></a>
-      <a href="/" className="text-sm text-muted-foreground hover:text-foreground">Open MUMOO</a>
+      <Button variant="secondary" onClick={goBack}><ArrowLeftIcon aria-hidden="true" className="size-4" />Back</Button>
     </header>
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-16 px-6 pt-10 pb-12">
       <div className="flex flex-col items-center gap-4 text-center">

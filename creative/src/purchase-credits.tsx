@@ -8,6 +8,7 @@ import { accountFetch } from './account';
 import type { Shortfall } from './credit-events';
 import { LEGAL_PATHS } from './site-paths';
 import { loadReferral } from './referral';
+import { friendlyError } from './friendly-error';
 
 /** How long the popup waits for Polar to tell our server about the payment before saying it is still on its way. */
 const WAIT_MS = 60_000;
@@ -93,7 +94,7 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
   const choose = (pack: CreditPack) => {
     setNote('');
     setBusy(true);
-    checkout(pack).catch(cause => { setBusy(false); setNote((cause as Error).message); });
+    checkout(pack).catch(cause => { setBusy(false); setNote(friendlyError(cause, 'Checkout didn’t open. Try again in a moment.')); });
   };
   const started = useRef(false);
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ArrowLeftIcon, PencilIcon } from 'lucide-react';
 import { CopyButton, Cover, OpenButton, iconButton, textButton } from './smart-link-parts';
 import { LABELS, addressOf, linkStats, type LinkStats, type Published, type Service, type Tally } from './smart-links';
+import { friendlyError } from './friendly-error';
 
 const RANGES = [{ days: 7, label: '7 days' }, { days: 30, label: '30 days' }, { days: 90, label: '90 days' }, { days: 0, label: 'All time' }] as const;
 const SHOWN_ROWS = 8;
@@ -24,7 +25,7 @@ export default function LinkAnalytics({ item, onBack, onEdit }: { item: Publishe
   useEffect(() => {
     const stop = new AbortController();
     setError('');
-    linkStats(item.slug, days, stop.signal).then(setStats, (cause: Error) => { if (!stop.signal.aborted) setError(cause.message); });
+    linkStats(item.slug, days, stop.signal).then(setStats, (cause: Error) => { if (!stop.signal.aborted) setError(friendlyError(cause, 'Stats are unavailable right now. Try again soon.')); });
     return () => stop.abort();
   }, [item.slug, days]);
 

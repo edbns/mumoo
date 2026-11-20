@@ -41,6 +41,7 @@ import { LegalCorner } from './legal-corner';
 import { keepReferral } from './referral';
 import { LinksSkeleton } from './links-skeleton';
 import { useFreeVideo } from './use-free-video';
+import { friendlyError } from './friendly-error';
 import './styles/index.css';
 
 // Sign-in pulls in the auth client; it loads beside the page instead of in front of it.
@@ -249,7 +250,7 @@ function App() {
     } catch (cause) {
       if (request === upload.current) {
         setMusicAnalysis(NO_ANALYSIS);
-        setError((cause as Error).message);
+        setError(friendlyError(cause, 'That song couldn’t be opened. Try an MP3, WAV or M4A file.'));
       }
     } finally {
       if (request === upload.current) setLoading(false);
@@ -318,7 +319,7 @@ function App() {
       }
       tick();
     } catch (cause) {
-      setError((cause as Error).message);
+      setError(friendlyError(cause, 'Playback couldn’t start. Press play again.'));
     }
   }
 
@@ -405,7 +406,7 @@ function App() {
       {page === 'create' && <StepNav current={currentStep} onSelect={goToStep} />}
       {page === 'history' && <ProfileNav current={profileTab} onSelect={setProfileTab} />}
       {(page === 'links' || page === 'my-links') && <LinksNav current={page} onSelect={tab => { if (tab === 'links') setLinksOpened(count => count + 1); setPage(tab); }} />}
-      <div className={page === 'history' ? 'masthead-actions scrolls' : 'masthead-actions'}>
+      <div className="masthead-actions">
         {page === 'create' && buffer && <Button variant="secondary" onClick={() => setAskingStartOver(true)}><RotateCcwIcon aria-hidden="true" className="size-4" />Start over</Button>}
         {page === 'create' && <Button variant="secondary" onClick={() => setPage('links')}><Link2Icon aria-hidden="true" className="size-4" />Smart links</Button>}
         {page !== 'create' && <Button variant="secondary" onClick={() => setPage('create')}><ArrowLeftIcon aria-hidden="true" className="size-4" />Create</Button>}

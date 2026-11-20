@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { authClient } from './account';
 import { addUpload, listUploads, MAX_SHELF_PICTURES, type Upload } from './uploads';
+import { friendlyError } from './friendly-error';
 
 /** Signed links last 15 minutes, so a long session asks for fresh ones before they run out. */
 const RELINK_MS = 10 * 60_000;
@@ -48,7 +49,7 @@ export function useUploads() {
       receive(next);
       setProblem(current => (current?.listing ? null : current));
     } catch (cause) {
-      if (alive()) setProblem({ listing: true, message: cause instanceof Error ? cause.message : 'Your pictures are unavailable right now.' });
+      if (alive()) setProblem({ listing: true, message: friendlyError(cause, 'Your pictures are unavailable right now. Try again soon.') });
     }
   }, [receive]);
 
@@ -92,7 +93,7 @@ export function useUploads() {
         setIncoming(current => current && { ...current, ids: new Set([...current.ids, ...added]) });
         receive(next);
       } catch (cause) {
-        failed.push(cause instanceof Error ? cause.message : 'Couldn’t add that file.');
+        failed.push(friendlyError(cause, 'Couldn’t add that file. Try again.'));
       }
     }
     setSending(null);

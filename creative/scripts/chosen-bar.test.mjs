@@ -86,12 +86,12 @@ test('Create goes straight to Media, where the bottom bar blinks beside the perc
   const main = read('main.tsx');
   assert.match(main, /return \{ kind: 'download', run: \(\) => \{ toMedia\(\); void downloadRef\.current\?\.\(\); \} \};/);
   assert.match(main, /if \(signedIn\) \{ toMedia\(\); void downloadRef\.current\?\.\(\); \}/);
-  assert.match(main, /page === 'history' \? 'masthead-actions scrolls'/);
+  assert.match(main, /<div className="masthead-actions">/);
   assert.doesNotMatch(read('history-page.tsx'), /RenderProgress/);
   assert.doesNotMatch(read('cart-panel.tsx'), /RenderProgress/);
   assert.match(read('cart-panel.tsx'), /className="chosen-bar-dot"/);
   const css = read('styles/shell.css');
-  assert.match(css, /\.masthead-actions\.scrolls \{ position: absolute; top: 1rem; right: 1\.5rem; \}/);
+  assert.match(css, /\.masthead-actions \{ position: absolute; z-index: 9; top: 1rem; right: 1\.5rem;/, 'the actions scroll away on every page');
   assert.match(css, /prefers-reduced-motion: reduce\) \{ \.chosen-bar-dot, \.chosen-bar-dot::after \{ animation: none; \}/);
   assert.match(css, /\.chosen-bar \{ position: fixed; z-index: 15;/);
 });

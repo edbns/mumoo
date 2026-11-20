@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { accountFetch } from './account';
 import { AccountColumn, AccountSection, EmptyState } from './account-section';
 import { money } from './money';
+import { friendlyError } from './friendly-error';
 
 type Invoice = {
   id: string;
@@ -43,7 +44,7 @@ export default function InvoicesPage() {
     accountFetch('/api/invoices')
       .then(response => response.json() as Promise<{ invoices: Invoice[] }>)
       .then(result => setInvoices(result.invoices))
-      .catch(cause => setError(cause instanceof Error ? cause.message : 'Your invoices are unavailable right now.'));
+      .catch(cause => setError(friendlyError(cause, 'Your invoices are unavailable right now. Try again soon.')));
   }, []);
 
   return <AccountColumn>
@@ -65,7 +66,7 @@ export default function InvoicesPage() {
             {invoice.status === 'paid' ? 'Paid' : 'Refunded'}
           </span>
           <span className="w-20 text-right text-sm font-medium tabular-nums">{money(invoice.amount, invoice.currency)}</span>
-          <button type="button" onClick={() => openInvoice(invoice.id).catch(cause => setError((cause as Error).message))}
+          <button type="button" onClick={() => openInvoice(invoice.id).catch(cause => setError(friendlyError(cause, 'That invoice couldn’t open. Try again.')))}
             aria-label={`Download invoice ${invoice.number}`}
             className="flex size-8 shrink-0 cursor-pointer items-center p-0 justify-center rounded-full bg-secondary text-secondary-foreground outline-ring transition-colors hover:bg-secondary/70 focus-visible:outline-2">
             <DownloadIcon aria-hidden="true" className="size-4" />

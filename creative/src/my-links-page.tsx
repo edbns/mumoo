@@ -9,6 +9,7 @@ import LinkAnalytics from './link-analytics';
 import { SignInDialog } from './sign-in-dialog';
 import { CopyButton, Cover, OpenButton, iconButton } from './smart-link-parts';
 import { LABELS, addressOf, deletePublished, knownLinks, listLinks, openForEdit, rememberLinks, type Published, type Service } from './smart-links';
+import { friendlyError } from './friendly-error';
 
 const LINK_PARAM = 'link';
 
@@ -33,7 +34,7 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
     let live = true;
     setLinks(current => current ?? knownLinks(user.id));
     listLinks(user.id).then(found => { if (live) setLinks(found); },
-      (cause: Error) => { if (live) { setLinks(current => current ?? []); setError(cause.message || 'Couldn’t load your links. Try again in a moment.'); } });
+      (cause: Error) => { if (live) { setLinks(current => current ?? []); setError(friendlyError(cause, 'Couldn’t load your links. Try again in a moment.')); } });
     return () => { live = false; };
   }, [user?.id]);
   useEffect(() => { if (user && links) rememberLinks(user.id, links); }, [user?.id, links]);
