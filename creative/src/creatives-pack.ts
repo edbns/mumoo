@@ -141,7 +141,15 @@ function hashPick(seed: string, salt: string, modulo: number) {
 export type { MoodLane };
 
 const GOSPEL_GENRE = /gospel|worship|christian|hymn|spiritual|choir/;
-const CLUB_GENRE = /techno|house|edm|dubstep|riddim|electronic/;
+/** Hard, fast electronic music. House is groovy, not hard: the sound chooses its lane (party, or quiet for the deep ones). */
+const CLUB_GENRE = /techno|\bedm\b|dubstep|riddim|drum ?(and|&|n) ?bass|\bdnb\b|general electronic|^electronic/;
+/** Genres whose lane is theirs whatever the sound or the words say. */
+const GENRE_LANES: readonly (readonly [RegExp, MoodLane])[] = [
+  [/metal|hardcore/, 'dark'],
+  [/pop[- ]?punk|skate punk/, 'party'],
+  [/reggaeton|dembow|salsa|bachata|latin pop/, 'party'],
+];
+const lockedLane = (genre: string) => GENRE_LANES.find(([pattern]) => pattern.test(genre))?.[1];
 /** Dembow and afrobeats move a crowd at drives too low for fast cutting. */
 const DANCEABLE = 0.5;
 
@@ -152,6 +160,8 @@ export function moodLane(intent: MusicIntentV1 | null, genre: string): MoodLane 
   if (CLUB_GENRE.test(g)) {
     return 'techno';
   }
+  const locked = lockedLane(g);
+  if (locked) return locked;
   if (!intent) return 'general';
   if (intent.vibe === 'Ambient/Mellow') return 'quiet';
   if (intent.vibe === 'Dark/Cinematic') return 'dark';
@@ -252,7 +262,7 @@ export function readSong(profile: CreativeProfileV1) {
   const meaning = profile.lyricMeaning?.status === 'ready' ? profile.lyricMeaning.meaning : null;
   // The sub-genre is the specific one ("Ambient / Downtempo" is not club music although its genre is Electronic & Dance).
   const specific = profile.creator.subGenre?.value ?? genre;
-  const genreLocked = GOSPEL_GENRE.test(specific.toLowerCase()) || CLUB_GENRE.test(specific.toLowerCase());
+  const genreLocked = GOSPEL_GENRE.test(specific.toLowerCase()) || CLUB_GENRE.test(specific.toLowerCase()) || Boolean(lockedLane(specific.toLowerCase()));
   const lane = laneFromMeaning(moodLane(intent, specific), genreLocked, meaning);
   return { intent, genre, language, meaning, lane };
 }

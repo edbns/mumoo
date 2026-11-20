@@ -183,7 +183,7 @@ test('every lyric card gets a finish and a mood colour, calm songs only solid or
       assert.deepEqual(shelf(pack, profile(genre)).map(slot => slot.typeFinish), shelf(pack, profile(genre)).map(slot => slot.typeFinish), genre);
     }
     for (const slot of shelf(pack, profile('Gospel')).filter(slot => slot.typeFinish)) assert.ok(['solid', 'gradient'].includes(slot.typeFinish), slot.typeFinish);
-    const club = new Set(shelf(pack, profile('Slap House')).map(slot => slot.typeFinish).filter(Boolean));
+    const club = new Set(shelf(pack, profile('Techno')).map(slot => slot.typeFinish).filter(Boolean));
     assert.ok(club.size >= 3, `club songs get only ${[...club]}`);
   } finally { await server.close(); }
 });
@@ -191,7 +191,7 @@ test('every lyric card gets a finish and a mood colour, calm songs only solid or
 test('Refresh shows every lyric style of the mood before one comes back, and neighbouring rows lead differently', async () => {
   const { server, pack } = await load();
   try {
-    for (const [genre, lane] of [['Gospel', 'gospel'], ['Ambient', 'quiet'], ['Slap House', 'techno'], ['Pop', 'general']]) {
+    for (const [genre, lane] of [['Gospel', 'gospel'], ['Ambient', 'quiet'], ['Techno', 'techno'], ['Pop', 'general']]) {
       const person = profile(genre);
       const styles = pack.TYPE_ALLOW[lane].length;
       const row = generation => recommend(pack, 'halftone', person, generation);
@@ -217,8 +217,22 @@ test('the brain matches type to mood (gospel is never stack/outline, club never 
     const loud = ['stack', 'outline', 'glitch', 'stretch', 'split', 'bounce', 'rotate', 'scatter', 'zoom', 'echo', 'flicker', 'tilt'];
     const gospel = shelf(pack, profile('Gospel')).filter(slot => slot.typeStyle);
     for (const slot of gospel) assert.ok(!loud.includes(slot.typeStyle), slot.typeStyle);
-    const club = shelf(pack, profile('Slap House')).filter(slot => slot.typeStyle);
+    const club = shelf(pack, profile('Techno')).filter(slot => slot.typeStyle);
     for (const slot of club) assert.ok(!['minimal', 'editorial'].includes(slot.typeStyle), slot.typeStyle);
+  } finally { await server.close(); }
+});
+
+test('house is not club music; hard electronic, metal, punk and Latin dance keep their own lanes', async () => {
+  const { server, pack } = await load();
+  try {
+    const lane = genre => shelf(pack, profile(genre))[0].reason.split(' ')[0];
+    for (const house of ['House', 'Slap House', 'Deep House', 'Afro House']) assert.notEqual(lane(house), 'techno', house);
+    for (const hard of ['Techno', 'Dubstep / Riddim', 'General Electronic']) assert.equal(lane(hard), 'techno', hard);
+    for (const metal of ['Heavy Metal / Hard Rock', 'Hardcore Punk']) assert.equal(lane(metal), 'dark', metal);
+    for (const party of ['Pop-Punk', 'Reggaeton', 'Traditional Latin (Salsa, Bachata)']) assert.equal(lane(party), 'party', party);
+    // A locked lane is the genre's own: sad words do not take Reggaeton to the quiet lane.
+    const sad = shelf(pack, profile('Reggaeton', 'hello', 'a'.repeat(64), { attitude: 'sad', sadness: 3, intensity: 2 }));
+    assert.ok(sad[0].reason.startsWith('party'), sad[0].reason);
   } finally { await server.close(); }
 });
 
@@ -252,7 +266,7 @@ test('club songs keep club fonts', async () => {
   try {
     const { DISPLAY_FACES } = await server.ssrLoadModule('/src/font-catalog.ts');
     const clubMoods = ['brutal', 'techno', 'pixel', 'graffiti'];
-    for (const slot of shelf(pack, profile('Slap House'))) {
+    for (const slot of shelf(pack, profile('Techno'))) {
       for (const font of [slot.font, slot.fontSecondary]) assert.ok(DISPLAY_FACES[font].moods.some(mood => clubMoods.includes(mood)), font);
     }
   } finally { await server.close(); }
@@ -279,15 +293,15 @@ test('the lyrics grade the colours and calm the beat without changing the look',
   const { server, pack } = await load();
   try {
     const sha = 'a'.repeat(64);
-    const plain = shelf(pack, profile('Slap House', 'hello', sha));
+    const plain = shelf(pack, profile('Techno', 'hello', sha));
     // Words that say nothing change nothing.
     assert.ok(plain.every(slot => !slot.grade));
-    const neutral = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'neutral', sadness: 0, intensity: 3 }));
+    const neutral = shelf(pack, profile('Techno', 'hello', sha, { attitude: 'neutral', sadness: 0, intensity: 3 }));
     assert.deepEqual(neutral.map(slot => slot.id), plain.map(slot => slot.id));
     assert.ok(neutral.every(slot => !slot.grade));
 
     // Sad words on a club song: same lane and looks, sadder colours, calmer hits. Riso inks and Window and Silhouette screens are the design, so they are not graded.
-    const sad = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'sad', sadness: 3, intensity: 2 }));
+    const sad = shelf(pack, profile('Techno', 'hello', sha, { attitude: 'sad', sadness: 3, intensity: 2 }));
     assert.ok(sad.every(slot => slot.reason.startsWith('techno')));
     const graded = sad.filter(slot => !['riso', 'window', 'silhouette'].includes(slot.row));
     assert.equal(graded.length, 68);
@@ -297,7 +311,7 @@ test('the lyrics grade the colours and calm the beat without changing the look',
     assert.ok(sad.filter(slot => ['riso', 'window', 'silhouette'].includes(slot.row)).every(slot => slot.grade === undefined), 'Riso, Window and Silhouette keep their own colours');
 
     // Defiant and forceful: warmer, punchier, no calming.
-    const defiant = shelf(pack, profile('Slap House', 'hello', sha, { attitude: 'confident', sadness: 0, intensity: 4 }))[0].grade;
+    const defiant = shelf(pack, profile('Techno', 'hello', sha, { attitude: 'confident', sadness: 0, intensity: 4 }))[0].grade;
     assert.ok(defiant.warmth > 0 && defiant.contrast > 1 && defiant.calm === 0, JSON.stringify(defiant));
   } finally { await server.close(); }
 });

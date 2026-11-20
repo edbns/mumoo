@@ -52,6 +52,24 @@ test('the genre picks the preset the brief names, a style more than a sub-genre,
   assert.deepEqual(pick({ genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats' }), ['y2k']);
 });
 
+test('groovy house is never strobed; hard electronic is; punk, Latin and the quiet genres get their own cut', () => {
+  const pick = (genre, subGenre) => presets.presetsFor({ genre, subGenre });
+  for (const house of ['House', 'Slap House', 'Tech House', 'G-House']) assert.deepEqual(pick('Electronic & Dance (EDM)', house), ['kodak'], house);
+  assert.deepEqual(pick('Electronic & Dance (EDM)', 'Afro House'), ['dreamy']);
+  for (const hard of ['Techno', 'Dubstep / Riddim', 'General Electronic']) assert.deepEqual(pick('Electronic & Dance (EDM)', hard), ['strobe'], hard);
+  assert.deepEqual(pick('Punk', 'Pop-Punk'), ['vhs']);
+  assert.deepEqual(pick('Punk', 'General Punk'), ['vhs']);
+  assert.deepEqual(pick('Punk', 'Hardcore Punk'), ['mono']);
+  assert.deepEqual(pick('Metal', 'Extreme Metal (Thrasher, Death)'), ['mono']);
+  assert.deepEqual(pick('Latin & Urbano', 'Reggaeton'), ['kodak', 'y2k']);
+  assert.deepEqual(pick('Latin & Urbano', 'Traditional Latin (Salsa, Bachata)'), ['kodak', 'y2k']);
+  assert.deepEqual(pick('Latin & Urbano', 'Latin Trap'), ['y2k']);
+  assert.deepEqual(presets.presetsFor({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'corridos tumbados' }), ['y2k']);
+  assert.deepEqual(pick('Pop', 'Indie Pop'), ['kodak', 'dreamy']);
+  assert.deepEqual(pick('Country & Folk', 'Americana / Folk'), ['kodak', 'dreamy']);
+  assert.deepEqual(pick('Classical & Cinematic', 'Neoclassical'), ['kodak', 'dreamy']);
+});
+
 test('a song the brief does not name is cut as Raw 16mm, the most popular', () => {
   assert.deepEqual(presets.presetsFor({ genre: 'Gospel & Christian', subGenre: 'Gospel' }), ['kodak']);
   assert.deepEqual(presets.presetsFor({ genre: '' }), ['kodak']);

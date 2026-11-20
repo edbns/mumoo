@@ -40,7 +40,12 @@ export const PRESETS: readonly PresetDef[] = [
   {
     id: 'kodak',
     title: 'Raw 16mm',
-    genres: [/\bindie\b/, /hip[- ]?hop/, /\brap\b/, /r ?& ?b|\brnb\b|rhythm and blues/, /country/, /\bfolk\b|americana/, /\bsoul\b/],
+    genres: [
+      /\bindie\b/, /hip[- ]?hop/, /\brap\b/, /r ?& ?b|\brnb\b|rhythm and blues/, /country/, /\bfolk\b|americana/, /\bsoul\b/, /neoclassical/,
+      // Groovy house is warm and filmed, never strobed (deep and Afro house are Dreamy).
+      /(?<!deep |afro )house/,
+      /reggaeton|dembow|salsa|bachata|latin pop|traditional latin/,
+    ],
     rhythm: { on: 'beats', every: [2, 4], minMs: 1000, maxMs: 2000 },
     // Warm daylight stock or tungsten cinema stock, with a handheld drift or a slow push in.
     takes: ['portra-drift', 'vision-push', 'portra-push', 'vision-drift'],
@@ -48,14 +53,15 @@ export const PRESETS: readonly PresetDef[] = [
   {
     id: 'vhs',
     title: '90s Camcorder',
-    genres: [/phonk/, /lo-?fi/, /synthwave|vaporwave/, /boom ?bap/, /alt(ernative)?[- ]pop/],
+    genres: [/phonk/, /lo-?fi/, /synthwave|vaporwave/, /boom ?bap/, /alt(ernative)?[- ]pop/, /pop[- ]?punk|skate punk|general punk|^punk$/],
     rhythm: { on: 'snares', every: 1, minMs: 800, maxMs: 1500 },
     takes: ['rec', 'clean'],
   },
   {
     id: 'strobe',
     title: 'Club Pulse',
-    genres: [/techno/, /(?<!deep |afro )house/, /drum ?(and|&|n) ?bass|\bdnb\b/, /dubstep|riddim/, /\btrap\b/, /\bedm\b/],
+    // Hard, fast electronic music only. Latin trap is Y2K Digicam.
+    genres: [/techno/, /drum ?(and|&|n) ?bass|\bdnb\b/, /dubstep|riddim/, /(?<!latin )\btrap\b/, /\bedm\b/],
     rhythm: { on: 'beats', every: 2, minMs: 700, maxMs: 1400, fast: { on: 'beats', every: 1, minMs: 300, maxMs: 800 } },
     // Cool neon or crisp black and white; a white or a black flash on the drops.
     takes: ['neon-white', 'mono-black', 'neon-black', 'mono-white'],
@@ -63,21 +69,22 @@ export const PRESETS: readonly PresetDef[] = [
   {
     id: 'y2k',
     title: 'Y2K Digicam',
-    genres: [/\btrap\b/, /(?<!uk )drill/, /hyperpop/, /k-?pop|j-?pop/, /dancehall/, /brazilian funk|funk carioca|baile funk/],
+    genres: [/\btrap\b/, /(?<!uk )drill/, /hyperpop/, /k-?pop|j-?pop/, /dancehall/, /brazilian funk|funk carioca|baile funk/,
+      /reggaeton|dembow|salsa|bachata|latin pop|traditional latin/, /corridos/],
     rhythm: { on: 'hits', minMs: 500, maxMs: 1000 },
     takes: ['whip', 'zoom'],
   },
   {
     id: 'dreamy',
     title: 'Dreamy',
-    genres: [/r ?& ?b|\brnb\b|rhythm and blues/, /afro ?house/, /deep house/, /ambient|downtempo/, /ballad/],
+    genres: [/r ?& ?b|\brnb\b|rhythm and blues/, /afro ?house/, /deep house/, /ambient|downtempo/, /ballad/, /\bindie\b/, /\bfolk\b|americana/, /neoclassical/],
     rhythm: { on: 'bars', every: 1, minMs: 2000, maxMs: 3000 },
     takes: ['pastel', 'golden'],
   },
   {
     id: 'mono',
     title: 'Gritty Mono',
-    genres: [/uk drill/, /metal/, /\brock\b/, /dark techno|industrial/, /conscious/],
+    genres: [/uk drill/, /metal/, /\brock\b/, /dark techno|industrial/, /conscious/, /hardcore/],
     rhythm: { on: 'bars', every: 1, minMs: 1600, maxMs: 2400, fast: { on: 'beats', every: 1, minMs: 300, maxMs: 650 }, fastAfterDrop: true },
     takes: ['grit'],
   },
