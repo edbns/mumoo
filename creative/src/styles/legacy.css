@@ -118,6 +118,7 @@ output { min-width: 58px; font-variant-numeric: tabular-nums; }
 .creatives-pack-card.pending canvas { opacity: 0; }
 .creatives-pack-card.pending .creatives-pack-play { display: none; }
 .creatives-pack-play svg { fill: currentColor; }
+.creatives-pack-play .spinner { background: conic-gradient(from 0deg, transparent 10%, #fff); }
 .creatives-pack-play {
   position: absolute; top: 0; right: 0; bottom: 0; left: 0; margin: auto; width: 52px; height: 52px;
   border-radius: 999px; display: grid; place-items: center; background: #0000008c; color: #fff;
