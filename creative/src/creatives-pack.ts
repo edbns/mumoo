@@ -18,7 +18,7 @@ import effectsData from '../punch-plates/effects/effects.json';
 import { laneFromMeaning, leansDeep, type LyricAttitude, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
 import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
-import { FINISH_ALLOW, MOOD_ACCENTS, type TypeFinish } from './type-finish';
+import { EMPHASIS_ALLOW, FINISH_ALLOW, MONO_ACCENT, MOOD_ACCENTS, type TypeEmphasis, type TypeFinish } from './type-finish';
 import { coverFit } from './look-fit';
 import type { CoverRead } from './cover-palette';
 import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
@@ -124,6 +124,8 @@ export type CreativesPackSlot = {
   /** How the lyric letters are finished (type-finish.ts), and the song's colour for a picture with none. Solid, and no colour, when absent. */
   typeFinish?: TypeFinish;
   typeAccent?: string;
+  /** How the line's key word is set apart (two-tone or mixed serif); absent, the sung word is lit. */
+  typeEmphasis?: TypeEmphasis;
   /** What the lyrics do to the colours and the beat. Absent when the words change nothing. */
   grade?: MoodGrade;
   /** The mood board (`boards.ts`) the row's library pictures were dealt from. Absent while the song has no filled board. */
@@ -207,7 +209,14 @@ const typeDeal = (lane: MoodLane, turn: Turn) => inTurn(TYPE_ALLOW[lane].filter(
 function finishDeal(lane: MoodLane, turn: Turn) {
   const finishes = inTurn(FINISH_ALLOW[lane], turn, 'finish', finish => finish);
   const colours = inTurn(MOOD_ACCENTS[lane], turn, 'mood-colour', colour => colour);
-  return (index: number): { typeFinish: TypeFinish; typeAccent: string } => ({ typeFinish: finishes(index), typeAccent: colours(index) });
+  const emphases = inTurn(EMPHASIS_ALLOW[lane], turn, 'emphasis', emphasis => emphasis);
+  return (index: number): { typeFinish: TypeFinish; typeAccent: string; typeEmphasis?: TypeEmphasis } => {
+    const typeAccent = colours(index);
+    const dealt = emphases(index);
+    // A monochrome card has no second colour to set the key word in, so it sets it in the serif instead.
+    const typeEmphasis = dealt === 'tone' && typeAccent === MONO_ACCENT ? 'serif' : dealt;
+    return { typeFinish: finishes(index), typeAccent, ...(typeEmphasis === 'none' ? {} : { typeEmphasis }) };
+  };
 }
 
 /** Dust, Pulise and Riso draw capitals from thick strokes, so their faces must be heavy and set in caps. */

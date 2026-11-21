@@ -581,7 +581,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       const words: TimedWord[] = !input.lyrics || !input.phrase || kind === 'typewriter' || kind === 'screenshot' ? [] : input.words.length
         ? [...input.words]
         : [{ text: input.phrase, startMs: 0, endMs: 600 }];
-      const frame = { ms: input.ms, beat: input.beat, beatIndex: input.beatIndex, energy: input.energy, seed: input.layout.seed, font: input.font, fontSecondary: input.fontSecondary, finish: input.typeFinish };
+      const frame = { ms: input.ms, beat: input.beat, beatIndex: input.beatIndex, energy: input.energy, seed: input.layout.seed, font: input.font, fontSecondary: input.fontSecondary, finish: input.typeFinish, emphasis: input.typeEmphasis };
 
       if (kind === 'frame') {
         // The phrase is shared out over the two bands of solid colour: its first half above the video, the rest below; never over the video.

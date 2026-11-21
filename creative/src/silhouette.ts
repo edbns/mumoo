@@ -21,7 +21,7 @@ export const SILHOUETTES = [
 export const SILHOUETTE_IDS: readonly string[] = SILHOUETTES.map(figure => figure.id);
 
 /** The screens a Silhouette card is dealt in (ids of `WINDOW_PALETTES`). */
-export const SILHOUETTE_SCREENS = ['red', 'black', 'off-white'] as const;
+export const SILHOUETTE_SCREENS = ['red', 'black', 'off-white', 'plum'] as const;
 
 /** The lyric styles a Silhouette card is dealt: each card of a row has its own. */
 export const SILHOUETTE_TYPES = ['stack', 'swap', 'karaoke', 'outline', 'editorial', 'glitch', 'echo', 'wipe', 'flicker', 'slide', 'bounce', 'zoom'] as const satisfies readonly TypeStyleId[];

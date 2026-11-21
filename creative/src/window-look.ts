@@ -27,7 +27,7 @@ const PLACE_TOP = Math.round(HEIGHT * 0.1);
 // Screens
 
 /**
- * A screen is one flat colour, black or white (and red for Silhouette): no texture, no fade. With it comes the rim cut round the window, and
+ * A screen is one flat colour, black, white or plum noir (and red for Silhouette): no texture, no fade. With it comes the rim cut round the window, and
  * the screen it could flip to on a downbeat (the shelf deals each card only its own, so it holds).
  */
 export type WindowPalette = { id: string; screen: string; rim: string; flips: readonly string[] };
@@ -36,6 +36,7 @@ export const WINDOW_PALETTES: readonly WindowPalette[] = [
   { id: 'black', screen: '#0a0a0b', rim: '#3d3d45', flips: ['off-white'] },
   { id: 'off-white', screen: '#f1ede4', rim: '#9c9484', flips: ['black'] },
   { id: 'red', screen: '#e10600', rim: '#7a0300', flips: ['black'] },
+  { id: 'plum', screen: '#1c1418', rim: '#4a3540', flips: ['off-white'] },
 ];
 
 /** Every palette id, for whoever stores or checks a card's screen colour. */

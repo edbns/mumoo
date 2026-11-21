@@ -19,7 +19,7 @@ import { displayFace, setCase, type AdFont, type FaceStyle, type FontNeed } from
 import { FIXED_FACES } from './font-catalog';
 import { FX_STYLES, FX_TRAITS, type FxStyleId } from './lyric-fx';
 import { createFxPainter } from './pack-fx';
-import { activeIndex, clamp01, easeOut, finishedWord, isPlated, layoutWords, measure, plateInk, type TimedWord, type TypeFrame } from './type-kit';
+import { activeIndex, clamp01, easeOut, faceOfWord, finishedWord, isPlated, keyLabel, KEY_SERIF, layoutWords, litWords, measure, plateInk, type TimedWord, type TypeFrame } from './type-kit';
 
 export type { TimedWord, TypeFrame };
 
@@ -59,10 +59,11 @@ const SWAP_FACES: readonly FaceStyle[] = [
 const POEM_FACES: readonly FaceStyle[] = [fixed('Outfit'), fixed('Playfair Display'), fixed('Space Mono')];
 
 /** The font families a style draws with, so they can be fetched before the first frame. */
-export function typeFamilies(style: TypeStyleId, fonts: Fonts): string[] {
+export function typeFamilies(style: TypeStyleId, fonts: Fonts & { typeEmphasis?: string }): string[] {
+  const key = fonts.typeEmphasis === 'serif' ? [KEY_SERIF.family] : [];
   if (style === 'swap') return SWAP_FACES.map(face => face.family);
-  if (style === 'poem') return POEM_FACES.map(face => face.family);
-  return [isMotion(style) ? fonts.font : FACES[style](fonts).family];
+  if (style === 'poem') return [...POEM_FACES.map(face => face.family), ...key];
+  return [isMotion(style) ? fonts.font : FACES[style](fonts).family, ...key];
 }
 
 /** What a style needs of the faces dealt to its card. Styles with a fixed face need nothing. */
@@ -108,9 +109,11 @@ export function createTypeLayer(): TypeLayer {
 
   function karaoke(frame: TypeFrame) {
     const face = FACES.karaoke(frame);
-    const labels = frame.words.map(w => caseFor('karaoke', w.text, frame.font));
-    const fit = layoutWords(labels, face, 150, 900, 4, 0.98);
+    const faceAt = faceOfWord(frame, face);
+    const labels = frame.words.map((w, i) => keyLabel(faceAt(i), caseFor('karaoke', w.text, frame.font)));
+    const fit = layoutWords(labels, face, 150, 900, 4, 0.98, false, faceAt);
     const active = activeIndex(frame.words, frame.ms);
+    const lit = litWords(frame, active);
     const group = new Container();
     const total = fit.lines.length * fit.lineHeight;
     fit.lines.forEach((line, row) => {
@@ -120,7 +123,7 @@ export function createTypeLayer(): TypeLayer {
         const started = frame.ms >= word.startMs;
         const isActive = item.index === active;
         const pop = isActive ? 1 + 0.06 * (1 - easeOut((frame.ms - word.startMs) / 180)) : 1;
-        const t = finishedWord(item.text, { size: fit.size, face, alpha: started ? 1 : 0.3 }, frame, isActive);
+        const t = finishedWord(item.text, { size: fit.size, face: faceAt(item.index), alpha: started ? 1 : 0.3 }, frame, lit(item.index));
         t.position.set(item.x + item.w / 2, y);
         t.scale.set(pop);
         group.addChild(t);
@@ -173,10 +176,10 @@ export function createTypeLayer(): TypeLayer {
   }
 
   function stack(frame: TypeFrame) {
-    const face = FACES.stack(frame);
     const active = Math.max(0, activeIndex(frame.words, frame.ms));
+    const face = faceOfWord(frame, FACES.stack(frame))(active);
     const word = frame.words[active];
-    const label = caseFor('stack', word.text, frame.fontSecondary);
+    const label = keyLabel(face, caseFor('stack', word.text, frame.fontSecondary));
     const size = Math.min(380, (920 / Math.max(1, measure(face, 100, label))) * 100);
     const slam = 1 + 0.28 * (1 - easeOut((frame.ms - word.startMs) / 150));
     const group = new Container();
@@ -200,7 +203,7 @@ export function createTypeLayer(): TypeLayer {
       if (!prev) break;
       const t = finishedWord(caseFor('stack', prev.text, frame.fontSecondary), {
         size: Math.max(44, size * (k === 1 ? 0.34 : 0.24)),
-        face,
+        face: FACES.stack(frame),
         alpha: k === 1 ? 0.42 : 0.2,
       }, frame);
       t.position.set(0, -size * (0.62 + k * 0.3));
@@ -213,10 +216,11 @@ export function createTypeLayer(): TypeLayer {
 
   function minimal(frame: TypeFrame) {
     const face = FACES.minimal(frame);
+    const faceAt = faceOfWord(frame, face);
     const labels = frame.words.map(w => caseFor('minimal', w.text, frame.font));
-    const fit = layoutWords(labels, face, 80, 820, 3, 1.4);
+    const fit = layoutWords(labels, face, 80, 820, 3, 1.4, false, faceAt);
     const start = frame.words[0]?.startMs ?? 0;
-    const active = activeIndex(frame.words, frame.ms);
+    const lit = litWords(frame, activeIndex(frame.words, frame.ms));
     const group = new Container();
     const total = fit.lines.length * fit.lineHeight;
     fit.lines.forEach((line, row) => {
@@ -224,7 +228,7 @@ export function createTypeLayer(): TypeLayer {
       const lead = Math.min(...line.items.map(item => frame.words[item.index].startMs), start + row * 220);
       const a = easeOut((frame.ms - lead) / 360);
       for (const item of line.items) {
-        const t = finishedWord(item.text, { size: fit.size, face, alpha: a }, frame, item.index === active);
+        const t = finishedWord(item.text, { size: fit.size, face: faceAt(item.index), alpha: a }, frame, lit(item.index));
         t.position.set(item.x + item.w / 2, y + (1 - a) * 14);
         group.addChild(t);
       }
@@ -237,7 +241,7 @@ export function createTypeLayer(): TypeLayer {
     const face = FACES.editorial(frame);
     const labels = frame.words.map(w => caseFor('editorial', w.text, frame.font));
     const fit = layoutWords(labels, face, 128, 880, 4, 1.06);
-    const active = activeIndex(frame.words, frame.ms);
+    const lit = litWords(frame, activeIndex(frame.words, frame.ms));
     const start = frame.words[0]?.startMs ?? 0;
     const total = fit.lines.length * fit.lineHeight;
     const group = new Container();
@@ -246,7 +250,7 @@ export function createTypeLayer(): TypeLayer {
       const slide = easeOut((frame.ms - start - row * 120) / 420);
       const lineBox = new Container();
       for (const item of line.items) {
-        const t = finishedWord(item.text, { size: fit.size, face }, frame, item.index === active);
+        const t = finishedWord(item.text, { size: fit.size, face }, frame, lit(item.index));
         t.position.set(item.x + item.w / 2, y + (1 - slide) * fit.lineHeight * 1.05);
         lineBox.addChild(t);
       }
@@ -263,9 +267,10 @@ export function createTypeLayer(): TypeLayer {
 
   function outline(frame: TypeFrame) {
     const face = FACES.outline(frame);
-    const labels = frame.words.map(w => caseFor('outline', w.text, frame.font));
-    const fit = layoutWords(labels, face, 170, 900, 3, 0.96);
-    const active = activeIndex(frame.words, frame.ms);
+    const faceAt = faceOfWord(frame, face);
+    const labels = frame.words.map((w, i) => keyLabel(faceAt(i), caseFor('outline', w.text, frame.font)));
+    const fit = layoutWords(labels, face, 170, 900, 3, 0.96, false, faceAt);
+    const isLit = litWords(frame, activeIndex(frame.words, frame.ms));
     const total = fit.lines.length * fit.lineHeight;
     const group = new Container();
     fit.lines.forEach((line, row) => {
@@ -273,9 +278,9 @@ export function createTypeLayer(): TypeLayer {
       for (const item of line.items) {
         const word = frame.words[item.index];
         const filled = frame.ms >= word.startMs;
-        const lit = item.index === active;
+        const lit = isLit(item.index);
         const edge = lit ? (isPlated(frame) ? plateInk(frame) : frame.accent) : frame.ink;
-        const t = finishedWord(item.text, { size: fit.size, face, hollow: !filled, stroke: { color: edge, width: Math.max(4, fit.size * 0.035) } }, frame, lit);
+        const t = finishedWord(item.text, { size: fit.size, face: faceAt(item.index), hollow: !filled, stroke: { color: edge, width: Math.max(4, fit.size * 0.035) } }, frame, lit);
         t.position.set(item.x + item.w / 2, y);
         group.addChild(t);
       }
@@ -290,6 +295,7 @@ export function createTypeLayer(): TypeLayer {
     // A song with no beat grid still swaps, on each word as it is sung.
     const turn = frame.beatIndex > 0 ? frame.beatIndex : Math.max(0, active);
     const face = SWAP_FACES[Math.abs(frame.seed + turn) % SWAP_FACES.length];
+    const lit = litWords(frame, active);
     const labels = frame.words.map(w => caseFor('swap', w.text, frame.font));
     const fit = layoutWords(labels, face, 280, 880, 3, 0.94);
     const total = fit.lines.length * fit.lineHeight;
@@ -298,7 +304,7 @@ export function createTypeLayer(): TypeLayer {
       const y = (row + 0.5) * fit.lineHeight - total / 2;
       for (const item of line.items) {
         if (frame.ms < frame.words[item.index].startMs) continue;
-        const t = finishedWord(item.text, { size: fit.size, face }, frame, item.index === active);
+        const t = finishedWord(item.text, { size: fit.size, face }, frame, lit(item.index));
         t.position.set(item.x + item.w / 2, y);
         group.addChild(t);
       }
@@ -310,9 +316,10 @@ export function createTypeLayer(): TypeLayer {
 
   function poem(frame: TypeFrame) {
     const face = POEM_FACES[Math.abs(frame.seed) % POEM_FACES.length];
+    const faceAt = faceOfWord(frame, face);
     const labels = frame.words.map(w => caseFor('poem', w.text, frame.font));
-    const fit = layoutWords(labels, face, 66, 520, 8, 1.3, true);
-    const active = activeIndex(frame.words, frame.ms);
+    const fit = layoutWords(labels, face, 66, 520, 8, 1.3, true, faceAt);
+    const lit = litWords(frame, activeIndex(frame.words, frame.ms));
     const total = fit.lines.length * fit.lineHeight;
     const group = new Container();
     fit.lines.forEach((line, row) => {
@@ -320,7 +327,7 @@ export function createTypeLayer(): TypeLayer {
       for (const item of line.items) {
         const word = frame.words[item.index];
         const inked = easeOut((frame.ms - word.startMs) / 320);
-        const t = finishedWord(item.text, { size: fit.size, face, alpha: 0.16 + 0.84 * inked }, frame, item.index === active);
+        const t = finishedWord(item.text, { size: fit.size, face: faceAt(item.index), alpha: 0.16 + 0.84 * inked }, frame, lit(item.index));
         t.position.set(item.x + item.w / 2, y);
         group.addChild(t);
       }

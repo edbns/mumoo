@@ -5,7 +5,7 @@ import type { Texture } from 'pixi.js';
 import type { AdPunchStyle } from './ad-punch';
 import type { AdFont, AdLayout } from './ad-fonts';
 import type { TimedWord, TypeStyleId } from './pack-type';
-import type { TypeFinish } from './type-finish';
+import type { TypeEmphasis, TypeFinish } from './type-finish';
 import type { DustColors } from './dust-colors';
 import type { DustPoints, DustWord } from './pack-dust';
 import type { RisoInkSet } from './riso-look';
@@ -38,6 +38,8 @@ export type PackSceneInput = {
   /** How the lyric letters are finished (type-finish.ts), and the song's colour for a picture with none. Solid, and no colour, when absent. */
   typeFinish?: TypeFinish;
   typeAccent?: string;
+  /** How the line's key word is set apart (two-tone or mixed serif); absent, the sung word is lit. */
+  typeEmphasis?: TypeEmphasis;
   /** Our photography: the live look drawn on the picture (never on the type). */
   look?: LiveLookId;
   /** False when the person switched lyrics off: no words anywhere, only the picture. */

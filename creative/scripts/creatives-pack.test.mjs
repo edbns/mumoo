@@ -376,7 +376,7 @@ test('Riso deals four ink sets and four heavy faces on the approved photo, and e
 
 const GENRES = ['Gospel', 'Slap House', 'Pop', 'Ambient', 'Reggaeton'];
 
-test('Window deals four cards of the picture as it is, each on one black or off-white screen, the screens taking turns, no face or layout repeated', async () => {
+test('Window deals four cards of the picture as it is, each on one black, off-white or plum screen, the screens taking turns, no face or layout repeated', async () => {
   const { server, pack } = await load();
   const look = await server.ssrLoadModule('/src/window-look.ts');
   try {
@@ -386,8 +386,8 @@ test('Window deals four cards of the picture as it is, each on one black or off-
         const name = `${genre} #${generation}`;
         assert.equal(row.length, 4, name);
         assert.ok(row.every(slot => slot.style === 'window' && slot.row === 'window' && slot.family === 'ad_punch'), name);
-        assert.deepEqual(row.map(slot => slot.windowPalette).slice(0, 2).sort(), ['black', 'off-white'], `${name}: black and off-white take turns`);
-        assert.equal(row[0].windowPalette, row[2].windowPalette, name);
+        assert.deepEqual(row.map(slot => slot.windowPalette).slice(0, 3).sort(), ['black', 'off-white', 'plum'], `${name}: black, off-white and plum take turns`);
+        assert.equal(row[0].windowPalette, row[3].windowPalette, name);
         assert.equal(new Set(row.map(slot => slot.font)).size, 4, `${name} repeats a face`);
         assert.equal(new Set(row.map(slot => slot.layout.seed)).size, 4, `${name} repeats a layout seed`);
         assert.equal(new Set(row.map(slot => slot.cutSeed)).size, 4, `${name}: the same cut on two cards`);
@@ -405,7 +405,7 @@ test('Window deals four cards of the picture as it is, each on one black or off-
     assert.equal(dealt('a', 3), dealt('a', 3), 'pure');
     assert.equal(new Set(Array.from({ length: 10 }, (_, generation) => dealt('a', generation))).size, 10, 'every refresh is a different row');
     const firsts = new Set(Array.from({ length: 12 }, (_, generation) => pack.recommendRow('window', profile('Pop'), generation, PLATES)[0].windowPalette));
-    assert.equal(firsts.size, 2, 'refreshing sometimes opens on black, sometimes on white');
+    assert.equal(firsts.size, 3, 'refreshing opens on black, on white or on plum');
   } finally { await server.close(); }
 });
 
@@ -425,8 +425,8 @@ test('Silhouette deals four different figures (two men, two women) in four lyric
         assert.ok(row.every((slot, index) => index === 0 || slot.windowShape.split('-')[0] !== row[index - 1].windowShape.split('-')[0]), `${name}: men and women take turns`);
         assert.equal(new Set(row.map(slot => slot.typeStyle)).size, 4, `${name}: a lyric style repeated`);
         assert.ok(row.every(slot => SILHOUETTE_TYPES.includes(slot.typeStyle)), name);
-        assert.equal(new Set(row.slice(0, 3).map(slot => slot.windowPalette)).size, 3, `${name}: red, black and white take turns`);
-        assert.ok(row.every(slot => ['red', 'black', 'off-white'].includes(slot.windowPalette) && slot.windowAllowed.length === 1 && slot.windowAllowed[0] === slot.windowPalette), name);
+        assert.equal(new Set(row.map(slot => slot.windowPalette)).size, 4, `${name}: red, black, white and plum take turns`);
+        assert.ok(row.every(slot => ['red', 'black', 'off-white', 'plum'].includes(slot.windowPalette) && slot.windowAllowed.length === 1 && slot.windowAllowed[0] === slot.windowPalette), name);
         assert.ok(row.every(slot => PLATES.some(plate => plate.id === slot.plateId)), `${name}: with no library our approved photo stands in`);
       }
     }

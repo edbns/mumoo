@@ -108,6 +108,7 @@ function packOpts(
     ...(slot.typeStyle ? { typeStyle: slot.typeStyle } : {}),
     ...(slot.typeStyle && slot.typeFinish ? { typeFinish: slot.typeFinish } : {}),
     ...(slot.typeStyle && slot.typeAccent ? { typeAccent: slot.typeAccent } : {}),
+    ...(slot.typeStyle && slot.typeEmphasis ? { typeEmphasis: slot.typeEmphasis } : {}),
     // A live look goes on a picture (the library's or the person's own), never on a baked effect.
     ...(slot.look && !('effectId' in drawn) ? { look: slot.look } : {}),
     ...(slot.treatment ? { treatment: slot.treatment, treatmentVariant: slot.treatmentVariant } : {}),

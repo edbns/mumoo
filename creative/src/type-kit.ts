@@ -2,7 +2,8 @@
 import { Container, FillGradient, Graphics, Text } from 'pixi.js';
 import { cssFont, type AdFont, type FaceStyle } from './ad-fonts';
 import { textMeasureCtx } from './pack-text';
-import { PLATED, type TypeFinish } from './type-finish';
+import { PLATED, type TypeEmphasis, type TypeFinish } from './type-finish';
+import { keywordOf } from './lyric-keyword';
 
 export type TimedWord = { text: string; startMs: number; endMs: number };
 
@@ -26,7 +27,30 @@ export type TypeFrame = {
   finish?: TypeFinish;
   /** Letters readable on the accent, for the box finish; the shadow colour when absent. */
   onAccent?: string;
+  /** How the line's key word is set apart (type-finish.ts); absent, the word being sung is lit. */
+  emphasis?: TypeEmphasis;
 };
+
+/** The italic serif a mixed-serif card sets the key word in. */
+export const KEY_SERIF: FaceStyle = { family: 'Playfair Display', weight: 700, italic: true };
+
+/**
+ * Which words of the frame are lit, given the word being sung: the line's key word on a card that sets it apart
+ * (the sung word when the line has none), else the word being sung.
+ */
+export function litWords(frame: TypeFrame, active: number): (index: number) => boolean {
+  const key = frame.emphasis ? keywordOf(frame.words) : -1;
+  return key >= 0 ? index => index === key : index => index === active;
+}
+
+/** The face word `index` is set in: the key word in the italic serif on a mixed-serif card, else `face`. */
+export function faceOfWord(frame: TypeFrame, face: FaceStyle): (index: number) => FaceStyle {
+  const key = frame.emphasis === 'serif' ? keywordOf(frame.words) : -1;
+  return index => index === key ? KEY_SERIF : face;
+}
+
+/** The serif key word is set in lower case, whatever the line's face does to its letters. */
+export const keyLabel = (face: FaceStyle, label: string) => face === KEY_SERIF ? label.toLocaleLowerCase() : label;
 
 export const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 export const easeOut = (v: number) => 1 - Math.pow(1 - clamp01(v), 3);
@@ -50,6 +74,7 @@ export function layoutWords(
   maxLines: number,
   lineGap: number,
   left = false,
+  faceOf: (index: number) => FaceStyle = () => face,
 ): Layout {
   let size = start;
   for (;;) {
@@ -58,7 +83,7 @@ export function layoutWords(
     let current: Item[] = [];
     let x = 0;
     words.forEach((text, index) => {
-      const w = measure(face, size, text);
+      const w = measure(faceOf(index), size, text);
       if (current.length && x + space + w > maxWidth) {
         lines.push({ items: current, width: x });
         current = [];

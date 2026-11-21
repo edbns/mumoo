@@ -6,7 +6,7 @@ import { Container, Graphics } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
 import { displayFace, setCase, type FaceStyle } from './ad-fonts';
 import { buzzingWords, EXIT_MS, FX, FX_TRAITS, type FxStyleId, type Layer, type PieceInput, type Placement } from './lyric-fx';
-import { activeIndex, isPlated, layoutWords, makeText, measure, plate, plateInk, type TypeFrame } from './type-kit';
+import { activeIndex, isPlated, layoutWords, litWords, makeText, measure, plate, plateInk, type TypeFrame } from './type-kit';
 
 /** How a block style fits the lyric: the biggest size that keeps it inside `lines` × 900 px, and where it sits. */
 type Block = { start: number; width: number; lines: number; gap: number; y: number; left?: true; turn?: number };
@@ -113,6 +113,7 @@ export function createFxPainter(): FxPainter {
     const fit = layoutWords(labels, face, spec.start, spec.width, spec.lines, spec.gap, Boolean(spec.left));
     const widest = Math.max(...fit.lines.map(line => line.width));
     const active = activeIndex(frame.words, frame.ms);
+    const lit = litWords(frame, active);
     const buzz = buzzingWords(frame.words.map(word => word.startMs));
     const total = fit.lines.length * fit.lineHeight;
     const group = new Container();
@@ -144,7 +145,7 @@ export function createFxPainter(): FxPainter {
           : [{ label: item.text, x: item.x + item.w / 2, w: item.w }];
         parts.forEach((part, index) => {
           const node = piece(part.label, { x: part.x + indent, y }, part.w, FX[style](input(index, parts.length)), fit.size, face, frame,
-            item.index === active, traits.unit !== 'letter');
+            lit(item.index), traits.unit !== 'letter');
           if (node) group.addChild(node);
         });
       }

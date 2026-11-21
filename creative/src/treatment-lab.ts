@@ -79,7 +79,7 @@ const params = new URLSearchParams(location.search);
 const ONLY = params.get('only')?.split(',');
 const LYRICS = !params.has('nolyrics');
 
-type TypeLook = Pick<PackSceneInput, 'typeStyle' | 'typeFinish' | 'typeAccent' | 'beatIndex'>;
+type TypeLook = Pick<PackSceneInput, 'typeStyle' | 'typeFinish' | 'typeAccent' | 'typeEmphasis' | 'beatIndex' | 'words'>;
 
 function inputOf(treatment: TreatmentId, variant: string, ms = 2400, look: Partial<TypeLook> = {}): PackSceneInput {
   return {
@@ -202,8 +202,12 @@ async function sheet(cells: { title: string; url: string }[]): Promise<string> {
 /** `?type`: Swap on three beats, Poem, and every letter finish in the monochrome, red and pink song colours, on the plain grain card. */
 async function typeSheet(): Promise<string> {
   await ensure();
-  await ensureFonts([...typeFamilies('swap', { font: 'Anton', fontSecondary: 'Anton' }), ...typeFamilies('poem', { font: 'Anton', fontSecondary: 'Anton' })]);
+  await ensureFonts(['Playfair Display', ...typeFamilies('swap', { font: 'Anton', fontSecondary: 'Anton' }), ...typeFamilies('poem', { font: 'Anton', fontSecondary: 'Anton' })]);
   const cells: { title: string; url: string }[] = [];
+  const line = 'we keep on running back to you'.split(' ').map((text, k) => ({ text, startMs: k * 150, endMs: k * 150 + 140 }));
+  for (const [typeStyle, typeEmphasis] of [['karaoke', 'tone'], ['karaoke', 'serif'], ['outline', 'serif'], ['minimal', 'serif'], ['poem', 'serif'], ['bounce', 'tone'], ['stack', 'serif'], ['karaoke', undefined]] as const) {
+    cells.push({ title: `${typeStyle} · ${typeEmphasis ?? 'sung word'}`, url: await still('grain', 'fine', 1200, { typeStyle, typeEmphasis, typeAccent: '#e5383b', words: line }) });
+  }
   for (const beatIndex of [8, 9, 10, 11]) cells.push({ title: `Swap · beat ${beatIndex}`, url: await still('grain', 'fine', 800, { typeStyle: 'swap', beatIndex }) });
   for (const typeAccent of [MONO_ACCENT, '#e5383b', '#ff4fa3']) {
     cells.push({ title: `Poem · ${typeAccent}`, url: await still('grain', 'fine', 600, { typeStyle: 'poem', typeAccent }) });

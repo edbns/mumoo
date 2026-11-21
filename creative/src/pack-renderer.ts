@@ -35,7 +35,7 @@ import { DISSOLVE_MS, TRANSITION, isPresetId, isPresetTake, presetDef, type Pres
 import { presetFrame } from './preset-motion';
 import { fetchFresh } from './fetch-fresh';
 import { REC_FONT, createPresetPass, type PresetPass } from './pack-preset';
-import type { TypeFinish } from './type-finish';
+import type { TypeEmphasis, TypeFinish } from './type-finish';
 
 /** Shelf card / live preview size (9× fewer pixels than the 1080×1920 export frame). */
 export const PREVIEW_WIDTH = 360;
@@ -68,6 +68,8 @@ export type PackRendererOpts = {
   /** How the lyric letters are finished (type-finish.ts), and the song's colour for a picture with none. Solid, and no colour, when absent. */
   typeFinish?: TypeFinish;
   typeAccent?: string;
+  /** How the line's key word is set apart (two-tone or mixed serif); absent, the sung word is lit. */
+  typeEmphasis?: TypeEmphasis;
   /** Our photography: a live look drawn on the person's own or our library picture (not on a baked effect, which is already a look). */
   look?: LiveLookId;
   /** What the lyrics do to colour and beat hits; absent = untouched. */
@@ -430,6 +432,7 @@ export async function createPackRenderer(
           typeStyle: current.typeStyle,
           typeFinish: current.typeFinish,
           typeAccent: current.typeAccent,
+          typeEmphasis: current.typeEmphasis,
           look: current.look,
           lyrics: current.lyrics !== false,
           dustPoints: style === 'dust' ? dustPoints : null,

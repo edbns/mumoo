@@ -42,4 +42,24 @@ export const MOOD_ACCENTS: Record<MoodLane, readonly string[]> = {
   general: [MONO_ACCENT, '#e5383b', '#ff7eb6', '#d99b26'],
 };
 
+/**
+ * How a card sets the line's key word (lyric-keyword.ts) apart, when it does:
+ *  tone   two-tone: the key word in the song's colour, the rest of the line in the ink
+ *  serif  the key word in an italic serif among the line's display face (and in the colour)
+ * A card without one lights the word being sung instead.
+ */
+export const TYPE_EMPHASES = ['tone', 'serif'] as const;
+export type TypeEmphasis = typeof TYPE_EMPHASES[number];
+export const isTypeEmphasis = (value: unknown): value is TypeEmphasis => TYPE_EMPHASES.includes(value as TypeEmphasis);
+
+/** What a lane's cards may do with the key word: `none` lights the sung word as before. */
+export const EMPHASIS_ALLOW: Record<MoodLane, readonly (TypeEmphasis | 'none')[]> = {
+  gospel: ['serif', 'none', 'tone'],
+  quiet: ['serif', 'none', 'tone'],
+  dark: ['tone', 'serif', 'none'],
+  techno: ['tone', 'none', 'serif'],
+  party: ['tone', 'serif', 'none'],
+  general: ['tone', 'serif', 'none'],
+};
+
 export const isTypeFinish = (value: unknown): value is TypeFinish => TYPE_FINISHES.includes(value as TypeFinish);

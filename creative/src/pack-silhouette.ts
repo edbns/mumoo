@@ -98,7 +98,7 @@ export type SilhouetteInput = {
   beatIndex: number;
   energy: number;
   seed: number;
-  /** The id of the screen colour (`WINDOW_PALETTES`): red, black or off-white. */
+  /** The id of the screen colour (`WINDOW_PALETTES`): red, black, off-white or plum. */
   palette: string;
   /** The figure (`SILHOUETTES` id) and its mask. */
   shape: string;
@@ -140,7 +140,7 @@ export function createSilhouetteWorld(): SilhouetteWorld {
       view.screen.set(paletteOf(input.palette).screen, coverSize(input.picture.width, input.picture.height), pictureScale(input.ms, punch), input.palette === 'red' ? 1 : 0);
 
       // The lyrics fill the solid colour above the head: as big as that room allows, never over the figure.
-      const ink = input.palette === 'black' ? LIGHT_INK : DARK_INK;
+      const ink = input.palette === 'black' || input.palette === 'plum' ? LIGHT_INK : DARK_INK;
       const frame = {
         words: [...input.words], beatIndex: input.beatIndex, seed: input.seed,
         ink, accent: ink, shadow: ink === DARK_INK ? '#ffffff' : '#000000', font: input.font, fontSecondary: input.font,

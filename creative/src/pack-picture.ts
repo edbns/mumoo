@@ -117,6 +117,7 @@ export function createPictureWorld(): PictureWorld {
         seed: input.layout.seed,
         ...typeColours(palette, input.typeAccent),
         finish: input.typeFinish,
+        emphasis: input.typeEmphasis,
         font: input.font,
         fontSecondary: input.fontSecondary,
       });

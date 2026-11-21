@@ -20,7 +20,7 @@ const CARDS = 4;
 const order = <T>(items: readonly T[], seed: string, key: (item: T) => string) => [...items].sort((a, b) => hashPick(seed, key(a), 99991) - hashPick(seed, key(b), 99991));
 
 /** The only screens Window is dealt in. */
-export const WINDOW_SCREENS = ['black', 'off-white'] as const;
+export const WINDOW_SCREENS = ['black', 'off-white', 'plum'] as const;
 
 export function dealWindow(seed: string): WindowCard[] {
   const faces = order(WINDOW_FACES, `${seed}:faces`, face => face);

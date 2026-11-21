@@ -12,11 +12,11 @@ const measure = text => ({ width: [...text].reduce((sum, letter) => sum + (lette
 
 const cue = (text, startMs, endMs) => ({ text, startMs, endMs });
 
-test('there are three flat screens, black, off-white and red (Silhouette\'s), each with a rim that shows against it', async () => {
+test('there are four flat screens, black, off-white, red (Silhouette\'s) and plum noir, each with a rim that shows against it', async () => {
   const { server, look, colors } = await load();
   try {
     const { WINDOW_PALETTES: palettes, WINDOW_PALETTE_IDS: ids } = look;
-    assert.deepEqual(ids, ['black', 'off-white', 'red']);
+    assert.deepEqual(ids, ['black', 'off-white', 'red', 'plum']);
     for (const { id, screen, rim, flips } of palettes) {
       assert.match(screen, /^#[0-9a-f]{6}$/);
       assert.match(rim, /^#[0-9a-f]{6}$/);

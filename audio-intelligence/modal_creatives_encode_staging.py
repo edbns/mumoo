@@ -50,7 +50,7 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
     "style", "font", "fontSecondary", "layout",
-    "cues", "music", "fallbackText", "plateId", "typeStyle", "typeFinish", "typeAccent", "grade", "lyrics", "colors", "effectId",
+    "cues", "music", "fallbackText", "plateId", "typeStyle", "typeFinish", "typeAccent", "typeEmphasis", "grade", "lyrics", "colors", "effectId",
     "motionShots", "reel", "cutSeed", "look", "inkSet", "windowMode", "windowPalette", "windowAllowed", "windowShape",
     "treatment", "treatmentVariant", "preset", "presetTake", "clock",
 }
@@ -87,12 +87,12 @@ PRESETS = {
     "mono": {"grit"},
 }
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
-WINDOW_PALETTES = {"black", "off-white", "red"}
+WINDOW_PALETTES = {"black", "off-white", "red", "plum"}
 WINDOW_FACES = {"Anton", "Big Shoulders Display", "Staatliches", "Bangers", "Barlow Condensed"}
 # What a Window card shows its picture through (a Director's reel, our approved photo, or a photo or clip of the library or the person):
 # the lyric word (`plain`, on black or white), or the still figure of a person (`silhouette`, on red, black or white).
 WINDOW_MODES = {"plain", "silhouette"}
-WINDOW_SCREENS = {"plain": {"black", "off-white"}, "silhouette": {"red", "black", "off-white"}}
+WINDOW_SCREENS = {"plain": {"black", "off-white", "plum"}, "silhouette": {"red", "black", "off-white", "plum"}}
 # The figures of creative/public/silhouettes (creative/src/silhouette.ts).
 WINDOW_SHAPES = {"man-cap", "woman-hair", "man-wide", "woman-wide", "woman-curls", "man-hood", "woman-head", "man-head"}
 WINDOW_KEYS = ("windowMode", "windowPalette", "windowAllowed")
@@ -103,6 +103,10 @@ TYPE_STYLES = {
     "zoom", "scatter", "jitter", "echo", "slide", "tilt", "rise", "glow", "drift",
 }
 # How a card's lyric letters are finished (creative/src/type-finish.ts; a test keeps these in step).
+# How a card sets the line's key word apart (creative/src/type-finish.ts; a test keeps these in step).
+TYPE_EMPHASES = {
+    "tone", "serif",
+}
 TYPE_FINISHES = {
     "solid", "gradient", "box", "sticker", "glass", "print",
 }
@@ -378,6 +382,8 @@ def parse_meta(raw: str) -> dict:
         raise ValueError("typeFinish")
     if "typeAccent" in opts and ("typeStyle" not in opts or not isinstance(opts["typeAccent"], str) or not HEX_RE.match(opts["typeAccent"])):
         raise ValueError("typeAccent")
+    if "typeEmphasis" in opts and ("typeStyle" not in opts or opts["typeEmphasis"] not in TYPE_EMPHASES):
+        raise ValueError("typeEmphasis")
     grade = opts.get("grade")
     if grade is not None:
         if not isinstance(grade, dict) or set(grade) != set(GRADE_RANGES):
