@@ -1,4 +1,4 @@
-import { Trash2Icon } from 'lucide-react';
+import { Trash2Icon } from '@/components/icons';
 import { useState, type FormEvent } from 'react';
 import { FIELD, POPUP_FIELD } from '@/components/ui/field';
 import { ActionDialog } from '@/components/ui/action-dialog';

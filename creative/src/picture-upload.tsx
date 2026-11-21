@@ -1,4 +1,4 @@
-import { CheckIcon, ImageIcon, PlayIcon, UploadIcon } from 'lucide-react';
+import { CheckIcon, ImageIcon, PlayIcon, UploadIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';

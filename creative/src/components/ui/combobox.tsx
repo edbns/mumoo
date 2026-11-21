@@ -6,7 +6,7 @@ import {
   motion,
   useReducedMotion,
 } from "motion/react";
-import { Check, Search, X } from "lucide-react";
+import { CheckIcon as Check, SearchIcon as Search, XIcon as X } from '@/components/icons';
 import {
   forwardRef,
   useEffect,

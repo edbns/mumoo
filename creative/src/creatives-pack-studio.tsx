@@ -8,7 +8,7 @@ import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from '
 import type { CartDownload } from './use-cart-download';
 import { quietError } from './friendly-error';
 import { reportProblem } from './report-problem';
-import { PauseIcon, PlayIcon } from 'lucide-react';
+import { PauseIcon, PlayIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { PictureUpload, UploadProgress } from './picture-upload';
 import type { Upload } from './uploads';

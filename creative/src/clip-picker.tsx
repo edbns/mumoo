@@ -1,4 +1,4 @@
-import { PauseIcon, PlayIcon } from 'lucide-react';
+import { PauseIcon, PlayIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { DURATION_MS } from './composition';
 import { Waveform } from './waveform';

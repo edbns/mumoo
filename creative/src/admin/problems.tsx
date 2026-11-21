@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckIcon } from 'lucide-react';
+import { CheckIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { loadProblems, markAllSeen, markProblemSeen, type Problem } from './api';
 

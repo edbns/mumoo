@@ -1,4 +1,4 @@
-import { XIcon } from 'lucide-react';
+import { XIcon } from '@/components/icons';
 
 /** The red round × that sits in the top right corner of a picture, to take it away. */
 export function RemoveBadge({ label, disabled, onClick }: { label: string; disabled?: boolean; onClick: () => void }) {

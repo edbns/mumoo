@@ -1,4 +1,4 @@
-import { PauseIcon, PlayIcon } from 'lucide-react';
+import { PauseIcon, PlayIcon } from '@/components/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   LYRIC_LANGUAGES, MAX_LYRIC_WORDS, clipToWav16k, groupLines, languageName,

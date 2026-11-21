@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AlertTriangleIcon, BrainIcon, ImagesIcon, LayoutDashboardIcon, LogOutIcon, Music2Icon, type LucideIcon } from 'lucide-react';
+import { AlertTriangleIcon, BrainIcon, ImagesIcon, LayoutDashboardIcon, LogOutIcon, Music2Icon, type Icon as IconType } from '@/components/icons';
 import '@fontsource-variable/inter';
 import { authClient, checkSignInCode, sendSignInCode } from '../account';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { ProblemsView } from './problems';
 import './admin.css';
 
 type Section = 'overview' | 'library' | 'learning' | 'genre' | 'errors';
-const SECTIONS: { id: Section; label: string; icon: LucideIcon }[] = [
+const SECTIONS: { id: Section; label: string; icon: IconType }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboardIcon },
   { id: 'library', label: 'Library', icon: ImagesIcon },
   { id: 'learning', label: 'Learning', icon: BrainIcon },

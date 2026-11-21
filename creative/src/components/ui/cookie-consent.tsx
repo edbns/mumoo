@@ -2,7 +2,7 @@
 // MIT · Mohammad Shehadeh · https://github.com/MohammadShehadeh/hirael
 
 import * as React from 'react';
-import { Cookie } from 'lucide-react';
+import { CookieIcon as Cookie } from '@/components/icons';
 import { Switch as SwitchPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';

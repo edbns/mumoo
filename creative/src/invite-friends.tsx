@@ -1,4 +1,4 @@
-import { CheckIcon, CopyIcon, Share2Icon } from 'lucide-react';
+import { CheckIcon, CopyIcon, Share2Icon } from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';

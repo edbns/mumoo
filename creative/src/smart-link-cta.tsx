@@ -1,4 +1,4 @@
-import { ArrowRightIcon, SparklesIcon } from 'lucide-react';
+import { ArrowRightIcon, SparklesIcon } from '@/components/icons';
 import type { CSSProperties } from 'react';
 import { Button } from '@/components/ui/button';
 import type { Published } from './smart-links';

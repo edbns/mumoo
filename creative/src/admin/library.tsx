@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
-import { CheckIcon, EyeOffIcon, FilmIcon, ImageIcon, PlayIcon, Trash2Icon, UploadIcon, XIcon } from 'lucide-react';
+import { CheckIcon, EyeOffIcon, FilmIcon, ImageIcon, PlayIcon, Trash2Icon, UploadIcon, XIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { GENRES } from '../genres';

@@ -4,7 +4,7 @@
 
 import * as React from "react";
 import { FIELD_FOCUS } from '@/components/ui/field';
-import { ArrowRight, Check, LoaderCircle, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRightIcon as ArrowRight, CheckIcon as Check, LoaderCircleIcon as LoaderCircle, MailIcon as Mail, ShieldCheckIcon as ShieldCheck } from '@/components/icons';
 import { friendlyError } from '../../friendly-error';
 
 export type MagicLinkStep = "email" | "code" | "success";

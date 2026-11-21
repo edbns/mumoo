@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { FIELD } from '@/components/ui/field';
 import { Reorder, useDragControls } from 'motion/react';
-import { ExternalLinkIcon, EyeIcon, EyeOffIcon, GripVerticalIcon, PauseIcon, PlayIcon, SearchIcon } from 'lucide-react';
+import { ExternalLinkIcon, EyeIcon, EyeOffIcon, GripVerticalIcon, PauseIcon, PlayIcon, SearchIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Iphone16Pro, SCREEN_RATIO, SCREEN_SHARE } from '@/components/ui/iphone-16-pro';
 import { fanPage } from '../netlify/lib/fan-page.mjs';

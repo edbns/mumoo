@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BarChart3Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { BarChart3Icon, PencilIcon, PlusIcon, Trash2Icon } from '@/components/icons';
 import { ActionDialog } from '@/components/ui/action-dialog';
 import { Button } from '@/components/ui/button';
 import { authClient, checkSignInCode, sendSignInCode, signInWithGoogle } from './account';

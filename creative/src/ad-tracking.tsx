@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon } from '@/components/icons';
 import { AccountSection } from './account-section';
 import { FIELD } from './components/ui/field';
 import { textButton } from './smart-link-parts';

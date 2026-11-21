@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircleIcon, UploadIcon, XIcon, type LucideIcon } from 'lucide-react'
+import { AlertCircleIcon, UploadIcon, XIcon, type Icon as IconType } from '@/components/icons';
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -9,7 +9,7 @@ import { useFileUpload } from '@/components/ui/file-dropzone-utils/use-file-uplo
 /** The "File Dropzone" from 21st.dev, for one file (or several, with `onSelectMany`): drop it or pick it, and a chosen file (when the page keeps one) shows in the same place. */
 export function FileDropzone({ accept, icon: Icon, title, hint, buttonLabel, inputLabel, note, removeLabel, fileName, onSelect, onSelectMany, onRemove }: {
   accept: string
-  icon: LucideIcon
+  icon: IconType
   title: string
   /** What may be dropped, in words. */
   hint: string

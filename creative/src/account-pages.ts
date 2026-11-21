@@ -1,4 +1,4 @@
-import { GiftIcon, HistoryIcon, Link2Icon, ReceiptTextIcon, SettingsIcon, SparklesIcon, WalletIcon, type LucideIcon } from 'lucide-react';
+import { GiftIcon, HistoryIcon, Link2Icon, ReceiptTextIcon, SettingsIcon, SparklesIcon, WalletIcon, type Icon } from '@/components/icons';
 
 /**
  * Everything the person can be looking at: making creatives, making a smart link (open signed out too) or their smart links, or one
@@ -25,7 +25,7 @@ export const uploadsAt = (path: string) => clean(path) === UPLOADS_PATH;
 /** A line of the account menu: a page to go to, or a popup (the credit, shown on its line, and Invite friends). */
 export type MenuLine = AccountPage | 'credit' | 'invite';
 
-type Entry = { line: MenuLine; label: string; icon: LucideIcon };
+type Entry = { line: MenuLine; label: string; icon: Icon };
 
 /** The account menu: the way back to the main page, what they have, their credit, inviting friends and what they paid, then their settings. Sign out is separate. */
 export const ACCOUNT_MENU: readonly (readonly Entry[])[] = [

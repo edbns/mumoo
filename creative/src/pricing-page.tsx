@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from '@/components/icons';
 import { useCallback, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { SignInDialog } from './sign-in-dialog';
 import { useFreeVideo } from './use-free-video';
 import { friendlyError } from './friendly-error';
 import '@fontsource-variable/inter';
+import '@fontsource/playfair-display/latin-700-italic.css';
 import './styles/index.css';
 
 /** Back to the MUMOO page the person came from; opened from elsewhere (a link, a new tab), to MUMOO itself. */
@@ -87,7 +88,8 @@ function PricingPage() {
     </header>
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-16 px-6 pt-10 pb-12">
       <div className="flex flex-col items-center gap-4 text-center">
-        <h1 className="m-0 text-4xl font-semibold tracking-tight text-balance md:text-5xl">One credit. One video.</h1>
+        <p className="m-0 font-['Playfair_Display'] text-xl font-bold italic tracking-wide text-primary md:text-2xl">Launch pricing</p>
+        <h1 className="m-0 -mt-2 text-4xl font-semibold tracking-tight text-balance md:text-5xl">One credit. One video.</h1>
         <p className="m-0 max-w-xl text-base text-balance text-muted-foreground">
           Pay once, no subscription, credits never expire. First video free, no watermark.
         </p>

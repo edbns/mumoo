@@ -1,4 +1,4 @@
-import { CheckIcon, ClockIcon, LoaderCircleIcon } from 'lucide-react';
+import { CheckIcon, ClockIcon, LoaderCircleIcon } from '@/components/icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';

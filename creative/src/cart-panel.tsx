@@ -1,4 +1,4 @@
-import { XIcon } from 'lucide-react';
+import { XIcon } from '@/components/icons';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';

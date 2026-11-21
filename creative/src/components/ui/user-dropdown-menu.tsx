@@ -1,7 +1,7 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
-import { LogOutIcon } from "lucide-react";
+import type { Icon as IconType } from '@/components/icons';
+import { LogOutIcon } from '@/components/icons';
 import { ProfileDot } from "@/components/ui/profile-dot";
 import {
   DropdownMenu,
@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 export type UserMenuEntry = {
   label: string;
-  icon: LucideIcon;
+  icon: IconType;
   /** The page the person is on now. */
   current?: boolean;
   /** Shown at the right of the line. */

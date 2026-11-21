@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CrashGuard, reportUncaughtErrors } from './crash-guard';
-import { Music2Icon } from 'lucide-react';
+import { Music2Icon } from '@/components/icons';
 import { decodeAudio, hashAudio, probeDurationMs } from './audio';
 import { ACCEPTED_AUDIO, ACCEPTED_LABEL, readSongCover, readSongTags, sniffAudioFormat, type SongTags } from './audio-format';
 import { describeCover, type CoverRead } from './cover-palette';
@@ -32,7 +32,7 @@ import { Modal } from '@/components/ui/modal';
 import { FileDropzone } from '@/components/ui/file-dropzone';
 import { AnalyzingScreen, type PaintProgress } from './analyzing-screen';
 import { StepNav, type StepNumber } from './step-nav';
-import { ArrowLeftIcon, CheckIcon, Link2Icon, RotateCcwIcon, XIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, Link2Icon, RotateCcwIcon, XIcon } from '@/components/icons';
 import { AccountPlaceholder, askSignIn } from './account-hint';
 import { PAGE_PATHS, PAGE_TITLES, UPLOADS_PATH, pageAt, uploadsAt, type AccountPage } from './account-pages';
 import { LinksNav, ProfileNav, type ProfileTab } from './profile-nav';

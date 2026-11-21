@@ -1,4 +1,4 @@
-import { CheckIcon, DownloadIcon, PlayIcon, Trash2Icon } from 'lucide-react';
+import { CheckIcon, DownloadIcon, PlayIcon, Trash2Icon } from '@/components/icons';
 import { MotionConfig, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ui/action-dialog';

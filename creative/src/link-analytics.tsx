@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ArrowLeftIcon, PencilIcon } from 'lucide-react';
+import { ArrowLeftIcon, PencilIcon } from '@/components/icons';
 import { CopyButton, Cover, OpenButton, iconButton, textButton } from './smart-link-parts';
 import { LABELS, addressOf, linkStats, type LinkStats, type Published, type Service, type Tally } from './smart-links';
 import { friendlyError } from './friendly-error';

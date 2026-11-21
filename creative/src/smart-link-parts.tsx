@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckIcon, CopyIcon, ExternalLinkIcon } from 'lucide-react';
+import { CheckIcon, CopyIcon, ExternalLinkIcon } from '@/components/icons';
 import { addressOf } from './smart-links';
 
 const COPIED_MS = 1500;

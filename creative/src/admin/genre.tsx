@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Music2Icon, Trash2Icon } from 'lucide-react';
+import { Music2Icon, Trash2Icon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { FileDropzone } from '@/components/ui/file-dropzone';

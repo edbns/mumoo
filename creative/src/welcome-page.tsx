@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { motion, useReducedMotion } from 'motion/react';
-import { Link2Icon } from 'lucide-react';
+import { Link2Icon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { PAGE_PATHS, type AccountPage } from './account-pages';
 import { CookieBanner } from './legal-corner';

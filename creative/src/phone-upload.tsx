@@ -1,4 +1,4 @@
-import { SmartphoneIcon } from 'lucide-react';
+import { SmartphoneIcon } from '@/components/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { encode } from 'uqr';
 import { Button } from './components/ui/button';

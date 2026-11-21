@@ -1,4 +1,4 @@
-import { DownloadIcon } from 'lucide-react';
+import { DownloadIcon } from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { accountFetch } from './account';
