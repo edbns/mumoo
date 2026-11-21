@@ -1,9 +1,9 @@
 import { CanvasSource, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH, type ImpactMusic } from './composition';
 import { fetchFresh } from './fetch-fresh';
-import { loadMotion, type Motion } from './pack-motion';
+import { loadMotion, motionFile, type Motion } from './pack-motion';
 import { REFERENCE_H, REFERENCE_W, references } from './pack-palette';
-import { clipMsAt, planReel, segmentAt, type ReelAsset, type Segment, type Shot } from './pack-director';
+import { clipMsAt, clipRateAt, planReel, segmentAt, type ReelAsset, type Segment, type Shot } from './pack-director';
 import type { PresetRhythm } from './edit-presets';
 
 /**
@@ -89,7 +89,11 @@ function referenceOf(shown: CanvasImageSource & { width: number; height: number 
  */
 const MAX_KEPT = 16;
 const LOOK_AHEAD_MS = 2500;
+/** How long before its cut a still video is got to the frame the cut opens on. */
+const CUE_AHEAD_MS = 600;
 const kept = new Map<string, Promise<Loaded>>();
+/** The kept pictures that are in, by key, for what must be asked without waiting. */
+const arrived = new Map<string, Loaded>();
 let prefetching = true;
 
 /** The cloud renders one short chunk per page, so it fetches only what that chunk plays. */
@@ -97,29 +101,63 @@ export function setReelPrefetch(on: boolean) {
   prefetching = on;
 }
 
-async function bitmapOf(url: string, what: string): Promise<ImageBitmap> {
-  const response = await fetchFresh(url);
-  if (!response?.ok) throw new Error(`${what} could not be loaded${response ? ` (${response.status})` : ''}. Reload the page.`);
-  const image = await createImageBitmap(await response.blob()).catch(() => null);
-  if (!image) throw new Error(`${what} could not be read.`);
-  return image;
+/**
+ * The fetched files of every picture the shelf shows, by `reelKey`, with how each is brightened. They are small next to
+ * a read picture (a playing video, a full-size bitmap), so a picture given back to keep memory down is read again from
+ * its file, not fetched again: a card started after the whole shelf was painted plays without going to the network.
+ */
+const MAX_FILES = 64;
+const files = new Map<string, Promise<Blob>>();
+const exposures = new Map<string, Required<Exposure>>();
+
+function fileOf(source: ReelSource): Promise<Blob> {
+  const key = reelKey(source);
+  const have = files.get(key);
+  if (have) return have;
+  const loading = source.kind === 'clip' ? motionFile(source.url) : fetchFresh(source.url).then(async (response) => {
+    if (!response?.ok) throw new Error(`A picture of the reel could not be loaded${response ? ` (${response.status})` : ''}. Reload the page.`);
+    return response.blob();
+  });
+  loading.catch(() => { if (files.get(key) === loading) files.delete(key); });
+  files.set(key, loading);
+  while (files.size > MAX_FILES) {
+    const [oldest] = files.keys();
+    files.delete(oldest);
+    exposures.delete(oldest);
+  }
+  return loading;
 }
 
 async function read(source: ReelSource): Promise<Loaded> {
+  const key = reelKey(source);
+  const file = await fileOf(source);
   if (source.kind === 'clip') {
-    const motion = await loadMotion(source.url);
-    await motion.seek(Math.min(PROBE_CLIP_MS, motion.durationMs * 0.3));
-    const probed = motion.texture.source.resource as HTMLCanvasElement;
-    const gain = exposureOf(probed);
-    return { kind: 'clip', motion, gain, reference: referenceOf(probed, gain) };
+    const motion = await loadMotion(file);
+    let exposure = exposures.get(key);
+    if (!exposure) {
+      await motion.seek(Math.min(PROBE_CLIP_MS, motion.durationMs * 0.3));
+      const probed = motion.texture.source.resource as HTMLCanvasElement;
+      const gain = exposureOf(probed);
+      exposure = { gain, reference: referenceOf(probed, gain) };
+      exposures.set(key, exposure);
+    }
+    return { kind: 'clip', motion, ...exposure };
   }
-  const image = await bitmapOf(source.url, 'A picture of the reel');
-  const gain = exposureOf(image);
-  const reference = referenceOf(image, gain);
-  return { kind: 'photo', image, gain, reference };
+  const image = await createImageBitmap(file).catch(() => null);
+  if (!image) throw new Error('A picture of the reel could not be read.');
+  let exposure = exposures.get(key);
+  if (!exposure) {
+    const gain = exposureOf(image);
+    exposure = { gain, reference: referenceOf(image, gain) };
+    exposures.set(key, exposure);
+  }
+  return { kind: 'photo', image, ...exposure };
 }
 
+const loadedNow = (source: ReelSource) => arrived.get(reelKey(source));
+
 function release(loaded: Loaded) {
+  for (const [key, value] of arrived) if (value === loaded) arrived.delete(key);
   if (loaded.kind === 'photo') loaded.image.close();
   else loaded.motion.destroy();
 }
@@ -133,7 +171,7 @@ function keep(source: ReelSource): Promise<Loaded> {
     return have;
   }
   const loading = read(source);
-  loading.catch(() => { if (kept.get(key) === loading) kept.delete(key); });
+  loading.then(loaded => { if (kept.get(key) === loading) arrived.set(key, loaded); }, () => { if (kept.get(key) === loading) kept.delete(key); });
   kept.set(key, loading);
   while (kept.size > MAX_KEPT) {
     const [oldest] = kept.keys();
@@ -148,6 +186,8 @@ function keep(source: ReelSource): Promise<Loaded> {
 export function clearReelPictures() {
   for (const loading of kept.values()) void loading.then(release, () => undefined);
   kept.clear();
+  files.clear();
+  exposures.clear();
 }
 
 /** Fetches and reads every picture of these reels at once, so a card plays from the first frame without waiting on one. Settles when all are in (or failed: the card says so when it draws). */
@@ -206,7 +246,7 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
       const [from, to] = segment.zoom;
       cover(loaded.image, from + (to - from) * along, loaded.gain ?? 1, alpha);
     } else {
-      await loaded.motion.seek(clipMsAt(segment, ms));
+      await loaded.motion.seek(clipMsAt(segment, ms), clipRateAt(segment, ms));
       cover(loaded.motion.texture.source.resource as HTMLCanvasElement, 1, loaded.gain ?? 1, alpha);
     }
     return loaded;
@@ -236,10 +276,17 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
       pictureSource.update();
       // Playing the reel (a poster is one look, playing is many): the pictures the next couple of seconds need are fetched ahead, so a first sight of a clip does not stall it.
       seeks += 1;
+      // The next cut's clip, when it is another video sitting still, is got to its first frame now, so the cut does not wait on a seek.
+      const next = segments[at + 1];
+      if (next && next.asset !== segment.asset && next.atMs - ms < CUE_AHEAD_MS) {
+        const ahead = loadedNow(sources[next.asset]);
+        if (ahead?.kind === 'clip') ahead.motion.cue(clipMsAt(next, next.atMs));
+      }
       if (seeks >= 2 && prefetching) {
         for (const ahead of segments) if (ahead.atMs > ms && ahead.atMs < ms + LOOK_AHEAD_MS) void keep(sources[ahead.asset]).catch(() => undefined);
       }
     },
+    cue() {},
     destroy() {
       // The pictures stay kept for the next card; only this reel's own canvases go.
       texture.destroy(true);

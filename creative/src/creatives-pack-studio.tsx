@@ -457,12 +457,14 @@ export function CreativesPackStudio({
         })
         .finally(() => { painting = false; });
     };
-    paint(playheadFrame(getPositionRef.current()));
     const loop = () => {
       paint(playheadFrame(getPositionRef.current()));
       if (alive) raf = requestAnimationFrame(loop);
     };
-    raf = requestAnimationFrame(loop);
+    // The card's pictures are all read before it plays: one given back to keep memory down would otherwise stop the card at its first cut.
+    void preloadReel(picture?.reel ?? []).then(() => {
+      if (alive) loop();
+    });
     return () => {
       alive = false;
       cancelAnimationFrame(raf);

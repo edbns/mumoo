@@ -1,6 +1,6 @@
 /**
  * Treatment Lab — development only (not part of the build). Shows every video treatment side by side on one Directed
- * still, so finishes can be tuned without walking the shelf. `?only=sideways,typewriter` shows only those, `?nolyrics` without words, `?thumb=540` bigger stills.
+ * still, so finishes can be tuned without walking the shelf. `?only=sideways,typewriter` shows only those, `?nolyrics` without words, `?thumb=540` bigger stills, `?at=6500` a later moment of the song.
  */
 import { Application, ImageSource, Sprite, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
@@ -162,7 +162,7 @@ async function contactSheet(): Promise<string> {
   for (const def of TREATMENTS.filter(entry => !ONLY || ONLY.includes(entry.id))) {
     for (const variant of def.variants) {
       // Typewriter and Screenshot are shown late in the song: the page well typed, the chat well filled, the last message arriving.
-      cells.push({ title: `${def.title} · ${variant.title}`, url: await still(def.id, variant.id, def.id === 'typewriter' || def.id === 'screenshot' ? 9500 : 2400) });
+      cells.push({ title: `${def.title} · ${variant.title}`, url: await still(def.id, variant.id, def.id === 'typewriter' || def.id === 'screenshot' ? 9500 : Number(params.get('at')) || 2400) });
     }
   }
   return sheet(cells);

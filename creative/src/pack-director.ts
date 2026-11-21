@@ -338,6 +338,19 @@ export function rampedMs(t: number, lengthMs: number): number {
   return head * RAMP_FAST + middle + (t - head - middle) * RAMP_SLOW;
 }
 
+/** How fast a velocity-edited cut `lengthMs` long plays its clip `t` ms in (1 is real time): the speed `rampedMs` moves at. */
+export function rampRate(t: number, lengthMs: number): number {
+  const scale = Math.min(1, lengthMs * 0.6 / (RAMP_IN_MS + RAMP_OUT_MS));
+  const head = RAMP_IN_MS * scale;
+  const middle = Math.max(0, lengthMs - head - RAMP_OUT_MS * scale);
+  return t < head ? RAMP_FAST : t < head + middle ? 1 : RAMP_SLOW;
+}
+
+/** How fast a segment plays its clip at `ms` of the song, so a playing video can be run at that speed instead of being sought. */
+export function clipRateAt(segment: Segment, ms: number): number {
+  return segment.ramp ? rampRate(ms - segment.atMs, Math.max(1, segment.endMs - segment.atMs)) : 1;
+}
+
 /** Where in its clip a segment plays at `ms` of the song. A piece shorter than its cut loops. */
 export function clipMsAt(segment: Segment, ms: number): number {
   const length = Math.max(1, segment.pieceEndMs - segment.startMs);

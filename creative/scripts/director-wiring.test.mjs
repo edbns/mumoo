@@ -33,7 +33,7 @@ function profile(sha = 'b'.repeat(64)) {
 }
 
 const LIBRARY = [photo(1), photo(2), photo(3), clip(4), photo(5), clip(6, 'gif'), photo(7), photo(8)];
-const REEL_ROWS = ['photography', 'triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'sideways', 'typewriter', 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window', 'silhouette'];
+const REEL_ROWS = ['photography', 'triptych', 'fisheye', 'collage', 'frame', 'bento', 'grain', 'double', 'sideways', 'typewriter', 'broken', 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window', 'silhouette'];
 
 test('Directed, the looks, treatments, Riso and Window are edited reels of two or more library pictures', () => {
   for (const row of REEL_ROWS) {
@@ -83,7 +83,7 @@ test('a reel is never made of stills alone when the library has a clip', () => {
 });
 
 test('every template on the shelf is edited from pictures no other shows, with clips, and each Refresh brings new ones', () => {
-  const big = [...Array.from({ length: 180 }, (_, i) => photo(100 + i)), ...Array.from({ length: 120 }, (_, i) => clip(400 + i))];
+  const big = [...Array.from({ length: 200 }, (_, i) => photo(100 + i)), ...Array.from({ length: 140 }, (_, i) => clip(400 + i))];
   const clips = new Set(big.filter(item => item.kind !== 'photo').map(item => item.id));
   const shelf = pack.SHELF_ROWS.map(def => def.id).filter(row => !['pulise', 'dust'].includes(row));
   let before = new Set();

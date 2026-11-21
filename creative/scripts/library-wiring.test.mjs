@@ -123,7 +123,7 @@ test('Dust draws nothing from the library; Riso prints a reel of its own and fal
     const plates = [{ id: 'burnnet-woman-1547507-1920', cutout: true }];
     const cut = id => item(id, { cutoutUrl: `https://x/${id}.cut.png` });
     const clip = id => ({ ...item(id), kind: 'video', motionUrl: `https://x/${id}.mp4`, shots: [[0, 1000]] });
-    const library = [cut('p1'), cut('p2'), item('uncut'), clip('clip')];
+    const library = [cut('p1'), cut('p2'), cut('p3'), item('uncut'), clip('clip')];
 
     const dust = pack.recommendRow('dust', person, 0, plates, library);
     assert.equal(dust.length, 4);

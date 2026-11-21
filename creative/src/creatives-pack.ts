@@ -645,6 +645,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     double: () => treatmentRow('double'),
     sideways: () => treatmentRow('sideways'),
     typewriter: () => treatmentRow('typewriter'),
+    broken: () => treatmentRow('broken'),
     screenshot: () => treatmentRow('screenshot'),
     thermal: () => effectRow('thermal'),
     halftone: () => effectRow('halftone'),

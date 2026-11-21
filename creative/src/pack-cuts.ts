@@ -4,7 +4,7 @@
  * ways. This is the Director (`pack-director.ts`) given one clip. The plan is a pure function of the shots, the
  * music and a seed, so the shelf preview and the cloud render make exactly the same edit.
  */
-import { clipMsAt, planReel, type DirectorMusic, type Shot } from './pack-director';
+import { clipMsAt, clipRateAt, planReel, type DirectorMusic, type Segment, type Shot } from './pack-director';
 import type { PresetRhythm } from './edit-presets';
 
 export type { Shot } from './pack-director';
@@ -27,8 +27,17 @@ export function planCuts(shots: readonly Shot[], beatsMs: readonly number[], see
 }
 
 /** Where in the video the picture comes from at `ms` of the song. A piece shorter than its slot loops. */
-export function sourceMsAt(cuts: readonly Cut[], ms: number): number {
+function segmentOf(cuts: readonly Cut[], ms: number): Segment {
   let cut = cuts[0];
   for (const candidate of cuts) if (candidate.atMs <= ms) cut = candidate;
-  return clipMsAt({ atMs: cut.atMs, endMs: cut.ramp?.untilMs ?? 0, asset: 0, startMs: cut.startMs, pieceEndMs: cut.endMs, fromMs: cut.fromMs, zoom: [1, 1], ramp: Boolean(cut.ramp) }, ms);
+  return { atMs: cut.atMs, endMs: cut.ramp?.untilMs ?? 0, asset: 0, startMs: cut.startMs, pieceEndMs: cut.endMs, fromMs: cut.fromMs, zoom: [1, 1], ramp: Boolean(cut.ramp) };
+}
+
+export function sourceMsAt(cuts: readonly Cut[], ms: number): number {
+  return clipMsAt(segmentOf(cuts, ms), ms);
+}
+
+/** How fast the video plays at `ms` of the song (1 is real time; a velocity-edited cut speeds up and slows down). */
+export function sourceRateAt(cuts: readonly Cut[], ms: number): number {
+  return clipRateAt(segmentOf(cuts, ms), ms);
 }

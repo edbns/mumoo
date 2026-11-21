@@ -13,6 +13,7 @@ const server = await createServer({ server: { middlewareMode: true, hmr: false }
 const pack = await server.ssrLoadModule('/src/creatives-pack.ts');
 const deal = await server.ssrLoadModule('/src/treatment-deal.ts');
 const director = await server.ssrLoadModule('/src/pack-director.ts');
+const broken = await server.ssrLoadModule('/src/pack-broken.ts');
 await server.close();
 
 const uuid = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -44,9 +45,9 @@ const music = {
   pace: 'balanced',
 };
 
-test('the ten treatments are on the shelf as their own templates, and Kaleidoscope is gone', () => {
+test('the eleven treatments are on the shelf as their own templates, and Kaleidoscope is gone', () => {
   const ids = pack.SHELF_ROWS.map(row => row.id);
-  assert.equal(deal.TREATMENT_IDS.length, 10);
+  assert.equal(deal.TREATMENT_IDS.length, 11);
   assert.ok(!ids.includes('kaleidoscope'));
   for (const id of deal.TREATMENT_IDS) {
     assert.ok(ids.includes(id), id);
@@ -231,4 +232,14 @@ test('Learning records the treatment row and its variant', () => {
   const pack = readFileSync(new URL('../src/creatives-pack.ts', import.meta.url), 'utf8');
   assert.ok(/const kind = cardKind\(slot\)/.test(feedback) && /look: kind/.test(feedback), 'feedback keeps the kind of card as its look');
   assert.ok(/if \(slot\.treatmentVariant\) return slot\.treatmentVariant;/.test(pack), 'a treatment card is told by its variant first');
+});
+
+test('Broken Screen cracks one part more on every downbeat after the opening, then stays as it is', () => {
+  const downbeats = [0, 2000, 4000, 6000, 8000, 10000, 12000, 14000];
+  assert.deepEqual(broken.brokenBlows(500, downbeats, [], 6), { stage: 0, ageMs: 1e6 }, 'whole at the start');
+  assert.deepEqual(broken.brokenBlows(2100, downbeats, [], 6), { stage: 1, ageMs: 100 });
+  assert.deepEqual(broken.brokenBlows(6000, downbeats, [], 6), { stage: 3, ageMs: 0 });
+  assert.deepEqual(broken.brokenBlows(14900, downbeats, [], 5), { stage: 5, ageMs: 4900 }, 'no more than the variant takes');
+  assert.equal(broken.brokenBlows(4100, [], [], 6).stage, 2, 'with no beats it still cracks every two seconds');
+  for (const variant of deal.TREATMENTS.find(def => def.id === 'broken').variants) assert.ok(broken.BROKEN_LOOK[variant.id], variant.id);
 });

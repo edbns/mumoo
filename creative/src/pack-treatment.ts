@@ -2,7 +2,7 @@
  * Video treatments — one creative finish over the Director's finished reel.
  * The reel texture is already cut, pushed-in and levelled (pack-reel.ts). This world draws that picture into
  * an off-screen texture, then finishes it: sliced into panels (Triptych, Bento, Collage, Colored Frame) or passed
- * through a shader (Fisheye, Film Grain), or exposed twice (Double Exposure). The lyrics are drawn on top so they
+ * through a shader (Fisheye, Film Grain, Broken Screen), or exposed twice (Double Exposure). The lyrics are drawn on top so they
  * stay readable, except under Fisheye, where they sit in the black below the lens and pass behind it, and Colored
  * Frame, where they sit on the solid colour above and below the video. Preview and cloud render share this code.
  */
@@ -15,6 +15,7 @@ import type { TreatmentId } from './treatment-deal';
 import { FRAME_UV, makeFilter } from './treatment-filter';
 import { createTypewriterPage } from './pack-typewriter';
 import { createScreenshotChat } from './pack-screenshot';
+import { BROKEN, BROKEN_LOOK, brokenBlows } from './pack-broken';
 
 export type TreatmentWorld = {
   root: Container;
@@ -72,6 +73,13 @@ uniform float uEnergy;
 uniform float uAspect;
 ${FRAME_UV}
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+float clump(vec2 p, float frame) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  vec2 o = frame * vec2(17.0, 31.0);
+  return mix(mix(hash(i + o), hash(i + vec2(1.0, 0.0) + o), f.x), mix(hash(i + vec2(0.0, 1.0) + o), hash(i + vec2(1.0, 1.0) + o), f.x), f.y);
+}
 void main(void) {
   vec2 m = frameMax();
   vec2 n = vTextureCoord / m;
@@ -89,22 +97,42 @@ void main(void) {
     colour.rgb += glow / 8.0 * vec3(1.6, 0.45, 0.25) * uHalation * 3.0;
   }
   float luma = dot(colour.rgb, vec3(0.299, 0.587, 0.114));
-  vec2 cell = floor(gl_FragCoord.xy / uSize);
-  float g = hash(cell + frame * vec2(17.0, 31.0)) - 0.5;
+  // Grain in soft clumps of two sizes, so it survives the card being shown small and the video being compressed.
+  vec2 px = n * vec2(1080.0, 1920.0);
+  float g = (clump(px / uSize, frame) * 0.65 + clump(px / (uSize * 2.6), frame + 0.5) * 0.35) - 0.5;
   float mid = 1.0 - abs(luma - 0.5) * 1.2;
-  colour.rgb += g * uAmount * (0.6 + 0.6 * mid) * (0.85 + 0.3 * uEnergy);
+  colour.rgb += g * uAmount * (0.85 + 0.4 * mid) * (0.85 + 0.3 * uEnergy);
   vec3 sepia = vec3(luma) * vec3(1.07, 0.95, 0.78);
   colour.rgb = mix(colour.rgb, sepia, uSepia);
   colour.rgb = uFade + colour.rgb * (1.0 - uFade * 1.4);
   colour.rgb *= vec3(1.05, 1.0, 0.9);
   colour.rgb *= 1.0 + (hash(vec2(frame, 7.0)) - 0.5) * uFlicker;
   if (uScratch > 0.0) {
-    float x = hash(vec2(frame, 11.0));
-    float on = step(0.45, hash(vec2(frame, 13.0)));
-    float line = on * (1.0 - smoothstep(0.0, 0.0012, abs(n.x - x)));
-    colour.rgb = mix(colour.rgb, vec3(0.92), line * uScratch);
-    float dust = step(0.9985, hash(floor(gl_FragCoord.xy / 3.0) + frame));
-    colour.rgb = mix(colour.rgb, vec3(0.05), dust * uScratch);
+    // Scratches on the print: each stays a second or more, drifts a little, and is broken along its length.
+    for (int i = 0; i < 3; i++) {
+      float lane = float(i);
+      float span = 30.0 + lane * 14.0;
+      float life = floor((frame + lane * 9.0) / span);
+      if (hash(vec2(life, 41.0 + lane)) > 0.78) continue;
+      float x = 0.08 + 0.84 * hash(vec2(life, 23.0 + lane)) + sin(uTime * (0.7 + lane * 0.4) + lane * 2.1) * 0.004;
+      float width = (2.2 + 1.8 * hash(vec2(life, 29.0 + lane))) / 1080.0;
+      float core = 1.0 - smoothstep(width * 0.35, width, abs(n.x - x + (hash(vec2(floor(n.y * 90.0), frame)) - 0.5) * 0.0006));
+      float broken = smoothstep(0.25, 0.45, hash(vec2(floor(n.y * 14.0 + hash(vec2(life, lane)) * 30.0), life + lane)));
+      float shimmer = 0.85 + 0.15 * hash(vec2(frame, 51.0 + lane));
+      vec3 ink = lane == 2.0 ? vec3(0.06, 0.05, 0.04) : vec3(0.96, 0.95, 0.9);
+      colour.rgb = mix(colour.rgb, ink, core * broken * shimmer * uScratch);
+    }
+    // Dust and hairs: a few dark and bright specks a few pixels across, a new handful every frame.
+    vec2 speckCell = floor(px / 36.0);
+    float pick = hash(speckCell + frame * vec2(3.1, 5.7));
+    if (pick > 0.9965) {
+      vec2 centre = (speckCell + vec2(hash(speckCell + frame), hash(speckCell - frame))) * 36.0;
+      vec2 d = px - centre;
+      float r = 2.0 + 3.0 * hash(speckCell * 1.7 + frame);
+      float hair = step(0.5, hash(speckCell * 2.3 + frame));
+      float shape = hair > 0.5 ? (1.0 - smoothstep(0.8, 1.6, abs(d.x * 0.6 + d.y * 0.8 - sin(d.y * 0.25) * 3.0))) * step(length(d), r * 4.0) : 1.0 - smoothstep(r * 0.6, r, length(d));
+      colour.rgb = mix(colour.rgb, pick > 0.9988 ? vec3(0.95) : vec3(0.04), shape * uScratch);
+    }
   }
   vec2 v = (n - 0.5) * vec2(1.0, 0.75);
   colour.rgb *= 1.0 - smoothstep(0.25, 0.75, length(v)) * 0.55;
@@ -254,10 +282,10 @@ const LENS: Record<string, { bend: number; reach: number }> = {
 const LYRICS_SCALE = 0.7;
 const LYRICS_AT = 0.82;
 const GRAIN_LOOK: Record<string, { amount: number; size: number; flicker: number; scratch: number; halation: number; sepia: number; fade: number }> = {
-  fine: { amount: 0.05, size: 1.5, flicker: 0.02, scratch: 0, halation: 0, sepia: 0.25, fade: 0.1 },
-  classic: { amount: 0.07, size: 2, flicker: 0.04, scratch: 0, halation: 0.2, sepia: 0.35, fade: 0.08 },
-  heavy: { amount: 0.09, size: 2, flicker: 0.06, scratch: 0.4, halation: 0, sepia: 0.5, fade: 0.1 },
-  halation: { amount: 0.06, size: 2, flicker: 0.03, scratch: 0, halation: 0.6, sepia: 0.3, fade: 0.08 },
+  fine: { amount: 0.14, size: 2.5, flicker: 0.03, scratch: 0.45, halation: 0, sepia: 0.25, fade: 0.1 },
+  classic: { amount: 0.18, size: 3, flicker: 0.05, scratch: 0.7, halation: 0.2, sepia: 0.35, fade: 0.08 },
+  heavy: { amount: 0.24, size: 3.5, flicker: 0.07, scratch: 1, halation: 0, sepia: 0.5, fade: 0.1 },
+  halation: { amount: 0.15, size: 3, flicker: 0.04, scratch: 0.5, halation: 0.6, sepia: 0.3, fade: 0.08 },
 };
 
 /** Double Exposure: the same moment exposed twice, the second turned, moved or brought closer; still, so nothing flickers. */
@@ -299,6 +327,7 @@ export function createTreatmentWorld(): TreatmentWorld {
 
   const fisheye = makeFilter(FISHEYE, 'treatment-fisheye', { uBend: 1, uRadius: LENS_RADIUS, uReach: 0.7, uAspect: HEIGHT / WIDTH, uCentreY: LENS_CY });
   const grain = makeFilter(GRAIN, 'treatment-grain', { uTime: 0, uAmount: 0.2, uSize: 2, uFlicker: 0, uScratch: 0, uHalation: 0, uSepia: 0, uFade: 0, uEnergy: 0, uAspect: HEIGHT / WIDTH });
+  const broken = makeFilter(BROKEN, 'treatment-broken', { uStage: 0, uAge: 1e6, uSeed: 0, uMode: 0, uAspect: HEIGHT / WIDTH });
   const doubleBase = new Sprite();
   const doubleOver = new Sprite();
   doubleOver.anchor.set(0.5);
@@ -536,6 +565,15 @@ export function createTreatmentWorld(): TreatmentWorld {
           uScratch: look.scratch, uHalation: look.halation, uSepia: look.sepia, uFade: look.fade, uEnergy: energy,
         });
         treated.filters = [grain.filter];
+      } else if (kind === 'broken') {
+        const look = BROKEN_LOOK[variant] ?? BROKEN_LOOK.shatter;
+        const { stage, ageMs } = brokenBlows(input.ms, input.downbeatsMs, input.beatsMs, look.blows);
+        treated.visible = true;
+        treated.texture = sourceRt;
+        treated.width = WIDTH;
+        treated.height = HEIGHT;
+        broken.set({ uStage: stage, uAge: ageMs, uSeed: input.layout.seed % 97, uMode: look.mode });
+        treated.filters = [broken.filter];
       } else if (kind === 'typewriter') {
         treated.visible = true;
         treated.texture = sourceRt;
@@ -571,7 +609,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       }
 
       scrim.clear();
-      if (input.lyrics && palette.scrim.alpha > 0 && (kind === 'grain' || kind === 'double')) {
+      if (input.lyrics && palette.scrim.alpha > 0 && (kind === 'grain' || kind === 'double' || kind === 'broken')) {
         scrim.rect(0, 0, WIDTH, HEIGHT);
         scrim.fill({ color: palette.scrim.color, alpha: palette.scrim.alpha * 0.6 });
       }
@@ -635,6 +673,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       softly.destroy();
       fisheye.filter.destroy();
       grain.filter.destroy();
+      broken.filter.destroy();
       page.destroy();
       chat.destroy();
       type.destroy();

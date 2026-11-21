@@ -23,7 +23,7 @@ import type { DustColors } from './dust-colors';
 import { airDust, dustWordAt, type DustPoints } from './pack-dust';
 import { loadMotion, type Motion } from './pack-motion';
 import { clearReelPictures, loadReel, reelKey, type Reel, type ReelSource } from './pack-reel';
-import { planCuts, sourceMsAt, type Cut, type Shot } from './pack-cuts';
+import { planCuts, sourceMsAt, sourceRateAt, type Cut, type Shot } from './pack-cuts';
 import { plateCutoutUrl, plateUrl } from './punch-plates';
 import { risoInkSetById } from './riso-look';
 import { prepareRisoFrame, prepareRisoPhoto, type RisoPhoto } from './riso-photo';
@@ -358,7 +358,7 @@ export async function createPackRenderer(
               cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, DURATION_MS, current.music, presetCut?.rhythm);
               cutsKey = key;
             }
-            await motion.seek(cuts.length ? sourceMsAt(cuts, ms) : ms);
+            await motion.seek(cuts.length ? sourceMsAt(cuts, ms) : ms, cuts.length ? sourceRateAt(cuts, ms) : 1);
           }
         }
 

@@ -10,8 +10,13 @@ export type Motion = {
   texture: Texture;
   /** How long the video is. */
   durationMs: number;
-  /** The video's picture at `ms` of the video is now in `texture`. */
-  seek(ms: number): Promise<void>;
+  /**
+   * The video's picture at `ms` of the video is now in `texture`. `rate`: how fast the edit plays the video here (a
+   * velocity edit speeds it up and slows it down); while live the video is run at that speed, so it is not sought every frame.
+   */
+  seek(ms: number, rate?: number): Promise<void>;
+  /** While live, gets the video to `ms` ahead of time (a cut to it is coming), without drawing or waiting. */
+  cue(ms: number): void;
   destroy(): void;
 };
 
@@ -31,10 +36,16 @@ export function setMotionLive(on: boolean) {
   live = on;
 }
 
-export async function loadMotion(url: string): Promise<Motion> {
+/** A video's file, fetched. */
+export async function motionFile(url: string): Promise<Blob> {
   const response = await fetchFresh(url);
   if (!response?.ok) throw new Error(`Your video could not be loaded${response ? ` (${response.status})` : ''}. Reload the page, or go back to our photography.`);
-  const link = URL.createObjectURL(await response.blob());
+  return response.blob();
+}
+
+/** `from`: the video's link, or its file already fetched. */
+export async function loadMotion(from: string | Blob): Promise<Motion> {
+  const link = URL.createObjectURL(typeof from === 'string' ? await motionFile(from) : from);
   const video = document.createElement('video');
   video.muted = true;
   video.playsInline = true;
@@ -62,10 +73,11 @@ export async function loadMotion(url: string): Promise<Motion> {
   return {
     texture,
     durationMs: Math.round(video.duration * 1000),
-    async seek(ms) {
+    async seek(ms, rate = 1) {
       const at = Math.min(Math.max(0, ms / 1000), Math.max(0, video.duration - 0.05));
       clearTimeout(idle);
       if (live) {
+        if (video.playbackRate !== rate) video.playbackRate = rate;
         if (Math.abs(video.currentTime - at) > LIVE_DRIFT_S || video.readyState < 2) await moveTo(at);
         if (video.paused) void video.play().catch(() => undefined);
         idle = window.setTimeout(() => video.pause(), LIVE_IDLE_MS);
@@ -75,6 +87,11 @@ export async function loadMotion(url: string): Promise<Motion> {
       }
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       source.update();
+    },
+    cue(ms) {
+      if (!live || !video.paused || video.seeking) return;
+      const at = Math.min(Math.max(0, ms / 1000), Math.max(0, video.duration - 0.05));
+      if (Math.abs(video.currentTime - at) > LIVE_DRIFT_S) video.currentTime = at;
     },
     destroy() {
       clearTimeout(idle);

@@ -15,6 +15,7 @@ export const TREATMENT_IDS = [
   'double',
   'sideways',
   'typewriter',
+  'broken',
   'screenshot',
 ] as const;
 export type TreatmentId = (typeof TREATMENT_IDS)[number];
@@ -120,6 +121,16 @@ export const TREATMENTS: readonly TreatmentDef[] = [
       { id: 'purple-ink', title: 'Purple ink' },
     ],
     retired: ['letter', 'faded', 'yellowed'],
+  },
+  {
+    id: 'broken',
+    title: 'Broken Screen',
+    variants: [
+      { id: 'shatter', title: 'Shattered' },
+      { id: 'corner', title: 'Corner hit' },
+      { id: 'spider', title: 'Spider web' },
+      { id: 'pixels', title: 'Dead pixels' },
+    ],
   },
   {
     id: 'screenshot',
