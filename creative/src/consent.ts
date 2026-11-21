@@ -14,11 +14,6 @@ export function readConsent(): CookiePreferences | null {
   }
 }
 
-/** Google Analytics may load only after this is true. */
-export function analyticsAllowed(): boolean {
-  return readConsent()?.analytics === true;
-}
-
 export function openCookieSettings() {
   window.dispatchEvent(new Event(COOKIE_SETTINGS_EVENT));
 }

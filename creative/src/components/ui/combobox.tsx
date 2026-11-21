@@ -480,5 +480,3 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
 );
 
 Combobox.displayName = "Combobox";
-
-export default Combobox;

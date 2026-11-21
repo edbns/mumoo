@@ -220,5 +220,3 @@ export function ProgressiveFluxLoader({
     </div>
   );
 }
-
-export default ProgressiveFluxLoader;

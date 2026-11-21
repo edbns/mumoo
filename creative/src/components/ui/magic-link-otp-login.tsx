@@ -349,5 +349,3 @@ export function MagicLinkOtpLogin({
     </div>
   );
 }
-
-export default MagicLinkOtpLogin;

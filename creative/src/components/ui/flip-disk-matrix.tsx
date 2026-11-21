@@ -2,9 +2,6 @@
 
 import { memo, useMemo } from "react";
 
-/** The characters the 5x7 font can draw. */
-export const FLIP_DISK_CHARS = /^[0-9A-Z: ]*$/;
-
 const GLYPHS: Record<string, number[]> = {
   "0": [0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110],
   "1": [0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110],

@@ -50,7 +50,6 @@ export const MOOD_ACCENTS: Record<MoodLane, readonly string[]> = {
  */
 export const TYPE_EMPHASES = ['tone', 'serif'] as const;
 export type TypeEmphasis = typeof TYPE_EMPHASES[number];
-export const isTypeEmphasis = (value: unknown): value is TypeEmphasis => TYPE_EMPHASES.includes(value as TypeEmphasis);
 
 /** What a lane's cards may do with the key word: `none` lights the sung word as before. */
 export const EMPHASIS_ALLOW: Record<MoodLane, readonly (TypeEmphasis | 'none')[]> = {
@@ -62,4 +61,3 @@ export const EMPHASIS_ALLOW: Record<MoodLane, readonly (TypeEmphasis | 'none')[]
   general: ['tone', 'serif', 'none'],
 };
 
-export const isTypeFinish = (value: unknown): value is TypeFinish => TYPE_FINISHES.includes(value as TypeFinish);

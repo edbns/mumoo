@@ -14,8 +14,6 @@ async function key() {
   return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
 }
 
-export const canSeal = () => Boolean(process.env.PIXEL_TOKEN_KEY) && fromBase64(process.env.PIXEL_TOKEN_KEY).length === 32;
-
 /** "v1.<iv>.<ciphertext>", or null without a key. */
 export async function seal(text) {
   const secret = await key();

@@ -32,5 +32,3 @@ export function ImageGeneration({
     </div>
   );
 }
-
-export default ImageGeneration;
