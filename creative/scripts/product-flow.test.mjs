@@ -117,3 +117,31 @@ test('sad words grey and cool the live looks, and leave the photo cards (whose p
   assert.ok(mean(sad, 'warm') < mean(plain, 'warm') - 8, `sad words cool the live looks: ${mean(plain, 'warm')} → ${mean(sad, 'warm')}`);
   for (const name of ['Directed', 'Triptych', 'Collage', 'Film Grain']) assert.deepEqual(sad[name], plain[name], `${name} keeps its preset's colours`);
 });
+
+test('every card on the shelf plays from the start of the 15 seconds, wherever the last one was stopped', { timeout: 180000, skip: SKIP }, async () => {
+  const product = await openProduct({ lyrics: () => lyricsResult('we keep on running back to you every night', { language: 'en' }) });
+  const { page } = product;
+  try {
+    // Where in the song each sound starts: [offset s, length s].
+    await page.evaluate(() => {
+      const start = AudioBufferSourceNode.prototype.start;
+      window.__starts = [];
+      AudioBufferSourceNode.prototype.start = function (when, offset, duration) {
+        if (duration) window.__starts.push([offset ?? 0, duration]);
+        return start.call(this, when, offset, duration);
+      };
+    });
+    await uploadSong(page);
+    await reachShelf(page);
+    const play = page.getByRole('button', { name: /^Play .+ creative$/ });
+    const second = await play.nth(1).getAttribute('aria-label');
+    await play.nth(0).click();
+    await page.waitForTimeout(3000);
+    await page.getByRole('button', { name: second }).click();
+    await page.waitForTimeout(500);
+    const starts = await page.evaluate(() => window.__starts);
+    assert.equal(starts.length, 2, `two cards played: ${JSON.stringify(starts)}`);
+    for (const [offset, duration] of starts) assert.deepEqual([offset, duration], [0, 15], `a card starts at 0 and plays all 15 s: ${JSON.stringify(starts)}`);
+    assert.deepEqual(product.errors, []);
+  } finally { await product.close(); }
+});
