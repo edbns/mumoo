@@ -135,7 +135,7 @@ export async function uploadSong(page, { genre = 'Pop', seconds = 20, name = 'so
   await style.fill(genre);
   await page.getByRole('option', { name: genre, exact: true }).click();
   await page.locator('main.desktop').getByRole('button', { name: /^(Continue|Get my free video)$/ }).click();
-  await page.getByRole('heading', { name: 'Choose your 15 seconds' }).waitFor();
+  await page.getByRole('heading', { name: 'Pick your 15 seconds' }).waitFor();
 }
 
 /** Step 2 to the shelf: find the lyrics, Continue, and wait until every card is painted (previews are drawn asynchronously). */

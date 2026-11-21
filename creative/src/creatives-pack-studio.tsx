@@ -23,9 +23,10 @@ import {
   PREVIEW_WIDTH,
   blitPackFrame,
   destroySharedPackRenderer,
+  warmPackStills,
   type PackRendererOpts,
 } from './pack-renderer';
-import { preloadReel, type ReelSource } from './pack-reel';
+import { preloadReel, setReelPreview, type ReelSource } from './pack-reel';
 import { setMotionLive } from './pack-motion';
 import { clipToMonoWav, submitCloudJob } from './pack-cloud-export';
 import { LoadingMask } from './loading-mask';
@@ -140,6 +141,9 @@ type RowView = { slots: CreativesPackSlot[]; note: string };
 type RowControls = { generation: number };
 
 const FRESH_ROWS = Object.fromEntries(SHELF_ROWS.map(row => [row.id, { generation: 0 }])) as Record<ShelfRow, RowControls>;
+
+// The shelf draws still cards from posters and streams a clip only for the card that plays (`pack-reel.ts`).
+setReelPreview(true);
 
 /** The shelf shows one creative of each template. */
 const LEAD = 1;
@@ -260,7 +264,7 @@ export function CreativesPackStudio({
       const item = libraryItem(id);
       if (!item) return [];
       if (item.kind === 'photo') return [{ id, kind: 'photo', url: item.url }];
-      return item.motionUrl ? [{ id, kind: 'clip', url: item.motionUrl, ...(item.shots ? { shots: item.shots } : {}) }] : [];
+      return item.motionUrl ? [{ id, kind: 'clip', url: item.motionUrl, ...(item.shots ? { shots: item.shots } : {}), ...(item.url ? { poster: item.url } : {}) }] : [];
     });
     return sources.length >= 2 ? { reel: sources } : undefined;
   };
@@ -399,8 +403,12 @@ export function CreativesPackStudio({
     void (async () => {
       // Wait a frame so the cards' canvases are mounted.
       await yieldFrame();
-      // Every picture the cards play is fetched at once before any is painted: then they are shown together, and each plays from its first frame.
-      await preloadReel(stale.flatMap(({ def, slot }) => latest.current.pictureOf(def.id, slot)?.reel ?? []));
+      // The one picture each still card shows is fetched now, all side by side: the cards are then drawn one after another without waiting on the network.
+      await warmPackStills(stale.map(({ def, slot }) => {
+        const { composition: base, music: impact } = latest.current;
+        const withLyrics = latest.current.lyricsOn();
+        return { opts: packOpts(slot, base, impact, withLyrics, latest.current.pictureOf(def.id, slot)), frame: posterAt(base, impact, withLyrics) };
+      })).catch(() => undefined);
       for (const { def, slot } of stale) {
         if (cancelled) return;
         setError('');
@@ -461,10 +469,9 @@ export function CreativesPackStudio({
       paint(playheadFrame(getPositionRef.current()));
       if (alive) raf = requestAnimationFrame(loop);
     };
-    // The card's pictures are all read before it plays: one given back to keep memory down would otherwise stop the card at its first cut.
-    void preloadReel(picture?.reel ?? []).then(() => {
-      if (alive) loop();
-    });
+    // The card plays at once, over its posters; its clips are read meanwhile, in the order it opens on them.
+    void preloadReel(picture?.reel ?? []);
+    loop();
     return () => {
       alive = false;
       cancelAnimationFrame(raf);

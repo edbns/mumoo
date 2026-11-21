@@ -23,9 +23,9 @@ test('song → clip + lyrics → edit and sync again → creatives', { timeout: 
     assert.equal(await page.getByText('Source file details').count(), 0);
     assert.equal(await page.getByText('Video type').count(), 0);
     assert.match(await page.locator('.clip-range strong').innerText(), /0:00\s*–\s*0:15/);
-    await page.getByLabel('Choose your 15 seconds').press('ArrowRight');
+    await page.getByLabel('Pick your 15 seconds').press('ArrowRight');
     assert.match(await page.locator('.clip-range strong').innerText(), /0:01\s*–\s*0:16/);
-    await page.getByLabel('Choose your 15 seconds').press('ArrowLeft');
+    await page.getByLabel('Pick your 15 seconds').press('ArrowLeft');
 
     // Continue is locked until lyrics exist and are synced.
     const next = page.locator('.step-actions').getByRole('button', { name: 'Continue' });
@@ -70,7 +70,7 @@ test('a worker failure is retried once, and a second failure keeps the user\'s w
   const { page } = product;
   try {
     await uploadSong(page);
-    await page.getByRole('button', { name: "I'll type them myself" }).click();
+    await page.getByRole('button', { name: /type them myself/ }).click();
     await page.locator('textarea.lyrics-editor').fill('meu texto digitado');
     await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
     await page.getByRole('alert').filter({ hasText: 'lyrics job failed' }).waitFor({ timeout: 30000 });

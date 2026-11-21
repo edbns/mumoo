@@ -22,7 +22,7 @@ import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
 import { airDust, dustWordAt, type DustPoints } from './pack-dust';
 import { loadMotion, type Motion } from './pack-motion';
-import { clearReelPictures, loadReel, reelKey, type Reel, type ReelSource } from './pack-reel';
+import { clearReelPictures, loadReel, noteLinks, reelKey, warmStills, type Reel, type ReelSource } from './pack-reel';
 import { planCuts, sourceMsAt, sourceRateAt, type Cut, type Shot } from './pack-cuts';
 import { plateCutoutUrl, plateUrl } from './punch-plates';
 import { risoInkSetById } from './riso-look';
@@ -230,6 +230,8 @@ export async function createPackRenderer(
       if (cutoutUrl) cutoutTexture = await loadTexture(cutoutUrl, 'The photo’s cut-out');
       cutoutUrlLoaded = cutoutUrl ?? '';
     }
+    // Pictures stay kept by what they are while their links are renewed: one read later is read from the link of now.
+    if (sources?.length) noteLinks(sources);
     const motionKey = sources?.length ? `reel:${sources.map(reelKey).join(',')}` : motionUrl;
     if (motionKey !== (motionUrlLoaded || undefined)) {
       motion?.destroy();
@@ -302,7 +304,7 @@ export async function createPackRenderer(
           if (!preset || !isPresetId(preset) || !isPresetTake(preset, presetTake)) throw new Error('An edit preset needs a known preset and take.');
           if (!(style === 'treatment' || (style === 'filter' && !current.look && !current.effectId && !current.plateId))) throw new Error('An edit preset goes over Directed or a treatment, on a picture with no look of its own.');
         }
-        const presetCut = preset ? { rhythm: presetDef(preset).rhythm, dissolveMs: TRANSITION[preset](presetTake) === 'dissolve' ? DISSOLVE_MS : 0 } : undefined;
+        const presetCut = presetCutOf(current);
         const windowMode = style === 'window' ? checkWindow(current) : null;
         const windowOwn = Boolean(windowMode);
         if (style === 'riso' && !current.inkSet) throw new Error('Riso needs an ink set.');
@@ -478,6 +480,19 @@ async function sharedRenderer(opts: PackRendererOpts): Promise<PackRenderer> {
   offscreen.height = HEIGHT;
   shared = await createPackRenderer(offscreen, opts);
   return shared;
+}
+
+/** How a card's edit preset cuts the reel: its rhythm, and how long its dissolves take. */
+function presetCutOf(opts: PackRendererOpts) {
+  const preset = opts.preset ?? null;
+  return preset ? { rhythm: presetDef(preset).rhythm, dissolveMs: TRANSITION[preset](opts.presetTake ?? '') === 'dissolve' ? DISSOLVE_MS : 0 } : undefined;
+}
+
+/** Before a shelf of still cards is drawn, each at its `frame`: the pictures they show are fetched side by side (see `warmStills`). */
+export async function warmPackStills(cards: readonly { opts: PackRendererOpts; frame: number }[]): Promise<void> {
+  await warmStills(cards.flatMap(({ opts, frame }) => (opts.reel?.length
+    ? [{ sources: opts.reel, ms: packReaction(opts.music, frame).ms, music: opts.music, seed: opts.cutSeed ?? 0, durationMs: DURATION_MS, preset: presetCutOf(opts) }]
+    : [])));
 }
 
 export function destroySharedPackRenderer() {
