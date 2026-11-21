@@ -129,23 +129,33 @@ test('a reel is edited from its row\'s board only, the card names it, and with n
   } finally { await server.close(); }
 });
 
-test('the song\'s footage is walked across the shelf: its board first, no clip on two templates, none from the Refresh before', async () => {
+test('the song\'s footage is its board alone, however often it is refreshed: no clip on two templates, a new order each Refresh', async () => {
   const { server, pack } = await load();
   try {
-    const items = [...filed('b', 'block-party', 53), ...filed('m', 'main-stage', 300)];
     const shelf = pack.SHELF_ROWS.map(def => def.id).filter(row => !['pulise', 'dust'].includes(row));
-    const refresh = generation => shelf.map(row => pack.recommendRow(row, profile(), generation, [], items)[0].reelIds ?? []);
-    let before = new Set();
-    for (let generation = 0; generation < 2; generation++) {
+    // A board of 97, as Block Party is, beside a bigger board that also fits the song.
+    const items = [...filed('b', 'block-party', 97), ...filed('m', 'main-stage', 300)];
+    const refresh = (generation, pool = items) => shelf.map(row => pack.recommendRow(row, profile(), generation, [], pool)[0].reelIds ?? []);
+    const hands = [];
+    for (let generation = 0; generation < 4; generation++) {
       const reels = refresh(generation);
       const ids = reels.flat();
+      assert.ok(ids.every(id => id.startsWith('b')), `Refresh ${generation} leaves the board: ${ids.filter(id => !id.startsWith('b')).join(', ')}`);
       assert.ok(reels.every(reel => reel.length >= 4), `Refresh ${generation}: a reel of ${reels.map(reel => reel.length)}`);
       assert.equal(new Set(ids).size, ids.length, `Refresh ${generation}: a clip on two templates`);
-      assert.ok(ids.every(id => !before.has(id)), `Refresh ${generation} repeats a clip of the Refresh before`);
-      if (generation === 0) assert.equal(ids.filter(id => id.startsWith('b')).length, 53, 'the song\'s own board is shown first, all of it');
-      before = new Set(ids);
+      hands.push(reels);
     }
-    assert.deepEqual(refresh(1), refresh(1), 'seeded: the same Refresh deals the same reels');
+    assert.notDeepEqual(hands[1], hands[0], 'a Refresh walks the board in another order');
+    assert.deepEqual(refresh(1), hands[1], 'seeded: the same Refresh deals the same reels');
+
+    // A board big enough for two whole shelves: the Refresh shows none of the clips of the one before.
+    const big = [...filed('b', 'block-party', 400), ...filed('m', 'main-stage', 300)];
+    const first = new Set(refresh(0, big).flat());
+    assert.ok(refresh(1, big).flat().every(id => id.startsWith('b') && !first.has(id)), 'a big board goes on to clips not yet shown');
+
+    // A small board: the templates share its clips, and still never leave it.
+    const small = [...filed('b', 'block-party', 20), ...filed('m', 'main-stage', 300)];
+    for (let generation = 0; generation < 3; generation++) assert.ok(refresh(generation, small).flat().every(id => id.startsWith('b')), `a small board, Refresh ${generation}`);
   } finally { await server.close(); }
 });
 

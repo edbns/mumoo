@@ -340,11 +340,11 @@ function rowLibrary(row: ShelfRow, profile: CreativeProfileV1, wanted: LibraryWa
     }
     return all;
   };
-  /** The Director's footage: the row's board, the other boards that fit the song, then the rest of the library. */
-  const footage = () => [
-    ...(board ? [board, ...others] : []).map(choice => library.filter(item => item.boards?.includes(choice.id))).filter(group => group.length),
-    library,
-  ];
+  /**
+   * The Director's footage: the row's board alone, so every reel of the song stays in its one scene however often it is refreshed
+   * (the empty group after it is the "rest of the library" that footage without a board walks); the whole library while no board is filled.
+   */
+  const footage = () => (board ? [library.filter(item => item.boards?.includes(board.id)), []] : [library]);
   return { board, from, footage };
 }
 
@@ -533,7 +533,8 @@ const NOT_SEEN = {};
 
 /**
  * The reel for card `place` of Refresh `generation`, when each Refresh deals `hand` cards: the next `size` pictures of the footage,
- * so every template on the shelf is edited from pictures no other shows, and each Refresh goes on past everything the last one showed.
+ * so every template on the shelf is edited from pictures no other shows, and each Refresh goes on past everything the last one showed
+ * while the footage has more.
  */
 function footageReel(library: readonly LibraryPicture[], groups: readonly (readonly LibraryPicture[])[], wanted: LibraryWanted, song: string,
   generation: number, place: number, hand: number, seen: Deal['seen']): LibraryPicture[] {
@@ -546,8 +547,11 @@ function footageReel(library: readonly LibraryPicture[], groups: readonly (reado
   const firstLap = footageOf(library, groups, wanted, song, size, seen, 0);
   // Footage too small for a reel of its own per template: the templates share as little as it allows, each opening on another picture.
   const small = firstLap.length < hand * size;
-  const start = card * (small ? Math.max(1, Math.floor(firstLap.length / hand)) : size);
-  const lap = small ? 0 : Math.floor(start / firstLap.length);
+  // A Refresh never straddles two laps, so no clip is on two of its templates: while the footage holds another whole hand a Refresh
+  // goes on to it, and once it is used up each Refresh walks it again in its own order.
+  const rounds = Math.max(1, Math.floor(firstLap.length / (hand * size)));
+  const start = small ? card * Math.max(1, Math.floor(firstLap.length / hand)) : ((generation % rounds) * hand + place) * size;
+  const lap = small ? 0 : Math.floor(generation / rounds);
   const order = lap ? footageOf(library, groups, wanted, `${song}:lap${lap}`, size, seen, lap) : firstLap;
   const from = start % order.length;
   const reel = Array.from({ length: Math.min(size, order.length) }, (_, step) => order[(from + step) % order.length]);
