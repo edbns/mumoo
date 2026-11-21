@@ -516,7 +516,7 @@ function App() {
               uploads={uploads}
               downloadRef={downloadRef}
               onGone={setGoneFromLibrary}
-              onPlay={() => void play()}
+              onPlay={() => void play(true)}
               onStop={stop}
               onBack={() => openCreatives(false)}
               onProgress={(done, total) => {
