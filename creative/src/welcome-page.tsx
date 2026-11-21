@@ -1,15 +1,11 @@
-import { Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, useReducedMotion } from 'motion/react';
 import { Link2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { AccountPlaceholder } from './account-hint';
 import { PAGE_PATHS, type AccountPage } from './account-pages';
-import { LegalCorner } from './legal-corner';
+import { CookieBanner } from './legal-corner';
 import '@fontsource-variable/inter';
 import './styles/index.css';
-
-const AccountBar = lazy(() => import('./account').then(module => ({ default: module.AccountBar })));
 
 /** One loop of the cursor's wander around the icon, ending in a click on it. */
 const LOOP_S = 7;
@@ -29,8 +25,7 @@ function Arrow() {
 }
 
 /**
- * /welcome: the home page as an empty desktop. Its logo, its notch (empty), Smart links and the profile at the top, the legal links at
- * the foot, and one app icon left a little off centre as on a desktop nobody tidied, with a cursor that keeps wandering round it and
+ * /welcome: the home page as an empty desktop. Its logo, its notch (empty) and Smart links at the top, and one app icon left a little off centre as on a desktop nobody tidied, with a cursor that keeps wandering round it and
  * clicking it. Clicking the icon opens Create.
  */
 function WelcomePage() {
@@ -42,7 +37,6 @@ function WelcomePage() {
       <div className="step-nav max-md:hidden" aria-hidden="true"><span className="block h-[29px] w-[420px]" /></div>
       <div className="masthead-actions">
         <Button variant="secondary" onClick={() => go('links')}><Link2Icon aria-hidden="true" className="size-4" />Smart links</Button>
-        <Suspense fallback={<AccountPlaceholder />}><AccountBar page="create" onNavigate={go} /></Suspense>
       </div>
     </header>
     <main className="relative flex-1 overflow-hidden">
@@ -63,7 +57,7 @@ function WelcomePage() {
         </motion.div>
       </div>
     </main>
-    <LegalCorner />
+    <CookieBanner />
   </>;
 }
 
