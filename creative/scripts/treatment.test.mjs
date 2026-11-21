@@ -234,12 +234,18 @@ test('Learning records the treatment row and its variant', () => {
   assert.ok(/if \(slot\.treatmentVariant\) return slot\.treatmentVariant;/.test(pack), 'a treatment card is told by its variant first');
 });
 
-test('Broken Screen cracks one part more on every downbeat after the opening, then stays as it is', () => {
-  const downbeats = [0, 2000, 4000, 6000, 8000, 10000, 12000, 14000];
-  assert.deepEqual(broken.brokenBlows(500, downbeats, [], 6), { stage: 0, ageMs: 1e6 }, 'whole at the start');
-  assert.deepEqual(broken.brokenBlows(2100, downbeats, [], 6), { stage: 1, ageMs: 100 });
-  assert.deepEqual(broken.brokenBlows(6000, downbeats, [], 6), { stage: 3, ageMs: 0 });
-  assert.deepEqual(broken.brokenBlows(14900, downbeats, [], 5), { stage: 5, ageMs: 4900 }, 'no more than the variant takes');
-  assert.equal(broken.brokenBlows(4100, [], [], 6).stage, 2, 'with no beats it still cracks every two seconds');
+test('Broken Screen dies a patch at a time on the beat, whole at the start and fully gone for the last second', () => {
+  const beats = Array.from({ length: 30 }, (_, index) => index * 500);
+  const hits = broken.brokenHitsMs(beats);
+  assert.equal(hits.length, broken.BROKEN_HITS, 'one hit per patch');
+  assert.ok(hits.every(at => beats.includes(at)), `every hit is on a beat: ${hits}`);
+  assert.ok(hits.every((at, index) => index === 0 || at > hits[index - 1]), 'one hit after another');
+  assert.ok(hits[0] >= 500 && hits.at(-1) <= 14000, `from the opening to a second before the end: ${hits[0]}..${hits.at(-1)}`);
+  assert.deepEqual(broken.brokenStage(300, hits), { stage: 0, ageMs: 1e6 }, 'whole at the start');
+  assert.equal(broken.brokenStage(7500, hits).stage > 5 && broken.brokenStage(7500, hits).stage < 11, true, 'about half gone halfway');
+  assert.equal(broken.brokenStage(14000, hits).stage, broken.BROKEN_HITS, 'every patch dead for the last second');
+  const unbeaten = broken.brokenHitsMs([]);
+  assert.equal(unbeaten.length, broken.BROKEN_HITS, 'with no beats it still breaks evenly');
+  assert.equal(unbeaten.at(-1), 14000);
   for (const variant of deal.TREATMENTS.find(def => def.id === 'broken').variants) assert.ok(broken.BROKEN_LOOK[variant.id], variant.id);
 });

@@ -15,7 +15,7 @@ import type { TreatmentId } from './treatment-deal';
 import { FRAME_UV, makeFilter } from './treatment-filter';
 import { createTypewriterPage } from './pack-typewriter';
 import { createScreenshotChat } from './pack-screenshot';
-import { BROKEN, BROKEN_LOOK, brokenBlows } from './pack-broken';
+import { BROKEN, BROKEN_HITS, BROKEN_LOOK, brokenHitsMs, brokenOrder, brokenStage } from './pack-broken';
 
 export type TreatmentWorld = {
   root: Container;
@@ -327,7 +327,7 @@ export function createTreatmentWorld(): TreatmentWorld {
 
   const fisheye = makeFilter(FISHEYE, 'treatment-fisheye', { uBend: 1, uRadius: LENS_RADIUS, uReach: 0.7, uAspect: HEIGHT / WIDTH, uCentreY: LENS_CY });
   const grain = makeFilter(GRAIN, 'treatment-grain', { uTime: 0, uAmount: 0.2, uSize: 2, uFlicker: 0, uScratch: 0, uHalation: 0, uSepia: 0, uFade: 0, uEnergy: 0, uAspect: HEIGHT / WIDTH });
-  const broken = makeFilter(BROKEN, 'treatment-broken', { uStage: 0, uAge: 1e6, uSeed: 0, uMode: 0, uAspect: HEIGHT / WIDTH });
+  const broken = makeFilter(BROKEN, 'treatment-broken', { uStage: 0, uAge: 1e6, uSeed: 0, uMode: 0, uAspect: HEIGHT / WIDTH, uTime: 0, ...Object.fromEntries(Array.from({ length: BROKEN_HITS }, (_, index) => [`uO${index}`, index])) });
   const doubleBase = new Sprite();
   const doubleOver = new Sprite();
   doubleOver.anchor.set(0.5);
@@ -567,12 +567,14 @@ export function createTreatmentWorld(): TreatmentWorld {
         treated.filters = [grain.filter];
       } else if (kind === 'broken') {
         const look = BROKEN_LOOK[variant] ?? BROKEN_LOOK.shatter;
-        const { stage, ageMs } = brokenBlows(input.ms, input.downbeatsMs, input.beatsMs, look.blows);
+        const { stage, ageMs } = brokenStage(input.ms, brokenHitsMs(input.beatsMs));
         treated.visible = true;
         treated.texture = sourceRt;
         treated.width = WIDTH;
         treated.height = HEIGHT;
-        broken.set({ uStage: stage, uAge: ageMs, uSeed: input.layout.seed % 97, uMode: look.mode });
+        const seed = input.layout.seed % 97;
+        const order = brokenOrder(look.mode, seed, HEIGHT / WIDTH);
+        broken.set({ uStage: stage, uAge: ageMs, uSeed: seed, uMode: look.mode, uTime: input.ms / 1000, ...Object.fromEntries(order.map((place, index) => [`uO${index}`, place])) });
         treated.filters = [broken.filter];
       } else if (kind === 'typewriter') {
         treated.visible = true;
