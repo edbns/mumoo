@@ -72,7 +72,7 @@ TREATMENTS = {
     "grain": {"fine", "classic", "heavy", "halation"},
     "double": {"blend", "screen", "offset-cut", "offset-far"},
     "sideways": {"pillar"},
-    "typewriter": {"newsprint", "letter", "faded", "yellowed", "red-ink"},
+    "typewriter": {"newsprint", "letter", "faded", "yellowed", "red-ink", "yellow-ink", "purple-ink"},
     "screenshot": {"light-black", "light-white", "dark-white", "screen"},
 }
 # Screenshot's phone clock: the time the person made the card, "HH:MM" on 24 hours.

@@ -30,6 +30,7 @@ import {
   isTreatmentId,
   TREATMENT_IDS,
   TREATMENT_LEAD,
+  TREATMENT_ROTATES,
   treatmentTitle,
   treatmentVariants,
   type TreatmentId,
@@ -649,7 +650,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   // The template's own reel, once there are two or more pictures to edit. The shelf shows one card per template (the lead, after
   // learning has put its favourite first); the others are edited from the same pictures, each opening on another.
   const reel = directedRow && !ownPicture ? footageReel(pool, footage(), wanted, song, generation, place, directed.length, deal.seen) : [];
-  const ordered = isTreatmentId(row) && TREATMENT_LEAD[row] ? slots : learnedLead(slots, cardsInLane(learning, lane, row), seed);
+  const ordered = isTreatmentId(row) && (TREATMENT_LEAD[row] || TREATMENT_ROTATES.includes(row)) ? slots : learnedLead(slots, cardsInLane(learning, lane, row), seed);
   const edited = reel.length < 2 ? ordered : ordered.map((slot, index) => reeled(slot, reel, index));
   // A card tells its board only when it really draws a library picture from it.
   const filed = (slot: CreativesPackSlot) => board && [slot.libraryId, ...(slot.reelIds ?? [])].some(id => id && library.find(item => item.id === id)?.boards?.includes(board.id));
@@ -906,7 +907,7 @@ export const isTreatmentRow = (row: ShelfRow): row is TreatmentId => isTreatment
  */
 function treatmentSlots(kind: TreatmentId, lane: MoodLane, intent: MusicIntentV1 | null, seed: string, turn: Turn, picks: readonly LibraryPicture[], ownPicture: boolean): CreativesPackSlot[] {
   const cards: (LibraryPicture | null)[] = ownPicture ? Array.from({ length: ROW_SIZE }, () => null) : picks.slice(0, ROW_SIZE);
-  const variants = dealTreatments(lane, seed, cards.length, kind);
+  const variants = dealTreatments(lane, seed, cards.length, kind, turn.at);
   if (!cards.length || variants.length !== cards.length) return [];
   const typeOf = typeDeal(lane, turn);
   const faces = dealFaces(lane, intent, seed, turn, kind, cards.map((_, index) => typeNeeds(typeOf(index))));

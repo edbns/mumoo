@@ -29,6 +29,8 @@ export type TreatmentDef = {
   title: string;
   /** Its finishes, so a Refresh deals cards that look different; a treatment with one finish deals it on every card. */
   variants: readonly [TreatmentVariant, ...TreatmentVariant[]];
+  /** Variants no longer dealt, still drawn so cards made with them render. */
+  retired?: readonly string[];
 };
 
 export const TREATMENTS: readonly TreatmentDef[] = [
@@ -112,12 +114,12 @@ export const TREATMENTS: readonly TreatmentDef[] = [
     id: 'typewriter',
     title: 'Typewriter',
     variants: [
-      { id: 'newsprint', title: 'Newsprint' },
-      { id: 'letter', title: 'Old letter' },
-      { id: 'faded', title: 'Faded page' },
-      { id: 'yellowed', title: 'Yellowed' },
+      { id: 'newsprint', title: 'Black ink' },
       { id: 'red-ink', title: 'Red ink' },
+      { id: 'yellow-ink', title: 'Yellow ink' },
+      { id: 'purple-ink', title: 'Purple ink' },
     ],
+    retired: ['letter', 'faded', 'yellowed'],
   },
   {
     id: 'screenshot',
@@ -139,7 +141,13 @@ const BY_ID = new Map(TREATMENTS.map(entry => [entry.id, entry]));
 export const treatmentTitle = (id: TreatmentId) => BY_ID.get(id)!.title;
 export const treatmentVariants = (id: TreatmentId) => BY_ID.get(id)!.variants;
 export const isTreatmentVariant = (id: TreatmentId, variant: string) =>
-  BY_ID.get(id)?.variants.some(entry => entry.id === variant) ?? false;
+  (BY_ID.get(id)?.variants.some(entry => entry.id === variant) || BY_ID.get(id)?.retired?.includes(variant)) ?? false;
+
+/**
+ * Treatments whose variants take turns leading the row, one more on every Refresh, whatever Learning says: their variants
+ * differ only in colour, so a Refresh must always show the next one.
+ */
+export const TREATMENT_ROTATES: readonly TreatmentId[] = ['typewriter'];
 
 function hashPick(seed: string, salt: string, modulo: number) {
   let h = 2166136261;
@@ -153,8 +161,9 @@ function hashPick(seed: string, salt: string, modulo: number) {
  * twice in one hand. Lane is unused today (every treatment welcomes every lane) but kept so a later filter can
  * lean on mood the same way live looks do.
  */
-export function dealTreatments(_lane: MoodLane, seed: string, count: number, kind: TreatmentId): string[] {
+export function dealTreatments(_lane: MoodLane, seed: string, count: number, kind: TreatmentId, turnAt = 0): string[] {
   const variants = [...treatmentVariants(kind)];
+  if (TREATMENT_ROTATES.includes(kind)) return Array.from({ length: count }, (_, index) => variants[(turnAt + index) % variants.length].id);
   const lead = TREATMENT_LEAD[kind];
   const ordered = variants.sort((a, b) => Number(b.id === lead) - Number(a.id === lead) || hashPick(seed, a.id, 99991) - hashPick(seed, b.id, 99991));
   return Array.from({ length: count }, (_, index) => ordered[index % ordered.length].id);

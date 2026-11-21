@@ -62,19 +62,26 @@ test('no underline bars or rules: the sung word is coloured instead', () => {
   assert.match(source, /finishedWord\(label, \{ size, face \}, frame, true\)/);
 });
 
-test('Typewriter types from a two-colour ribbon: Red ink is all red, Old letter some phrases, the same page always the same', async () => {
+test('Typewriter comes in four inks, the original page with only the colour changed; each Refresh leads with the next ink', async () => {
   const vite = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, logLevel: 'error' });
   try {
-    const { inRed, PAPER_LOOK } = await vite.ssrLoadModule('/src/pack-typewriter.ts');
-    const { treatmentVariants } = await vite.ssrLoadModule('/src/treatment-deal.ts');
-    assert.ok(treatmentVariants('typewriter').some(variant => variant.id === 'red-ink'));
-    for (const variant of treatmentVariants('typewriter')) assert.ok(PAPER_LOOK[variant.id], variant.id);
-    const phrases = Array.from({ length: 40 }, (_, phrase) => phrase);
-    assert.ok(phrases.every(phrase => inRed(phrase, 7, PAPER_LOOK['red-ink'].red)));
-    assert.ok(phrases.every(phrase => !inRed(phrase, 7, PAPER_LOOK.newsprint.red)));
-    const letter = phrases.filter(phrase => inRed(phrase, 7, PAPER_LOOK.letter.red)).length;
-    assert.ok(letter > 4 && letter < 30, `${letter} of 40 phrases red`);
-    assert.deepEqual(phrases.map(phrase => inRed(phrase, 7, 0.35)), phrases.map(phrase => inRed(phrase, 7, 0.35)));
+    const { PAPER_LOOK } = await vite.ssrLoadModule('/src/pack-typewriter.ts');
+    const deal = await vite.ssrLoadModule('/src/treatment-deal.ts');
+    const inks = deal.treatmentVariants('typewriter').map(variant => variant.id);
+    assert.deepEqual(inks, ['newsprint', 'red-ink', 'yellow-ink', 'purple-ink']);
+    const { pen, tint, ...original } = PAPER_LOOK.newsprint;
+    assert.equal(tint, 0, 'the original page is untouched');
+    for (const ink of inks.slice(1)) {
+      const { pen: colour, tint: shade, ...look } = PAPER_LOOK[ink];
+      assert.deepEqual(look, original, `${ink} is the original page`);
+      assert.notEqual(colour, pen, ink);
+      assert.ok(shade > 0, `${ink}: the picture takes on the ink`);
+    }
+    assert.equal(new Set(inks.map(ink => PAPER_LOOK[ink].pen)).size, 4);
+    const leads = [0, 1, 2, 3, 4].map(at => deal.dealTreatments('party', `song:${at}`, 4, 'typewriter', at)[0]);
+    assert.deepEqual(leads, [...inks, inks[0]], 'every Refresh leads with the next ink');
+    assert.equal(new Set(deal.dealTreatments('party', 'x', 4, 'typewriter', 2)).size, 4, 'a row shows all four inks');
+    for (const old of ['letter', 'faded', 'yellowed']) assert.ok(deal.isTreatmentVariant('typewriter', old) && PAPER_LOOK[old], `${old} cards still render`);
   } finally {
     await vite.close();
   }

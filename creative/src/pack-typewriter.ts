@@ -1,6 +1,6 @@
 /**
  * Typewriter: the Director's reel as an old newspaper photo (warm paper, faded, stained), with the lyrics typed over it in black
- * typewriter ink, a little faded; some pages type from the red half of a two-colour ribbon, some phrases or all of them. Each phrase is typed where it falls on the page as it is sung, key by key, and stays, so the page
+ * typewriter ink, a little faded, or in a red, yellow or purple ink that the paper's shadows take on too. Each phrase is typed where it falls on the page as it is sung, key by key, and stays, so the page
  * fills up. Ink dots are spattered here and there and stay, so with lyrics off the page still carries its ink.
  */
 import { CanvasTextMetrics, Container, Graphics, Rectangle, Text, TextStyle } from 'pixi.js';
@@ -10,8 +10,6 @@ import { FRAME_UV, NOISE, makeFilter } from './treatment-filter';
 
 export const TYPEWRITER_FONT = 'Special Elite';
 const INK = '#1c1814';
-/** The red half of an old two-colour ribbon. */
-const RED_INK = '#a61e1a';
 const SIZE = 46;
 const LINE = 66;
 const SIDE = 70;
@@ -21,24 +19,30 @@ const BOTTOM = 260;
 /** How long one key takes, at most: a short word is typed quickly even when it is sung long. */
 const KEY_MS = 70;
 
+type PaperLook = { paper: [number, number, number]; colour: number; fade: number; stain: number; ink: number; pen: string; tint: number };
+
+const NEWSPRINT: Omit<PaperLook, 'pen' | 'tint'> = { paper: [0.91, 0.87, 0.77], colour: 0.12, fade: 0.16, stain: 0.5, ink: 0.45 };
+
 /**
  * The paper each variant prints on (0-1 rgb), how much of the picture's own colour is kept, how washed out it is, how stained,
- * how faded the ink, and the share of phrases typed in red.
+ * how faded the ink, the ink's colour (`pen`), and how far the picture's shadows take on that colour (`tint`). The four inks
+ * are the original page with only the colour changed. Old letter, Faded page and Yellowed are no longer dealt; they stay so
+ * cards made with them still render.
  */
-export const PAPER_LOOK: Record<string, { paper: [number, number, number]; colour: number; fade: number; stain: number; ink: number; red: number }> = {
-  newsprint: { paper: [0.91, 0.87, 0.77], colour: 0.12, fade: 0.16, stain: 0.5, ink: 0.45, red: 0 },
-  letter: { paper: [0.94, 0.86, 0.7], colour: 0.2, fade: 0.12, stain: 0.7, ink: 0.5, red: 0.35 },
-  faded: { paper: [0.95, 0.91, 0.82], colour: 0.08, fade: 0.32, stain: 0.35, ink: 0.6, red: 0 },
-  yellowed: { paper: [0.9, 0.78, 0.57], colour: 0.15, fade: 0.14, stain: 0.9, ink: 0.5, red: 0 },
-  'red-ink': { paper: [0.94, 0.9, 0.82], colour: 0.06, fade: 0.2, stain: 0.45, ink: 0.4, red: 1 },
+export const PAPER_LOOK: Record<string, PaperLook> = {
+  newsprint: { ...NEWSPRINT, pen: INK, tint: 0 },
+  'red-ink': { ...NEWSPRINT, pen: '#a61e1a', tint: 0.8 },
+  'yellow-ink': { ...NEWSPRINT, pen: '#b8860b', tint: 0.8 },
+  'purple-ink': { ...NEWSPRINT, pen: '#5b2a86', tint: 0.8 },
+  letter: { paper: [0.94, 0.86, 0.7], colour: 0.2, fade: 0.12, stain: 0.7, ink: 0.5, pen: INK, tint: 0 },
+  faded: { paper: [0.95, 0.91, 0.82], colour: 0.08, fade: 0.32, stain: 0.35, ink: 0.6, pen: INK, tint: 0 },
+  yellowed: { paper: [0.9, 0.78, 0.57], colour: 0.15, fade: 0.14, stain: 0.9, ink: 0.5, pen: INK, tint: 0 },
 };
 
-/** Whether phrase `phrase` of a page is typed in red: the same page always types the same phrases red. */
-export function inRed(phrase: number, seed: number, red: number): boolean {
-  if (red >= 1) return true;
-  if (red <= 0) return false;
-  return random(seed * 7349 + phrase * 104729)() < red;
-}
+const pen = (hex: string) => {
+  const [uPenR, uPenG, uPenB] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+  return { uPenR, uPenG, uPenB };
+};
 
 /** Old newsprint: the picture's light on warm paper, its darks a brown-grey (never black, so the ink reads), grain, fibres, stains and browned edges. */
 const PAPER = `
@@ -52,6 +56,10 @@ uniform float uColour;
 uniform float uFade;
 uniform float uStain;
 uniform float uSeed;
+uniform float uPenR;
+uniform float uPenG;
+uniform float uPenB;
+uniform float uTint;
 ${FRAME_UV}
 ${NOISE}
 void main(void) {
@@ -61,7 +69,9 @@ void main(void) {
   vec3 c = texture(uTexture, vTextureCoord).rgb;
   float l = dot(c, vec3(0.299, 0.587, 0.114));
   l = smoothstep(0.04, 0.96, l);
-  vec3 toned = mix(paper * 0.42, paper, pow(l, 0.8));
+  // The picture printed in the page's ink: its shadows take on the ink's colour, kept lighter than the type so the type reads.
+  vec3 shadow = mix(paper * 0.42, mix(vec3(uPenR, uPenG, uPenB), paper, 0.3), uTint);
+  vec3 toned = mix(shadow, paper, pow(l, 0.8));
   toned = mix(toned, c * paper * 1.1, uColour);
   toned = mix(toned, paper, uFade);
   toned += (hash(floor(px / 1.5)) - 0.5) * 0.06;
@@ -176,10 +186,10 @@ export function typedChars(phrase: TypedPhrase, ms: number): number {
 }
 
 /** Ink spattered on the page: specks, a few drops, and blots with their splashes. Drawn once per card. */
-function spatter(dots: Graphics, seed: number, red: number) {
+function spatter(dots: Graphics, seed: number, pen: string) {
   const roll = random(seed * 40503 + 17);
   dots.clear();
-  const drop = (x: number, y: number, r: number) => dots.circle(x, y, r).fill({ color: roll() < red ? RED_INK : INK, alpha: 0.55 + roll() * 0.35 });
+  const drop = (x: number, y: number, r: number) => dots.circle(x, y, r).fill({ color: pen, alpha: 0.55 + roll() * 0.35 });
   for (let i = 0; i < 34; i++) drop(roll() * WIDTH, roll() * HEIGHT, 1.2 + roll() * 2.2);
   for (let i = 0; i < 12; i++) drop(roll() * WIDTH, roll() * HEIGHT, 3.5 + roll() * 3.5);
   for (let i = 0; i < 3; i++) {
@@ -208,15 +218,15 @@ export function createTypewriterPage(): TypewriterPage {
   const typed = new Container();
   root.addChild(dots, typed);
   root.filterArea = new Rectangle(0, 0, WIDTH, HEIGHT);
-  const paper = makeFilter(PAPER, 'treatment-paper', { uPaperR: 0.9, uPaperG: 0.86, uPaperB: 0.76, uColour: 0, uFade: 0, uStain: 0, uSeed: 0 });
+  const paper = makeFilter(PAPER, 'treatment-paper', { uPaperR: 0.9, uPaperG: 0.86, uPaperB: 0.76, uColour: 0, uFade: 0, uStain: 0, uSeed: 0, uPenR: 0, uPenG: 0, uPenB: 0, uTint: 0 });
   const ribbon = makeFilter(RIBBON, 'treatment-ribbon', { uFade: 0.5, uSeed: 0 });
   root.filters = [ribbon.filter];
   const typeface = { fontFamily: `"${TYPEWRITER_FONT}", "Courier New", monospace`, fontSize: SIZE };
   const style = new TextStyle({ ...typeface, fill: INK });
-  const redStyle = new TextStyle({ ...typeface, fill: RED_INK });
 
   let spattered: string | null = null;
-  let laid: { cues: readonly LyricCue[]; seed: number; red: number; phrases: TypedPhrase[]; lines: { line: TypedLine; text: Text }[] } | null = null;
+  let inked = INK;
+  let laid: { cues: readonly LyricCue[]; seed: number; phrases: TypedPhrase[]; lines: { line: TypedLine; text: Text }[] } | null = null;
 
   function clearTyped() {
     for (const child of typed.removeChildren()) child.destroy();
@@ -229,21 +239,25 @@ export function createTypewriterPage(): TypewriterPage {
     update({ cues, ms, seed, variant, lyrics }) {
       const look = PAPER_LOOK[variant] ?? PAPER_LOOK.newsprint;
       const grain = (seed % 997) / 37;
-      paper.set({ uPaperR: look.paper[0], uPaperG: look.paper[1], uPaperB: look.paper[2], uColour: look.colour, uFade: look.fade, uStain: look.stain, uSeed: grain });
+      paper.set({ uPaperR: look.paper[0], uPaperG: look.paper[1], uPaperB: look.paper[2], uColour: look.colour, uFade: look.fade, uStain: look.stain, uSeed: grain, ...pen(look.pen), uTint: look.tint });
+      if (inked !== look.pen) {
+        style.fill = look.pen;
+        inked = look.pen;
+      }
       ribbon.set({ uFade: look.ink, uSeed: grain });
-      if (spattered !== `${seed}:${look.red}`) {
-        spatter(dots, seed, look.red);
-        spattered = `${seed}:${look.red}`;
+      if (spattered !== `${seed}:${look.pen}`) {
+        spatter(dots, seed, look.pen);
+        spattered = `${seed}:${look.pen}`;
       }
       const words = lyrics ? cues : [];
-      if (!laid || laid.cues !== words || laid.seed !== seed || laid.red !== look.red) {
+      if (!laid || laid.cues !== words || laid.seed !== seed) {
         clearTyped();
         const charWidth = CanvasTextMetrics.measureText('M'.repeat(20), style).width / 20;
         const page = typedPage(words, seed, charWidth);
         laid = {
-          cues: words, seed, red: look.red, phrases: page.phrases,
+          cues: words, seed, phrases: page.phrases,
           lines: page.lines.map(line => {
-            const text = new Text({ text: '', style: inRed(line.phrase, seed, look.red) ? redStyle : style });
+            const text = new Text({ text: '', style });
             text.position.set(line.x, line.y);
             text.rotation = line.tilt;
             text.alpha = 0.82 + ((line.phrase * 7919 + seed) % 13) / 100;

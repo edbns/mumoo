@@ -95,6 +95,22 @@ test('Screenshot always opens on Full screen (light chat, no phone, no backgroun
   }
 });
 
+test('Typewriter opens on the next ink on every Refresh, whatever the song, hand or Learning, and shows all four', () => {
+  const kept = { kept: 50, downloaded: 50, shown: 60 };
+  const learning = { cards: { typewriter: { newsprint: kept } } };
+  for (const sha of ['a'.repeat(64), 'c'.repeat(64)]) {
+    for (const deal of [{}, { seed: 'shelf' }]) {
+      const leads = Array.from({ length: 8 }, (_, generation) => {
+        const row = pack.recommendRow('typewriter', profile(sha), generation, [], LIBRARY, false, learning, deal);
+        assert.equal(new Set(row.map(slot => slot.treatmentVariant)).size, 4);
+        return row[0].treatmentVariant;
+      });
+      for (let generation = 1; generation < leads.length; generation++) assert.notEqual(leads[generation], leads[generation - 1], `${sha.slice(0, 1)} ${generation}`);
+      assert.equal(new Set(leads.slice(0, 4)).size, 4, `four Refreshes show the four inks first: ${leads}`);
+    }
+  }
+});
+
 test('treatments never change the Director\'s plan: same assets, music and cut seed yield the same segments', () => {
   const assets = [
     { kind: 'photo' },
