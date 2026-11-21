@@ -175,11 +175,11 @@ export function moodLane(intent: MusicIntentV1 | null, genre: string): MoodLane 
  * Order is a preference, the seed rotates which style leads.
  */
 export const TYPE_ALLOW: Record<MoodLane, readonly TypeStyleId[]> = {
-  gospel: ['editorial', 'minimal', 'typewriter', 'karaoke', 'slide', 'wipe', 'wave', 'rise', 'glow', 'drift'],
-  quiet: ['minimal', 'editorial', 'typewriter', 'karaoke', 'slide', 'wipe', 'wave', 'jitter', 'rise', 'glow', 'drift'],
-  dark: ['typewriter', 'outline', 'minimal', 'editorial', 'glitch', 'flicker', 'wipe', 'split', 'scatter', 'zoom'],
-  techno: ['stack', 'outline', 'karaoke', 'typewriter', 'glitch', 'stretch', 'split', 'zoom', 'flicker', 'scatter', 'echo', 'bounce'],
-  party: ['stack', 'karaoke', 'outline', 'typewriter', 'bounce', 'stretch', 'rotate', 'zoom', 'echo', 'wave', 'tilt', 'scatter', 'jitter', 'slide'],
+  gospel: ['editorial', 'poem', 'minimal', 'typewriter', 'karaoke', 'slide', 'wipe', 'wave', 'rise', 'glow', 'drift'],
+  quiet: ['poem', 'minimal', 'editorial', 'typewriter', 'karaoke', 'slide', 'wipe', 'wave', 'jitter', 'rise', 'glow', 'drift'],
+  dark: ['typewriter', 'swap', 'outline', 'poem', 'minimal', 'editorial', 'glitch', 'flicker', 'wipe', 'split', 'scatter', 'zoom'],
+  techno: ['stack', 'swap', 'outline', 'karaoke', 'typewriter', 'glitch', 'stretch', 'split', 'zoom', 'flicker', 'scatter', 'echo', 'bounce'],
+  party: ['swap', 'stack', 'karaoke', 'outline', 'typewriter', 'bounce', 'stretch', 'rotate', 'zoom', 'echo', 'wave', 'tilt', 'scatter', 'jitter', 'slide'],
   general: TYPE_STYLES,
 };
 

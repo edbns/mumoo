@@ -189,20 +189,21 @@ function legible(h: number, s: number, l: number, luma: number, lightInk: boolea
 }
 
 /**
- * The lyric's colours on a picture: the ink tinted toward the picture's own hue (or, on a picture with no colour, toward
- * `moodAccent`, the song's colour, which then is the accent too), still clearing 4.5:1 against the text zone, else plain.
- * Pure: the same palette and mood colour always give the same colours, in the browser and in the cloud.
+ * The lyric's colours on a picture: plain off-white or near-black ink (never tinted by the picture), and the song's
+ * colour `moodAccent` as the accent, made lighter or darker until it clears 3:1 against the text zone. A colourless
+ * mood colour (off-white, grey) keeps the lyric monochrome: the accent is the ink itself. The picture's own hues never
+ * colour the letters. Pure: the same palette and mood colour always give the same colours, in the browser and in the cloud.
  */
 export function typeColours(palette: TexturePalette, moodAccent?: string): TypeColours {
   const key = moodAccent ?? '';
   let byMood = typeCache.get(palette);
   const cached = byMood?.get(key);
   if (cached) return cached;
-  const mood = palette.hue === null && moodAccent ? rgbToHsl(...parse(moodAccent)) : null;
-  const hue = palette.hue ?? mood?.[0] ?? null;
-  const ink = hue === null ? palette.ink
-    : legible(hue, palette.light ? 0.32 : 0.42, palette.light ? 0.93 : 0.11, palette.luma, palette.light, 4.5) ?? palette.ink;
-  const accent = mood ? legible(mood[0], Math.max(0.55, mood[1]), mood[2], palette.luma, palette.light, 3) ?? palette.accent : palette.accent;
+  const rgb = moodAccent ? parse(moodAccent) : null;
+  const colourful = rgb !== null && Math.max(...rgb) - Math.min(...rgb) >= 40;
+  const mood = rgb && colourful ? rgbToHsl(...rgb) : null;
+  const ink = palette.ink;
+  const accent = mood ? legible(mood[0], mood[1], mood[2], palette.luma, palette.light, 3) ?? ink : ink;
   const accentLum = relLum(...parse(accent));
   const onAccent = contrast(accentLum, relLum(...parse(BLACK))) >= contrast(accentLum, relLum(...parse(WHITE))) ? BLACK : WHITE;
   const colours = { ink, accent, shadow: palette.light ? '#000000' : '#ffffff', onAccent };

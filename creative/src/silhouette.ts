@@ -24,7 +24,7 @@ export const SILHOUETTE_IDS: readonly string[] = SILHOUETTES.map(figure => figur
 export const SILHOUETTE_SCREENS = ['red', 'black', 'off-white'] as const;
 
 /** The lyric styles a Silhouette card is dealt: each card of a row has its own. */
-export const SILHOUETTE_TYPES = ['stack', 'karaoke', 'outline', 'editorial', 'glitch', 'echo', 'wipe', 'flicker', 'slide', 'bounce', 'zoom'] as const satisfies readonly TypeStyleId[];
+export const SILHOUETTE_TYPES = ['stack', 'swap', 'karaoke', 'outline', 'editorial', 'glitch', 'echo', 'wipe', 'flicker', 'slide', 'bounce', 'zoom'] as const satisfies readonly TypeStyleId[];
 
 export const silhouetteUrl = (id: string) => `/silhouettes/${id}.png`;
 

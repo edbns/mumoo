@@ -2,7 +2,7 @@
 import { Container, FillGradient, Graphics, Text } from 'pixi.js';
 import { cssFont, type AdFont, type FaceStyle } from './ad-fonts';
 import { textMeasureCtx } from './pack-text';
-import type { TypeFinish } from './type-finish';
+import { PLATED, type TypeFinish } from './type-finish';
 
 export type TimedWord = { text: string; startMs: number; endMs: number };
 
@@ -111,6 +111,7 @@ function fillOf(o: TextOpts) {
 
 function shadowOf(o: TextOpts) {
   if (o.hollow || o.flat) return {};
+  if (o.finish === 'print') return { dropShadow: { color: o.glow ?? o.shadow, alpha: 0.7, blur: 0, distance: Math.max(2.5, o.size * 0.032), angle: Math.PI * 0.8 } };
   if (o.finish === 'sticker') return { dropShadow: { color: o.glow ?? o.shadow, alpha: 1, blur: 0, distance: Math.max(3, o.size * 0.055), angle: Math.PI / 4 } };
   return { dropShadow: { color: o.shadow, alpha: 0.42, blur: 10, distance: 3, angle: Math.PI / 2 } };
 }
@@ -135,16 +136,42 @@ export function makeText(label: string, o: TextOpts): Text {
   return text;
 }
 
+/** Whether the frame's finish sets the sung word on a plate (a box, a frosted pill). */
+export const isPlated = (frame: TypeFrame) => PLATED.includes(frame.finish ?? 'solid');
+
+/** The colour of letters on the plate: readable on the accent's box, or the ink on the see-through glass. */
+export const plateInk = (frame: TypeFrame) => frame.finish === 'glass' ? frame.ink : frame.onAccent ?? frame.shadow;
+
+/** The plate under a sung word `width` wide whose left edge is `left`: the accent's rounded box, or a frosted pill with a bright rim. */
+export function plate(frame: TypeFrame, left: number, width: number, size: number): Graphics {
+  const box = new Graphics();
+  if (frame.finish === 'glass') {
+    const padX = size * 0.3;
+    const height = size * 1.22;
+    const lightInk = frame.shadow === '#000000';
+    box.roundRect(left - padX, -height / 2, width + padX * 2, height, height / 2);
+    box.fill({ color: '#ffffff', alpha: lightInk ? 0.17 : 0.55 });
+    box.stroke({ color: lightInk ? '#ffffff' : '#000000', alpha: lightInk ? 0.55 : 0.16, width: Math.max(2, size * 0.028) });
+    box.roundRect(left - padX * 0.6, -height * 0.42, width + padX * 1.2, height * 0.38, height * 0.19);
+    box.fill({ color: '#ffffff', alpha: 0.08 });
+    return box;
+  }
+  const padX = size * 0.16;
+  box.roundRect(left - padX, -size * 0.56, width + padX * 2, size * 1.1, size * 0.18);
+  box.fill({ color: frame.accent });
+  return box;
+}
+
 /**
- * A word in the frame's colours and finish. `lit`: the word being sung, in the accent; in the box finish it sits on a
- * rounded box of the accent instead, in letters readable on it. Placed by its middle (or its left edge, `anchorX: 0`).
+ * A word in the frame's colours and finish. `lit`: the word being sung, in the accent; in the box and glass finishes it
+ * sits on a plate instead, in letters readable on it. Placed by its middle (or its left edge, `anchorX: 0`).
  */
 export function finishedWord(label: string, o: Omit<TextOpts, 'color' | 'shadow' | 'finish' | 'glow' | 'flat'>, frame: TypeFrame, lit = false): Container {
   const finish = frame.finish ?? 'solid';
-  const boxed = lit && finish === 'box';
+  const boxed = lit && isPlated(frame);
   const text = makeText(label, {
     ...o,
-    color: boxed ? frame.onAccent ?? frame.shadow : lit ? frame.accent : frame.ink,
+    color: boxed ? plateInk(frame) : lit ? frame.accent : frame.ink,
     shadow: frame.shadow,
     finish: boxed ? 'solid' : finish,
     glow: lit ? frame.ink : frame.accent,
@@ -153,11 +180,7 @@ export function finishedWord(label: string, o: Omit<TextOpts, 'color' | 'shadow'
   if (!boxed) return text;
   const holder = new Container();
   const width = measure(o.face, o.size, label);
-  const padX = o.size * 0.16;
-  const box = new Graphics();
-  const left = (o.anchorX ?? 0.5) === 0 ? -padX : -width / 2 - padX;
-  box.roundRect(left, -o.size * 0.56, width + padX * 2, o.size * 1.1, o.size * 0.18);
-  box.fill({ color: frame.accent });
+  const box = plate(frame, (o.anchorX ?? 0.5) === 0 ? 0 : -width / 2, width, o.size);
   holder.addChild(box, text);
   holder.alpha = text.alpha;
   text.alpha = 1;

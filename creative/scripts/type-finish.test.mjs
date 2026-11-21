@@ -5,6 +5,7 @@ import { createServer } from 'vite';
 
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, logLevel: 'error' });
 const { typeColours } = await server.ssrLoadModule('/src/pack-palette.ts');
+const { MONO_ACCENT, MOOD_ACCENTS } = await server.ssrLoadModule('/src/type-finish.ts');
 await server.close();
 
 const lum = hex => {
@@ -15,25 +16,37 @@ const lum = hex => {
 const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 const palette = extra => ({ ink: '#f7f4ee', light: true, hue: 210, accent: '#5aa9ff', scrim: { color: '#000000', alpha: 0 }, luma: 0.04, range: [0, 1], ...extra });
 
-test('the ink is tinted from the picture and still reads (4.5:1); the accent 3:1; letters on the accent read', () => {
+test("the ink is plain off-white or near-black, never tinted by the picture; the song's colour reads (3:1) and letters on its box read (3:1, large type)", () => {
   for (const [luma, light, ink] of [[0.02, true, '#f7f4ee'], [0.12, true, '#f7f4ee'], [0.7, false, '#0d0d12'], [0.45, false, '#0d0d12']]) {
-    for (const hue of [0, 45, 120, 210, 300]) {
-      const colours = typeColours(palette({ luma, light, ink, hue }));
-      assert.notEqual(colours.ink, ink, `hue ${hue} on ${luma} is not tinted`);
-      assert.ok(ratio(lum(colours.ink), luma) >= 4.5, `ink ${colours.ink} on ${luma}`);
-      assert.ok(ratio(lum(colours.onAccent), lum(colours.accent)) >= 4.5, `${colours.onAccent} on ${colours.accent}`);
+    for (const hue of [0, 45, 120, 210, 300, null]) {
+      for (const mood of ['#e5383b', '#ff4fa3', '#5c6b54', '#c6ff00']) {
+        const colours = typeColours(palette({ luma, light, ink, hue }), mood);
+        assert.equal(colours.ink, ink, `hue ${hue} on ${luma} tinted the ink`);
+        assert.ok(ratio(lum(colours.accent), luma) >= 3, `accent ${colours.accent} on ${luma}`);
+        assert.ok(ratio(lum(colours.onAccent), lum(colours.accent)) >= 3, `${colours.onAccent} on ${colours.accent}`);
+      }
     }
   }
 });
 
-test("a picture with no colour takes the song's mood colour, made to read; with neither the plain ink stays", () => {
-  const grey = palette({ hue: null, accent: '#f7f4ee', luma: 0.03 });
-  const colours = typeColours(grey, '#ff4fa3');
-  assert.notEqual(colours.accent, '#f7f4ee');
-  assert.ok(ratio(lum(colours.accent), 0.03) >= 3);
-  assert.notEqual(colours.ink, '#f7f4ee');
-  assert.equal(typeColours(palette({ hue: null, accent: '#f7f4ee' })).ink, '#f7f4ee');
-  assert.equal(typeColours(palette({ hue: 30 }), '#ff4fa3').accent, '#5aa9ff', "the picture's own colour wins");
+test("the picture's own colours never reach the letters: a blue pool and orange skin give the song's colour, or monochrome", () => {
+  const pool = palette({ hue: 200, accent: '#5aa9ff' });
+  assert.notEqual(typeColours(pool, '#e5383b').accent, '#5aa9ff');
+  assert.equal(typeColours(pool).accent, pool.ink, 'no song colour: monochrome');
+  assert.equal(typeColours(pool, MONO_ACCENT).accent, pool.ink, 'the mono colour keeps the card monochrome');
+  const red = typeColours(palette({ hue: 30 }), '#e5383b').accent;
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(red.slice(i, i + 2), 16));
+  assert.ok(r > g * 1.5 && r > b * 1.5, `${red} is still a red`);
+});
+
+test('the lyric colours are editorial: every lane has the monochrome card and no sky blue or cyan', () => {
+  for (const [lane, colours] of Object.entries(MOOD_ACCENTS)) {
+    assert.ok(colours.includes(MONO_ACCENT), lane);
+    for (const colour of colours) {
+      const [r, g, b] = [1, 3, 5].map(i => parseInt(colour.slice(i, i + 2), 16));
+      assert.ok(!(b > r + 40 && b >= g - 10), `${lane} ${colour} is a blue`);
+    }
+  }
 });
 
 test('the same palette always gives the same colours (the preview and the cloud agree)', () => {
@@ -47,4 +60,38 @@ test('no underline bars or rules: the sung word is coloured instead', () => {
   assert.doesNotMatch(source, /const (rule|rules) = new Graphics/);
   assert.doesNotMatch(source, /size \* 0\.58, barW/);
   assert.match(source, /finishedWord\(label, \{ size, face \}, frame, true\)/);
+});
+
+test('Typewriter types from a two-colour ribbon: Red ink is all red, Old letter some phrases, the same page always the same', async () => {
+  const vite = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, logLevel: 'error' });
+  try {
+    const { inRed, PAPER_LOOK } = await vite.ssrLoadModule('/src/pack-typewriter.ts');
+    const { treatmentVariants } = await vite.ssrLoadModule('/src/treatment-deal.ts');
+    assert.ok(treatmentVariants('typewriter').some(variant => variant.id === 'red-ink'));
+    for (const variant of treatmentVariants('typewriter')) assert.ok(PAPER_LOOK[variant.id], variant.id);
+    const phrases = Array.from({ length: 40 }, (_, phrase) => phrase);
+    assert.ok(phrases.every(phrase => inRed(phrase, 7, PAPER_LOOK['red-ink'].red)));
+    assert.ok(phrases.every(phrase => !inRed(phrase, 7, PAPER_LOOK.newsprint.red)));
+    const letter = phrases.filter(phrase => inRed(phrase, 7, PAPER_LOOK.letter.red)).length;
+    assert.ok(letter > 4 && letter < 30, `${letter} of 40 phrases red`);
+    assert.deepEqual(phrases.map(phrase => inRed(phrase, 7, 0.35)), phrases.map(phrase => inRed(phrase, 7, 0.35)));
+  } finally {
+    await vite.close();
+  }
+});
+
+test('Swap sets the phrase in faces as unlike as faces get, Poem in a quiet one; every face is one the site serves', async () => {
+  const vite = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, logLevel: 'error' });
+  try {
+    const { typeFamilies, TYPE_STYLES } = await vite.ssrLoadModule('/src/pack-type.ts');
+    const { DISPLAY_FACES, FIXED_FACES } = await vite.ssrLoadModule('/src/font-catalog.ts');
+    assert.ok(TYPE_STYLES.includes('swap') && TYPE_STYLES.includes('poem'));
+    const fonts = { font: 'Anton', fontSecondary: 'Bebas Neue' };
+    const swap = typeFamilies('swap', fonts);
+    assert.ok(new Set(swap).size >= 5, swap.join());
+    for (const family of [...swap, ...typeFamilies('poem', fonts)]) assert.ok(family in DISPLAY_FACES || family in FIXED_FACES, family);
+    assert.ok(swap.some(family => DISPLAY_FACES[family]?.moods.includes('script')), 'a script among the faces');
+  } finally {
+    await vite.close();
+  }
 });

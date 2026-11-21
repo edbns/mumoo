@@ -169,10 +169,10 @@ test('the cover colours lead the effects, and sad words never sit on a bright on
   } finally { await server.close(); }
 });
 
-test('every lyric card gets a finish and a mood colour, calm songs only solid or gradient, the same song the same deal', async () => {
+test('every lyric card gets a finish and a mood colour, calm songs never a box, a sticker or a pill, the same song the same deal', async () => {
   const { server, pack } = await load();
   try {
-    const finishes = ['solid', 'gradient', 'box', 'sticker'];
+    const finishes = ['solid', 'gradient', 'box', 'sticker', 'glass', 'print'];
     for (const genre of ['Gospel', 'Slap House', 'Afrobeats', 'Drill']) {
       const lyricCards = shelf(pack, profile(genre)).filter(slot => slot.typeStyle && !slot.windowMode);
       assert.ok(lyricCards.length > 0, genre);
@@ -182,7 +182,7 @@ test('every lyric card gets a finish and a mood colour, calm songs only solid or
       }
       assert.deepEqual(shelf(pack, profile(genre)).map(slot => slot.typeFinish), shelf(pack, profile(genre)).map(slot => slot.typeFinish), genre);
     }
-    for (const slot of shelf(pack, profile('Gospel')).filter(slot => slot.typeFinish)) assert.ok(['solid', 'gradient'].includes(slot.typeFinish), slot.typeFinish);
+    for (const slot of shelf(pack, profile('Gospel')).filter(slot => slot.typeFinish)) assert.ok(['solid', 'gradient', 'print'].includes(slot.typeFinish), slot.typeFinish);
     const club = new Set(shelf(pack, profile('Techno')).map(slot => slot.typeFinish).filter(Boolean));
     assert.ok(club.size >= 3, `club songs get only ${[...club]}`);
   } finally { await server.close(); }

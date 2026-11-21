@@ -116,6 +116,7 @@ export const TREATMENTS: readonly TreatmentDef[] = [
       { id: 'letter', title: 'Old letter' },
       { id: 'faded', title: 'Faded page' },
       { id: 'yellowed', title: 'Yellowed' },
+      { id: 'red-ink', title: 'Red ink' },
     ],
   },
   {

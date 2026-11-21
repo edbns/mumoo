@@ -8,6 +8,8 @@
  *  minimal     quiet lowercase subtitle, line by line
  *  editorial   serif italic, lines slide up through a mask
  *  outline     hollow letters that fill as each word lands
+ *  swap        the phrase holds the middle of the screen and is set again in another face on every beat
+ *  poem        the whole line as a small verse, ranged left, each word inked in as it is sung
  *  + the motion styles of lyric-fx.ts (bounce, wave, glitch, rotate, stretch, split, wipe, flicker, zoom,
  *    scatter, jitter, echo, slide, tilt, and the calm rise, glow, drift), drawn by pack-fx.ts
  */
@@ -17,11 +19,11 @@ import { displayFace, setCase, type AdFont, type FaceStyle, type FontNeed } from
 import { FIXED_FACES } from './font-catalog';
 import { FX_STYLES, FX_TRAITS, type FxStyleId } from './lyric-fx';
 import { createFxPainter } from './pack-fx';
-import { activeIndex, clamp01, easeOut, finishedWord, layoutWords, measure, type TimedWord, type TypeFrame } from './type-kit';
+import { activeIndex, clamp01, easeOut, finishedWord, isPlated, layoutWords, measure, plateInk, type TimedWord, type TypeFrame } from './type-kit';
 
 export type { TimedWord, TypeFrame };
 
-const CLASSIC_STYLES = ['typewriter', 'karaoke', 'stack', 'minimal', 'editorial', 'outline'] as const;
+const CLASSIC_STYLES = ['typewriter', 'karaoke', 'stack', 'minimal', 'editorial', 'outline', 'swap', 'poem'] as const;
 type ClassicStyle = (typeof CLASSIC_STYLES)[number];
 export const TYPE_STYLES = [...CLASSIC_STYLES, ...FX_STYLES] as const;
 export type TypeStyleId = (typeof TYPE_STYLES)[number];
@@ -40,10 +42,26 @@ const FACES: Record<ClassicStyle, (fonts: Fonts) => FaceStyle> = {
   minimal: () => fixed('Outfit'),
   editorial: () => fixed('Playfair Display'),
   outline: f => displayFace(f.font),
+  swap: () => SWAP_FACES[0],
+  poem: () => fixed('Outfit'),
 };
+
+/** Swap's faces, as unlike each other as faces get: condensed, script, light grotesk, serif italic, wide, heavy. */
+const SWAP_FACES: readonly FaceStyle[] = [
+  displayFace('League Gothic'),
+  displayFace('Kaushan Script'),
+  fixed('Outfit'),
+  fixed('Playfair Display'),
+  displayFace('Syne'),
+  displayFace('Anton'),
+];
+
+const POEM_FACES: readonly FaceStyle[] = [fixed('Outfit'), fixed('Playfair Display'), fixed('Space Mono')];
 
 /** The font families a style draws with, so they can be fetched before the first frame. */
 export function typeFamilies(style: TypeStyleId, fonts: Fonts): string[] {
+  if (style === 'swap') return SWAP_FACES.map(face => face.family);
+  if (style === 'poem') return POEM_FACES.map(face => face.family);
   return [isMotion(style) ? fonts.font : FACES[style](fonts).family];
 }
 
@@ -60,6 +78,8 @@ function caseFor(style: ClassicStyle, text: string, font: AdFont): string {
     case 'outline':
       return setCase(font, text);
     case 'minimal':
+    case 'swap':
+    case 'poem':
       return text.toLocaleLowerCase();
     case 'editorial':
       return text.charAt(0).toLocaleUpperCase() + text.slice(1);
@@ -254,7 +274,7 @@ export function createTypeLayer(): TypeLayer {
         const word = frame.words[item.index];
         const filled = frame.ms >= word.startMs;
         const lit = item.index === active;
-        const edge = lit ? (frame.finish === 'box' ? frame.onAccent ?? frame.shadow : frame.accent) : frame.ink;
+        const edge = lit ? (isPlated(frame) ? plateInk(frame) : frame.accent) : frame.ink;
         const t = finishedWord(item.text, { size: fit.size, face, hollow: !filled, stroke: { color: edge, width: Math.max(4, fit.size * 0.035) } }, frame, lit);
         t.position.set(item.x + item.w / 2, y);
         group.addChild(t);
@@ -262,6 +282,50 @@ export function createTypeLayer(): TypeLayer {
     });
     group.position.set(WIDTH / 2, HEIGHT * 0.5);
     group.scale.set(1 + frame.beat * 0.03 * Math.max(0.4, frame.energy));
+    root.addChild(group);
+  }
+
+  function swap(frame: TypeFrame) {
+    const active = activeIndex(frame.words, frame.ms);
+    // A song with no beat grid still swaps, on each word as it is sung.
+    const turn = frame.beatIndex > 0 ? frame.beatIndex : Math.max(0, active);
+    const face = SWAP_FACES[Math.abs(frame.seed + turn) % SWAP_FACES.length];
+    const labels = frame.words.map(w => caseFor('swap', w.text, frame.font));
+    const fit = layoutWords(labels, face, 280, 880, 3, 0.94);
+    const total = fit.lines.length * fit.lineHeight;
+    const group = new Container();
+    fit.lines.forEach((line, row) => {
+      const y = (row + 0.5) * fit.lineHeight - total / 2;
+      for (const item of line.items) {
+        if (frame.ms < frame.words[item.index].startMs) continue;
+        const t = finishedWord(item.text, { size: fit.size, face }, frame, item.index === active);
+        t.position.set(item.x + item.w / 2, y);
+        group.addChild(t);
+      }
+    });
+    group.position.set(WIDTH / 2, HEIGHT * 0.5);
+    group.scale.set(1 + frame.beat * 0.04 * Math.max(0.4, frame.energy));
+    root.addChild(group);
+  }
+
+  function poem(frame: TypeFrame) {
+    const face = POEM_FACES[Math.abs(frame.seed) % POEM_FACES.length];
+    const labels = frame.words.map(w => caseFor('poem', w.text, frame.font));
+    const fit = layoutWords(labels, face, 66, 520, 8, 1.3, true);
+    const active = activeIndex(frame.words, frame.ms);
+    const total = fit.lines.length * fit.lineHeight;
+    const group = new Container();
+    fit.lines.forEach((line, row) => {
+      const y = (row + 0.5) * fit.lineHeight - total / 2;
+      for (const item of line.items) {
+        const word = frame.words[item.index];
+        const inked = easeOut((frame.ms - word.startMs) / 320);
+        const t = finishedWord(item.text, { size: fit.size, face, alpha: 0.16 + 0.84 * inked }, frame, item.index === active);
+        t.position.set(item.x + item.w / 2, y);
+        group.addChild(t);
+      }
+    });
+    group.position.set(WIDTH * 0.14, HEIGHT * 0.44);
     root.addChild(group);
   }
 
@@ -281,6 +345,8 @@ export function createTypeLayer(): TypeLayer {
         case 'minimal': minimal(frame); break;
         case 'editorial': editorial(frame); break;
         case 'outline': outline(frame); break;
+        case 'swap': swap(frame); break;
+        case 'poem': poem(frame); break;
       }
     },
     destroy() {

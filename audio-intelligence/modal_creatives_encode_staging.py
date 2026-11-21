@@ -72,7 +72,7 @@ TREATMENTS = {
     "grain": {"fine", "classic", "heavy", "halation"},
     "double": {"blend", "screen", "offset-cut", "offset-far"},
     "sideways": {"pillar"},
-    "typewriter": {"newsprint", "letter", "faded", "yellowed"},
+    "typewriter": {"newsprint", "letter", "faded", "yellowed", "red-ink"},
     "screenshot": {"light-black", "light-white", "dark-white", "screen"},
 }
 # Screenshot's phone clock: the time the person made the card, "HH:MM" on 24 hours.
@@ -98,13 +98,13 @@ WINDOW_SHAPES = {"man-cap", "woman-hair", "man-wide", "woman-wide", "woman-curls
 WINDOW_KEYS = ("windowMode", "windowPalette", "windowAllowed")
 # Lyric type styles and display fonts the page knows (creative/src/pack-type.ts, font-catalog.ts; a test keeps these in step).
 TYPE_STYLES = {
-    "typewriter", "karaoke", "stack", "minimal", "editorial", "outline",
+    "typewriter", "karaoke", "stack", "minimal", "editorial", "outline", "swap", "poem",
     "bounce", "wave", "glitch", "rotate", "stretch", "split", "wipe", "flicker",
     "zoom", "scatter", "jitter", "echo", "slide", "tilt", "rise", "glow", "drift",
 }
 # How a card's lyric letters are finished (creative/src/type-finish.ts; a test keeps these in step).
 TYPE_FINISHES = {
-    "solid", "gradient", "box", "sticker",
+    "solid", "gradient", "box", "sticker", "glass", "print",
 }
 FONTS = {
     "Anton", "Bebas Neue", "Archivo Black", "Dela Gothic One", "Big Shoulders Display", "League Gothic", "Staatliches",

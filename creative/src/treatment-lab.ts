@@ -13,6 +13,8 @@ import { TYPEWRITER_FONT } from './pack-typewriter';
 import { SCREENSHOT_FONT } from './pack-screenshot';
 import { TREATMENTS, type TreatmentId } from './treatment-deal';
 import type { PackSceneInput } from './pack-copy';
+import { typeFamilies } from './pack-type';
+import { MONO_ACCENT, TYPE_FINISHES } from './type-finish';
 
 const PLACEHOLDER = (() => {
   const canvas = document.createElement('canvas');
@@ -77,7 +79,9 @@ const params = new URLSearchParams(location.search);
 const ONLY = params.get('only')?.split(',');
 const LYRICS = !params.has('nolyrics');
 
-function inputOf(treatment: TreatmentId, variant: string, ms = 2400): PackSceneInput {
+type TypeLook = Pick<PackSceneInput, 'typeStyle' | 'typeFinish' | 'typeAccent' | 'beatIndex'>;
+
+function inputOf(treatment: TreatmentId, variant: string, ms = 2400, look: Partial<TypeLook> = {}): PackSceneInput {
   return {
     style: 'treatment',
     beat: 0.4,
@@ -104,12 +108,13 @@ function inputOf(treatment: TreatmentId, variant: string, ms = 2400): PackSceneI
     treatment,
     treatmentVariant: variant,
     clock: '21:07',
+    ...look,
   };
 }
 
-async function still(treatment: TreatmentId, variant: string, ms = 2400): Promise<string> {
+async function still(treatment: TreatmentId, variant: string, ms = 2400, look: Partial<TypeLook> = {}): Promise<string> {
   await ensure();
-  world!.update(inputOf(treatment, variant, ms), app!.renderer);
+  world!.update(inputOf(treatment, variant, ms, look), app!.renderer);
   app!.render();
   return app!.canvas.toDataURL('image/png');
 }
@@ -194,10 +199,24 @@ async function sheet(cells: { title: string; url: string }[]): Promise<string> {
   return canvas.toDataURL('image/png');
 }
 
+/** `?type`: Swap on three beats, Poem, and every letter finish in the monochrome, red and pink song colours, on the plain grain card. */
+async function typeSheet(): Promise<string> {
+  await ensure();
+  await ensureFonts([...typeFamilies('swap', { font: 'Anton', fontSecondary: 'Anton' }), ...typeFamilies('poem', { font: 'Anton', fontSecondary: 'Anton' })]);
+  const cells: { title: string; url: string }[] = [];
+  for (const beatIndex of [8, 9, 10, 11]) cells.push({ title: `Swap · beat ${beatIndex}`, url: await still('grain', 'fine', 800, { typeStyle: 'swap', beatIndex }) });
+  for (const typeAccent of [MONO_ACCENT, '#e5383b', '#ff4fa3']) {
+    cells.push({ title: `Poem · ${typeAccent}`, url: await still('grain', 'fine', 600, { typeStyle: 'poem', typeAccent }) });
+    for (const typeFinish of TYPE_FINISHES) cells.push({ title: `${typeFinish} · ${typeAccent}`, url: await still('grain', 'fine', 600, { typeStyle: 'karaoke', typeFinish, typeAccent }) });
+  }
+  return sheet(cells);
+}
+
 async function mount() {
   const presets = new URLSearchParams(location.search).has('presets');
+  const type = new URLSearchParams(location.search).has('type');
   const img = new Image();
-  img.src = presets ? await presetSheet() : await contactSheet();
+  img.src = type ? await typeSheet() : presets ? await presetSheet() : await contactSheet();
   img.alt = presets ? 'Every edit preset and take, calm and on the drop' : 'Every treatment × four variants';
   img.style.display = 'block';
   img.style.maxWidth = '100%';

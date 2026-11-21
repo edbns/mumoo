@@ -6,7 +6,7 @@ import { Container, Graphics } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
 import { displayFace, setCase, type FaceStyle } from './ad-fonts';
 import { buzzingWords, EXIT_MS, FX, FX_TRAITS, type FxStyleId, type Layer, type PieceInput, type Placement } from './lyric-fx';
-import { activeIndex, layoutWords, makeText, measure, type TypeFrame } from './type-kit';
+import { activeIndex, isPlated, layoutWords, makeText, measure, plate, plateInk, type TypeFrame } from './type-kit';
 
 /** How a block style fits the lyric: the biggest size that keeps it inside `lines` × 900 px, and where it sits. */
 type Block = { start: number; width: number; lines: number; gap: number; y: number; left?: true; turn?: number };
@@ -59,7 +59,7 @@ export function createFxPainter(): FxPainter {
     const text = makeText(label, {
       size,
       face,
-      color: tone === 'onBox' ? frame.onAccent ?? frame.shadow : tone === 'accent' ? frame.accent : frame.ink,
+      color: tone === 'onBox' ? plateInk(frame) : tone === 'accent' ? frame.accent : frame.ink,
       shadow: frame.shadow,
       alpha: layer.alpha,
       finish: tone === 'onBox' ? 'solid' : frame.finish,
@@ -97,14 +97,8 @@ export function createFxPainter(): FxPainter {
     node.scale.set(p.sx, p.sy);
     node.alpha = p.alpha;
     const promote = lit && !p.layers.some(layer => layer.tone === 'accent');
-    const boxed = lit && whole && frame.finish === 'box';
-    if (boxed) {
-      const box = new Graphics();
-      const padX = size * 0.16;
-      box.roundRect(-width / 2 - padX, -size * 0.56, width + padX * 2, size * 1.1, size * 0.18);
-      box.fill({ color: frame.accent });
-      node.addChild(box);
-    }
+    const boxed = lit && whole && isPlated(frame);
+    if (boxed) node.addChild(plate(frame, -width / 2, width, size));
     for (const layer of p.layers) {
       const tone = boxed && (promote || layer.tone === 'ink') ? 'onBox' : promote ? 'accent' : layer.tone;
       node.addChild(drawLayer(label, layer, tone, size, width, face, frame));
