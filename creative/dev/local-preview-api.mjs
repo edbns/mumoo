@@ -155,7 +155,6 @@ export function localPreviewApi() {
         const email = emailOf(request);
         return email ? handler(email, request, response) : send(response, 401, { error: 'Sign in to continue.' });
       };
-      route('/api/members', 'GET', async (_request, response) => send(response, 200, { latest: 128 }));
       // A new person's credits can be tried with the cookie `preview_allowance=<credits>:<1 when the free video is still to come>`.
       route('/api/account', 'GET', signedIn(async (email, request, response) => {
         const [credits = '120', free = '0'] = (/(?:^|;\s*)preview_allowance=(\d+):([01])/.exec(request.headers.cookie ?? '') ?? []).slice(1);

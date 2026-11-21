@@ -1,59 +1,51 @@
-import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Button } from '@/components/ui/button';
-import { FlipDiskMatrix } from '@/components/ui/flip-disk-matrix';
-import { accountFetch, sessionToken } from './account';
+import { motion, useReducedMotion } from 'motion/react';
 import { CookieBanner } from './legal-corner';
 import '@fontsource-variable/inter';
 import './styles/index.css';
 
-/** Member numbers are shown with at least four digits: 0001, 0042, 12345. */
-const padded = (n: number) => String(n).padStart(4, '0');
-/** The board counts up to the number in this many flips, so it is seen arriving. */
-const STEPS = 9;
-const STEP_MS = 140;
+/** One loop of the cursor's wander around the icon, ending in a click on it. */
+const LOOP_S = 7;
+/** Where the cursor's tip is through the loop, from the icon's centre (px), and when (0–1). It rests on the icon at CLICK. */
+const PATH_X = [170, 95, -125, -115, 8, 8, 8, 8, 170];
+const PATH_Y = [-120, 85, 70, -95, 4, 4, 4, 4, -120];
+const TIMES = [0, 0.18, 0.36, 0.52, 0.66, 0.7, 0.74, 0.86, 1];
+const PRESS = [1, 1, 1, 1, 1, 0.86, 1, 1, 1];
+const ICON_PRESS = [1, 1, 1, 1, 1, 0.94, 1, 1, 1];
 
-type Known = { mine: boolean; number: number };
+const enter = () => location.assign('/');
 
-/** Whose number: the signed-in person's own member number, else the newest one (how many artists have joined). */
-async function lookUp(): Promise<Known> {
-  if (await sessionToken().catch(() => null)) {
-    const account = await (await accountFetch('/api/account')).json() as { memberNo?: number | null };
-    if (account.memberNo) return { mine: true, number: account.memberNo };
-  }
-  const { latest } = await (await fetch('/api/members')).json() as { latest: number };
-  return { mine: false, number: latest };
+/** The macOS arrow, drawn larger than life so it reads as "click here". Its tip is the top-left corner. */
+function Arrow() {
+  return <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true" className="drop-shadow-[0_3px_6px_rgba(0,0,0,0.6)]">
+    <path d="M4 2.5v17.2l4.6-4.4 2.9 6.6 3-1.3-2.9-6.5h6.3L4 2.5Z" fill="#000" stroke="#fff" strokeWidth="1.4" strokeLinejoin="round" />
+  </svg>;
 }
 
-/** /welcome: a flip-disc board showing the person's member number, counting up from 0000 as it arrives. */
+/**
+ * /welcome: a black screen with one app icon on it, left a little off centre as on a desktop nobody tidied, and a cursor that keeps
+ * wandering round it and clicking it. Clicking the icon opens the app.
+ */
 function WelcomePage() {
-  const [known, setKnown] = useState<Known | null>(null);
-  const [shown, setShown] = useState(0);
-
-  useEffect(() => { lookUp().then(setKnown, () => {}); }, []);
-
-  useEffect(() => {
-    if (!known) return;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { setShown(known.number); return; }
-    let step = 0;
-    const timer = setInterval(() => {
-      step += 1;
-      // Eased: quick at first, settling on the number.
-      setShown(Math.round(known.number * (1 - (1 - step / STEPS) ** 3)));
-      if (step >= STEPS) clearInterval(timer);
-    }, STEP_MS);
-    return () => clearInterval(timer);
-  }, [known]);
-
-  const digits = padded(shown);
-  return <div className="flex flex-1 flex-col text-foreground">
-    <header className="flex items-center justify-between px-6 pt-6 pb-4">
-      <a href="/" aria-label="MUMOO"><img src="/brand/mumoo-logo.png" alt="MUMOO" className="h-5" /></a>
-    </header>
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-8 px-6 pb-16">
-      <FlipDiskMatrix text={known ? digits : ''} cols={Math.max(31, digits.length * 6 + 5)} label={known ? padded(known.number) : 'Loading'} />
-      <Button onClick={() => location.assign('/')}>try it for free, no watermark</Button>
-    </main>
+  const still = useReducedMotion();
+  const loop = { duration: LOOP_S, times: TIMES, repeat: Infinity, ease: 'easeInOut' } as const;
+  return <div className="fixed inset-0 overflow-hidden bg-black text-white">
+    <div className="absolute left-[47%] top-[45%] -translate-x-1/2 -translate-y-1/2">
+      <motion.button type="button" onClick={enter} aria-label="Open mumoo"
+        animate={still ? undefined : { scale: ICON_PRESS }} transition={loop} whileHover={{ y: -2 }}
+        className="flex cursor-pointer flex-col items-center gap-2.5 rounded-[22px] border-0 bg-transparent p-2 outline-none focus-visible:ring-2 focus-visible:ring-white/60">
+        <span className="relative block size-24 overflow-hidden rounded-[22.5%] shadow-[0_14px_28px_-10px_rgba(40,240,40,0.28),0_2px_6px_rgba(255,255,255,0.06),inset_0_0_0_1px_rgba(255,255,255,0.12)]">
+          <img src="/brand/favicon.png" alt="" draggable={false} className="size-full select-none" />
+          <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.16)_0%,rgba(255,255,255,0.04)_38%,transparent_55%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]" />
+        </span>
+        <span className="text-[13px] font-medium tracking-tight text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">mumoo</span>
+      </motion.button>
+      <motion.div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[48px]"
+        initial={{ x: still ? 36 : PATH_X[0], y: still ? 30 : PATH_Y[0] }}
+        animate={still ? undefined : { x: PATH_X, y: PATH_Y, scale: PRESS }} transition={loop} style={{ transformOrigin: '0 0' }}>
+        <Arrow />
+      </motion.div>
+    </div>
     <CookieBanner />
   </div>;
 }

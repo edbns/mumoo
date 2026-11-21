@@ -57,7 +57,7 @@
   to = "/pricing.html"
   status = 200
 
-# The member number board.
+# The welcome screen.
 [[redirects]]
   from = "/welcome"
   to = "/welcome.html"
