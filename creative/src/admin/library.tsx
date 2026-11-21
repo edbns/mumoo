@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
-import { CheckIcon, EyeOffIcon, FilmIcon, ImageIcon, Trash2Icon, UploadIcon, XIcon } from 'lucide-react';
+import { CheckIcon, EyeOffIcon, FilmIcon, ImageIcon, PlayIcon, Trash2Icon, UploadIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { GENRES } from '../genres';
 import { BOARDS, BOARD_MIN } from '../boards';
 import { themesFor } from '../genre-guide';
@@ -38,16 +39,59 @@ function Chip({ on, some = false, children, ...props }: { on: boolean; some?: bo
     className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${look} disabled:cursor-not-allowed disabled:opacity-40`}>{children}</button>;
 }
 
-function Media({ item, controls = false }: { item: LibraryItem; controls?: boolean }) {
-  if (item.kind !== 'video') return <img src={item.url} alt="" loading="lazy" className="size-full object-cover" />;
-  return <video src={item.url} muted loop playsInline preload="metadata" controls={controls} className="size-full object-cover"
-    onMouseEnter={controls ? undefined : event => void event.currentTarget.play().catch(() => undefined)}
-    onMouseLeave={controls ? undefined : event => { event.currentTarget.pause(); event.currentTarget.currentTime = 0; }} />;
+/**
+ * A card's picture: a photo, or a video's still with its light copy over it while `live` (hovered). The copy is only made then, so it
+ * starts from its first frame each time and a page of cards never downloads hundreds of videos. Before a video is prepared, its upload.
+ */
+function Media({ item, live = false }: { item: LibraryItem; live?: boolean }) {
+  const still = item.kind === 'photo' ? item.url : item.poster;
+  return <>
+    {still ? <img src={still} alt="" loading="lazy" decoding="async" className="size-full object-cover" />
+      : <video src={item.url} muted playsInline preload={item.problem ? 'none' : 'metadata'} className="size-full object-cover" />}
+    {live && item.preview && <video src={item.preview} autoPlay muted loop playsInline className="absolute inset-0 size-full object-cover" />}
+  </>;
+}
+
+/** Opens the player: on a card, over the middle of its picture. */
+function PlayButton({ item, onPlay }: { item: LibraryItem; onPlay: () => void }) {
+  return <div className="pointer-events-none absolute inset-x-0 top-0 aspect-[3/4]">
+    <button type="button" aria-label={`Play the whole ${item.kind === 'gif' ? 'GIF' : item.kind}`} onClick={onPlay}
+      className="pointer-events-auto absolute left-1/2 top-1/2 flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-0 bg-black/60 p-0 text-white opacity-0 outline-ring transition-[opacity,background-color] hover:bg-black/80 focus-visible:opacity-100 focus-visible:outline-2 group-hover/card:opacity-100">
+      <PlayIcon className="ml-0.5 size-5 fill-current" aria-hidden="true" />
+    </button>
+  </div>;
+}
+
+/**
+ * The file as it was uploaded, whole and with sound, to check it before deciding. A browser that cannot play the upload (often a MOV)
+ * gets our prepared copy instead (the whole video, no sound), and the original stays a click away.
+ */
+function Player({ item, onClose }: { item: LibraryItem | null; onClose: () => void }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [item?.id]);
+  const source = item && (failed ? item.preview : item.url);
+  const frame = 'max-h-[calc(100vh-11rem)] w-full rounded-[var(--radius)] bg-black object-contain';
+  return <Modal open={item !== null} onClose={onClose} bare maxWidth={520} maxHeight="calc(100vh - 3rem)"
+    title={item ? `${item.kind === 'gif' ? 'GIF' : cap(item.kind)}, ${STATUS_LABEL[item.status]}` : ''}>
+    {item && <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-muted p-3 shadow-[0_28px_56px_-24px_#000]">
+      {item.kind !== 'video' ? <img src={item.url} alt="" className={frame} />
+        : source ? <video key={source} src={source} controls autoPlay playsInline poster={item.poster ?? undefined} onError={() => setFailed(true)} className={frame} />
+        : <p className="m-0 p-6 text-center text-sm text-muted-foreground">This browser cannot play this {item.contentType} file and it is not prepared yet. Open the original to check it.</p>}
+      {failed && source && <p className="m-0 px-1 text-xs text-muted-foreground">This browser cannot play the uploaded {item.contentType} file, so this is our prepared copy: the whole video, without sound.</p>}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-sm text-muted-foreground">
+        <span>{item.contentType} · {megabytes(item.bytes)}{item.width && item.height ? ` · ${item.width}×${item.height}` : ''}</span>
+        <a href={item.url} target="_blank" rel="noreferrer" className="font-medium text-foreground underline-offset-4 hover:underline">Open the original</a>
+      </div>
+    </div>}
+  </Modal>;
 }
 
 type Sending = { name: string; state: 'sending' | 'done' | 'failed'; reason?: string };
 
-/** Drop files in, say once that you cleared them, and they join the library as "Waiting", in the tray, until they are filed on a board (which approves them). */
+/**
+ * Drop files in, say once that you cleared them, and they join the library as "Waiting", in the tray, until they are filed on a board
+ * (which approves them). Files dropped with a board chosen are filed, and so approved, at once.
+ */
 function Uploader({ onAdded }: { onAdded: (item: LibraryItem) => void }) {
   const [rights, setRights] = useState(false);
   const [note, setNote] = useState('');
@@ -65,7 +109,7 @@ function Uploader({ onAdded }: { onAdded: (item: LibraryItem) => void }) {
     for (const [index, file] of files.entries()) {
       try {
         const sent = await uploadFile(file, note);
-        onAdded(board ? (await changeItem(sent.id, { boards: [board] })).item : sent);
+        onAdded(board ? (await changeItem(sent.id, { boards: [board], status: 'approved' })).item : sent);
         set(index, { name: file.name, state: 'done' });
       } catch (cause) {
         set(index, { name: file.name, state: 'failed', reason: (cause as Error).message });
@@ -118,13 +162,16 @@ function Uploader({ onAdded }: { onAdded: (item: LibraryItem) => void }) {
 }
 
 /** A card opens its item; its tick puts it in the selection (shift-click ticks every card between this one and the last ticked). */
-function Card({ item, selected, ticked, onSelect, onTick }: { item: LibraryItem; selected: boolean; ticked: boolean; onSelect: () => void; onTick: (range: boolean) => void }) {
+function Card({ item, selected, ticked, onSelect, onTick, onPlay }: {
+  item: LibraryItem; selected: boolean; ticked: boolean; onSelect: () => void; onTick: (range: boolean) => void; onPlay: () => void;
+}) {
   const boards = BOARDS.filter(board => item.boards.includes(board.id)).map(board => board.name);
-  return <div className="relative">
+  const [hover, setHover] = useState(false);
+  return <div className="group/card relative" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
   <button type="button" onClick={onSelect} aria-pressed={selected} aria-label={`${item.kind}, ${STATUS_LABEL[item.status]}${boards.length ? `, ${boards.join(', ')}` : ', no board yet'}`}
     className={`group flex w-full flex-col overflow-hidden rounded-[var(--radius-panel)] bg-card p-0 text-left shadow-sm outline-ring transition-shadow focus-visible:outline-2 ${selected || ticked ? 'ring-2 ring-foreground' : 'hover:shadow-md'}`}>
     <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
-      <Media item={item} />
+      <Media item={item} live={hover} />
       <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[item.status]}`}>{STATUS_LABEL[item.status]}</span>
       {!item.ready && <span className={`absolute bottom-2 left-2 rounded-full px-2 py-0.5 text-xs font-medium ${item.problem ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{item.problem ? 'Cannot be used' : 'Preparing…'}</span>}
       {item.ready && item.warning && <span className="absolute bottom-2 left-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Low resolution</span>}
@@ -137,6 +184,7 @@ function Card({ item, selected, ticked, onSelect, onTick }: { item: LibraryItem;
       {boards.map(name => <span key={name} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{name}</span>)}
     </div>
   </button>
+  {item.kind !== 'photo' && <PlayButton item={item} onPlay={onPlay} />}
   <button type="button" role="checkbox" aria-checked={ticked} aria-label={ticked ? 'Unselect' : 'Select'} onClick={event => onTick(event.shiftKey)}
     className={`absolute right-2 top-2 flex size-7 items-center justify-center rounded-full border-2 p-0 shadow-sm outline-ring transition-colors focus-visible:outline-2 ${ticked ? 'border-foreground bg-foreground text-background' : 'border-white bg-black/40 text-transparent hover:bg-black/60'}`}>
     <CheckIcon className="size-4" aria-hidden="true" />
@@ -148,9 +196,9 @@ function Card({ item, selected, ticked, onSelect, onTick }: { item: LibraryItem;
 const suggestionsFor = (genre: string, subGenre: string, poolNames: readonly string[]) =>
   [...new Set([...(genre ? themesFor(genre, subGenre) : []), ...COMMON_TAGS])].filter(tag => !poolNames.includes(tag));
 
-/** The side panel for one item: what is in it (tags), a genre it is kept for, where it came from, and approve, hide or delete. */
-function Panel({ item, pool, onClose, onSaved, onDeleted }: {
-  item: LibraryItem; pool: TagCount[]; onClose: () => void;
+/** The side panel for one item: what is in it (tags), a genre it is kept for, where it came from, and approve, hide or delete. It closes once saved. */
+function Panel({ item, pool, onClose, onPlay, onSaved, onDeleted }: {
+  item: LibraryItem; pool: TagCount[]; onClose: () => void; onPlay: () => void;
   onSaved: (item: LibraryItem, tags: TagCount[]) => void; onDeleted: (library: Library) => void;
 }) {
   const [tags, setTags] = useState(item.tags);
@@ -211,7 +259,8 @@ function Panel({ item, pool, onClose, onSaved, onDeleted }: {
       <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[item.status]}`}>{STATUS_LABEL[item.status]}</span>
       <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close"><XIcon className="size-4" aria-hidden="true" /></Button>
     </div>
-    <div className="aspect-[3/4] max-h-80 self-center overflow-hidden rounded-[var(--radius-panel)] bg-muted"><Media item={item} controls /></div>
+    <div className="relative aspect-[3/4] max-h-80 self-center overflow-hidden rounded-[var(--radius-panel)] bg-muted"><Media item={item} live /></div>
+    {item.kind !== 'photo' && <Button variant="secondary" className="self-center" onClick={onPlay}><PlayIcon className="size-4" aria-hidden="true" />Play the whole file</Button>}
     {(item.seenAs || item.suggestion) && <div className="flex flex-col gap-1 rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm">
       {item.seenAs && <span>{item.seenAs}</span>}
       {item.suggestion && <span className="text-xs text-muted-foreground">
@@ -342,9 +391,12 @@ function SelectionBar({ count, shown, onClear, onEdit }: { count: number; shown:
   </div>;
 }
 
-/** The side panel for several items at once: tags put on or taken off all of them, one genre for all, and approve, hide or delete them together. */
-function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
-  items: LibraryItem[]; pool: TagCount[]; onClose: () => void;
+/**
+ * The side panel for several items at once: tags put on or taken off all of them, one genre for all, and approve, hide or delete them
+ * together. Once every one is saved, the selection is let go (`onDone`).
+ */
+function BulkPanel({ items, pool, onClose, onDone, onSaved, onDeleted }: {
+  items: LibraryItem[]; pool: TagCount[]; onClose: () => void; onDone: () => void;
   onSaved: (items: LibraryItem[], tags: TagCount[] | null) => void; onDeleted: (library: Library | null, gone: string[]) => void;
 }) {
   const [tags, setTags] = useState<Edit>(NO_EDIT);
@@ -409,8 +461,8 @@ function BulkPanel({ items, pool, onClose, onSaved, onDeleted }: {
       unfit ? `${unfit} tag${unfit === 1 ? '' : 's'} did not fit (an item holds at most ${MAX_TAGS} tags).` : '',
     ].filter(Boolean).join(' '));
     if (refused.length) setError(`${failed} not saved: ${refused.join(' ')}`);
-    if (!failed) { setTags(NO_EDIT); setBoards(NO_EDIT); setWithSeen(false); setGenre(LEAVE); setSubGenre(''); }
     setBusy(false);
+    if (!failed) onDone();
   }
 
   async function removeAll() {
@@ -562,8 +614,10 @@ function BoardGenres({ board, className = 'text-foreground' }: { board: (typeof 
 
 /** A small card in the tray: opens the item; its × (when given) takes it out of a group our models were sure of. */
 function Thumb({ item, onOpen, onDoubt }: { item: LibraryItem; onOpen: () => void; onDoubt?: () => void }) {
-  return <div className="relative aspect-[3/4] overflow-hidden rounded-[var(--radius-control)] bg-muted" title={item.seenAs ?? undefined}>
-    <button type="button" onClick={onOpen} aria-label={item.seenAs ?? `Open this ${item.kind}`} className="size-full bg-transparent p-0"><Media item={item} /></button>
+  const [hover, setHover] = useState(false);
+  return <div className="relative aspect-[3/4] overflow-hidden rounded-[var(--radius-control)] bg-muted" title={item.seenAs ?? undefined}
+    onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+    <button type="button" onClick={onOpen} aria-label={item.seenAs ?? `Open this ${item.kind}`} className="relative size-full bg-transparent p-0"><Media item={item} live={hover} /></button>
     {onDoubt && <button type="button" aria-label="Not this board" onClick={onDoubt}
       className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/60 p-0 text-white hover:bg-black/80"><XIcon className="size-3.5" aria-hidden="true" /></button>}
   </div>;
@@ -715,10 +769,13 @@ const KEEP_LINKS_MS = 10 * 60 * 1000;
 /** The library is asked again this long after the last change (what our models offer depends on every answer), once. */
 const SETTLE_MS = 2500;
 
+/** The links a card already shows, kept; those it did not have yet (a video prepared since), taken from `next`. */
+const linksOf = (shown: LibraryItem, next: LibraryItem) => ({ url: shown.url, poster: shown.poster ?? next.poster, preview: shown.preview ?? next.preview });
+
 /** What the server answered for a change, on the card: it keeps its link, and our models' suggestions until the library is asked again. */
 const withSaved = (item: LibraryItem, saved: LibraryItem): LibraryItem => ({
   ...saved,
-  url: item.url,
+  ...linksOf(item, saved),
   also: item.also.filter(board => !saved.boards.includes(board) && !saved.notBoards.includes(board)),
   suggestion: saved.boards.length ? null : item.suggestion,
 });
@@ -732,6 +789,7 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   /** What still needs a board is shown first; an item filed on one is found under its board. */
   const [board, setBoard] = useState(NO_BOARD);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   /** The ticked cards are being edited (the panel is open); until then only the selection bar shows. */
   const [editing, setEditing] = useState(false);
@@ -745,8 +803,8 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
     if (fresh) linksAt.current = Date.now();
     setLibrary(current => {
       if (!current || fresh) return next;
-      const links = new Map(current.items.map(item => [item.id, item.url]));
-      return { ...next, items: next.items.map(item => ({ ...item, url: links.get(item.id) ?? item.url })) };
+      const shown = new Map(current.items.map(item => [item.id, item]));
+      return { ...next, items: next.items.map(item => { const old = shown.get(item.id); return old ? { ...item, ...linksOf(old, item) } : item; }) };
     });
   }
   const refresh = () => loadLibrary().then(take, () => undefined);
@@ -834,17 +892,19 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
         {items.length === 0 ? 'Nothing here yet. Add your first cleared file above.' : 'Nothing matches these filters.'}</p>
       : <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         {shown.map(item => <Card key={item.id} item={item} selected={item.id === openId} ticked={picked.includes(item.id)}
-          onSelect={() => (picked.length ? tick(item.id, false) : setOpenId(item.id))} onTick={range => tick(item.id, range)} />)}
+          onSelect={() => (picked.length ? tick(item.id, false) : setOpenId(item.id))} onTick={range => tick(item.id, range)}
+          onPlay={() => { if (!picked.length) setOpenId(item.id); setPlayingId(item.id); }} />)}
       </div>}
     </>}
     {library && <Tags tags={library.tags} onChange={replace} />}
 
     <SelectionBar count={chosen.length} shown={chosen.length > 0 && !editing} onClear={() => setPicked([])} onEdit={() => setEditing(true)} />
-    {chosen.length > 0 && editing && library && <BulkPanel items={chosen} pool={library.tags} onClose={() => setEditing(false)}
+    {chosen.length > 0 && editing && library && <BulkPanel items={chosen} pool={library.tags} onClose={() => setEditing(false)} onDone={() => setPicked([])}
       onSaved={(saved, tags) => merge(saved, tags ?? undefined)}
       onDeleted={(next, gone) => { setPicked(list => list.filter(id => !gone.includes(id))); if (next) replace(next); else void refresh(); }} />}
-    {!chosen.length && open && library && <Panel item={open} pool={library.tags} onClose={() => setOpenId(null)}
-      onSaved={(saved, tags) => merge([saved], tags)}
+    {!chosen.length && open && library && <Panel item={open} pool={library.tags} onClose={() => setOpenId(null)} onPlay={() => setPlayingId(open.id)}
+      onSaved={(saved, tags) => { merge([saved], tags); setOpenId(null); }}
       onDeleted={next => { setOpenId(null); replace(next); }} />}
+    <Player item={items.find(item => item.id === playingId) ?? null} onClose={() => setPlayingId(null)} />
   </div>;
 }

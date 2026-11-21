@@ -122,7 +122,11 @@ const asItem = async (row, suggestion = null, also = []) => ({
   also,
   /** Its main colours (`measureColours`), largest first, once measured. */
   colours: row.colours?.palette ?? null,
+  /** The file as uploaded, for checking it whole (a MOV may not play in every browser). */
   url: await signedDownload(keyOf(row.id), null),
+  /** Once a video or GIF is prepared: its still and its light, muted copy, what the cards load instead of the upload. */
+  poster: row.kind !== 'photo' && row.ready ? await signedDownload(posterKey(row.id), null) : null,
+  preview: row.kind !== 'photo' && row.ready ? await signedDownload(row.small ? smallKey(row.id) : motionKey(row.id), null) : null,
 });
 
 /**

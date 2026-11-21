@@ -13,7 +13,9 @@ export type LibraryItem = {
   attitudes: string[]; tags: string[]; genre: string | null; subGenre: string | null; note: string;
   /** The mood boards it is filed in (`boards.ts`), and those the admin said it does not fit (never offered again). */
   boards: string[]; notBoards: string[];
-  clearedBy: string; clearedAt: string; createdAt: string; url: string;
+  clearedBy: string; clearedAt: string; createdAt: string;
+  /** The file as uploaded; for a prepared video or GIF also its still and its light muted copy, which the cards show instead. */
+  url: string; poster: string | null; preview: string | null;
   /** Ready to be drawn by the templates. A video or GIF is first made a small clip by our worker; `problem` says why one cannot be used. */
   ready: boolean; problem: string | null;
   /** The picture's size and, when it is too small for sharp creatives, words saying so. */
