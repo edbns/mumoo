@@ -8,7 +8,7 @@ import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from '
 import type { CartDownload } from './use-cart-download';
 import { quietError } from './friendly-error';
 import { reportProblem } from './report-problem';
-import { PauseIcon, PlayIcon } from 'lucide-react';
+import { LoaderCircleIcon, PauseIcon, PlayIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PictureUpload, UploadProgress } from './picture-upload';
 import type { Upload } from './uploads';
@@ -26,7 +26,7 @@ import {
   warmPackStills,
   type PackRendererOpts,
 } from './pack-renderer';
-import { preloadReel, setReelPreview, type ReelSource } from './pack-reel';
+import { preloadReel, readyToPlay, setReelPreview, type ReelSource } from './pack-reel';
 import { setMotionLive } from './pack-motion';
 import { clipToMonoWav, submitCloudJob } from './pack-cloud-export';
 import { LoadingMask } from './loading-mask';
@@ -178,6 +178,9 @@ export function CreativesPackStudio({
 }) {
   const canvasRefs = useRef(new Map<string, HTMLCanvasElement>());
   const [playingId, setPlayingId] = useState<string | null>(null);
+  /** The card whose first pictures are being read: it plays once they are in. */
+  const [startingId, setStartingId] = useState<string | null>(null);
+  const starting = useRef<string | null>(null);
   const [fontReady, setFontReady] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => { if (error) console.warn('[creatives]', error); }, [error]);
@@ -264,7 +267,7 @@ export function CreativesPackStudio({
       const item = libraryItem(id);
       if (!item) return [];
       if (item.kind === 'photo') return [{ id, kind: 'photo', url: item.url }];
-      return item.motionUrl ? [{ id, kind: 'clip', url: item.motionUrl, ...(item.shots ? { shots: item.shots } : {}), ...(item.url ? { poster: item.url } : {}) }] : [];
+      return item.motionUrl ? [{ id, kind: 'clip', url: item.motionUrl, ...(item.shots ? { shots: item.shots } : {}), ...(item.url ? { poster: item.url } : {}), ...(item.smallUrl ? { small: item.smallUrl } : {}) }] : [];
     });
     return sources.length >= 2 ? { reel: sources } : undefined;
   };
@@ -486,6 +489,8 @@ export function CreativesPackStudio({
 
   /** Any change to a row stops playback first, so the one shared drawing surface is never used twice at once. */
   function stopPlayback() {
+    starting.current = null;
+    setStartingId(null);
     onStop();
     setPlayingId(null);
   }
@@ -544,17 +549,31 @@ export function CreativesPackStudio({
     : cart.items.filter(item => item.uploadId === null && !item.ownReel && !pictureFor(item).available).map(item => item.id).join(',');
   useEffect(() => { if (goneKey !== null) onGone(goneKey); }, [goneKey, onGone]);
 
-  function togglePlay(id: string) {
+  async function togglePlay(id: string) {
     if (!allReady || !fontReady) return;
-    if (playing && playingId === id) {
+    if ((playing && playingId === id) || starting.current === id) {
+      starting.current = null;
+      setStartingId(null);
       onStop();
       setPlayingId(null);
       return;
     }
-    setPlayingId(id);
     if (playing) onStop();
+    setPlayingId(null);
     const slot = pack.find(item => item.id === id);
-    if (slot) reportPackFeedback(token, profile, 'play', slot, { generation: controls[slot.row].generation, ownPicture: ownCard(slot), place: placeOf(slot.row) });
+    if (!slot) return;
+    reportPackFeedback(token, profile, 'play', slot, { generation: controls[slot.row].generation, ownPicture: ownCard(slot), place: placeOf(slot.row) });
+    // Music and pictures start together, once the first pictures are in: a card that opens on posters looks broken.
+    const reel = pictureOf(slot.row, slot)?.reel;
+    if (reel?.length) {
+      starting.current = id;
+      setStartingId(id);
+      await readyToPlay(reel, () => starting.current === id);
+      if (starting.current !== id) return;
+      starting.current = null;
+      setStartingId(null);
+    }
+    setPlayingId(id);
     onPlay();
   }
 
@@ -636,6 +655,7 @@ export function CreativesPackStudio({
         const ready = allReady;
         const inCart = cart.has(item.id);
         const isPlaying = playing && playingId === item.id;
+        const isStarting = startingId === item.id;
         return (
           <div key={item.id} className="creatives-pack-item" role="listitem">
             <div className={`creatives-pack-card${ready ? '' : ' pending'}${inCart ? ' selected' : ''}`}>
@@ -658,9 +678,10 @@ export function CreativesPackStudio({
                 type="button"
                 className="creatives-pack-play"
                 disabled={!ready}
-                aria-label={`${isPlaying ? 'Pause' : 'Play'} ${def.title} creative`}
-                onClick={() => togglePlay(item.id)}
-              >{isPlaying ? <PauseIcon aria-hidden="true" className="size-5" /> : <PlayIcon aria-hidden="true" className="size-5" />}</button>
+                aria-label={`${isPlaying || isStarting ? 'Pause' : 'Play'} ${def.title} creative`}
+                aria-busy={isStarting}
+                onClick={() => void togglePlay(item.id)}
+              >{isStarting ? <LoaderCircleIcon aria-hidden="true" className="size-5 animate-spin" /> : isPlaying ? <PauseIcon aria-hidden="true" className="size-5" /> : <PlayIcon aria-hidden="true" className="size-5" />}</button>
             </div>
             <div className="creatives-pack-caption">
               <span className="creatives-pack-name">{item.preset ? `${def.title} · ${presetTitle(item.preset)}` : def.title}</span>

@@ -62,7 +62,11 @@ try {
     const button = page.getByRole('button', { name: `Play ${name} creative` }).first();
     if (!(await button.count())) { console.log(name, 'no card'); continue; }
     const before = bytes;
+    const pressed = Date.now();
     await button.click();
+    // The card reads its first pictures before music and pictures start together.
+    await page.getByRole('button', { name: `Pause ${name} creative` }).first().and(page.locator(':not([aria-busy=true])')).waitFor({ timeout: 30000 });
+    const waitedMs = Date.now() - pressed;
     const result = await page.evaluate(async ([label, ms]) => {
       const card = [...document.querySelectorAll('.creatives-pack-card')].find(c => c.querySelector(`button[aria-label="Play ${label} creative"], button[aria-label="Pause ${label} creative"]`));
       const canvas = card.querySelector('canvas');
@@ -85,7 +89,7 @@ try {
       }
       return { fps: +(changes / (ms / 1000)).toFixed(1), raf: +(frames / (ms / 1000)).toFixed(1), firstMoveMs: Math.round(firstChange), longestStallMs: Math.round(longest), perSecond: perSecond.join(' ') };
     }, [name, playMs]);
-    console.log(name.padEnd(16), `moving frames/s ${result.fps} (page ${result.raf}) | first movement after ${result.firstMoveMs} ms | longest freeze ${result.longestStallMs} ms | per second: ${result.perSecond} | +${((bytes - before) / 1e6).toFixed(1)} MB`);
+    console.log(name.padEnd(16), `starts after ${waitedMs} ms | moving frames/s ${result.fps} (page ${result.raf}) | first movement after ${result.firstMoveMs} ms | longest freeze ${result.longestStallMs} ms | per second: ${result.perSecond} | +${((bytes - before) / 1e6).toFixed(1)} MB`);
     await page.locator('.creatives-pack-card', { has: page.getByRole('button', { name: `Pause ${name} creative` }) }).first().screenshot({ path: `/tmp/measure-card-${name.replace(/ /g, '-')}.png` }).catch(() => undefined);
     await page.getByRole('button', { name: `Pause ${name} creative` }).first().click().catch(() => undefined);
     await page.waitForTimeout(800);

@@ -2,8 +2,10 @@
 
   photo   a JPEG  ->  a cut-out mask of the subject (PNG), made by a self-hosted U2-Net model (run straight
           on onnxruntime: the rembg package alone took over a minute to import on a cold container)
-  motion  a video or GIF  ->  a small H.264 copy (the whole video, muted, at most 720x1280), a poster still and
-          the list of its shots, so a creative can cut and arrange them on the beat
+  motion  a video or GIF  ->  an H.264 copy (the whole video, muted, at most 1080x1920), a poster still and
+          the list of its shots, so a creative can cut and arrange them on the beat; and (when asked) a small copy of
+          that clip for the shelf to stream (`small`)
+  small   a prepared clip  ->  its small copy alone (for clips prepared before small copies were made)
   describe  a library photo or prepared clip  ->  what it is seen to show (`LOOKS`, each 0..1), tags to suggest
           (`SEEN_WORDS`), how much it looks like each mood board and its likeness (an embedding the admin's own
           filing is compared by), by a self-hosted SigLIP 2 model (Apache 2.0); and the reader's sentence and board
@@ -50,7 +52,11 @@ MASK_SIDE = 640
 MODEL_PATH = "/models/u2net.onnx"
 MODEL_URL = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx"
 MODEL_MD5 = "60024c5c889badc19c04ad937298a77b"
-OUTPUTS = {"photo": {"cutout"}, "motion": {"motion", "poster"}, "describe": set()}
+OUTPUTS = {"photo": {"cutout"}, "motion": {"motion", "poster"}, "small": {"small"}, "describe": set()}
+# Outputs a kind may also be asked for.
+OPTIONAL = {"motion": {"small"}}
+# The shelf's copy of a clip: a card is a few hundred pixels wide, and a light file reaches the page and is decoded in a moment.
+SMALL_WIDTH = 540
 
 SEER = "google/siglip2-base-patch16-224"
 # What the brain can ask a picture to show: the song themes (SONG_THEMES in creative/src/song-themes.ts) and the genre looks
@@ -574,6 +580,20 @@ def motion(source: Path, directory: Path) -> tuple[bytes, bytes, list[list[int]]
     return clip.read_bytes(), poster.read_bytes(), shots_from(log, milliseconds, round(dark * 1000)), size_of(clip)
 
 
+def small_copy(clip: Path, directory: Path) -> bytes:
+    """The clip at most SMALL_WIDTH wide: the same frames at the same times (no trim, no new frame rate), so the shelf shows what the cloud renders."""
+    small = directory / "small.mp4"
+    run([
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(clip), "-an",
+        "-vf", f"scale='min({SMALL_WIDTH},iw)':-2,format=yuv420p",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-maxrate", "1500k", "-bufsize", "3M",
+        "-g", "10", "-bf", "0", "-movflags", "+faststart", str(small),
+    ], 300)
+    if not small.exists() or small.stat().st_size < 1000:
+        raise PrepareError("That video has nothing to show.")
+    return small.read_bytes()
+
+
 @app.function(image=image, cpu=4, memory=4096, min_containers=0, max_containers=6, scaledown_window=60, timeout=600)
 def prepare(kind: str, source: str, puts: dict[str, str]) -> dict:
     """Returns {"ok": True, "bytes": {output: size}, "shots": [[start_ms, end_ms], ...], "width", "height" (video or GIF only)},
@@ -588,9 +608,14 @@ def prepare(kind: str, source: str, puts: dict[str, str]) -> dict:
                 return {"ok": True, **describe(file, directory)}
             if kind == "photo":
                 made = {"cutout": (cutout(file), "image/png")}
+            elif kind == "small":
+                made = {"small": (small_copy(file, directory), "video/mp4")}
             else:
                 clip, poster, found, size = motion(file, directory)
                 made = {"motion": (clip, "video/mp4"), "poster": (poster, "image/jpeg")}
+                if "small" in puts:
+                    clip_file = directory / "clip.mp4"
+                    made["small"] = (small_copy(clip_file, directory), "video/mp4")
             for output, (data, content_type) in made.items():
                 upload(puts[output], data, content_type)
             return {"ok": True, "bytes": {output: len(data) for output, (data, _) in made.items()}, **({"shots": found, "width": size[0], "height": size[1]} if kind == "motion" else {})}
@@ -608,7 +633,7 @@ async def submit(request: Request):
     try:
         body = await request.json()
         kind = body["kind"]
-        if kind not in OUTPUTS or set(body["puts"]) != OUTPUTS[kind]:
+        if kind not in OUTPUTS or not OUTPUTS[kind] <= set(body["puts"]) <= OUTPUTS[kind] | OPTIONAL.get(kind, set()):
             raise ValueError("kind")
         source = storage_link(body["source"])
         puts = {output: storage_link(link) for output, link in body["puts"].items()}
@@ -634,3 +659,16 @@ async def status(request: Request, id: str = ""):
     except Exception:  # noqa: BLE001
         raise HTTPException(502, "Preparing failed.") from None
     return result
+
+
+@app.local_entrypoint()
+def smalls(jobs: str, results: str) -> None:
+    """Small copies for clips prepared before they were made: `jobs` is a JSON file of [{id, source, put}] (links that already expire),
+    `results` where {id: true | words} is written. Run by creative/scripts/make-small-clips.mjs."""
+    items = json.loads(Path(jobs).read_text())
+    answers = prepare.starmap([("small", storage_link(item["source"]), {"small": storage_link(item["put"])}) for item in items], return_exceptions=True)
+    out = {}
+    for item, answer in zip(items, answers):
+        out[item["id"]] = True if isinstance(answer, dict) and answer.get("ok") else (answer.get("error") if isinstance(answer, dict) else str(answer))
+    Path(results).write_text(json.dumps(out))
+    print(f"{sum(value is True for value in out.values())} of {len(items)} small copies made")

@@ -21,6 +21,8 @@ export type ReelSource = {
   shots?: readonly Shot[];
   /** A link to a still of the clip. The shelf gives it (see `setReelPreview`); the cloud never does. */
   poster?: string;
+  /** A link to the same clip, small (same frames at the same times): what the shelf streams when it has one. The cloud never does. */
+  small?: string;
 };
 
 /** What tells one picture of a reel from another: its library id, or (in the cloud) its link without the signature that changes every time. */
@@ -194,7 +196,8 @@ async function read(source: ReelSource): Promise<Loaded> {
     const streamed = preview;
     if (streamed) await turn(key);
     try {
-      const motion = await loadMotion(linked(source).url, streamed);
+      const link = linked(source);
+      const motion = await loadMotion(streamed ? link.small ?? link.url : link.url, streamed);
       try {
         let exposure = exposures.get(key);
         if (!exposure) {
@@ -309,6 +312,28 @@ export async function preloadReel(sources: readonly ReelSource[]): Promise<void>
   // On the shelf every clip's poster first (small, side by side): a cut to a clip that is not in yet shows it at once.
   if (preview) for (const source of sources) if (source.kind === 'clip' && source.poster) void stillOf(source).catch(() => undefined);
   await Promise.all(sources.map(source => keep(source).catch(() => undefined)));
+}
+
+/** The pictures a card opens on, read before it plays: then it starts on moving pictures, not on posters. */
+const HEAD_START = 3;
+const HEAD_START_MOST_MS = 4000;
+
+/**
+ * Like `preloadReel`, but settles once the first pictures the reel opens on are in (or after a few seconds at most, or when
+ * `stillWanted` says the card is no longer the one to play): the card then starts. The rest go on being read.
+ */
+export async function readyToPlay(sources: readonly ReelSource[], stillWanted: () => boolean): Promise<void> {
+  void preloadReel(sources);
+  const first = sources.slice(0, HEAD_START).map(source => keep(source).catch(() => undefined));
+  let waited: ReturnType<typeof setTimeout> | undefined;
+  let polled: ReturnType<typeof setInterval> | undefined;
+  await Promise.race([
+    Promise.all(first),
+    new Promise<void>((resolve) => { waited = setTimeout(resolve, HEAD_START_MOST_MS); }),
+    new Promise<void>((resolve) => { polled = setInterval(() => { if (!stillWanted()) resolve(); }, 100); }),
+  ]);
+  clearTimeout(waited);
+  clearInterval(polled);
 }
 
 const assetsOf = (sources: readonly ReelSource[]): ReelAsset[] =>

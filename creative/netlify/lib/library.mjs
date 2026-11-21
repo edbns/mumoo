@@ -38,6 +38,7 @@ const keyOf = (id) => `library/${id}`;
 const motionKey = (id) => `library/${id}.mp4`;
 const posterKey = (id) => `library/${id}.poster.jpg`;
 const cutoutKey = (id) => `library/${id}.cut.png`;
+export const smallKey = (id) => `library/${id}.small.mp4`;
 /** The creatives are this size; a picture smaller than it is enlarged, and looks soft. */
 export const CREATIVE_WIDTH = 1080;
 export const CREATIVE_HEIGHT = 1920;
@@ -158,7 +159,8 @@ async function prepareItem(row) {
         const shots = Array.isArray(answer.done.shots) ? JSON.stringify(answer.done.shots) : null;
         const width = Number.isInteger(answer.done.width) ? answer.done.width : null;
         const height = Number.isInteger(answer.done.height) ? answer.done.height : null;
-        await sql`update library_items set ready = true, problem = null, prepare_job = null, shots = ${shots}::jsonb, width = ${width}, height = ${height} where id = ${row.id}`;
+        const small = Number(answer.done.bytes?.small) > 0;
+        await sql`update library_items set ready = true, problem = null, prepare_job = null, shots = ${shots}::jsonb, width = ${width}, height = ${height}, small = ${small} where id = ${row.id}`;
       }
       return;
     }
@@ -171,6 +173,7 @@ async function prepareItem(row) {
       const job = await startPrepare(await signedDownload(keyOf(row.id), null, 1800), {
         motion: await signedUpload(motionKey(row.id)),
         poster: await signedUpload(posterKey(row.id)),
+        small: await signedUpload(smallKey(row.id)),
       });
       await sql`update library_items set prepare_job = ${job} where id = ${row.id}`;
     } catch (cause) {
@@ -417,18 +420,19 @@ export async function changeItem(id, change) {
 export async function removeItem(id) {
   const [row] = await db()`delete from library_items where id = ${id} returning id`;
   if (!row) return false;
-  await Promise.all([keyOf(id), motionKey(id), posterKey(id), cutoutKey(id)].map(key => deleteObject(key).catch(() => undefined)));
+  await Promise.all([keyOf(id), motionKey(id), posterKey(id), cutoutKey(id), smallKey(id)].map(key => deleteObject(key).catch(() => undefined)));
   return true;
 }
 
 /**
  * What the templates may draw, for anyone: only approved items that are ready, with the little the brain needs to choose
- * (never who cleared them or where they came from). A photo comes with its link; a video or GIF with its poster, its clip and its shots.
+ * (never who cleared them or where they came from). A photo comes with its link; a video or GIF with its poster, its clip, its small copy
+ * for the shelf (once made) and its shots.
  * Links work for 15 minutes.
  */
 export async function listApproved() {
   await prepareWaiting();
-  const rows = await db()`select id, kind, attitudes, tags, genre, sub_genre, boards, looks, colours, cutout, shots from library_items where arrived and ready and status = 'approved' order by created_at desc limit ${LIBRARY_MAX}`;
+  const rows = await db()`select id, kind, attitudes, tags, genre, sub_genre, boards, looks, colours, cutout, shots, small from library_items where arrived and ready and status = 'approved' order by created_at desc limit ${LIBRARY_MAX}`;
   const learned = await learnedCounts();
   return Promise.all(rows.map(async (row) => ({
     id: row.id,
@@ -442,7 +446,7 @@ export async function listApproved() {
     ...(row.colours ? { colours: { palette: row.colours.palette, lightness: row.colours.lightness, saturation: row.colours.saturation, contrast: row.colours.contrast } } : {}),
     ...(learned.has(row.id) ? learned.get(row.id) : {}),
     url: await signedDownload(row.kind === 'photo' ? keyOf(row.id) : posterKey(row.id), null),
-    ...(row.kind === 'photo' ? (row.cutout ? { cutoutUrl: await signedDownload(cutoutKey(row.id), null) } : {}) : { motionUrl: await signedDownload(motionKey(row.id), null), ...(row.shots ? { shots: row.shots } : {}) }),
+    ...(row.kind === 'photo' ? (row.cutout ? { cutoutUrl: await signedDownload(cutoutKey(row.id), null) } : {}) : { motionUrl: await signedDownload(motionKey(row.id), null), ...(row.small ? { smallUrl: await signedDownload(smallKey(row.id), null) } : {}), ...(row.shots ? { shots: row.shots } : {}) }),
   })));
 }
 

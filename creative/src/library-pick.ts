@@ -34,6 +34,8 @@ export type LibraryPicture = {
   cutoutUrl?: string;
   /** A video or GIF's small prepared clip and its shots, as [start, end] in ms of the clip. Riso and Window can draw these. */
   motionUrl?: string;
+  /** The same clip at most 540 wide, once our worker has made it: the shelf streams it while a card plays. */
+  smallUrl?: string;
   shots?: [number, number][];
   /** What people did with cards drawn from it lately (`learnedCounts` on the server), and the same for each lane the brain chose for the song. */
   learned?: Learned;
