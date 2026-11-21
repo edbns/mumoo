@@ -15,7 +15,7 @@ import type { TreatmentId } from './treatment-deal';
 import { FRAME_UV, makeFilter } from './treatment-filter';
 import { createTypewriterPage } from './pack-typewriter';
 import { createScreenshotChat } from './pack-screenshot';
-import { BROKEN, BROKEN_HITS, BROKEN_LOOK, brokenHitsMs, brokenOrder, brokenStage } from './pack-broken';
+import { BROKEN, BROKEN_LOOK, brokenBlocks, brokenHitsMs, brokenStage } from './pack-broken';
 
 export type TreatmentWorld = {
   root: Container;
@@ -327,7 +327,12 @@ export function createTreatmentWorld(): TreatmentWorld {
 
   const fisheye = makeFilter(FISHEYE, 'treatment-fisheye', { uBend: 1, uRadius: LENS_RADIUS, uReach: 0.7, uAspect: HEIGHT / WIDTH, uCentreY: LENS_CY });
   const grain = makeFilter(GRAIN, 'treatment-grain', { uTime: 0, uAmount: 0.2, uSize: 2, uFlicker: 0, uScratch: 0, uHalation: 0, uSepia: 0, uFade: 0, uEnergy: 0, uAspect: HEIGHT / WIDTH });
-  const broken = makeFilter(BROKEN, 'treatment-broken', { uStage: 0, uAge: 1e6, uSeed: 0, uMode: 0, uAspect: HEIGHT / WIDTH, uTime: 0, ...Object.fromEntries(Array.from({ length: BROKEN_HITS }, (_, index) => [`uO${index}`, index])) });
+  // Broken Screen's frozen blocks hold the frame of the last hit: it is copied here when the hit lands, while the card plays through.
+  const frozenRt = RenderTexture.create({ width: WIDTH, height: HEIGHT, resolution: 1 });
+  let frozenFor = '';
+  let frozenStage = -1;
+  let frozen = false;
+  const broken = makeFilter(BROKEN, 'treatment-broken', { uStage: 0, uAge: 1e6, uSeed: 0, uMode: 0, uAspect: HEIGHT / WIDTH, uTime: 0, uHasFrozen: 0, ...brokenBlocks(0, 0, HEIGHT / WIDTH) }, { uFrozen: frozenRt.source });
   const doubleBase = new Sprite();
   const doubleOver = new Sprite();
   doubleOver.anchor.set(0.5);
@@ -573,8 +578,15 @@ export function createTreatmentWorld(): TreatmentWorld {
         treated.width = WIDTH;
         treated.height = HEIGHT;
         const seed = input.layout.seed % 97;
-        const order = brokenOrder(look.mode, seed, HEIGHT / WIDTH);
-        broken.set({ uStage: stage, uAge: ageMs, uSeed: seed, uMode: look.mode, uTime: input.ms / 1000, ...Object.fromEntries(order.map((place, index) => [`uO${index}`, place])) });
+        // A frame is frozen only when the hit was played through (the frame before it was drawn here): a still or a jump shows shifted blocks instead.
+        const card = `${seed}|${variant}`;
+        if (card !== frozenFor || stage !== frozenStage) {
+          frozen = card === frozenFor && stage === frozenStage + 1 && (frozen || frozenStage === 0);
+          if (frozen) paint(sourceRt, renderer, frozenRt);
+          frozenFor = card;
+          frozenStage = stage;
+        }
+        broken.set({ uStage: stage, uAge: ageMs, uSeed: seed, uMode: look.mode, uTime: input.ms / 1000, uHasFrozen: frozen ? 1 : 0, ...brokenBlocks(look.mode, seed, HEIGHT / WIDTH) });
         treated.filters = [broken.filter];
       } else if (kind === 'typewriter') {
         treated.visible = true;
@@ -676,6 +688,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       fisheye.filter.destroy();
       grain.filter.destroy();
       broken.filter.destroy();
+      frozenRt.destroy(true);
       page.destroy();
       chat.destroy();
       type.destroy();

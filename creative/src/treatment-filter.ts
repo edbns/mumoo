@@ -1,5 +1,5 @@
 /** The shader plumbing the video treatments share (pack-treatment.ts, pack-typewriter.ts). */
-import { Filter, GlProgram, UniformGroup } from 'pixi.js';
+import { Filter, GlProgram, UniformGroup, type TextureSource } from 'pixi.js';
 
 const VERTEX = `
 in vec2 aPosition;
@@ -35,11 +35,12 @@ float noise(vec2 p) {
 }
 `;
 
-export function makeFilter(fragment: string, name: string, initial: Record<string, number>) {
+/** `textures`: further pictures the fragment samples, each by its uniform name (set again with `filter.resources[name] = …`). */
+export function makeFilter(fragment: string, name: string, initial: Record<string, number>, textures: Record<string, TextureSource> = {}) {
   const group = new UniformGroup(Object.fromEntries(Object.entries(initial).map(([key, value]) => [key, { value, type: 'f32' as const }])));
   const filter = new Filter({
     glProgram: GlProgram.from({ vertex: VERTEX, fragment, name }),
-    resources: { treatmentUniforms: group },
+    resources: { treatmentUniforms: group, ...textures },
   });
   return {
     filter,

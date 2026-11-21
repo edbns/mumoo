@@ -8,7 +8,7 @@ import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from '
 import type { CartDownload } from './use-cart-download';
 import { quietError } from './friendly-error';
 import { reportProblem } from './report-problem';
-import { LoaderCircleIcon, PauseIcon, PlayIcon } from 'lucide-react';
+import { PauseIcon, PlayIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PictureUpload, UploadProgress } from './picture-upload';
 import type { Upload } from './uploads';
@@ -681,7 +681,7 @@ export function CreativesPackStudio({
                 aria-label={`${isPlaying || isStarting ? 'Pause' : 'Play'} ${def.title} creative`}
                 aria-busy={isStarting}
                 onClick={() => void togglePlay(item.id)}
-              >{isStarting ? <LoaderCircleIcon aria-hidden="true" className="size-5 animate-spin" /> : isPlaying ? <PauseIcon aria-hidden="true" className="size-5" /> : <PlayIcon aria-hidden="true" className="size-5" />}</button>
+              >{isStarting ? <span className="spinner" aria-hidden="true" /> : isPlaying ? <PauseIcon aria-hidden="true" className="size-5" /> : <PlayIcon aria-hidden="true" className="size-5" />}</button>
             </div>
             <div className="creatives-pack-caption">
               <span className="creatives-pack-name">{item.preset ? `${def.title} · ${presetTitle(item.preset)}` : def.title}</span>

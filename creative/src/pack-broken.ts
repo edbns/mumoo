@@ -1,174 +1,185 @@
 /**
- * Broken Screen: the phone's screen breaks a part more on every hit, on the beat, while the video keeps playing in what is left of it.
- * The screen is cut into patches (a jittered grid, each patch overhanging its neighbours); each hit kills one patch: dead columns of
- * colour, black bleed, a torn copy of the picture, or a washed-out panel, with cracks running from where it was hit. The last patch
- * dies a second before the end, so the video is gone for the closing second. The variant decides where the damage starts.
- * Preview and cloud render share this code.
+ * Broken Screen: a phone's LCD dying a block at a time, on the beat, while the video plays in what is left of it.
+ *   1. The screen is mismatched columns, each cut into blocks of its own heights. A broken block either shows the video shifted
+ *      10-25 px, holds the frame of the last hit (frozen), or dies into lines.
+ *   2. A dead block is razor-thin vertical lines of pure cyan, magenta, lime, red and blue with thin black gaps, top to bottom.
+ *   3. Pitch-black ink spills where the liquid crystal leaked: organic, growing on hits, edged inside with a thin silver crack.
+ *   4. Hairline spiderweb cracks from two or three impact points, over everything.
+ * The last hit, a second before the end, kills every block left: the video is gone for the closing second.
+ * The variant decides where it starts. Preview and cloud render share this code.
  */
 import { FRAME_UV, NOISE } from './treatment-filter';
 
-export const BROKEN_COLS = 3;
-export const BROKEN_ROWS = 5;
-/** One hit per patch. */
-export const BROKEN_HITS = BROKEN_COLS * BROKEN_ROWS;
+export const BROKEN_COLS = 4;
+export const BROKEN_ROWS = 4;
+const BLOCKS = BROKEN_COLS * BROKEN_ROWS;
+/** One hit per block. */
+export const BROKEN_HITS = BLOCKS;
+
+const each = (count: number, line: (index: number) => string) => Array.from({ length: count }, (_, index) => line(index)).join('\n');
+/** `name` + index from an if-chain (the shader language here has no arrays of uniforms). */
+const pickOf = (fn: string, name: string, count: number) => `float ${fn}(float at) {
+${each(count - 1, index => `  if (at < ${index}.5) return ${name}${index};`)}
+  return ${name}${count - 1};
+}`;
 
 export const BROKEN = `
 in vec2 vTextureCoord;
 out vec4 finalColor;
 uniform sampler2D uTexture;
+uniform sampler2D uFrozen;
 uniform float uStage;
 uniform float uAge;
 uniform float uSeed;
 uniform float uMode;
 uniform float uAspect;
 uniform float uTime;
-${Array.from({ length: BROKEN_HITS }, (_, index) => `uniform float uO${index};`).join('\n')}
+uniform float uHasFrozen;
+${each(BLOCKS, index => `uniform float uO${index};`)}
+${each(BROKEN_COLS - 1, index => `uniform float uC${index};`)}
+${each(BROKEN_COLS * (BROKEN_ROWS - 1), index => `uniform float uR${index};`)}
 ${FRAME_UV}
 ${NOISE}
-const float COLS = ${BROKEN_COLS}.0;
-const float ROWS = ${BROKEN_ROWS}.0;
 const vec2 PX = vec2(1080.0, 1920.0);
+const float HITS = ${BROKEN_HITS}.0;
+${pickOf('orderOf', 'uO', BLOCKS)}
+${pickOf('rowEdge', 'uR', BROKEN_COLS * (BROKEN_ROWS - 1))}
 
-/** The patch's place in the order the screen dies (see \`brokenOrder\`): 0 dies on the first hit. */
-float orderOf(vec2 c) {
-  float at = c.x + c.y * COLS;
-${Array.from({ length: BROKEN_HITS - 1 }, (_, index) => `  if (at < ${index}.5) return uO${index};`).join('\n')}
-  return uO${BROKEN_HITS - 1};
+float fbm(vec2 p) { return 0.55 * noise(p) + 0.3 * noise(p * 2.1 + 7.0) + 0.15 * noise(p * 4.3 + 13.0); }
+
+/** Razor-thin lines of pure colour, a pixel or two each, with thin black gaps; each block's lines sit a little off its neighbour's. */
+vec3 deadLines(vec2 n, float block) {
+  float x = floor(n.x * PX.x) + block * 7.0;
+  float h = hash(vec2(x, uSeed + block * 0.01));
+  float run = hash(vec2(floor(x / 3.0), uSeed + 5.0));
+  vec3 ink = h < 0.2 ? vec3(0.0, 1.0, 1.0) : h < 0.4 ? vec3(1.0, 0.0, 1.0) : h < 0.58 ? vec3(0.45, 1.0, 0.0) : h < 0.74 ? vec3(1.0, 0.05, 0.05) : vec3(0.1, 0.25, 1.0);
+  ink = run > 0.97 ? vec3(1.0) : ink;
+  float gap = step(hash(vec2(x, uSeed + 9.0)), 0.36);
+  float level = 0.82 + 0.18 * hash(vec2(x, floor(uTime * 12.0)));
+  return ink * level * (1.0 - gap);
 }
 
-/** A patch's rectangle (min.xy, max.xy): its cell, overhanging its neighbours by a random amount on each side. */
-vec4 rectOf(vec2 c) {
-  vec2 lo = c / vec2(COLS, ROWS);
-  vec2 hi = (c + 1.0) / vec2(COLS, ROWS);
-  vec4 over = vec4(hash(c + 3.1 + uSeed), hash(c + 5.3 + uSeed), hash(c + 7.7 + uSeed), hash(c + 9.9 + uSeed));
-  return vec4(lo - over.xy * vec2(0.13, 0.07), hi + over.zw * vec2(0.13, 0.07));
+/** How far inside an ink spill a point is (above 0 inside), the spill centred at at, of size r, its edge organic. */
+float spill(vec2 q, vec2 at, float r, float salt) {
+  vec2 d = (q - at) * vec2(1.0, uAspect);
+  if (length(d) > r * 1.35) return -1.0;
+  float edge = r * (0.7 + 0.6 * fbm(d * 5.0 / max(r, 0.05) + salt));
+  return edge - length(d);
 }
 
-/** A screen colour a dead column sticks at. */
-vec3 deadColour(float h) {
-  if (h < 0.16) return vec3(1.0, 0.12, 0.2);
-  if (h < 0.32) return vec3(0.1, 0.95, 0.35);
-  if (h < 0.48) return vec3(0.2, 0.35, 1.0);
-  if (h < 0.6) return vec3(0.95, 0.2, 0.95);
-  if (h < 0.72) return vec3(0.15, 0.95, 1.0);
-  if (h < 0.8) return vec3(1.0, 0.9, 0.25);
-  if (h < 0.9) return vec3(0.95);
-  return vec3(0.0);
-}
-
-/** Dense dead columns of colour, a few pixels each, flickering, torn sideways in a few bands. show lets some of the picture through. */
-vec3 columns(vec2 n, float ps, vec3 picture, float show) {
-  vec2 p = n * PX;
-  float band = floor(p.y / (60.0 + 140.0 * hash(vec2(ps, 2.0))));
-  float tear = step(0.8, hash(vec2(band, ps))) * floor(hash(vec2(band, ps + 1.0)) * 40.0);
-  // Columns one to four pixels wide, now and then a wide bright one.
-  float x = p.x + tear * 3.0;
-  float col = floor(x / (1.0 + floor(hash(vec2(floor(x / 9.0), ps + 4.0)) * 4.0)));
-  float h = hash(vec2(col, ps));
-  vec3 ink = deadColour(fract(h * 7.31 + ps));
-  float wide = step(0.94, hash(vec2(floor(x / 16.0), ps + 6.0)));
-  ink = mix(ink, vec3(0.75, 0.95, 1.0), wide * 0.8);
-  float glow = (0.7 + 0.3 * noise(vec2(col * 0.37, n.y * 3.0 + ps * 9.0))) * (0.88 + 0.12 * sin(uTime * 23.0 + h * 40.0));
-  // Many columns are dark: the black gaps between the lit ones show a little of the dying picture.
-  float lit = max(step(0.42, hash(vec2(col, ps + 3.0))), wide);
-  return mix(picture * show, ink * glow * 1.15, lit);
+/** Hairline cracks from one impact point, in pixels: jagged spokes, the odd branch, and broken rings between spokes near the hit. */
+float cracks(vec2 q, vec2 at, float reach, float salt) {
+  vec2 d = (q - at) * PX;
+  float r = length(d);
+  if (r > reach) return 0.0;
+  float a = atan(d.y, d.x) + 3.14159265;
+  const float SPOKES = 17.0;
+  float line = 0.0;
+  float sector = floor(a / 6.2831853 * SPOKES);
+  for (int o = 0; o <= 1; o++) {
+    float s = sector + float(o);
+    float centre = (s + 0.5 * (hash(vec2(s, salt)) - 0.5)) / SPOKES * 6.2831853;
+    float bend = (noise(vec2(r * 0.012, s * 3.0 + salt)) - 0.5) * 0.18 + (noise(vec2(r * 0.06, s + salt)) - 0.5) * 0.03;
+    float span = reach * (0.35 + 0.65 * hash(vec2(s + 3.0, salt)));
+    float across = abs(sin(a - centre - bend)) * r;
+    float width = 0.55 + 1.2 * exp(-r / 40.0);
+    line = max(line, (1.0 - smoothstep(width * 0.4, width, across)) * step(r, span) * (0.6 + 0.4 * noise(vec2(r * 0.05, s))));
+    // A branch leaves some spokes partway out.
+    float from = span * (0.3 + 0.3 * hash(vec2(s, salt + 1.0)));
+    float turn = (hash(vec2(s, salt + 2.0)) - 0.5) * 0.9;
+    vec2 dir = vec2(cos(centre + turn), sin(centre + turn));
+    vec2 start = vec2(cos(centre), sin(centre)) * from;
+    vec2 rel = vec2(cos(a), sin(a)) * r - start;
+    float along = dot(rel, dir);
+    float side = abs(rel.x * dir.y - rel.y * dir.x) + (noise(vec2(along * 0.03, s + salt)) - 0.5) * 3.0;
+    line = max(line, (1.0 - smoothstep(0.25, 0.7, side)) * step(0.0, along) * step(along, span * 0.4) * step(0.5, hash(vec2(s, salt + 4.0))) * 0.8);
+  }
+  // Broken rings between spokes, close to the hit.
+  for (int g = 0; g < 3; g++) {
+    float ring = 30.0 + 45.0 * float(g) + 25.0 * float(g * g);
+    float wob = ring * (0.9 + 0.2 * hash(vec2(sector, salt + float(g))));
+    float on = step(0.4, hash(vec2(sector * 3.0 + float(g), salt + 6.0)));
+    line = max(line, (1.0 - smoothstep(0.3, 0.8, abs(r - wob))) * on * 0.75);
+  }
+  // The crushed glass where it was hit.
+  line = max(line, (1.0 - smoothstep(3.0, 9.0, r)) * (0.5 + 0.5 * step(0.5, noise(d * 0.8))));
+  return line;
 }
 
 void main(void) {
   vec2 m = frameMax();
   vec2 n = vTextureCoord / m;
-  float fresh = exp(-uAge / 120.0) * step(0.5, uStage);
-  vec2 q = clamp(n + vec2(sin(uAge * 0.11), cos(uAge * 0.17)) * 0.008 * fresh, 0.0, 1.0);
-  vec3 picture = texture(uTexture, q * m).rgb;
-  vec3 colour = picture;
+  vec3 colour = texture(uTexture, n * m).rgb;
 
-  // The newest dead patch over this pixel (the latest hit wins where patches overlap).
-  vec2 cell = clamp(floor(q * vec2(COLS, ROWS)), vec2(0.0), vec2(COLS - 1.0, ROWS - 1.0));
-  float best = -1.0;
-  vec2 bestCell = vec2(0.0);
-  vec4 bestRect = vec4(0.0);
-  for (int dy = -1; dy <= 1; dy++) {
-    for (int dx = -1; dx <= 1; dx++) {
-      vec2 c = cell + vec2(float(dx), float(dy));
-      if (c.x < 0.0 || c.y < 0.0 || c.x > COLS - 1.0 || c.y > ROWS - 1.0) continue;
-      float order = orderOf(c);
-      if (order >= uStage || order <= best) continue;
-      vec4 r = rectOf(c);
-      if (q.x < r.x || q.y < r.y || q.x > r.z || q.y > r.w) continue;
-      best = order;
-      bestCell = c;
-      bestRect = r;
-    }
-  }
-  // The patch just hit flickers on before it stays.
-  if (best >= 0.0 && best >= uStage - 1.0 && uAge < 200.0 && hash(vec2(floor(uAge / 35.0), best)) < 0.35) best = -1.0;
-
-  if (best >= 0.0) {
-    float ps = hash(bestCell + uSeed * 0.77) * 100.0;
-    float kind = hash(vec2(ps, 11.0));
-    bool pixels = uMode > 2.5;
-    if (pixels ? kind < 0.72 : kind < 0.5) {
-      colour = columns(q, ps, picture, 0.18);
-    } else if (!pixels && kind < 0.75) {
-      // A torn copy of the picture, shifted and enlarged, split into its colours, under sparse dead columns.
-      vec2 shift = (vec2(hash(vec2(ps, 21.0)), hash(vec2(ps, 23.0))) - 0.5) * vec2(0.5, 0.3);
-      vec2 torn = fract((q - 0.5) / 1.25 + 0.5 + shift);
-      vec3 copy = vec3(texture(uTexture, torn * m).r, texture(uTexture, fract(torn + vec2(0.006, 0.0)) * m).g, texture(uTexture, fract(torn - vec2(0.006, 0.0)) * m).b);
-      copy = mix(copy, copy * vec3(0.5, 1.1, 1.25), 0.5);
-      vec3 lines = columns(q, ps + 50.0, copy, 0.6);
-      colour = mix(copy, lines, step(0.55, hash(vec2(floor(q.x * PX.x / 3.0), ps + 9.0))));
-    } else if (pixels || kind < 0.88) {
-      // Black bleed, rimmed with stray colour, its edge ragged.
-      float rim = (noise(q * vec2(7.0, 12.0) + ps) - 0.5) * 0.09 + (noise(q * vec2(40.0, 70.0) + ps) - 0.5) * 0.02;
-      vec2 inner = min(q - bestRect.xy, bestRect.zw - q) * vec2(1.0, uAspect);
-      float depth = min(inner.x, inner.y) - 0.03 + rim;
-      vec3 stray = deadColour(hash(vec2(floor(q.x * PX.x / 3.0), ps + 8.0)));
-      colour = mix(columns(q, ps, picture, 0.1), stray * 0.8, smoothstep(-0.004, 0.0, depth) * 0.6);
-      colour = mix(colour, vec3(0.0), smoothstep(0.0, 0.004, depth));
+  // 1. Which block this is: the column, then the row within that column's own heights.
+  float col = n.x < uC0 ? 0.0 : n.x < uC1 ? 1.0 : n.x < uC2 ? 2.0 : 3.0;
+  float base = col * ${BROKEN_ROWS - 1}.0;
+  float row = n.y < rowEdge(base) ? 0.0 : n.y < rowEdge(base + 1.0) ? 1.0 : n.y < rowEdge(base + 2.0) ? 2.0 : 3.0;
+  float block = col * ${BROKEN_ROWS}.0 + row;
+  float order = orderOf(block);
+  float kind = hash(vec2(block, uSeed + 31.0));
+  bool pixels = uMode > 2.5;
+  // The block just hit flickers in for a few frames.
+  bool flicker = order >= uStage - 1.0 && uAge < 160.0 && hash(vec2(floor(uAge / 40.0), block)) < 0.4;
+  if (order < uStage && !flicker) {
+    bool dead = uStage >= HITS || (pixels ? kind < 0.75 : kind < 0.5);
+    float left = n.x < uC0 ? 0.0 : n.x < uC1 ? uC0 : n.x < uC2 ? uC1 : uC2;
+    float right = n.x < uC0 ? uC0 : n.x < uC1 ? uC1 : n.x < uC2 ? uC2 : 1.0;
+    float top = row < 0.5 ? 0.0 : rowEdge(base + row - 1.0);
+    float bottom = row > 2.5 ? 1.0 : rowEdge(base + row);
+    if (dead) {
+      colour = deadLines(n, block);
+    } else if (kind < 0.8 || uHasFrozen < 0.5 || pixels) {
+      // Shifted 10 to 25 pixels, sideways or up and down.
+      float amount = (10.0 + 15.0 * hash(vec2(block, uSeed + 41.0))) * (hash(vec2(block, uSeed + 43.0)) < 0.5 ? -1.0 : 1.0);
+      vec2 shift = hash(vec2(block, uSeed + 47.0)) < 0.5 ? vec2(amount / PX.x, 0.0) : vec2(0.0, amount / PX.y);
+      colour = texture(uTexture, clamp(n + shift, 0.0, 1.0) * m).rgb;
     } else {
-      // A washed-out panel, nearly white, with faint columns.
-      colour = mix(vec3(0.9, 0.92, 0.95), columns(q, ps, picture, 0.5), 0.12);
+      // Frozen on the frame of the last hit.
+      colour = texture(uFrozen, n).rgb;
     }
-    // A hard black seam along the patch's top and bottom edge, as where a panel stops.
-    float seam = min(abs(q.y - bestRect.y), abs(q.y - bestRect.w)) * PX.y;
-    colour = mix(colour, vec3(0.0), (1.0 - smoothstep(2.0, 5.0, seam)) * step(0.4, hash(vec2(ps, 31.0))));
+    // A broken block's edge is a hard black seam.
+    vec2 edge = min(n - vec2(left, top), vec2(right, bottom) - n) * PX;
+    colour *= smoothstep(1.0, 2.5, min(edge.x, edge.y));
+    if (order >= uStage - 1.0) colour += 0.15 * exp(-uAge / 90.0);
   }
 
-  // Cracks, from where some of the patches were hit, over everything (the web keeps more of them).
-  float crack = 0.0;
-  float most = uMode > 1.5 && uMode < 2.5 ? 6.0 : 4.0;
-  for (int i = 0; i < 6; i++) {
+  // 3. Ink spills: one from an early hit, one later, each growing on every hit after it; their edge cracked silver inside.
+  for (int i = 0; i < 2; i++) {
     float fi = float(i);
-    if (fi >= most) break;
-    float hitOrder = floor(fi * ${BROKEN_HITS}.0 / most);
-    if (hitOrder >= uStage) break;
-    vec2 at = vec2(0.15 + 0.7 * hash(vec2(fi, uSeed + 1.0)), 0.1 + 0.8 * hash(vec2(fi, uSeed + 2.0)));
-    if (uMode > 1.5 && uMode < 2.5 && i == 0) at = vec2(0.5, 0.45);
-    float grow = hitOrder >= uStage - 1.0 ? 1.0 - pow(1.0 - clamp(uAge / 220.0, 0.0, 1.0), 3.0) : 1.0;
-    vec2 d = (q - at) * vec2(1.0, uAspect);
-    float r = length(d);
-    float a = atan(d.y, d.x) + 3.14159265;
-    float spokes = 14.0;
-    float sector = floor(a / 6.2831853 * spokes);
-    float reach = (0.2 + 0.4 * hash(vec2(sector, fi + uSeed))) * grow;
-    float centreA = (sector + 0.5 + 0.7 * (hash(vec2(sector + 9.0, fi + uSeed)) - 0.5)) / spokes * 6.2831853;
-    // A crack runs jagged, not straight.
-    float bend = (noise(vec2(r * 14.0, sector * 3.0 + fi * 7.0)) - 0.5) * 0.22 + (noise(vec2(r * 60.0, sector + fi)) - 0.5) * 0.05;
-    float across = abs(sin(a - centreA - bend)) * r;
-    float width = 0.001 * (1.0 + 1.5 * exp(-r * 20.0));
-    crack = max(crack, (1.0 - smoothstep(width * 0.3, width, across)) * step(r, reach) * (0.55 + 0.45 * noise(vec2(r * 40.0, sector))));
-    // Rings between the spokes, near the hit.
-    float ring = abs(r - (0.04 + 0.05 * hash(vec2(sector, fi + 3.0))));
-    crack = max(crack, (1.0 - smoothstep(0.0004, 0.0012, ring)) * step(r, reach) * step(0.45, hash(vec2(sector, fi + 5.0))));
-    crack = max(crack, (1.0 - smoothstep(0.003, 0.008 * grow + 0.001, r)) * 0.9);
+    float starts = pixels ? 1.0 + fi * 4.0 : 3.0 + fi * 5.0;
+    if (uStage <= starts) continue;
+    vec2 at = i == 0 ? vec2(0.22, 0.17) : vec2(0.5, 0.74);
+    if (uMode > 0.5 && uMode < 1.5 && i == 0) at = vec2(uC0 * 0.6, 0.85);
+    at += (vec2(hash(vec2(fi, uSeed + 51.0)), hash(vec2(fi, uSeed + 53.0))) - 0.5) * vec2(0.16, 0.08);
+    float grown = uStage - starts - 1.0 + (1.0 - exp(-uAge / 180.0));
+    float r = min(0.05 + 0.014 * grown, 0.17) * (pixels ? 1.2 : 1.0);
+    float inside = spill(n, at, r, uSeed + fi * 17.0);
+    float silver = (1.0 - smoothstep(0.0012, 0.0024, abs(inside - 0.004))) * step(0.42, noise(n * vec2(60.0, 106.0) + fi));
+    colour = mix(colour, vec3(0.0), smoothstep(0.0, 0.0015, inside));
+    colour = mix(colour, vec3(0.86, 0.9, 0.95), silver * 0.85);
   }
-  colour = mix(colour, vec3(0.94, 0.97, 1.0), clamp(crack, 0.0, 1.0) * 0.9);
-  colour += fresh * 0.12;
+
+  // 4. Hairline cracks from the impact points, over everything.
+  float crack = 0.0;
+  for (int i = 0; i < 3; i++) {
+    float fi = float(i);
+    float lands = fi == 0.0 ? 0.0 : fi == 1.0 ? 6.0 : 10.0;
+    if (uStage <= lands || (fi > 1.5 && uMode < 1.5)) continue;
+    vec2 at = i == 0 ? vec2(0.1, 0.07) : i == 1 ? vec2(0.86, 0.9) : vec2(0.5, 0.45);
+    if (uMode > 1.5 && uMode < 2.5 && i == 0) at = vec2(0.5, 0.42);
+    if (uMode > 1.5 && uMode < 2.5 && i == 2) at = vec2(0.12, 0.08);
+    if (uMode > 0.5 && uMode < 1.5 && i == 0) at = vec2(uC0 * 0.4, 0.93);
+    at += (vec2(hash(vec2(fi, uSeed + 61.0)), hash(vec2(fi, uSeed + 63.0))) - 0.5) * 0.06;
+    float grow = uStage - 1.0 <= lands ? 1.0 - pow(1.0 - clamp(uAge / 200.0, 0.0, 1.0), 3.0) : 1.0;
+    crack = max(crack, cracks(n, at, (520.0 + 260.0 * hash(vec2(fi, uSeed + 67.0))) * grow, uSeed + fi * 11.0));
+  }
+  colour = mix(colour, vec3(0.95, 0.97, 1.0), clamp(crack, 0.0, 1.0) * 0.92);
   finalColor = vec4(colour, 1.0);
 }
 `;
 
-/** Where the damage starts (`mode` in the shader): all over, from a corner, from the middle, or a dying screen with no torn picture. */
+/** Where it starts (`mode` in the shader): all over, from a corner, from the middle, or a dying screen of lines and ink only. */
 export const BROKEN_LOOK: Record<string, { mode: number }> = {
   shatter: { mode: 0 },
   corner: { mode: 1 },
@@ -182,29 +193,47 @@ const pick = (a: number, b: number) => {
   return x - Math.floor(x);
 };
 
+/** Edges that cut 0..1 into `count` parts of mismatched sizes (none too thin). */
+function cuts(count: number, salt: number): number[] {
+  const sizes = Array.from({ length: count }, (_, index) => 0.6 + pick(index + salt, salt * 0.37 + 1));
+  const total = sizes.reduce((sum, size) => sum + size, 0);
+  let at = 0;
+  return sizes.slice(0, -1).map((size) => (at += size / total));
+}
+
 /**
- * The order the patches die in, as each patch's place (by cell, row after row): shattered and dead pixels at random, a corner hit from
- * one corner across, a spider web from the middle out. The same seed always gives the same order.
+ * The screen's blocks for this seed and variant, as the shader's uniforms: column edges (uC*), each column's row edges (uR*), and
+ * each block's place in the order they break (uO*: 0 breaks on the first hit). Shattered and dead pixels break at random, a corner
+ * hit from the bottom-left corner across, a spider web from the middle out.
  */
-export function brokenOrder(mode: number, seed: number, aspect: number): number[] {
-  const corner = [pick(seed, 7) < 0.5 ? 0 : 1, pick(seed, 9) < 0.5 ? 0 : 1];
-  const keys = Array.from({ length: BROKEN_HITS }, (_, index) => {
-    const x = index % BROKEN_COLS;
-    const y = Math.floor(index / BROKEN_COLS);
-    const jitter = pick(x + seed * 1.7, y + seed * 0.3);
-    const cx = (x + 0.5) / BROKEN_COLS;
-    const cy = (y + 0.5) / BROKEN_ROWS;
-    if (mode === 1) return Math.hypot(cx - corner[0], (cy - corner[1]) * aspect) + jitter * 0.35;
-    if (mode === 2) return Math.hypot(cx - 0.5, (cy - 0.45) * aspect) + jitter * 0.3;
+export function brokenBlocks(mode: number, seed: number, aspect: number): Record<string, number> {
+  const columns = cuts(BROKEN_COLS, seed + 0.5);
+  const rows = Array.from({ length: BROKEN_COLS }, (_, col) => cuts(BROKEN_ROWS, seed * 3 + col * 11 + 2));
+  const centre = (col: number, row: number) => {
+    const x0 = col ? columns[col - 1] : 0;
+    const x1 = columns[col] ?? 1;
+    const y0 = row ? rows[col][row - 1] : 0;
+    const y1 = rows[col][row] ?? 1;
+    return [(x0 + x1) / 2, (y0 + y1) / 2];
+  };
+  const keys = Array.from({ length: BLOCKS }, (_, index) => {
+    const col = Math.floor(index / BROKEN_ROWS);
+    const row = index % BROKEN_ROWS;
+    const [x, y] = centre(col, row);
+    const jitter = pick(index + seed * 1.7, seed * 0.3 + 5);
+    if (mode === 1) return Math.hypot(x, (y - 1) * aspect) + jitter * 0.3;
+    if (mode === 2) return Math.hypot(x - 0.5, (y - 0.45) * aspect) + jitter * 0.3;
     return jitter;
   });
   const ranked = keys.map((key, index) => ({ key, index })).sort((a, b) => a.key - b.key || a.index - b.index);
-  const order = new Array<number>(BROKEN_HITS);
-  ranked.forEach(({ index }, place) => { order[index] = place; });
-  return order;
+  const uniforms: Record<string, number> = {};
+  ranked.forEach(({ index }, place) => { uniforms[`uO${index}`] = place; });
+  columns.forEach((edge, index) => { uniforms[`uC${index}`] = edge; });
+  rows.forEach((edges, col) => edges.forEach((edge, index) => { uniforms[`uR${col * (BROKEN_ROWS - 1) + index}`] = edge; }));
+  return uniforms;
 }
 
-/** The screen is whole for the opening moment, so the first hit is seen landing; the last patch dies a second before the end. */
+/** The screen is whole for the opening moment, so the first hit is seen landing; the last hit kills the screen a second before the end. */
 const FIRST_HIT_MS = 700;
 const LAST_HIT_MS = 14_000;
 /** A hit moves to a beat this close to when it is due. */
@@ -228,7 +257,7 @@ export function brokenHitsMs(beatsMs: readonly number[]): number[] {
   return hits;
 }
 
-/** How many patches have died by `ms`, and how long ago the last hit was. */
+/** How many hits have landed by `ms`, and how long ago the last one was. */
 export function brokenStage(ms: number, hitsMs: readonly number[]): { stage: number; ageMs: number } {
   let stage = 0;
   while (stage < hitsMs.length && hitsMs[stage] <= ms) stage++;
