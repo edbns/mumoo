@@ -22,3 +22,4 @@ tmp-*/
 # Neon / local secrets
 .env
 .env.local
+.originkit/

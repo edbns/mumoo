@@ -21,7 +21,7 @@ function preloadInterfaceFont() {
   };
 }
 
-// Seven entries: the app, the cloud-only frame renderer used by the Modal worker, the admin page (/admin), the page a phone sends the song from (/phone), the legal documents (/terms, /privacy, … and /legal), the member number board (/welcome) and the public pricing page (/pricing).
+// Seven entries: the app, the cloud-only frame renderer used by the Modal worker, the admin page (/admin), the page a phone sends the song from (/phone), the legal documents (/terms, /privacy, … and /legal), the welcome tunnel (/welcome) and the public pricing page (/pricing).
 export default defineConfig({
   plugins: [tailwindcss(), localPreviewApi(), preloadInterfaceFont()],
   // `@/` is the source folder, which is what components installed from 21st.dev expect.
