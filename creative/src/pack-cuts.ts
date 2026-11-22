@@ -37,7 +37,7 @@ export function sourceMsAt(cuts: readonly Cut[], ms: number): number {
   return clipMsAt(segmentOf(cuts, ms), ms);
 }
 
-/** How fast the video plays at `ms` of the song (1 is real time; a velocity-edited cut speeds up and slows down). */
+/** How fast the video plays at `ms` of the song (1 is real time; a velocity-edited cut snaps in fast). */
 export function sourceRateAt(cuts: readonly Cut[], ms: number): number {
   return clipRateAt(segmentOf(cuts, ms), ms);
 }

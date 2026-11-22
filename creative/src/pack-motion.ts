@@ -25,25 +25,6 @@ export type Motion = {
 
 /** The cloud's software decoder can take over a second for one frame of a busy clip; a seek given up on draws the frame before it. */
 const SEEK_TIMEOUT_MS = 4000;
-/** The frame rate slow motion is blended at: the library's clips are 30 fps. */
-const CLIP_FPS = 30;
-/** Below this share of the next frame, slow motion shows the one frame alone. */
-const BLEND_MIN = 0.04;
-
-/**
- * A moment of slowed-down video falls between two frames of the clip. Shown as the nearer frame, slow motion repeats each frame
- * several times and steps; shown as both, weighted by how far between them it is, it glides. Null when one frame is near enough.
- */
-export function blendAt(seconds: number, durationS: number): { at: number; next: number; weight: number } | null {
-  const step = 1 / CLIP_FPS;
-  const index = Math.floor(seconds / step + 1e-6);
-  const weight = seconds / step - index;
-  // Each frame is sought at its middle, so the browser is never unsure which of two frames a time is.
-  const at = (index + 0.5) * step;
-  const next = at + step;
-  if (weight < BLEND_MIN || weight > 1 - BLEND_MIN || next > durationS - 0.05) return null;
-  return { at, next, weight };
-}
 /** A streamed video finds a frame over the network: when the exact frame is needed it is given this long. */
 const STREAM_SEEK_TIMEOUT_MS = 8000;
 /** How wide a streamed video's frames are kept. */
@@ -169,32 +150,13 @@ export async function loadMotion(url: string, streamed = false): Promise<Motion>
       slip = 0;
       chasingSince = 0;
       if (!video.paused) video.pause();
-      const land = async (to: number) => {
-        if (video.seeking || Math.abs(video.currentTime - to) > 0.0005 || video.readyState < 2) await moveTo(to, streamed ? STREAM_SEEK_TIMEOUT_MS : SEEK_TIMEOUT_MS);
-      };
-      if (streamed) {
-        await land(at);
-        copy();
-        return;
+      if (video.seeking || Math.abs(video.currentTime - at) > 0.0005 || video.readyState < 2) await moveTo(at, streamed ? STREAM_SEEK_TIMEOUT_MS : SEEK_TIMEOUT_MS);
+      if (streamed) copy();
+      else {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        source.update();
+        drawn = true;
       }
-      const blend = rate < 1 && !exact ? blendAt(at, video.duration) : null;
-      if (!blend) {
-        await land(at);
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      } else {
-        // The frame the video is on is drawn first, so a run of slow frames seeks once each rather than twice.
-        const [first, second, weight] = Math.abs(video.currentTime - blend.next) <= 0.0005
-          ? [blend.next, blend.at, 1 - blend.weight]
-          : [blend.at, blend.next, blend.weight];
-        await land(first);
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        await land(second);
-        context.globalAlpha = weight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        context.globalAlpha = 1;
-      }
-      source.update();
-      drawn = true;
     },
     cue(ms) {
       if (!live || !video.paused || video.seeking) return;

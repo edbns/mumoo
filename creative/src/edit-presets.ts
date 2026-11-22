@@ -22,7 +22,7 @@ type Cutting = { on: 'beats' | 'snares' | 'hits' | 'bars'; every?: number | read
 export type PresetRhythm = Cutting & {
   fast?: Cutting;
   fastAfterDrop?: boolean;
-  /** A velocity edit: each clip slows down into the cut and snaps in fast on the hit (`clipMsAt`). */
+  /** A velocity edit: each clip snaps in fast on the hit, then plays at speed (`clipMsAt`). */
   ramp?: boolean;
 };
 

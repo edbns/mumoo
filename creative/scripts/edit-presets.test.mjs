@@ -16,9 +16,7 @@ const hits = await server.ssrLoadModule('/src/music-hits.ts');
 const director = await server.ssrLoadModule('/src/pack-director.ts');
 const motion = await server.ssrLoadModule('/src/preset-motion.ts');
 const pack = await server.ssrLoadModule('/src/creatives-pack.ts');
-const deal = await server.ssrLoadModule('/src/treatment-deal.ts');
-const clips = await server.ssrLoadModule('/src/pack-motion.ts');
-await server.close();
+const deal = await server.ssrLoadModule('/src/treatment-deal.ts');await server.close();
 
 const DURATION = 15000;
 /** 120 bpm: a beat every 500 ms, a bar every 2 s; soft until the drop at 6 s, hard after it. */
@@ -243,7 +241,7 @@ test('Club Pulse and Y2K pulse the lens on a bass hit, at most three times a sec
   assert.ok(starts <= 9, `${starts} pulses in three seconds`);
 });
 
-test('Club Pulse and Y2K ramp the clip: fast in on the cut, slow into the next one; the others play it straight', () => {
+test('Club Pulse and Y2K ramp the clip: fast in on the cut, then at speed; the others play it straight', () => {
   for (const id of ['strobe', 'y2k']) {
     const segments = plan(id).filter(segment => ASSETS[segment.asset].kind === 'clip');
     assert.ok(segments.length && segments.every(segment => segment.ramp), id);
@@ -252,25 +250,14 @@ test('Club Pulse and Y2K ramp the clip: fast in on the cut, slow into the next o
   const speed = (t, length) => (director.rampedMs(t + 10, length) - director.rampedMs(t, length)) / 10;
   assert.ok(Math.abs(speed(20, 1000) - director.RAMP_FAST) < 1e-9, 'snaps in fast on the hit');
   assert.ok(Math.abs(speed(500, 1000) - 1) < 1e-9, 'plays at speed in between');
-  assert.ok(Math.abs(speed(950, 1000) - director.RAMP_SLOW) < 1e-9, 'slows into the next cut');
+  assert.ok(Math.abs(speed(950, 1000) - 1) < 1e-9, 'plays at speed into the next cut');
+  // Never slower than real time: a slowed 30 fps clip shows each frame several times and hangs before the cut.
+  for (const length of [120, 300, 1000]) for (let t = 0; t < length; t += 1) assert.ok(director.rampRate(t, length) >= 1, `${length}: ${t}`);
   // Continuous: no jump in the picture where the speed changes; a short cut keeps the shape.
   for (const length of [300, 1000]) for (let t = 1; t < length; t += 1) assert.ok(director.rampedMs(t, length) > director.rampedMs(t - 1, length));
   const segment = { atMs: 1000, endMs: 2000, asset: 0, startMs: 0, pieceEndMs: 5000, fromMs: 0, zoom: [1, 1], ramp: true };
   assert.equal(director.clipMsAt(segment, 1100), 100 * director.RAMP_FAST);
   assert.equal(director.clipMsAt({ ...segment, ramp: undefined }, 1100), 100);
-});
-
-test('slow motion glides: a moment between two frames of the clip shows both, weighted by how near each is', () => {
-  const frame = 1 / 30;
-  const blend = clips.blendAt(10.25 * frame, 20);
-  assert.ok(Math.abs(blend.at - 10.5 * frame) < 1e-9 && Math.abs(blend.next - 11.5 * frame) < 1e-9, 'each frame sought at its middle');
-  assert.ok(Math.abs(blend.weight - 0.25) < 1e-9);
-  // A run of slow frames moves smoothly from one frame to the next, never back.
-  const weights = [];
-  for (let t = 10 * frame; t < 11 * frame; t += frame * director.RAMP_SLOW) weights.push(clips.blendAt(t, 20)?.weight ?? 0);
-  assert.ok(weights.every((weight, i) => i === 0 || weight > weights[i - 1]), weights.join(' '));
-  assert.equal(clips.blendAt(10 * frame, 20), null, 'on a frame: that frame alone');
-  assert.equal(clips.blendAt(20 - 0.04, 20), null, 'the last frame is not blended with one past the end');
 });
 
 test('a moment is drawn the same every time (preview and cloud agree)', () => {
