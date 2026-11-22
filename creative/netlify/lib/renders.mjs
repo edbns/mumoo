@@ -23,14 +23,18 @@ export async function saveRender(userId, jobId, mp4) {
   return true;
 }
 
-/** Newest first, each with a download link that expires in 15 minutes. */
+/** How long the links of a person's creatives work: their Media page asks for new ones before then. */
+export const RENDER_LINK_SECONDS = 3600;
+
+/** Newest first, each with a link to play it (`url`, shown in place) and one that saves it (`download`). */
 export async function listRenders(userId) {
   const rows = await db()`select id, bytes, created_at from renders where user_id = ${userId} order by created_at desc limit 100`;
   return Promise.all(rows.map(async (row) => ({
     id: row.id,
     bytes: row.bytes,
     createdAt: row.created_at,
-    url: await signedDownload(keyOf(userId, row.id), 'mumoo-creative.mp4'),
+    url: await signedDownload(keyOf(userId, row.id), null, RENDER_LINK_SECONDS),
+    download: await signedDownload(keyOf(userId, row.id), 'mumoo-creative.mp4', RENDER_LINK_SECONDS),
   })));
 }
 

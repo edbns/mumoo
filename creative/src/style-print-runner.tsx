@@ -10,6 +10,7 @@ import { withAccess } from './staging-token';
 const sent = new Set<string>();
 const POLL_MS = 3000;
 const GIVE_UP_MS = 120_000;
+const CUT_OFF_GRACE_MS = 15_000;
 /** The sound print hears 48 kHz (a 16 kHz clip prints as another song); the song is decoded at 44.1 kHz. */
 const RATE = 48_000;
 
@@ -117,6 +118,12 @@ export function useStyleGuess(accessToken: string, audio: AudioBuffer | undefine
     }
     const controller = new AbortController();
     const { signal } = controller;
+    // The creatives wait on the guess: a request the browser leaves hanging is cut off, and the guess is not asked.
+    const cutOff = setTimeout(() => {
+      controller.abort();
+      trace('style_guess', { category: 'cut_off' });
+      set({ status: 'none' });
+    }, GIVE_UP_MS + CUT_OFF_GRACE_MS);
     void (async () => {
       try {
         const id = await startPrint(accessToken, signal, audio, offsetMs);
@@ -130,9 +137,12 @@ export function useStyleGuess(accessToken: string, audio: AudioBuffer | undefine
         if (signal.aborted) return;
         trace('style_guess', { category: 'failed' });
         set({ status: 'none' });
+      } finally {
+        clearTimeout(cutOff);
       }
     })();
     return () => {
+      clearTimeout(cutOff);
       controller.abort();
       if (guesses.get(key)?.state.status === 'listening') guesses.delete(key);
     };

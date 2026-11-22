@@ -1,6 +1,6 @@
 import { CheckIcon, DownloadIcon, PlayIcon, Trash2Icon } from '@/components/icons';
 import { MotionConfig, motion } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ui/action-dialog';
 import { Button } from '@/components/ui/button';
 import { ImageGeneration } from '@/components/ui/image-generation';
@@ -8,12 +8,12 @@ import { Modal } from '@/components/ui/modal';
 import { cn } from '@/lib/utils';
 import { AccountColumn, EmptyState } from './account-section';
 import { accountFetch } from './account';
-import { LazyMedia } from './lazy-media';
+import { LazyMedia, releaseVideo } from './lazy-media';
 import type { ProfileTab } from './profile-nav';
 import { listUploads, removeUpload, type Upload } from './uploads';
 import { friendlyError } from './friendly-error';
 
-type Creative = { id: string; bytes: number; createdAt: string; url: string };
+type Creative = { id: string; bytes: number; createdAt: string; url: string; download?: string };
 type Storage = { used: number; quota: number };
 /** One card of the history, whichever kind it is. */
 type Item = { id: string; kind: 'creative' | 'upload'; bytes: number; createdAt: string; picture?: string; video?: string; play?: string; download?: string; extension: 'mp4' | 'jpg'; note?: string };
@@ -25,6 +25,8 @@ const GRID = 'm-0 grid list-none grid-cols-[repeat(auto-fill,minmax(190px,1fr))]
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 /** A zip is built in the browser's memory, so it is offered while everything fits comfortably. */
 const ZIP_LIMIT = 1_000_000_000;
+/** The links to the files stop working after 15 minutes (uploads) or an hour (creatives): the page asks for new ones before then. */
+const RELINK_MS = 10 * 60_000;
 
 /** Sends one file to the person's downloads. */
 function save(url: string) {
@@ -50,7 +52,7 @@ function size(bytes: number) {
   return `${(bytes / 1e6).toFixed(bytes < 1e7 ? 1 : 0)} MB`;
 }
 
-const creativeItem = (creative: Creative): Item => ({ id: creative.id, kind: 'creative', bytes: creative.bytes, createdAt: creative.createdAt, video: creative.url, play: creative.url, download: creative.url, extension: 'mp4' });
+const creativeItem = (creative: Creative): Item => ({ id: creative.id, kind: 'creative', bytes: creative.bytes, createdAt: creative.createdAt, video: creative.url, play: creative.url, download: creative.download ?? creative.url, extension: 'mp4' });
 const uploadItem = (upload: Upload): Item => ({
   id: upload.id, kind: 'upload', bytes: upload.bytes, createdAt: upload.createdAt,
   picture: upload.url, play: upload.motionUrl, download: upload.motionUrl ?? upload.url, extension: upload.motionUrl ? 'mp4' : 'jpg',
@@ -81,26 +83,51 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  /** The video playing large, with sound, so the person can see what it is before downloading it again. */
+  /**
+   * The video playing large, with sound, so the person can see what it is before downloading it again. Its link is its own: the
+   * wall's links are renewed while it plays, and only a link that stopped working is swapped.
+   */
   const [watching, setWatching] = useState<Item | null>(null);
+  /** The player asked for new links once for this video, after its link stopped working. */
+  const relinked = useRef<string | null>(null);
+  const loadedAt = useRef(0);
+  /** A player taken off the page (closed, or another link) stops downloading at once. */
+  const holdPlayer = useCallback((video: HTMLVideoElement | null) => (video ? () => releaseVideo(video) : undefined), []);
 
-  async function load() {
+  async function load(): Promise<Item[] | null> {
     try {
       const [renders, pictures, account] = await Promise.all([
         accountFetch('/api/renders').then(response => response.json() as Promise<{ renders: Creative[] }>),
         listUploads(),
         accountFetch('/api/account').then(response => response.json() as Promise<{ storage: Storage }>),
       ]);
+      loadedAt.current = Date.now();
       setCreatives(renders.renders); setUploads(pictures); setStorage(account.storage); setError('');
+      return [...renders.renders.map(creativeItem), ...pictures.map(uploadItem)];
     } catch (cause) {
       setError(friendlyError(cause, 'Your media is unavailable right now. Try again soon.'));
+      return null;
     }
   }
   // Opened, and again whenever a download has just been delivered, so the new creatives appear.
   useEffect(() => { void load(); }, [delivered]);
+  useEffect(() => {
+    const renew = () => { if (document.visibilityState === 'visible' && Date.now() - loadedAt.current >= RELINK_MS) void load(); };
+    const timer = setInterval(renew, 60_000);
+    document.addEventListener('visibilitychange', renew);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', renew); };
+  }, []);
   useEffect(() => { setSelected(new Set()); }, [tab]);
 
   const items = (tab === 'creatives' ? creatives?.map(creativeItem) : uploads?.map(uploadItem)) ?? null;
+  /** The player's link stopped working (it expired while the page was open): new links are asked for, once, and it plays from the new one. */
+  async function relink() {
+    const id = watching?.id;
+    if (!id || relinked.current === id) return;
+    relinked.current = id;
+    const fresh = (await load())?.find(item => item.id === id);
+    if (fresh) setWatching(current => (current?.id === id ? fresh : current));
+  }
   const chosen = (items ?? []).filter(item => selected.has(item.id));
   const chosenBytes = chosen.reduce((sum, item) => sum + item.bytes, 0);
   const noun = tab === 'creatives' ? 'creative' : 'upload';
@@ -188,7 +215,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
               <span>{day(item.createdAt)}</span><span className="text-muted-foreground">{size(item.bytes)}</span>
             </div>
             {on && <span aria-hidden="true" className="pointer-events-none absolute top-2 left-2 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground"><CheckIcon className="size-4" /></span>}
-            {item.play && <button type="button" aria-label={`Play ${noun} from ${day(item.createdAt)}`} onClick={() => setWatching(item)}
+            {item.play && <button type="button" aria-label={`Play ${noun} from ${day(item.createdAt)}`} onClick={() => { relinked.current = null; setWatching(item); }}
               className="absolute top-1/2 left-1/2 z-10 flex size-12 -translate-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-black/60 p-0 text-white outline-ring transition-colors hover:bg-black/80 focus-visible:outline-2">
               <PlayIcon aria-hidden="true" className="ml-0.5 size-5 fill-current" />
             </button>}
@@ -205,7 +232,8 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
     <Modal open={watching !== null} onClose={() => setWatching(null)} bare maxWidth={460} maxHeight="calc(100vh - 3rem)"
       title={watching ? `${watching.kind === 'creative' ? 'Creative' : 'Upload'} from ${day(watching.createdAt)}` : ''}>
       {watching?.play && <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-muted p-3 shadow-[0_28px_56px_-24px_#000]">
-        <video key={watching.id} src={watching.play} controls autoPlay playsInline
+        {/* A new player each time it opens (and for a renewed link): a reused one can keep a finished or failed load. */}
+        <video ref={holdPlayer} key={`${watching.id}|${watching.play}`} src={watching.play} controls autoPlay playsInline preload="auto" onError={() => void relink()}
           className="max-h-[calc(100vh-10rem)] w-full rounded-[var(--radius)] bg-black object-contain" />
         <div className="flex items-center justify-between gap-3 px-1">
           <span className="text-sm text-muted-foreground">{day(watching.createdAt)} · {size(watching.bytes)}</span>

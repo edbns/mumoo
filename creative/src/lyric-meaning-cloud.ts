@@ -51,10 +51,13 @@ export function useLyricMeaning(token: string, cues: readonly LyricCue[], langua
     if (!active) return;
     const controller = new AbortController();
     setResult({ key, state: { status: 'pending' } });
+    // The deadline is checked between polls; a request the browser leaves hanging is cut off here, so the creatives never wait on it.
+    const cutOff = setTimeout(() => { controller.abort(); setResult({ key, state: { status: 'error' } }); }, JOB_TIMEOUT_MS + POLL_MS * 4);
     readLyricMeaning(token, lines, language, controller.signal)
       .then(meaning => setResult({ key, state: { status: 'ready', meaning } }))
-      .catch(() => { if (!controller.signal.aborted) setResult({ key, state: { status: 'error' } }); });
-    return () => controller.abort();
+      .catch(() => { if (!controller.signal.aborted) setResult({ key, state: { status: 'error' } }); })
+      .finally(() => clearTimeout(cutOff));
+    return () => { clearTimeout(cutOff); controller.abort(); };
     // `key` already covers the lines and the language.
   }, [active, token, key]);
 

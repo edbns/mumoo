@@ -33,7 +33,7 @@ import { SILHOUETTE_IDS, SILHOUETTE_SCREENS, silhouetteUrl } from './silhouette'
 import { isTreatmentId, isTreatmentVariant, type TreatmentId } from './treatment-deal';
 import { DISSOLVE_MS, TRANSITION, isPresetId, isPresetTake, presetDef, type PresetId } from './edit-presets';
 import { presetFrame } from './preset-motion';
-import { fetchFresh } from './fetch-fresh';
+import { PICTURE_BODY_MS, bodyWithin, fetchFresh } from './fetch-fresh';
 import { REC_FONT, createPresetPass, type PresetPass } from './pack-preset';
 import type { TypeEmphasis, TypeFinish } from './type-finish';
 
@@ -129,7 +129,7 @@ const NOTHING: readonly never[] = [];
 export async function loadTexture(url: string, what: string): Promise<Texture> {
   const response = await fetchFresh(url);
   if (!response?.ok) throw new Error(`${what} couldn’t be loaded${response ? ` (${response.status})` : ''}. Reload the page or go back to our photos.`);
-  const bitmap = await createImageBitmap(await response.blob()).catch(() => null);
+  const bitmap = await createImageBitmap(await bodyWithin(response, PICTURE_BODY_MS)).catch(() => null);
   if (!bitmap) throw new Error(`${what} could not be read as a picture.`);
   return Texture.from(bitmap);
 }
@@ -505,11 +505,17 @@ export function destroySharedPackRenderer() {
  * cards drawn at once (a poster while another card plays) would each be drawn with the other's look.
  */
 let queue: Promise<unknown> = Promise.resolve();
+/** A frame still drawing after this long (a download the browser left hanging) no longer holds up the frames behind it. */
+export const DRAW_HOLD_MS = 45_000;
 
 /** Render with shared WebGL, blit into a 2D target canvas (cards / export). */
 export function blitPackFrame(target: HTMLCanvasElement, opts: PackRendererOpts, frame: number): Promise<void> {
-  const drawn = queue.then(() => draw(target, opts, frame));
-  queue = drawn.catch(() => undefined);
+  const previous = queue;
+  const drawn = previous.then(() => draw(target, opts, frame));
+  queue = previous.then(() => new Promise<void>((resolve) => {
+    const timer = window.setTimeout(resolve, DRAW_HOLD_MS);
+    void drawn.catch(() => undefined).finally(() => { clearTimeout(timer); resolve(); });
+  }));
   return drawn;
 }
 

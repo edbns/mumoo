@@ -71,12 +71,13 @@ export function testLibrary() {
  * `analysis` replaces the default music-analysis answer (e.g. a real worker result).
  * `meaning` is what the lyric-meaning worker says about the words (default: nothing in particular); each request body is recorded.
  * The library is `testLibrary()`, so every template has pictures to draw.
+ * `launch` opens another browser instead of Brave (WebKit, for Safari).
  */
 export const NEUTRAL_READING = { version: 1, clarity: 'clear', attitude: 'neutral', sadness: 0, intensity: 3 };
-export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = [], meaningCalls = [], analysis, meaning = NEUTRAL_READING } = {}) {
+export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = [], meaningCalls = [], analysis, meaning = NEUTRAL_READING, launch } = {}) {
   const server = await createServer({ server: { host: '127.0.0.1', port: 0, fs: { allow: [process.cwd(), realpathSync('node_modules')] } }, logLevel: 'error' });
   await server.listen();
-  const browser = await chromium.launch({ headless: false, executablePath: BROWSER });
+  const browser = await (launch ? launch() : chromium.launch({ headless: false, executablePath: BROWSER }));
   const page = await browser.newPage({ viewport: { width: 1000, height: 1200 } });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));

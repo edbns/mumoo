@@ -19,6 +19,7 @@ import { musicHits } from './music-hits';
 import { presetTitle } from './edit-presets';
 import { reportPackFeedback, reportRefresh, reportShown, reportWatch } from './pack-feedback';
 import {
+  DRAW_HOLD_MS,
   PREVIEW_HEIGHT,
   PREVIEW_WIDTH,
   blitPackFrame,
@@ -147,6 +148,8 @@ setReelPreview(true);
 
 /** The shelf shows one creative of each template. */
 const LEAD = 1;
+/** A poster not drawn by then is left for a second try after the rest: one stalled picture never holds the whole shelf. */
+const CARD_DRAW_MS = DRAW_HOLD_MS;
 
 export function CreativesPackStudio({
   profile, composition, audio, token, position, getPosition, playing, playbackError,
@@ -412,28 +415,45 @@ export function CreativesPackStudio({
         const withLyrics = latest.current.lyricsOn();
         return { opts: packOpts(slot, base, impact, withLyrics, latest.current.pictureOf(def.id, slot)), frame: posterAt(base, impact, withLyrics) };
       })).catch(() => undefined);
-      for (const { def, slot } of stale) {
+      /** Draws one card's poster; false when it failed or took too long (it is then tried once more after the rest). */
+      const paintCard = async ({ def, slot }: (typeof stale)[number], last: boolean) => {
+        const canvas = canvasRefs.current.get(slot.id);
+        if (!canvas) return true;
+        const { composition: base, music: impact } = latest.current;
+        const withLyrics = latest.current.lyricsOn();
+        let timer = 0;
+        try {
+          await Promise.race([
+            blitPackFrame(canvas, packOpts(slot, base, impact, withLyrics, latest.current.pictureOf(def.id, slot)), posterAt(base, impact, withLyrics)),
+            new Promise<never>((_, reject) => { timer = window.setTimeout(() => reject(new Error('Drawing took too long.')), CARD_DRAW_MS); }),
+          ]);
+          return true;
+        } catch (cause) {
+          if (!cancelled && last) {
+            reportProblem('render', `${def.title} preview: ${(cause as Error)?.message ?? String(cause)}`);
+            setError(quietError(cause, `One ${def.title} card couldn’t be drawn. Refresh to try again.`));
+          }
+          return false;
+        } finally {
+          clearTimeout(timer);
+          await yieldFrame();
+        }
+      };
+      const missed: typeof stale = [];
+      for (const card of stale) {
         if (cancelled) return;
         setError('');
         await yieldFrame();
-        const canvas = canvasRefs.current.get(slot.id);
-        if (canvas) {
-          const { composition: base, music: impact } = latest.current;
-          const withLyrics = latest.current.lyricsOn();
-          try {
-            await blitPackFrame(canvas, packOpts(slot, base, impact, withLyrics, latest.current.pictureOf(def.id, slot)), posterAt(base, impact, withLyrics));
-          } catch (cause) {
-            if (!cancelled) {
-              reportProblem('render', `${def.title} preview: ${(cause as Error)?.message ?? String(cause)}`);
-              setError(quietError(cause, `One ${def.title} card couldn’t be drawn. Refresh to try again.`));
-            }
-          }
-          await yieldFrame();
-        }
+        if (!(await paintCard(card, false))) missed.push(card);
         if (cancelled) return;
-        painted.current.set(slot.id, keys.get(slot.id)!);
-        setReadyCards(ready => new Set(ready).add(slot.id));
+        // A card that could not be drawn yet still counts: the shelf never waits on one card for good.
+        painted.current.set(card.slot.id, keys.get(card.slot.id)!);
+        setReadyCards(ready => new Set(ready).add(card.slot.id));
         latest.current.onProgress(++done, total);
+      }
+      for (const card of missed) {
+        if (cancelled) return;
+        await paintCard(card, true);
       }
     })();
     return () => { cancelled = true; };

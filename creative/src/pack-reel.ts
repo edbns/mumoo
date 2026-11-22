@@ -1,6 +1,6 @@
 import { CanvasSource, Texture } from 'pixi.js';
 import { HEIGHT, WIDTH, type ImpactMusic } from './composition';
-import { fetchFresh } from './fetch-fresh';
+import { PICTURE_BODY_MS, bodyWithin, fetchFresh } from './fetch-fresh';
 import { loadMotion, motionLive, type Motion } from './pack-motion';
 import { REFERENCE_H, REFERENCE_W, references } from './pack-palette';
 import { clipMsAt, clipRateAt, planReel, segmentAt, type ReelAsset, type Segment, type Shot } from './pack-director';
@@ -117,7 +117,7 @@ export function setReelPrefetch(on: boolean) {
 async function fetched(url: string, what: string): Promise<Blob> {
   const response = await fetchFresh(url);
   if (!response?.ok) throw new Error(`${what} could not be loaded${response ? ` (${response.status})` : ''}. Reload the page.`);
-  return response.blob();
+  return bodyWithin(response, PICTURE_BODY_MS);
 }
 
 /**
