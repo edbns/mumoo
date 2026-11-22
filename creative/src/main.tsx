@@ -91,6 +91,8 @@ function App() {
   }, []);
   // The limit holds while the chosen videos page is open; pressing Make again asks again.
   useEffect(() => { if (!cartOpen) setChosenLimit(null); }, [cartOpen]);
+  // The chosen videos page covers the shelf: the card playing there stops with its sound.
+  useEffect(() => { if (cartOpen) stop(); }, [cartOpen]);
   const [askingStartOver, setAskingStartOver] = useState(false);
   const downloadRef = useRef<(() => Promise<boolean>) | null>(null);
   // Paid for the videos a download was short of: they start straight away (in the person's Media, where the payment was made).
