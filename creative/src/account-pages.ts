@@ -1,4 +1,4 @@
-import { GiftIcon, HistoryIcon, Link2Icon, ReceiptTextIcon, SettingsIcon, SparklesIcon, WalletIcon, type Icon } from '@/components/icons';
+import { GiftIcon, HistoryIcon, Link2Icon, PlusIcon, ReceiptTextIcon, SettingsIcon, WalletIcon, type Icon } from '@/components/icons';
 
 /**
  * Everything the person can be looking at: making creatives, making a smart link (open signed out too) or their smart links, or one
@@ -30,7 +30,7 @@ type Entry = { line: MenuLine; label: string; icon: Icon };
 /** The account menu: the way back to the main page, what they have, their credit, inviting friends and what they paid, then their settings. Sign out is separate. */
 export const ACCOUNT_MENU: readonly (readonly Entry[])[] = [
   [
-    { line: 'create', label: 'Create', icon: SparklesIcon },
+    { line: 'create', label: 'Create', icon: PlusIcon },
     { line: 'history', label: 'Media', icon: HistoryIcon },
     { line: 'links', label: 'Smart Links', icon: Link2Icon },
   ],

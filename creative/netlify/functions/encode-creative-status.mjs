@@ -1,91 +1,49 @@
 import { validAccess } from '../lib/access.mjs';
-import { releaseVideo } from '../lib/credits.mjs';
 import { personFrom, recordPerson } from '../lib/person.mjs';
-import { saveRender } from '../lib/renders.mjs';
+import { QUEUE_ID, pump, statesOf } from '../lib/render-queue.mjs';
 import { storageReady } from '../lib/storage.mjs';
 
 /**
- * Poll a cloud render job: 202 while running, 200 + MP4 when done. A signed-in person's finished MP4 is also kept in their history;
- * with `X-Mumoo-Deliver: media` a kept MP4 is answered with `{status: 'saved'}` instead of the file.
- * A render that failed gives its credit back.
+ * How a person's queued creatives are doing (POST `{ ids }`): for each, queued, running, done or failed (`render-queue.mjs`
+ * `statesOf`). Asking also moves the queue on a turn, so videos start and are kept in Media while the page is open; the scheduled
+ * `render-queue` does the same when it is not.
  */
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
 const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
-const MODAL_STATUS =
-  'https://edbns-mumoo-staging--mumoo-creatives-encode-staging-status.us-east.modal.run';
+/** The most a person can have in one order: the largest pack. */
+const MAX_IDS = 300;
+const TURN_MS = 6_000;
 const headers = { 'Cache-Control': 'no-store' };
-const CALL_ID = /^fc-[A-Za-z0-9]{8,48}$/;
 
 function error(status, message) {
   return Response.json({ error: message }, { status, headers });
 }
 
-/** 'saved', 'full' (over their storage allowance) or 'off' (signed out, or history unavailable). Never blocks the download. */
-async function keepForPerson(request, jobId, mp4) {
-  if (!storageReady() || !process.env.DATABASE_URL) return 'off';
-  const person = await personFrom(request);
-  if (!person) return 'off';
-  try {
-    await recordPerson(person);
-    return (await saveRender(person.id, jobId, mp4)) ? 'saved' : 'full';
-  } catch {
-    return 'off';
-  }
-}
-
-async function giveBack(request, jobId) {
-  if (!process.env.DATABASE_URL) return;
-  const person = await personFrom(request);
-  if (person) await releaseVideo(person.id, jobId).catch(cause => console.error('credit give back:', cause));
-}
-
 export default async function encodeCreativeStatus(request) {
-  const url = new URL(request.url);
-  if (process.env.SITE_ID !== STAGING_SITE || url.origin !== STAGING_ORIGIN) {
+  if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) {
     return error(404, 'Cloud render is only available on staging.');
   }
-  if (request.method !== 'GET') return error(405, 'Use GET.');
-  const stagingAccess = request.headers.get('x-mumoo-brain-access') ?? '';
-  const bridgeSecret = process.env.MUMOO_MUSIC_BRIDGE_SECRET || '';
-  if (!validAccess(stagingAccess, process.env.MUMOO_BRAIN_TESTER_KEY)) {
+  if (request.method !== 'POST') return error(405, 'Use POST.');
+  if (!validAccess(request.headers.get('x-mumoo-brain-access') ?? '', process.env.MUMOO_BRAIN_TESTER_KEY)) {
     return error(401, 'Staging access is invalid or expired.');
   }
-  if (bridgeSecret.length < 32) return error(503, 'Cloud render is not configured.');
-  const id = url.searchParams.get('id') ?? '';
-  if (!CALL_ID.test(id)) return error(400, 'Invalid job id.');
+  if ((process.env.MUMOO_MUSIC_BRIDGE_SECRET || '').length < 32 || !storageReady()) return error(503, 'Cloud render is not configured.');
+  if (!process.env.DATABASE_URL) return error(503, 'Accounts are unavailable.');
+  const person = await personFrom(request);
+  if (!person || !await recordPerson(person)) return error(401, 'Sign in to see your videos.');
 
+  const body = await request.json().catch(() => null);
+  const ids = Array.isArray(body?.ids) ? [...new Set(body.ids)] : [];
+  if (!ids.length || ids.length > MAX_IDS || !ids.every(id => typeof id === 'string' && QUEUE_ID.test(id))) return error(400, 'Invalid video ids.');
   try {
-    const response = await fetch(`${MODAL_STATUS}?id=${encodeURIComponent(id)}`, {
-      redirect: 'error',
-      signal: AbortSignal.timeout(20_000),
-      headers: { Authorization: `Bearer ${bridgeSecret}` },
-    });
-    if (response.status === 202) return Response.json({ status: 'running' }, { status: 202, headers });
-    if (response.ok) {
-      const mp4 = await response.arrayBuffer();
-      if (mp4.byteLength < 1000) return error(502, 'Cloud render returned an empty file.');
-      const kept = await keepForPerson(request, id, mp4);
-      if (kept === 'saved' && request.headers.get('x-mumoo-deliver') === 'media') {
-        return Response.json({ status: 'saved' }, { headers: { ...headers, 'X-Mumoo-History': kept } });
-      }
-      return new Response(mp4, {
-        status: 200,
-        headers: {
-          ...headers,
-          'X-Mumoo-History': kept,
-          'Content-Type': 'video/mp4',
-          'Content-Disposition': 'attachment; filename="mumoo-creative.mp4"',
-        },
-      });
-    }
-    const result = await response.json().catch(() => null);
-    const detail = result?.detail ?? result?.error;
-    await giveBack(request, id);
-    if ([400, 401, 410].includes(response.status)) {
-      return error(response.status, typeof detail === 'string' ? detail : 'Cloud render could not proceed.');
-    }
-    return error(502, 'Cloud render failed. Try again.');
-  } catch {
-    return error(504, 'The cloud render worker did not respond in time.');
+    // A short turn only, so the answer comes back in time; the scheduled turn carries on with the rest.
+    await Promise.race([
+      pump({ limit: 3 }).catch(cause => console.error('render queue turn:', cause)),
+      new Promise(resolve => setTimeout(resolve, TURN_MS)),
+    ]);
+    return Response.json({ jobs: await statesOf(person.id, ids) }, { headers });
+  } catch (cause) {
+    console.error('encode-creative-status:', cause);
+    return error(503, 'Couldn’t check your videos. Trying again.');
   }
 }

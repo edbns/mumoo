@@ -1,8 +1,8 @@
 /**
- * Creatives Pack cloud export — the browser only SUBMITS a small job and POLLS.
+ * Creatives Pack cloud export — the browser only QUEUES small jobs and asks how they are doing.
  *
- *   browser ──(960 KB WAV + scene JSON)──▶ Netlify submit ──▶ Modal spawn → job id
- *   browser ──(poll job id every 1.5 s)──▶ Netlify status ──▶ Modal → 202 | MP4
+ *   browser ──(960 KB WAV once per order + scene JSON per video)──▶ Netlify queue (`render-queue.mjs`) → queue ids
+ *   browser ──(all of the order's ids every 3 s)──▶ Netlify status ──▶ queue: starts Modal jobs in turns, keeps the MP4s in Media
  *
  * No canvas capture, no image upload, no WebGL/WebGPU, no encoding on this machine.
  * The cloud renders the same Pixi scene in headless Chromium (parallel frame ranges).
@@ -15,11 +15,12 @@ import type { PackRendererOpts } from './pack-renderer';
 const SAMPLE_RATE = 32_000;
 const WAV_SAMPLES = SAMPLE_RATE * (DURATION_MS / 1000);
 const WAV_BYTES = 44 + WAV_SAMPLES * 2;
-const POLL_MS = 1500;
-/** A check on a render that did not get through (the worker was slow to answer, the network dropped) is tried again this many times in a row before giving up. */
-const MISSED_POLLS = 6;
-/** How long a render is waited for before giving up. */
-export const JOB_TIMEOUT_MS = 900_000;
+/** How often queued videos are asked about. */
+const POLL_MS = 3000;
+/** The most videos asked about in one request (under the server's limit); a bigger order is asked about in parts. */
+const STATUS_CHUNK = 200;
+/** How long a page keeps an order to pick up again after a refresh; the server keeps how each video went for a week. */
+export const ORDER_WAIT_MS = 2 * 24 * 60 * 60 * 1000;
 
 function yieldToUi(): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, 0));
@@ -90,10 +91,8 @@ async function errorMessage(response: Response): Promise<string> {
   return result?.error || 'Creatives are down for a moment. Reload and try again.';
 }
 
-export type CloudJobInput = {
-  token: string;
-  /** 15 s mono 32 kHz WAV from `clipToMonoWav` (build once per batch). */
-  wav: Uint8Array;
+/** One video to queue. */
+export type CloudJob = {
   /** Exactly what the shelf preview renders — the cloud draws the same scene, frame for frame. */
   opts: PackRendererOpts;
   /** A card drawn on the signed-in person's own picture: its id in their storage. The server fetches it. */
@@ -104,70 +103,108 @@ export type CloudJobInput = {
   ownReel?: boolean;
 };
 
-/** Submit one render job. Returns immediately with a job id. */
-export async function submitCloudJob(input: CloudJobInput): Promise<string> {
-  const form = new FormData();
-  form.append('audio', new Blob([input.wav as BlobPart], { type: 'audio/wav' }), 'clip.wav');
+/** The most videos queued by one request (the server's `BATCH`). */
+export const QUEUE_BATCH = 10;
+
+function metaOf(job: CloudJob): string {
   // Data only. The picture itself never leaves the person's storage through the browser again.
-  const { photoUrl: _photo, cutoutUrl: _cutout, motionUrl: _motion, reel, ...scene } = input.opts;
+  const { photoUrl: _photo, cutoutUrl: _cutout, motionUrl: _motion, reel, ...scene } = job.opts;
   void [_photo, _cutout, _motion];
-  form.append('meta', JSON.stringify({
-    ...(input.uploadId ? { upload: input.uploadId } : {}),
-    ...(input.libraryId ? { library: input.libraryId } : {}),
-    ...(input.ownReel ? { ownReel: true } : {}),
+  return JSON.stringify({
+    ...(job.uploadId ? { upload: job.uploadId } : {}),
+    ...(job.libraryId ? { library: job.libraryId } : {}),
+    ...(job.ownReel ? { ownReel: true } : {}),
     // A reel goes as the library ids it is edited from, in order; the server swaps in fresh links of its own.
     // The encoder still requires fallbackText; a creative shows only the song's own words, so it is always empty.
     opts: { ...scene, ...(reel?.length ? { reel: reel.map(({ id, kind, shots }) => ({ id, kind, ...(shots ? { shots } : {}) })) } : {}), fallbackText: '' },
-  }));
+  });
+}
+
+/**
+ * Queue up to `QUEUE_BATCH` videos in one request. The first batch of an order sends `wav` (15 s mono 32 kHz from `clipToMonoWav`,
+ * built once); later ones name the `order` it returned. Returns at once with their queue ids, in order; `noCredits` when the credits
+ * ran out part way (the rest were not queued). With no credits at all it throws with `noCredits`. A request that did not get through
+ * is not sent again: it may have queued its videos, and each took a credit.
+ */
+export async function submitCloudJobs(token: string, { wav, order, jobs }: { wav: Uint8Array; order?: string; jobs: readonly CloudJob[] }): Promise<{ ids: string[]; order: string; noCredits: boolean }> {
+  const form = new FormData();
+  if (order) form.append('order', order);
+  else form.append('audio', new Blob([wav as BlobPart], { type: 'audio/wav' }), 'clip.wav');
+  for (const job of jobs) form.append('meta', metaOf(job));
   const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
-  const send = () => withAccess(input.token, access => fetch('/.netlify/functions/encode-creative', {
+  const response = await withAccess(token, access => fetch('/.netlify/functions/encode-creative', {
     method: 'POST',
     headers: { 'x-mumoo-brain-access': access, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
     body: form,
   }));
-  // A worker that did not answer in time is asked once more.
-  let response = await send().catch(() => null);
-  if (!response || response.status === 504) {
-    await sleep(2000);
-    response = await send();
-  }
   if (response.status === 402) throw Object.assign(new Error(await errorMessage(response)), { noCredits: true });
   if (!response.ok) throw new Error(await errorMessage(response));
-  const result = await response.json().catch(() => null) as { id?: string } | null;
-  if (!result?.id) throw new Error('Your creative didn’t start. Reload and try again.');
-  return result.id;
+  const result = await response.json().catch(() => null) as { ids?: string[]; order?: string; noCredits?: boolean } | null;
+  if (!result?.ids?.length || !result.order) throw new Error('Your creatives didn’t start. Reload and try again.');
+  return { ids: result.ids, order: result.order, noCredits: Boolean(result.noCredits) };
 }
 
+/** How one queued video ended: null when it was kept in the person's Media, the MP4 itself when it could not be (their storage is full). */
+export type CloudJobEnd = { video: Blob | null } | { cause: Error };
+type JobState = { status: 'queued' | 'running' | 'done' | 'failed' | 'missing'; error?: string; download?: string };
+
 /**
- * Poll until the MP4 is ready. Cheap: one tiny GET every 1.5 s, no work on this machine. Aborting the signal stops it.
- * Null when the video was kept in the person's Media; the MP4 itself only when it could not be kept (their storage is full).
+ * Follows queued videos until each has ended, asking about all of them in one request every few seconds. `onUpdate` hears how many
+ * are still waiting their turn and how many are being made; `onEnd` hears each video as it ends. A big order is asked about in
+ * parts. A check that does not get through
+ * is tried again, more slowly, for as long as the page is open: the videos go on being made and kept either way.
  */
-export async function awaitCloudJob(token: string, id: string, signal?: AbortSignal): Promise<Blob | null> {
-  // Signed-in people get the finished video kept in their history; the access token is renewed by `withAccess` whenever it gets old, however long the render takes.
+export async function followCloudJobs(token: string, ids: readonly string[], on: {
+  onUpdate: (waiting: number, making: number) => void;
+  onEnd: (id: string, end: CloudJobEnd) => void;
+}, signal?: AbortSignal): Promise<void> {
   const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
-  const deadline = Date.now() + JOB_TIMEOUT_MS;
-  let missed = 0;
-  while (Date.now() < deadline) {
-    await sleep(POLL_MS, signal);
-    const response = await withAccess(token, access => fetch(`/.netlify/functions/encode-creative-status?id=${encodeURIComponent(id)}`, {
-      headers: { 'x-mumoo-brain-access': access, 'x-mumoo-deliver': 'media', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
-      signal,
-    })).catch(cause => {
-      if (signal?.aborted) throw cause;
-      return null;
-    });
-    // Only the worker's own answer ends the wait; a check that did not get through is tried again.
-    if (!response || response.status === 504 || response.status === 503) {
-      missed += 1;
-      if (missed < MISSED_POLLS) continue;
-      if (!response) throw new Error('Creatives are down for a moment. Reload and try again.');
-    } else missed = 0;
-    if (response.status === 202) continue;
-    if (!response.ok) throw new Error(await errorMessage(response));
-    if (response.headers.get('X-Mumoo-History') === 'saved' && response.headers.get('Content-Type')?.includes('json')) return null;
-    const blob = await response.blob();
-    if (blob.size < 1000) throw new Error('Your creative came back empty. Try again.');
-    return blob;
+  const open = new Set(ids);
+  const ask = (chunk: string[]) => withAccess(token, access => fetch('/.netlify/functions/encode-creative-status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-mumoo-brain-access': access, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+    body: JSON.stringify({ ids: chunk }),
+    signal,
+  }));
+  let pause = 0;
+  while (open.size) {
+    await sleep(pause, signal);
+    const all = [...open];
+    const chunks = Array.from({ length: Math.ceil(all.length / STATUS_CHUNK) }, (_, index) => all.slice(index * STATUS_CHUNK, (index + 1) * STATUS_CHUNK));
+    const jobs: Record<string, JobState> = {};
+    let missed = false;
+    for (const chunk of chunks) {
+      const response = await ask(chunk).catch(cause => {
+        if (signal?.aborted) throw cause;
+        return null;
+      });
+      if (!response?.ok) {
+        if (response && response.status < 500 && response.status !== 401) throw new Error(await errorMessage(response));
+        missed = true;
+        break;
+      }
+      Object.assign(jobs, (await response.json() as { jobs: Record<string, JobState> }).jobs);
+    }
+    if (missed) {
+      pause = Math.min(30_000, Math.max(POLL_MS, pause * 2));
+      continue;
+    }
+    pause = POLL_MS;
+    let waiting = 0;
+    let making = 0;
+    for (const id of all) {
+      const job = jobs[id];
+      if (!job || job.status === 'queued') { waiting += 1; continue; }
+      if (job.status === 'running') { making += 1; continue; }
+      open.delete(id);
+      if (job.status === 'failed') on.onEnd(id, { cause: new Error(job.error || 'Your creative couldn’t be made. Try again.') });
+      else if (job.status === 'missing') on.onEnd(id, { cause: new Error('This video is no longer being made. Choose it again.') });
+      else if (!job.download) on.onEnd(id, { video: null });
+      else {
+        const video = await fetch(job.download, { signal }).then(file => (file.ok ? file.blob() : null)).catch(() => null);
+        on.onEnd(id, video && video.size >= 1000 ? { video } : { cause: new Error('Your creative was made but couldn’t be downloaded. Try again.') });
+      }
+    }
+    on.onUpdate(waiting, making);
   }
-  throw new Error('Your creative took too long. Try again in a bit.');
 }

@@ -4,9 +4,9 @@ import { songAccents } from './pack-director';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
 import { isLookRow, isTreatmentRow, recommendRow, rowsFor, shelfOrder, SHELF_ROWS, type CreativesPackSlot, type Deal, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
-import { CART_LIMIT, cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
+import { cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
-import { quietError } from './friendly-error';
+import { friendlyError, quietError } from './friendly-error';
 import { reportProblem } from './report-problem';
 import { PauseIcon, PlayIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ import {
 } from './pack-renderer';
 import { preloadReel, readyToPlay, setReelPreview, type ReelSource } from './pack-reel';
 import { setMotionLive } from './pack-motion';
-import { clipToMonoWav, submitCloudJob } from './pack-cloud-export';
+import { QUEUE_BATCH, clipToMonoWav, submitCloudJobs } from './pack-cloud-export';
 import { LoadingMask } from './loading-mask';
 import { loadPunchPlatesManifest } from './punch-plates';
 import { useLibrary } from './use-library';
@@ -600,29 +600,43 @@ export function CreativesPackStudio({
       await yieldFrame();
       // One small WAV for the whole batch (≈960 KB).
       const wav = await clipToMonoWav(audio, composition.clipStartMs);
-      report(items.length > 1 ? `Starting ${items.length} creatives…` : 'Starting your creative…');
-      // Every job is submitted now; they are made in parallel and we only hold job ids.
+      report(items.length > 1 ? `Queuing ${items.length} creatives…` : 'Starting your creative…');
+      // Every video is queued now, in batches: the server makes them in turns and we only hold their ids. The audio goes once.
       const ids: string[] = [];
-      for (const item of items) {
+      let order: string | undefined;
+      for (let from = 0; from < items.length; from += QUEUE_BATCH) {
         await yieldFrame();
+        const batch = items.slice(from, from + QUEUE_BATCH);
+        let queued: Awaited<ReturnType<typeof submitCloudJobs>>;
         try {
-          ids.push(await submitCloudJob({
-            token,
+          queued = await submitCloudJobs(token, {
             wav,
-            opts: packOpts(item.slot, composition, music, item.lyrics, pictureFor(item).picture),
-            // Never send both: own upload replaces the library picture on this row.
-            ...(item.uploadId ? { uploadId: item.uploadId } : item.ownReel ? { ownReel: true } : item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
-          }));
+            order,
+            jobs: batch.map(item => ({
+              opts: packOpts(item.slot, composition, music, item.lyrics, pictureFor(item).picture),
+              // Never send both: own upload replaces the library picture on this row.
+              ...(item.uploadId ? { uploadId: item.uploadId } : item.ownReel ? { ownReel: true } : item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
+            })),
+          });
         } catch (cause) {
-          // Out of credits part way (spent elsewhere meanwhile): the videos already started are still made.
-          if (!(cause as { noCredits?: boolean }).noCredits) throw cause;
-          askToBuyCredits({ need: items.length - ids.length, have: 0 });
-          if (!ids.length) throw cause;
-          break;
-        } finally {
           creditsChanged();
+          // Out of credits part way (spent elsewhere meanwhile), or a batch that failed: the videos already queued are still made.
+          if (!ids.length) throw cause;
+          if ((cause as { noCredits?: boolean }).noCredits) askToBuyCredits({ need: items.length - ids.length, have: 0 });
+          else setError(`${ids.length} of ${items.length} creatives were queued. ${friendlyError(cause, 'The rest couldn’t be.')} They are still chosen.`);
+          break;
         }
-        reportPackFeedback(token, profile, 'download', item.slot, { selectedIds: cart.items.map(held => held.id), generation: item.generation, ownPicture: item.uploadId !== null || Boolean(item.ownReel), place: placeOf(item.slot.row) });
+        ids.push(...queued.ids);
+        order = queued.order;
+        creditsChanged();
+        for (const item of batch.slice(0, queued.ids.length)) {
+          reportPackFeedback(token, profile, 'download', item.slot, { selectedIds: cart.items.map(held => held.id), generation: item.generation, ownPicture: item.uploadId !== null || Boolean(item.ownReel), place: placeOf(item.slot.row) });
+        }
+        if (queued.noCredits) {
+          askToBuyCredits({ need: items.length - ids.length, have: 0 });
+          break;
+        }
+        if (items.length > QUEUE_BATCH) report(`Queuing ${ids.length} of ${items.length}…`);
       }
       return ids;
     });
@@ -632,7 +646,6 @@ export function CreativesPackStudio({
   useEffect(() => () => { downloadRef.current = null; }, []);
 
   return <main className="desktop trim flex-1 content-start">
-    {cart.full && <p role="status" className="hint text-center">You can pick up to {CART_LIMIT} videos. Remove one to add another.</p>}
     <div className="flex flex-wrap items-center justify-end gap-3 rounded-[var(--radius-panel)] bg-background p-5">
       {!noLyrics && <label className="lyrics-switch">
         <input type="checkbox" role="switch" checked={lyricsSwitch} onChange={event => { stopPlayback(); setLyricsSwitch(event.target.checked); }} />
@@ -669,7 +682,7 @@ export function CreativesPackStudio({
               <button
                 type="button"
                 className="creatives-pack-select"
-                disabled={!ready || (!inCart && cart.full)}
+                disabled={!ready}
                 aria-pressed={inCart}
                 aria-label={`${def.title} creative, ${inCart ? 'chosen' : 'choose it'}`}
                 onClick={() => toggleCart(item)}

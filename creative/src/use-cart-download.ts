@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Cart, CartItem } from './cart';
 import { PENDING_KEY, estimatedPercent, expired, readPending, writePending, type PendingDownload } from './cart-jobs';
 import { friendlyError } from './friendly-error';
-import { JOB_TIMEOUT_MS, awaitCloudJob } from './pack-cloud-export';
+import { ORDER_WAIT_MS, followCloudJobs } from './pack-cloud-export';
 import { reportDelivered } from './pack-feedback';
 import { reportProblem } from './report-problem';
 
@@ -29,7 +29,7 @@ function saveFile(file: Blob, name: string) {
 }
 
 /**
- * The cart's download, from any page. The studio only submits the render jobs; from then on the job ids are kept in the
+ * The cart's download, from any page. The studio only queues the videos; from then on their queue ids are kept in the
  * browser and followed here, so a refresh or a reloaded tab picks the renders up again. Finished videos are kept in the
  * person's Media (nothing downloads by itself, unless their storage is full) and the items that were made leave the cart.
  * A failure keeps the cart.
@@ -44,24 +44,27 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
   async function follow(pending: PendingDownload) {
     const total = pending.jobs.length;
     let done = 0;
+    let waiting = 0;
+    let making = total;
     const show = () => setProgress({
-      label: total > 1 ? `Made ${done} of ${total}` : 'Making your creative…',
-      percent: estimatedPercent(done, total, Date.now() - pending.startedAt),
+      label: total > 1 ? `Made ${done} of ${total}${waiting ? ` · ${waiting} waiting their turn` : ''}` : waiting ? 'Waiting its turn…' : 'Making your creative…',
+      percent: estimatedPercent(done, total, Date.now() - pending.startedAt, making),
     });
     show();
     const ticking = setInterval(show, 1000);
     // One render failing does not end the wait for the others: the ones that are made are delivered, the rest stay in the cart.
-    type Result = { job: PendingDownload['jobs'][number]; video: Blob | null } | { job: PendingDownload['jobs'][number]; cause: unknown };
-    const results = await Promise.all(pending.jobs.map(async (job): Promise<Result> => {
-      try {
-        return { job, video: await awaitCloudJob(latest.current.token, job.jobId) };
-      } catch (cause) {
-        return { job, cause };
-      } finally {
+    type Job = PendingDownload['jobs'][number];
+    const results: Array<{ job: Job; video: Blob | null } | { job: Job; cause: unknown }> = [];
+    const byId = new Map(pending.jobs.map(job => [job.jobId, job]));
+    await followCloudJobs(latest.current.token, pending.jobs.map(job => job.jobId), {
+      onUpdate: (queued, rendering) => { waiting = queued; making = rendering; show(); },
+      onEnd: (id, end) => {
+        const job = byId.get(id)!;
+        results.push('cause' in end ? { job, cause: end.cause } : { job, video: end.video });
         done += 1;
         show();
-      }
-    })).finally(() => clearInterval(ticking));
+      },
+    }).finally(() => clearInterval(ticking));
     const made = results.flatMap(result => ('video' in result ? [{ job: result.job, video: result.video }] : []));
     const failed = results.flatMap(result => ('cause' in result ? [result.cause] : []));
     if (!made.length) throw failed[0];
@@ -129,7 +132,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     const raw = localStorage.getItem(PENDING_KEY);
     if (!raw) return;
     const pending = readPending(raw);
-    if (!pending || expired(pending, Date.now(), JOB_TIMEOUT_MS)) {
+    if (!pending || expired(pending, Date.now(), ORDER_WAIT_MS)) {
       localStorage.removeItem(PENDING_KEY);
       reportProblem('download', 'A download that was going didn’t finish.');
       setMessage({ kind: 'error', text: 'Videos that were being made didn’t finish. Your chosen videos are kept — open them from the bottom bar to try again.' });

@@ -8,7 +8,6 @@ import { SHELF_ROWS, type CreativesPackSlot, type ShelfRow } from './creatives-p
  * when a song is uploaded again or the person starts over: videos chosen and never made are not kept for later.
  * Each song and clip has its own cart, so moving the clip window never empties another one.
  */
-export const CART_LIMIT = 24;
 /** Carts kept in the browser, one per song and clip; the one touched longest ago is dropped first. */
 export const CART_SONGS = 8;
 const KEY = 'mumoo-cart';
@@ -31,7 +30,8 @@ export type CartItem = {
   /** The Director's reel (`slot.reelIds`) is edited from the person's own pictures, not our library. */
   ownReel?: true;
   generation: number;
-  /** JPEG data URL, `THUMB_WIDTH` x `THUMB_HEIGHT`, taken from the card when it was added. */
+  /** JPEG data URL, `THUMB_WIDTH` x `THUMB_HEIGHT`, taken from the card when it was added; empty when a cart too big for the
+   * browser's storage was saved without its pictures. */
   thumb: string;
 };
 
@@ -47,13 +47,13 @@ const isItem = (value: unknown): value is CartItem => {
     && item.slot.id === item.id && typeof item.lyrics === 'boolean'
     && (item.uploadId === null || typeof item.uploadId === 'string') && Number.isInteger(item.generation)
     && (item.ownReel === undefined || (item.ownReel === true && Array.isArray(item.slot.reelIds) && item.slot.reelIds.every(id => typeof id === 'string')))
-    && typeof item.thumb === 'string' && item.thumb.length <= THUMB_MAX_CHARS && THUMB_PATTERN.test(item.thumb);
+    && typeof item.thumb === 'string' && (item.thumb === '' || (item.thumb.length <= THUMB_MAX_CHARS && THUMB_PATTERN.test(item.thumb)));
 };
 
 const isEntry = (value: unknown): value is CartEntry => {
   const entry = value as CartEntry | null;
   return typeof entry === 'object' && entry !== null && typeof entry.songKey === 'string' && entry.songKey !== ''
-    && Array.isArray(entry.items) && entry.items.length > 0 && entry.items.length <= CART_LIMIT && entry.items.every(isItem);
+    && Array.isArray(entry.items) && entry.items.length > 0 && entry.items.every(isItem);
 };
 
 /** Every saved cart, oldest first. Anything damaged, from an old version, or empty is left out; a bad cart never costs another one. */
@@ -73,6 +73,11 @@ export function readCarts(raw: string | null): CartEntry[] {
     return true;
   });
   return carts.slice(-CART_SONGS);
+}
+
+/** The carts without their pictures: what is saved when they no longer fit in the browser's storage with them. */
+export function withoutThumbs(carts: readonly CartEntry[]): CartEntry[] {
+  return carts.map(entry => ({ ...entry, items: entry.items.map(item => ({ ...item, thumb: '' })) }));
 }
 
 export function writeCarts(carts: readonly CartEntry[]): string {
@@ -100,10 +105,10 @@ function put(carts: readonly CartEntry[], songKey: string, items: CartItem[]): C
   return (items.length ? [...others, { songKey, items }] : others).slice(-CART_SONGS);
 }
 
-/** Adds a creative to a song's cart unless it is already there, the cart is full, or there is no song. */
+/** Adds a creative to a song's cart unless it is already there or there is no song. */
 export function addItem(carts: CartEntry[], songKey: string, item: CartItem): CartEntry[] {
   const held = cartFor(carts, songKey);
-  if (!songKey || held.length >= CART_LIMIT || held.some(other => other.id === item.id)) return carts;
+  if (!songKey || held.some(other => other.id === item.id)) return carts;
   return put(carts, songKey, [...held, item]);
 }
 
@@ -136,14 +141,18 @@ export function useCart(songKey: string) {
     try {
       sessionStorage.setItem(KEY, writeCarts(carts));
     } catch {
-      // The browser is out of room: the cart used longest ago gives way (the newest is always last).
-      setCarts(current => (current.length > 1 ? current.slice(1) : current));
+      // The browser is out of room: the carts are saved without their pictures (they stay on screen until a reload), and if even
+      // that does not fit, the cart used longest ago gives way (the newest is always last).
+      try {
+        sessionStorage.setItem(KEY, writeCarts(withoutThumbs(carts)));
+      } catch {
+        setCarts(current => (current.length > 1 ? current.slice(1) : current));
+      }
     }
   }, [carts]);
   const items = cartFor(carts, songKey);
   return {
     items,
-    full: items.length >= CART_LIMIT,
     has: (id: string) => items.some(item => item.id === id),
     add: (item: CartItem) => setCarts(current => addItem(current, songKey, item)),
     remove: (id: string) => setCarts(current => dropItems(current, songKey, [id])),

@@ -104,7 +104,7 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
           {lines.map(({ item, title, available }) => <li key={item.id} className="flex flex-col gap-2">
             <div className="relative aspect-[9/16] overflow-hidden rounded-[var(--radius)] bg-muted">
               {available
-                ? <img className="size-full object-cover" src={item.thumb} alt="" />
+                ? item.thumb && <img className="size-full object-cover" src={item.thumb} alt="" />
                 : <p className="m-0 grid size-full place-items-center p-4 text-center text-sm text-muted-foreground">The picture it used isn’t available anymore.</p>}
               <RemoveBadge label={`Remove ${title}`} disabled={busy} onClick={() => onRemove(item.id)} />
             </div>

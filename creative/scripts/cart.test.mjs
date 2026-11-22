@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
-const { readCarts, writeCarts, cartFor, addItem, dropItems, songKeyOf, CART_LIMIT, CART_SONGS } = await server.ssrLoadModule('/src/cart.ts');
+const { readCarts, writeCarts, withoutThumbs, cartFor, addItem, dropItems, songKeyOf, CART_SONGS } = await server.ssrLoadModule('/src/cart.ts');
 await server.close();
 
 const THUMB = `data:image/jpeg;base64,${'/9j/4AAQ'.repeat(50)}`;
@@ -42,12 +42,12 @@ test('only the last few songs are kept, the one touched longest ago goes first',
   assert.equal(readCarts(writeCarts([...carts, { songKey: 'x:0', items: [item('x')] }])).length, CART_SONGS);
 });
 
-test('an item is added once, never without a song, never past the limit', () => {
+test('an item is added once, never without a song, and a cart has no limit', () => {
   let carts = addItem([], 's:0', item('a'));
   assert.equal(addItem(carts, 's:0', item('a')), carts);
   assert.deepEqual(addItem([], '', item('a')), []);
-  for (let i = 0; i < CART_LIMIT; i++) carts = addItem(carts, 's:0', item(`i${i}`));
-  assert.equal(cartFor(carts, 's:0').length, CART_LIMIT);
+  for (let i = 0; i < 500; i++) carts = addItem(carts, 's:0', item(`i${i}`));
+  assert.equal(cartFor(carts, 's:0').length, 501);
 });
 
 test('taking items out leaves the rest, and an empty cart disappears', () => {
@@ -79,8 +79,11 @@ test('one damaged cart is dropped without costing the others', () => {
   assert.deepEqual(readCarts(writeCarts([{ songKey: 'e:0', items: [] }, good, good])), [good]);
 });
 
-test('a cart over the limit is not trusted', () => {
-  const items = Array.from({ length: CART_LIMIT + 1 }, (_, i) => item(`i${i}`));
-  assert.deepEqual(readCarts(writeCarts([{ songKey: 's', items }])), []);
+test('a big cart is kept whole, and one saved without its pictures still reads back', () => {
+  const items = Array.from({ length: 1000 }, (_, i) => item(`i${i}`));
+  assert.equal(readCarts(writeCarts([{ songKey: 's:0', items }]))[0].items.length, 1000);
+  const bare = readCarts(writeCarts(withoutThumbs([{ songKey: 's:0', items }])));
+  assert.equal(bare[0].items.length, 1000);
+  assert.ok(bare[0].items.every(entry => entry.thumb === ''));
 });
 

@@ -1,24 +1,22 @@
 import { validAccess } from '../lib/access.mjs';
-import { confirmVideo, releaseReservation, reserveVideo } from '../lib/credits.mjs';
 import { personFrom, recordPerson } from '../lib/person.mjs';
-import { libraryMedia, libraryReel } from '../lib/library.mjs';
-import { uploadMedia, uploadReel } from '../lib/uploads.mjs';
-import { ownMedia } from '../lib/render-media.mjs';
-import { reelFrom, reelIds } from '../lib/reel.mjs';
+import { refusalOf } from '../lib/render-outbound.mjs';
+import { enqueue } from '../lib/render-queue.mjs';
+import { storageReady } from '../lib/storage.mjs';
 
 /**
- * Submit a cloud render job. Tiny request (≈960 KB WAV + JSON); returns a job id at once.
- * Every video is made for a signed-in person and takes one credit (`credits.mjs`): their free first video, else one they bought.
- * Without either it answers 402 and nothing is made. A job the worker does not accept gives the credit back.
- * A person's own picture (`upload` in the meta) is read here from that signed-in person's storage and handed on,
- * so the browser never sends an image, a video or a link.
+ * Queue creatives to be made (`render-queue.mjs`), up to `BATCH` per request (one `meta` each): returns their queue ids at once, and
+ * the order they joined. The first request of an order sends the song's audio (≈960 KB WAV), later ones name the order (`order`).
+ * Every video is made for a signed-in person and takes one credit when it is queued (`credits.mjs`): their free first video, else
+ * one they bought. When the credits run out part way, the ones queued are returned with `noCredits`; with none at all it answers 402.
+ * A video that fails gives its credit back. The picture is named, never sent: the queue reads it from the library or from that
+ * person's own storage when the render starts.
  */
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
 const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
-const MODAL_SUBMIT =
-  'https://edbns-mumoo-staging--mumoo-creatives-encode-staging-submit.us-east.modal.run';
-const BODY_LIMIT = 2_000_000;
+const BODY_LIMIT = 4_000_000;
+/** The most videos queued by one request; a bigger order comes in several. */
+const BATCH = 10;
 const headers = { 'Cache-Control': 'no-store' };
 
 function error(status, message) {
@@ -33,98 +31,38 @@ export default async function encodeCreative(request) {
   if (request.headers.get('origin') !== STAGING_ORIGIN) {
     return error(403, 'Open MUMOO Staging to render a creative.');
   }
-  const stagingAccess = request.headers.get('x-mumoo-brain-access') ?? '';
-  const bridgeSecret = process.env.MUMOO_MUSIC_BRIDGE_SECRET || '';
-  if (!validAccess(stagingAccess, process.env.MUMOO_BRAIN_TESTER_KEY)) {
+  if (!validAccess(request.headers.get('x-mumoo-brain-access') ?? '', process.env.MUMOO_BRAIN_TESTER_KEY)) {
     return error(401, 'Staging access is invalid or expired.');
   }
-  if (bridgeSecret.length < 32) return error(503, 'Cloud render is not configured.');
+  if ((process.env.MUMOO_MUSIC_BRIDGE_SECRET || '').length < 32 || !storageReady()) return error(503, 'Cloud render is not configured.');
   if (!process.env.DATABASE_URL) return error(503, 'Accounts are unavailable.');
   const person = await personFrom(request);
   if (!person || !await recordPerson(person)) return error(401, 'Sign in to make a video.');
 
-  let spend = null;
   try {
-    const length = Number(request.headers.get('content-length') || 0);
-    if (length > BODY_LIMIT) return error(413, 'Render request is too large.');
-
+    if (Number(request.headers.get('content-length') || 0) > BODY_LIMIT) return error(413, 'Render request is too large.');
     const incoming = await request.formData();
     const audio = incoming.get('audio');
-    const meta = incoming.get('meta');
-    if (!(audio instanceof Blob) || typeof meta !== 'string' || meta.length > 400_000) {
-      return error(400, 'Expected audio and meta form fields.');
+    const order = incoming.get('order');
+    const raws = incoming.getAll('meta');
+    if (!raws.length || raws.length > BATCH || !raws.every(raw => typeof raw === 'string' && raw.length <= 400_000)) return error(400, 'Expected the creatives’ settings.');
+    if (typeof order === 'string' ? audio !== null : !(audio instanceof Blob)) return error(400, 'Send the song’s audio, or the order it joins.');
+    if (audio instanceof Blob && audio.size < 1000) return error(400, 'Audio file is too small.');
+    const metas = raws.map(raw => JSON.parse(raw));
+    for (const meta of metas) {
+      const refused = refusalOf(meta);
+      if (refused) return error(400, refused);
     }
-    if (audio.size < 1000) return error(400, 'Audio file is too small.');
 
-    const { upload, library, ownReel, ...scene } = JSON.parse(meta);
-    const outbound = new FormData();
-    outbound.append('audio', audio, 'clip.wav');
-    if (library !== undefined) {
-      // An approved library picture is for everyone, so no sign-in is needed; it is Our photography's picture, like a person's own.
-      if (upload !== undefined) return error(400, 'Choose one picture.');
-      if (!UUID.test(library)) return error(400, 'Invalid picture.');
-      const style = scene.opts?.style;
-      // Our photography draws a library picture or video; Riso photos a library photo with its cut-out; Window a photo or a clip.
-      if (!['filter', 'riso', 'window', 'treatment'].includes(style)) return error(400, 'That picture is kept for a different style.');
-      const media = await libraryMedia(library);
-      if (!media) return error(404, 'That picture is no longer in the library.');
-      // Riso library clips are whole-frame (no cut-out); Riso photos still need the mask.
-      const cutOut = style === 'riso' && Boolean(media.photo);
-      if (cutOut && (!media.photo || !media.cutout)) return error(404, 'That picture has no cut-out yet.');
-      if (media.photo) outbound.append('photo', new Blob([media.photo], { type: 'image/jpeg' }), 'photo.jpg');
-      if (cutOut) outbound.append('cutout', new Blob([media.cutout], { type: 'image/png' }), 'cutout.png');
-      if (media.motion) outbound.append('motion', new Blob([media.motion], { type: 'video/mp4' }), 'motion.mp4');
-    }
-    if (upload !== undefined) {
-      if (!UUID.test(upload)) return error(400, 'Invalid picture.');
-      const media = await uploadMedia(person.id, upload);
-      if (!media) return error(404, 'That picture wasn’t found or is still being prepared.');
-      const sent = ownMedia(scene.opts?.style, media);
-      if (sent.refused) return error(400, sent.refused);
-      if (sent.parts.photo) outbound.append('photo', new Blob([sent.parts.photo], { type: 'image/jpeg' }), 'photo.jpg');
-      if (sent.parts.cutout) outbound.append('cutout', new Blob([sent.parts.cutout], { type: 'image/png' }), 'cutout.png');
-      if (sent.parts.motion) outbound.append('motion', new Blob([sent.parts.motion], { type: 'video/mp4' }), 'motion.mp4');
-    }
-    if (scene.opts?.reel !== undefined) {
-      // A reel is several library pictures edited together in the cloud; the worker fetches them itself from links made here, so no bytes pass through.
-      if (upload !== undefined || library !== undefined) return error(400, 'Choose one picture.');
-      const asked = reelIds(scene.opts);
-      if (asked.refused) return error(400, asked.refused);
-      let found;
-      if (ownReel === true) {
-        // A reel of the person's own pictures: only theirs.
-        found = await uploadReel(person.id, asked.ids);
-        if (found.includes(null)) return error(404, 'One of your pictures in that reel was removed or is still being prepared.');
-      } else {
-        found = await libraryReel(asked.ids);
-        if (found.includes(null)) return error(404, 'A picture of that reel is no longer in the library or has no cut-out yet.');
-      }
-      scene.opts = { ...scene.opts, reel: reelFrom(found) };
-    }
-    outbound.append('meta', JSON.stringify(scene));
-
-    spend = await reserveVideo(person.id);
-    if (!spend) return Response.json({ error: 'You’re out of credits. Buy a pack to make this video.', code: 'no_credits' }, { status: 402, headers });
-    const response = await fetch(MODAL_SUBMIT, {
-      method: 'POST',
-      body: outbound,
-      redirect: 'error',
-      signal: AbortSignal.timeout(25_000),
-      headers: { Authorization: `Bearer ${bridgeSecret}` },
-    });
-    const result = await response.json().catch(() => null);
-    if (response.ok && typeof result?.id === 'string') {
-      await confirmVideo(person.id, spend.id, result.id);
-      return Response.json({ id: result.id, free: spend.free }, { status: 202, headers });
-    }
-    await releaseReservation(person.id, spend.id);
-    const detail = result?.detail ?? result?.error;
-    if ([400, 401, 413, 429].includes(response.status)) {
-      return error(response.status, typeof detail === 'string' ? detail : 'Cloud render could not start.');
-    }
-    return error(502, 'The cloud render worker could not accept this creative.');
-  } catch {
-    if (spend) await releaseReservation(person.id, spend.id).catch(() => undefined);
-    return error(504, 'The cloud render worker did not respond in time.');
+    const queued = await enqueue(person.id, typeof order === 'string'
+      ? { order, metas }
+      : { audio: new Uint8Array(await audio.arrayBuffer()), metas });
+    if (queued.refused) return error(410, queued.refused);
+    if (!queued.ids.length) return Response.json({ error: 'You’re out of credits. Buy a pack to make this video.', code: 'no_credits' }, { status: 402, headers });
+    return Response.json(queued, { status: 202, headers });
+  } catch (cause) {
+    if (cause instanceof SyntaxError) return error(400, 'Expected the creative’s settings.');
+    console.error('encode-creative:', cause);
+    return error(503, 'Your creative could not be queued. Try again in a moment.');
   }
 }

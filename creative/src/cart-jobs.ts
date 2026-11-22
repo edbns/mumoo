@@ -1,9 +1,9 @@
 /**
- * A download in progress: the cloud render ids of the cart items being made. They are kept in this browser, so
+ * A download in progress: the render queue ids of the cart items being made. They are kept in this browser, so
  * after a refresh or a reloaded tab the page picks the renders up again instead of losing them.
  */
 export const PENDING_KEY = 'mumoo-pending-download';
-const VERSION = 1;
+const VERSION = 2;
 
 export type PendingJob = { itemId: string; jobId: string };
 
@@ -52,11 +52,12 @@ export const RENDER_PACE_MS = 70_000;
 
 /**
  * How far along the download looks, a whole number, 0–95 until every video is in: the renders run side by side, so each
- * unfinished one creeps on a slowing curve that never passes 95%, and a finished one counts in full.
+ * unfinished one creeps on a slowing curve that never passes 95%, and a finished one counts in full. Only the `making` ones (by
+ * default every unfinished one) creep: the rest are still waiting their turn in the queue.
  */
-export function estimatedPercent(done: number, total: number, elapsedMs: number): number {
+export function estimatedPercent(done: number, total: number, elapsedMs: number, making = total - done): number {
   if (total <= 0) return 0;
   if (done >= total) return 100;
   const guess = Math.min(0.95, 1 - Math.exp(-Math.max(0, elapsedMs) / RENDER_PACE_MS));
-  return Math.min(95, Math.floor(((done + (total - done) * guess) / total) * 100));
+  return Math.min(95, Math.floor(((done + Math.min(making, total - done) * guess) / total) * 100));
 }
