@@ -427,7 +427,7 @@ function App() {
       </div>
     </Modal>
     {!cartOpen && <ChosenBar count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)}
-      onClear={page === 'create' && inCreatives && stage === 'revealed' ? cart.clear : undefined} />}
+      onClear={page === 'create' && inCreatives && stage === 'revealed' ? cart.clear : undefined} onCancel={download.cancel} />}
     {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} limit={chosenLimit} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
     <ChooseFewer tooMany={tooMany} onClose={() => setTooMany(null)}
       onBuy={() => { if (tooMany) askToBuyCredits(tooMany); setTooMany(null); }}

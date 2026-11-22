@@ -2,11 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import type { Cart, CartItem } from './cart';
 import { PENDING_KEY, estimatedPercent, expired, readPending, writePending, type PendingDownload } from './cart-jobs';
 import { friendlyError } from './friendly-error';
-import { ORDER_WAIT_MS, followCloudJobs } from './pack-cloud-export';
+import { ORDER_WAIT_MS, cancelCloudJobs, followCloudJobs } from './pack-cloud-export';
 import { reportDelivered } from './pack-feedback';
 import { reportProblem } from './report-problem';
 
-export type DownloadProgress = { label: string; percent: number };
+export type DownloadProgress = {
+  label: string;
+  percent: number;
+  /** Some videos have not started yet, so they can still be taken back. */
+  cancellable?: boolean;
+  /** Taking them back was asked for. */
+  cancelling?: boolean;
+};
 /** What the person is told when a download ends, wherever they are in the app. */
 export type DownloadMessage = { kind: 'ready' | 'error'; text: string };
 
@@ -38,6 +45,9 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
   const [message, setMessage] = useState<DownloadMessage | null>(null);
   const running = useRef(false);
+  /** The videos of the order being followed, and whether the person asked to take back the ones not started yet. */
+  const following = useRef<string[]>([]);
+  const cancelled = useRef(false);
   const latest = useRef({ token, cart, onDelivered });
   latest.current = { token, cart, onDelivered };
 
@@ -46,28 +56,33 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     let done = 0;
     let waiting = 0;
     let making = total;
+    let takenBack = 0;
     const show = () => setProgress({
-      label: total > 1 ? `Made ${done} of ${total}${waiting ? ` · ${waiting} waiting their turn` : ''}` : waiting ? 'Waiting its turn…' : 'Making your creative…',
+      label: total > 1 ? `Made ${done - takenBack} of ${total - takenBack}${waiting ? ` · ${waiting} waiting their turn` : ''}` : waiting ? 'Waiting its turn…' : 'Making your creative…',
       percent: estimatedPercent(done, total, Date.now() - pending.startedAt, making),
+      cancellable: waiting > 0 && !cancelled.current,
+      cancelling: cancelled.current && waiting > 0,
     });
     show();
     const ticking = setInterval(show, 1000);
     // One render failing does not end the wait for the others: the ones that are made are delivered, the rest stay in the cart.
     type Job = PendingDownload['jobs'][number];
-    const results: Array<{ job: Job; video: Blob | null } | { job: Job; cause: unknown }> = [];
+    const results: Array<{ job: Job; video: Blob | null } | { job: Job; cause: unknown } | { job: Job; cancelled: true }> = [];
     const byId = new Map(pending.jobs.map(job => [job.jobId, job]));
     await followCloudJobs(latest.current.token, pending.jobs.map(job => job.jobId), {
       onUpdate: (queued, rendering) => { waiting = queued; making = rendering; show(); },
       onEnd: (id, end) => {
         const job = byId.get(id)!;
-        results.push('cause' in end ? { job, cause: end.cause } : { job, video: end.video });
+        results.push('cancelled' in end ? { job, cancelled: true } : 'cause' in end ? { job, cause: end.cause } : { job, video: end.video });
+        if ('cancelled' in end) takenBack += 1;
         done += 1;
         show();
       },
     }).finally(() => clearInterval(ticking));
     const made = results.flatMap(result => ('video' in result ? [{ job: result.job, video: result.video }] : []));
     const failed = results.flatMap(result => ('cause' in result ? [result.cause] : []));
-    if (!made.length) throw failed[0];
+    const back = results.filter(result => 'cancelled' in result).length;
+    if (!made.length && failed.length) throw failed[0];
     // Videos kept in Media are downloaded from there when the person wants them; only ones that could not be kept are saved now.
     const unkept = made.flatMap(entry => (entry.video ? [entry.video] : []));
     if (unkept.length) {
@@ -83,6 +98,10 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     localStorage.removeItem(PENDING_KEY);
     const delivered = made.map(entry => entry.job.itemId);
     // Success needs no notice: the person is on their Media, where the creatives appear. Only a partial failure or full storage is told.
+    // Taken back: they are still chosen, and their credits are back.
+    if (back) {
+      setMessage({ kind: 'ready', text: `${back === 1 ? '1 video was' : `${back} videos were`} cancelled and ${back === 1 ? 'its credit is' : 'their credits are'} back. ${back === 1 ? 'It is' : 'They are'} still chosen.${made.length ? ` ${made.length === 1 ? 'The 1 that was made is' : `The ${made.length} that were made are`} in your Media.` : ''}` });
+    }
     if (unkept.length && !failed.length) {
       setMessage({ kind: 'error', text: `Media storage is full, so ${unkept.length === 1 ? 'your new creative was' : `${unkept.length} new creatives were`} downloaded to this computer instead.` });
     }
@@ -92,6 +111,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
       const count = made.length;
       setMessage({ kind: 'error', text: `${count === 1 ? 'Your creative is' : `Your ${count} creatives are`} ready. ${failed.length === 1 ? '1 could not be made' : `${failed.length} could not be made`} (${reason.replace(/\.$/, '')}) and ${failed.length === 1 ? 'is' : 'are'} still chosen: open them from the bar at the bottom to try again.` });
     }
+    if (!delivered.length) return;
     latest.current.cart.removeFrom(pending.songKey, delivered);
     reportDelivered(latest.current.token, pending.songKey.split(':')[0], delivered);
     latest.current.onDelivered();
@@ -99,9 +119,14 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
 
   async function run(begin: () => Promise<PendingDownload>) {
     running.current = true;
+    cancelled.current = false;
     setMessage(null);
     try {
-      await follow(await begin());
+      const pending = await begin();
+      following.current = pending.jobs.map(job => job.jobId);
+      // Cancelled while the videos were still being queued: the ones that made it in are taken back now.
+      if (cancelled.current && following.current.length) await cancelCloudJobs(latest.current.token, following.current).catch(() => undefined);
+      await follow(pending);
     } catch (cause) {
       localStorage.removeItem(PENDING_KEY);
       const text = friendlyError(cause, 'Couldn’t export the creatives.');
@@ -109,16 +134,33 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
       setMessage({ kind: 'error', text: `${text} Your chosen videos are kept.` });
     } finally {
       running.current = false;
+      following.current = [];
       setProgress(null);
     }
   }
 
-  /** `submit` starts one render per item (in order) and returns their ids, the first ones only if it had to stop; it may report what it is doing. */
-  function start(songKey: string, items: readonly CartItem[], submit: (report: (label: string) => void) => Promise<string[]>) {
+  /** Takes back the videos not started yet (their credits come back, they stay chosen); the ones being made finish and are kept. */
+  function cancel() {
+    if (!running.current || cancelled.current) return;
+    cancelled.current = true;
+    setProgress(current => current && { ...current, cancellable: false, cancelling: true });
+    if (following.current.length) {
+      void cancelCloudJobs(latest.current.token, following.current).catch(cause => {
+        cancelled.current = false;
+        setMessage({ kind: 'error', text: friendlyError(cause, 'Couldn’t cancel. Try again.') });
+      });
+    }
+  }
+
+  /**
+   * `submit` queues one render per item (in order) and returns their ids, the first ones only if it had to stop (`stopped` says the
+   * person cancelled); it may report what it is doing.
+   */
+  function start(songKey: string, items: readonly CartItem[], submit: (report: (label: string) => void, stopped: () => boolean) => Promise<string[]>) {
     if (running.current) return;
-    setProgress({ label: 'Starting…', percent: 0 });
+    setProgress({ label: 'Starting…', percent: 0, cancellable: true });
     void run(async () => {
-      const ids = await submit(label => setProgress({ label, percent: 0 }));
+      const ids = await submit(label => setProgress(current => ({ label, percent: 0, cancellable: !cancelled.current, cancelling: cancelled.current && Boolean(current) })), () => cancelled.current);
       // Fewer ids than items when the credits ran out part way: the rest stay in the cart.
       const pending: PendingDownload = { songKey, startedAt: Date.now(), jobs: items.slice(0, ids.length).map((item, index) => ({ itemId: item.id, jobId: ids[index] })) };
       localStorage.setItem(PENDING_KEY, writePending(pending));
@@ -141,7 +183,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     void run(async () => pending);
   }, [token]);
 
-  return { progress, message, dismiss: () => setMessage(null), start };
+  return { progress, message, dismiss: () => setMessage(null), start, cancel };
 }
 
 export type CartDownload = ReturnType<typeof useCartDownload>;

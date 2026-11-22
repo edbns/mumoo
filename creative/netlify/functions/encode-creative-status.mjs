@@ -1,12 +1,13 @@
 import { validAccess } from '../lib/access.mjs';
 import { personFrom, recordPerson } from '../lib/person.mjs';
-import { QUEUE_ID, pump, statesOf } from '../lib/render-queue.mjs';
+import { QUEUE_ID, cancelWaiting, pump, statesOf } from '../lib/render-queue.mjs';
 import { storageReady } from '../lib/storage.mjs';
 
 /**
- * How a person's queued creatives are doing (POST `{ ids }`): for each, queued, running, done or failed (`render-queue.mjs`
- * `statesOf`). Asking also moves the queue on a turn, so videos start and are kept in Media while the page is open; the scheduled
- * `render-queue` does the same when it is not.
+ * How a person's queued creatives are doing (POST `{ ids }`): for each, queued, running, done, failed or cancelled (`render-queue.mjs`
+ * `statesOf`). With `cancel: true` the ones still waiting their turn are taken back first and their credits given back. Asking also
+ * moves the queue on a turn, so videos start and are kept in Media while the page is open; the scheduled `render-queue` does the
+ * same when it is not.
  */
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
 const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
@@ -35,6 +36,7 @@ export default async function encodeCreativeStatus(request, context) {
   const ids = Array.isArray(body?.ids) ? [...new Set(body.ids)] : [];
   if (!ids.length || ids.length > MAX_IDS || !ids.every(id => typeof id === 'string' && QUEUE_ID.test(id))) return error(400, 'Invalid video ids.');
   try {
+    if (body.cancel === true) await cancelWaiting(person.id, ids);
     const jobs = await statesOf(person.id, ids);
     // The queue moves on after the answer, so asking stays quick; a turn cut short is picked up again by the next one.
     const turn = pump({ limit: 2 }).catch(cause => console.error('render queue turn:', cause));

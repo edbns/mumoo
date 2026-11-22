@@ -147,39 +147,55 @@ export async function submitCloudJobs(token: string, { wav, order, jobs }: { wav
 }
 
 /** How one queued video ended: null when it was kept in the person's Media, the MP4 itself when it could not be (their storage is full). */
-export type CloudJobEnd = { video: Blob | null } | { cause: Error };
-type JobState = { status: 'queued' | 'running' | 'done' | 'failed' | 'missing'; error?: string; download?: string };
+export type CloudJobEnd = { video: Blob | null } | { cause: Error } | { cancelled: true };
+type JobState = { status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'missing'; error?: string; download?: string };
+
+/** One status request about up to `STATUS_CHUNK` videos; with `cancel`, the ones still waiting are taken back first. */
+async function askAbout(token: string, ids: string[], { cancel = false, signal }: { cancel?: boolean; signal?: AbortSignal } = {}): Promise<Response> {
+  // The sign-in token is read for every request: a big order outlasts one, and a stale one would be refused on every check.
+  const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
+  const timeout = AbortSignal.timeout(CHECK_TIMEOUT_MS);
+  return withAccess(token, access => fetch('/.netlify/functions/encode-creative-status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-mumoo-brain-access': access, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+    body: JSON.stringify({ ids, ...(cancel ? { cancel: true } : {}) }),
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+  }));
+}
+
+const chunksOf = (ids: readonly string[]) =>
+  Array.from({ length: Math.ceil(ids.length / STATUS_CHUNK) }, (_, index) => ids.slice(index * STATUS_CHUNK, (index + 1) * STATUS_CHUNK));
+
+/**
+ * Takes back the queued videos `ids` that have not started yet; their credits are given back. Ones already being made carry on.
+ * `followCloudJobs` then hears them end as cancelled.
+ */
+export async function cancelCloudJobs(token: string, ids: readonly string[]): Promise<void> {
+  for (const chunk of chunksOf(ids)) {
+    const response = await askAbout(token, chunk, { cancel: true });
+    if (!response.ok) throw new Error(await errorMessage(response));
+  }
+}
 
 /**
  * Follows queued videos until each has ended, asking about all of them in one request every few seconds. `onUpdate` hears how many
  * are still waiting their turn and how many are being made; `onEnd` hears each video as it ends. A big order is asked about in
- * parts. A check that does not get through
- * is tried again, more slowly, for as long as the page is open: the videos go on being made and kept either way.
+ * parts. A check that does not get through is tried again, more slowly, for as long as the page is open: the videos go on being
+ * made and kept either way.
  */
 export async function followCloudJobs(token: string, ids: readonly string[], on: {
   onUpdate: (waiting: number, making: number) => void;
   onEnd: (id: string, end: CloudJobEnd) => void;
 }, signal?: AbortSignal): Promise<void> {
   const open = new Set(ids);
-  // The sign-in token is read for every check: a big order outlasts one, and a stale one would be refused on every check.
-  const ask = async (chunk: string[]) => {
-    const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
-    return withAccess(token, access => fetch('/.netlify/functions/encode-creative-status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-mumoo-brain-access': access, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
-      body: JSON.stringify({ ids: chunk }),
-      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(CHECK_TIMEOUT_MS)]) : AbortSignal.timeout(CHECK_TIMEOUT_MS),
-    }));
-  };
   let pause = 0;
   while (open.size) {
     await sleep(pause, signal);
     const all = [...open];
-    const chunks = Array.from({ length: Math.ceil(all.length / STATUS_CHUNK) }, (_, index) => all.slice(index * STATUS_CHUNK, (index + 1) * STATUS_CHUNK));
     const jobs: Record<string, JobState> = {};
     let missed = false;
-    for (const chunk of chunks) {
-      const response = await ask(chunk).catch(cause => {
+    for (const chunk of chunksOf(all)) {
+      const response = await askAbout(token, chunk, { signal }).catch(cause => {
         if (signal?.aborted) throw cause;
         return null;
       });
@@ -202,7 +218,8 @@ export async function followCloudJobs(token: string, ids: readonly string[], on:
       if (!job || job.status === 'queued') { waiting += 1; continue; }
       if (job.status === 'running') { making += 1; continue; }
       open.delete(id);
-      if (job.status === 'failed') on.onEnd(id, { cause: new Error(job.error || 'Your creative couldn’t be made. Try again.') });
+      if (job.status === 'cancelled') on.onEnd(id, { cancelled: true });
+      else if (job.status === 'failed') on.onEnd(id, { cause: new Error(job.error || 'Your creative couldn’t be made. Try again.') });
       else if (job.status === 'missing') on.onEnd(id, { cause: new Error('This video is no longer being made. Choose it again.') });
       else if (!job.download) on.onEnd(id, { video: null });
       else {

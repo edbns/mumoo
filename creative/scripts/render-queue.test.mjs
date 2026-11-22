@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { allowanceOf, reserveVideo, releaseReservation } from '../netlify/lib/credits.mjs';
 import { db } from '../netlify/lib/person.mjs';
-import { enqueue, pickNext, settleRunning, startWaiting, statesOf } from '../netlify/lib/render-queue.mjs';
+import { cancelWaiting, enqueue, pickNext, settleRunning, startWaiting, statesOf } from '../netlify/lib/render-queue.mjs';
 import { deleteObject, objectSize, storageReady } from '../netlify/lib/storage.mjs';
 
 /** The render queue: turns (always), and a live order against Postgres and storage with a stand-in worker (needs .env.local). */
@@ -114,6 +114,18 @@ test('a big order is queued in one go, made in turns, kept, and failed videos gi
     assert.equal(await objectSize(`render-queue/${big}/${first.order}.wav`), 4000, 'an order still going keeps its audio');
 
     assert.equal(await startWaiting({ worker, limit: 50, users }), 3, 'the big order’s next ones take the free turns');
+
+    // Cancel: the ones not started are taken back with their credits; the ones being made carry on.
+    const before = (await allowanceOf(big)).credits;
+    const all = [...first.ids, ...more.ids];
+    const waitingNow = await sql`select id from render_queue where user_id = ${big} and status = 'queued'`;
+    assert.equal(await cancelWaiting(big, all), waitingNow.length);
+    assert.equal(await cancelWaiting(single, all), 0, 'nobody takes back another person’s videos');
+    assert.equal((await allowanceOf(big)).credits, before + waitingNow.length);
+    const after = await statesOf(big, all);
+    assert.ok(waitingNow.every(row => after[row.id].status === 'cancelled'));
+    assert.equal(Object.values(after).filter(state => state.status === 'running').length, 4, 'the ones being made are not stopped');
+    assert.equal(await objectSize(`render-queue/${big}/${first.order}.wav`), 4000, 'the order still being made keeps its audio');
   } finally {
     await Promise.all(keys.map(key => deleteObject(key).catch(() => undefined)));
     for (const id of users) await sql`delete from app_users where id = ${id}`;

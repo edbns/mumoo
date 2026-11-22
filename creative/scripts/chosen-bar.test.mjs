@@ -114,6 +114,17 @@ test('the bottom bar has its blinking dot whenever it shows: while choosing and 
   assert.equal(bar(0, null), '');
 });
 
+test('while videos are made the bar opens nothing and changes nothing, and Cancel shows only while some have not started', () => {
+  const bar = (progress, onCancel) => renderToStaticMarkup(createElement(panel.ChosenBar, { count: 20, progress, onOpen: () => {}, onClear: () => {}, onCancel }));
+  const making = bar({ label: 'Made 9 of 20 · 7 waiting their turn', percent: 64, cancellable: true }, () => {});
+  assert.match(making, />20 videos = 20 credits</);
+  assert.equal((making.match(/<button/g) ?? []).length, 1, 'only Cancel can be pressed');
+  assert.match(making, /aria-label="Cancel the videos that have not started"[^>]*>.*Cancel</);
+  assert.doesNotMatch(making, /Clear the chosen videos/);
+  assert.match(bar({ label: 'x', percent: 70, cancelling: true }, () => {}), /disabled=""[^>]*>.*Cancelling…</);
+  assert.doesNotMatch(bar({ label: 'Made 16 of 20', percent: 90 }, () => {}), /<button/);
+});
+
 test('the creatives page shows no error text above the creatives, and the preview line sits under Lyrics and Refresh', () => {
   const studio = readFileSync(new URL('../src/creatives-pack-studio.tsx', import.meta.url), 'utf8');
   assert.doesNotMatch(studio, /\{error && <p|\{playbackError && <p|no lyric style|Staging access is unavailable/);

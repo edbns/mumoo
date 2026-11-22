@@ -218,8 +218,20 @@ export async function pump(options = {}) {
 }
 
 /**
+ * Takes back `userId`'s videos `ids` that are still waiting their turn, and gives back their credits. One already starting or being
+ * made is not stopped: it is made and kept as usual. Returns how many were taken back.
+ */
+export async function cancelWaiting(userId, ids) {
+  const taken = await db()`update render_queue set status = 'cancelled', finished_at = now()
+    where user_id = ${userId} and id = any(${ids}) and status = 'queued' returning id, order_id`;
+  for (const row of taken) await releaseVideo(userId, row.id).catch(cause => console.error('render queue give back:', cause));
+  for (const order of new Set(taken.map(row => row.order_id))) await tidyOrder(userId, order);
+  return taken.length;
+}
+
+/**
  * How `userId`'s videos `ids` are doing: for each, 'queued', 'running', 'done' (with a link to fetch it when it could not be kept in
- * their Media) or 'failed' (with why). An id that is not theirs is 'missing'.
+ * their Media), 'failed' (with why) or 'cancelled'. An id that is not theirs is 'missing'.
  */
 export async function statesOf(userId, ids) {
   const rows = await db()`select id, status, error, download from render_queue where user_id = ${userId} and id = any(${ids})`;
@@ -228,6 +240,7 @@ export async function statesOf(userId, ids) {
     const row = found.get(id);
     if (!row) return [id, { status: 'missing' }];
     if (row.status === 'failed') return [id, { status: 'failed', error: row.error }];
+    if (row.status === 'cancelled') return [id, { status: 'cancelled' }];
     if (row.status === 'done') return [id, row.download ? { status: 'done', download: await signedDownload(row.download, 'mumoo-creative.mp4') } : { status: 'done' }];
     return [id, { status: row.status === 'queued' ? 'queued' : 'running' }];
   })));
@@ -240,5 +253,5 @@ export async function sweep() {
       select id, download from render_queue where download is not null and finished_at < now() - ${KEEP_DOWNLOAD}::interval for update)
     update render_queue q set download = null from old where q.id = old.id returning old.download as key`;
   await Promise.all(old.map(row => deleteObject(row.key).catch(() => undefined)));
-  await sql`delete from render_queue where status in ('done', 'failed') and finished_at < now() - ${KEEP_ROWS}::interval`;
+  await sql`delete from render_queue where status in ('done', 'failed', 'cancelled') and finished_at < now() - ${KEEP_ROWS}::interval`;
 }

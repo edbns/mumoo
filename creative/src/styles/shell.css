@@ -25,6 +25,8 @@
 .chosen-bar::before { background: radial-gradient(circle at 0 0, transparent 1rem, var(--background) calc(1rem + 1px)); }
 .chosen-bar::after { background: radial-gradient(circle at 100% 0, transparent 1rem, var(--background) calc(1rem + 1px)); }
 .chosen-bar button { cursor: pointer; }
+.chosen-bar-status { display: inline-block; padding: .5rem 1.2rem; border-radius: 999px; font-size: .9375rem; color: var(--muted-foreground); }
+.chosen-bar-status.chosen-bar-count { background: var(--primary); color: var(--primary-foreground); font-weight: 600; }
 .step-nav .chosen-bar-clear { display: inline-flex; align-items: center; gap: .3rem; color: var(--foreground); background: var(--secondary); }
 /* An orange dot (the brand orange, not the green of the bar's button) at the bar's top right, sending out small waves, so the chosen videos (and how far along they are) catch the eye. */
 .chosen-bar-dot { position: absolute; top: .6rem; right: .75rem; width: .8rem; height: .8rem; border-radius: 50%; background: var(--destructive); animation: chosen-blink 1.6s ease-in-out infinite; }

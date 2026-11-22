@@ -594,7 +594,7 @@ export function CreativesPackStudio({
       return false;
     }
     onStop(); setPlayingId(null); setError('');
-    download.start(songKeyOf(profile.clip.sourceSha256, profile.clip.offsetMs), items, async report => {
+    download.start(songKeyOf(profile.clip.sourceSha256, profile.clip.offsetMs), items, async (report, stopped) => {
       report('Preparing audio…');
       // Let React paint the progress state before any work.
       await yieldFrame();
@@ -606,6 +606,7 @@ export function CreativesPackStudio({
       let order: string | undefined;
       for (let from = 0; from < items.length; from += QUEUE_BATCH) {
         await yieldFrame();
+        if (stopped()) break;
         const batch = items.slice(from, from + QUEUE_BATCH);
         let queued: Awaited<ReturnType<typeof submitCloudJobs>>;
         try {

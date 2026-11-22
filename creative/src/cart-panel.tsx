@@ -45,12 +45,15 @@ export const chosenLabel = (count: number) => (count === 1 ? '1 video = 1 credit
 
 /**
  * The bar at the bottom of the page while videos are chosen: the step notch turned upside down, rising from the bottom edge.
- * Pressing it opens the page where the videos are made. While they are being made it shows how far along they are.
+ * Pressing it opens the page where the videos are made. While they are being made it only shows how far along they are: the
+ * chosen videos cannot be changed then, and Cancel takes back the ones that have not started.
  */
-export function ChosenBar({ count, progress, onOpen, onClear }: {
+export function ChosenBar({ count, progress, onOpen, onClear, onCancel }: {
   count: number; progress: DownloadProgress | null; onOpen: () => void;
   /** Shown on the creatives page only: takes every chosen video out. */
   onClear?: () => void;
+  /** Takes back the videos being made that have not started yet. */
+  onCancel?: () => void;
 }) {
   return <MotionConfig reducedMotion="user">
     <AnimatePresence>
@@ -58,12 +61,18 @@ export function ChosenBar({ count, progress, onOpen, onClear }: {
         initial={{ y: '110%' }} animate={{ y: 0 }} exit={{ y: '110%' }} transition={{ type: 'spring', visualDuration: 0.35, bounce: 0.2 }}>
         <span aria-hidden="true" className="chosen-bar-dot" />
         <ol>
-          {count > 0 && <li><motion.button key={count} type="button" aria-current="step" onClick={onOpen}
+          {count > 0 && !progress && <li><motion.button key={count} type="button" aria-current="step" onClick={onOpen}
             initial={{ scale: 0.92 }} animate={{ scale: 1 }} transition={{ type: 'spring', visualDuration: 0.25, bounce: 0.45 }}>
             {chosenLabel(count)}
           </motion.button></li>}
-          {progress && <li><button type="button" onClick={onOpen} className="tabular-nums">{progress.label} {progress.percent}%</button></li>}
-          {onClear && count > 0 && <li><button type="button" onClick={onClear} className="chosen-bar-clear" aria-label="Clear the chosen videos">
+          {count > 0 && progress && <li><span className="chosen-bar-status chosen-bar-count">{chosenLabel(count)}</span></li>}
+          {progress && <li><span role="status" className="chosen-bar-status tabular-nums">{progress.label} {progress.percent}%</span></li>}
+          {progress && onCancel && (progress.cancellable || progress.cancelling) && <li>
+            <button type="button" onClick={onCancel} disabled={progress.cancelling} className="chosen-bar-clear" aria-label="Cancel the videos that have not started">
+              <XIcon aria-hidden="true" className="size-3.5" />{progress.cancelling ? 'Cancelling…' : 'Cancel'}
+            </button>
+          </li>}
+          {onClear && count > 0 && !progress && <li><button type="button" onClick={onClear} className="chosen-bar-clear" aria-label="Clear the chosen videos">
             <XIcon aria-hidden="true" className="size-3.5" />Clear
           </button></li>}
         </ol>
