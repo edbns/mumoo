@@ -65,7 +65,8 @@ function PricingPage() {
     try {
       // A friend's invite is claimed before paying, so this first pack gets its extra videos.
       await claimPendingReferral(accountFetch);
-      await checkout(pack);
+      // Nothing on this page to keep: Polar opens in this tab and brings the person back to their credits.
+      await checkout(pack, null);
     } catch (cause) {
       setOpening(null);
       setNote(friendlyError(cause, 'Checkout didn’t open. Try again in a moment.'));

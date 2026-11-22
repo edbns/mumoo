@@ -6,8 +6,9 @@ const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-
 const CHECKOUT_ID = /^[A-Za-z0-9_-]{8,64}$/;
 
 /**
- * POST /api/checkout with {usd} — opens Polar's checkout for that pack, for the signed-in person, and returns its {url}. Polar
- * brings them back to `/?checkout_id=…`; the credits are added when Polar's webhook says the order is paid (`polar-webhook.mjs`).
+ * POST /api/checkout with {usd, window?} — opens Polar's checkout for that pack, for the signed-in person, and returns its {url, id}. Polar
+ * brings them back to `/?checkout_id=…`; with `window` (the checkout is in a popup over the person's work) the page there hands the checkout
+ * to the page that opened it and closes. The credits are added when Polar's webhook says the order is paid (`polar-webhook.mjs`).
  * GET /api/checkout?id=… — whether that checkout's payment has reached us yet, the videos it added (and a friend's invite with it), and the person's credits.
  */
 export default async function handler(request) {
@@ -34,6 +35,7 @@ export default async function handler(request) {
     const product = await productFor(body.usd);
     if (!product) return reply(400, { error: 'That pack isn’t on sale.' });
     const origin = new URL(request.url).origin;
+    const inWindow = body.window === true ? '&checkout_window=1' : '';
     const open = email => polar('/v1/checkouts/', {
       method: 'POST',
       body: {
@@ -41,8 +43,8 @@ export default async function handler(request) {
         external_customer_id: person.id,
         ...(email ? { customer_email: email } : {}),
         metadata: { mumoo_user: person.id },
-        success_url: `${origin}/?checkout_id={CHECKOUT_ID}`,
-        return_url: `${origin}/`,
+        success_url: `${origin}/?checkout_id={CHECKOUT_ID}${inWindow}`,
+        return_url: `${origin}/${inWindow ? '?checkout_window=1' : ''}`,
       },
     });
     // Polar refuses an address whose domain it cannot deliver to; the person then types one on Polar's page instead.
@@ -50,7 +52,7 @@ export default async function handler(request) {
       if (cause.status === 422 && /customer_email/.test(cause.detail ?? '')) return open(null);
       throw cause;
     });
-    return reply(200, { url: checkout.url });
+    return reply(200, { url: checkout.url, id: checkout.id });
   } catch (cause) {
     console.error('checkout:', cause.message, cause.detail ?? '');
     return reply(502, { error: 'Checkout is unavailable right now. Try again in a moment.' });

@@ -14,6 +14,7 @@ export function PricingInteraction({
   packs,
   initial,
   busy = false,
+  busyLabel = "Opening checkout…",
   onChoose,
 }: {
   packs: readonly CreditPack[];
@@ -21,6 +22,8 @@ export function PricingInteraction({
   initial?: number;
   /** While the checkout is being opened: the button waits. */
   busy?: boolean;
+  /** What the button says meanwhile. */
+  busyLabel?: string;
   onChoose: (pack: CreditPack) => void;
 }) {
   const [active, setActive] = React.useState(() => {
@@ -77,7 +80,7 @@ export function PricingInteraction({
         aria-busy={busy}
         className="flex h-[var(--control-height-md)] w-full cursor-pointer items-center justify-center gap-1.5 rounded-[var(--radius-control)] bg-primary px-4 text-sm font-medium text-primary-foreground outline-ring transition-colors hover:bg-primary/90 focus-visible:outline-2 disabled:cursor-wait disabled:opacity-70"
       >
-        {busy ? "Opening checkout…" : <>Buy <NumberFlow value={chosen.videos} /> videos · <NumberFlow value={chosen.usd} format={{ style: "currency", currency: "USD", maximumFractionDigits: 0 }} /></>}
+        {busy ? busyLabel : <>Buy <NumberFlow value={chosen.videos} /> videos · <NumberFlow value={chosen.usd} format={{ style: "currency", currency: "USD", maximumFractionDigits: 0 }} /></>}
       </button>
     </div>
   );

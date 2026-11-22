@@ -16,7 +16,8 @@ import { CreativesPackStudio } from './creatives-pack-studio';
 import { SHELF_ROWS } from './creatives-pack';
 import { ownIdsOf, useCart, songKeyOf } from './cart';
 import { CartPanel, ChooseFewer, ChosenBar, DownloadNotice, type CartAction, type CartLine, type ChosenLimit } from './cart-panel';
-import { TOO_MANY_CHOSEN, askToBuyCredits, type TooMany } from './credit-events';
+import { CREDITS_BOUGHT, TOO_MANY_CHOSEN, askToBuyCredits, type TooMany } from './credit-events';
+import { handOverCheckout } from './purchase-credits';
 import { useCartDownload } from './use-cart-download';
 import { useUploads } from './use-uploads';
 import { forgetSession } from './forget-session';
@@ -92,6 +93,12 @@ function App() {
   useEffect(() => { if (!cartOpen) setChosenLimit(null); }, [cartOpen]);
   const [askingStartOver, setAskingStartOver] = useState(false);
   const downloadRef = useRef<(() => Promise<boolean>) | null>(null);
+  // Paid for the videos a download was short of: they start straight away (in the person's Media, where the payment was made).
+  useEffect(() => {
+    const resume = () => { void downloadRef.current?.(); };
+    window.addEventListener(CREDITS_BOUGHT, resume);
+    return () => window.removeEventListener(CREDITS_BOUGHT, resume);
+  }, []);
   /** What kind of music it is: a style of the directory by the name it was picked as, or (`genreUnknown`) the creator does not know. */
   const [picked, setPicked] = useState<StyleMatch | null>(null);
   const style = picked?.style;
@@ -543,7 +550,8 @@ reportUncaughtErrors();
 // The Google sign-in popup, back on our site: starting the auth SDK is all it needs (it hands the session to the page that opened it, and closes).
 const googlePopup = Boolean(window.opener) && new URLSearchParams(location.search).has('neon_popup');
 if (googlePopup) void import('./account');
-else {
+// Polar's checkout window, back on our site after paying: it tells the page that opened it, and closes.
+else if (!handOverCheckout()) {
   keepReferral();
   createRoot(document.getElementById('root')!).render(<CrashGuard><App /></CrashGuard>);
 }

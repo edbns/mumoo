@@ -16,13 +16,60 @@ const POLL_MS = 2_000;
 
 type Arrival = { status: 'pending' } | { status: 'paid'; videos: number; bonus?: number; credits: number };
 
-/** Sends the person to Polar's checkout for `pack`. Fails with the words to show. */
-export async function checkout(pack: CreditPack) {
-  const response = await accountFetch('/api/checkout', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usd: pack.usd }),
-  });
-  const { url } = await response.json() as { url: string };
-  location.assign(url);
+/** The window Polar's checkout opens in, and how long the person may take there. */
+const WINDOW_FEATURES = 'width=520,height=780,popup=yes';
+const CHECKOUT_MINUTES = 30;
+/** What the page Polar brings the window back to says to the page that opened it. */
+export const CHECKOUT_DONE = 'mumoo:checkout-done';
+
+/**
+ * Opens Polar's checkout for `pack` and answers the checkout's id once the person has paid, or null when they left without paying.
+ * It opens in `popup` (opened straight from the click, or the browser blocks it), so the person's song, clip and chosen videos stay
+ * on this page; a refresh would lose them. Without one (blocked) this tab goes to Polar instead. Fails with the words to show.
+ */
+export async function checkout(pack: CreditPack, popup: Window | null): Promise<string | null> {
+  try {
+    const response = await accountFetch('/api/checkout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usd: pack.usd, window: Boolean(popup) }),
+    });
+    const { url, id } = await response.json() as { url: string; id?: string };
+    if (!popup) {
+      location.assign(url);
+      return await new Promise<never>(() => undefined);
+    }
+    popup.location.href = url;
+    const told = await new Promise<string | null | undefined>((resolve) => {
+      const done = (answer: string | null | undefined) => { window.removeEventListener('message', onMessage); clearInterval(watch); clearTimeout(limit); resolve(answer); };
+      const onMessage = (event: MessageEvent) => {
+        if (event.origin !== location.origin || event.source !== popup || event.data?.type !== CHECKOUT_DONE) return;
+        done(typeof event.data.checkoutId === 'string' ? event.data.checkoutId : null);
+      };
+      // Closed without a word (by the person, or the browser cut the window off from this page): whether it was paid is asked below.
+      const watch = setInterval(() => { if (popup.closed) done(undefined); }, 500);
+      const limit = setTimeout(() => done(undefined), CHECKOUT_MINUTES * 60_000);
+      window.addEventListener('message', onMessage);
+    });
+    popup.close();
+    if (told !== undefined || !id) return told ?? null;
+    const arrival = await accountFetch(`/api/checkout?id=${encodeURIComponent(id)}`).then(answer => answer.json() as Promise<Arrival>, () => null);
+    return arrival?.status === 'paid' ? id : null;
+  } catch (cause) {
+    popup?.close();
+    throw cause;
+  }
+}
+
+/** On the page Polar brings the checkout window back to: tells the page that opened it how it went, and closes. False when it is not that window. */
+export function handOverCheckout(): boolean {
+  const params = new URLSearchParams(location.search);
+  if (!window.opener || !params.has('checkout_window')) return false;
+  try {
+    (window.opener as Window).postMessage({ type: CHECKOUT_DONE, checkoutId: params.get('checkout_id') }, location.origin);
+  } catch {
+    return false;
+  }
+  window.close();
+  return true;
 }
 
 /** The card shown once Polar brings the person back: centred, with a mark, a heading and what happened. */
@@ -38,7 +85,7 @@ function Outcome({ mark, title, children, onClose }: { mark: ReactNode; title: s
 }
 
 /** After Polar's checkout: waits for the payment to reach our server, then says what it added. */
-function Arrived({ checkoutId, onCredits, onClose }: { checkoutId: string; onCredits: (credits: number) => void; onClose: () => void }) {
+function Arrived({ checkoutId, onCredits, onClose }: { checkoutId: string; onCredits: (credits: number, videos: number) => void; onClose: () => void }) {
   const [arrival, setArrival] = useState<Arrival | 'late' | null>(null);
   useEffect(() => {
     let stopped = false;
@@ -47,7 +94,7 @@ function Arrived({ checkoutId, onCredits, onClose }: { checkoutId: string; onCre
       const result = await accountFetch(`/api/checkout?id=${encodeURIComponent(checkoutId)}`)
         .then(response => response.json() as Promise<Arrival>, () => null);
       if (stopped) return;
-      if (result?.status === 'paid') { setArrival(result); onCredits(result.credits); return; }
+      if (result?.status === 'paid') { setArrival(result); onCredits(result.credits, result.videos + (result.bonus ?? 0)); return; }
       if (Date.now() - started > WAIT_MS) { setArrival('late'); return; }
       setTimeout(look, POLL_MS);
     };
@@ -71,7 +118,7 @@ function Arrived({ checkoutId, onCredits, onClose }: { checkoutId: string; onCre
  * The popup for topping up credit. Choosing a pack opens Polar's checkout; Polar brings the person back with `checkoutId`, and
  * the popup then shows the credits arriving. With `autoBuy` (a pack chosen on the pricing page) the checkout opens straight away.
  */
-export function PurchaseCredits({ open, onClose, initial, autoBuy = false, checkoutId, shortfall, onCredits }: {
+export function PurchaseCredits({ open, onClose, initial, autoBuy = false, checkoutId, shortfall, onCredits, onBoughtForDownload }: {
   open: boolean;
   onClose: () => void;
   /** The pack to choose at first, by its price in dollars (from the pricing page). */
@@ -83,6 +130,8 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
   /** Set when a download wanted more videos than the person can make. */
   shortfall?: Shortfall;
   onCredits: (credits: number) => void;
+  /** The credits a download asked for (`shortfall`) have arrived: the popup gives way to the videos starting. */
+  onBoughtForDownload: () => void;
 }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -91,22 +140,34 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
   useEffect(() => {
     if (open && !checkoutId) loadReferral(accountFetch).then(info => setBonus(info.firstPackBonus), () => setBonus(0));
   }, [open, checkoutId]);
-  const choose = (pack: CreditPack) => {
+  /** The checkout paid in the window opened from here (Polar brings the tab itself back with `checkoutId`). */
+  const [paid, setPaid] = useState<string>();
+  useEffect(() => { if (!open) setPaid(undefined); }, [open]);
+  const choose = (pack: CreditPack, fromClick = true) => {
     setNote('');
     setBusy(true);
-    checkout(pack).catch(cause => { setBusy(false); setNote(friendlyError(cause, 'Checkout didn’t open. Try again in a moment.')); });
+    const popup = fromClick ? window.open('about:blank', 'mumoo-checkout', WINDOW_FEATURES) : null;
+    checkout(pack, popup).then((id) => {
+      setBusy(false);
+      if (id) setPaid(id);
+    }, (cause) => { setBusy(false); setNote(friendlyError(cause, 'Checkout didn’t open. Try again in a moment.')); });
   };
   const started = useRef(false);
   useEffect(() => {
     const pack = initial ? packFor(initial) : undefined;
     if (!open || !autoBuy || !pack || started.current) return;
     started.current = true;
-    choose(pack);
+    // Not from a click, so no window: this tab goes to Polar (from the pricing page, where there is no work to keep).
+    choose(pack, false);
   }, [open, autoBuy, initial]);
   const close = () => { setNote(''); onClose(); };
 
-  if (checkoutId) return <Modal open={open} onClose={close} bare maxWidth={400} title="Your purchase">
-    <Arrived checkoutId={checkoutId} onCredits={onCredits} onClose={close} />
+  const arrivedId = checkoutId ?? paid;
+  if (arrivedId) return <Modal open={open} onClose={close} bare maxWidth={400} title="Your purchase">
+    <Arrived checkoutId={arrivedId} onClose={close} onCredits={(credits, videos) => {
+      onCredits(credits);
+      if (shortfall && videos > 0) onBoughtForDownload();
+    }} />
   </Modal>;
   return <Modal open={open} onClose={close} title="Purchase Credits" description="One credit makes one video.">
     <div className="flex flex-col gap-4">
@@ -118,7 +179,7 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
       {bonus > 0 && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-primary/10 px-4 py-3 text-sm text-foreground">
         A friend invited you: your first pack comes with {bonus} extra videos free.
       </p>}
-      <PricingInteraction key={initial} packs={CREDIT_PACKS} initial={initial} busy={busy} onChoose={choose} />
+      <PricingInteraction key={initial} packs={CREDIT_PACKS} initial={initial} busy={busy} busyLabel="Finish paying in the Polar window…" onChoose={pack => choose(pack)} />
       {note && <p role="alert" className="m-0 text-center text-sm text-destructive">{note}</p>}
       <p className="m-0 text-center text-sm text-muted-foreground">One-time purchase, no subscription. Credits never expire. Payment by Polar; tax added where it applies.</p>
       <p className="m-0 text-center text-xs text-muted-foreground">Credits are non-refundable. See <a href={LEGAL_PATHS.terms} className="underline underline-offset-4 hover:text-foreground">Terms</a> and <a href={LEGAL_PATHS.refunds} className="underline underline-offset-4 hover:text-foreground">Refund policy</a>.</p>

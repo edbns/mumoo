@@ -7,7 +7,7 @@ import { UserDropdownMenu } from '@/components/ui/user-dropdown-menu';
 import { PROFILE_CORNER } from '@/components/ui/profile-dot';
 import { AccountPlaceholder, askSignIn, rememberSignedIn, takeSignInRequests, type SignInReason } from './account-hint';
 import { ACCOUNT_MENU, type AccountPage } from './account-pages';
-import { BUY_CREDITS, CREDITS_CHANGED, creditsChanged, type Allowance, type Shortfall } from './credit-events';
+import { BUY_CREDITS, CREDITS_CHANGED, creditsBought, creditsChanged, type Allowance, type Shortfall } from './credit-events';
 import { InviteFriends } from './invite-friends';
 import { PurchaseCredits } from './purchase-credits';
 import { claimPendingReferral } from './referral';
@@ -284,7 +284,8 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     </div>}
     <PurchaseCredits open={buying} onClose={() => { setBuying(false); setPurchase(null); setShortfall(undefined); }}
       initial={purchase?.buy} autoBuy={Boolean(purchase?.buy)} checkoutId={purchase?.checkoutId} shortfall={shortfall}
-      onCredits={credits => setAllowance(current => ({ freeVideo: current?.freeVideo ?? false, credits }))} />
+      onCredits={credits => setAllowance(current => ({ freeVideo: current?.freeVideo ?? false, credits }))}
+      onBoughtForDownload={() => { setBuying(false); setShortfall(undefined); creditsBought(); }} />
     {user && <InviteFriends key={user.id} open={inviting} onClose={() => setInviting(false)} userId={user.id} />}
     {/* One popup for both states, so the welcome after signing in is not cut short when the button changes. */}
     <SignInDialog open={open} onClose={closeSignIn} onSendCode={sendCode} onCheckCode={checkCode} reason={reason}
