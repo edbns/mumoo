@@ -3,6 +3,8 @@ const RELOAD = 'MUMOO just updated. Reload to continue.';
 /** After a new deploy, an already-open tab asks for chunk files that no longer exist. */
 const STALE_CHUNK = /dynamically imported module|Importing a module script failed|Loading chunk/i;
 
+export const isStaleChunk = (cause: unknown) => cause instanceof Error && STALE_CHUNK.test(cause.message);
+
 /**
  * Words of the browser, the network or our servers' plumbing, never meant for the public: "Failed to fetch", "Load failed",
  * "NetworkError…", "Unexpected token < in JSON", "HTTP 502", "x is undefined", staging-only refusals and the like.

@@ -1,6 +1,7 @@
 import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from '@/components/icons';
 import { useCallback, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { OrderProgress } from './order-progress';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { accountFetch, checkSignInCode, sendSignInCode, sessionToken, signInWithGoogle } from './account';
@@ -38,6 +39,7 @@ const QUESTIONS = [
   { q: 'Can I get free videos?', a: 'Yeah. Invite friends from your account menu: they get 10 extra on their first pack, you get 10 free once they pay (up to 20 friends a month).' },
   { q: 'Who takes the payment?', a: 'Polar (polar.sh), our payment partner, takes the payment and adds tax where it applies. We never see your card. Each invoice is in Invoices in your account.' },
   { q: 'Can I get a refund?', a: 'Credits are non-refundable except where the law says so (like a render that fails and we can’t fix).' },
+  { q: 'Why do some videos keep going after I cancel?', a: 'Cancel takes back every video that hasn’t started yet and gives those credits straight back. A video that has already started is being drawn on our servers right then, frame by frame, and that work can’t be undone halfway, so it finishes and lands in your Media. You still get the video your credit paid for.' },
 ];
 
 const BUY_SIGN_IN = { title: 'Sign in to buy credits', lead: 'Your credits stay in your account.' };
@@ -141,6 +143,7 @@ function PricingPage() {
       </div>
     </main>
     <LegalCorner />
+    <OrderProgress />
     <SignInDialog open={signingIn} onClose={closeSignIn} reason={BUY_SIGN_IN}
       onSendCode={async email => { await sendSignInCode(email); address.current = email; }}
       onCheckCode={async code => { await checkSignInCode(address.current, code); signedIn.current = true; return true; }}

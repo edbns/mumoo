@@ -165,20 +165,23 @@ async function start(row, worker) {
   await sql`update render_queue set status = 'queued', started_at = null, attempts = attempts + 1 where id = ${row.id} and status = 'starting'`;
 }
 
-/** Starts the videos whose turn it is (at most `limit` now). `users` keeps a test to its own people. */
+/**
+ * Starts the videos whose turn it is (at most `limit` now). `users` keeps a test to its own people; without it, the people of live
+ * tests (ids starting `test-`) are left alone, so the site's own queue never sends their videos to the worker.
+ */
 export async function startWaiting({ worker = modalWorker, limit = 4, users = null } = {}) {
   const sql = db();
   await sql`update render_queue set status = 'queued', started_at = null
     where status = 'starting' and call_id is null and started_at < now() - ${STARTING_STALE}::interval
-      and (${users}::text[] is null or user_id = any(${users}))`;
+      and (${users}::text[] is null and user_id not like 'test-%' or user_id = any(${users}))`;
   // Only each person's next few can start, so however many one person has waiting, everyone's next ones are looked at.
   const waiting = await sql`select id, user_id from (
       select id, user_id, created_at, row_number() over (partition by user_id order by created_at) as place
-      from render_queue where status = 'queued' and (${users}::text[] is null or user_id = any(${users}))) next
+      from render_queue where status = 'queued' and (${users}::text[] is null and user_id not like 'test-%' or user_id = any(${users}))) next
     where place <= ${PER_PERSON} order by created_at`;
   if (!waiting.length) return 0;
   const counts = await sql`select user_id, count(*)::int as n from render_queue where status in ('starting', 'running')
-      and (${users}::text[] is null or user_id = any(${users})) group by user_id`;
+      and (${users}::text[] is null and user_id not like 'test-%' or user_id = any(${users})) group by user_id`;
   const ids = pickNext(waiting.map(row => ({ id: row.id, userId: row.user_id })), new Map(counts.map(row => [row.user_id, row.n])), { limit });
   if (!ids.length) return 0;
   const claimed = await sql`update render_queue set status = 'starting', started_at = now()
@@ -192,7 +195,7 @@ export async function settleRunning({ worker = modalWorker, keep = saveRender, l
   const sql = db();
   const rows = await sql`update render_queue set checked_at = now() where id in (
       select id from render_queue where status = 'running' and (checked_at is null or checked_at < now() - ${LOOK_EVERY}::interval)
-        and (${users}::text[] is null or user_id = any(${users}))
+        and (${users}::text[] is null and user_id not like 'test-%' or user_id = any(${users}))
       order by checked_at nulls first limit ${limit} for update skip locked)
     returning id, user_id, order_id, call_id, started_at < now() - ${RUNNING_STALE}::interval as stale`;
   await Promise.all(rows.map(async row => {

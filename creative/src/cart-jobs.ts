@@ -61,3 +61,9 @@ export function estimatedPercent(done: number, total: number, elapsedMs: number,
   const guess = Math.min(0.95, 1 - Math.exp(-Math.max(0, elapsedMs) / RENDER_PACE_MS));
   return Math.min(95, Math.floor(((done + Math.min(making, total - done) * guess) / total) * 100));
 }
+
+/** What the bar says while an order is made: how many of the ones still wanted are made, and how many wait their turn. */
+export function orderLabel({ total, done, takenBack, waiting }: { total: number; done: number; takenBack: number; waiting: number }): string {
+  if (total <= 1) return waiting ? 'Waiting its turn…' : 'Making your creative…';
+  return `Made ${done - takenBack} of ${total - takenBack}${waiting ? ` · ${waiting} waiting their turn` : ''}`;
+}

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState, type MouseEvent, type ReactNode } from '
 import { createRoot } from 'react-dom/client';
 import { parseMarkdown, type Block, type Inline } from './legal-markdown';
 import { CookieBanner } from './legal-corner';
+import { OrderProgress } from './order-progress';
 import { openCookieSettings } from './consent';
 import { LEGAL_PATHS } from './site-paths';
 import '@fontsource-variable/inter';
@@ -101,6 +102,7 @@ function LegalPage() {
       </article>
     </div>
     <CookieBanner />
+    <OrderProgress />
   </div>;
 }
 

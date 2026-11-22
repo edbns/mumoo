@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Cart, CartItem } from './cart';
-import { PENDING_KEY, estimatedPercent, expired, readPending, writePending, type PendingDownload } from './cart-jobs';
+import { PENDING_KEY, estimatedPercent, expired, orderLabel, readPending, writePending, type PendingDownload } from './cart-jobs';
 import { friendlyError } from './friendly-error';
 import { ORDER_WAIT_MS, cancelCloudJobs, followCloudJobs } from './pack-cloud-export';
 import { reportDelivered } from './pack-feedback';
@@ -58,7 +58,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     let making = total;
     let takenBack = 0;
     const show = () => setProgress({
-      label: total > 1 ? `Made ${done - takenBack} of ${total - takenBack}${waiting ? ` · ${waiting} waiting their turn` : ''}` : waiting ? 'Waiting its turn…' : 'Making your creative…',
+      label: orderLabel({ total, done, takenBack, waiting }),
       percent: estimatedPercent(done, total, Date.now() - pending.startedAt, making),
       cancellable: waiting > 0 && !cancelled.current,
       cancelling: cancelled.current && waiting > 0,

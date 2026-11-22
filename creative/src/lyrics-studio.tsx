@@ -188,7 +188,7 @@ export function LyricsStudio({
         <summary>Wrong language?</summary>
         <div className="lyrics-more-body">
           {languageSelect(false)}
-          <Button variant="secondary" onClick={() => void start('transcribe')}>Listen again (replaces your edits)</Button>
+          <Button variant="secondary" className="h-[var(--control-height-md)] min-w-56 rounded-[var(--radius-control)]" onClick={() => void start('transcribe')}>Listen again (replaces wrong words)</Button>
         </div>
       </details>
 

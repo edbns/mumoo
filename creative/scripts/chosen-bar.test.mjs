@@ -26,6 +26,14 @@ test('making only the free video: the chosen videos page says how many to take o
   assert.doesNotMatch(fits, /role="progressbar"|progress/i);
 });
 
+test('the chosen videos page: Create with its credits at the top as well as the bottom, and Close is an icon on the right', () => {
+  const page = chosenPage(3, null);
+  assert.match(page, />Create · 3 credits<\/button>[\s\S]*aria-label="Close"/);
+  assert.match(page, />Create<\/button>/);
+  assert.doesNotMatch(page, />Close<\/button>/);
+  assert.match(chosenPage(1, null), />Create · 1 credit<\/button>/);
+});
+
 test('making only what the credits cover says how many credits there are', () => {
   assert.match(chosenPage(5, { have: 2, free: false }), /You have 2 credits\. Take\s+out 3 videos with the × so only 2 are left, then make them\./);
   assert.doesNotMatch(chosenPage(2, null), /Take\s+out/);

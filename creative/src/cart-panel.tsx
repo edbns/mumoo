@@ -104,8 +104,12 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
   return <motion.aside className="fixed inset-0 z-10 overflow-y-auto bg-background/90 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Your chosen videos"
     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
     <div className="mx-auto flex min-h-full w-full max-w-[914px] flex-col gap-6 px-6 py-8">
-      <div className="flex items-center justify-end">
-        <Button ref={close} variant="secondary" onClick={onClose}>Close</Button>
+      {/* Make them from the top too, for whoever does not scroll down to the total. */}
+      <div className="flex items-center justify-between gap-3">
+        {lines.length > 0 && action.kind === 'download'
+          ? <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>Create · {ready.length} {ready.length === 1 ? 'credit' : 'credits'}</Button>
+          : <span />}
+        <Button ref={close} variant="secondary" className="size-9 rounded-full p-0" onClick={onClose} aria-label="Close"><XIcon aria-hidden="true" className="size-4" /></Button>
       </div>
       {lines.length === 0
         ? <EmptyState>Pick the creatives you like. They stay here for this song and clip while you refresh for more.</EmptyState>
