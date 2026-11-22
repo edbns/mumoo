@@ -19,6 +19,8 @@ const WAV_BYTES = 44 + WAV_SAMPLES * 2;
 const POLL_MS = 3000;
 /** The most videos asked about in one request (under the server's limit); a bigger order is asked about in parts. */
 const STATUS_CHUNK = 200;
+/** A check that has not answered by then is given up and asked again. */
+const CHECK_TIMEOUT_MS = 20_000;
 /** How long a page keeps an order to pick up again after a refresh; the server keeps how each video went for a week. */
 export const ORDER_WAIT_MS = 2 * 24 * 60 * 60 * 1000;
 
@@ -158,14 +160,17 @@ export async function followCloudJobs(token: string, ids: readonly string[], on:
   onUpdate: (waiting: number, making: number) => void;
   onEnd: (id: string, end: CloudJobEnd) => void;
 }, signal?: AbortSignal): Promise<void> {
-  const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
   const open = new Set(ids);
-  const ask = (chunk: string[]) => withAccess(token, access => fetch('/.netlify/functions/encode-creative-status', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-mumoo-brain-access': access, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
-    body: JSON.stringify({ ids: chunk }),
-    signal,
-  }));
+  // The sign-in token is read for every check: a big order outlasts one, and a stale one would be refused on every check.
+  const ask = async (chunk: string[]) => {
+    const bearer = await import('./account').then(account => account.sessionToken()).catch(() => null);
+    return withAccess(token, access => fetch('/.netlify/functions/encode-creative-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-mumoo-brain-access': access, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+      body: JSON.stringify({ ids: chunk }),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(CHECK_TIMEOUT_MS)]) : AbortSignal.timeout(CHECK_TIMEOUT_MS),
+    }));
+  };
   let pause = 0;
   while (open.size) {
     await sleep(pause, signal);

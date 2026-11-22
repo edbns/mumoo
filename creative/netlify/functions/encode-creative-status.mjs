@@ -12,14 +12,13 @@ const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
 const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 /** The most a person can have in one order: the largest pack. */
 const MAX_IDS = 300;
-const TURN_MS = 6_000;
 const headers = { 'Cache-Control': 'no-store' };
 
 function error(status, message) {
   return Response.json({ error: message }, { status, headers });
 }
 
-export default async function encodeCreativeStatus(request) {
+export default async function encodeCreativeStatus(request, context) {
   if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) {
     return error(404, 'Cloud render is only available on staging.');
   }
@@ -36,12 +35,12 @@ export default async function encodeCreativeStatus(request) {
   const ids = Array.isArray(body?.ids) ? [...new Set(body.ids)] : [];
   if (!ids.length || ids.length > MAX_IDS || !ids.every(id => typeof id === 'string' && QUEUE_ID.test(id))) return error(400, 'Invalid video ids.');
   try {
-    // A short turn only, so the answer comes back in time; the scheduled turn carries on with the rest.
-    await Promise.race([
-      pump({ limit: 3 }).catch(cause => console.error('render queue turn:', cause)),
-      new Promise(resolve => setTimeout(resolve, TURN_MS)),
-    ]);
-    return Response.json({ jobs: await statesOf(person.id, ids) }, { headers });
+    const jobs = await statesOf(person.id, ids);
+    // The queue moves on after the answer, so asking stays quick; a turn cut short is picked up again by the next one.
+    const turn = pump({ limit: 2 }).catch(cause => console.error('render queue turn:', cause));
+    if (typeof context?.waitUntil === 'function') context.waitUntil(turn);
+    else await turn;
+    return Response.json({ jobs }, { headers });
   } catch (cause) {
     console.error('encode-creative-status:', cause);
     return error(503, 'Couldn’t check your videos. Trying again.');
