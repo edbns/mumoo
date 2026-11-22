@@ -20,12 +20,19 @@ npm ci
 npm run dev
 ```
 
-The cloud steps need the Netlify functions and the Modal apps (`audio-intelligence/README.md`). Deploy to staging:
+The cloud steps need the Netlify functions and the Modal apps (`audio-intelligence/README.md`). Staging deploys itself from GitHub: push `codex/staging-lyrics` once the checks pass. Never deploy by hand; every deploy costs.
 
-```sh
-npm run build
-npx netlify-cli deploy --prod --dir=dist --functions=netlify/functions --site=097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5
-```
+## Databases
+
+One Neon project, `MumooApp`, one branch per place, each used by that place only:
+
+| Branch | Used by |
+|---|---|
+| `dev` | this machine and `npm test` (`.env.local`) |
+| `staging` | mumoo-staging.netlify.app (its Netlify settings) |
+| none yet | mumoo.app gets a new, empty production database at launch, built by `npm run db:migrate`, never a copy of staging |
+
+A migration runs on `dev` first (`npm run db:migrate`), then on `staging` (`npm run db:migrate:staging`, needs `neon login`) before the push whose code needs it, and on production at launch. Deploys never migrate by themselves. Storage (R2 bucket `mumoo-staging-media`) and Neon Auth are still shared by `dev` and `staging`.
 
 ## Checks
 
