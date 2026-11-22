@@ -76,6 +76,7 @@ export function ChosenBar({ count, progress, onOpen, onClear, onCancel }: {
             <XIcon aria-hidden="true" className="size-3.5" />Clear
           </button></li>}
         </ol>
+        {progress?.note && <p role="status" className="chosen-bar-note">{progress.note}</p>}
       </motion.nav>}
     </AnimatePresence>
   </MotionConfig>;

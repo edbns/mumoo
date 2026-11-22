@@ -20,8 +20,10 @@ export const RUNNING_MAX = 24;
 export const SPARE = 6;
 /** A start that never reached the worker (the function stopped part way) is tried again after this long. */
 const STARTING_STALE = '3 minutes';
-/** A video the worker has not finished after this long has failed: the worker gives up on a job after 15 minutes. */
-const RUNNING_STALE = '20 minutes';
+/** A video the worker has not finished after this long has failed: the worker gives up on a job after 10 minutes. */
+const RUNNING_STALE = '12 minutes';
+/** A video being made (or waiting again after a try failed) this long is told to the person as taking longer than usual: one takes about a minute. */
+const SLOW = '3 minutes';
 /** One look at a video being made at a time: another look waits this long. */
 const LOOK_EVERY = '4 seconds';
 /** Starts that the worker did not accept, tried in all, before the video counts as failed. */
@@ -197,7 +199,7 @@ export async function settleRunning({ worker = modalWorker, keep = saveRender, l
       select id from render_queue where status = 'running' and (checked_at is null or checked_at < now() - ${LOOK_EVERY}::interval)
         and (${users}::text[] is null and user_id not like 'test-%' or user_id = any(${users}))
       order by checked_at nulls first limit ${limit} for update skip locked)
-    returning id, user_id, order_id, call_id, started_at < now() - ${RUNNING_STALE}::interval as stale`;
+    returning id, user_id, order_id, call_id, attempts, started_at < now() - ${RUNNING_STALE}::interval as stale`;
   await Promise.all(rows.map(async row => {
     const answer = await worker.status(row.call_id).catch(() => ({ state: 'unknown' }));
     if (answer.state === 'done') {
@@ -208,10 +210,20 @@ export async function settleRunning({ worker = modalWorker, keep = saveRender, l
       }
       await sql`update render_queue set status = 'done', download = ${download}, finished_at = now() where id = ${row.id}`;
       await tidyOrder(row.user_id, row.order_id);
-    } else if (answer.state === 'failed') await fail(row, answer.error);
-    else if (row.stale) await fail(row, 'Your creative took too long. Try again in a bit.');
+    } else if (answer.state === 'failed') await tryAgain(row, answer.error);
+    else if (row.stale) await tryAgain(row, 'Your creative took too long. Try again in a bit.');
   }).map(work => work.catch(cause => console.error('render queue look:', cause))));
   return rows.length;
+}
+
+/**
+ * A video the worker failed on (most often a passing fault of the worker's own, a lost connection) goes back in line at the front,
+ * its credit still held, until it has had `ATTEMPTS` tries; then it has failed and the credit comes back.
+ */
+async function tryAgain(row, error) {
+  if (row.attempts + 1 >= ATTEMPTS) return fail(row, error);
+  await db()`update render_queue set status = 'queued', call_id = null, started_at = null, attempts = attempts + 1
+    where id = ${row.id} and status = 'running'`;
 }
 
 /** One turn of the queue: what finished is kept, then what may start starts. */
@@ -234,10 +246,13 @@ export async function cancelWaiting(userId, ids) {
 
 /**
  * How `userId`'s videos `ids` are doing: for each, 'queued', 'running', 'done' (with a link to fetch it when it could not be kept in
- * their Media), 'failed' (with why) or 'cancelled'. An id that is not theirs is 'missing'.
+ * their Media), 'failed' (with why) or 'cancelled'. An id that is not theirs is 'missing'. One being made for longer than usual, or
+ * waiting again after a try failed, is `slow`.
  */
 export async function statesOf(userId, ids) {
-  const rows = await db()`select id, status, error, download from render_queue where user_id = ${userId} and id = any(${ids})`;
+  const rows = await db()`select id, status, error, download,
+      status in ('starting', 'running') and started_at < now() - ${SLOW}::interval or status in ('queued', 'starting', 'running') and attempts > 0 as slow
+    from render_queue where user_id = ${userId} and id = any(${ids})`;
   const found = new Map(rows.map(row => [row.id, row]));
   return Object.fromEntries(await Promise.all(ids.map(async id => {
     const row = found.get(id);
@@ -245,7 +260,7 @@ export async function statesOf(userId, ids) {
     if (row.status === 'failed') return [id, { status: 'failed', error: row.error }];
     if (row.status === 'cancelled') return [id, { status: 'cancelled' }];
     if (row.status === 'done') return [id, row.download ? { status: 'done', download: await signedDownload(row.download, 'mumoo-creative.mp4') } : { status: 'done' }];
-    return [id, { status: row.status === 'queued' ? 'queued' : 'running' }];
+    return [id, { status: row.status === 'queued' ? 'queued' : 'running', ...(row.slow ? { slow: true } : {}) }];
   })));
 }
 

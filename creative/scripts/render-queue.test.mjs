@@ -102,6 +102,13 @@ test('a big order is queued in one go, made in turns, kept, and failed videos gi
     keys.push(`render-queue/${big}/${full.id}.mp4`);
     assert.deepEqual(kept.sort(), [made.id, singleRow.id].sort());
 
+    // A worker failure is tried again by itself, its credit still held, and the person is told it is taking longer.
+    assert.deepEqual((await statesOf(big, [broke.id]))[broke.id], { status: 'queued', slow: true });
+    assert.equal((await allowanceOf(big)).credits, 30 - 13, 'a video being tried again keeps its credit');
+    // Its last try fails too: then it has failed.
+    await sql`update render_queue set status = 'running', call_id = ${broke.call_id}, started_at = now(), attempts = 2, checked_at = now() - interval '1 minute' where id = ${broke.id}`;
+    assert.equal(await settleRunning({ worker, keep, limit: 50, users }), 1);
+
     const states = await statesOf(big, [made.id, broke.id, full.id, singleRow.id]);
     assert.deepEqual(states[made.id], { status: 'done' });
     assert.deepEqual(states[broke.id], { status: 'failed', error: 'The worker broke.' });
@@ -114,6 +121,9 @@ test('a big order is queued in one go, made in turns, kept, and failed videos gi
     assert.equal(await objectSize(`render-queue/${big}/${first.order}.wav`), 4000, 'an order still going keeps its audio');
 
     assert.equal(await startWaiting({ worker, limit: 50, users }), 3, 'the big order’s next ones take the free turns');
+    const [late] = await sql`update render_queue set started_at = now() - interval '5 minutes'
+      where id = (select id from render_queue where user_id = ${big} and status = 'running' limit 1) returning id`;
+    assert.deepEqual((await statesOf(big, [late.id]))[late.id], { status: 'running', slow: true }, 'one being made for minutes is told as slow');
 
     // Cancel: the ones not started are taken back with their credits; the ones being made carry on.
     const before = (await allowanceOf(big)).credits;

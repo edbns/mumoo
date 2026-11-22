@@ -36,6 +36,8 @@ DURATION_S = 15
 FPS = 30
 FRAMES = DURATION_S * FPS
 CHUNK_FRAMES = 45
+# A whole video's chunks are in by then or the job fails (and the queue tries it again); one takes about a minute, more under load.
+CHUNKS_DEADLINE_S = 480
 SAMPLE_RATE = 32000
 WAV_DATA = SAMPLE_RATE * DURATION_S * 2
 WAV_BYTES = 44 + WAV_DATA
@@ -250,17 +252,28 @@ def render_chunk(opts: dict, media: dict[str, bytes], start: int, end: int) -> b
     min_containers=0,
     max_containers=30,
     scaledown_window=10,
-    timeout=900,
+    # The chunks' deadline plus joining them; the queue gives up on a job it has not heard back from after 12 minutes.
+    timeout=600,
     # A reclaimed container would start the whole video again.
     nonpreemptible=True,
 )
 def render_job(audio: bytes, opts: dict, media: dict[str, bytes]) -> bytes:
     """Fan the frame ranges out in parallel, then concat + mux audio."""
+    import time
+
     ranges = [(i, min(i + CHUNK_FRAMES, FRAMES)) for i in range(0, FRAMES, CHUNK_FRAMES)]
-    segments = list(render_chunk.map(
-        [opts] * len(ranges), [media] * len(ranges),
-        [r[0] for r in ranges], [r[1] for r in ranges],
-    ))
+    # Each chunk is its own call, fetched on its own: one result lost on the way (a dropped connection) is rendered again,
+    # where one `map` stream that broke left the whole job waiting until it timed out.
+    calls = [render_chunk.spawn(opts, media, start, end) for start, end in ranges]
+    deadline = time.monotonic() + CHUNKS_DEADLINE_S
+    segments: list[bytes] = []
+    for (start, end), call in zip(ranges, calls):
+        try:
+            segments.append(call.get(timeout=max(1, deadline - time.monotonic())))
+        except TimeoutError:
+            raise RuntimeError("Rendering took too long.") from None
+        except Exception:  # noqa: BLE001 - the chunk failed or its result was lost: one more try
+            segments.append(render_chunk.spawn(opts, media, start, end).get(timeout=max(1, deadline - time.monotonic())))
     with tempfile.TemporaryDirectory(prefix="mumoo-mux-") as directory:
         d = Path(directory)
         lines = []
@@ -514,7 +527,8 @@ async def status(request: Request, id: str = ""):
     except modal.exception.OutputExpiredError:
         raise HTTPException(410, "This render expired. Start it again.") from None
     except Exception:  # noqa: BLE001 - job failures are reported generically
-        raise HTTPException(502, "The render failed. Try again.") from None
+        # A 4xx: the job has ended and failed (the queue tries it again). A 5xx would read as this endpoint not answering.
+        raise HTTPException(422, "The render failed. Try again.") from None
     return Response(
         content=mp4,
         media_type="video/mp4",

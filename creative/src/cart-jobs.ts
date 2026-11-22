@@ -67,3 +67,13 @@ export function orderLabel({ total, done, takenBack, waiting }: { total: number;
   if (total <= 1) return waiting ? 'Waiting its turn…' : 'Making your creative…';
   return `Made ${done - takenBack} of ${total - takenBack}${waiting ? ` · ${waiting} waiting their turn` : ''}`;
 }
+
+/**
+ * What the bar adds when `slow` videos are taking longer than usual: that they are being seen to, and that the person need not
+ * wait on the page (a finished video is kept in their Media, a failed one gives its credit back). Empty when none are.
+ */
+export function slowNote(slow: number, total: number): string {
+  if (slow <= 0) return '';
+  const which = total <= 1 ? 'This one is' : slow === 1 ? '1 video is' : `${slow} videos are`;
+  return `${which} taking longer than usual and will be tried again if it stalls. You can leave this page: finished videos go to your Media, and a video that can’t be made gives its credit back.`;
+}

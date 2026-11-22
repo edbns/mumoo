@@ -148,7 +148,7 @@ export async function submitCloudJobs(token: string, { wav, order, jobs }: { wav
 
 /** How one queued video ended: null when it was kept in the person's Media, the MP4 itself when it could not be (their storage is full). */
 export type CloudJobEnd = { video: Blob | null } | { cause: Error } | { cancelled: true };
-type JobState = { status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'missing'; error?: string; download?: string };
+type JobState = { status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'missing'; error?: string; download?: string; slow?: boolean };
 
 /** One status request about up to `STATUS_CHUNK` videos; with `cancel`, the ones still waiting are taken back first. */
 async function askAbout(token: string, ids: string[], { cancel = false, signal }: { cancel?: boolean; signal?: AbortSignal } = {}): Promise<Response> {
@@ -179,12 +179,13 @@ export async function cancelCloudJobs(token: string, ids: readonly string[]): Pr
 
 /**
  * Follows queued videos until each has ended, asking about all of them in one request every few seconds. `onUpdate` hears how many
- * are still waiting their turn and how many are being made; `onEnd` hears each video as it ends. A big order is asked about in
+ * are still waiting their turn, how many are being made and how many of those are taking longer than usual (`slow`: being made a
+ * long time, or being tried again); `onEnd` hears each video as it ends. A big order is asked about in
  * parts. A check that does not get through is tried again, more slowly, for as long as the page is open: the videos go on being
  * made and kept either way.
  */
 export async function followCloudJobs(token: string, ids: readonly string[], on: {
-  onUpdate: (waiting: number, making: number) => void;
+  onUpdate: (waiting: number, making: number, slow: number) => void;
   onEnd: (id: string, end: CloudJobEnd) => void;
 }, signal?: AbortSignal): Promise<void> {
   const open = new Set(ids);
@@ -213,8 +214,10 @@ export async function followCloudJobs(token: string, ids: readonly string[], on:
     pause = POLL_MS;
     let waiting = 0;
     let making = 0;
+    let slow = 0;
     for (const id of all) {
       const job = jobs[id];
+      if (job?.slow) slow += 1;
       if (!job || job.status === 'queued') { waiting += 1; continue; }
       if (job.status === 'running') { making += 1; continue; }
       open.delete(id);
@@ -227,6 +230,6 @@ export async function followCloudJobs(token: string, ids: readonly string[], on:
         on.onEnd(id, video && video.size >= 1000 ? { video } : { cause: new Error('Your creative was made but couldn’t be downloaded. Try again.') });
       }
     }
-    on.onUpdate(waiting, making);
+    on.onUpdate(waiting, making, slow);
   }
 }

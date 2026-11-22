@@ -70,7 +70,8 @@ export async function loadMotion(url: string, streamed = false): Promise<Motion>
   video.playsInline = true;
   // The frames are copied to a canvas, which storage must allow by name.
   if (streamed) video.crossOrigin = 'anonymous';
-  video.preload = streamed ? 'metadata' : 'auto';
+  // A streamed clip is the small copy (a few MB): the browser fetches ahead of what plays, so the card does not stall on the network.
+  video.preload = 'auto';
   const close = () => {
     video.pause();
     video.removeAttribute('src');

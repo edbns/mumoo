@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Cart, CartItem } from './cart';
-import { PENDING_KEY, estimatedPercent, expired, orderLabel, readPending, writePending, type PendingDownload } from './cart-jobs';
+import { PENDING_KEY, estimatedPercent, expired, orderLabel, readPending, slowNote, writePending, type PendingDownload } from './cart-jobs';
 import { friendlyError } from './friendly-error';
 import { ORDER_WAIT_MS, cancelCloudJobs, followCloudJobs } from './pack-cloud-export';
 import { reportDelivered } from './pack-feedback';
@@ -13,6 +13,8 @@ export type DownloadProgress = {
   cancellable?: boolean;
   /** Taking them back was asked for. */
   cancelling?: boolean;
+  /** Said under the bar when some videos are taking longer than usual (`slowNote`). */
+  note?: string;
 };
 /** What the person is told when a download ends, wherever they are in the app. */
 export type DownloadMessage = { kind: 'ready' | 'error'; text: string };
@@ -57,11 +59,13 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     let waiting = 0;
     let making = total;
     let takenBack = 0;
+    let slow = 0;
     const show = () => setProgress({
       label: orderLabel({ total, done, takenBack, waiting }),
       percent: estimatedPercent(done, total, Date.now() - pending.startedAt, making),
       cancellable: waiting > 0 && !cancelled.current,
       cancelling: cancelled.current && waiting > 0,
+      note: slowNote(slow, total - takenBack),
     });
     show();
     const ticking = setInterval(show, 1000);
@@ -70,7 +74,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     const results: Array<{ job: Job; video: Blob | null } | { job: Job; cause: unknown } | { job: Job; cancelled: true }> = [];
     const byId = new Map(pending.jobs.map(job => [job.jobId, job]));
     await followCloudJobs(latest.current.token, pending.jobs.map(job => job.jobId), {
-      onUpdate: (queued, rendering) => { waiting = queued; making = rendering; show(); },
+      onUpdate: (queued, rendering, late) => { waiting = queued; making = rendering; slow = late; show(); },
       onEnd: (id, end) => {
         const job = byId.get(id)!;
         results.push('cancelled' in end ? { job, cancelled: true } : 'cause' in end ? { job, cause: end.cause } : { job, video: end.video });

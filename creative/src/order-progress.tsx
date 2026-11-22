@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChosenBar } from './cart-panel';
-import { PENDING_KEY, estimatedPercent, expired, orderLabel, readPending } from './cart-jobs';
+import { PENDING_KEY, estimatedPercent, expired, orderLabel, readPending, slowNote } from './cart-jobs';
 import { ORDER_WAIT_MS, cancelCloudJobs, followCloudJobs } from './pack-cloud-export';
 import type { DownloadProgress } from './use-cart-download';
 
@@ -23,16 +23,18 @@ export function OrderProgress() {
     let takenBack = 0;
     let waiting = 0;
     let making = total;
+    let slow = 0;
     const show = () => setProgress({
       label: orderLabel({ total, done, takenBack, waiting }),
       percent: estimatedPercent(done, total, Date.now() - pending.startedAt, making),
       cancellable: waiting > 0 && !cancelled.current,
       cancelling: cancelled.current && waiting > 0,
+      note: slowNote(slow, total - takenBack),
     });
     show();
     const ticking = setInterval(show, 1000);
     void followCloudJobs('', ids.current, {
-      onUpdate: (queued, rendering) => { waiting = queued; making = rendering; show(); },
+      onUpdate: (queued, rendering, late) => { waiting = queued; making = rendering; slow = late; show(); },
       onEnd: (_id, end) => {
         done += 1;
         if ('cancelled' in end) takenBack += 1;
