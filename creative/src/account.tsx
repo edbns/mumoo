@@ -177,6 +177,20 @@ export async function deleteAccount(email: string) {
   } catch { /* storage unavailable: nothing kept */ }
 }
 
+/** What this browser keeps for the signed-in person (their chosen videos, a download in progress, their free video): another person may sign in here next. */
+const PERSONAL_KEYS = ['mumoo-cart', 'mumoo-pending-download', 'mumoo-free-video'];
+/** The home page a person who signs out lands on. */
+const SIGNED_OUT_PAGE = '/welcome';
+
+/** Signs out, forgets the person's work on this device, and goes to the home page: the page they were on was theirs. */
+export async function signOut() {
+  await authClient.signOut().catch(() => undefined);
+  for (const key of PERSONAL_KEYS) {
+    try { sessionStorage.removeItem(key); localStorage.removeItem(key); } catch { /* storage unavailable: nothing kept */ }
+  }
+  location.assign(SIGNED_OUT_PAGE);
+}
+
 /** Confirms the new address. */
 export async function confirmEmailChange(newEmail: string, code: string) {
   await accountFetch('/api/account/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newEmail, code }) });
@@ -280,7 +294,7 @@ export function AccountBar({ page, onNavigate }: { page: AccountPage; onNavigate
     {!known && !user && <AccountPlaceholder onSignIn={openSignIn} />}
     {known && !user && <Button variant="secondary" onClick={openSignIn}>Sign in</Button>}
     {user && <div className={PROFILE_CORNER}>
-      <UserDropdownMenu email={user.email} groups={groups} onSignOut={() => { void authClient.signOut(); onNavigate('create'); }} />
+      <UserDropdownMenu email={user.email} groups={groups} onSignOut={() => void signOut()} />
     </div>}
     <PurchaseCredits open={buying} onClose={() => { setBuying(false); setPurchase(null); setShortfall(undefined); }}
       initial={purchase?.buy} autoBuy={Boolean(purchase?.buy)} checkoutId={purchase?.checkoutId} shortfall={shortfall}
