@@ -332,7 +332,7 @@ export function createTreatmentWorld(): TreatmentWorld {
   let frozenFor = '';
   let frozenStage = -1;
   let frozen = false;
-  const broken = makeFilter(BROKEN, 'treatment-broken', { uStage: 0, uAge: 1e6, uSeed: 0, uMode: 0, uAspect: HEIGHT / WIDTH, uTime: 0, uHasFrozen: 0, ...brokenBlocks(0, 0, HEIGHT / WIDTH) }, { uFrozen: frozenRt.source });
+  const broken = makeFilter(BROKEN, 'treatment-broken', { uStage: 0, uAge: 1e6, uSeed: 0, uMode: 0, uAspect: HEIGHT / WIDTH, uTime: 0, uHasFrozen: 0, ...brokenBlocks(0, 0) }, { uFrozen: frozenRt.source });
   const doubleBase = new Sprite();
   const doubleOver = new Sprite();
   doubleOver.anchor.set(0.5);
@@ -586,7 +586,7 @@ export function createTreatmentWorld(): TreatmentWorld {
           frozenFor = card;
           frozenStage = stage;
         }
-        broken.set({ uStage: stage, uAge: ageMs, uSeed: seed, uMode: look.mode, uTime: input.ms / 1000, uHasFrozen: frozen ? 1 : 0, ...brokenBlocks(look.mode, seed, HEIGHT / WIDTH) });
+        broken.set({ uStage: stage, uAge: ageMs, uSeed: seed, uMode: look.mode, uTime: input.ms / 1000, uHasFrozen: frozen ? 1 : 0, ...brokenBlocks(look.mode, seed) });
         treated.filters = [broken.filter];
       } else if (kind === 'typewriter') {
         treated.visible = true;

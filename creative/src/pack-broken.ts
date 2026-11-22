@@ -1,20 +1,19 @@
 /**
  * Broken Screen: a phone's LCD dying a block at a time, on the beat, while the video plays in what is left of it.
- *   1. The screen is mismatched columns, each cut into blocks of its own heights. A broken block either shows the video shifted
- *      10-25 px, holds the frame of the last hit (frozen), or dies into lines.
- *   2. A dead block is razor-thin vertical lines of pure cyan, magenta, lime, red and blue with thin black gaps, top to bottom.
+ *   1. The screen is horizontal bands of very mismatched heights, from a hairline to a thick strip, the full width and with no seam,
+ *      the way a panel tears. A broken band either tears sideways with its colours split, smears one row of pixels down itself, holds
+ *      the frame of the last hit (frozen), or dies into lines.
+ *   2. A dead band is razor-thin vertical lines of pure cyan, magenta, lime, red and blue with thin black gaps.
  *   3. Pitch-black ink spills where the liquid crystal leaked: organic, growing on hits, edged inside with a thin silver crack.
  *   4. Hairline spiderweb cracks from two or three impact points, over everything.
- * The last hit, a second before the end, kills every block left: the video is gone for the closing second.
+ * The last hit, a second before the end, kills every band left: the video is gone for the closing second.
  * The variant decides where it starts. Preview and cloud render share this code.
  */
 import { FRAME_UV, NOISE } from './treatment-filter';
 
-export const BROKEN_COLS = 4;
-export const BROKEN_ROWS = 4;
-const BLOCKS = BROKEN_COLS * BROKEN_ROWS;
-/** One hit per block. */
-export const BROKEN_HITS = BLOCKS;
+const BANDS = 16;
+/** One hit per band. */
+export const BROKEN_HITS = BANDS;
 
 const each = (count: number, line: (index: number) => string) => Array.from({ length: count }, (_, index) => line(index)).join('\n');
 /** `name` + index from an if-chain (the shader language here has no arrays of uniforms). */
@@ -35,19 +34,22 @@ uniform float uMode;
 uniform float uAspect;
 uniform float uTime;
 uniform float uHasFrozen;
-${each(BLOCKS, index => `uniform float uO${index};`)}
-${each(BROKEN_COLS - 1, index => `uniform float uC${index};`)}
-${each(BROKEN_COLS * (BROKEN_ROWS - 1), index => `uniform float uR${index};`)}
+${each(BANDS, index => `uniform float uO${index};`)}
+${each(BANDS - 1, index => `uniform float uB${index};`)}
 ${FRAME_UV}
 ${NOISE}
 const vec2 PX = vec2(1080.0, 1920.0);
 const float HITS = ${BROKEN_HITS}.0;
-${pickOf('orderOf', 'uO', BLOCKS)}
-${pickOf('rowEdge', 'uR', BROKEN_COLS * (BROKEN_ROWS - 1))}
+${pickOf('orderOf', 'uO', BANDS)}
+${pickOf('bandEdge', 'uB', BANDS - 1)}
+float bandAt(float y) {
+${each(BANDS - 1, index => `  if (y < uB${index}) return ${index}.0;`)}
+  return ${BANDS - 1}.0;
+}
 
 float fbm(vec2 p) { return 0.55 * noise(p) + 0.3 * noise(p * 2.1 + 7.0) + 0.15 * noise(p * 4.3 + 13.0); }
 
-/** Razor-thin lines of pure colour, a pixel or two each, with thin black gaps; each block's lines sit a little off its neighbour's. */
+/** Razor-thin lines of pure colour, a pixel or two each, with thin black gaps; each band's lines sit a little off its neighbour's. */
 vec3 deadLines(vec2 n, float block) {
   float x = floor(n.x * PX.x) + block * 7.0;
   float h = hash(vec2(x, uSeed + block * 0.01));
@@ -111,36 +113,35 @@ void main(void) {
   vec2 n = vTextureCoord / m;
   vec3 colour = texture(uTexture, n * m).rgb;
 
-  // 1. Which block this is: the column, then the row within that column's own heights.
-  float col = n.x < uC0 ? 0.0 : n.x < uC1 ? 1.0 : n.x < uC2 ? 2.0 : 3.0;
-  float base = col * ${BROKEN_ROWS - 1}.0;
-  float row = n.y < rowEdge(base) ? 0.0 : n.y < rowEdge(base + 1.0) ? 1.0 : n.y < rowEdge(base + 2.0) ? 2.0 : 3.0;
-  float block = col * ${BROKEN_ROWS}.0 + row;
+  // 1. Which band this is.
+  float block = bandAt(n.y);
   float order = orderOf(block);
   float kind = hash(vec2(block, uSeed + 31.0));
   bool pixels = uMode > 2.5;
-  // The block just hit flickers in for a few frames.
+  // The band just hit flickers in for a few frames.
   bool flicker = order >= uStage - 1.0 && uAge < 160.0 && hash(vec2(floor(uAge / 40.0), block)) < 0.4;
   if (order < uStage && !flicker) {
-    bool dead = uStage >= HITS || (pixels ? kind < 0.75 : kind < 0.5);
-    float left = n.x < uC0 ? 0.0 : n.x < uC1 ? uC0 : n.x < uC2 ? uC1 : uC2;
-    float right = n.x < uC0 ? uC0 : n.x < uC1 ? uC1 : n.x < uC2 ? uC2 : 1.0;
-    float top = row < 0.5 ? 0.0 : rowEdge(base + row - 1.0);
-    float bottom = row > 2.5 ? 1.0 : rowEdge(base + row);
+    float top = block < 0.5 ? 0.0 : bandEdge(block - 1.0);
+    float tall = (block > ${BANDS - 1.5} ? 1.0 : bandEdge(block)) - top;
+    // Only thin strips die into lines, as on a real panel; a wide stretch keeps showing a torn picture until the last hit.
+    bool dead = uStage >= HITS || (pixels ? tall < 0.07 && kind < 0.85 : tall < 0.035 && kind < 0.75);
     if (dead) {
       colour = deadLines(n, block);
-    } else if (kind < 0.8 || uHasFrozen < 0.5 || pixels) {
-      // Shifted 10 to 25 pixels, sideways or up and down.
-      float amount = (10.0 + 15.0 * hash(vec2(block, uSeed + 41.0))) * (hash(vec2(block, uSeed + 43.0)) < 0.5 ? -1.0 : 1.0);
-      vec2 shift = hash(vec2(block, uSeed + 47.0)) < 0.5 ? vec2(amount / PX.x, 0.0) : vec2(0.0, amount / PX.y);
-      colour = texture(uTexture, clamp(n + shift, 0.0, 1.0) * m).rgb;
+    } else if (kind < 0.4 && tall < 0.09 && !pixels) {
+      // One row of pixels smeared down the whole band, the way a stuck line drags.
+      colour = texture(uTexture, vec2(n.x, top + 1.5 / PX.y) * m).rgb;
+    } else if (kind < 0.85 || uHasFrozen < 0.5 || pixels) {
+      // Torn sideways 15 to 70 pixels, its red and blue pulled a little apart.
+      float amount = (15.0 + 55.0 * hash(vec2(block, uSeed + 41.0))) * (hash(vec2(block, uSeed + 43.0)) < 0.5 ? -1.0 : 1.0) / PX.x;
+      float split = (2.0 + 4.0 * hash(vec2(block, uSeed + 47.0))) / PX.x;
+      colour = vec3(
+        texture(uTexture, vec2(fract(n.x + amount + split), n.y) * m).r,
+        texture(uTexture, vec2(fract(n.x + amount), n.y) * m).g,
+        texture(uTexture, vec2(fract(n.x + amount - split), n.y) * m).b);
     } else {
       // Frozen on the frame of the last hit.
       colour = texture(uFrozen, n).rgb;
     }
-    // A broken block's edge is a hard black seam.
-    vec2 edge = min(n - vec2(left, top), vec2(right, bottom) - n) * PX;
-    colour *= smoothstep(1.0, 2.5, min(edge.x, edge.y));
     if (order >= uStage - 1.0) colour += 0.15 * exp(-uAge / 90.0);
   }
 
@@ -150,7 +151,7 @@ void main(void) {
     float starts = pixels ? 1.0 + fi * 4.0 : 3.0 + fi * 5.0;
     if (uStage <= starts) continue;
     vec2 at = i == 0 ? vec2(0.22, 0.17) : vec2(0.5, 0.74);
-    if (uMode > 0.5 && uMode < 1.5 && i == 0) at = vec2(uC0 * 0.6, 0.85);
+    if (uMode > 0.5 && uMode < 1.5 && i == 0) at = vec2(0.15, 0.85);
     at += (vec2(hash(vec2(fi, uSeed + 51.0)), hash(vec2(fi, uSeed + 53.0))) - 0.5) * vec2(0.16, 0.08);
     float grown = uStage - starts - 1.0 + (1.0 - exp(-uAge / 180.0));
     float r = min(0.05 + 0.014 * grown, 0.17) * (pixels ? 1.2 : 1.0);
@@ -169,7 +170,7 @@ void main(void) {
     vec2 at = i == 0 ? vec2(0.1, 0.07) : i == 1 ? vec2(0.86, 0.9) : vec2(0.5, 0.45);
     if (uMode > 1.5 && uMode < 2.5 && i == 0) at = vec2(0.5, 0.42);
     if (uMode > 1.5 && uMode < 2.5 && i == 2) at = vec2(0.12, 0.08);
-    if (uMode > 0.5 && uMode < 1.5 && i == 0) at = vec2(uC0 * 0.4, 0.93);
+    if (uMode > 0.5 && uMode < 1.5 && i == 0) at = vec2(0.1, 0.93);
     at += (vec2(hash(vec2(fi, uSeed + 61.0)), hash(vec2(fi, uSeed + 63.0))) - 0.5) * 0.06;
     float grow = uStage - 1.0 <= lands ? 1.0 - pow(1.0 - clamp(uAge / 200.0, 0.0, 1.0), 3.0) : 1.0;
     crack = max(crack, cracks(n, at, (520.0 + 260.0 * hash(vec2(fi, uSeed + 67.0))) * grow, uSeed + fi * 11.0));
@@ -193,43 +194,32 @@ const pick = (a: number, b: number) => {
   return x - Math.floor(x);
 };
 
-/** Edges that cut 0..1 into `count` parts of mismatched sizes (none too thin). */
+/** Edges that cut 0..1 into `count` bands of very mismatched heights: mostly thin, a few thick, none thinner than a few pixels. */
 function cuts(count: number, salt: number): number[] {
-  const sizes = Array.from({ length: count }, (_, index) => 0.6 + pick(index + salt, salt * 0.37 + 1));
+  const sizes = Array.from({ length: count }, (_, index) => 0.05 + 2.4 * pick(index + salt, salt * 0.37 + 1) ** 3);
   const total = sizes.reduce((sum, size) => sum + size, 0);
   let at = 0;
   return sizes.slice(0, -1).map((size) => (at += size / total));
 }
 
 /**
- * The screen's blocks for this seed and variant, as the shader's uniforms: column edges (uC*), each column's row edges (uR*), and
- * each block's place in the order they break (uO*: 0 breaks on the first hit). Shattered and dead pixels break at random, a corner
- * hit from the bottom-left corner across, a spider web from the middle out.
+ * The screen's bands for this seed and variant, as the shader's uniforms: their edges from the top (uB*), and each band's place in
+ * the order they break (uO*: 0 breaks on the first hit). Shattered and dead pixels break at random, a corner hit from the bottom up,
+ * a spider web from the middle out.
  */
-export function brokenBlocks(mode: number, seed: number, aspect: number): Record<string, number> {
-  const columns = cuts(BROKEN_COLS, seed + 0.5);
-  const rows = Array.from({ length: BROKEN_COLS }, (_, col) => cuts(BROKEN_ROWS, seed * 3 + col * 11 + 2));
-  const centre = (col: number, row: number) => {
-    const x0 = col ? columns[col - 1] : 0;
-    const x1 = columns[col] ?? 1;
-    const y0 = row ? rows[col][row - 1] : 0;
-    const y1 = rows[col][row] ?? 1;
-    return [(x0 + x1) / 2, (y0 + y1) / 2];
-  };
-  const keys = Array.from({ length: BLOCKS }, (_, index) => {
-    const col = Math.floor(index / BROKEN_ROWS);
-    const row = index % BROKEN_ROWS;
-    const [x, y] = centre(col, row);
+export function brokenBlocks(mode: number, seed: number): Record<string, number> {
+  const edges = cuts(BANDS, seed + 0.5);
+  const keys = Array.from({ length: BANDS }, (_, index) => {
+    const middle = ((edges[index - 1] ?? 0) + (edges[index] ?? 1)) / 2;
     const jitter = pick(index + seed * 1.7, seed * 0.3 + 5);
-    if (mode === 1) return Math.hypot(x, (y - 1) * aspect) + jitter * 0.3;
-    if (mode === 2) return Math.hypot(x - 0.5, (y - 0.45) * aspect) + jitter * 0.3;
+    if (mode === 1) return 1 - middle + jitter * 0.3;
+    if (mode === 2) return Math.abs(middle - 0.45) + jitter * 0.3;
     return jitter;
   });
   const ranked = keys.map((key, index) => ({ key, index })).sort((a, b) => a.key - b.key || a.index - b.index);
   const uniforms: Record<string, number> = {};
   ranked.forEach(({ index }, place) => { uniforms[`uO${index}`] = place; });
-  columns.forEach((edge, index) => { uniforms[`uC${index}`] = edge; });
-  rows.forEach((edges, col) => edges.forEach((edge, index) => { uniforms[`uR${col * (BROKEN_ROWS - 1) + index}`] = edge; }));
+  edges.forEach((edge, index) => { uniforms[`uB${index}`] = edge; });
   return uniforms;
 }
 
