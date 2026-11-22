@@ -17,6 +17,7 @@ const director = await server.ssrLoadModule('/src/pack-director.ts');
 const motion = await server.ssrLoadModule('/src/preset-motion.ts');
 const pack = await server.ssrLoadModule('/src/creatives-pack.ts');
 const deal = await server.ssrLoadModule('/src/treatment-deal.ts');
+const clips = await server.ssrLoadModule('/src/pack-motion.ts');
 await server.close();
 
 const DURATION = 15000;
@@ -257,6 +258,19 @@ test('Club Pulse and Y2K ramp the clip: fast in on the cut, slow into the next o
   const segment = { atMs: 1000, endMs: 2000, asset: 0, startMs: 0, pieceEndMs: 5000, fromMs: 0, zoom: [1, 1], ramp: true };
   assert.equal(director.clipMsAt(segment, 1100), 100 * director.RAMP_FAST);
   assert.equal(director.clipMsAt({ ...segment, ramp: undefined }, 1100), 100);
+});
+
+test('slow motion glides: a moment between two frames of the clip shows both, weighted by how near each is', () => {
+  const frame = 1 / 30;
+  const blend = clips.blendAt(10.25 * frame, 20);
+  assert.ok(Math.abs(blend.at - 10.5 * frame) < 1e-9 && Math.abs(blend.next - 11.5 * frame) < 1e-9, 'each frame sought at its middle');
+  assert.ok(Math.abs(blend.weight - 0.25) < 1e-9);
+  // A run of slow frames moves smoothly from one frame to the next, never back.
+  const weights = [];
+  for (let t = 10 * frame; t < 11 * frame; t += frame * director.RAMP_SLOW) weights.push(clips.blendAt(t, 20)?.weight ?? 0);
+  assert.ok(weights.every((weight, i) => i === 0 || weight > weights[i - 1]), weights.join(' '));
+  assert.equal(clips.blendAt(10 * frame, 20), null, 'on a frame: that frame alone');
+  assert.equal(clips.blendAt(20 - 0.04, 20), null, 'the last frame is not blended with one past the end');
 });
 
 test('a moment is drawn the same every time (preview and cloud agree)', () => {
