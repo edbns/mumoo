@@ -51,22 +51,6 @@ async function processRequest(request) {
     selectedIds: Array.isArray(data.selectedIds) ? data.selectedIds.slice(0, 32) : undefined,
     generation: data.generation,
   }));
-
-  const brainUrl = process.env.MUMOO_PACK_FEEDBACK_URL || '';
-  const secret = process.env.MUMOO_BRAIN_SERVICE_SECRET || '';
-  if (brainUrl.startsWith('https://') && secret.length >= 32) {
-    try {
-      await fetch(brainUrl, {
-        method: 'POST',
-        redirect: 'error',
-        signal: AbortSignal.timeout(4000),
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${secret}` },
-        body: JSON.stringify(data),
-      });
-    } catch {
-      // Local log already captured; upstream is best-effort.
-    }
-  }
   return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 }
 
