@@ -72,9 +72,11 @@ export function testLibrary() {
  * `meaning` is what the lyric-meaning worker says about the words (default: nothing in particular); each request body is recorded.
  * The library is `testLibrary()`, so every template has pictures to draw.
  * `launch` opens another browser instead of Brave (WebKit, for Safari).
+ * `styleGuess` is what the sound print brain answers about the clip ({ style, genre, subGenre } or null); each status request body
+ * is recorded in `styleCalls`. Without it the print is never started, as when the worker cannot be reached.
  */
 export const NEUTRAL_READING = { version: 1, clarity: 'clear', attitude: 'neutral', sadness: 0, intensity: 3 };
-export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = [], meaningCalls = [], analysis, meaning = NEUTRAL_READING, launch } = {}) {
+export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = [], meaningCalls = [], styleCalls = [], analysis, meaning = NEUTRAL_READING, styleGuess, launch } = {}) {
   const server = await createServer({ server: { host: '127.0.0.1', port: 0, fs: { allow: [process.cwd(), realpathSync('node_modules')] } }, logLevel: 'error' });
   await server.listen();
   const browser = await (launch ? launch() : chromium.launch({ headless: false, executablePath: BROWSER }));
@@ -124,6 +126,15 @@ export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = []
   await page.route('**/.netlify/functions/read-lyric-meaning-status*', route => ++reading.polls < 2
     ? route.fulfill({ status: 202, json: { status: 'running' } })
     : route.fulfill({ json: meaning }));
+
+  if (styleGuess !== undefined) {
+    await page.route('**/.netlify/functions/style-print', route => route.fulfill({ status: 202, json: { id: 'fc-print0001' } }));
+    await page.route('**/.netlify/functions/style-print-status', route => {
+      const body = route.request().postDataJSON();
+      styleCalls.push(body);
+      return route.fulfill({ json: body.answer ? { status: 'stored' } : { status: 'guessed', guess: styleGuess } });
+    });
+  }
 
   await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/`);
   return {

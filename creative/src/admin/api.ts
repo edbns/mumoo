@@ -66,11 +66,12 @@ export type Learning = {
   boards: Tally[]; boardGenres: Tally[];
   /** Cards on our pictures by how well the picture carried the genre's colours: `strong`, `some`, `weak`, or `none` (not measured, or a genre without colours). */
   colours: Tally[];
-  /** Genre learning: the kept style prints (all time), "I don't know" presses, and the answers to the brain's guesses, per guessed style. */
+  /** Genre learning: the kept style prints (all time), "I don't know" presses, the answers to the brain's guesses per guessed style, and to its checks of picks. */
   genre: {
-    prints: { songs: number; creator: number; confirmed: number; seeded: number };
+    prints: { songs: number; creator: number; confirmed: number; corrected: number; seeded: number };
     unknowns: number;
     answers: { style: string; yes: number; no: number; unsure: number }[];
+    checks: { picked: string; guessed: string; switched: number; kept: number; unsure: number }[];
   };
   recent: LearningEvent[];
 };

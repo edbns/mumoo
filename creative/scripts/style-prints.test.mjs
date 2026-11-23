@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { guessStyle, storePrint, validLabel, validPrint } from '../netlify/lib/style-prints.mjs';
+import { checkPick, guessStyle, storePrint, validLabel, validPrint } from '../netlify/lib/style-prints.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import printHandler from '../netlify/functions/style-print.mjs';
 import statusHandler from '../netlify/functions/style-print-status.mjs';
@@ -62,6 +62,15 @@ test('the brain guesses only when the nearest songs agree, and never from the cl
   assert.equal(guessStyle(near(0), own, 'f'.repeat(64)), null, 'its own song is left out');
   const twoClips = [row('a', 'Amapiano', 'Amapiano', near(0, 1)), row('a', 'Amapiano', 'Amapiano', near(0, 2))];
   assert.equal(guessStyle(near(0), twoClips, 'e'.repeat(64), { nearest: 3, agree: 2, share: 0.6 }), null, 'a song votes once, however many clips');
+});
+
+test('a creator\'s pick is questioned only when the brain is very sure it is another genre', () => {
+  const rows = ['a', 'b', 'c', 'd'].map((sha, i) => row(sha, 'funk carioca', 'General Latin', near(0, i + 1), 'Latin & Urbano'));
+  const funk = { style: 'funk', genre: 'Jazz, Soul & Blues', subGenre: 'Smooth Jazz / Soul' };
+  assert.deepEqual(checkPick(near(0), rows, 'e'.repeat(64), funk), { style: 'funk carioca', genre: 'Latin & Urbano', subGenre: 'General Latin' });
+  assert.equal(checkPick(near(0), rows, 'e'.repeat(64), { style: 'baile funk', genre: 'Latin & Urbano', subGenre: 'Brazilian Funk' }), null, 'another style of the same genre is not questioned');
+  assert.equal(checkPick(near(0), rows.slice(0, 3), 'e'.repeat(64), funk), null, 'three songs are not sure enough to question a creator');
+  assert.ok(guessStyle(near(0), rows.slice(0, 3), 'e'.repeat(64)), 'though enough to guess for "I don\'t know"');
 });
 
 test('a clip keeps its latest answer, and the print as it was sent', { skip: !READY, timeout: 60000 }, async () => {
@@ -179,6 +188,52 @@ test('"We think it sounds like…": the guess is made by the server, and only a 
       await db()`update style_guess_answers set count = count - 1 where day = current_date and style = 'Amapiano' and answer = ${answer} and count > ${before[answer]}`;
     }
     await db()`delete from style_guess_answers where count = 0`;
+    for (const key of ['SITE_ID', 'MUMOO_BRAIN_TESTER_KEY', 'MUMOO_MUSIC_BRIDGE_SECRET']) {
+      if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key];
+    }
+  }
+});
+
+test('"Sounds more like…": a pick the brain is sure of is kept at once; a questioned one is kept as the creator answers', { skip: !READY, timeout: 60000 }, async () => {
+  const previous = { ...process.env };
+  const realFetch = globalThis.fetch;
+  Object.assign(process.env, { SITE_ID: '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5', MUMOO_BRAIN_TESTER_KEY: 'a'.repeat(40), MUMOO_MUSIC_BRIDGE_SECRET: 'b'.repeat(40) });
+  // Seven songs of a made-up genre around a corner of the print space no real song is near.
+  const seeds = Array.from({ length: 7 }, () => label({ offsetMs: 0, source: 'seeded', style: 'Zz check', genre: 'Zz genre', subGenre: 'Zz sub' }));
+  const picked = { style: 'Zz other', genre: 'Zz elsewhere', subGenre: 'Zz far' };
+  const clips = [0, 1, 2, 3].map(() => ({ sourceSha256: randomBytes(32).toString('hex'), offsetMs: 30_000 }));
+  globalThis.fetch = async (url, init = {}) => {
+    if (!String(url).includes('mumoo-sound-print-staging')) return realFetch(url, init);
+    return Response.json(print({ values: near(400) }));
+  };
+  const counted = async answer => (await db()`select coalesce(sum(count), 0)::int as count from style_check_answers where day = current_date and picked = 'Zz other' and answer = ${answer}`)[0].count;
+  try {
+    for (const [i, seed] of seeds.entries()) await storePrint(seed, print({ values: near(400, 401 + i) }));
+    const { token } = await (await accessHandler(new Request(`${ORIGIN}/api/brain-tester-access`, { method: 'POST', headers: { origin: ORIGIN, 'content-type': 'application/json' }, body: '{}' }))).json();
+    const ask = body => statusHandler(new Request(`${ORIGIN}/.netlify/functions/style-print-status`, {
+      method: 'POST', headers: { origin: ORIGIN, 'content-type': 'application/json', 'x-mumoo-brain-access': token }, body: JSON.stringify({ version: 1, id: 'fc-abcdefgh1234', ...body }),
+    }));
+    const kept = async clip => (await db()`select style, genre, source from style_prints where source_sha256 = ${clip.sourceSha256}`).map(r => [r.style, r.genre, r.source]);
+    const heard = { style: 'Zz check', genre: 'Zz genre', subGenre: 'Zz sub' };
+
+    assert.equal((await ask({ guess: clips[0], picked: { ...picked, style: ' ' } })).status, 400);
+    assert.deepEqual(await (await ask({ guess: clips[0], picked: { ...heard, style: 'Zz cousin' } })).json(), { status: 'guessed', guess: null });
+    assert.deepEqual(await kept(clips[0]), [['Zz cousin', 'Zz genre', 'creator']], 'a pick of the genre it hears is kept straight away');
+
+    assert.deepEqual(await (await ask({ guess: clips[1], picked })).json(), { status: 'guessed', guess: heard });
+    assert.deepEqual(await kept(clips[1]), [], 'a questioned pick waits for the answer');
+    assert.equal((await ask({ answer: 'yes', style: 'Drill', clip: clips[1], picked })).status, 409);
+    assert.deepEqual(await (await ask({ answer: 'yes', style: 'Zz check', clip: clips[1], picked })).json(), { status: 'stored' });
+    assert.deepEqual(await kept(clips[1]), [['Zz check', 'Zz genre', 'corrected']]);
+    assert.deepEqual(await (await ask({ answer: 'no', style: 'Zz check', clip: clips[2], picked })).json(), { status: 'stored' });
+    assert.deepEqual(await kept(clips[2]), [['Zz other', 'Zz elsewhere', 'creator']], 'kept: the creator knows');
+    assert.deepEqual(await (await ask({ answer: 'unsure', style: 'Zz check', clip: clips[3], picked })).json(), { status: 'counted' });
+    assert.deepEqual(await kept(clips[3]), [], 'not sure teaches nothing');
+    assert.deepEqual([await counted('switch'), await counted('keep'), await counted('unsure')], [1, 1, 1]);
+  } finally {
+    globalThis.fetch = realFetch;
+    for (const sha of [...clips, ...seeds].map(item => item.sourceSha256)) await db()`delete from style_prints where source_sha256 = ${sha}`;
+    await db()`delete from style_check_answers where picked = 'Zz other'`;
     for (const key of ['SITE_ID', 'MUMOO_BRAIN_TESTER_KEY', 'MUMOO_MUSIC_BRIDGE_SECRET']) {
       if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key];
     }

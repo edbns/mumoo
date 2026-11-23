@@ -187,3 +187,29 @@ test('a song under 10 seconds is refused before the clip step', { timeout: 12000
     assert.deepEqual(product.errors, []);
   } finally { await product.close(); }
 });
+
+test('a picked genre the song does not sound like is questioned on the analysis page, and a switch paints for the genre it heard', { timeout: 180000, skip: SKIP }, async () => {
+  const styleCalls = [];
+  const heard = { style: 'funk carioca', genre: 'Latin & Urbano', subGenre: 'General Latin' };
+  const product = await openProduct({ styleCalls, styleGuess: heard, lyrics: () => lyricsResult('vai descendo devagarinho', { language: 'pt' }) });
+  const { page } = product;
+  try {
+    await uploadSong(page, { genre: 'Pop' });
+    await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
+    await page.locator('.lyrics-editor').waitFor({ timeout: 30000 });
+    const dialog = page.getByRole('dialog', { name: 'Sounds more like Funk carioca' });
+    for (let tries = 0; !styleCalls.some(body => body.guess) && tries < 100; tries += 1) await page.waitForTimeout(100);
+    await page.waitForTimeout(300);
+    assert.equal(await dialog.count(), 0, 'the guess is in, but nothing is asked before the analysis page');
+    await page.locator('.step-actions').getByRole('button', { name: 'Continue' }).click();
+    await dialog.waitFor({ timeout: 30000 });
+    assert.equal(await page.locator('.creatives-pack-card:not(.pending)').count(), 0, 'no creative is shown for the wrong genre meanwhile');
+    await dialog.getByRole('button', { name: 'Switch to Funk carioca' }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length > 0 && !document.querySelector('.creatives-pack-card.pending'), null, { timeout: 30000 });
+    const guess = styleCalls.find(body => body.guess);
+    assert.deepEqual(guess.picked, { style: 'pop music', genre: 'Pop', subGenre: 'General Pop' }, `the pick is sent to be checked: ${JSON.stringify(guess.picked)}`);
+    const answer = styleCalls.find(body => body.answer);
+    assert.deepEqual([answer.answer, answer.style, answer.picked.style], ['yes', 'funk carioca', 'pop music']);
+    assert.deepEqual(product.errors, []);
+  } finally { await product.close(); }
+});

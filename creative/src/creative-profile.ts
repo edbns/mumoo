@@ -87,14 +87,14 @@ export interface CreativeProfileV1 {
   clip: ClipIdentity;
   creator: {
     /** `confirmed`: the creator did not know it and said yes to the brain's guess. */
-    primaryGenre: { value: string; source: 'creator' | 'confirmed' };
+    primaryGenre: { value: string; source: 'creator' | 'confirmed' | 'corrected' };
     /** The sub-genre inside the genre, as the creator chose it. */
-    subGenre?: { value: string; source: 'creator' | 'confirmed' };
+    subGenre?: { value: string; source: 'creator' | 'confirmed' | 'corrected' };
     /**
      * The style the creator picked: `value` as they saw it ("DnB"), `name` the style's own in `styles.json` ("drum and bass").
      * The genre and sub-genre are where it is placed.
      */
-    style?: { value: string; name: string; source: 'creator' | 'confirmed' };
+    style?: { value: string; name: string; source: 'creator' | 'confirmed' | 'corrected' };
     title?: { value: string; source: 'embedded_metadata' | 'creator' };
     artist?: { value: string; source: 'embedded_metadata' | 'creator' };
     /** What the cover art inside the uploaded file looks like (numbers only; the picture is never kept). */

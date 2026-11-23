@@ -148,7 +148,7 @@ function GenreLearning({ genre }: { genre: Learning['genre'] }) {
       <p className="m-0 text-xs text-muted-foreground">Songs with a known genre, and the answers to “We think it sounds like…”. Only a yes teaches the brain.</p>
     </div>
     <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
-      <Stat label="Songs to learn from" value={genre.prints.songs} note={`${genre.prints.creator} picked · ${genre.prints.confirmed} confirmed · ${genre.prints.seeded} seeded clips`} />
+      <Stat label="Songs to learn from" value={genre.prints.songs} note={`${genre.prints.creator} picked · ${genre.prints.confirmed} confirmed · ${genre.prints.corrected} corrected · ${genre.prints.seeded} seeded clips`} />
       <Stat label="I don’t know" value={genre.unknowns} note={asked ? `${asked} were asked a guess` : 'None asked a guess yet'} />
       <Stat label="Guesses right" value={asked ? `${Math.round((yes / asked) * 100)}%` : '–'} note={asked ? `${yes} yes of ${asked} answers` : undefined} />
     </div>
@@ -161,6 +161,21 @@ function GenreLearning({ genre }: { genre: Learning['genre'] }) {
           <td className="px-4 py-2 capitalize">{row.style}</td>
           <td className="px-4 py-2">{row.yes}</td>
           <td className="px-4 py-2">{row.no}</td>
+          <td className="px-4 py-2">{row.unsure}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>}
+    {genre.checks.length > 0 && <div className="overflow-x-auto rounded-[var(--radius-panel)] bg-card shadow-sm">
+      <table className="w-full border-collapse text-sm tabular-nums">
+        <caption className="px-4 pt-3 text-left text-xs text-muted-foreground">“Sounds more like…”: picks the brain heard as another genre. Many keeps mean it questions them too soon.</caption>
+        <thead><tr className="text-left text-xs text-muted-foreground">
+          {['Picked', 'Heard', 'Switched', 'Kept', 'Not sure'].map(head => <th key={head} className="px-4 py-2 font-medium">{head}</th>)}
+        </tr></thead>
+        <tbody>{genre.checks.map(row => <tr key={`${row.picked}|${row.guessed}`} className="border-t border-border">
+          <td className="px-4 py-2 capitalize">{row.picked}</td>
+          <td className="px-4 py-2 capitalize">{row.guessed}</td>
+          <td className="px-4 py-2">{row.switched}</td>
+          <td className="px-4 py-2">{row.kept}</td>
           <td className="px-4 py-2">{row.unsure}</td>
         </tr>)}</tbody>
       </table>

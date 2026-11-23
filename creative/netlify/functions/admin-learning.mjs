@@ -71,6 +71,7 @@ export default async function handler(request) {
     const [prints] = await sql`
       select count(distinct source_sha256)::int as songs,
         count(*) filter (where source = 'creator')::int as creator, count(*) filter (where source = 'confirmed')::int as confirmed,
+        count(*) filter (where source = 'corrected')::int as corrected,
         count(*) filter (where source = 'seeded')::int as seeded
       from style_prints`;
     const [unknowns] = await sql`select coalesce(sum(count), 0)::int as count from style_unknowns where day > current_date - ${days}::int`;
@@ -81,6 +82,14 @@ export default async function handler(request) {
         coalesce(sum(count) filter (where answer = 'unsure'), 0)::int as unsure
       from style_guess_answers where day > current_date - ${days}::int group by style having sum(count) > 0
       order by sum(count) desc, style limit 30`;
+    // "This sounds more like…": what creators picked, what the brain heard instead, and whether they switched.
+    const checks = await sql`
+      select picked, guessed,
+        coalesce(sum(count) filter (where answer = 'switch'), 0)::int as switched,
+        coalesce(sum(count) filter (where answer = 'keep'), 0)::int as kept,
+        coalesce(sum(count) filter (where answer = 'unsure'), 0)::int as unsure
+      from style_check_answers where day > current_date - ${days}::int group by picked, guessed having sum(count) > 0
+      order by sum(count) desc, picked, guessed limit 30`;
     const shape = list => list.map(({ key, shown, plays, selects, downloads, delivered, refreshes, avg_watch_ms: avgWatchMs }) => ({ key, shown, plays, selects, downloads, delivered, refreshes, avgWatchMs }));
     return reply(200, {
       days,
@@ -97,7 +106,7 @@ export default async function handler(request) {
       boards: shape(boards),
       colours: shape(colours),
       boardGenres: shape(boardGenres),
-      genre: { prints, unknowns: unknowns.count, answers },
+      genre: { prints, unknowns: unknowns.count, answers, checks },
       recent: recent.map(row => ({
         at: row.created_at, event: row.event, row: row.row_id, look: row.look, vibe: row.vibe, lane: row.lane,
         mood: row.attitude, genre: row.genre, watchMs: row.watch_ms, nthDownload: row.nth_download,

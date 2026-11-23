@@ -167,11 +167,12 @@ function App() {
   // The words are read the moment they are final (synced and not being edited), so the answer is ready by the creatives screen.
   const lyricMeaning = useLyricMeaning(accessToken, composition.cues, lyricsInfo.language,
     IS_ALIGNMENT_STAGING && clipValid && !lyricsState.busy && !lyricsState.dirty);
-  // "I don't know": once the window is settled, the brain guesses the style from how it sounds and asks.
+  // Once the window is settled the brain listens: "I don't know" gets its guess, and a picked style is checked against how it sounds.
   const [styleGuess, answerGuess] = useStyleGuess(accessToken, buffer, clip,
-    IS_ALIGNMENT_STAGING && genreUnknown && clipValid && (composition.cues.length > 0 || noLyrics || inCreatives));
-  const known = style ? { style, label: picked!.label, source: 'creator' as const }
-    : styleGuess.status === 'answered' && styleGuess.answer === 'yes' ? { style: styleGuess.style, label: capitalised(styleGuess.style.name), source: 'confirmed' as const }
+    IS_ALIGNMENT_STAGING && (genreUnknown || Boolean(style)) && clipValid && (composition.cues.length > 0 || noLyrics || inCreatives), style);
+  const guessTaken = styleGuess.status === 'answered' && styleGuess.answer === 'yes';
+  const known = guessTaken ? { style: styleGuess.style, label: capitalised(styleGuess.style.name), source: style ? 'corrected' as const : 'confirmed' as const }
+    : style ? { style, label: picked!.label, source: 'creator' as const }
     : null;
     const profile: CreativeProfileV1 | null = clipValid && genreValid ? {
     version: 1,
@@ -426,14 +427,24 @@ function App() {
     <ActionDialog open={askingStartOver} onClose={() => setAskingStartOver(false)} title="Start over with another song?"
       description="Your song, lyrics and chosen videos get cleared. Your uploads stay in Media."
       cancelLabel="Keep this song" confirmLabel="Start over" onConfirm={async () => startOver()} />
-    {/* Asked wherever the creator is when the guess arrives, until the creatives are shown; closing it is "not sure". */}
-    <Modal open={page === 'create' && styleGuess.status === 'asking' && stage !== 'revealed'} onClose={() => answerGuess('unsure')}
+    {/* A guess is asked wherever the creator is when it arrives, until the creatives are shown; closing it is "not sure". */}
+    <Modal open={page === 'create' && styleGuess.status === 'asking' && stage !== 'revealed' && !style} onClose={() => answerGuess('unsure')}
       title={styleGuess.status === 'asking' ? <>Sounds like {capitalised(styleGuess.style.name)}</> : ''}
       closeLabel="Maybe">
       <div className="flex items-center justify-between gap-3">
         <Button variant="secondary" onClick={() => answerGuess('unsure')}>Maybe</Button>
         <Button variant="secondary" onClick={() => answerGuess('no')}>No</Button>
         <Button onClick={() => answerGuess('yes')}>Yes</Button>
+      </div>
+    </Modal>
+    {/* A check of the creator's own pick is asked on the analysis page, before anything is painted for the wrong genre; closing it keeps the pick. */}
+    <Modal open={page === 'create' && styleGuess.status === 'asking' && inCreatives && stage !== 'revealed' && Boolean(style)} onClose={() => answerGuess('unsure')}
+      title={styleGuess.status === 'asking' ? <>Sounds more like {capitalised(styleGuess.style.name)}</> : ''}
+      description={`You picked ${picked?.label ?? ''}. Your creatives are made for the genre, so it’s worth getting right.`}
+      closeLabel={`Keep ${picked?.label ?? ''}`}>
+      <div className="flex items-center justify-between gap-3">
+        <Button variant="secondary" onClick={() => answerGuess('no')}>Keep {picked?.label}</Button>
+        <Button onClick={() => answerGuess('yes')}>Switch to {styleGuess.status === 'asking' ? capitalised(styleGuess.style.name) : ''}</Button>
       </div>
     </Modal>
     {!cartOpen && <ChosenBar count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)}
@@ -541,8 +552,8 @@ function App() {
     </div>
     {buffer && clipValid && IS_ALIGNMENT_STAGING && (composition.cues.length > 0 || noLyrics || inCreatives) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs}
       audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} accessToken={accessToken} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}
-    {buffer && clipValid && IS_ALIGNMENT_STAGING && inCreatives && <StylePrintRunner key={`${composition.sourceSha256}:${composition.clipStartMs}:${style?.name ?? '?'}`}
-      audio={buffer} clip={clip} style={style} unknown={genreUnknown} accessToken={accessToken} />}
+    {buffer && clipValid && IS_ALIGNMENT_STAGING && inCreatives && genreUnknown && <StylePrintRunner key={`${composition.sourceSha256}:${composition.clipStartMs}`}
+      clip={clip} accessToken={accessToken} />}
 
     {page === 'create' && <main className="mobile"><h1>Open mumoo on desktop</h1><p>Use desktop to time lyrics and preview.</p></main>}
     <LegalCorner />

@@ -85,6 +85,25 @@ export function guessStyle(print, rows, ownSha256, { nearest, agree, share } = G
 }
 
 /**
+ * How sure the brain must be to tell a creator their own pick sounds like another genre: creators mostly know, and a wrong
+ * check costs their trust, so far surer than a guess for "I don't know". On staging's 533 clips it flags 2.
+ */
+export const CHECK = { nearest: 7, agree: 4, share: 0.8 };
+export const CHECK_ANSWERS = { yes: 'switch', no: 'keep', unsure: 'unsure' };
+
+/** The style to offer instead of the creator's pick ({ style, genre, subGenre }), or null when the pick's genre is what it hears. */
+export function checkPick(print, rows, ownSha256, picked, thresholds = CHECK) {
+  const guess = guessStyle(print, rows, ownSha256, thresholds);
+  return guess && guess.genre !== picked.genre ? guess : null;
+}
+
+export async function countCheckAnswer(picked, guessed, answer) {
+  await db()`
+    insert into style_check_answers (day, picked, guessed, answer, count) values (current_date, ${picked}, ${guessed}, ${answer}, 1)
+    on conflict (day, picked, guessed, answer) do update set count = style_check_answers.count + 1`;
+}
+
+/**
  * What creators who do not know would see today: for each kept clip, hidden with its whole song, whether the site would
  * ask and whether its guess is the right sub-genre. A yes to a wrong guess is kept as true, so `right` matters most.
  */
