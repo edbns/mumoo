@@ -1,0 +1,604 @@
+{
+  "version": 1,
+  "about": "Zero-shot genre anchors for the CLAP sound print: each lane is a sound, filed under one MUMOO style (and so its genre and sub-genre), described five ways (drums, bass, tempo feel, instruments). A lane's anchor is the mean of its prompts' text embeddings.",
+  "lanes": [
+    {
+      "id": "house",
+      "style": "house music",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "House",
+      "prompts": [
+        "classic house music with a four on the floor kick drum, offbeat open hi-hats and a groovy bassline at 124 BPM",
+        "uplifting club house track with piano chords, handclaps on every second beat and a steady dance groove",
+        "soulful house music with a warm bassline, shuffling hi-hats and a diva vocal sample",
+        "chicago house beat, steady kick on every beat, funky bass and chopped vocal loops",
+        "melodic house music with lush synth pads, a rolling bassline and a driving four to the floor beat"
+      ]
+    },
+    {
+      "id": "deep-house",
+      "style": "deep house",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "Deep House",
+      "prompts": [
+        "deep house music with a soft round kick, mellow jazzy chords and a smooth sub bass at 120 BPM",
+        "late night deep house groove with warm rhodes keys, subtle percussion and a relaxed vocal",
+        "minimal deep house track with a muted kick, deep bassline and atmospheric pads",
+        "smooth deep house with a laid back four on the floor beat and soulful chord stabs",
+        "lounge deep house music, gentle hi-hats, warm bass and dreamy synth chords"
+      ]
+    },
+    {
+      "id": "tech-house",
+      "style": "tech house",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "Tech House",
+      "prompts": [
+        "tech house track with a punchy kick, rolling percussive bassline and crisp hi-hats at 126 BPM",
+        "groovy tech house with a tight four on the floor beat, short vocal chops and a funky bass loop",
+        "minimal tech house club track, dry percussion, swinging hats and a bouncy bassline",
+        "driving tech house groove with shakers, claps and a repetitive hypnotic bass",
+        "underground tech house, punchy drums, tribal percussion and a sliding bass hook"
+      ]
+    },
+    {
+      "id": "techno",
+      "style": "techno",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "Techno",
+      "prompts": [
+        "hard 140 BPM dark industrial warehouse techno with a pounding distorted kick drum and metallic percussion",
+        "driving techno with a relentless four on the floor kick, rumbling bass and hypnotic repetitive synths",
+        "dark berlin techno, heavy kick, clanging hi-hats and a menacing droning synth",
+        "raw rave techno with a fast pounding kick, acid synth line and no vocals",
+        "minimal hypnotic techno loop, deep rumbling kick, sharp claps and evolving dark textures"
+      ]
+    },
+    {
+      "id": "melodic-techno",
+      "style": "melodic techno",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "Techno",
+      "prompts": [
+        "melodic techno with an emotional arpeggiated synth, deep driving kick and dark atmospheric pads",
+        "cinematic melodic techno track with a pulsing bassline, big evolving synth melody and steady four on the floor beat",
+        "progressive melodic techno, hypnotic arpeggios, rolling bass and euphoric breakdown",
+        "dark melodic techno with a driving kick at 124 BPM and soaring synth leads",
+        "afterhours melodic techno, deep bass pulses, shimmering synths and a steady techno beat"
+      ]
+    },
+    {
+      "id": "afro-house",
+      "style": "Afro house",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "Afro House",
+      "prompts": [
+        "afro house music with tribal percussion, congas and shakers over a deep four on the floor kick",
+        "afro house groove with african drums, chanting vocals and a hypnotic bassline at 122 BPM",
+        "organic afro house track with layered hand percussion, marimba and a rolling kick",
+        "spiritual afro house with tribal drums, deep bass and atmospheric vocal chants",
+        "afro tech club track, percussive african rhythms, dark synth stabs and a driving kick"
+      ]
+    },
+    {
+      "id": "amapiano",
+      "style": "Amapiano",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "House",
+      "prompts": [
+        "amapiano music with a deep log drum bass, shuffling shakers and jazzy piano chords at 112 BPM",
+        "south african amapiano groove, wobbly log drum bassline, light percussion and soulful keys",
+        "laid back amapiano track with log drums, sparse kicks and smooth vocal chants",
+        "private school amapiano with soft piano, deep log drum and gentle percussion",
+        "amapiano dance track, bouncing log drum bass, offbeat shakers and saxophone melody"
+      ]
+    },
+    {
+      "id": "gqom",
+      "style": "gqom",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "House",
+      "prompts": [
+        "gqom music from durban with heavy broken kick patterns, dark minimal synths and booming bass",
+        "raw gqom track, syncopated thudding drums, eerie vocal chants and sparse dark atmosphere",
+        "south african gqom, aggressive tribal kicks, deep sub bass and repetitive menacing loops",
+        "dark minimal gqom beat with off kilter percussion and industrial textures",
+        "gqom dance track with pounding broken beat drums and hypnotic chanting"
+      ]
+    },
+    {
+      "id": "slap-house",
+      "style": "slap house",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "Slap House",
+      "prompts": [
+        "slap house track with a bouncy slapping bass, punchy kick and a catchy pitched vocal hook",
+        "brazilian bass slap house, deep wobbling bassline, four on the floor beat and pop vocals",
+        "car music slap house with a heavy rubbery bass drop and a steady 124 BPM kick",
+        "commercial slap house remix, plucky synth melody, sidechained bass and dance pop vocal",
+        "slap house drop with a metallic bouncing bass and crisp claps"
+      ]
+    },
+    {
+      "id": "drum-and-bass",
+      "style": "drum and bass",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "General Electronic",
+      "prompts": [
+        "drum and bass with fast breakbeat drums at 174 BPM, rolling amen breaks and a heavy reese bass",
+        "liquid drum and bass, quick shuffling breakbeats, deep sub bass and soulful pads",
+        "neurofunk drum and bass, sharp snares, fast drums and a growling distorted bassline",
+        "jungle music with chopped amen break drums, deep rumbling bass and reggae samples",
+        "energetic drum and bass track with rapid snare rolls and a massive bass drop"
+      ]
+    },
+    {
+      "id": "uk-garage",
+      "style": "UK garage",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "General Electronic",
+      "prompts": [
+        "uk garage with skippy shuffled 2-step drums, swung hi-hats and a bouncy sub bass at 132 BPM",
+        "2-step garage track, syncopated kicks, pitched up rnb vocal chops and warm organ bass",
+        "speed garage groove, shuffling percussion, chopped vocals and wobbling bassline",
+        "modern uk garage with crisp swung drums, deep bass stabs and smooth vocals",
+        "bassline house uk garage, bouncy wobbling bass and skipping beat"
+      ]
+    },
+    {
+      "id": "phonk",
+      "style": "phonk",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "General Electronic",
+      "prompts": [
+        "drift phonk with a heavily distorted 808 bass, cowbell melody and aggressive fast beat",
+        "phonk track with a dark memphis rap vocal sample, cowbells and booming saturated bass",
+        "aggressive brazilian phonk, distorted cowbell riff, hard kicks and pitched vocal chops",
+        "dark phonk beat, lo-fi memphis samples, rattling hi-hats and clipping 808s",
+        "gym phonk music with a pounding distorted bass and fast cowbell melody"
+      ]
+    },
+    {
+      "id": "dubstep",
+      "style": "dubstep",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "Dubstep / Riddim",
+      "prompts": [
+        "dubstep with a half time beat at 140 BPM, heavy snare on the third beat and a growling wobble bass",
+        "riddim dubstep, minimal repetitive metallic bass wobbles and sparse heavy drums",
+        "brostep drop with screeching distorted bass and huge half time drums",
+        "deep dubstep with a sub bass wobble, dark atmosphere and spacious drums",
+        "aggressive dubstep track with robotic bass growls and a massive drop"
+      ]
+    },
+    {
+      "id": "edm",
+      "style": "electronic dance music",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "General Electronic",
+      "prompts": [
+        "big room edm festival anthem with a massive kick, supersaw lead and an explosive drop",
+        "electro house with a heavy distorted bass, four on the floor kick and build up with snare rolls",
+        "progressive house festival track with euphoric synth chords and a big drop",
+        "commercial edm dance track with bright synth leads, claps and a sidechained bass",
+        "trance music with fast arpeggiated synths, uplifting chords and a driving kick at 138 BPM"
+      ]
+    },
+    {
+      "id": "synthwave",
+      "style": "synthwave",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "Synthwave / Vaporwave",
+      "prompts": [
+        "synthwave with retro 80s analog synths, gated reverb snare and a pulsing arpeggiated bass",
+        "outrun retrowave track, neon synth leads, driving drum machine and nostalgic chords",
+        "vaporwave with slowed down warped samples, dreamy pads and lo-fi drums",
+        "dark synthwave with heavy analog bass, retro drum machine and cinematic synths",
+        "chillwave with hazy synths, soft drum machine and nostalgic melodies"
+      ]
+    },
+    {
+      "id": "downtempo",
+      "style": "downtempo",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "Ambient / Downtempo",
+      "prompts": [
+        "downtempo electronic music with slow relaxed beats, warm pads and a deep mellow bass",
+        "ambient electronic soundscape with soft evolving pads and no drums",
+        "chill out trip hop with a slow breakbeat, dusty samples and atmospheric textures",
+        "calm ambient track with gentle synth drones, field recordings and soft piano",
+        "slow organic downtempo with soft percussion, plucked guitar and dreamy atmosphere"
+      ]
+    },
+    {
+      "id": "hip-hop",
+      "style": "hip-hop",
+      "genre": "Hip-Hop & Rap",
+      "subGenre": "General Hip-Hop",
+      "prompts": [
+        "hip hop with a confident male rapper over a hard hitting beat, punchy kick and snare and deep 808 bass",
+        "modern rap song with fast rap vocals, sparse piano loop and booming bass",
+        "west coast hip hop with a laid back groove, funky bass and rap verses",
+        "street rap track with aggressive rap flow, heavy drums and dark sampled melody",
+        "mainstream hip hop song with a catchy rap hook, snappy snares and deep sub bass"
+      ]
+    },
+    {
+      "id": "boom-bap",
+      "style": "boom bap",
+      "genre": "Hip-Hop & Rap",
+      "subGenre": "Boom Bap / Lo-Fi",
+      "prompts": [
+        "90s boom bap hip hop with dusty sampled drums, swinging kick and snare and jazzy loops at 90 BPM",
+        "old school east coast rap with a vinyl sample, scratching and a hard snare",
+        "lo-fi hip hop beat with mellow jazzy chords, vinyl crackle and lazy swung drums",
+        "underground boom bap with chopped soul samples and a raw rap verse",
+        "chill lofi beats with soft piano, muted kick and crackling tape texture"
+      ]
+    },
+    {
+      "id": "trap",
+      "style": "trap music",
+      "genre": "Hip-Hop & Rap",
+      "subGenre": "Trap",
+      "prompts": [
+        "trap beat with rapid rolling hi-hats, booming 808 bass, sharp snare on the third beat at 140 BPM felt at 70",
+        "atlanta trap song with mumbled rap vocals, dark bells melody and sliding 808s",
+        "hard trap banger with triplet hi-hat rolls, heavy distorted 808 and autotune rap",
+        "melodic trap with emotional piano, rattling hats and deep rumbling bass",
+        "dark trap instrumental with eerie synths, punchy claps and gliding 808 bass"
+      ]
+    },
+    {
+      "id": "drill",
+      "style": "UK drill",
+      "genre": "Hip-Hop & Rap",
+      "subGenre": "Trap",
+      "prompts": [
+        "uk drill with sliding 808 bass glides, skippy syncopated hi-hats and dark piano at 142 BPM",
+        "drill rap track with menacing strings, off beat snares and aggressive rap vocals",
+        "new york drill beat with bouncy sliding bass and choppy drums",
+        "dark uk drill instrumental with eerie choir and gliding sub bass",
+        "brooklyn drill song with hard rap flows over sliding 808s and stuttering hats"
+      ]
+    },
+    {
+      "id": "latin-trap",
+      "style": "Latin trap",
+      "genre": "Latin & Urbano",
+      "subGenre": "Latin Trap",
+      "prompts": [
+        "latin trap with spanish rap vocals, rolling hi-hats and a booming 808 bass",
+        "trap latino song with autotuned spanish vocals and dark trap beat",
+        "puerto rican trap with heavy 808, triplet hats and spanish rap verses",
+        "melodic latin trap, emotional spanish singing over slow trap drums",
+        "hard latin trap banger with distorted bass and spanish rap"
+      ]
+    },
+    {
+      "id": "pop",
+      "style": "pop music",
+      "genre": "Pop",
+      "subGenre": "General Pop",
+      "prompts": [
+        "mainstream pop song with a catchy sung chorus, polished drums and bright synths",
+        "radio pop track with a female singer, upbeat drums and a big hook",
+        "modern pop ballad with emotional vocals, piano and soft drums",
+        "pop song with clean guitar, claps, sing along chorus and glossy production",
+        "chart pop hit with a confident lead vocal, punchy beat and shiny synth chords"
+      ]
+    },
+    {
+      "id": "dance-pop",
+      "style": "dance-pop",
+      "genre": "Pop",
+      "subGenre": "Dance-Pop",
+      "prompts": [
+        "dance pop song with a four on the floor beat, catchy female vocal and bright synths",
+        "upbeat club pop track with disco bass, claps and a sing along chorus",
+        "electropop with pulsing synth bass, danceable beat and pop vocals",
+        "nu disco pop with funky guitar, groovy bass and a dance beat",
+        "euphoric dance pop anthem with big synth chords and a pop hook"
+      ]
+    },
+    {
+      "id": "hyperpop",
+      "style": "hyperpop",
+      "genre": "Pop",
+      "subGenre": "General Pop",
+      "prompts": [
+        "hyperpop with pitched up autotuned vocals, distorted glitchy synths and chaotic loud drums",
+        "bubblegum bass hyperpop, squeaky high vocals, sugary synths and clipping 808s",
+        "glitchy experimental pop with extreme vocal effects and blown out bass",
+        "digicore hyperpop song with fast chipmunk vocals and frantic production",
+        "maximalist hyperpop with metallic synths and overdriven beat"
+      ]
+    },
+    {
+      "id": "k-pop",
+      "style": "K-pop",
+      "genre": "Pop",
+      "subGenre": "K-Pop / J-Pop",
+      "prompts": [
+        "k-pop song with korean vocals, polished dance beat, rap verse and catchy chorus",
+        "girl group k-pop with bright synths, energetic drums and layered vocals",
+        "j-pop song with japanese vocals, upbeat drums and bright guitars",
+        "boy band k-pop track with hard hitting edm drop and sung chorus",
+        "anime opening j-pop with fast drums, soaring vocals and electric guitar"
+      ]
+    },
+    {
+      "id": "indie-pop",
+      "style": "indie pop",
+      "genre": "Pop",
+      "subGenre": "Indie Pop",
+      "prompts": [
+        "indie pop with jangly guitars, soft breathy vocals and simple drums",
+        "dreamy bedroom pop with lo-fi synths, reverb guitar and gentle beat",
+        "indie electropop with warm synths, light drums and airy vocals",
+        "acoustic indie pop song with ukulele, claps and a sweet vocal",
+        "alternative pop with moody synths and intimate vocals"
+      ]
+    },
+    {
+      "id": "rnb",
+      "style": "contemporary R&B",
+      "genre": "Jazz, Soul & Blues",
+      "subGenre": "Smooth Jazz / Soul",
+      "prompts": [
+        "contemporary r&b with smooth sensual vocals, slow snapping beat and deep warm bass",
+        "alternative r&b with atmospheric pads, falsetto vocals and minimal trap drums",
+        "90s r&b slow jam with silky vocal harmonies and a laid back groove",
+        "neo soul with live bass, rhodes piano and a soulful singer",
+        "modern r&b ballad with airy vocals and soft 808 bass"
+      ]
+    },
+    {
+      "id": "soul",
+      "style": "soul",
+      "genre": "Jazz, Soul & Blues",
+      "subGenre": "Smooth Jazz / Soul",
+      "prompts": [
+        "classic soul music with a powerful singer, horn section and groovy bass",
+        "motown soul with tambourine, bass guitar and gospel backing vocals",
+        "funk with slap bass, tight drums, wah guitar and brass stabs",
+        "retro soul ballad with strings and an emotional vocal",
+        "70s funk groove with syncopated bass, clavinet and horns"
+      ]
+    },
+    {
+      "id": "jazz",
+      "style": "jazz",
+      "genre": "Jazz, Soul & Blues",
+      "subGenre": "General Jazz & Blues",
+      "prompts": [
+        "jazz with walking upright bass, swinging ride cymbal and saxophone solo",
+        "smooth jazz with mellow saxophone, soft electric piano and gentle groove",
+        "jazz piano trio with brushes on the snare and improvised piano",
+        "blues with slide guitar, shuffle drums and a gritty singer",
+        "big band swing with trumpets, trombones and swinging drums"
+      ]
+    },
+    {
+      "id": "electro-swing",
+      "style": "electro swing",
+      "genre": "Jazz, Soul & Blues",
+      "subGenre": "Electro-Swing",
+      "prompts": [
+        "electro swing with vintage swing samples, brass, and a modern house beat",
+        "jazzy electro swing with clarinet, upright bass and four on the floor kick",
+        "1920s swing vocals over electronic dance drums",
+        "electro swing track with muted trumpet and bouncy bass",
+        "retro swing band sampled into an electronic beat"
+      ]
+    },
+    {
+      "id": "funk-carioca",
+      "style": "funk carioca",
+      "genre": "Latin & Urbano",
+      "subGenre": "General Latin",
+      "prompts": [
+        "brazilian funk carioca with a tamborzao beat, heavy 808 kicks and portuguese vocals at 130 BPM",
+        "baile funk with booming bass drums, chopped vocal shouts and repetitive beat",
+        "funk mandelao with distorted minimal beat, aggressive brazilian mc vocals and loud bass",
+        "montagem funk with a heavy distorted bass loop and chopped portuguese vocal samples",
+        "funk paulista with a bouncing beat, rattling percussion and brazilian rap vocals"
+      ]
+    },
+    {
+      "id": "reggaeton",
+      "style": "reggaeton",
+      "genre": "Latin & Urbano",
+      "subGenre": "Reggaeton",
+      "prompts": [
+        "reggaeton with a dembow rhythm, boom ch boom chick beat, spanish vocals and deep bass at 95 BPM",
+        "perreo reggaeton song with dembow drums, synth melody and autotuned spanish singing",
+        "romantic reggaeton with a slow dembow beat and smooth spanish vocals",
+        "old school reggaeton with hard dembow drums and spanish rap",
+        "latin urban hit with a dembow groove and catchy spanish chorus"
+      ]
+    },
+    {
+      "id": "salsa-bachata",
+      "style": "salsa",
+      "genre": "Latin & Urbano",
+      "subGenre": "Traditional Latin (Salsa, Bachata)",
+      "prompts": [
+        "salsa with congas, timbales, piano montuno and a brass section",
+        "bachata with picked requinto guitar, bongos and romantic spanish vocals",
+        "merengue with fast accordion, tambora drum and guira",
+        "cumbia with accordion, guacharaca scraper and a swaying beat",
+        "latin dance band with horns, cowbell and clave rhythm"
+      ]
+    },
+    {
+      "id": "latin-house",
+      "style": "Latin house",
+      "genre": "Latin & Urbano",
+      "subGenre": "General Latin",
+      "prompts": [
+        "latin house with latin percussion, spanish vocals and a four on the floor house beat",
+        "tribal latin house with bongos, congas and a groovy bassline",
+        "latin tech house with spanish vocal chops and percussion",
+        "summer latin house track with guitar, percussion and house kick",
+        "latin club house groove with brass stabs and timbales"
+      ]
+    },
+    {
+      "id": "afrobeats",
+      "style": "Afrobeats",
+      "genre": "Reggae & Dancehall",
+      "subGenre": "Dancehall / Afrobeats",
+      "prompts": [
+        "afrobeats with a bouncy syncopated percussion groove, log drum, shakers and smooth nigerian vocals at 105 BPM",
+        "afropop song with highlife guitar, swaying rhythm and catchy chorus",
+        "afrobeats party track with talking drum, claps and melodic vocals",
+        "afro fusion with laid back percussion, warm bass and soft singing",
+        "nigerian afrobeats hit with rolling percussion and pidgin english vocals"
+      ]
+    },
+    {
+      "id": "dancehall",
+      "style": "dancehall",
+      "genre": "Reggae & Dancehall",
+      "subGenre": "Dancehall / Afrobeats",
+      "prompts": [
+        "dancehall with a jamaican deejay vocal, syncopated digital riddim and heavy bass",
+        "modern dancehall track with patois vocals and bouncy drums",
+        "soca music with fast energetic beat, steel drums and carnival vocals",
+        "dancehall riddim with snappy snares, deep bass and toasting vocals",
+        "slow dancehall bashment with heavy kicks and catchy patois hook"
+      ]
+    },
+    {
+      "id": "reggae",
+      "style": "reggae",
+      "genre": "Reggae & Dancehall",
+      "subGenre": "General Reggae",
+      "prompts": [
+        "roots reggae with offbeat skank guitar, one drop drums and deep melodic bass",
+        "classic jamaican reggae with organ bubble, rimshot snare and conscious vocals",
+        "dub reggae with echoing snare, heavy bass and spacious delay effects",
+        "lovers rock reggae with smooth vocals and a relaxed one drop beat",
+        "reggae song with upstroke guitar chops and warm bassline"
+      ]
+    },
+    {
+      "id": "rock",
+      "style": "rock music",
+      "genre": "Rock",
+      "subGenre": "General Rock",
+      "prompts": [
+        "rock song with distorted electric guitars, live drum kit and a powerful male singer",
+        "classic rock with guitar riffs, bass guitar and steady rock drums",
+        "alternative rock with loud fuzzy guitars, driving drums and emotional vocals",
+        "indie rock with jangly guitars and energetic live drums",
+        "industrial rock with heavy distorted guitars, mechanical drums and aggressive vocals"
+      ]
+    },
+    {
+      "id": "punk",
+      "style": "punk rock",
+      "genre": "Punk",
+      "subGenre": "General Punk",
+      "prompts": [
+        "punk rock with fast power chords, rapid drums and shouted vocals",
+        "pop punk with catchy chorus, fast palm muted guitars and energetic drums",
+        "hardcore punk with aggressive fast drums and screamed vocals",
+        "garage punk with raw distorted guitars and loud snare",
+        "skate punk with fast double time drums and melodic guitars"
+      ]
+    },
+    {
+      "id": "metal",
+      "style": "heavy metal music",
+      "genre": "Metal",
+      "subGenre": "Heavy Metal / Hard Rock",
+      "prompts": [
+        "heavy metal with crunchy distorted guitar riffs, double bass drums and powerful vocals",
+        "death metal with blast beats, growled vocals and down tuned guitars",
+        "metalcore with breakdowns, screamed vocals and heavy guitars",
+        "thrash metal with fast palm muted riffs and pounding drums",
+        "hard rock with big guitar riffs and anthemic vocals"
+      ]
+    },
+    {
+      "id": "country",
+      "style": "country music",
+      "genre": "Country & Folk",
+      "subGenre": "Modern Country",
+      "prompts": [
+        "modern country song with twangy electric guitar, steel guitar and a southern male singer",
+        "country pop with acoustic guitar strumming, banjo and catchy chorus",
+        "outlaw country with honky tonk piano, pedal steel and gritty vocals",
+        "nashville country ballad with fiddle and storytelling vocals",
+        "country rock with driving drums and twangy guitars"
+      ]
+    },
+    {
+      "id": "folk",
+      "style": "folk music",
+      "genre": "Country & Folk",
+      "subGenre": "Americana / Folk",
+      "prompts": [
+        "acoustic folk song with fingerpicked guitar and gentle vocals",
+        "americana with banjo, mandolin, upright bass and harmonies",
+        "indie folk with stomps, claps, acoustic guitar and choir vocals",
+        "singer songwriter folk ballad with soft guitar and harmonica",
+        "bluegrass with fast banjo picking and fiddle"
+      ]
+    },
+    {
+      "id": "classical",
+      "style": "classical music",
+      "genre": "Classical & Cinematic",
+      "subGenre": "General Classical",
+      "prompts": [
+        "orchestral classical music with strings, woodwinds and brass, no drums",
+        "epic cinematic film score with huge orchestra, choir and booming percussion",
+        "string quartet playing a classical piece",
+        "dramatic trailer music with swelling strings and taiko drums",
+        "romantic era symphony with sweeping violins"
+      ]
+    },
+    {
+      "id": "neoclassical",
+      "style": "modern classical music",
+      "genre": "Classical & Cinematic",
+      "subGenre": "Neoclassical",
+      "prompts": [
+        "neoclassical solo piano, gentle emotional melody and reverb",
+        "minimalist modern classical with repeating piano and soft strings",
+        "ambient piano music, soft felt piano and calm atmosphere",
+        "cinematic piano and cello duet, slow and emotional",
+        "contemporary classical piece with sparse piano and violin"
+      ]
+    },
+    {
+      "id": "gospel",
+      "style": "gospel music",
+      "genre": "Gospel & Christian",
+      "subGenre": "Gospel",
+      "prompts": [
+        "gospel with a powerful choir, hammond organ, piano and clapping",
+        "black gospel song with call and response vocals and soulful lead singer",
+        "contemporary worship music with acoustic guitar, soft drums and congregational vocals",
+        "christian worship anthem with swelling pads, piano and uplifting chorus",
+        "praise gospel with live band, tambourine and choir harmonies"
+      ]
+    },
+    {
+      "id": "industrial",
+      "style": "industrial music",
+      "genre": "Experimental & Avant-Garde",
+      "subGenre": "Industrial",
+      "prompts": [
+        "industrial music with harsh metallic percussion, distorted noise and mechanical rhythms",
+        "electronic body music with pounding sequenced bass and cold aggressive vocals",
+        "dark industrial soundscape with clanging metal and grinding textures",
+        "noise music with abrasive distortion",
+        "glitch idm with complex chopped beats and abstract electronic textures"
+      ]
+    }
+  ]
+}

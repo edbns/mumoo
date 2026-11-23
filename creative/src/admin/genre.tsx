@@ -16,7 +16,7 @@ const PLACES = [0.25, 0.5, 0.75];
 const RATE = 48_000;
 const POLL_MS = 3000;
 const GIVE_UP_MS = 120_000;
-/** A sub-genre is guessed only when at least two other songs of it are near: three songs is the least that can teach it. */
+/** Below this many songs a sub-genre teaches little: three songs is the least that can teach it. */
 const ENOUGH = 3;
 
 type Item = { key: string; file: File; match: StyleMatch | null; status: 'waiting' | 'working' | 'done' | 'failed'; note?: string };
@@ -117,7 +117,7 @@ export function GenreView() {
     {training && <div className="grid gap-4 sm:grid-cols-3">
       <Stat label="Songs" value={training.songs.length} note={`${training.groups.length} sub-genres`} />
       <Stat label="Would ask" value={percent(training.ready.asked, training.ready.clips)} note={`On ${training.ready.asked} of ${training.ready.clips} clips, if their song were new`} />
-      <Stat label="Right when asked" value={percent(training.ready.right, training.ready.asked)} note="The right sub-genre. A yes to a wrong guess is learned as true." />
+      <Stat label="Right when asked" value={percent(training.ready.right, training.ready.asked)} note="The right genre. A yes to a wrong guess is learned as true." />
     </div>}
 
     <section aria-label="Add songs" className="flex flex-col gap-3">
@@ -145,7 +145,7 @@ export function GenreView() {
     {training && <section aria-label="Sub-genres" className="flex flex-col gap-3">
       <div>
         <h2 className="m-0 text-sm font-medium">Sub-genres</h2>
-        <p className="m-0 text-xs text-muted-foreground">A sub-genre needs at least {ENOUGH} songs before it can be guessed, and more makes it surer.</p>
+        <p className="m-0 text-xs text-muted-foreground">The words describing a genre help, but its songs decide: a sub-genre needs at least {ENOUGH} songs to be guessed well, and more makes it surer.</p>
       </div>
       {training.groups.length === 0 ? <p className="m-0 rounded-[var(--radius-panel)] bg-card p-5 text-sm text-muted-foreground">Nothing yet.</p>
         : <div className="overflow-x-auto rounded-[var(--radius-panel)] bg-card shadow-sm">

@@ -1,11 +1,12 @@
 import { validAccess } from '../lib/access.mjs';
 import { clipMs, maxBytes } from '../lib/clip-wav.mjs';
-import { countUnknown } from '../lib/style-prints.mjs';
+import { countUnknown, storeTempo, validTempo } from '../lib/style-prints.mjs';
 
 /**
  * Genre learning, step one: start the sound print of the selected clip (10 to 15 s of mono 48 kHz WAV, up to ~1.4 MB) and return
  * its job id at once; style-print-status keeps it with the style once it is ready.
- * A JSON body { version: 1, unknown: true } instead counts one "I don't know", with nothing about the song.
+ * A JSON body { version: 1, unknown: true } instead counts one "I don't know", with nothing about the song, and
+ * { version: 1, tempo: { sourceSha256, offsetMs, bpm, energy } } keeps the song reader's tempo and loudness of the clip.
  */
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
 const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
@@ -28,8 +29,9 @@ export default async function stylePrint(request) {
 
   if (/^application\/json(?:\s*;|$)/i.test(type)) {
     const data = await request.json().catch(() => null);
-    if (data?.version !== 1 || data.unknown !== true) return error(400, 'Invalid request.');
-    await countUnknown();
+    if (data?.version === 1 && data.unknown === true) await countUnknown();
+    else if (data?.version === 1 && validTempo(data.tempo)) await storeTempo(data.tempo);
+    else return error(400, 'Invalid request.');
     return new Response(null, { status: 204, headers });
   }
 

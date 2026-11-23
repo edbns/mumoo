@@ -86,7 +86,7 @@ export interface CreativeProfileV1 {
   version: 1;
   clip: ClipIdentity;
   creator: {
-    /** `confirmed`: the creator did not know it and said yes to the brain's guess. */
+    /** `confirmed`: the creator did not know it and said yes to the brain's guess; `corrected`: they switched their pick to it. */
     primaryGenre: { value: string; source: 'creator' | 'confirmed' | 'corrected' };
     /** The sub-genre inside the genre, as the creator chose it. */
     subGenre?: { value: string; source: 'creator' | 'confirmed' | 'corrected' };

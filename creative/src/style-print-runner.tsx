@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ClipIdentity } from './creative-profile';
+import type { ClipIdentity, MusicAnalysisV1 } from './creative-profile';
 import type { Style } from './style-search';
 import { encodePcmWav } from './staging-alignment';
 import { trace } from './staging-diagnostics';
@@ -53,6 +53,25 @@ export function StylePrintRunner({ clip, accessToken }: { clip: ClipIdentity; ac
     return () => controller.abort();
   }, [sourceSha256, offsetMs, accessToken]);
   return null;
+}
+
+/** The song reader's tempo and loudness of the clip, kept once per clip in a session beside its print, to learn from later. */
+export function useClipTempo(accessToken: string, clip: ClipIdentity, analysis: MusicAnalysisV1 | null) {
+  const { sourceSha256, offsetMs } = clip;
+  const tempo = analysis?.rhythm.tempo;
+  const raw = tempo?.gridBpm ?? tempo?.bpm ?? null;
+  const bpm = raw !== null && Number.isFinite(raw) && raw > 0 && raw <= 400 ? Math.round(raw * 10) / 10 : null;
+  const frames = analysis?.features.frames ?? [];
+  const energy = frames.length ? Math.round(Math.min(1, Math.max(0, frames.reduce((sum, frame) => sum + frame.rms, 0) / frames.length)) * 1000) / 1000 : null;
+  useEffect(() => {
+    if (!accessToken || !analysis || !sourceSha256 || (bpm === null && energy === null)) return;
+    const key = `${sourceSha256}:${offsetMs}:tempo`;
+    if (sent.has(key)) return;
+    sent.add(key);
+    const body = JSON.stringify({ version: 1, tempo: { sourceSha256, offsetMs, bpm, energy } });
+    void post(accessToken, new AbortController().signal, '/.netlify/functions/style-print', 'application/json', body)
+      .then(response => { if (!response.ok) sent.delete(key); }, () => sent.delete(key));
+  }, [accessToken, analysis, sourceSha256, offsetMs, bpm, energy]);
 }
 
 export type GuessAnswer = 'yes' | 'no' | 'unsure';

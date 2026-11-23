@@ -10,7 +10,7 @@ import type { StyleMatch } from './style-search';
 import { PhoneUpload } from './phone-upload';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
 import { MusicAnalysisRunner } from './music-analysis-runner';
-import { StylePrintRunner, useStyleGuess } from './style-print-runner';
+import { StylePrintRunner, useClipTempo, useStyleGuess } from './style-print-runner';
 import { useLyricMeaning } from './lyric-meaning-cloud';
 import { CreativesPackStudio } from './creatives-pack-studio';
 import { SHELF_ROWS } from './creatives-pack';
@@ -170,6 +170,8 @@ function App() {
   // Once the window is settled the brain listens: "I don't know" gets its guess, and a picked style is checked against how it sounds.
   const [styleGuess, answerGuess] = useStyleGuess(accessToken, buffer, clip,
     IS_ALIGNMENT_STAGING && (genreUnknown || Boolean(style)) && clipValid && (composition.cues.length > 0 || noLyrics || inCreatives), style);
+  const clipAnalysis = analysisForClip(musicAnalysis, clip);
+  useClipTempo(IS_ALIGNMENT_STAGING && clipValid ? accessToken : '', clip, clipAnalysis.status === 'ready' ? clipAnalysis.result : null);
   const guessTaken = styleGuess.status === 'answered' && styleGuess.answer === 'yes';
   const known = guessTaken ? { style: styleGuess.style, label: capitalised(styleGuess.style.name), source: style ? 'corrected' as const : 'confirmed' as const }
     : style ? { style, label: picked!.label, source: 'creator' as const }

@@ -210,6 +210,8 @@ test('a picked genre the song does not sound like is questioned on the analysis 
     assert.deepEqual(guess.picked, { style: 'pop music', genre: 'Pop', subGenre: 'General Pop' }, `the pick is sent to be checked: ${JSON.stringify(guess.picked)}`);
     const answer = styleCalls.find(body => body.answer);
     assert.deepEqual([answer.answer, answer.style, answer.picked.style], ['yes', 'funk carioca', 'pop music']);
+    const tempos = styleCalls.filter(body => body.tempo);
+    assert.deepEqual(tempos.map(body => [body.tempo.sourceSha256 === guess.guess.sourceSha256, body.tempo.bpm, body.tempo.energy]), [[true, 100, 0.2]], 'the song reader\'s tempo of the clip is kept once');
     assert.deepEqual(product.errors, []);
   } finally { await product.close(); }
 });

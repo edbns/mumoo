@@ -72,8 +72,8 @@ export function testLibrary() {
  * `meaning` is what the lyric-meaning worker says about the words (default: nothing in particular); each request body is recorded.
  * The library is `testLibrary()`, so every template has pictures to draw.
  * `launch` opens another browser instead of Brave (WebKit, for Safari).
- * `styleGuess` is what the sound print brain answers about the clip ({ style, genre, subGenre } or null); each status request body
- * is recorded in `styleCalls`. Without it the print is never started, as when the worker cannot be reached.
+ * `styleGuess` is what the sound print brain answers about the clip ({ style, genre, subGenre } or null); each status request body,
+ * and each "I don't know" or tempo sent, is recorded in `styleCalls`. Without it the print is never started, as when the worker cannot be reached.
  */
 export const NEUTRAL_READING = { version: 1, clarity: 'clear', attitude: 'neutral', sadness: 0, intensity: 3 };
 export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = [], meaningCalls = [], styleCalls = [], analysis, meaning = NEUTRAL_READING, styleGuess, launch } = {}) {
@@ -128,7 +128,11 @@ export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = []
     : route.fulfill({ json: meaning }));
 
   if (styleGuess !== undefined) {
-    await page.route('**/.netlify/functions/style-print', route => route.fulfill({ status: 202, json: { id: 'fc-print0001' } }));
+    await page.route('**/.netlify/functions/style-print', route => {
+      if (!route.request().headers()['content-type']?.includes('json')) return route.fulfill({ status: 202, json: { id: 'fc-print0001' } });
+      styleCalls.push(route.request().postDataJSON());
+      return route.fulfill({ status: 204 });
+    });
     await page.route('**/.netlify/functions/style-print-status', route => {
       const body = route.request().postDataJSON();
       styleCalls.push(body);

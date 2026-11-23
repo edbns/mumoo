@@ -1,5 +1,5 @@
 import { validAccess } from '../lib/access.mjs';
-import { CHECK_ANSWERS, GUESS_ANSWERS, checkPick, countCheckAnswer, countGuessAnswer, guessStyle, loadPrints, storePrint, validLabel, validPrint } from '../lib/style-prints.mjs';
+import { CHECK_ANSWERS, GUESS_ANSWERS, blendGuess, checkPick, countCheckAnswer, countGuessAnswer, loadPrints, storePrint, validLabel, validPrint } from '../lib/style-prints.mjs';
 
 /**
  * Genre learning, step two: ask for a sound print job (from style-print). 202 while it runs. Only answers go back to the
@@ -80,7 +80,7 @@ export default async function stylePrintStatus(request) {
     await countCheckAnswer(style, offer.style, CHECK_ANSWERS[data.answer]);
     return Response.json({ status: data.answer === 'unsure' ? 'counted' : 'stored' }, { headers });
   }
-  const guess = guessStyle(result.values, await loadPrints(), clip.sourceSha256);
+  const guess = blendGuess(result.values, await loadPrints(), clip.sourceSha256);
   if (kind === 'guess') return Response.json({ status: 'guessed', guess }, { headers });
   if (guess?.style !== data.style) return error(409, 'The guess for this clip has changed.');
   if (data.answer === 'yes') await storePrint({ ...clip, ...guess, source: 'confirmed' }, result);
