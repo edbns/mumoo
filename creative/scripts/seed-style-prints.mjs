@@ -1,9 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { createServer } from 'vite';
 import { storePrint, validLabel, validPrint } from '../netlify/lib/style-prints.mjs';
+import { db } from '../netlify/lib/person.mjs';
 
 /**
- * Keeps the owner's labelled songs as `seeded` style prints (made on his computer by audio-intelligence/seed_style_prints.py).
+ * Keeps labelled songs and loops as `seeded` style prints (made on the owner's computer by audio-intelligence/seed_style_prints.py);
+ * a loop's licence is kept by its file's hash (style_seed_licences).
  * Each style typed is read by the song step's own search: its first suggestion is the style, as a creator picking it would get.
  * `--as "<typed>=<style>"` names the style itself where the owner chose another (a typo, a style the directory lacks).
  * Shows what it would keep; `--write` keeps it.
@@ -37,7 +39,20 @@ for (const print of prints) {
   const label = { sourceSha256: print.sourceSha256, offsetMs: print.offsetMs, style: style.name, genre: style.genre, subGenre: style.subGenre, source: 'seeded' };
   const result = { version: 1, status: 'ready', model: print.model, values: print.values };
   if (!validLabel(label) || !validPrint(result)) throw new Error(`Invalid print for ${print.typed}`);
-  kept.push([label, result]);
+  if (print.licence !== undefined && !(typeof print.licence === 'string' && print.licence.trim().length > 0 && print.licence.length <= 200)) {
+    throw new Error(`Invalid licence for ${print.typed}`);
+  }
+  kept.push([label, result, print.licence?.trim()]);
 }
+const licences = new Set(kept.map(([, , licence]) => licence).filter(Boolean));
+if (licences.size) console.log(`under: ${[...licences].join(', ')}`);
 console.log(`${kept.length} of ${prints.length} prints ${write ? 'kept' : 'would be kept (add --write)'}`);
-if (write) for (const [label, result] of kept) await storePrint(label, result);
+if (write) {
+  for (const [label, result, licence] of kept) {
+    if (licence) {
+      await db()`insert into style_seed_licences (source_sha256, licence) values (${label.sourceSha256}, ${licence})
+        on conflict (source_sha256) do update set licence = excluded.licence`;
+    }
+    await storePrint(label, result);
+  }
+}
