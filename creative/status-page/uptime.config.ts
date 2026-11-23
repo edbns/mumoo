@@ -1,5 +1,4 @@
-// mumoo's status page, for a private copy of UptimeFlare (github.com/lyc8503/UptimeFlare): this file replaces its
-// `uptime.config.ts`. Keep the copy private: the Telegram bot token below must not be public.
+// mumoo's status page (UptimeFlare). Keep this repository private: the Telegram bot token below must not be public.
 //
 // The workers on Modal are never called from here. Each `/api/status?part=…` monitor is judged on the site from how the real
 // requests of the last hour went (`creative/netlify/functions/status.mjs`), so checking costs no Modal time.
@@ -22,16 +21,21 @@ const part = (id: string, name: string, tooltip: string) => ({
   expectedCodes: [200],
   timeout: 10000,
   headers: { 'User-Agent': 'UptimeFlare (mumoo status)' },
+  hideLatencyChart: true,
 })
 
 const pageConfig: PageConfig = {
-  title: 'mumoo System Status',
+  title: 'mumoo Status',
   links: [
     { link: SITE, label: 'mumoo', highlight: true },
   ],
+  logo: '/logo.png',
+  favicon: '/favicon.png',
+  // UptimeFlare's credit (Apache-2.0), kept small in place of its footer.
+  customFooter: '<p style="text-align: center; font-size: 11px; color: #868e96; margin: 24px 0 16px;">Status page by <a href="https://github.com/lyc8503/UptimeFlare" target="_blank" rel="noopener" style="color: inherit;">UptimeFlare</a></p>',
   group: {
-    'Making videos': ['analysis', 'lyrics', 'renders'],
-    'Your account': ['website', 'accounts', 'storage', 'payments'],
+    'Video Creation': ['analysis', 'lyrics', 'renders'],
+    'Accounts': ['website', 'accounts', 'storage', 'payments'],
     'Smart Links': ['fan-pages'],
   },
 }
@@ -40,44 +44,47 @@ const workerConfig: WorkerConfig = {
   monitors: [
     {
       id: 'website',
-      name: 'Web app',
+      name: 'Website',
       method: 'GET',
       target: `${SITE}/`,
       tooltip: 'The mumoo site opens.',
       statusPageLink: SITE,
       expectedCodes: [200],
+      hideLatencyChart: true,
       timeout: 10000,
       headers: { 'User-Agent': 'UptimeFlare (mumoo status)' },
     },
-    part('accounts', 'Sign-in & accounts', 'Signing in and your account.'),
-    part('storage', 'Media & downloads', 'Your uploads, your videos and their downloads.'),
-    part('analysis', 'Song analysis & genre', 'Reading the beat, the mood and the genre of your song.'),
+    part('accounts', 'Sign-in', 'Signing in and your account.'),
+    part('storage', 'Uploads & downloads', 'Your uploads, your videos and their downloads.'),
+    part('analysis', 'Song analysis', 'Reading the beat, the mood and the genre of your song.'),
     part('lyrics', 'Lyrics', 'Finding, timing and reading your lyrics.'),
-    part('renders', 'Video rendering', 'Making your HD videos. If this is red, your videos are waiting, not lost, and your credits are safe.'),
+    part('renders', 'Rendering', 'Making your HD videos. If this is red, your videos are waiting, not lost, and your credits are safe.'),
     part('payments', 'Payments', 'Buying video packs and adding their credits.'),
     {
       id: 'fan-pages',
-      name: 'Smart Link fan pages',
+      name: 'Fan pages',
       method: 'GET',
       target: FAN_PAGE,
       tooltip: 'The pages fans open from your Smart Links.',
       expectedCodes: [200],
+      hideLatencyChart: true,
       timeout: 10000,
       headers: { 'User-Agent': 'UptimeFlare (mumoo status)' },
     },
   ],
-  notification: {
-    // Alerts go to you only, never to users. Fill in your bot token (from @BotFather) and your own chat id.
-    webhook: {
-      url: 'https://api.telegram.org/botYOUR_BOT_TOKEN/sendMessage',
-      payloadType: 'x-www-form-urlencoded',
-      payload: { chat_id: 'YOUR_CHAT_ID', text: '$MSG' },
-      timeout: 10000,
-    },
-    timeZone: 'Asia/Makassar',
-    // Two failed checks in a row before an alert, so one slow moment does not wake you.
-    gracePeriod: 2,
-  },
+  // Alerts to you on Telegram, off until the bot exists: fill in its token and your chat id, then uncomment.
+  // notification: {
+  //   // Alerts go to you only, never to users. Fill in your bot token (from @BotFather) and your own chat id.
+  //   webhook: {
+  //     url: 'https://api.telegram.org/botYOUR_BOT_TOKEN/sendMessage',
+  //     payloadType: 'x-www-form-urlencoded',
+  //     payload: { chat_id: 'YOUR_CHAT_ID', text: '$MSG' },
+  //     timeout: 10000,
+  //   },
+  //   timeZone: 'Asia/Makassar',
+  //   // Two failed checks in a row before an alert, so one slow moment does not wake you.
+  //   gracePeriod: 2,
+  // },
 }
 
 // A banner at the top of the page while something is being worked on. Example, left off:
