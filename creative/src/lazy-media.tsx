@@ -83,7 +83,7 @@ export function LazyMedia({ picture, video }: { picture?: string; video?: string
     else setReady(true);
   }
 
-  const media = cn('absolute inset-0 size-full object-cover transition-opacity duration-500', ready ? 'opacity-100' : 'opacity-0');
+  const media = cn('absolute inset-0 size-full object-cover transition-opacity duration-200', ready ? 'opacity-100' : 'opacity-0');
   return <div ref={place} className="absolute inset-0">
     <LoadingMask loading={!ready} />
     {near && shown.video && <VideoStill key={shown.video} src={shown.video} className={media} onReady={() => setReady(true)} onFailed={() => failed('video')} />}

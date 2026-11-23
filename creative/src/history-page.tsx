@@ -3,11 +3,13 @@ import { MotionConfig, motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ui/action-dialog';
 import { Button } from '@/components/ui/button';
+import { StatusButton, useStatus } from '@/components/ui/status-button';
 import { ImageGeneration } from '@/components/ui/image-generation';
 import { Modal } from '@/components/ui/modal';
 import { cn } from '@/lib/utils';
 import { AccountColumn, EmptyState } from './account-section';
-import { accountFetch } from './account';
+import { accountFetch, authClient } from './account';
+import { keep, recall } from './page-memory';
 import { LazyMedia, releaseVideo } from './lazy-media';
 import type { ProfileTab } from './profile-nav';
 import { listUploads, removeUpload, type Upload } from './uploads';
@@ -29,12 +31,29 @@ const ZIP_LIMIT = 1_000_000_000;
 const RELINK_MS = 10 * 60_000;
 
 /** Sends one file to the person's downloads. */
-function save(url: string) {
+function save(url: string, name = '') {
   const link = document.createElement('a');
   link.href = url;
-  link.download = '';
+  link.download = name;
   link.click();
 }
+
+const fileName = (item: Item) => `${day(item.createdAt)} ${item.id.slice(0, 6)}.${item.extension}`;
+
+/** Fetched first, so its button can show the file coming in; a file that can't be fetched here is handed to the browser to download. */
+async function saveItem(item: Item) {
+  try {
+    const response = await fetch(item.download!);
+    if (!response.ok) throw new Error(String(response.status));
+    const href = URL.createObjectURL(await response.blob());
+    save(href, fileName(item));
+    setTimeout(() => URL.revokeObjectURL(href), 30000);
+  } catch {
+    save(item.download!);
+  }
+}
+
+type Shown = { creatives: Creative[]; uploads: Upload[]; storage: Storage };
 
 /** How much of the account's room is used, as a short line and a thin bar. */
 function StorageMeter({ used, quota }: { used: number; quota: number }) {
@@ -76,12 +95,16 @@ function useMoreOnScroll(total: number, resetKey: string) {
 
 /** Everything the person has kept, as one wide, endlessly scrolling wall: finished creatives or their own uploads, chosen in the notch. */
 export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; delivered: number }) {
-  const [creatives, setCreatives] = useState<Creative[] | null>(null);
-  const [uploads, setUploads] = useState<Upload[] | null>(null);
-  const [storage, setStorage] = useState<Storage | null>(null);
+  const owner = authClient.useSession().data?.user.id;
+  const [last] = useState(() => recall<Shown>('history', owner, RELINK_MS));
+  const [creatives, setCreatives] = useState<Creative[] | null>(last?.creatives ?? null);
+  const [uploads, setUploads] = useState<Upload[] | null>(last?.uploads ?? null);
+  const [storage, setStorage] = useState<Storage | null>(last?.storage ?? null);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [downloading, download] = useStatus();
+  const [downloadingOne, downloadOne] = useStatus();
+  const busy = downloading !== 'idle';
   const [error, setError] = useState('');
   /**
    * The video playing large, with sound, so the person can see what it is before downloading it again. Its link is its own: the
@@ -102,6 +125,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
         accountFetch('/api/account').then(response => response.json() as Promise<{ storage: Storage }>),
       ]);
       loadedAt.current = Date.now();
+      keep('history', owner, { creatives: renders.renders, uploads: pictures, storage: account.storage } satisfies Shown);
       setCreatives(renders.renders); setUploads(pictures); setStorage(account.storage); setError('');
       return [...renders.renders.map(creativeItem), ...pictures.map(uploadItem)];
     } catch (cause) {
@@ -143,27 +167,22 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
 
   /** One file goes straight to the downloads; several go as one zip. */
   async function downloadChosen() {
-    setBusy(true); setError('');
-    try {
-      const files = chosen.filter(item => item.download);
-      if (files.length === 1) {
-        save(files[0].download!);
-        return;
-      }
+    setError('');
+    const files = chosen.filter(item => item.download);
+    if (files.length === 1) return download(() => saveItem(files[0]));
+    await download(async () => {
       const { zipSync } = await import('fflate');
       const zipped: Record<string, Uint8Array> = {};
       for (const item of files) {
         const bytes = new Uint8Array(await (await fetch(item.download!)).arrayBuffer());
-        zipped[`${day(item.createdAt)} ${item.id.slice(0, 6)}.${item.extension}`] = bytes;
+        zipped[fileName(item)] = bytes;
       }
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([zipSync(zipped, { level: 0 }) as BlobPart], { type: 'application/zip' }));
       link.download = tab === 'creatives' ? 'mumoo-creatives.zip' : 'mumoo-uploads.zip';
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 30000);
-    } catch {
-      setError('Couldn’t make the zip. Download them one by one instead.');
-    } finally { setBusy(false); }
+    }).catch(() => setError('Couldn’t make the zip. Download them one by one instead.'));
   }
 
   async function deleteChosen() {
@@ -189,9 +208,10 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
       </Button>
       {chosen.length === 0 ? storage && <StorageMeter used={storage.used} quota={storage.quota} /> : <div className="flex items-center gap-3">
         <span className="text-sm text-muted-foreground" role="status">{chosen.length} selected</span>
-        <Button variant="secondary" disabled={busy || chosen.length === 0 || chosen.every(item => !item.download) || (chosen.length > 1 && chosenBytes > ZIP_LIMIT)}
+        <StatusButton variant="secondary" status={downloading} working="Downloading…" done="Downloaded" className="min-w-32"
+          disabled={!busy && (chosen.length === 0 || chosen.every(item => !item.download) || (chosen.length > 1 && chosenBytes > ZIP_LIMIT))}
           title={chosen.length > 1 && chosenBytes > ZIP_LIMIT ? 'Too many to zip at once. Download one by one.' : undefined}
-          onClick={() => void downloadChosen()}><DownloadIcon aria-hidden="true" />Download</Button>
+          onClick={() => void downloadChosen()}><DownloadIcon aria-hidden="true" />Download</StatusButton>
         <Button variant="destructive" disabled={busy} onClick={() => setConfirming(true)}><Trash2Icon aria-hidden="true" />Delete</Button>
       </div>}
     </div>}
@@ -237,7 +257,8 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
           className="max-h-[calc(100vh-10rem)] w-full rounded-[var(--radius)] bg-black object-contain" />
         <div className="flex items-center justify-between gap-3 px-1">
           <span className="text-sm text-muted-foreground">{day(watching.createdAt)} · {size(watching.bytes)}</span>
-          {watching.download && <Button variant="secondary" onClick={() => save(watching.download!)}><DownloadIcon aria-hidden="true" />Download</Button>}
+          {watching.download && <StatusButton variant="secondary" status={downloadingOne} working="Downloading…" done="Downloaded" className="min-w-32"
+            onClick={() => void downloadOne(() => saveItem(watching))}><DownloadIcon aria-hidden="true" />Download</StatusButton>}
         </div>
       </div>}
     </Modal>
@@ -245,6 +266,6 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
     <ActionDialog open={confirming} onClose={() => setConfirming(false)} destructive
       title={`Delete ${chosen.length} ${noun}${chosen.length === 1 ? '' : 's'}?`}
       description="They’re removed from your account and storage. Can’t be undone."
-      confirmLabel="Delete" working="Deleting…" onConfirm={deleteChosen} />
+      confirmLabel="Delete" working="Deleting…" done="Deleted" onConfirm={deleteChosen} />
   </AccountColumn>;
 }

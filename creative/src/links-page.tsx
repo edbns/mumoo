@@ -44,9 +44,9 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
   useEffect(() => saveDraft(draft), [draft]);
   const [busy, setBusy] = useState<'find' | 'pick' | 'publish' | null>(null);
   const [error, setError] = useState('');
-  /** The page shows once the phone has drawn the fan page (or after a second at most), so the two arrive together. */
+  /** The page shows once the phone has drawn the fan page (or after a quarter second at most), so the two arrive together. */
   const [phoneReady, setPhoneReady] = useState(false);
-  useEffect(() => { const timer = setTimeout(() => setPhoneReady(true), 1000); return () => clearTimeout(timer); }, []);
+  useEffect(() => { const timer = setTimeout(() => setPhoneReady(true), 250); return () => clearTimeout(timer); }, []);
   const [published, setPublished] = useState<Published | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   /** Ad tokens typed for this link: only in memory, sent once with Publish. */
@@ -147,8 +147,8 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
 
   return <main className="relative mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6">
     {/* Cross-fades with the page, so there is never a blank moment between the two. */}
-    <LinksSkeleton hidden={phoneReady} className={`pointer-events-none absolute inset-x-0 top-0 transition-opacity duration-300 ${phoneReady ? 'opacity-0' : 'opacity-100'}`} />
-    <div className={`flex flex-col gap-4 transition-opacity duration-300 ${phoneReady ? 'opacity-100' : 'opacity-0'}`}>
+    <LinksSkeleton hidden={phoneReady} className={`pointer-events-none absolute inset-x-0 top-0 transition-opacity duration-150 ${phoneReady ? 'opacity-0' : 'opacity-100'}`} />
+    <div className={`flex flex-col gap-4 transition-opacity duration-150 ${phoneReady ? 'opacity-100' : 'opacity-0'}`}>
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-4">
         {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>

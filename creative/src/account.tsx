@@ -12,6 +12,7 @@ import { InviteFriends } from './invite-friends';
 import { PurchaseCredits } from './purchase-credits';
 import { claimPendingReferral } from './referral';
 import { reportProblem } from './report-problem';
+import { forgetPages } from './page-memory';
 
 /**
  * Neon Auth (managed Better Auth), reached through our own address (/api/neon-auth, passed on to Neon as it is) so its session
@@ -172,6 +173,7 @@ export async function requestEmailChange(newEmail: string) {
 export async function deleteAccount(email: string) {
   await accountFetch('/api/account', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
   await authClient.signOut().catch(() => undefined);
+  forgetPages();
   try {
     for (const key of Object.keys(localStorage)) if (key.startsWith('mumoo-')) localStorage.removeItem(key);
   } catch { /* storage unavailable: nothing kept */ }
@@ -185,6 +187,7 @@ const SIGNED_OUT_PAGE = '/welcome';
 /** Signs out, forgets the person's work on this device, and goes to the home page: the page they were on was theirs. */
 export async function signOut() {
   await authClient.signOut().catch(() => undefined);
+  forgetPages();
   for (const key of PERSONAL_KEYS) {
     try { sessionStorage.removeItem(key); localStorage.removeItem(key); } catch { /* storage unavailable: nothing kept */ }
   }

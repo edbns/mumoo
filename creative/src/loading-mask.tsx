@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ImageGeneration } from '@/components/ui/image-generation';
 import { cn } from '@/lib/utils';
 
-const FADE_MS = 500;
+const FADE_MS = 200;
 
 /**
  * What every creative shows while it is not there yet: the drifting field of dots, laid over its card. It fades away when

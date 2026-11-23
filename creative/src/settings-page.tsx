@@ -89,7 +89,7 @@ function DeleteAccount({ email }: { email: string }) {
       title="Delete your account?"
       description="Your creatives, pictures and history get deleted for good. Can’t be undone."
       cancelLabel="Keep my account" confirmLabel="Delete everything" confirmDisabled={!matches}
-      working="Deleting…"
+      working="Deleting…" done="Deleted"
       onConfirm={() => deleteAccount(typed.trim())} onDone={() => location.assign('/')}>
       <label className="flex flex-col gap-3 text-sm">
         <span className="text-center text-muted-foreground">Type <strong className="break-all text-foreground">{email}</strong> to confirm.</span>

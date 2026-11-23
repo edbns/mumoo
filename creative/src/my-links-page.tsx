@@ -89,7 +89,7 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
     <ActionDialog open={deleting !== null} onClose={() => setDeleting(null)} destructive
       title={`Delete ${deleting ? addressOf(deleting).replace(/^https?:\/\//, '') : 'this link'}?`}
       description="Anyone who opens it finds nothing, and the analytics go too. Can’t be undone."
-      confirmLabel="Delete link" working="Deleting…" onConfirm={() => remove(deleting!)} />
+      confirmLabel="Delete link" working="Deleting…" done="Deleted" onConfirm={() => remove(deleting!)} />
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}
       onSendCode={async email => { await sendSignInCode(email); signInAddress.current = email; }}

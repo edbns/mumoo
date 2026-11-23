@@ -241,14 +241,13 @@ function App() {
       return;
     }
     try {
-      const probedMs = await probeDurationMs(file);
-      const bytes = await file.arrayBuffer();
-      const sourceSha256 = await hashAudio(bytes);
-      // Tags and format are read from the original bytes before decoding detaches the buffer.
+      const [probedMs, bytes] = await Promise.all([probeDurationMs(file), file.arrayBuffer()]);
+      // Everything read from the original bytes starts before decoding detaches the buffer: the hash and the cover copy them as they start.
       const format = sniffAudioFormat(bytes);
       const tags = readSongTags(bytes, format);
-      const cover = await describeCover(readSongCover(bytes, format));
-      const audio = await decodeAudio(bytes, probedMs);
+      const [sourceSha256, cover, audio] = await Promise.all([
+        hashAudio(bytes), describeCover(readSongCover(bytes, format)), decodeAudio(bytes, probedMs),
+      ]);
       validate({ ...INITIAL, sourceSha256 }, audio.duration * 1000);
       if (request !== upload.current) return;
       const nextClip: ClipIdentity = { sourceSha256, offsetMs: 0, durationMs: clipLengthMs(audio.duration * 1000) };

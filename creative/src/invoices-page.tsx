@@ -1,7 +1,8 @@
 import { DownloadIcon } from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { accountFetch } from './account';
+import { accountFetch, authClient } from './account';
+import { keep, recall } from './page-memory';
 import { AccountColumn, AccountSection, EmptyState } from './account-section';
 import { money } from './money';
 import { friendlyError } from './friendly-error';
@@ -37,13 +38,14 @@ const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 
 
 /** What the person paid for and how much, newest first, each with its invoice to download. */
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[] | null>(null);
+  const owner = authClient.useSession().data?.user.id;
+  const [invoices, setInvoices] = useState<Invoice[] | null>(() => recall<Invoice[]>('invoices', owner));
   const [error, setError] = useState('');
 
   useEffect(() => {
     accountFetch('/api/invoices')
       .then(response => response.json() as Promise<{ invoices: Invoice[] }>)
-      .then(result => setInvoices(result.invoices))
+      .then(result => { keep('invoices', owner, result.invoices); setInvoices(result.invoices); })
       .catch(cause => setError(friendlyError(cause, 'Your invoices are unavailable right now. Try again soon.')));
   }, []);
 

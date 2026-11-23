@@ -1,16 +1,17 @@
-import { LoaderCircleIcon as LoaderCircle } from '@/components/icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { DONE_MS, StatusButton, wait, type ButtonStatus } from '@/components/ui/status-button';
 import { Modal } from '@/components/ui/modal';
 import { friendlyError } from '../../friendly-error';
 
 /**
- * A question in the site's own popup. Once confirmed, its button shows the work going on ("Deleting…") and the popup cannot be
- * closed until it is done; then it closes. A failure stays in the popup with the reason.
+ * A question in the site's own popup. Once confirmed, its button shows the work going on and the popup cannot be closed until
+ * it is done; then, with a `done` word, the button says it ("Deleted") for a moment, and the popup closes. A failure stays in
+ * the popup with the reason.
  */
 export function ActionDialog({
   open, onClose, title, description, children, confirmLabel, cancelLabel = 'Cancel', destructive = false, confirmDisabled = false,
-  working, onConfirm, onDone,
+  working, done, onConfirm, onDone,
 }: {
   open: boolean;
   onClose: () => void;
@@ -22,28 +23,33 @@ export function ActionDialog({
   cancelLabel?: string;
   destructive?: boolean;
   confirmDisabled?: boolean;
-  /** What the button says while the work runs ("Deleting…"). */
+  /** What the work is called while it runs ("Deleting…"), for a screen reader. */
   working?: string;
+  /** What the button says once the work is done ("Deleted"). */
+  done?: string;
   onConfirm: () => Promise<void>;
   /** After the work, once the popup is closed. */
   onDone?: () => void;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<ButtonStatus>('idle');
   const [error, setError] = useState('');
+  const busy = status !== 'idle';
 
   useEffect(() => {
-    if (open) { setBusy(false); setError(''); }
+    if (open) { setStatus('idle'); setError(''); }
   }, [open]);
 
   async function confirm() {
-    setBusy(true); setError('');
+    setStatus('working'); setError('');
     try {
       await onConfirm();
-      onClose(); onDone?.();
     } catch (cause) {
       setError(friendlyError(cause, 'That didn’t work. Try again in a sec.'));
-      setBusy(false);
+      setStatus('idle');
+      return;
     }
+    if (done) { setStatus('done'); await wait(DONE_MS); }
+    onClose(); onDone?.();
   }
 
   // The question as it was confirmed: what it names may change under it while the work runs (a selection emptied).
@@ -56,11 +62,10 @@ export function ActionDialog({
       {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
       <div className="flex items-center justify-between gap-3">
         <Button variant="secondary" disabled={busy} onClick={onClose}>{cancelLabel}</Button>
-        <Button variant={destructive ? 'destructive' : 'default'} disabled={!busy && confirmDisabled} aria-disabled={busy || undefined}
-          className={busy ? 'cursor-wait' : undefined} onClick={() => { if (!busy) void confirm(); }}>
-          {busy && <LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />}
-          {busy ? working ?? confirmLabel : confirmLabel}
-        </Button>
+        <StatusButton variant={destructive ? 'destructive' : 'default'} disabled={!busy && confirmDisabled} status={status}
+          working={working ?? confirmLabel} done={done} className="min-w-28" onClick={() => void confirm()}>
+          {confirmLabel}
+        </StatusButton>
       </div>
     </div>
   </Modal>;

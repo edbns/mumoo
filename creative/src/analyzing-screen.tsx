@@ -7,8 +7,8 @@ import { deriveMusicIntent } from './music-intent';
 
 /** How long one fact stays on screen. */
 const FLASH_MS = 1800;
-/** Once the last poster is painted, the bar is left full for a moment before the page opens. */
-const HOLD_MS = 700;
+/** Once the last poster is painted, the full bar is seen for a beat before the page opens. */
+const HOLD_MS = 150;
 
 export type PaintProgress = { done: number; total: number };
 
