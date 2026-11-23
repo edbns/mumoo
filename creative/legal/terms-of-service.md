@@ -1,6 +1,6 @@
 # Terms of Service
 
-**Last updated:** 19 November 2026  
+**Last updated:** 23 November 2026  
 **Contact:** moo@mumoo.app
 
 These Terms of Service (“Terms”) govern your access to and use of the mumoo web application at mumoo.app and related services (the “Service”). By creating an account, purchasing credits, or using the Service, you agree to these Terms. If you do not agree, do not use the Service.
@@ -23,7 +23,7 @@ AI-assisted tools support analysis, recommendations, and creative direction; fin
 - You may delete your account at any time in Settings. Deletion removes your files, history, Smart Links, and sign-in data.
 
 ## 3. Credits and Payments
-- New accounts receive one free Creative as a trial.
+- New accounts receive one free Creative as a trial, once per email address: deleting the account and signing up again with the same address does not give another.
 - After the free Creative, you purchase credits in one-time packs. There is no subscription.
 - Credits do not expire while your account exists.
 - All payments are processed by Polar (polar.sh), which acts as the Merchant of Record. Polar handles payment collection, tax, and invoices. mumoo never sees or stores your card details.

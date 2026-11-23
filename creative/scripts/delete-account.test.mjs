@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { allowanceOf, confirmVideo, reserveVideo } from '../netlify/lib/credits.mjs';
 import { deleteAccount } from '../netlify/lib/delete-account.mjs';
 import { db, recordPerson } from '../netlify/lib/person.mjs';
 import { listKeys, objectSize, putObject, storageReady } from '../netlify/lib/storage.mjs';
@@ -12,6 +13,50 @@ const READY = storageReady() && Boolean(process.env.DATABASE_URL);
 test('/api/account will not delete anything for someone not signed in', async () => {
   const response = await handler(new Request('https://example.test/api/account', { method: 'DELETE', body: '{}' }));
   assert.ok([401, 503].includes(response.status));
+});
+
+test('the free video is once per address: a deleted account signed up again with it, a "+tag" or Gmail dots gets none', { skip: !process.env.DATABASE_URL, timeout: 60000 }, async () => {
+  const sql = db();
+  const tag = randomUUID().slice(0, 8);
+  const used = `free.${tag}@gmail.com`;
+  const unused = `never-${tag}@example.test`;
+  const comeBack = [used, `FREE${tag}+again@googlemail.com`, `f.r.e.e.${tag}@gmail.com`];
+  const ids = [];
+  const signUp = async email => {
+    const id = randomUUID();
+    ids.push(id);
+    await sql`insert into neon_auth."user" (id, name, email, "emailVerified", "createdAt", "updatedAt") values (${id}, '', ${email}, true, now(), now())`;
+    await sql`insert into app_users (id, email) values (${id}, ${email})`;
+    return id;
+  };
+  try {
+    const first = await signUp(used);
+    assert.equal((await allowanceOf(first)).freeVideo, true, 'a new address has its free video');
+    const spend = await reserveVideo(first);
+    assert.equal(spend?.free, true);
+    await confirmVideo(first, spend.id, randomUUID());
+    await deleteAccount({ id: first, email: used }, async () => {});
+    const kept = await sql`select email_key from free_videos_used where email_key = free_video_key(${used})`;
+    assert.equal(kept.length, 1, 'a code of the address is kept');
+    assert.ok(!kept[0].email_key.includes(tag), 'not the address itself');
+    for (const email of comeBack) {
+      const again = await signUp(email);
+      assert.deepEqual(await allowanceOf(again), { credits: 0, freeVideo: false }, `${email} gets no second free video`);
+      assert.equal(await reserveVideo(again), null, `${email} cannot make a video without credits`);
+      await deleteAccount({ id: again, email }, async () => {});
+    }
+
+    const never = await signUp(unused);
+    await deleteAccount({ id: never, email: unused }, async () => {});
+    const back = await signUp(unused);
+    assert.equal((await allowanceOf(back)).freeVideo, true, 'an address that never used it still has it');
+  } finally {
+    await sql`delete from free_videos_used where email_key in (select free_video_key(e) from unnest(${[used, unused]}::text[]) as e)`;
+    for (const id of ids) {
+      await sql`delete from neon_auth."user" where id = ${id}`;
+      await sql`delete from app_users where id = ${id}`;
+    }
+  }
 });
 
 test('deleting an account removes every file, row and the sign-in, and the brain keeps only codes nobody can trace', { skip: !READY, timeout: 60000 }, async () => {

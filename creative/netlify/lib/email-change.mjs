@@ -1,4 +1,5 @@
 import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
+import { rememberFreeVideo } from './credits.mjs';
 import { db, recordPerson } from './person.mjs';
 import { emailChangeCode } from './letters.mjs';
 import { sendMail } from './mail.mjs';
@@ -62,6 +63,7 @@ export async function confirmEmailChange(person, newEmail, code) {
     if (cause?.code === '23505') return refuse(409, 'That email already has a MUMOO account.');
     throw cause;
   }
+  await rememberFreeVideo(person.id);
   await sql`update app_users set email = ${email} where id = ${person.id}`;
   await sql`delete from email_changes where user_id = ${person.id}`;
   return { status: 200, email };

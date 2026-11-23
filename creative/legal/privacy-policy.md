@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated:** 19 November 2026  
+**Last updated:** 23 November 2026  
 **Privacy contact / privacy officer:** moo@mumoo.app
 
 This Privacy Policy explains how mumoo (“we”, “us”) collects, uses, and shares personal data when you use the mumoo web application and Smart Link pages.
@@ -34,7 +34,7 @@ Minimum age is 16.
 - To process payments via Polar.
 - To send transactional emails (sign-in codes, deletion reminders, storage warnings). We do not send marketing emails.
 - To improve recommendations based on anonymised usage signals.
-- For security, rate limiting, and error diagnosis.
+- For security, rate limiting, error diagnosis, and preventing the free Creative from being claimed more than once per email address.
 - To comply with law.
 
 ## 5. Use of AI
@@ -63,6 +63,7 @@ Data is transferred to the USA, Singapore, and other locations as needed to prov
 
 ## 7. Retention
 - **Account data:** until you delete the account. Self-service deletion in Settings removes everything (files, history, Smart Links, sign-in).
+- **Free Creative check:** if you used your free Creative, we keep a one-way code (SHA-256 hash) of your email address after you delete the account or change its email, so that the same address cannot claim another free Creative. The code cannot be turned back into your address and is kept for no other purpose.
 - **Uploads and Creatives:** until you delete them, delete the account, or do not visit for 90 days. We email you at 60 and 83 days before automatic deletion. The account itself remains.
 - **Usage signals:** anonymised when the account is deleted.
 - **Song style prints:** kept only if you confirm the genre guess; linked to a song fingerprint, never to a person.
