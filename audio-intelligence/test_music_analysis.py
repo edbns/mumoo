@@ -10,18 +10,18 @@ from types import SimpleNamespace
 import unittest
 import wave
 
-from audio_source import SAMPLE_RATE, decode_clip, inspect_clip
-from music_analysis import analyze, event_times, features, tempo, temporal_progression, timbre, tonality
+from audio_source import SAMPLE_RATE, clip_length_ms, decode_clip, inspect_clip
+from music_analysis import analyze, event_times, features, tempo, temporal_bins, temporal_progression, timbre, tonality
 
 
-def fixture(path, bpm, first_beat_ms=250, beats_per_bar=4):
+def fixture(path, bpm, first_beat_ms=250, beats_per_bar=4, seconds=15):
     """Generate a drum-like instrumental and its independent programmed grid."""
-    samples = [0.0] * (15 * SAMPLE_RATE)
+    samples = [0.0] * (seconds * SAMPLE_RATE)
     beats, downbeats = [], []
     if bpm is not None:
         for index in range(100):
             ms = first_beat_ms + index * 60_000 / bpm
-            if ms >= 15_000:
+            if ms >= seconds * 1000:
                 break
             start = round(ms * SAMPLE_RATE / 1000)
             downbeat = index % beats_per_bar == 0
@@ -62,7 +62,8 @@ class MusicAnalysisTests(unittest.TestCase):
         self.assertEqual(result["alternativesBpm"], [60, 240])
         self.assertIsNone(result["bpm"])
         self.assertEqual(result["status"], "ambiguous")
-        self.assertEqual(event_times([0, 0.0001, 1.25, 15, -0.01, float("nan")]), [0, 1250])
+        self.assertEqual(event_times([0, 0.0001, 1.25, 15, -0.01, float("nan")], 15000), [0, 1250])
+        self.assertEqual(event_times([1.25, 10.2, 10.6], 10400), [1250, 10200])
 
     def test_recovers_atrevimento_with_mixed_subdivisions(self):
         beats = [120, 320, 580, 800, 1020, 1260, 1500, 1720, 1980, 2180, 2440,
@@ -103,6 +104,26 @@ class MusicAnalysisTests(unittest.TestCase):
         self.assertTrue(any(abs(s["energyChange"] or 0) >= .22 for s in result["segments"][1:]))
         self.assertEqual(sum(s["beatCount"] for s in result["segments"]), 1)
         self.assertEqual(result["segments"][-1]["endMs"], 15000)
+
+    def test_a_short_song_is_binned_to_its_own_end(self):
+        import numpy as np
+        t = np.arange(round(12.4 * SAMPLE_RATE)) / SAMPLE_RATE
+        tone = (.4*np.sin(2*np.pi*100*t)).astype(np.float32)
+        feature_result, bins, _ = features(tone, with_temporal=True)
+        self.assertEqual(len(bins), 13)
+        self.assertEqual((bins[-1]["startMs"], bins[-1]["endMs"]), (12000, 12400))
+        self.assertTrue(all(frame["timeMs"] < 12400 for frame in feature_result["frames"]))
+        result = temporal_progression(bins, [12100])
+        self.assertEqual(result["durationMs"], 12400)
+        self.assertEqual(result["segments"][-1]["endMs"], 12400)
+        self.assertEqual(sum(s["beatCount"] for s in result["segments"]), 1)
+        ten = temporal_progression(temporal_bins(np.zeros((513, 4)), [], [], 10000), [])
+        self.assertEqual((ten["durationMs"], len(ten["bins"])), (10000, 10))
+
+    def test_the_clip_length_is_whole_tenths_from_10_to_15_seconds(self):
+        self.assertEqual(clip_length_ms({"durationMs": 15003}), 15000)
+        self.assertEqual(clip_length_ms({"durationMs": 12398}), 12400)
+        self.assertEqual(clip_length_ms({"durationMs": 9960}), 10000)
 
     def test_temporal_frequency_band_energy_and_zero_state(self):
         import numpy as np
@@ -152,7 +173,7 @@ class MusicAnalysisTests(unittest.TestCase):
             with wave.open(str(path), "wb") as wav:
                 wav.setparams((1, 2, SAMPLE_RATE, 0, "NONE", "not compressed"))
                 wav.writeframes(b"\0" * SAMPLE_RATE * 2)
-            with self.assertRaisesRegex(ValueError, "15-second"):
+            with self.assertRaisesRegex(ValueError, "10 to 15 seconds"):
                 inspect_clip(path, os.environ["MUMOO_FFPROBE"])
 
     @unittest.skipUnless(os.environ.get("MUMOO_FFMPEG") and os.environ.get("MUMOO_FFPROBE"), "provide FFmpeg tools")
@@ -169,6 +190,12 @@ class MusicAnalysisTests(unittest.TestCase):
             path.with_suffix(".bad").write_bytes(b"corrupt")
             with self.assertRaises(subprocess.CalledProcessError):
                 inspect_clip(path.with_suffix(".bad"), ffprobe)
+
+            short = path.with_name("short.wav")
+            fixture(short, 120, seconds=11)
+            self.assertEqual(len(decode_clip(short, ffmpeg, 11000)), 11 * SAMPLE_RATE * 4)
+            self.assertEqual(analyze(SimpleNamespace(clip=short, offset_ms=0, checkpoint=None, ffmpeg=ffmpeg, ffprobe=ffprobe,
+                                                     source_sha256=None))["clip"]["durationMs"], 11000)
 
             identity = {"sha256": "a" * 64}
             result = analyze(SimpleNamespace(clip=path, offset_ms=4200, checkpoint=None,

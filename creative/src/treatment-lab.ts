@@ -88,6 +88,7 @@ function inputOf(treatment: TreatmentId, variant: string, ms = 2400, look: Parti
     energy: 0.55,
     beatIndex: 8,
     beatGapMs: 480,
+    durationMs: 15_000,
     frame: Math.round(ms * 30 / 1000),
     layout: { rotate: 0, scaleBias: 1, cut: 0, seed: 42 },
     font: 'Anton',
@@ -135,7 +136,7 @@ let presetPass: PresetPass | null = null;
 async function presetStill(preset: PresetId, take: string, ms = 1700): Promise<string> {
   await ensure();
   presetPass ??= createPresetPass();
-  const frame = presetFrame(preset, take, { ms, cutsMs: LAB_CUTS, music: LAB_MUSIC, energy: ms >= 2000 ? 0.9 : 0.2, seed: 42 });
+  const frame = presetFrame(preset, take, { ms, cutsMs: LAB_CUTS, durationMs: 15_000, music: LAB_MUSIC, energy: ms >= 2000 ? 0.9 : 0.2, seed: 42 });
   const picture = presetPass.draw(texture!, frame, ms, 42, app!.renderer);
   const sprite = new Sprite(picture);
   app!.stage.visible = false;

@@ -86,11 +86,14 @@ export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = []
   await page.route('**/api/library', route => route.fulfill({ json: { items: testLibrary() } }));
   await page.route('**/test-media/*.jpg', route => route.fulfill({ contentType: 'image/jpeg', body: testPictures()[Number(/(\d+)\.jpg$/.exec(route.request().url())[1])] }));
   await page.route('**/.netlify/functions/analyze-music', route => {
-    const hash = createHash('sha256').update(route.request().postDataBuffer()).digest('hex');
+    const body = route.request().postDataBuffer();
+    const hash = createHash('sha256').update(body).digest('hex');
     analysisCalls.push(hash);
     if (analysis) return route.fulfill({ json: analysis });
+    // The clip's length, as the worker reads it from the mono 16 kHz WAV it is sent.
+    const durationMs = (body.length - 44) / 2 / 16;
     return route.fulfill({ json: {
-      version: 1, method: 'beat_this_librosa', clip: { durationMs: 15000, offsetMs: 0, sha256: hash },
+      version: 1, method: 'beat_this_librosa', clip: { durationMs, offsetMs: 0, sha256: hash },
       rhythm: { beatsMs: [1200, 3600, 7200, 10800], downbeatsMs: [], tempo: { status: 'estimated', bpm: 100, gridBpm: 100, alternativesBpm: [] } },
       features: { transientsMs: [3600, 7200, 10800], frames: Array.from({ length: 30 }, (_, i) => ({ timeMs: i * 500, rms: 0.2, centroidHz: 1400, bandwidthHz: 700, rolloffHz: 3000, onsetStrength: 0.1 })) },
       provenance: {}, metrics: {},
@@ -130,13 +133,13 @@ export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = []
 }
 
 /** Step 1: the song, then what kind of music it is (typed into the one style box and picked from its list), then Continue. */
-export async function uploadSong(page, { genre = 'Pop', seconds = 20, name = 'song.wav', file } = {}) {
+export async function uploadSong(page, { genre = 'Pop', seconds = 20, name = 'song.wav', file, heading = 'Pick your 15 seconds' } = {}) {
   await page.locator('input[type=file]').first().setInputFiles(file ?? { name, mimeType: 'audio/wav', buffer: songWav(seconds) });
   const style = page.getByRole('combobox', { name: 'What kind of music is it?' });
   await style.fill(genre);
   await page.getByRole('option', { name: genre, exact: true }).click();
   await page.locator('main.desktop').getByRole('button', { name: /^(Continue|Get my free video)$/ }).click();
-  await page.getByRole('heading', { name: 'Pick your 15 seconds' }).waitFor();
+  await page.getByRole('heading', { name: heading }).waitFor();
 }
 
 /** Step 2 to the shelf: find the lyrics, Continue, and wait until every card is painted (previews are drawn asynchronously). */

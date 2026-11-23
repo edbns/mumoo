@@ -181,7 +181,7 @@ test('without a preset the Director cuts as it always has', () => {
 
 /* ---------- what the preset does to the picture ---------- */
 
-const moment = (ms, extra = {}) => ({ ms, cutsMs: [2000, 4000, 6250], music: MUSIC, energy: 0.8, seed: 7, ...extra });
+const moment = (ms, extra = {}) => ({ ms, cutsMs: [2000, 4000, 6250], durationMs: 15_000, music: MUSIC, energy: 0.8, seed: 7, ...extra });
 
 test('Club Pulse flashes for two frames on the drop, white or black by take, and punches in on the kick', () => {
   assert.equal(motion.presetFrame('strobe', 'neon-white', moment(DROP + 10)).flash, 1);
@@ -336,7 +336,7 @@ const cases = [
 const python = spawnSync('python3', ['-c', 'import modal'], { encoding: 'utf8' });
 
 test('the worker accepts a known preset and take over Directed or a treatment, and refuses the rest', { skip: python.status !== 0 && 'Python with Modal is not installed' }, () => {
-  const run = spawnSync('python3', ['-c', PROGRAM], { input: JSON.stringify(cases.map(([opts]) => opts)), encoding: 'utf8' });
+  const run = spawnSync('python3', ['-c', PROGRAM], { cwd: fileURLToPath(new URL('../../audio-intelligence/', import.meta.url)), input: JSON.stringify(cases.map(([opts]) => opts)), encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(JSON.parse(run.stdout), cases.map(([, accepted]) => accepted));
 });

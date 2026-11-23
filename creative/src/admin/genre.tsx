@@ -5,7 +5,7 @@ import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { FileDropzone } from '@/components/ui/file-dropzone';
 import { ACCEPTED_AUDIO } from '../audio-format';
 import { decodeAudio, hashAudio, probeDurationMs } from '../audio';
-import { DURATION_MS } from '../composition';
+import { FULL_CLIP_MS } from '../composition';
 import { encodePcmWav } from '../staging-alignment';
 import type { StyleMatch } from '../style-search';
 import { forgetSong, keepClipPrint, loadGenre, startClipPrint, type GenreTraining } from './api';
@@ -29,7 +29,7 @@ const styleOf = (file: File, search: Search | null) => {
 };
 
 async function cut(audio: AudioBuffer, startSeconds: number): Promise<Blob> {
-  const context = new OfflineAudioContext(1, DURATION_MS * RATE / 1000, RATE);
+  const context = new OfflineAudioContext(1, FULL_CLIP_MS * RATE / 1000, RATE);
   const source = context.createBufferSource(); source.buffer = audio; source.connect(context.destination); source.start(0, startSeconds);
   const rendered = await context.startRendering();
   return new Blob([encodePcmWav(rendered.getChannelData(0), RATE)], { type: 'audio/wav' });
@@ -41,8 +41,8 @@ async function teach(file: File, match: StyleMatch): Promise<{ kept: number; cli
   const bytes = await file.arrayBuffer();
   const sourceSha256 = await hashAudio(bytes);
   const audio = await decodeAudio(bytes, probed);
-  const starts = [...new Set(PLACES.map(place => Math.max(0, Math.round(audio.duration * place - DURATION_MS / 2000))))]
-    .filter(start => start + DURATION_MS / 1000 <= audio.duration);
+  const starts = [...new Set(PLACES.map(place => Math.max(0, Math.round(audio.duration * place - FULL_CLIP_MS / 2000))))]
+    .filter(start => start + FULL_CLIP_MS / 1000 <= audio.duration);
   const { style } = match;
   const results = await Promise.all(starts.map(async start => {
     const { id } = await startClipPrint(await cut(audio, start));

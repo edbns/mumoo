@@ -2,11 +2,11 @@
 
 Exact-match architecture (the browser never renders or encodes):
 
-  submit  POST  multipart {audio: 15s mono 32k WAV, meta: JSON, photo?, cutout?, motion?}  ->  {"id": "fc-..."}   (instant)
+  submit  POST  multipart {audio: 10-15 s mono 32k WAV, meta: JSON, photo?, cutout?, motion?}  ->  {"id": "fc-..."}   (instant)
   status  GET   ?id=fc-...                                       ->  202 running | 200 MP4 | 4xx/5xx
 
 The job renders the SAME Pixi scene the user previewed (same worlds, fonts, baked
-Shaders looks) inside headless Chromium (software WebGL, no GPU). The 450 frames
+Shaders looks) inside headless Chromium (software WebGL, no GPU). The frames (450 for 15 s)
 are split into ranges rendered in parallel containers; ffmpeg encodes each range,
 then concatenates the ranges and muxes the audio.
 
@@ -21,7 +21,6 @@ import base64
 import binascii
 import json
 import re
-import struct
 import subprocess
 import tempfile
 from pathlib import Path
@@ -30,18 +29,15 @@ from urllib.parse import urlparse
 from fastapi import HTTPException, Request, Response
 import modal
 
+from clip_wav import clip_ms, max_bytes
+
 APP = "mumoo-creatives-encode-staging"
 SITE = "https://mumoo-staging.netlify.app"
-DURATION_S = 15
 FPS = 30
-FRAMES = DURATION_S * FPS
 CHUNK_FRAMES = 45
 # A whole video's chunks are in by then or the job fails (and the queue tries it again); one takes about a minute, more under load.
 CHUNKS_DEADLINE_S = 480
 SAMPLE_RATE = 32000
-WAV_DATA = SAMPLE_RATE * DURATION_S * 2
-WAV_BYTES = 44 + WAV_DATA
-BODY_LIMIT = 2_000_000
 PHOTO_LIMIT = 3_000_000
 CUTOUT_LIMIT = 1_000_000
 MOTION_LIMIT = 40_000_000
@@ -51,6 +47,8 @@ MEDIA_TYPES = {"photo": "image/jpeg", "cutout": "image/png", "motion": "video/mp
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 OPT_KEYS = {
+    # The card's length; the job sets it from the audio it is sent, whatever the browser said.
+    "durationMs",
     "style", "font", "fontSecondary", "layout",
     "cues", "music", "fallbackText", "plateId", "typeStyle", "typeFinish", "typeAccent", "typeEmphasis", "grade", "lyrics", "colors", "effectId",
     "motionShots", "reel", "cutSeed", "look", "inkSet", "windowMode", "windowPalette", "windowAllowed", "windowShape",
@@ -130,6 +128,7 @@ image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("ffmpeg", "chromium", "fonts-liberation")
     .pip_install("fastapi==0.115.12", "python-multipart==0.0.20", "playwright==1.52.0")
+    .add_local_python_source("clip_wav")
 )
 app = modal.App(APP)
 secret = modal.Secret.from_name("mumoo-music-bridge")
@@ -142,17 +141,6 @@ def authorized(request: Request) -> None:
     bridge = os.environ.get("MUMOO_MUSIC_BRIDGE_SECRET") or ""
     if len(bridge) < 32 or auth != f"Bearer {bridge}":
         raise HTTPException(401, "Unauthorized.")
-
-
-def wav_header_ok(audio: bytes) -> bool:
-    if len(audio) != WAV_BYTES:
-        return False
-    expected = struct.pack(
-        "<4sI4s4sIHHIIHH4sI",
-        b"RIFF", WAV_BYTES - 8, b"WAVE", b"fmt ", 16, 1, 1,
-        SAMPLE_RATE, SAMPLE_RATE * 2, 2, 16, b"data", WAV_DATA,
-    )
-    return audio[:44] == expected
 
 
 def run(cmd: list[str], cwd: Path, timeout: int) -> None:
@@ -258,10 +246,13 @@ def render_chunk(opts: dict, media: dict[str, bytes], start: int, end: int) -> b
     nonpreemptible=True,
 )
 def render_job(audio: bytes, opts: dict, media: dict[str, bytes]) -> bytes:
-    """Fan the frame ranges out in parallel, then concat + mux audio."""
+    """Fan the frame ranges out in parallel, then concat + mux audio. The clip's length (10 to 15 s) is the video's."""
     import time
 
-    ranges = [(i, min(i + CHUNK_FRAMES, FRAMES)) for i in range(0, FRAMES, CHUNK_FRAMES)]
+    duration_ms = clip_ms(audio, SAMPLE_RATE)
+    frames = duration_ms * FPS // 1000
+    opts = {**opts, "durationMs": duration_ms}
+    ranges = [(i, min(i + CHUNK_FRAMES, frames)) for i in range(0, frames, CHUNK_FRAMES)]
     # Each chunk is its own call, fetched on its own: one result lost on the way (a dropped connection) is rendered again,
     # where one `map` stream that broke left the whole job waiting until it timed out.
     calls = [render_chunk.spawn(opts, media, start, end) for start, end in ranges]
@@ -288,7 +279,7 @@ def render_job(audio: bytes, opts: dict, media: dict[str, bytes]) -> bytes:
             "-i", "clip.wav",
             "-map", "0:v:0", "-map", "1:a:0",
             "-c:v", "copy", "-c:a", "aac", "-ar", "48000", "-b:a", "192k",
-            "-t", str(DURATION_S), "-movflags", "+faststart", "out.mp4",
+            "-t", str(duration_ms / 1000), "-movflags", "+faststart", "out.mp4",
         ], d, 120)
         data = (d / "out.mp4").read_bytes()
     if len(data) < 1000:
@@ -487,7 +478,7 @@ async def submit(request: Request):
         if audio_file is None or meta_raw is None or len(str(meta_raw)) > META_LIMIT:
             raise ValueError("fields")
         audio = await audio_file.read()
-        if len(audio) > BODY_LIMIT or not wav_header_ok(audio):
+        if len(audio) > max_bytes(SAMPLE_RATE) or clip_ms(audio, SAMPLE_RATE) is None:
             raise ValueError("audio")
         opts = parse_meta(str(meta_raw))
         media: dict[str, bytes] = {}
@@ -501,7 +492,7 @@ async def submit(request: Request):
             raise ValueError("photo")
         check_media(opts, media)
     except (TypeError, ValueError, binascii.Error, json.JSONDecodeError, AttributeError):
-        raise HTTPException(400, "Expected a 15s mono 32kHz WAV and valid render metadata.") from None
+        raise HTTPException(400, "Expected a 10 to 15 s mono 32kHz WAV and valid render metadata.") from None
 
     call = await render_job.spawn.aio(audio, opts, media)
     return {"id": call.object_id}

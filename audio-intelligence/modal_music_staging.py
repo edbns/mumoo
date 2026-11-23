@@ -6,7 +6,6 @@ import resource
 import os
 from pathlib import Path
 import re
-import struct
 import tempfile
 import time
 from types import SimpleNamespace
@@ -14,13 +13,13 @@ from types import SimpleNamespace
 from fastapi import HTTPException, Request
 import modal
 
+from clip_wav import clip_ms, max_bytes
+
 HERE = Path(__file__).parent
 app = modal.App("mumoo-music-analysis-staging")
-WAV_SIZE = 44 + 15 * 16_000 * 2
-WAV_HEADER = struct.pack("<4sI4s4sIHHIIHH4sI", b"RIFF", WAV_SIZE - 8, b"WAVE", b"fmt ",
-                         16, 1, 1, 16000, 32000, 2, 16, b"data", WAV_SIZE - 44)
+WAV_RATE = 16_000
 CHECKPOINT = Path("/models/final0.ckpt")
-gateway_image = modal.Image.debian_slim(python_version="3.12").pip_install("fastapi==0.115.12")
+gateway_image = modal.Image.debian_slim(python_version="3.12").pip_install("fastapi==0.115.12").add_local_python_source("clip_wav")
 worker_image = (
     modal.Image.debian_slim(python_version="3.12").apt_install("ffmpeg", "curl")
     .pip_install("fastapi==0.115.12")
@@ -34,6 +33,7 @@ worker_image = (
     )
     .add_local_file(HERE / "music_analysis.py", "/root/music_analysis.py", copy=True)
     .add_local_file(HERE / "audio_source.py", "/root/audio_source.py", copy=True)
+    .add_local_file(HERE / "clip_wav.py", "/root/clip_wav.py", copy=True)
     .env({"NUMBA_CPU_NAME": "generic", "NUMBA_CACHE_DIR": "/opt/mumoo-numba",
           "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1",
           "NUMBA_NUM_THREADS": "1"})
@@ -102,11 +102,11 @@ async def analyze_clip(request: Request):
         raise HTTPException(401, "Staging music-analysis access is invalid or expired.")
     body = bytearray()
     async for chunk in request.stream():
-        if len(body) + len(chunk) > WAV_SIZE:
-            raise HTTPException(413, "Send only the selected 15-second audio clip.")
+        if len(body) + len(chunk) > max_bytes(WAV_RATE):
+            raise HTTPException(413, "Send only the selected audio clip.")
         body.extend(chunk)
-    if len(body) != WAV_SIZE or body[:44] != WAV_HEADER:
-        raise HTTPException(400, "Expected exactly 15 seconds of mono PCM WAV.")
+    if clip_ms(bytes(body), WAV_RATE) is None:
+        raise HTTPException(400, "Expected 10 to 15 seconds of mono PCM WAV.")
     try:
         log_stage("worker_dispatch", "start")
         payload = await analyze_selected.remote.aio(bytes(body))

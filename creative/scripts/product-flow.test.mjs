@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canRunBrowserTests, cardColours, lyricsResult, NEUTRAL_READING, openProduct, reachShelf, songMp3WithCover, uploadSong } from './support/product-flow.mjs';
+import { canRunBrowserTests, cardColours, lyricsResult, NEUTRAL_READING, openProduct, reachShelf, songMp3WithCover, songWav, uploadSong } from './support/product-flow.mjs';
 
 const SKIP = !canRunBrowserTests;
 const HEARD = 'louvado seja o Senhor Deus gloria e graça para sempre';
@@ -23,9 +23,9 @@ test('song → clip + lyrics → edit and sync again → creatives', { timeout: 
     assert.equal(await page.getByText('Source file details').count(), 0);
     assert.equal(await page.getByText('Video type').count(), 0);
     assert.match(await page.locator('.clip-range strong').innerText(), /0:00\s*–\s*0:15/);
-    await page.getByLabel('Pick your 15 seconds').press('ArrowRight');
+    await page.getByLabel('Pick your clip').press('ArrowRight');
     assert.match(await page.locator('.clip-range strong').innerText(), /0:01\s*–\s*0:16/);
-    await page.getByLabel('Pick your 15 seconds').press('ArrowLeft');
+    await page.getByLabel('Pick your clip').press('ArrowLeft');
 
     // Continue is locked until lyrics exist and are synced.
     const next = page.locator('.step-actions').getByRole('button', { name: 'Continue' });
@@ -142,6 +142,48 @@ test('every card on the shelf plays from the start of the 15 seconds, wherever t
     const starts = await page.evaluate(() => window.__starts);
     assert.equal(starts.length, 2, `two cards played: ${JSON.stringify(starts)}`);
     for (const [offset, duration] of starts) assert.deepEqual([offset, duration], [0, 15], `a card starts at 0 and plays all 15 s: ${JSON.stringify(starts)}`);
+    assert.deepEqual(product.errors, []);
+  } finally { await product.close(); }
+});
+
+test('a 12-second song (a saved TikTok) is the clip, whole, and its cards play all 12 seconds', { timeout: 180000, skip: SKIP }, async () => {
+  const analysisCalls = [];
+  const product = await openProduct({ analysisCalls, lyrics: () => lyricsResult('short and sweet for the feed', { language: 'en' }) });
+  const { page } = product;
+  try {
+    await page.evaluate(() => {
+      const start = AudioBufferSourceNode.prototype.start;
+      window.__starts = [];
+      AudioBufferSourceNode.prototype.start = function (when, offset, duration) {
+        if (duration) window.__starts.push([offset ?? 0, duration]);
+        return start.call(this, when, offset, duration);
+      };
+    });
+    await uploadSong(page, { seconds: 12, heading: 'Your clip' });
+    assert.match(await page.locator('.clip-range strong').innerText(), /0:00\s*–\s*0:12/);
+    await page.getByText('Your whole song is the clip: 12 seconds.').waitFor();
+    await page.getByLabel('Pick your clip').press('ArrowRight');
+    assert.match(await page.locator('.clip-range strong').innerText(), /0:00\s*–\s*0:12/, 'there is nothing to move');
+    await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
+    await page.locator('.lyrics-editor').waitFor({ timeout: 30000 });
+    await page.getByText('/ 0:12').waitFor();
+    await page.locator('.step-actions').getByRole('button', { name: 'Continue' }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length > 0 && !document.querySelector('.creatives-pack-card.pending'), null, { timeout: 30000 });
+    assert.equal(analysisCalls.length, 1);
+    await page.getByRole('button', { name: /^Play .+ creative$/ }).first().click();
+    await page.waitForTimeout(500);
+    const starts = await page.evaluate(() => window.__starts);
+    assert.deepEqual(starts.at(-1), [0, 12], `the card plays the whole 12 s: ${JSON.stringify(starts)}`);
+    assert.deepEqual(product.errors, []);
+  } finally { await product.close(); }
+});
+
+test('a song under 10 seconds is refused before the clip step', { timeout: 120000, skip: SKIP }, async () => {
+  const product = await openProduct({ lyrics: () => lyricsResult('too short', { language: 'en' }) });
+  const { page } = product;
+  try {
+    await page.locator('input[type=file]').first().setInputFiles({ name: 'short.wav', mimeType: 'audio/wav', buffer: songWav(8) });
+    await page.getByRole('alert').filter({ hasText: 'Need at least 10' }).waitFor({ timeout: 30000 });
     assert.deepEqual(product.errors, []);
   } finally { await product.close(); }
 });

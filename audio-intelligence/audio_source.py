@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 import subprocess
 
-DURATION_MS = 15_000
+# The clip is 15 s; a shorter song is sent whole, down to 10 s (`clip_wav.py`).
+MIN_MS = 10_000
+MAX_MS = 15_000
 SAMPLE_RATE = 22_050
 
 
@@ -25,19 +27,24 @@ def inspect_clip(path, ffprobe="ffprobe"):
         raise ValueError("The analysis clip has no audio stream.")
     stream = report["streams"][0]
     duration = float(report.get("format", {}).get("duration", "nan"))
-    if not 14.85 <= duration <= 15.15:
-        raise ValueError("Submit only the selected 15-second clip.")
+    if not MIN_MS - 150 <= duration * 1000 <= MAX_MS + 150:
+        raise ValueError("Submit only the selected clip, 10 to 15 seconds.")
     return {"durationMs": round(duration * 1000), "codec": stream["codec_name"],
             "sampleRateHz": int(stream["sample_rate"]), "channels": stream["channels"]}
 
 
-def decode_clip(path, ffmpeg="ffmpeg"):
+def clip_length_ms(received):
+    """The selected clip's length, in whole tenths of a second, from what `inspect_clip` measured."""
+    return min(MAX_MS, max(MIN_MS, round(received["durationMs"] / 100) * 100))
+
+
+def decode_clip(path, ffmpeg="ffmpeg", duration_ms=MAX_MS):
     result = subprocess.run(
         [ffmpeg, "-nostdin", "-v", "error", "-xerror", "-protocol_whitelist", "file,pipe",
-         "-i", str(path.resolve()), "-map", "0:a:0", "-t", "15.05", "-ac", "1",
+         "-i", str(path.resolve()), "-map", "0:a:0", "-t", f"{duration_ms / 1000 + 0.05:.2f}", "-ac", "1",
          "-ar", str(SAMPLE_RATE), "-c:a", "pcm_f32le", "-f", "f32le", "pipe:1"],
         check=True, capture_output=True, timeout=30,
     )
-    if len(result.stdout) != SAMPLE_RATE * 15 * 4:
-        raise ValueError("Decoded clip must contain exactly 15 seconds of audio.")
+    if len(result.stdout) != SAMPLE_RATE * duration_ms // 1000 * 4:
+        raise ValueError(f"Decoded clip must contain exactly {duration_ms / 1000:g} seconds of audio.")
     return result.stdout

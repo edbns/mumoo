@@ -16,14 +16,16 @@ const LANGUAGE_OPTIONS = LYRIC_LANGUAGES.map(([code, name]) => ({ value: code, l
 const clock = (ms: number) => `0:${String(Math.floor(Math.max(0, ms) / 1000)).padStart(2, '0')}`;
 
 /**
- * Lyrics for the chosen 15 seconds: find them from the audio in any language, or sync your own text.
+ * Lyrics for the chosen clip: find them from the audio in any language, or sync your own text.
  * One text box is the whole editor — fix words, add missing ones, press Sync again.
  */
 export function LyricsStudio({
-  audio, clipStartMs, token, position, playing, initial, onPlay, onSeek, onLyrics, onState,
+  audio, clipStartMs, clipMs, token, position, playing, initial, onPlay, onSeek, onLyrics, onState,
 }: {
   audio: AudioBuffer;
   clipStartMs: number;
+  /** How long the clip is (15 s, or all of a shorter song). */
+  clipMs: number;
   token: string;
   /** Playhead inside the clip, ms. */
   position: number;
@@ -36,6 +38,7 @@ export function LyricsStudio({
   /** Tells the page whether lyrics are being worked on / edited and not yet synced. */
   onState: (state: { busy: boolean; dirty: boolean }) => void;
 }) {
+  const seconds = clipMs / 1000;
   const [phase, setPhase] = useState<Phase>(initial ? 'edit' : 'start');
   const [language, setLanguage] = useState('auto');
   const [pasting, setPasting] = useState(false);
@@ -96,7 +99,7 @@ export function LyricsStudio({
       lines = tokenizeLyrics(text);
       const count = lines.reduce((n, line) => n + line.length, 0);
       if (!count) { setError('Type or paste the words you hear first.'); return; }
-      if (count > MAX_LYRIC_WORDS) { setError(`That’s ${count} words. 15 seconds only fit ${MAX_LYRIC_WORDS}. Keep just what’s sung here.`); return; }
+      if (count > MAX_LYRIC_WORDS) { setError(`That’s ${count} words. One clip only fits ${MAX_LYRIC_WORDS}. Keep just what’s sung here.`); return; }
     }
     const id = ++run.current;
     const controller = new AbortController();
@@ -107,10 +110,10 @@ export function LyricsStudio({
     setMode(wasMode);
     setPhase('working');
     try {
-      wav.current ??= clipToWav16k(audio, clipStartMs);
+      wav.current ??= clipToWav16k(audio, clipStartMs, clipMs);
       const clip = await wav.current;
       const result = await runLyricsJob({
-        token, wav: clip, lines, signal: controller.signal,
+        token, wav: clip, clipMs, lines, signal: controller.signal,
         language: language === 'auto' ? undefined : language,
       });
       if (id !== run.current) return;
@@ -118,7 +121,7 @@ export function LyricsStudio({
         setPhase(words.length ? 'edit' : 'start');
         setPasting(true);
         setNotice(wasMode === 'transcribe'
-          ? 'Couldn’t hear clear words in these 15 seconds. Try a singing part or type them yourself.'
+          ? `Couldn’t hear clear words in these ${seconds} seconds. Try a singing part or type them yourself.`
           : 'Couldn’t place those words. Check they match what’s sung.');
         return;
       }
@@ -151,13 +154,13 @@ export function LyricsStudio({
     </div>
 
     {phase === 'start' && <div className="lyrics-start flex flex-col items-center gap-5 text-center">
-      <p className="m-0 max-w-sm">We listen to your 15 seconds and write the words, any language.</p>
+      <p className="m-0 max-w-sm">We listen to your {seconds} seconds and write the words, any language.</p>
       <div className="flex flex-wrap justify-center gap-3">
         <Button onClick={() => void start('transcribe')}>Find the lyrics for me</Button>
         <Button variant="secondary" onClick={() => setPasting(open => !open)} aria-expanded={pasting}>I’ll type them myself</Button>
       </div>
       {pasting && <div className="flex w-full flex-col gap-3 text-left">
-        <label>The words sung in these 15 seconds
+        <label>The words sung in these {seconds} seconds
           <textarea className="lyrics-editor" rows={5} value={text} placeholder={'One line per sung line'}
             onChange={event => { setText(event.target.value); setError(''); }} />
         </label>
@@ -194,10 +197,10 @@ export function LyricsStudio({
 
       <div className="lyrics-preview" aria-label="Lyrics timing preview">
         <div className="lyrics-preview-bar">
-          <button type="button" className="round-play" onClick={onPlay} aria-label={playing ? 'Pause' : 'Play the 15 seconds'}>
+          <button type="button" className="round-play" onClick={onPlay} aria-label={playing ? 'Pause' : `Play the ${seconds} seconds`}>
             {playing ? <PauseIcon aria-hidden="true" className="size-4 fill-current" /> : <PlayIcon aria-hidden="true" className="size-4 fill-current" />}
           </button>
-          <span>{clock(position)} / 0:15</span>
+          <span>{clock(position)} / {clock(clipMs)}</span>
         </div>
         <div className={dirty ? 'lyrics-lines stale' : 'lyrics-lines'}>
           {lines.map((line, row) => <p key={row}>

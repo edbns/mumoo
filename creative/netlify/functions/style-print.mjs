@@ -1,15 +1,16 @@
 import { validAccess } from '../lib/access.mjs';
+import { clipMs, maxBytes } from '../lib/clip-wav.mjs';
 import { countUnknown } from '../lib/style-prints.mjs';
 
 /**
- * Genre learning, step one: start the sound print of the selected 15 seconds (mono 48 kHz WAV, ~1.4 MB) and return
+ * Genre learning, step one: start the sound print of the selected clip (10 to 15 s of mono 48 kHz WAV, up to ~1.4 MB) and return
  * its job id at once; style-print-status keeps it with the style once it is ready.
  * A JSON body { version: 1, unknown: true } instead counts one "I don't know", with nothing about the song.
  */
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
 const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const MODAL_SUBMIT = 'https://edbns-mumoo-staging--mumoo-sound-print-staging-submit.us-east.modal.run';
-const WAV_SIZE = 44 + 15 * 48_000 * 2;
+const RATE = 48_000;
 const headers = { 'Cache-Control': 'no-store' };
 const error = (status, message) => Response.json({ error: message }, { status, headers });
 
@@ -23,7 +24,7 @@ export default async function stylePrint(request) {
     return error(401, 'Staging access is invalid or expired.');
   }
   const type = request.headers.get('content-type') || '';
-  if (Number(request.headers.get('content-length') || 0) > WAV_SIZE) return error(413, 'The clip is too large.');
+  if (Number(request.headers.get('content-length') || 0) > maxBytes(RATE)) return error(413, 'The clip is too large.');
 
   if (/^application\/json(?:\s*;|$)/i.test(type)) {
     const data = await request.json().catch(() => null);
@@ -36,7 +37,7 @@ export default async function stylePrint(request) {
   const bridgeSecret = process.env.MUMOO_MUSIC_BRIDGE_SECRET || '';
   if (bridgeSecret.length < 32) return error(503, 'Genre learning is not configured.');
   const audio = await request.arrayBuffer();
-  if (audio.byteLength !== WAV_SIZE) return error(400, 'Expected exactly 15 seconds of mono 48 kHz WAV.');
+  if (clipMs(audio, RATE) === null) return error(400, 'Expected 10 to 15 seconds of mono 48 kHz WAV.');
   try {
     const response = await fetch(MODAL_SUBMIT, {
       method: 'POST', body: audio, redirect: 'error', signal: AbortSignal.timeout(20_000),

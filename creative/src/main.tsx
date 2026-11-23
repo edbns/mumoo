@@ -5,7 +5,7 @@ import { Music2Icon } from '@/components/icons';
 import { decodeAudio, hashAudio, probeDurationMs } from './audio';
 import { ACCEPTED_AUDIO, ACCEPTED_LABEL, readSongCover, readSongTags, sniffAudioFormat, type SongTags } from './audio-format';
 import { describeCover, type CoverRead } from './cover-palette';
-import { DURATION_MS, validate, type Composition } from './composition';
+import { FULL_CLIP_MS, MIN_SONG_MS, clipLengthMs, validate, type Composition } from './composition';
 import type { StyleMatch } from './style-search';
 import { PhoneUpload } from './phone-upload';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
@@ -153,9 +153,10 @@ function App() {
     }
   }
 
-  const clipValid = Boolean(buffer && Number.isSafeInteger(composition.clipStartMs) &&
-    composition.clipStartMs >= 0 && composition.clipStartMs <= buffer.duration * 1000 - DURATION_MS);
-  const clip: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: DURATION_MS };
+  const clipMs = buffer ? clipLengthMs(buffer.duration * 1000) : FULL_CLIP_MS;
+  const clipValid = Boolean(buffer && buffer.duration * 1000 >= MIN_SONG_MS && Number.isSafeInteger(composition.clipStartMs) &&
+    composition.clipStartMs >= 0 && composition.clipStartMs <= buffer.duration * 1000 - clipMs);
+  const clip: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: clipMs };
   // The cart belongs to the song and clip being worked on, and is the same on every page.
   const cart = useCart(clipValid ? songKeyOf(composition.sourceSha256, composition.clipStartMs) : '');
   /** Cart items whose library pictures were removed, as the creatives page last found them (comma-separated ids). */
@@ -247,7 +248,7 @@ function App() {
       const audio = await decodeAudio(bytes, probedMs);
       validate({ ...INITIAL, sourceSha256 }, audio.duration * 1000);
       if (request !== upload.current) return;
-      const nextClip: ClipIdentity = { sourceSha256, offsetMs: 0, durationMs: DURATION_MS };
+      const nextClip: ClipIdentity = { sourceSha256, offsetMs: 0, durationMs: clipLengthMs(audio.duration * 1000) };
       const unchanged = sameClip(previousClip, nextClip);
       if (!unchanged) setMusicAnalysis(NO_ANALYSIS);
       setComposition(current => ({ ...current, sourceSha256, clipStartMs: 0, cues: unchanged ? current.cues : [] }));
@@ -309,18 +310,18 @@ function App() {
       const node = audio.createBufferSource();
       node.buffer = buffer;
       node.connect(audio.destination);
-      const from = fromStart || position >= DURATION_MS ? 0 : position;
+      const from = fromStart || position >= clipMs ? 0 : position;
       const start = audio.currentTime;
-      node.start(start, (composition.clipStartMs + from) / 1000, (DURATION_MS - from) / 1000);
+      node.start(start, (composition.clipStartMs + from) / 1000, (clipMs - from) / 1000);
       source.current = node;
       setPlaying(true);
       function tick() {
-        const next = Math.min(DURATION_MS, from + (audio.currentTime - start) * 1000);
+        const next = Math.min(clipMs, from + (audio.currentTime - start) * 1000);
         // Always advance the live playhead; throttle React seek-bar updates so canvas
         // studios can paint on audio time without waiting on heavy re-renders.
         const now = performance.now();
-        seekTo(next, next >= DURATION_MS || now - positionUiAt.current >= 50);
-        if (next < DURATION_MS) animation.current = requestAnimationFrame(tick);
+        seekTo(next, next >= clipMs || now - positionUiAt.current >= 50);
+        if (next < clipMs) animation.current = requestAnimationFrame(tick);
         else {
           source.current = null;
           setPlaying(false);
@@ -335,7 +336,7 @@ function App() {
   function selectClip(clipStartMs: number) {
     stop();
     seekTo(0);
-    const next: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: clipStartMs, durationMs: DURATION_MS };
+    const next: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: clipStartMs, durationMs: clipMs };
     if (!sameClip(currentClip.current, next)) {
       currentClip.current = next;
       setMusicAnalysis(NO_ANALYSIS);
@@ -449,7 +450,7 @@ function App() {
     {!inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center py-8' : 'desktop trim'}>
       <section>
         <p className="eyebrow mb-6">0{step} / {step === 1 ? 'MUSIC' : 'YOUR CLIP'}</p>
-        {step === 2 && <h1>Pick your 15 seconds</h1>}
+        {step === 2 && <h1>{clipMs < FULL_CLIP_MS ? 'Your clip' : 'Pick your 15 seconds'}</h1>}
         {step === 1 && <>
         <div className="grid items-start gap-5 md:grid-cols-2">
           <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-background p-5">
@@ -465,7 +466,7 @@ function App() {
             <FileDropzone accept={ACCEPTED_AUDIO} icon={Music2Icon} title="Drop your song here" hint={ACCEPTED_LABEL} buttonLabel="Select song" inputLabel="Song file" removeLabel="Remove song" fileName={songName || undefined}
               onSelect={file => void choose(file)} onRemove={() => void choose(undefined)} />
             {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
-            {!loading && !buffer && <p className="hint">Needs to be at least 15 seconds. No song file? A video with the song playing works too (saved TikTok/Reel, screen recording, voice memo).</p>}
+            {!loading && !buffer && <p className="hint">Needs to be at least 10 seconds. No song file? A video with the song playing works too (saved TikTok/Reel, screen recording, voice memo).</p>}
             {IS_ALIGNMENT_STAGING && !loading && !buffer && <PhoneUpload token={accessToken} kind="song" onFiles={([file]) => void choose(file)} />}
           </div>
           <div className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-background p-5">
@@ -489,7 +490,7 @@ function App() {
             <p className="m-0 flex-1">Changed your mind?</p>
             <Button variant="secondary" onClick={() => chooseNoLyrics(false)}>Add lyrics instead</Button>
           </div>}
-          {clipValid && !noLyrics && <LyricsStudio key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs}
+          {clipValid && !noLyrics && <LyricsStudio key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs} clipMs={clipMs}
             token={accessToken} position={position} playing={playing}
             initial={lyricWords.length ? { words: lyricWords, ...lyricsInfo } : undefined}
             onPlay={() => playing ? stop() : void play(true)}
@@ -503,7 +504,7 @@ function App() {
             <Button className={noLyrics ? 'ml-auto' : undefined} disabled={!canContinue} onClick={() => openCreatives(true)}>Continue</Button>
           </div>
         </>}
-        {step === 2 && (error || (buffer && !clipValid)) && <p role="alert">{error || 'Pick a valid 15-second range inside the song.'}</p>}
+        {step === 2 && (error || (buffer && !clipValid)) && <p role="alert">{error || 'Pick a valid range inside the song.'}</p>}
       </section>
     </main> : profile && buffer && (
       <div className="relative flex flex-1 flex-col">

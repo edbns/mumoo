@@ -1,4 +1,4 @@
-"""Analyze exactly 15 seconds of the original mix with Beat This! and librosa."""
+"""Analyze the selected clip of the original mix (10 to 15 seconds) with Beat This! and librosa."""
 import argparse
 from contextlib import contextmanager
 from functools import lru_cache
@@ -13,16 +13,16 @@ import subprocess
 import sys
 import time
 
-from audio_source import DURATION_MS, SAMPLE_RATE, decode_clip, inspect_clip, sha256_file
+from audio_source import SAMPLE_RATE, clip_length_ms, decode_clip, inspect_clip, sha256_file
 
 WINDOW = 1024
 HOP = 220
 CHECKPOINT_SHA256 = "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331"
 
 
-def event_times(seconds):
+def event_times(seconds, duration_ms):
     return sorted({round(float(t) * 1000) for t in seconds
-                   if math.isfinite(t) and 0 <= round(float(t) * 1000) < DURATION_MS})
+                   if math.isfinite(t) and 0 <= round(float(t) * 1000) < duration_ms})
 
 
 def tempo(beats):
@@ -94,6 +94,7 @@ def features(audio, with_temporal=False):
     import librosa
     import numpy as np
 
+    duration_ms = round(len(audio) * 1000 / SAMPLE_RATE)
     magnitude = np.abs(librosa.stft(audio, n_fft=WINDOW, hop_length=HOP, center=True))
     mel = librosa.feature.melspectrogram(S=magnitude ** 2, sr=SAMPLE_RATE, n_fft=WINDOW)
     onset = librosa.onset.onset_strength(S=librosa.power_to_db(mel), sr=SAMPLE_RATE,
@@ -110,14 +111,14 @@ def features(audio, with_temporal=False):
     frames = []
     for index, sample in enumerate(zip(*values, strict=True)):
         ms = round(index * HOP * 1000 / SAMPLE_RATE)
-        if ms < DURATION_MS:
+        if ms < duration_ms:
             frames.append({"timeMs": ms, **dict(zip(names, (round(float(v), 6) for v in sample), strict=True))})
     result = {"sampleRateHz": SAMPLE_RATE, "windowSamples": WINDOW, "hopSamples": HOP,
               "frameTime": "center", "frames": frames,
-              "transientsMs": event_times(peaks * HOP / SAMPLE_RATE)}
+              "transientsMs": event_times(peaks * HOP / SAMPLE_RATE, duration_ms)}
     if not with_temporal:
         return result
-    return result, temporal_bins(magnitude, frames, result["transientsMs"]), {"tonalityV1": tonality(audio), "timbreV1": timbre(magnitude)}
+    return result, temporal_bins(magnitude, frames, result["transientsMs"], duration_ms), {"tonalityV1": tonality(audio), "timbreV1": timbre(magnitude)}
 
 
 KEYS = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
@@ -156,23 +157,24 @@ def timbre(magnitude):
     return {"version": 1, "flatnessMean": round(float(np.mean(flatness)), 6), "flatnessMedian": round(float(np.median(flatness)), 6)}
 
 
-def temporal_bins(magnitude, frames, onsets):
-    """One-second measured mix spectral shares and clip-relative RMS, not stems."""
+def temporal_bins(magnitude, frames, onsets, duration_ms):
+    """One-second measured mix spectral shares and clip-relative RMS, not stems. A clip of 12.4 s ends on a 0.4 s bin."""
     import numpy as np
     power = magnitude ** 2
     freq = np.fft.rfftfreq(WINDOW, 1 / SAMPLE_RATE)
     ranges = {"low": (20, 250), "lowMid": (250, 500), "midHighMid": (500, 4000), "high": (4000, 8000)}
     times = np.arange(power.shape[1]) * HOP / SAMPLE_RATE
     bins = []
-    for i in range(15):
-        mask = (times >= i) & (times < i + 1)
+    for i in range(math.ceil(duration_ms / 1000)):
+        end_ms = min((i + 1) * 1000, duration_ms)
+        mask = (times >= i) & (times < end_ms / 1000)
         totals = {key: float(power[(freq >= lo) & (freq < hi)][:, mask].sum()) for key, (lo, hi) in ranges.items()}
         total = sum(totals.values())
-        rms = [f["rms"] for f in frames if i * 1000 <= f["timeMs"] < (i + 1) * 1000]
-        bins.append({"startMs": i * 1000, "endMs": (i + 1) * 1000,
+        rms = [f["rms"] for f in frames if i * 1000 <= f["timeMs"] < end_ms]
+        bins.append({"startMs": i * 1000, "endMs": end_ms,
                      "rmsMean": sum(rms) / len(rms) if rms else 0.0,
                      "bandShares": {key: round(value / total, 6) if total > 1e-12 else None for key, value in totals.items()},
-                     "onsetCount": sum(i * 1000 <= t < (i + 1) * 1000 for t in onsets)})
+                     "onsetCount": sum(i * 1000 <= t < end_ms for t in onsets)})
     peak = max(b["rmsMean"] for b in bins)
     for b in bins:
         b["relativeEnergy"] = round(b.pop("rmsMean") / peak, 6) if peak > 1e-6 else None
@@ -181,8 +183,10 @@ def temporal_bins(magnitude, frames, onsets):
 
 def temporal_progression(bins, beats):
     """Segment only at sustained relative-energy changes; no inferred drop/build labels."""
+    count = len(bins)
+    duration_ms = bins[-1]["endMs"]
     points = []
-    for i in range(2, 14):
+    for i in range(2, count - 1):
         previous = [b["relativeEnergy"] for b in bins[i-2:i]]
         following = [b["relativeEnergy"] for b in bins[i:i+2]]
         if None in previous + following: continue
@@ -190,9 +194,9 @@ def temporal_progression(bins, beats):
         if abs(difference) >= .22: points.append((abs(difference), i))
     chosen = []
     for _, index in sorted(points, reverse=True):
-        if index >= 2 and 15-index >= 2 and all(abs(index-other) >= 2 for other in chosen): chosen.append(index)
+        if index >= 2 and count-index >= 2 and all(abs(index-other) >= 2 for other in chosen): chosen.append(index)
         if len(chosen) == 5: break
-    edges = [0] + sorted(chosen) + [15]
+    edges = [0] + sorted(chosen) + [count]
     segments = []
     for start, end in zip(edges, edges[1:]):
         section = bins[start:end]
@@ -205,12 +209,13 @@ def temporal_progression(bins, beats):
             bands[key] = round(sum(vals) / len(vals), 6) if vals else None
         energy = avg("relativeEnergy")
         prev = segments[-1]["relativeEnergy"] if segments else None
-        segments.append({"startMs": start*1000, "endMs": end*1000, "relativeEnergy": energy,
-                         "bandShares": bands, "onsetsPerSecond": round(sum(b["onsetCount"] for b in section)/(end-start), 6),
-                         "beatCount": sum(start*1000 <= t < end*1000 for t in beats),
+        end_ms = section[-1]["endMs"]
+        segments.append({"startMs": start*1000, "endMs": end_ms, "relativeEnergy": energy,
+                         "bandShares": bands, "onsetsPerSecond": round(sum(b["onsetCount"] for b in section)*1000/(end_ms-start*1000), 6),
+                         "beatCount": sum(start*1000 <= t < end_ms for t in beats),
                          "energyChange": round(energy-prev, 6) if energy is not None and prev is not None else None})
     return {"version": 1, "status": "available" if any(b["relativeEnergy"] is not None for b in bins) else "unavailable",
-            "durationMs": DURATION_MS, "frequencyBandsHz": {"low": [20,250], "lowMid": [250,500], "midHighMid": [500,4000], "high": [4000,8000]},
+            "durationMs": duration_ms, "frequencyBandsHz": {"low": [20,250], "lowMid": [250,500], "midHighMid": [500,4000], "high": [4000,8000]},
             "energyNormalization": "rms divided by peak one-second rms; null for silence",
             "bandNormalization": "fraction of STFT squared magnitude between 20 and 8000 Hz; null for silence",
             "changeThreshold": .22, "bins": bins, "segments": segments}
@@ -258,7 +263,8 @@ def analyze(args, trace=None):
     child_start = resource.getrusage(resource.RUSAGE_CHILDREN)
     with stage(trace, "audio_decode"):
         clip_properties = inspect_clip(args.clip, args.ffprobe)
-        audio = np.frombuffer(decode_clip(args.clip, args.ffmpeg), dtype="<f4").copy()
+        duration_ms = clip_length_ms(clip_properties)
+        audio = np.frombuffer(decode_clip(args.clip, args.ffmpeg, duration_ms), dtype="<f4").copy()
     decode_seconds = time.perf_counter() - start
     with stage(trace, "librosa_features"):
         feature_result, bins, summaries = features(audio, with_temporal=True)
@@ -279,7 +285,7 @@ def analyze(args, trace=None):
             with stage(trace, "beat_inference"):
                 beat_seconds, downbeat_seconds = model(audio, SAMPLE_RATE)
             inference_seconds.append(round(time.perf_counter() - inference_start, 6))
-        beats, downbeats = event_times(beat_seconds), event_times(downbeat_seconds)
+        beats, downbeats = event_times(beat_seconds, duration_ms), event_times(downbeat_seconds, duration_ms)
         status, reason = ("detected", None) if beats else ("unavailable", "no_beats_detected")
     elif feature_result["transientsMs"]:
         reason = "checkpoint_not_provided"
@@ -291,7 +297,7 @@ def analyze(args, trace=None):
     return {
         "version": 1, "method": "beat_this_librosa",
         "source": {"sha256": args.source_sha256} if args.source_sha256 else None,
-        "clip": {"offsetMs": args.offset_ms, "durationMs": DURATION_MS,
+        "clip": {"offsetMs": args.offset_ms, "durationMs": duration_ms,
                  "sha256": sha256_file(args.clip), "receivedAudio": clip_properties},
         "rhythm": {"status": status, "reason": reason, "beatsMs": beats,
                    "downbeatsMs": downbeats, "tempo": tempo_result},
@@ -310,7 +316,7 @@ def analyze(args, trace=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("clip", type=Path, help="An already-selected 15-second audio file")
+    parser.add_argument("clip", type=Path, help="An already-selected audio clip, 10 to 15 seconds")
     parser.add_argument("--source-sha256")
     parser.add_argument("--offset-ms", required=True, type=int)
     parser.add_argument("--checkpoint", type=Path)

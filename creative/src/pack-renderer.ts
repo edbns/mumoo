@@ -8,7 +8,7 @@
  * A person's own picture (Our photography, Riso, Window, the treatments) is loaded from `photoUrl`: a link in the browser, a page the worker serves in the cloud.
  */
 import { Application, Assets, ColorMatrixFilter, Rectangle, Texture, type WebGLRenderer } from 'pixi.js';
-import { DURATION_MS, HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
+import { FULL_CLIP_MS, HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
 import { ensureFonts, type AdFont, type AdLayout } from './ad-fonts';
 import type { AdPunchStyle } from './ad-punch';
 import { activePackCopy, packReaction, packWordEnter } from './pack-copy';
@@ -42,6 +42,8 @@ export const PREVIEW_WIDTH = 360;
 export const PREVIEW_HEIGHT = 640;
 
 export type PackRendererOpts = {
+  /** How long the creative is: the clip's length (15 s, or all of a shorter song); 15 s when absent. The cloud sets it from the audio it is sent. */
+  durationMs?: number;
   style: AdPunchStyle;
   font: AdFont;
   fontSecondary: AdFont;
@@ -346,7 +348,7 @@ export async function createPackRenderer(
         if (motion) {
           if (reel) {
             // The Director's edit of several pictures, to this music; `seek` takes the moment of the song.
-            reel.direct(current.music, current.cutSeed ?? 0, DURATION_MS, presetCut);
+            reel.direct(current.music, current.cutSeed ?? 0, durationOf(current), presetCut);
             await motion.seek(ms);
           } else if (current.look) {
             // A card with a live look plays its video straight through, as one piece (looping if it is shorter than the clip), not cut up.
@@ -357,7 +359,7 @@ export async function createPackRenderer(
             // The edit: pieces of the clip, cut on the beat, differently for each card.
             const key = `${motionUrlLoaded}|${current.cutSeed ?? 0}|${JSON.stringify(current.motionShots ?? null)}|${current.music?.beatsMs.length ?? 0}|${current.music?.energy.length ?? 0}|${current.music?.accentsMs?.join(',') ?? ''}|${current.music?.pace ?? ''}|${preset ?? ''}`;
             if (key !== cutsKey) {
-              cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, DURATION_MS, current.music, presetCut?.rhythm);
+              cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, durationOf(current), current.music, presetCut?.rhythm);
               cutsKey = key;
             }
             await motion.seek(cuts.length ? sourceMsAt(cuts, ms) : ms, cuts.length ? sourceRateAt(cuts, ms) : 1);
@@ -403,7 +405,7 @@ export async function createPackRenderer(
           presetPass ??= createPresetPass();
           const cutsMs = reel ? reel.cutsMs() : motion && !current.look ? cuts.slice(1).map(cut => cut.atMs) : [];
           const seed = current.cutSeed ?? 0;
-          picture = presetPass.draw(picture, presetFrame(preset, presetTake, { ms, cutsMs, music: current.music, energy, seed }), ms, seed, app.renderer);
+          picture = presetPass.draw(picture, presetFrame(preset, presetTake, { ms, cutsMs, durationMs: durationOf(current), music: current.music, energy, seed }), ms, seed, app.renderer);
         }
         const beat = calmBeat(reaction.beat, current.grade);
         // A preset is the card's colour: the lyrics' grade only calms its beat.
@@ -427,6 +429,7 @@ export async function createPackRenderer(
           word: copy.word,
           wordEnter,
           ms,
+          durationMs: durationOf(current),
           words: copy.words,
           background: picture,
           preset: preset ?? undefined,
@@ -483,6 +486,8 @@ async function sharedRenderer(opts: PackRendererOpts): Promise<PackRenderer> {
 }
 
 /** How a card's edit preset cuts the reel: its rhythm, and how long its dissolves take. */
+const durationOf = (opts: PackRendererOpts) => opts.durationMs ?? FULL_CLIP_MS;
+
 function presetCutOf(opts: PackRendererOpts) {
   const preset = opts.preset ?? null;
   return preset ? { rhythm: presetDef(preset).rhythm, dissolveMs: TRANSITION[preset](opts.presetTake ?? '') === 'dissolve' ? DISSOLVE_MS : 0 } : undefined;
@@ -491,7 +496,7 @@ function presetCutOf(opts: PackRendererOpts) {
 /** Before a shelf of still cards is drawn, each at its `frame`: the pictures they show are fetched side by side (see `warmStills`). */
 export async function warmPackStills(cards: readonly { opts: PackRendererOpts; frame: number }[]): Promise<void> {
   await warmStills(cards.flatMap(({ opts, frame }) => (opts.reel?.length
-    ? [{ sources: opts.reel, ms: packReaction(opts.music, frame).ms, music: opts.music, seed: opts.cutSeed ?? 0, durationMs: DURATION_MS, preset: presetCutOf(opts) }]
+    ? [{ sources: opts.reel, ms: packReaction(opts.music, frame).ms, music: opts.music, seed: opts.cutSeed ?? 0, durationMs: durationOf(opts), preset: presetCutOf(opts) }]
     : [])));
 }
 

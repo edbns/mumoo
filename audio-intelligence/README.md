@@ -6,15 +6,15 @@ Cloud workers for the Creative Studio. Each runs on Modal (CPU only) and is call
 |---|---|---|
 | Lyrics | `modal_lyrics_v2_staging.py` | Transcribe (faster-whisper) and time every word (MMS forced alignment), in any language. Also times lyrics the user typed. |
 | Lyric meaning | `modal_lyric_meaning_staging.py` | What the approved words mean (attitude, sadness, intensity), read by Qwen3-8B (Apache 2.0) that we host ourselves on a GPU. Lyrics stay in memory for the request: no third party, no storage, no training. Under 12 words it answers "neutral" without asking the model. The GPU shuts down 20 s after its last answer, so the first call after a quiet spell takes about 40 s to wake it. |
-| Music analysis | `modal_music_staging.py` | Beats, tempo and energy for a selected 15 seconds (`music_analysis.py`). |
+| Music analysis | `modal_music_staging.py` | Beats, tempo and energy for the selected clip (`music_analysis.py`). |
 | Creatives encode | `modal_creatives_encode_staging.py` | Encodes the creatives pack to MP4. |
-| Sound print | `modal_sound_print_staging.py` (`sound_print.py`) | 512 numbers for what LAION's CLAP music model (CC0) hears in the selected 15 seconds, from a 48 kHz clip (at 16 kHz a print moves as far as another part of the song). Songs that sound alike have prints that point the same way: kept with the style creators pick, they teach the genre of a song whose creator does not know it. Matching genre names directly was tried and is too weak (11 of 23 broad genres right on the owner's songs). Cold about 25 s, warm under 2 s, so the site starts a job and asks for it later (`style-print`, `style-print-status`; kept in `style_prints`). |
+| Sound print | `modal_sound_print_staging.py` (`sound_print.py`) | 512 numbers for what LAION's CLAP music model (CC0) hears in the selected clip, from 48 kHz audio (at 16 kHz a print moves as far as another part of the song). Songs that sound alike have prints that point the same way: kept with the style creators pick, they teach the genre of a song whose creator does not know it. Matching genre names directly was tried and is too weak (11 of 23 broad genres right on the owner's songs). Cold about 25 s, warm under 2 s, so the site starts a job and asks for it later (`style-print`, `style-print-status`; kept in `style_prints`). |
 
 Deploy one worker: `python3 -m modal deploy <file>.py -e mumoo-staging`.
 
 ## Music Analysis v1
 
-The analyzer accepts an **already-selected 15-second file**, a clip offset, and an optional original source SHA-256. It never opens the original full song. ffprobe inspects the received clip and FFmpeg decodes it to 22,050 Hz mono float PCM for analysis. The browser reads the song's own title and artist tags before decoding, and these do not feed into playback, export, or the lyric worker.
+The clip is 15 seconds; a song shorter than that (a saved TikTok or Reel) is sent whole, down to 10 seconds, in whole tenths of a second. Every worker checks it with `clip_wav.py`, and the site's functions with `netlify/lib/clip-wav.mjs`. The analyzer accepts an **already-selected clip file**, a clip offset, and an optional original source SHA-256. It never opens the original full song. ffprobe inspects the received clip and FFmpeg decodes it to 22,050 Hz mono float PCM for analysis. The browser reads the song's own title and artist tags before decoding, and these do not feed into playback, export, or the lyric worker.
 
 ```sh
 python music_analysis.py selected.wav --offset-ms 10272 --source-sha256 ORIGINAL_SHA256 \

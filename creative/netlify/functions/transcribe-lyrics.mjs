@@ -1,7 +1,7 @@
 import { validAccess } from '../lib/access.mjs';
 
 /**
- * Start a lyrics job (transcribe + time words, any language). Tiny request: a 15 s mono 16 kHz WAV
+ * Start a lyrics job (transcribe + time words, any language). Tiny request: a 10 to 15 s mono 16 kHz WAV
  * (~480 KB) plus a small JSON with optional lyric tokens and language. Returns a job id at once.
  */
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';

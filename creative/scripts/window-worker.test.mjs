@@ -66,7 +66,7 @@ const cases = {
 const python = spawnSync('python3', ['-c', 'import modal'], { encoding: 'utf8' });
 
 test('the worker accepts the Window cards the page deals and refuses every mistake', { skip: python.status !== 0 && 'Python with Modal is not installed' }, () => {
-  const run = spawnSync('python3', ['-c', PROGRAM], { input: JSON.stringify(Object.values(cases).map(([input]) => input)), encoding: 'utf8' });
+  const run = spawnSync('python3', ['-c', PROGRAM], { cwd: fileURLToPath(new URL('../../audio-intelligence/', import.meta.url)), input: JSON.stringify(Object.values(cases).map(([input]) => input)), encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   const answers = JSON.parse(run.stdout);
   Object.entries(cases).forEach(([name, [, accepted]], index) => assert.equal(answers[index].accepted, accepted, `${name}: ${JSON.stringify(answers[index])}`));

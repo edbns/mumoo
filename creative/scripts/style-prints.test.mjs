@@ -9,6 +9,17 @@ import accessHandler from '../netlify/functions/brain-tester-access.mjs';
 
 const READY = Boolean(process.env.DATABASE_URL);
 const ORIGIN = 'https://mumoo-staging.netlify.app';
+/** A silent clip of `ms` as the browser writes it: mono 16-bit 48 kHz WAV. */
+function silentWav(ms) {
+  const data = 48 * ms * 2;
+  const wav = new Uint8Array(44 + data);
+  const view = new DataView(wav.buffer);
+  wav.set(new TextEncoder().encode('RIFF'), 0); view.setUint32(4, 36 + data, true); wav.set(new TextEncoder().encode('WAVEfmt '), 8);
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, 48_000, true);
+  view.setUint32(28, 96_000, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  wav.set(new TextEncoder().encode('data'), 36); view.setUint32(40, data, true);
+  return wav;
+}
 const label = (over = {}) => ({ sourceSha256: randomBytes(32).toString('hex'), offsetMs: 42_000, style: 'Amapiano', genre: 'African', subGenre: 'Amapiano', source: 'creator', ...over });
 const print = (over = {}) => ({ version: 1, status: 'ready', model: 'laion-clap music_audioset_epoch_15_esc_90.14', values: Array.from({ length: 512 }, (_, i) => Math.round(Math.sin(i) * 1e5) / 2e6), ...over });
 
@@ -88,10 +99,12 @@ test('the endpoints start a print, keep it with the creator\'s style, and count 
     const send = (handler, path, type, body, access = token) => handler(new Request(`${ORIGIN}/.netlify/functions/${path}`, {
       method: 'POST', headers: { origin: ORIGIN, 'content-type': type, 'x-mumoo-brain-access': access }, body,
     }));
-    const wav = new Uint8Array(44 + 15 * 48_000 * 2);
+    const wav = silentWav(15_000);
 
     assert.equal((await send(printHandler, 'style-print', 'audio/wav', wav, 'wrong')).status, 401);
-    assert.equal((await send(printHandler, 'style-print', 'audio/wav', wav.slice(0, 1000))).status, 400, 'only the 15 s at 48 kHz');
+    assert.equal((await send(printHandler, 'style-print', 'audio/wav', wav.slice(0, 1000))).status, 400, 'only a clip at 48 kHz');
+    assert.equal((await send(printHandler, 'style-print', 'audio/wav', silentWav(9_900))).status, 400, 'a clip is at least 10 s');
+    assert.equal((await send(printHandler, 'style-print', 'audio/wav', new Uint8Array(wav.byteLength))).status, 400, 'a clip is WAV');
     const started = await send(printHandler, 'style-print', 'audio/wav', wav);
     assert.equal(started.status, 202);
     assert.deepEqual(await started.json(), { id: 'fc-abcdefgh1234' });

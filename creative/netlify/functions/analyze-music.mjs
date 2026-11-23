@@ -1,8 +1,9 @@
 import { validAccess } from '../lib/access.mjs';
+import { clipMs, maxBytes } from '../lib/clip-wav.mjs';
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
 const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const MODAL_ENDPOINT = 'https://edbns-mumoo-staging--mumoo-music-analysis-staging-analyze-clip.us-east.modal.run';
-const WAV_SIZE = 480_044;
+const RATE = 16_000;
 const headers = { 'Cache-Control': 'no-store' };
 
 function error(status, message) {
@@ -23,9 +24,9 @@ export default async function analyzeMusic(request) {
   if (!legacy && !bridged) return error(401, 'Staging access is invalid or expired.');
   if (!legacy && bridgeSecret.length < 32) return error(503, 'Music analysis is not configured.');
   try {
-    if (Number(request.headers.get('content-length')) > WAV_SIZE) return error(413, 'Send only the 15-second clip.');
+    if (Number(request.headers.get('content-length')) > maxBytes(RATE)) return error(413, 'Send only the selected clip.');
     const body = await request.arrayBuffer();
-    if (body.byteLength !== WAV_SIZE) return error(400, 'Expected exactly 15 seconds of PCM audio.');
+    if (clipMs(body, RATE) === null) return error(400, 'Expected 10 to 15 seconds of PCM audio.');
     const response = await fetch(MODAL_ENDPOINT, {
       method: 'POST', body, redirect: 'error', signal: AbortSignal.timeout(54_000),
       headers: { 'Content-Type': 'audio/wav', ...(request.headers.get('x-mumoo-music-features') === 'temporal-v1' ? { 'X-Mumoo-Music-Features': 'temporal-v1' } : {}), ...(legacy ? { 'X-Mumoo-Analysis-Access': access } : { 'Authorization': `Bearer ${bridgeSecret}` }) },

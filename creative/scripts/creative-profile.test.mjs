@@ -27,3 +27,25 @@ test('clip identity isolates shared analysis, and compositions validate', async 
     await server.close();
   }
 });
+
+test('a song of 10 to 15 seconds is the clip, whole; a shorter one is refused', async () => {
+  const server = await createServer({ server: { middlewareMode: true }, optimizeDeps: { noDiscovery: true }, appType: 'custom', logLevel: 'error' });
+  try {
+    const { clipLengthMs, framesOf, playheadFrame, validate } = await server.ssrLoadModule('/src/composition.ts');
+    assert.equal(clipLengthMs(180_000), 15_000);
+    assert.equal(clipLengthMs(15_000), 15_000);
+    assert.equal(clipLengthMs(12_389.7), 12_300, 'whole tenths of a second');
+    assert.equal(clipLengthMs(10_000), 10_000);
+    assert.equal(framesOf(12_300), 369);
+    assert.equal(playheadFrame(12_299, 12_300), 368);
+    assert.equal(playheadFrame(14_000, 12_300), 368, 'never past the clip');
+    const base = { sourceSha256: 'a'.repeat(64), clipStartMs: 0 };
+    assert.doesNotThrow(() => validate({ ...base, cues: [{ text: 'hi', startMs: 11_000, endMs: 12_300 }] }, 12_389.7));
+    assert.throws(() => validate({ ...base, cues: [{ text: 'hi', startMs: 11_000, endMs: 12_301 }] }, 12_389.7), /inside the clip/);
+    assert.throws(() => validate({ ...base, clipStartMs: 100, cues: [] }, 12_389.7), /12\.3-second range/);
+    assert.doesNotThrow(() => validate({ ...base, cues: [] }, 10_000));
+    assert.throws(() => validate({ ...base, cues: [] }, 9_900), /Need at least 10/);
+  } finally {
+    await server.close();
+  }
+});

@@ -67,8 +67,9 @@ export type PresetMusic = {
 
 export type PresetMoment = {
   ms: number;
-  /** When the edit cuts, in ms of the song. */
+  /** When the edit cuts, in ms of the song, and where the clip ends (its last piece runs to it). */
   cutsMs: readonly number[];
+  durationMs: number;
   music: PresetMusic | null;
   /** How hard the music is now (0..1), as the renderer reads it. */
   energy: number;
@@ -144,10 +145,10 @@ function last(list: readonly number[] | undefined, ms: number): { at: number; in
 }
 
 /** How far through its piece of the edit `ms` is (0..1), and which piece. */
-function piece(cutsMs: readonly number[], ms: number) {
+function piece(cutsMs: readonly number[], ms: number, durationMs: number) {
   const before = last(cutsMs, ms);
   const start = before?.at ?? 0;
-  const end = cutsMs.find(cut => cut > ms) ?? 15_000;
+  const end = cutsMs.find(cut => cut > ms) ?? durationMs;
   return { along: (ms - start) / Math.max(1, end - start), index: before ? before.index + 1 : 0 };
 }
 
@@ -202,13 +203,13 @@ function recDisplay(ms: number, seed: number) {
 }
 
 export function presetFrame(preset: PresetId, take: string, moment: PresetMoment): PresetFrame {
-  const { ms, cutsMs, music, energy, seed } = moment;
+  const { ms, cutsMs, durationMs, music, energy, seed } = moment;
   const t = ms / 1000;
   const frame: PresetFrame = {
     look: lookOf(preset, take), zoom: 1, shiftX: 0, shiftY: 0, rotate: 0, whipBlur: 0, zoomBlur: 0,
     flash: 0, leak: 0, leakX: 0.5, tear: 0, pulse: 0, rec: null,
   };
-  const { along, index } = piece(cutsMs, ms);
+  const { along, index } = piece(cutsMs, ms, durationMs);
   const hit = (list: readonly number[] | undefined, within: number) => {
     const found = last(list, ms);
     return found && ms - found.at < within ? { since: ms - found.at, index: found.index } : null;

@@ -293,7 +293,7 @@ print(json.dumps(answers))
     [{ ...riso }, false, ['photo', 'motion']],
     [{ ...riso }, false, ['cutout']],
   );
-  const run = spawnSync('python3', ['-c', program], { input: JSON.stringify(cases.map(([opts, , media = []]) => ({ opts, media }))), encoding: 'utf8' });
+  const run = spawnSync('python3', ['-c', program], { cwd: fileURLToPath(new URL('../../audio-intelligence/', import.meta.url)), input: JSON.stringify(cases.map(([opts, , media = []]) => ({ opts, media }))), encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(JSON.parse(run.stdout), cases.map(([, accepted]) => accepted));
 });

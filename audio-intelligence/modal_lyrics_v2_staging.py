@@ -1,6 +1,6 @@
 """CPU-only async lyrics transcription + word timing for MUMOO Staging (all languages).
 
-  submit  POST  multipart {audio: 15s mono 16k WAV, meta: JSON}  ->  {"id": "fc-..."}  (instant)
+  submit  POST  multipart {audio: 10-15 s mono 16k WAV, meta: JSON}  ->  {"id": "fc-..."}  (instant)
   status  GET   ?id=fc-...                                       ->  202 running | 200 JSON result
 
 meta = {"lines": [[token, ...], ...] | null, "language": "xx" | null}
@@ -21,18 +21,16 @@ from __future__ import annotations
 import json
 import os
 import re
-import struct
 import time
 import unicodedata
 
 from fastapi import HTTPException, Request, Response
 import modal
 
+from clip_wav import clip_ms
+
 APP = "mumoo-lyrics-v2-staging"
-DURATION_MS = 15_000
 SAMPLE_RATE = 16_000
-WAV_DATA = SAMPLE_RATE * 15 * 2
-WAV_BYTES = 44 + WAV_DATA
 META_LIMIT = 60_000
 MAX_TOKENS = 120
 MAX_LINES = 60
@@ -56,6 +54,7 @@ image = (
         f"snapshot_download('{WHISPER_REPO}', local_dir='{WHISPER_DIR}')\"",
         "python -c \"import torchaudio; torchaudio.pipelines.MMS_FA.get_model(with_star=False)\"",
     )
+    .add_local_python_source("clip_wav")
 )
 app = modal.App(APP)
 secret = modal.Secret.from_name("mumoo-music-bridge")
@@ -68,16 +67,6 @@ def authorized(request: Request) -> None:
     bridge = os.environ.get("MUMOO_MUSIC_BRIDGE_SECRET") or ""
     if len(bridge) < 32 or auth != f"Bearer {bridge}":
         raise HTTPException(401, "Unauthorized.")
-
-
-def wav_header_ok(audio: bytes) -> bool:
-    if len(audio) != WAV_BYTES:
-        return False
-    expected = struct.pack(
-        "<4sI4s4sIHHIIHH4sI", b"RIFF", WAV_BYTES - 8, b"WAVE", b"fmt ", 16, 1, 1,
-        SAMPLE_RATE, SAMPLE_RATE * 2, 2, 16, b"data", WAV_DATA,
-    )
-    return audio[:44] == expected
 
 
 def parse_meta(raw: str) -> tuple[list[list[str]] | None, str | None]:
@@ -213,7 +202,7 @@ def force_align(samples, tokens: list[str]):
     return placed
 
 
-def finalize(texts, lines, timings, source_status):
+def finalize(texts, lines, timings, source_status, duration_ms):
     """Make timings monotonic, integer ms, inside the clip; interpolate anything missing."""
     n = len(texts)
     start = [None] * n
@@ -238,7 +227,7 @@ def finalize(texts, lines, timings, source_status):
         left = end[index - 1] if index > 0 else None
         right = start[run_end] if run_end < n else None
         if left is None and right is None:
-            left, right = 0, DURATION_MS
+            left, right = 0, duration_ms
         if left is None:
             # Leading run: end at the first known word.
             step = min(pace, right / count)
@@ -246,7 +235,7 @@ def finalize(texts, lines, timings, source_status):
                 end[k] = int(round(right - step * (run_end - k - 1)))
                 start[k] = int(round(right - step * (run_end - k)))
         else:
-            room = (right if right is not None else DURATION_MS) - left
+            room = (right if right is not None else duration_ms) - left
             step = min(pace, max(1.0, room / count))
             for k in range(index, run_end):
                 start[k] = int(round(left + step * (k - index)))
@@ -255,10 +244,10 @@ def finalize(texts, lines, timings, source_status):
     out = []
     cursor = 0
     for i in range(n):
-        s = max(cursor, min(start[i], DURATION_MS - 40))
-        e = max(s + 40, min(end[i], DURATION_MS))
-        if e > DURATION_MS:
-            s, e = DURATION_MS - 40, DURATION_MS
+        s = max(cursor, min(start[i], duration_ms - 40))
+        e = max(s + 40, min(end[i], duration_ms))
+        if e > duration_ms:
+            s, e = duration_ms - 40, duration_ms
         cursor = e
         out.append({
             "text": texts[i], "line": lines[i], "startMs": s, "endMs": e,
@@ -310,7 +299,7 @@ def lyrics_job(audio: bytes, lines: list[list[str]] | None, language: str | None
         timings.setdefault(index, value)
     metrics["alignedWords"] = sum(1 for i in timings if i in timings and aligned_by == "aligned")
     metrics["totalSeconds"] = round(time.perf_counter() - started, 2)
-    result["words"] = finalize(texts, line_ids, timings, "aligned" if aligned_by == "aligned" else "estimated")
+    result["words"] = finalize(texts, line_ids, timings, "aligned" if aligned_by == "aligned" else "estimated", clip_ms(audio, SAMPLE_RATE))
     result["metrics"] = metrics
     return result
 
@@ -326,11 +315,11 @@ async def submit(request: Request):
         if audio_file is None or meta_raw is None or len(str(meta_raw)) > META_LIMIT:
             raise ValueError("fields")
         audio = await audio_file.read()
-        if not wav_header_ok(audio):
+        if clip_ms(audio, SAMPLE_RATE) is None:
             raise ValueError("audio")
         lines, language = parse_meta(str(meta_raw))
     except (TypeError, ValueError, json.JSONDecodeError, AttributeError):
-        raise HTTPException(400, "Expected a 15 second mono 16 kHz WAV and valid lyric metadata.") from None
+        raise HTTPException(400, "Expected a 10 to 15 second mono 16 kHz WAV and valid lyric metadata.") from None
     call = await lyrics_job.spawn.aio(audio, lines, language)
     return {"id": call.object_id}
 

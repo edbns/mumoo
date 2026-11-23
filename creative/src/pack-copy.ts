@@ -27,8 +27,9 @@ export type PackSceneInput = {
   phrase: string;
   word: string;
   wordEnter: number;
-  /** Current time within the clip (ms) and the cue's word timings (original case). */
+  /** Current time within the clip (ms), how long the clip is, and the cue's word timings (original case). */
   ms: number;
+  durationMs: number;
   words: readonly TimedWord[];
   /** The picture behind the lyrics: a baked photography effect, a library picture, or the person's own picture. */
   background?: Texture | null;

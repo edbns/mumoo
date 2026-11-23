@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { DURATION_MS } from './composition';
 import type { ClipIdentity } from './creative-profile';
 import type { Style } from './style-search';
 import { encodePcmWav } from './staging-alignment';
@@ -18,9 +17,9 @@ const post = (accessToken: string, signal: AbortSignal, url: string, type: strin
   method: 'POST', signal, headers: { 'Content-Type': type, 'X-Mumoo-Brain-Access': access }, body,
 }));
 
-/** Starts the sound print of the selected 15 s and returns its job id. */
-async function startPrint(accessToken: string, signal: AbortSignal, audio: AudioBuffer, offsetMs: number): Promise<string> {
-  const context = new OfflineAudioContext(1, DURATION_MS * RATE / 1000, RATE);
+/** Starts the sound print of the selected clip and returns its job id. */
+async function startPrint(accessToken: string, signal: AbortSignal, audio: AudioBuffer, { offsetMs, durationMs }: ClipIdentity): Promise<string> {
+  const context = new OfflineAudioContext(1, durationMs * RATE / 1000, RATE);
   const source = context.createBufferSource(); source.buffer = audio; source.connect(context.destination); source.start(0, offsetMs / 1000);
   const rendered = await context.startRendering();
   const started = await post(accessToken, signal, '/.netlify/functions/style-print', 'audio/wav', encodePcmWav(rendered.getChannelData(0), RATE));
@@ -42,10 +41,10 @@ async function askUntilDone(accessToken: string, signal: AbortSignal, body: obje
 
 /**
  * Genre learning on staging: the creator's answer to "What kind of music is it?" teaches the brain how that style sounds.
- * A picked style sends the selected 15 s to be printed and kept with it; "I don't know" only counts the press.
+ * A picked style sends the selected clip to be printed and kept with it; "I don't know" only counts the press.
  */
 export function StylePrintRunner({ audio, clip, style, unknown, accessToken }: { audio: AudioBuffer; clip: ClipIdentity; style?: Style; unknown: boolean; accessToken: string }) {
-  const { sourceSha256, offsetMs } = clip;
+  const { sourceSha256, offsetMs, durationMs } = clip;
   const name = style?.name;
   useEffect(() => {
     if (!accessToken || (!style && !unknown)) return;
@@ -61,7 +60,7 @@ export function StylePrintRunner({ audio, clip, style, unknown, accessToken }: {
           finished = (await post(accessToken, signal, '/.netlify/functions/style-print', 'application/json', JSON.stringify({ version: 1, unknown: true }))).ok;
           return;
         }
-        const id = await startPrint(accessToken, signal, audio, offsetMs);
+        const id = await startPrint(accessToken, signal, audio, { sourceSha256, offsetMs, durationMs });
         const label = { sourceSha256, offsetMs, style: style.name, genre: style.genre, subGenre: style.subGenre, source: 'creator' };
         const response = await askUntilDone(accessToken, signal, { version: 1, id, label });
         if (!response) {
@@ -79,7 +78,7 @@ export function StylePrintRunner({ audio, clip, style, unknown, accessToken }: {
     })();
     return () => controller.abort();
   // A clip and its answer are sent once per mounted runner; the parent keys it by both.
-  }, [audio, sourceSha256, offsetMs, name, unknown, accessToken]);
+  }, [audio, sourceSha256, offsetMs, durationMs, name, unknown, accessToken]);
   return null;
 }
 
@@ -100,11 +99,11 @@ const PREVIEW = new URLSearchParams(location.search).has('preview-guess');
 const PREVIEW_STYLE: Style = { name: 'Afrobeats', genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats' };
 
 /**
- * The brain's guess of the style of the selected 15 s, asked once `enabled`, and how to answer it. Only "yes" teaches
+ * The brain's guess of the style of the selected clip, asked once `enabled`, and how to answer it. Only "yes" teaches
  * the brain (the server keeps the print with its own guess); "no" and "not sure" are only counted.
  */
 export function useStyleGuess(accessToken: string, audio: AudioBuffer | undefined, clip: ClipIdentity, enabled: boolean): [StyleGuess, (answer: GuessAnswer) => void] {
-  const { sourceSha256, offsetMs } = clip;
+  const { sourceSha256, offsetMs, durationMs } = clip;
   const key = `${sourceSha256}:${offsetMs}`;
   const [, rerender] = useState(0);
   const entry = guesses.get(key);
@@ -126,7 +125,7 @@ export function useStyleGuess(accessToken: string, audio: AudioBuffer | undefine
     }, GIVE_UP_MS + CUT_OFF_GRACE_MS);
     void (async () => {
       try {
-        const id = await startPrint(accessToken, signal, audio, offsetMs);
+        const id = await startPrint(accessToken, signal, audio, { sourceSha256, offsetMs, durationMs });
         const response = await askUntilDone(accessToken, signal, { version: 1, id, guess: { sourceSha256, offsetMs } });
         const result = response?.ok ? await response.json().catch(() => null) : null;
         const guess = result?.status === 'guessed' ? result.guess : null;
@@ -146,7 +145,7 @@ export function useStyleGuess(accessToken: string, audio: AudioBuffer | undefine
       controller.abort();
       if (guesses.get(key)?.state.status === 'listening') guesses.delete(key);
     };
-  }, [enabled, accessToken, audio, sourceSha256, offsetMs, key]);
+  }, [enabled, accessToken, audio, sourceSha256, offsetMs, durationMs, key]);
 
   function answer(given: GuessAnswer) {
     const current = guesses.get(key);

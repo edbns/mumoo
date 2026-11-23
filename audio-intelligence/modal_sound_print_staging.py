@@ -1,4 +1,4 @@
-"""Sound print staging app: the CLAP print of a selected 15-second clip (`sound_print.py`), for genre learning.
+"""Sound print staging app: the CLAP print of a selected clip (10 to 15 seconds) (`sound_print.py`), for genre learning.
 
 LAION's original music checkpoint (CC0) through LAION's own loader. Not the Hugging Face conversion
 `laion/larger_clap_music`: it hears silence, noise and drums as one sound (genre-evaluation/README.md).
@@ -9,23 +9,20 @@ import json
 import os
 from pathlib import Path
 import re
-import struct
 import time
 
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 import modal
 
-from sound_print import CHECKPOINT_SHA256, CLIP_SAMPLES, MODEL, SAMPLE_RATE, sound_print
+from clip_wav import MAX_MS, clip_ms, header, max_bytes
+from sound_print import CHECKPOINT_SHA256, MODEL, SAMPLE_RATE, sound_print
 
 HERE = Path(__file__).parent
 app = modal.App("mumoo-sound-print-staging")
-WAV_SIZE = 44 + CLIP_SAMPLES * 2
-WAV_HEADER = struct.pack("<4sI4s4sIHHIIHH4sI", b"RIFF", WAV_SIZE - 8, b"WAVE", b"fmt ",
-                         16, 1, 1, SAMPLE_RATE, SAMPLE_RATE * 2, 2, 16, b"data", WAV_SIZE - 44)
 CALL_RE = re.compile(r"^fc-[A-Za-z0-9]{8,48}$")
 CHECKPOINT = "/models/music_audioset_epoch_15_esc_90.14.pt"
-gateway_image = modal.Image.debian_slim(python_version="3.12").pip_install("fastapi==0.115.12", "numpy==1.26.4").add_local_python_source("sound_print")
+gateway_image = modal.Image.debian_slim(python_version="3.12").pip_install("fastapi==0.115.12", "numpy==1.26.4").add_local_python_source("sound_print", "clip_wav")
 # The versions the prints were measured with on the owner's computer.
 worker_image = (
     modal.Image.debian_slim(python_version="3.12").apt_install("curl")
@@ -46,7 +43,7 @@ worker_image = (
     )
     .env({"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1",
           "OPENBLAS_NUM_THREADS": "1", "NUMBA_NUM_THREADS": "1", "NUMBA_CACHE_DIR": "/tmp/numba"})
-    .add_local_python_source("sound_print")
+    .add_local_python_source("sound_print", "clip_wav")
 )
 model = None
 
@@ -89,11 +86,11 @@ async def submit(request: Request):
     authorized(request)
     body = bytearray()
     async for chunk in request.stream():
-        if len(body) + len(chunk) > WAV_SIZE:
-            raise HTTPException(413, "Send only the selected 15-second audio clip.")
+        if len(body) + len(chunk) > max_bytes(SAMPLE_RATE):
+            raise HTTPException(413, "Send only the selected audio clip.")
         body.extend(chunk)
-    if len(body) != WAV_SIZE or body[:44] != WAV_HEADER:
-        raise HTTPException(400, "Expected exactly 15 seconds of mono 48 kHz PCM WAV.")
+    if clip_ms(bytes(body), SAMPLE_RATE) is None:
+        raise HTTPException(400, "Expected 10 to 15 seconds of mono 48 kHz PCM WAV.")
     call = await print_selected.spawn.aio(bytes(body))
     return {"id": call.object_id}
 
@@ -120,11 +117,11 @@ async def status(request: Request, id: str = ""):
 def check():
     """Prints a made-up clip in the cloud: compare with `sound_print` on the same clip on a computer."""
     import numpy as np
-    t = np.arange(CLIP_SAMPLES) / SAMPLE_RATE
+    t = np.arange(MAX_MS * SAMPLE_RATE // 1000) / SAMPLE_RATE
     clip = 0.3 * np.sin(2 * np.pi * 220 * t) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 2 * t)))
     pcm = (np.clip(clip, -1, 1) * 32767).astype("<i2").tobytes()
     for run in ("cold", "warm"):
         started = time.perf_counter()
-        result = print_selected.remote(WAV_HEADER + pcm)
+        result = print_selected.remote(header(SAMPLE_RATE, MAX_MS) + pcm)
         print(run, round(time.perf_counter() - started, 1), "s", result["status"])
         print(json.dumps(result.get("values", [])[:8]))

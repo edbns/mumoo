@@ -1,20 +1,17 @@
 /**
  * Creatives Pack cloud export — the browser only QUEUES small jobs and asks how they are doing.
  *
- *   browser ──(960 KB WAV once per order + scene JSON per video)──▶ Netlify queue (`render-queue.mjs`) → queue ids
+ *   browser ──(≤960 KB WAV once per order + scene JSON per video)──▶ Netlify queue (`render-queue.mjs`) → queue ids
  *   browser ──(all of the order's ids every 3 s)──▶ Netlify status ──▶ queue: starts Modal jobs in turns, keeps the MP4s in Media
  *
  * No canvas capture, no image upload, no WebGL/WebGPU, no encoding on this machine.
  * The cloud renders the same Pixi scene in headless Chromium (parallel frame ranges).
  */
-import { DURATION_MS } from './composition';
 import { sleep } from './lyrics-cloud';
 import { withAccess } from './staging-token';
 import type { PackRendererOpts } from './pack-renderer';
 
 const SAMPLE_RATE = 32_000;
-const WAV_SAMPLES = SAMPLE_RATE * (DURATION_MS / 1000);
-const WAV_BYTES = 44 + WAV_SAMPLES * 2;
 /** How often queued videos are asked about. */
 const POLL_MS = 3000;
 /** The most videos asked about in one request (under the server's limit); a bigger order is asked about in parts. */
@@ -32,10 +29,12 @@ function writeString(view: DataView, offset: number, value: string) {
   for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
 }
 
-/** Build 15s mono 32 kHz WAV in chunks so the UI can breathe. */
-export async function clipToMonoWav(audio: AudioBuffer, clipStartMs: number): Promise<Uint8Array> {
+/** Build the clip (10 to 15 s) as mono 32 kHz WAV in chunks so the UI can breathe. */
+export async function clipToMonoWav(audio: AudioBuffer, clipStartMs: number, clipMs: number): Promise<Uint8Array> {
+  const samples = SAMPLE_RATE * clipMs / 1000;
+  const bytes = 44 + samples * 2;
   const start = Math.max(0, Math.floor((clipStartMs / 1000) * audio.sampleRate));
-  const need = Math.floor((DURATION_MS / 1000) * audio.sampleRate);
+  const need = Math.floor((clipMs / 1000) * audio.sampleRate);
   const channels = Array.from({ length: audio.numberOfChannels }, (_, c) => audio.getChannelData(c));
   const mono = new Float32Array(need);
   const chunk = 48_000;
@@ -49,9 +48,9 @@ export async function clipToMonoWav(audio: AudioBuffer, clipStartMs: number): Pr
   }
 
   await yieldToUi();
-  const out = new Float32Array(WAV_SAMPLES);
+  const out = new Float32Array(samples);
   const ratio = audio.sampleRate / SAMPLE_RATE;
-  for (let i = 0; i < WAV_SAMPLES; i++) {
+  for (let i = 0; i < samples; i++) {
     const src = i * ratio;
     const i0 = Math.floor(src);
     const i1 = Math.min(mono.length - 1, i0 + 1);
@@ -61,10 +60,10 @@ export async function clipToMonoWav(audio: AudioBuffer, clipStartMs: number): Pr
   }
 
   await yieldToUi();
-  const buffer = new ArrayBuffer(WAV_BYTES);
+  const buffer = new ArrayBuffer(bytes);
   const view = new DataView(buffer);
   writeString(view, 0, 'RIFF');
-  view.setUint32(4, 36 + WAV_SAMPLES * 2, true);
+  view.setUint32(4, 36 + samples * 2, true);
   writeString(view, 8, 'WAVE');
   writeString(view, 12, 'fmt ');
   view.setUint32(16, 16, true);
@@ -75,9 +74,9 @@ export async function clipToMonoWav(audio: AudioBuffer, clipStartMs: number): Pr
   view.setUint16(32, 2, true);
   view.setUint16(34, 16, true);
   writeString(view, 36, 'data');
-  view.setUint32(40, WAV_SAMPLES * 2, true);
+  view.setUint32(40, samples * 2, true);
   let offset = 44;
-  for (let i = 0; i < WAV_SAMPLES; i++) {
+  for (let i = 0; i < samples; i++) {
     const sample = Math.max(-1, Math.min(1, out[i] || 0));
     view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
     offset += 2;
@@ -123,7 +122,7 @@ function metaOf(job: CloudJob): string {
 }
 
 /**
- * Queue up to `QUEUE_BATCH` videos in one request. The first batch of an order sends `wav` (15 s mono 32 kHz from `clipToMonoWav`,
+ * Queue up to `QUEUE_BATCH` videos in one request. The first batch of an order sends `wav` (the clip as mono 32 kHz from `clipToMonoWav`,
  * built once); later ones name the `order` it returned. Returns at once with their queue ids, in order; `noCredits` when the credits
  * ran out part way (the rest were not queued). With no credits at all it throws with `noCredits`. A request that did not get through
  * is not sent again: it may have queued its videos, and each took a credit.

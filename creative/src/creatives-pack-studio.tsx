@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
-import { DURATION_MS, FPS, playheadFrame, type Composition, type ImpactMusic } from './composition';
+import { FPS, FULL_CLIP_MS, playheadFrame, type Composition, type ImpactMusic } from './composition';
 import { songAccents } from './pack-director';
 import type { CreativeProfileV1 } from './creative-profile';
 import { posterFrame } from './lyric-motion';
@@ -42,7 +42,8 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   if (profile.musicAnalysis.status !== 'ready') return null;
   const data = profile.musicAnalysis.result;
   const downbeatsMs = data.rhythm.downbeatsMs.slice(0, 200);
-  const accentsMs = songAccents(data.temporalV1?.segments ?? [], profile.approvedLyrics?.cues ?? [], downbeatsMs, DURATION_MS).slice(0, 60);
+  const clipMs = profile.clip.durationMs;
+  const accentsMs = songAccents(data.temporalV1?.segments ?? [], profile.approvedLyrics?.cues ?? [], downbeatsMs, clipMs).slice(0, 60);
   const pace = deriveMusicIntent(data)?.treatmentHint;
   const beatsMs = data.rhythm.beatsMs.slice(0, 500);
   const hits = musicHits({
@@ -51,13 +52,13 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
     transientsMs: data.features.transientsMs ?? [],
     frames: data.features.frames,
     segments: data.temporalV1?.segments ?? [],
-    durationMs: DURATION_MS,
+    durationMs: clipMs,
   });
   return {
     beatsMs,
     downbeatsMs,
     energy: data.features.frames.slice(0, 2000).map(point => ({
-      timeMs: Math.max(0, Math.min(15000, Math.round(point.timeMs))),
+      timeMs: Math.max(0, Math.min(clipMs, Math.round(point.timeMs))),
       rms: Math.max(0, Math.min(1, point.rms)),
     })),
     ...(accentsMs.length ? { accentsMs } : {}),
@@ -94,12 +95,15 @@ function asLibraryPicture(upload: Upload): LibraryPicture {
 function packOpts(
   slot: CreativesPackSlot,
   composition: Composition,
+  clipMs: number,
   music: ImpactMusic | null,
   lyrics: boolean,
   picture?: Picture,
 ): PackRendererOpts {
   const drawn = picture ?? (slot.plateId ? { plateId: slot.plateId } : slot.effectId ? { effectId: slot.effectId } : {});
   return {
+    // A 15-second card says nothing of its length (what every card said before shorter songs were taken).
+    ...(clipMs < FULL_CLIP_MS ? { durationMs: clipMs } : {}),
     style: slot.style,
     font: slot.font,
     fontSecondary: slot.fontSecondary,
@@ -324,8 +328,9 @@ export function CreativesPackStudio({
 
   const getPositionRef = useRef(getPosition ?? (() => position));
   getPositionRef.current = getPosition ?? (() => position);
-  const latest = useRef({ cards, composition, music, lyricsOn, pictureOf, cardKey, onProgress });
-  latest.current = { cards, composition, music, lyricsOn, pictureOf, cardKey, onProgress };
+  const clipMs = profile.clip.durationMs;
+  const latest = useRef({ cards, composition, clipMs, music, lyricsOn, pictureOf, cardKey, onProgress });
+  latest.current = { cards, composition, clipMs, music, lyricsOn, pictureOf, cardKey, onProgress };
   const painted = useRef(new Map<string, string>());
   const playingSlot = pack.find(item => item.id === playingId) ?? null;
 
@@ -411,20 +416,20 @@ export function CreativesPackStudio({
       await yieldFrame();
       // The one picture each still card shows is fetched now, all side by side: the cards are then drawn one after another without waiting on the network.
       await warmPackStills(stale.map(({ def, slot }) => {
-        const { composition: base, music: impact } = latest.current;
+        const { composition: base, clipMs: length, music: impact } = latest.current;
         const withLyrics = latest.current.lyricsOn();
-        return { opts: packOpts(slot, base, impact, withLyrics, latest.current.pictureOf(def.id, slot)), frame: posterAt(base, impact, withLyrics) };
+        return { opts: packOpts(slot, base, length, impact, withLyrics, latest.current.pictureOf(def.id, slot)), frame: posterAt(base, impact, withLyrics) };
       })).catch(() => undefined);
       /** Draws one card's poster; false when it failed or took too long (it is then tried once more after the rest). */
       const paintCard = async ({ def, slot }: (typeof stale)[number], last: boolean) => {
         const canvas = canvasRefs.current.get(slot.id);
         if (!canvas) return true;
-        const { composition: base, music: impact } = latest.current;
+        const { composition: base, clipMs: length, music: impact } = latest.current;
         const withLyrics = latest.current.lyricsOn();
         let timer = 0;
         try {
           await Promise.race([
-            blitPackFrame(canvas, packOpts(slot, base, impact, withLyrics, latest.current.pictureOf(def.id, slot)), posterAt(base, impact, withLyrics)),
+            blitPackFrame(canvas, packOpts(slot, base, length, impact, withLyrics, latest.current.pictureOf(def.id, slot)), posterAt(base, impact, withLyrics)),
             new Promise<never>((_, reject) => { timer = window.setTimeout(() => reject(new Error('Drawing took too long.')), CARD_DRAW_MS); }),
           ]);
           return true;
@@ -468,7 +473,7 @@ export function CreativesPackStudio({
     let raf = 0;
     const withLyrics = lyricsOn();
     const picture = pictureOf(playingSlot.row, playingSlot);
-    const opts = packOpts(playingSlot, composition, music, withLyrics, picture);
+    const opts = packOpts(playingSlot, composition, clipMs, music, withLyrics, picture);
     let painting = false;
     let lastFrame = -1;
     let reported = false;
@@ -489,7 +494,7 @@ export function CreativesPackStudio({
         .finally(() => { painting = false; });
     };
     const loop = () => {
-      paint(playheadFrame(getPositionRef.current()));
+      paint(playheadFrame(getPositionRef.current(), clipMs));
       if (alive) raf = requestAnimationFrame(loop);
     };
     // The card plays at once, over its posters; its clips are read meanwhile, in the order it opens on them.
@@ -501,7 +506,7 @@ export function CreativesPackStudio({
       setMotionLive(false);
       // The card goes back to its own poster. Drawing is queued after the last live frame, so a late frame can never land on top of it.
       if (!leaving.current) {
-        void blitPackFrame(canvas, packOpts(playingSlot, composition, music, withLyrics, picture), posterAt(composition, music, withLyrics))
+        void blitPackFrame(canvas, packOpts(playingSlot, composition, clipMs, music, withLyrics, picture), posterAt(composition, music, withLyrics))
           .catch(cause => setError(quietError(cause, 'This preview couldn’t be drawn. Reload and try again.')));
       }
     };
@@ -618,8 +623,8 @@ export function CreativesPackStudio({
       report('Preparing audio…');
       // Let React paint the progress state before any work.
       await yieldFrame();
-      // One small WAV for the whole batch (≈960 KB).
-      const wav = await clipToMonoWav(audio, composition.clipStartMs);
+      // One small WAV for the whole batch (≈960 KB for 15 s).
+      const wav = await clipToMonoWav(audio, composition.clipStartMs, clipMs);
       report(items.length > 1 ? `Queuing ${items.length} creatives…` : 'Starting your creative…');
       // Every video is queued now, in batches: the server makes them in turns and we only hold their ids. The audio goes once.
       const ids: string[] = [];
@@ -634,7 +639,7 @@ export function CreativesPackStudio({
             wav,
             order,
             jobs: batch.map(item => ({
-              opts: packOpts(item.slot, composition, music, item.lyrics, pictureFor(item).picture),
+              opts: packOpts(item.slot, composition, clipMs, music, item.lyrics, pictureFor(item).picture),
               // Never send both: own upload replaces the library picture on this row.
               ...(item.uploadId ? { uploadId: item.uploadId } : item.ownReel ? { ownReel: true } : item.slot.libraryId ? { libraryId: item.slot.libraryId } : {}),
             })),

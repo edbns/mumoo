@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { DURATION_MS } from './composition';
 import { encodePcmWav } from './staging-alignment';
 import type { ClipIdentity, MusicAnalysisState } from './creative-profile';
 import { trace } from './staging-diagnostics';
@@ -24,7 +23,7 @@ export function MusicAnalysisRunner({ audio, clip, analysis, accessToken, onChan
     onChange({ status: 'pending', clip: identity });
     void (async () => {
       const rate = 16_000;
-      const context = new OfflineAudioContext(1, DURATION_MS * rate / 1000, rate);
+      const context = new OfflineAudioContext(1, durationMs * rate / 1000, rate);
       const source = context.createBufferSource(); source.buffer = audio; source.connect(context.destination); source.start(0, offsetMs / 1000);
       const rendered = await context.startRendering();
       const body = encodePcmWav(rendered.getChannelData(0), rate);
@@ -42,7 +41,7 @@ export function MusicAnalysisRunner({ audio, clip, analysis, accessToken, onChan
             headers: { 'Content-Type': 'audio/wav', 'X-Mumoo-Brain-Access': access, 'X-Mumoo-Music-Features': 'temporal-v1' }, body }));
           const data = await response.json().catch(() => null);
           trace('analysis_response', { status: response.status, durationMs: Math.round(performance.now() - started) });
-          if (!response.ok || data?.version !== 1 || data.method !== 'beat_this_librosa' || data.clip?.durationMs !== DURATION_MS || data.clip?.offsetMs !== 0 || data.clip?.sha256 !== hash || !Array.isArray(data.rhythm?.beatsMs) || !Array.isArray(data.rhythm?.downbeatsMs) || !data.rhythm?.tempo || !Array.isArray(data.rhythm.tempo.alternativesBpm) || !Array.isArray(data.features?.transientsMs) || !Array.isArray(data.features?.frames) || !data.features.frames.length || !data.provenance || !data.metrics) throw new Error('Music analysis is unavailable.');
+          if (!response.ok || data?.version !== 1 || data.method !== 'beat_this_librosa' || data.clip?.durationMs !== durationMs || data.clip?.offsetMs !== 0 || data.clip?.sha256 !== hash || !Array.isArray(data.rhythm?.beatsMs) || !Array.isArray(data.rhythm?.downbeatsMs) || !data.rhythm?.tempo || !Array.isArray(data.rhythm.tempo.alternativesBpm) || !Array.isArray(data.features?.transientsMs) || !Array.isArray(data.features?.frames) || !data.features.frames.length || !data.provenance || !data.metrics) throw new Error('Music analysis is unavailable.');
           if (!stopped.signal.aborted) onChange({ status: 'ready', clip: identity, result: data });
           return;
         } catch {

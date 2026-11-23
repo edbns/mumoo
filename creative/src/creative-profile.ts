@@ -1,11 +1,12 @@
 import type { CoverRead } from './cover-palette';
-import { DURATION_MS, type LyricCue } from './composition';
+import type { LyricCue } from './composition';
 import type { LyricMeaningState } from './lyric-meaning';
 
 export interface ClipIdentity {
   sourceSha256: string;
   offsetMs: number;
-  durationMs: typeof DURATION_MS;
+  /** 15 s, or all of a shorter song (`clipLengthMs`). */
+  durationMs: number;
 }
 
 export interface MusicAnalysisV1 {

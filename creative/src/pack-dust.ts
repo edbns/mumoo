@@ -5,7 +5,7 @@
  * Two colours rule the look: the ground and the dust.
  */
 import { Buffer, BufferUsage, Container, Geometry, Graphics, Mesh, Shader, Sprite, Texture } from 'pixi.js';
-import { DURATION_MS, HEIGHT, WIDTH } from './composition';
+import { HEIGHT, WIDTH } from './composition';
 import { hexToRgb, luminance, type DustColors } from './dust-colors';
 import { META_SAFE_BOTTOM } from './ad-punch';
 import { cssFont, displayFace, type AdFont } from './ad-fonts';
@@ -272,6 +272,8 @@ export function dustWordAt(cues: readonly { text: string; startMs: number; endMs
 
 export type DustInput = {
   ms: number;
+  /** How long the clip is: the dust loosens over all of it. */
+  durationMs: number;
   /** Every beat in the clip, in ms. */
   beatsMs: readonly number[];
   /** The first beat of each bar, in ms: these scatter the dust hardest. */
@@ -323,7 +325,7 @@ export function createDustWorld(points: DustPoints): DustWorld {
     }
     // Whatever the tempo, the nearer grains have come home by the next beat; the far ones linger like dust in air.
     const gap = last > 0 ? (beatsMs[last] - beatsMs[last - 1]) / 1000 : 0.5;
-    const progress = Math.min(1, ms / DURATION_MS);
+    const progress = Math.min(1, ms / input.durationMs);
     const dust = hexToRgb(input.colors.dust);
     const base = hexToRgb(input.colors.ground);
     Object.assign(layer.uniforms, {

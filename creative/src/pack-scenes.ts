@@ -48,6 +48,7 @@ export function createPackScene(): PackScene {
     }
     dust.world.update({
       ms: input.ms,
+      durationMs: input.durationMs,
       beatsMs: input.beatsMs,
       downbeatsMs: input.downbeatsMs,
       beat: input.beat,

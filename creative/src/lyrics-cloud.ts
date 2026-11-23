@@ -1,12 +1,12 @@
 /**
  * Lyrics in the cloud — transcribe (no lyrics given) or sync (user's text), any language.
  *
- *   browser ──(15 s mono 16 kHz WAV + tiny JSON)──▶ Netlify submit ──▶ Modal → job id
- *   browser ──(poll every 1.2 s)──────────────────▶ Netlify status ──▶ Modal → 202 | words
+ *   browser ──(clip as mono 16 kHz WAV + tiny JSON)──▶ Netlify submit ──▶ Modal → job id
+ *   browser ──(poll every 1.2 s)─────────────────────▶ Netlify status ──▶ Modal → 202 | words
  *
- * The browser only cuts the 15 s clip, sends it, and polls. No model runs on this machine.
+ * The browser only cuts the clip (10 to 15 s), sends it, and polls. No model runs on this machine.
  */
-import { DURATION_MS, type LyricCue } from './composition';
+import { type LyricCue } from './composition';
 import { encodePcmWav } from './staging-alignment';
 import { joinWords } from './lyric-text';
 import { withAccess } from './staging-token';
@@ -33,9 +33,9 @@ export function languageName(code?: string): string {
   try { return new Intl.DisplayNames(['en'], { type: 'language' }).of(code) ?? code; } catch { return code; }
 }
 
-/** Cut the chosen 15 seconds to 16 kHz mono 16-bit WAV. Rendering runs natively, off the main thread. */
-export async function clipToWav16k(audio: AudioBuffer, clipStartMs: number): Promise<Uint8Array> {
-  const context = new OfflineAudioContext(1, (DURATION_MS * RATE) / 1000, RATE);
+/** Cut the chosen clip to 16 kHz mono 16-bit WAV. Rendering runs natively, off the main thread. */
+export async function clipToWav16k(audio: AudioBuffer, clipStartMs: number, clipMs: number): Promise<Uint8Array> {
+  const context = new OfflineAudioContext(1, (clipMs * RATE) / 1000, RATE);
   const source = context.createBufferSource();
   source.buffer = audio;
   source.connect(context.destination);
@@ -56,7 +56,7 @@ export type LyricsResult = {
   words: LyricWord[];
 };
 
-type JobInput = { token: string; wav: Uint8Array; lines?: string[][]; language?: string; signal?: AbortSignal };
+type JobInput = { token: string; wav: Uint8Array; clipMs: number; lines?: string[][]; language?: string; signal?: AbortSignal };
 
 /** `retryable` marks failures that are usually gone a moment later (network blip, worker restart). */
 export class LyricsError extends Error {
@@ -103,7 +103,7 @@ export const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((re
 });
 
 /** Validate what the worker sent: ordered, inside the clip, never trusted blindly. */
-export function parseLyricsResult(raw: unknown): LyricsResult {
+export function parseLyricsResult(raw: unknown, clipMs: number): LyricsResult {
   const body = raw as Record<string, unknown> | null;
   if (!body || body.version !== 2 || !Array.isArray(body.words) || (body.source !== 'transcribed' && body.source !== 'supplied')) {
     throw new LyricsError('The lyrics worker returned an unexpected answer. Try again.', true);
@@ -115,7 +115,7 @@ export function parseLyricsResult(raw: unknown): LyricsResult {
     const { startMs, endMs, line } = item as { startMs: unknown; endMs: unknown; line: unknown };
     if (!text || !Number.isInteger(startMs) || !Number.isInteger(endMs)) continue;
     const start = Math.max(cursor, startMs as number);
-    const end = Math.min(DURATION_MS, endMs as number);
+    const end = Math.min(clipMs, endMs as number);
     if (start >= end) continue;
     words.push({ text, startMs: start, endMs: end, line: Number.isInteger(line) ? line as number : 0, estimated: item.status !== 'aligned' });
     cursor = end;
@@ -134,7 +134,7 @@ export function parseLyricsResult(raw: unknown): LyricsResult {
   };
 }
 
-export async function awaitLyricsJob(token: string, id: string, signal?: AbortSignal): Promise<LyricsResult> {
+export async function awaitLyricsJob(token: string, id: string, clipMs: number, signal?: AbortSignal): Promise<LyricsResult> {
   const deadline = Date.now() + JOB_TIMEOUT_MS;
   while (Date.now() < deadline) {
     await sleep(POLL_MS, signal);
@@ -143,7 +143,7 @@ export async function awaitLyricsJob(token: string, id: string, signal?: AbortSi
     }));
     if (response.status === 202) continue;
     if (!response.ok) throw await failure(response);
-    return parseLyricsResult(await response.json().catch(() => null));
+    return parseLyricsResult(await response.json().catch(() => null), clipMs);
   }
   throw new LyricsError('Taking longer than usual. Try again in a bit.');
 }
@@ -152,7 +152,7 @@ export async function awaitLyricsJob(token: string, id: string, signal?: AbortSi
 export async function runLyricsJob(input: JobInput): Promise<LyricsResult> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await awaitLyricsJob(input.token, await submitLyricsJob(input), input.signal);
+      return await awaitLyricsJob(input.token, await submitLyricsJob(input), input.clipMs, input.signal);
     } catch (cause) {
       if (attempt > 0 || !(cause instanceof LyricsError) || !cause.retryable) throw cause;
       await sleep(1500, input.signal);

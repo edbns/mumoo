@@ -1,4 +1,4 @@
-import { FPS, FRAMES, type ImpactMusic, type LyricCue } from './composition';
+import { FPS, MAX_FRAMES, type ImpactMusic, type LyricCue } from './composition';
 
 export type Phrase = { words: LyricCue[]; startMs: number };
 
@@ -15,7 +15,7 @@ export function phrasesFor(cues: readonly LyricCue[]): Phrase[] {
 }
 
 export function cueFrame(ms: number) {
-  return Math.min(FRAMES - 1, Math.ceil(ms * FPS / 1000));
+  return Math.min(MAX_FRAMES - 1, Math.ceil(ms * FPS / 1000));
 }
 
 export function impactFrame(cues: readonly LyricCue[], frame: number) {
@@ -73,5 +73,5 @@ export function posterFrame(cues: readonly LyricCue[]): number {
   if (!phrase) return 0;
   const end = phrase.words[phrase.words.length - 1].endMs;
   const ms = phrase.startMs + (end - phrase.startMs) * 0.85;
-  return Math.max(0, Math.min(FRAMES - 1, Math.round(ms * FPS / 1000)));
+  return Math.max(0, Math.min(MAX_FRAMES - 1, Math.round(ms * FPS / 1000)));
 }
