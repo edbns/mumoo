@@ -160,6 +160,7 @@ def fetch_freesound(run: str, most: int, only: list[str]):
 
 @app.local_entrypoint()
 def seed_freesound(run: str, most: int = 20, only: str = ""):
-    """Starts the cloud fetch; with `modal run --detach` it carries on with the computer closed. Collect it with
-    `modal volume get -e mumoo-staging mumoo-seed-prints <run> <folder>`."""
-    fetch_freesound.remote(run, most, [name.strip() for name in only.split(",") if name.strip()])
+    """Starts the cloud fetch and returns at once; with `modal run --detach` it carries on with the computer closed (waiting
+    on it here would cancel it when this stops). Collect it with `modal volume get -e mumoo-staging mumoo-seed-prints <run> <folder>`."""
+    call = fetch_freesound.spawn(run, most, [name.strip() for name in only.split(",") if name.strip()])
+    print(f"started {call.object_id}: writes to the mumoo-seed-prints volume, {run}/<style>.json")
