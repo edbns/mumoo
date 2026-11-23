@@ -6,6 +6,7 @@ import { ProgressiveFluxLoader, type ProgressiveFluxPhase } from '../components/
 import '@fontsource-variable/inter';
 import '../styles/index.css';
 import { friendlyError } from '../friendly-error';
+import { MIN_SONG_MS } from '../composition';
 
 /**
  * The page a phone opens from a QR code on the computer: the song step's (a song or a video with it) or the creatives'
@@ -71,7 +72,7 @@ async function problemWith(kind: 'song' | 'picture', file: File, url: string): P
   if (kind === 'song') {
     if (file.size > MAX_SONG_BYTES) return 'This file is bigger than 200 MB. Pick a shorter one.';
     if (length !== null && length > MAX_SONG_SECONDS) return `This is ${Math.round(length / 60)} minutes long. Songs can be up to 10 minutes.`;
-    if (length !== null && length < 14.5) return `This is ${Math.floor(length * 10) / 10} seconds long. Needs to be at least 15 seconds.`;
+    if (length !== null && length < (MIN_SONG_MS - 500) / 1000) return `This is ${Math.floor(length * 10) / 10} seconds long. Needs to be at least ${MIN_SONG_MS / 1000} seconds.`;
     return '';
   }
   const limit = PICTURE_LIMITS[file.type];
