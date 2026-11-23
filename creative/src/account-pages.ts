@@ -32,7 +32,7 @@ export const ACCOUNT_MENU: readonly (readonly Entry[])[] = [
   [
     { line: 'create', label: 'Create', icon: PlusIcon },
     { line: 'history', label: 'Media', icon: HistoryIcon },
-    { line: 'links', label: 'Smart Links', icon: Link2Icon },
+    { line: 'links', label: 'Free Smart Links', icon: Link2Icon },
   ],
   [
     { line: 'credit', label: 'Credits', icon: WalletIcon },

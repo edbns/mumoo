@@ -15,17 +15,22 @@ function Figure({ value, label }: { value: number; label: string }) {
   </div>;
 }
 
-/** Invite friends: the person's own link to share, what each side gets, and how their invites are doing. */
+/**
+ * Invite friends: the person's own link to share, what each side gets, and how their invites are doing. It is fetched as soon
+ * as the person is signed in, so the popup opens whole; until it is there, the popup holds one placeholder for all of it.
+ */
 export function InviteFriends({ open, onClose, userId }: { open: boolean; onClose: () => void; userId: string }) {
   const [info, setInfo] = useState<ReferralInfo | null>(() => savedReferral(userId));
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   useEffect(() => {
-    if (!open) return;
+    let live = true;
     setError('');
     const saved = savedReferral(userId);
     if (saved) setInfo(saved);
-    loadReferral(accountFetch).then(fresh => { setInfo(fresh); saveReferral(userId, fresh); }, cause => { if (!saved) setError(friendlyError(cause, 'Your invite link is unavailable right now. Try again soon.')); });
+    loadReferral(accountFetch).then(fresh => { if (live) { setInfo(fresh); saveReferral(userId, fresh); } },
+      cause => { if (live && !saved) setError(friendlyError(cause, 'Your invite link is unavailable right now. Try again soon.')); });
+    return () => { live = false; };
   }, [open, userId]);
 
   const copy = () => {
@@ -46,8 +51,12 @@ export function InviteFriends({ open, onClose, userId }: { open: boolean; onClos
       <p className="m-0 text-sm text-muted-foreground">
         Share your link. Friend gets {videos} extra on their first pack, you get {videos} free once they pay.
       </p>
-      <div className="flex items-center gap-2 rounded-[var(--radius-control)] bg-muted py-1 pr-1 pl-4">
-        <span className="min-w-0 flex-1 truncate font-mono text-sm text-foreground" aria-label="Your invite link">{info?.link ?? (error ? '' : 'Getting your link…')}</span>
+      {!info && !error && <div aria-busy="true" aria-label="Getting your invite link" className="flex flex-col gap-4">
+        <div className="h-10 animate-pulse rounded-[var(--radius-control)] bg-muted" />
+        <div className="h-[4.25rem] animate-pulse rounded-[var(--radius-control)] bg-muted" />
+      </div>}
+      {info && <div className="flex items-center gap-2 rounded-[var(--radius-control)] bg-muted py-1 pr-1 pl-4">
+        <span className="min-w-0 flex-1 truncate font-mono text-sm text-foreground" aria-label="Your invite link">{info.link}</span>
         <Button size="sm" disabled={!info} onClick={copy} aria-live="polite">
           {copied ? <CheckIcon aria-hidden="true" className="size-4" /> : <CopyIcon aria-hidden="true" className="size-4" />}
           {copied ? 'Copied' : 'Copy'}
@@ -55,20 +64,13 @@ export function InviteFriends({ open, onClose, userId }: { open: boolean; onClos
         {canShare && <Button size="sm" variant="secondary" disabled={!info} onClick={share} aria-label="Share your invite link">
           <Share2Icon aria-hidden="true" className="size-4" />
         </Button>}
-      </div>
+      </div>}
       {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
-      {info && <>
-        <div className="grid grid-cols-3 gap-2">
-          <Figure value={info.joined} label={info.joined === 1 ? 'friend joined' : 'friends joined'} />
-          <Figure value={info.bought} label="bought a pack" />
-          <Figure value={info.earned} label="videos earned" />
-        </div>
-        <p className="m-0 text-xs text-muted-foreground">
-          {info.thisMonth >= info.cap
-            ? `You’ve hit this month’s limit of ${info.cap} rewarded friends. Friends who join still get their ${videos}; your rewards reset on the 1st.`
-            : `${info.thisMonth} of ${info.cap} friends this month have earned you videos. Your friends always get theirs.`}
-        </p>
-      </>}
+      {info && <div className="grid grid-cols-3 gap-2">
+        <Figure value={info.joined} label="Joined" />
+        <Figure value={info.bought} label="Paid" />
+        <Figure value={info.earned} label="You earned" />
+      </div>}
     </div>
   </Modal>;
 }

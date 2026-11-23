@@ -420,7 +420,7 @@ function App() {
       {(page === 'links' || page === 'my-links') && <LinksNav current={page} onSelect={tab => { if (tab === 'links') setLinksOpened(count => count + 1); setPage(tab); }} />}
       <div className="masthead-actions">
         {page === 'create' && buffer && <Button variant="secondary" onClick={() => setAskingStartOver(true)}><RotateCcwIcon aria-hidden="true" className="size-4" />Start over</Button>}
-        {page === 'create' && <Button variant="secondary" onClick={() => setPage('links')}><Link2Icon aria-hidden="true" className="size-4" />Smart links</Button>}
+        {page === 'create' && <Button variant="secondary" onClick={() => setPage('links')}><Link2Icon aria-hidden="true" className="size-4" />Free Smart Links</Button>}
         {page !== 'create' && <Button variant="secondary" onClick={() => setPage('create')}><ArrowLeftIcon aria-hidden="true" className="size-4" />Create</Button>}
         <Suspense fallback={<AccountPlaceholder />}><AccountBar page={page} onNavigate={setPage} /></Suspense>
       </div>

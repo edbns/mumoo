@@ -36,7 +36,7 @@ function WelcomePage() {
       <a className="masthead-logo" href="/" aria-label="mumoo"><img src="/brand/mumoo-logo.png" alt="" /></a>
       <div className="step-nav max-md:hidden" aria-hidden="true"><span className="block h-[29px] w-[420px]" /></div>
       <div className="masthead-actions">
-        <Button variant="secondary" onClick={() => go('links')}><Link2Icon aria-hidden="true" className="size-4" />Smart links</Button>
+        <Button variant="secondary" onClick={() => go('links')}><Link2Icon aria-hidden="true" className="size-4" />Free Smart Links</Button>
       </div>
     </header>
     <main className="relative flex-1 overflow-hidden">
