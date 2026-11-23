@@ -2,65 +2,86 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { QUOTA_BYTES } from '../netlify/lib/allowance.mjs';
-import { accountDeleted, creditsAdded, emailChangeCode, inactivityReminder, referralEarned, signInCode, storageAlmostFull } from '../netlify/lib/letters.mjs';
+import { accountDeleted, creditsAdded, emailChangeCode, friendInvite, inactivityReminder, referralEarned, signInCode, storageAlmostFull, welcome } from '../netlify/lib/letters.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import { warnFullStorage } from '../netlify/lib/storage-warning.mjs';
 
 /** Every email we send, the webhook that sends Neon's sign-in codes, and the almost-full storage letter. */
 
 const SITE = 'https://mumoo-staging.netlify.app';
+const LINK = `${SITE}/?ref=abcd2345`;
 const LETTERS = {
   'sign-in code': signInCode('123456', 5),
-  'password code': signInCode('123456', 5, 'forget-password'),
+  'confirm email code': signInCode('123456', 5, 'email-verification'),
   'email change code': emailChangeCode('654321', 10),
+  welcome: welcome(SITE),
+  'friend invite': friendInvite(LINK, 10, SITE),
   'account deleted': accountDeleted(),
   'inactivity, early': inactivityReminder(60, 90, SITE),
   'inactivity, late': inactivityReminder(83, 90, SITE),
-  'storage almost full': storageAlmostFull(4.6e9, QUOTA_BYTES, SITE),
+  'storage almost full': storageAlmostFull(9.2e9, QUOTA_BYTES, SITE),
   'credits added': creditsAdded(100, 120, '$20.00', SITE),
   'credits added with an invite': creditsAdded(20, 30, '$5.00', SITE, 10),
   'referral earned': referralEarned(10, 15, SITE),
 };
 
-test('every letter is from MUMOO in capitals, never says app, and shows no address or name', () => {
-  for (const [name, { subject, text }] of Object.entries(LETTERS)) {
-    const all = `${subject}\n${text}`.replace(SITE, 'SITE');
-    assert.match(all, /MUMOO/, name);
-    assert.doesNotMatch(all, /\bmumoo\b(?!\.app)|Mumoo|\bapp\b/, `${name} writes MUMOO in capitals and never "app"`);
+test('every letter is from mumoo in lowercase, never says app, shows no address or name, and comes designed and as plain text', () => {
+  for (const [name, { subject, text, html }] of Object.entries(LETTERS)) {
+    const all = `${subject}\n${text}`.replaceAll(LINK, 'LINK').replaceAll(SITE, 'SITE');
+    assert.match(all, /\bmumoo\b/, name);
+    assert.doesNotMatch(all, /MUMOO|Mumoo|\bapp\b/, `${name} writes mumoo in lowercase and never "app"`);
     assert.doesNotMatch(all, /@|\bHi\b|\bDear\b/, `${name} greets nobody and shows no address`);
-    assert.match(text, /\nMUMOO$/, `${name} is signed MUMOO`);
+    assert.match(text, /\n\nmumoo$/, `${name} is signed mumoo`);
+    assert.doesNotMatch(text, /\*\*/, `${name}: no markup in the plain text`);
+    assert.match(html, /^<!doctype html>/, `${name} has a designed version`);
+    assert.match(html, /\/brand\/email-logo\.png" width="120" height="32" alt="mumoo"/, `${name} shows the logo`);
+    assert.doesNotMatch(html, /\*\*|<script|@(?!media)/, `${name}: the design is plain HTML with no address`);
   }
 });
 
-test('the receipt says what was added and paid, and where the invoice is', () => {
-  const { subject, text } = LETTERS['credits added'];
-  assert.equal(subject, 'Your 100 MUMOO videos are ready');
-  assert.match(text, /You paid \$20\.00\. You now have 120 credits\./);
-  assert.match(text, /https:\/\/mumoo-staging\.netlify\.app\/invoices/);
+test('the receipt says what was added and paid, with a button to the invoice', () => {
+  const { subject, text, html } = LETTERS['credits added'];
+  assert.equal(subject, 'Your 100 mumoo video credits are ready');
+  assert.match(text, /You paid: \$20\.00\nYour balance: 120 credits/);
+  assert.match(text, /View invoice: https:\/\/mumoo-staging\.netlify\.app\/invoices/);
+  assert.match(html, /href="https:\/\/mumoo-staging\.netlify\.app\/invoices"[^>]*>View invoice</);
 });
 
 test('an invited friend\'s receipt counts the invite, and the inviter is told what they earned', () => {
   const friend = LETTERS['credits added with an invite'];
-  assert.equal(friend.subject, 'Your 30 MUMOO videos are ready');
-  assert.match(friend.text, /20 video credits are now in your MUMOO account/);
-  assert.match(friend.text, /Your friend’s invite added 10 more, free\./);
+  assert.equal(friend.subject, 'Your 30 mumoo video credits are ready');
+  assert.match(friend.text, /20 video credits from your purchase, plus 10 extra credits for joining through a friend’s invite/);
   assert.doesNotMatch(LETTERS['credits added'].text, /invite/);
   const inviter = LETTERS['referral earned'];
-  assert.equal(inviter.subject, 'A friend joined MUMOO: 10 free videos for you');
-  assert.match(inviter.text, /You now have 15 credits\./);
+  assert.equal(inviter.subject, 'Your invite worked! 10 free credits for you');
+  assert.match(inviter.text, /Your new balance: 15 credits/);
   assert.match(inviter.text, /Invite friends/);
 });
 
-test('a code is in the subject', () => {
-  assert.equal(LETTERS['sign-in code'].subject, '123456 is your MUMOO code');
-  assert.equal(LETTERS['email change code'].subject, '654321 is your MUMOO code');
-  assert.match(LETTERS['password code'].text, /reset your password/);
+test('a code is in the subject and in its own box, and there is no password to reset', () => {
+  assert.equal(LETTERS['sign-in code'].subject, '123456 — your mumoo sign-in code');
+  assert.equal(LETTERS['confirm email code'].subject, '123456 — confirm your mumoo email');
+  assert.equal(LETTERS['email change code'].subject, '654321 — confirm your new mumoo email');
+  assert.match(LETTERS['sign-in code'].html, /letter-spacing:12px[^>]*>123456</);
+  assert.doesNotMatch(signInCode('123456', 5, 'forget-password').text, /password/);
 });
 
-test('the storage letter says how full it is', () => {
-  assert.match(LETTERS['storage almost full'].text, /4\.6 GB of 5 GB/);
-  assert.match(LETTERS['inactivity, early'].text, /about 30 days/);
-  assert.match(LETTERS['inactivity, late'].subject, /deleted in 7 days/);
+test('the welcome and the invite say what is free, and the invite says why this address got it', () => {
+  assert.match(LETTERS.welcome.text, /1 free video/);
+  assert.match(LETTERS['friend invite'].text, /Accept invite: https:\/\/mumoo-staging\.netlify\.app\/\?ref=abcd2345/);
+  assert.match(LETTERS['friend invite'].text, /10 extra video credits/);
+  assert.match(LETTERS['friend invite'].text, /We won’t email you again unless you sign up\./);
+});
+
+test('the storage and reminder letters say how much, how long, and point to Media', () => {
+  assert.match(LETTERS['storage almost full'].text, /9\.2 GB of 10 GB/);
+  assert.match(LETTERS['inactivity, early'].text, /about 30 days left/);
+  assert.equal(LETTERS['inactivity, late'].subject, '7 days left to keep your mumoo files');
+  for (const name of ['storage almost full', 'inactivity, early', 'inactivity, late']) {
+    assert.match(LETTERS[name].text, /Media/, name);
+    assert.doesNotMatch(LETTERS[name].text, /History/, name);
+  }
+  assert.match(LETTERS['account deleted'].text, /free video comes only with an email address’s first account/);
 });
 
 /** Neon's signature: Ed25519 over `header.base64url(timestamp.base64url(body))`, sent as a detached JWS. */
@@ -71,7 +92,7 @@ function signed(body, privateKey, kid, timestamp = Date.now()) {
   return new Headers({ 'x-neon-signature': `${header}..${signature}`, 'x-neon-signature-kid': kid, 'x-neon-timestamp': String(timestamp) });
 }
 
-test('the sign-in webhook mails Neon\'s code from MUMOO, once per event, and only when Neon signed it', async () => {
+test('the sign-in webhook mails Neon\'s code from mumoo, once per event, and only when Neon signed it', async () => {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
   const kid = `test-${randomUUID()}`;
   const saved = { jwks: process.env.NEON_AUTH_JWKS_URL, resend: process.env.RESEND_API_KEY, fetch: globalThis.fetch };
@@ -92,9 +113,10 @@ test('the sign-in webhook mails Neon\'s code from MUMOO, once per event, and onl
 
     assert.equal((await post(event, signed(event, privateKey, kid))).status, 200);
     assert.equal(sent.length, 1);
-    assert.deepEqual([sent[0].from, sent[0].to, sent[0].subject, sent[0].once], ['MUMOO <moo@mumoo.app>', 'someone@example.com', '482913 is your MUMOO code', 'neon-evt-1']);
-    assert.match(sent[0].text, /Works for 5 minutes/);
-    assert.ok(!sent[0].text.includes('someone@example.com'));
+    assert.deepEqual([sent[0].from, sent[0].to, sent[0].subject, sent[0].once], ['mumoo <moo@mumoo.app>', 'someone@example.com', '482913 — your mumoo sign-in code', 'neon-evt-1']);
+    assert.match(sent[0].text, /It expires in 5 minutes/);
+    assert.match(sent[0].html, />482913</);
+    assert.ok(!sent[0].text.includes('someone@example.com') && !sent[0].html.includes('someone@example.com'));
 
     const forged = event.replace('482913', '000000');
     assert.equal((await post(forged, signed(event, privateKey, kid))).status, 401, 'a changed body is refused');
@@ -117,10 +139,10 @@ test('storage is reported almost full once, and again only after the person has 
   const email = `${id}@example.com`;
   const letters = [];
   const run = () => warnFullStorage({ send: async (mail) => { if (mail.to === email) letters.push(mail); }, siteUrl: SITE });
-  /** Their uploads add up to `share` of the allowance (a row holds at most 2 GB, so in three). */
+  /** Their uploads add up to `share` of the allowance (a row holds at most 2 GB, so in six). */
   const fill = async (share) => {
     await sql`delete from uploads where user_id = ${id}`;
-    for (let n = 0; n < 3; n++) await sql`insert into uploads (id, user_id, kind, bytes, rights_confirmed_at) values (${randomUUID()}, ${id}, 'photo', ${Math.round(QUOTA_BYTES * share / 3)}, now())`;
+    for (let n = 0; n < 6; n++) await sql`insert into uploads (id, user_id, kind, bytes, rights_confirmed_at) values (${randomUUID()}, ${id}, 'photo', ${Math.round(QUOTA_BYTES * share / 6)}, now())`;
   };
   try {
     await sql`insert into app_users (id, email) values (${id}, ${email})`;
@@ -131,7 +153,7 @@ test('storage is reported almost full once, and again only after the person has 
     await run();
     await run();
     assert.equal(letters.length, 1, 'past 90% once, not every day');
-    assert.match(letters[0].text, /4\.6 GB of 5 GB/);
+    assert.match(letters[0].text, /9\.2 GB of 10 GB/);
     await fill(0.85);
     await run();
     const [{ warned }] = await sql`select storage_warned_at as warned from app_users where id = ${id}`;

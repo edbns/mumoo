@@ -16,7 +16,7 @@ Minimum age is 16.
 ## 2. Data we collect from creators
 - **Account data:** email address; name and profile picture if you sign in with Google; sign-in session data; join date and last-visit date. Sign-in is by one-time email code or Google (no passwords stored by us).
 - **Song data:** the browser reads title, artist, and cover art locally. Cover art is reduced to colour numbers in the browser and the image is never uploaded. Only a 15-second clip is sent to our servers for analysis (beat, mood, genre) and lyric transcription/interpretation. The clip itself is not stored separately, but it is contained inside the finished Creatives you keep.
-- **Uploads:** photos, videos, and GIFs you upload (up to 5 GB and 500 pictures per account). A background cut-out of the person is made automatically for certain templates. These files are private and never shown to other users.
+- **Uploads:** photos, videos, and GIFs you upload (up to 10 GB and 500 pictures per account). A background cut-out of the person is made automatically for certain templates. These files are private and never shown to other users.
 - **Creatives:** finished videos kept in your history.
 - **Smart Links (free service):** song details, cover art, and destination links you provide, together with visit and click statistics. Basic Smart Links do not require a video-credit purchase. Optional Meta Pixel / Conversions API or TikTok Pixel / Events API credentials are stored encrypted if connected.
 - **Usage signals:** plays, selections, downloads, and watch time, recorded as codes. Used only to train mumoo’s own recommendations (never a generative model).
@@ -32,7 +32,8 @@ Minimum age is 16.
 ## 4. How we use the data
 - To provide the Service (accounts, audiovisual creation and delivery, free Smart Links, and visit/click statistics).
 - To process payments via Polar.
-- To send transactional emails (sign-in codes, deletion reminders, storage warnings). We do not send marketing emails.
+- To send transactional emails (sign-in codes, a welcome email, receipts, deletion reminders, storage warnings). We do not send marketing emails.
+- To send an invitation when you ask us to: if you enter a friend’s email address under Invite friends, we send that address one email with your invite link. It does not show your name or email address.
 - To improve recommendations based on anonymised usage signals.
 - For security, rate limiting, error diagnosis, and preventing the free Creative from being claimed more than once per email address.
 - To comply with law.
@@ -66,6 +67,7 @@ Data is transferred to the USA, Singapore, and other locations as needed to prov
 - **Free Creative check:** if you used your free Creative, we keep a one-way code (SHA-256 hash) of your email address after you delete the account or change its email, so that the same address cannot claim another free Creative. The code cannot be turned back into your address and is kept for no other purpose.
 - **Uploads and Creatives:** until you delete them, delete the account, or do not visit for 90 days. We email you at 60 and 83 days before automatic deletion. The account itself remains.
 - **Usage signals:** anonymised when the account is deleted.
+- **Invitations by email:** we do not keep the invited address. We keep a one-way code (SHA-256 hash) of it for 30 days, so that the same address is not sent another invitation within a month, and we never email an address that already has an account.
 - **Song style prints:** kept only if you confirm the genre guess; linked to a song fingerprint, never to a person.
 - **Fan event data:** anonymous visit and click statistics (no IP address, user agent, cookie or click ID) are kept until the creator deletes the Smart Link or their account. Data forwarded to Meta or TikTok is sent in real time and not kept by us.
 

@@ -2,6 +2,8 @@ import { QUOTA_BYTES, usedBytes } from '../../lib/allowance.mjs';
 import { deleteAccount } from '../../lib/delete-account.mjs';
 import { personFrom, recordPerson } from '../../lib/person.mjs';
 import { allowanceOf } from '../../lib/credits.mjs';
+import { welcomeOnce } from '../../lib/invites.mjs';
+import { sendMail } from '../../lib/mail.mjs';
 
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 
@@ -29,6 +31,7 @@ export default async function handler(request) {
   }
   const row = await recordPerson(person);
   if (!row) return reply(401, { error: 'Sign in to continue.' });
+  await welcomeOnce(person.id, sendMail, new URL(request.url).origin);
   return reply(200, {
     id: row.id, email: row.email, createdAt: row.created_at, lastSeenAt: row.last_seen_at,
     // Neon returns bigint as a string.

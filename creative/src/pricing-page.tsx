@@ -29,7 +29,7 @@ const INCLUDED = [
   'Cut to the beat of your music',
   'Vertical 1080×1920 video, ready for Reels, TikTok and Shorts',
   'No watermark',
-  'Kept in your Media, with 5 GB of room',
+  'Kept in your Media, with 10 GB of room',
 ];
 
 const QUESTIONS = [
