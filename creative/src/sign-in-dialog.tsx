@@ -38,7 +38,7 @@ export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle,
 
   return <Modal open={open} onClose={onClose} bare maxWidth={420} maxHeight="calc(100vh - 3rem)" title="Sign in or make an account">
     <MagicLinkOtpLogin
-      appName="MUMOO"
+      appName="mumoo"
       logo={<img src="/brand/mumoo-logo.png" alt="" className="h-3.5 w-auto" />}
       onStepChange={setStep}
       onSendCode={onSendCode}

@@ -33,7 +33,7 @@ function WelcomePage() {
   const loop = { duration: LOOP_S, times: TIMES, repeat: Infinity, ease: 'easeInOut' } as const;
   return <>
     <header className="masthead">
-      <a className="masthead-logo" href="/" aria-label="MUMOO"><img src="/brand/mumoo-logo.png" alt="" /></a>
+      <a className="masthead-logo" href="/" aria-label="mumoo"><img src="/brand/mumoo-logo.png" alt="" /></a>
       <div className="step-nav max-md:hidden" aria-hidden="true"><span className="block h-[29px] w-[420px]" /></div>
       <div className="masthead-actions">
         <Button variant="secondary" onClick={() => go('links')}><Link2Icon aria-hidden="true" className="size-4" />Smart links</Button>

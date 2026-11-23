@@ -149,7 +149,7 @@ function Phone() {
   }
 
   return <main className="mx-auto flex min-h-dvh max-w-sm flex-col items-center justify-center gap-6 p-6 text-center">
-    <img src="/brand/favicon.png" alt="MUMOO" className="size-12" />
+    <img src="/brand/favicon.png" alt="mumoo" className="size-12" />
     {state.step === 'choose' && <>
       <h1 className="m-0 text-2xl font-semibold">{kind.title}</h1>
       <p className="m-0 text-muted-foreground">{kind.text}</p>

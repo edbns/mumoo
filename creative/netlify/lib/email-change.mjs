@@ -25,7 +25,7 @@ export async function requestEmailChange(person, newEmail) {
   if (email === person.email.toLowerCase()) return refuse(400, 'That’s already your email.');
   const sql = db();
   const [taken] = await sql`select 1 from neon_auth."user" where email = ${email} and id::text <> ${person.id}`;
-  if (taken) return refuse(409, 'That email already has a MUMOO account.');
+  if (taken) return refuse(409, 'That email already has a mumoo account.');
   await recordPerson(person);
   const [recent] = await sql`select 1 from email_changes where user_id = ${person.id} and sent_at > now() - make_interval(secs => ${RESEND_SECONDS})`;
   if (recent) return refuse(429, 'A code was just sent. Wait a moment before asking for another.');
@@ -60,7 +60,7 @@ export async function confirmEmailChange(person, newEmail, code) {
     const [changed] = await sql`update neon_auth."user" set email = ${email}, "emailVerified" = true, "updatedAt" = now() where id::text = ${person.id} returning id`;
     if (!changed) return refuse(404, 'Sign in again to continue.');
   } catch (cause) {
-    if (cause?.code === '23505') return refuse(409, 'That email already has a MUMOO account.');
+    if (cause?.code === '23505') return refuse(409, 'That email already has a mumoo account.');
     throw cause;
   }
   await rememberFreeVideo(person.id);

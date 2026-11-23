@@ -14,7 +14,7 @@ test('the browser’s and the network’s words never reach the public', () => {
     new TypeError('Failed to fetch'), new TypeError('Load failed'), new TypeError('NetworkError when attempting to fetch resource.'),
     new SyntaxError('Unexpected token < in JSON at position 0'), new DOMException('The user aborted a request.', 'AbortError'),
     new DOMException('Unable to decode audio data', 'EncodingError'), new TypeError("Cannot read properties of undefined (reading 'id')"),
-    new Error('Unable to fetch'), new Error('HTTP 502'), new Error('Open MUMOO Staging to render a creative.'), new Error('Invalid request.'),
+    new Error('Unable to fetch'), new Error('HTTP 502'), new Error('Open mumoo Staging to render a creative.'), new Error('Invalid request.'),
     new Error('<!doctype html><title>502</title>'), 'a string', null, undefined, {},
   ];
   for (const cause of system) assert.equal(friendlyError(cause, FALLBACK), FALLBACK, String(cause?.message ?? cause));

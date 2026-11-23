@@ -5,7 +5,7 @@ const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-
 async function processRequest(request) {
   if (process.env.SITE_ID !== SITE || new URL(request.url).origin !== ORIGIN) return reply(404, { error: 'Not available.' });
   if (request.method !== 'POST') return reply(405, { error: 'Use POST.' });
-  if (request.headers.get('origin') !== ORIGIN) return reply(403, { error: 'Open MUMOO Staging.' });
+  if (request.headers.get('origin') !== ORIGIN) return reply(403, { error: 'Open mumoo Staging.' });
   // Staging open access: no tester password. Tokens are still HMAC-signed and
   // only minted for the staging origin. Production never hosts this function.
   const key = process.env.MUMOO_BRAIN_TESTER_KEY || '';

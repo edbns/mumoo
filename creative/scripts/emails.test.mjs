@@ -2,20 +2,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { QUOTA_BYTES } from '../netlify/lib/allowance.mjs';
-import { accountDeleted, creditsAdded, emailChangeCode, friendInvite, inactivityReminder, referralEarned, signInCode, storageAlmostFull, welcome } from '../netlify/lib/letters.mjs';
+import { accountDeleted, creditsAdded, emailChangeCode, inactivityReminder, referralEarned, signInCode, storageAlmostFull, welcome } from '../netlify/lib/letters.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import { warnFullStorage } from '../netlify/lib/storage-warning.mjs';
 
 /** Every email we send, the webhook that sends Neon's sign-in codes, and the almost-full storage letter. */
 
 const SITE = 'https://mumoo-staging.netlify.app';
-const LINK = `${SITE}/?ref=abcd2345`;
 const LETTERS = {
   'sign-in code': signInCode('123456', 5),
   'confirm email code': signInCode('123456', 5, 'email-verification'),
   'email change code': emailChangeCode('654321', 10),
   welcome: welcome(SITE),
-  'friend invite': friendInvite(LINK, 10, SITE),
   'account deleted': accountDeleted(),
   'inactivity, early': inactivityReminder(60, 90, SITE),
   'inactivity, late': inactivityReminder(83, 90, SITE),
@@ -27,7 +25,7 @@ const LETTERS = {
 
 test('every letter is from mumoo in lowercase, never says app, shows no address or name, and comes designed and as plain text', () => {
   for (const [name, { subject, text, html }] of Object.entries(LETTERS)) {
-    const all = `${subject}\n${text}`.replaceAll(LINK, 'LINK').replaceAll(SITE, 'SITE');
+    const all = `${subject}\n${text}`.replaceAll(SITE, 'SITE');
     assert.match(all, /\bmumoo\b/, name);
     assert.doesNotMatch(all, /MUMOO|Mumoo|\bapp\b/, `${name} writes mumoo in lowercase and never "app"`);
     assert.doesNotMatch(all, /@|\bHi\b|\bDear\b/, `${name} greets nobody and shows no address`);
@@ -66,11 +64,9 @@ test('a code is in the subject and in its own box, and there is no password to r
   assert.doesNotMatch(signInCode('123456', 5, 'forget-password').text, /password/);
 });
 
-test('the welcome and the invite say what is free, and the invite says why this address got it', () => {
+test('the welcome says the first video is free', () => {
   assert.match(LETTERS.welcome.text, /1 free video/);
-  assert.match(LETTERS['friend invite'].text, /Accept invite: https:\/\/mumoo-staging\.netlify\.app\/\?ref=abcd2345/);
-  assert.match(LETTERS['friend invite'].text, /10 extra video credits/);
-  assert.match(LETTERS['friend invite'].text, /We won’t email you again unless you sign up\./);
+  assert.match(LETTERS.welcome.text, /Start creating: https:\/\/mumoo-staging\.netlify\.app/);
 });
 
 test('the storage and reminder letters say how much, how long, and point to Media', () => {

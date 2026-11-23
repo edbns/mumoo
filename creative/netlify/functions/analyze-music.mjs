@@ -14,7 +14,7 @@ export default async function analyzeMusic(request) {
     return error(404, 'Music analysis is only available on staging.');
   }
   if (request.method !== 'POST') return error(405, 'Use POST.');
-  if (request.headers.get('origin') !== STAGING_ORIGIN) return error(403, 'Open MUMOO Staging to analyze a clip.');
+  if (request.headers.get('origin') !== STAGING_ORIGIN) return error(403, 'Open mumoo Staging to analyze a clip.');
   const access = request.headers.get('x-mumoo-analysis-access') ?? '';
   const stagingAccess = request.headers.get('x-mumoo-brain-access') ?? '';
   const bridgeSecret = process.env.MUMOO_MUSIC_BRIDGE_SECRET || '';

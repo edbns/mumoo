@@ -48,11 +48,6 @@ export async function claimPendingReferral(accountFetch: Fetch) {
   }
 }
 
-/** Emails the person's invite link to a friend's address. Throws with words to show when it cannot. */
-export async function emailInvite(accountFetch: Fetch, email: string) {
-  await accountFetch('/api/referral', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invite: email }) });
-}
-
 export async function loadReferral(accountFetch: Fetch): Promise<ReferralInfo> {
   return (await accountFetch('/api/referral')).json() as Promise<ReferralInfo>;
 }

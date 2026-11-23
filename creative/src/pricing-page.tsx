@@ -16,7 +16,7 @@ import '@fontsource-variable/inter';
 import '@fontsource/playfair-display/latin-700-italic.css';
 import './styles/index.css';
 
-/** Back to the MUMOO page the person came from; opened from elsewhere (a link, a new tab), to MUMOO itself. */
+/** Back to the mumoo page the person came from; opened from elsewhere (a link, a new tab), to mumoo itself. */
 function goBack() {
   const fromMumoo = document.referrer !== '' && new URL(document.referrer).origin === location.origin;
   if (fromMumoo && history.length > 1) history.back();
@@ -45,7 +45,7 @@ const QUESTIONS = [
 const BUY_SIGN_IN = { title: 'Sign in to buy credits', lead: 'Your credits stay in your account.' };
 
 /**
- * /pricing: what MUMOO costs, for anyone, before they sign in. Buy opens Polar's checkout straight away; signed out, the sign-in
+ * /pricing: what mumoo costs, for anyone, before they sign in. Buy opens Polar's checkout straight away; signed out, the sign-in
  * popup opens here first and the checkout follows as soon as they are in.
  */
 function PricingPage() {
@@ -86,7 +86,7 @@ function PricingPage() {
   }, []);
   return <div className="flex flex-1 flex-col text-foreground">
     <header className="flex items-center justify-between px-6 pt-6 pb-4">
-      <a href="/" aria-label="MUMOO"><img src="/brand/mumoo-logo.png" alt="MUMOO" className="h-5" /></a>
+      <a href="/" aria-label="mumoo"><img src="/brand/mumoo-logo.png" alt="mumoo" className="h-5" /></a>
       <Button variant="secondary" onClick={goBack}><ArrowLeftIcon aria-hidden="true" className="size-4" />Back</Button>
     </header>
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-16 px-6 pt-10 pb-12">
@@ -131,7 +131,7 @@ function PricingPage() {
       </div>
 
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
-        <h2 className="m-0 text-center text-lg font-semibold text-balance">Everything you need to know about making a video with MUMOO</h2>
+        <h2 className="m-0 text-center text-lg font-semibold text-balance">Everything you need to know about making a video with mumoo</h2>
         <div className="flex flex-col divide-y divide-border border-y border-border">
           {QUESTIONS.map(({ q, a }) => <details key={q} className="group">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-4 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">

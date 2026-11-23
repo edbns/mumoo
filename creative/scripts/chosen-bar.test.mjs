@@ -154,7 +154,7 @@ test('popups: centred text, buttons at their own size set apart left and right; 
 test('pricing: centred "Every video comes with", questions that open one by one, no Terms line under them', () => {
   const pricing = readFileSync(new URL('../src/pricing-page.tsx', import.meta.url), 'utf8');
   assert.match(pricing, /items-center gap-4 text-center">\s+<h2 className="m-0 text-lg font-semibold">Every video comes with<\/h2>/);
-  assert.match(pricing, />Everything you need to know about making a video with MUMOO<\/h2>/);
+  assert.match(pricing, />Everything you need to know about making a video with mumoo<\/h2>/);
   assert.match(pricing, /<details key=\{q\}[\s\S]*<summary[\s\S]*ChevronDownIcon/);
   assert.doesNotMatch(pricing, /See the <a|Anything else:|>Questions</);
 });

@@ -23,7 +23,7 @@ function reloadForUpdate(): boolean {
 /**
  * Without this, one error while a page draws leaves a black screen with nothing to read. It says something went wrong (never the
  * error itself), lets the person start again (the cart is kept), and tells our server, so the admin's problem list names the error.
- * A page that broke only because MUMOO was updated meanwhile reloads by itself.
+ * A page that broke only because mumoo was updated meanwhile reloads by itself.
  */
 export class CrashGuard extends Component<{ children: ReactNode }, { error: Error | null; reloading: boolean }> {
   state = { error: null as Error | null, reloading: false };

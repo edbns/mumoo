@@ -27,7 +27,7 @@ export function CookieBanner() {
       <div className="flex flex-col gap-1.5">
         <CookieConsentTitle>We use cookies</CookieConsentTitle>
         <CookieConsentDescription>
-          Necessary cookies keep you signed in. Analytics help us see how people use MUMOO (only if you say yes).{' '}
+          Necessary cookies keep you signed in. Analytics help us see how people use mumoo (only if you say yes).{' '}
           <CookieConsentLink href={LEGAL_PATHS.cookies}>Cookie policy</CookieConsentLink>
         </CookieConsentDescription>
       </div>

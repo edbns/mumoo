@@ -54,7 +54,7 @@ function block(node: Block, index: number): ReactNode {
 }
 
 const slugAt = (path: string) => path.replace(/^\/+|\/+$/g, '').replace(/\.html$/, '');
-const titleOf = (slug: string) => `${LEGAL_DOCUMENTS.find(doc => doc.slug === slug)?.title ?? 'Legal'} · MUMOO`;
+const titleOf = (slug: string) => `${LEGAL_DOCUMENTS.find(doc => doc.slug === slug)?.title ?? 'Legal'} · mumoo`;
 
 function LegalPage() {
   const [slug, setSlug] = useState(() => slugAt(location.pathname));
@@ -82,8 +82,8 @@ function LegalPage() {
 
   return <div className="flex flex-1 flex-col text-foreground" onClick={follow}>
     <header className="flex items-center justify-between px-6 pt-6 pb-4">
-      <a href="/" aria-label="MUMOO"><img src="/brand/mumoo-logo.png" alt="MUMOO" className="h-5" /></a>
-      <a href="/" className="text-sm text-muted-foreground hover:text-foreground">Back to MUMOO</a>
+      <a href="/" aria-label="mumoo"><img src="/brand/mumoo-logo.png" alt="mumoo" className="h-5" /></a>
+      <a href="/" className="text-sm text-muted-foreground hover:text-foreground">Back to mumoo</a>
     </header>
     <div className="mx-auto grid max-w-5xl gap-10 px-6 pb-24 pt-6 md:grid-cols-[180px_1fr]">
       <nav aria-label="Legal documents" className="flex flex-wrap gap-x-4 gap-y-2 text-sm md:sticky md:top-6 md:flex-col md:self-start">
@@ -94,7 +94,7 @@ function LegalPage() {
       <article className="max-w-2xl break-keep text-[15px] leading-relaxed text-muted-foreground">
         {document ? document.blocks.map(block) : <>
           <h1 className="mb-6 text-3xl font-semibold tracking-tight text-foreground">Legal</h1>
-          <p className="my-3">The terms and policies for using MUMOO. Questions go to <a href="mailto:moo@mumoo.app" className="text-foreground underline underline-offset-4">moo@mumoo.app</a>.</p>
+          <p className="my-3">The terms and policies for using mumoo. Questions go to <a href="mailto:moo@mumoo.app" className="text-foreground underline underline-offset-4">moo@mumoo.app</a>.</p>
           <ul className="mt-6 flex flex-col divide-y divide-border border-y border-border">
             {LEGAL_DOCUMENTS.map(doc => <li key={doc.slug}><a href={`/${doc.slug}`} className="block py-3 text-foreground hover:text-primary">{doc.title}</a></li>)}
           </ul>

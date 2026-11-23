@@ -100,17 +100,6 @@ export function welcome(siteUrl) {
   ], { siteUrl });
 }
 
-/** Someone who uses mumoo typed this address to invite them. */
-export function friendInvite(link, videos, siteUrl) {
-  return letter('Someone invited you to mumoo!', [
-    p('Hey! Someone thought you might like mumoo, so they sent you an invite.'),
-    p('mumoo helps you turn music into videos without all the complicated editing.'),
-    p(`You’ll get **1 free video** when you sign up. And if you buy your first video pack through this invite, we’ll add **${videos} extra video credits** as a gift.`),
-    button('Accept invite', link),
-    note('Come make something!'),
-  ], { siteUrl, why: 'You’re getting this because someone who uses mumoo entered your address. We won’t email you again unless you sign up.' });
-}
-
 /** After a pack is paid for: what it added and where the invoice is. `paid` is the amount as the person reads it ("$20.00"). */
 export function creditsAdded(videos, credits, paid, siteUrl, bonus = 0) {
   const home = site(siteUrl);

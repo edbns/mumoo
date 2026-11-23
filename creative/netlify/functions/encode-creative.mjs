@@ -29,7 +29,7 @@ export default async function encodeCreative(request) {
   }
   if (request.method !== 'POST') return error(405, 'Use POST.');
   if (request.headers.get('origin') !== STAGING_ORIGIN) {
-    return error(403, 'Open MUMOO Staging to render a creative.');
+    return error(403, 'Open mumoo Staging to render a creative.');
   }
   if (!validAccess(request.headers.get('x-mumoo-brain-access') ?? '', process.env.MUMOO_BRAIN_TESTER_KEY)) {
     return error(401, 'Staging access is invalid or expired.');

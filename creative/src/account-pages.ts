@@ -12,8 +12,8 @@ export const PAGE_PATHS: Partial<Record<AccountPage, string>> = {
 };
 /** What the browser tab (and a search result) calls each page. */
 export const PAGE_TITLES: Record<AccountPage, string> = {
-  create: 'MUMOO — Music Videos', links: 'Create a Smart Link · MUMOO', 'my-links': 'My Smart Links · MUMOO',
-  history: 'Media · MUMOO', invoices: 'Invoices · MUMOO', settings: 'Settings · MUMOO',
+  create: 'mumoo — Music Videos', links: 'Create a Smart Link · mumoo', 'my-links': 'My Smart Links · mumoo',
+  history: 'Media · mumoo', invoices: 'Invoices · mumoo', settings: 'Settings · mumoo',
 };
 /** Media's second tab, Your uploads. */
 export const UPLOADS_PATH = '/media/uploads';

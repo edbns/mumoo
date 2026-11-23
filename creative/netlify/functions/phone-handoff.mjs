@@ -17,7 +17,7 @@ const reply = (status, data) => Response.json(data, { status, headers });
  */
 export default async function phoneHandoff(request) {
   if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) return reply(404, { error: 'Only available on staging.' });
-  if (request.headers.get('origin') !== STAGING_ORIGIN && request.method !== 'GET') return reply(403, { error: 'Open MUMOO Staging to send from your phone.' });
+  if (request.headers.get('origin') !== STAGING_ORIGIN && request.method !== 'GET') return reply(403, { error: 'Open mumoo Staging to send from your phone.' });
   const key = process.env.MUMOO_BRAIN_TESTER_KEY;
   if (!storageReady() || typeof key !== 'string' || key.length < 32) return reply(503, { error: 'Sending from a phone is unavailable.' });
   const params = new URL(request.url).searchParams;

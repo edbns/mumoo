@@ -8,7 +8,7 @@ These Terms of Service (“Terms”) govern your access to and use of the mumoo 
 mumoo is operated by an individual.
 
 ## 1. The Service
-**MUMOO creates audiovisual content. Users decide what to do with it.**
+**mumoo creates audiovisual content. Users decide what to do with it.**
 
 mumoo is a browser-based, music-driven audiovisual creation platform. It uses music analysis, automated creative direction, editing, effects, templates, and curated or user-provided media to produce finished videos (“Creatives”). Subject to these Terms and applicable rights, Creatives may be used for personal, artistic, editorial, social, promotional, and commercial purposes, including music visualizers, lyric videos, ordinary social posts, and paid advertising.
 

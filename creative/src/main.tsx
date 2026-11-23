@@ -68,7 +68,7 @@ function App() {
   useEffect(() => {
     const path = page === 'history' && profileTab === 'uploads' ? UPLOADS_PATH : PAGE_PATHS[page] ?? '/';
     if (location.pathname !== path) history.replaceState(history.state, '', path + location.search + location.hash);
-    document.title = page === 'history' && profileTab === 'uploads' ? 'Your uploads · MUMOO' : PAGE_TITLES[page];
+    document.title = page === 'history' && profileTab === 'uploads' ? 'Your uploads · mumoo' : PAGE_TITLES[page];
   }, [page, profileTab]);
   /** Pressing Create Smart Link opens the editor anew, so an edit in progress gives way to the new-link draft. */
   const [linksOpened, setLinksOpened] = useState(0);
@@ -410,7 +410,7 @@ function App() {
   return <>
     <header className="masthead">
       {page === 'create'
-        ? <img className="masthead-logo" src="/brand/mumoo-logo.png" alt="MUMOO" />
+        ? <img className="masthead-logo" src="/brand/mumoo-logo.png" alt="mumoo" />
         : <button type="button" className="masthead-logo" aria-label="Back to Create" onClick={() => setPage('create')}><img src="/brand/mumoo-logo.png" alt="" /></button>}
       {page === 'create' && <StepNav current={currentStep} onSelect={goToStep} />}
       {page === 'history' && <ProfileNav current={profileTab} onSelect={setProfileTab} />}
@@ -543,7 +543,7 @@ function App() {
     {buffer && clipValid && IS_ALIGNMENT_STAGING && inCreatives && <StylePrintRunner key={`${composition.sourceSha256}:${composition.clipStartMs}:${style?.name ?? '?'}`}
       audio={buffer} clip={clip} style={style} unknown={genreUnknown} accessToken={accessToken} />}
 
-    {page === 'create' && <main className="mobile"><h1>Open MUMOO on desktop</h1><p>Use desktop to time lyrics and preview.</p></main>}
+    {page === 'create' && <main className="mobile"><h1>Open mumoo on desktop</h1><p>Use desktop to time lyrics and preview.</p></main>}
     <LegalCorner />
   </>;
 }

@@ -25,7 +25,7 @@ for (const pack of PACKS) {
     method: 'POST',
     body: {
       name: `${pack.videos} videos`,
-      description: `${pack.videos} MUMOO credits. One credit makes one video. Credits never expire.`,
+      description: `${pack.videos} mumoo credits. One credit makes one video. Credits never expire.`,
       prices: [{ amount_type: 'fixed', price_amount: pack.usd * 100, price_currency: 'usd', tax_behavior: 'exclusive' }],
       metadata: { mumoo_videos: pack.videos },
     },
@@ -40,7 +40,7 @@ if (endpoint) {
   await polar(`/v1/webhooks/endpoints/${endpoint.id}`, { method: 'PATCH', body: { events: EVENTS, api_version: API_VERSION, enabled: true } });
   console.log(`webhook ${url}: already there (events and version brought up to date; its secret is unchanged)`);
 } else {
-  const made = await polar('/v1/webhooks/endpoints', { method: 'POST', body: { url, name: 'MUMOO credits', format: 'raw', events: EVENTS, api_version: API_VERSION } });
+  const made = await polar('/v1/webhooks/endpoints', { method: 'POST', body: { url, name: 'mumoo credits', format: 'raw', events: EVENTS, api_version: API_VERSION } });
   const set = spawnSync('npx', ['--yes', 'netlify-cli', 'env:set', 'POLAR_WEBHOOK_SECRET', made.secret, `--site=${SITE_ID}`], { stdio: ['ignore', 'ignore', 'pipe'] });
   if (set.status !== 0) throw new Error(`The webhook was made, but its secret could not be saved to Netlify: ${set.stderr.toString().replaceAll(made.secret, '…')}`);
   console.log(`webhook ${url}: made; its secret is saved to Netlify as POLAR_WEBHOOK_SECRET`);

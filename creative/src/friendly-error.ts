@@ -1,4 +1,4 @@
-const RELOAD = 'MUMOO just updated. Reload to continue.';
+const RELOAD = 'mumoo just updated. Reload to continue.';
 
 /** After a new deploy, an already-open tab asks for chunk files that no longer exist. */
 const STALE_CHUNK = /dynamically imported module|Importing a module script failed|Loading chunk/i;

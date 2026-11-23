@@ -3,7 +3,7 @@
 **Last updated:** 19 November 2026  
 **Contact:** moo@mumoo.app
 
-**MUMOO creates audiovisual content. Users decide what to do with it.**
+**mumoo creates audiovisual content. Users decide what to do with it.**
 
 mumoo is a music-driven audiovisual creation platform. AI and automated systems assist with music analysis, lyric timing, mood interpretation, visual recommendations, and creative direction. The Director may select, cut, sequence, transform, and synchronize curated or user-provided visual media into finished videos. AI-assisted creative direction does not imply that the underlying footage is AI-generated. Under the workflow described in this draft, mumoo does not generate new source images, footage, or music using generative AI.
 

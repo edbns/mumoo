@@ -70,7 +70,7 @@ function Admin() {
   if (!known && !user) return <Centered><span className="size-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" aria-label="Loading" /></Centered>;
   if (!user) return <>
     <Centered>
-      <img src="/brand/mumoo-logo.png" alt="MUMOO" className="h-5 w-auto" />
+      <img src="/brand/mumoo-logo.png" alt="mumoo" className="h-5 w-auto" />
       <p className="m-0 text-sm text-muted-foreground">Admin. Sign in with your admin email.</p>
       <Button onClick={() => setSigningIn(true)}>Sign in</Button>
     </Centered>
@@ -87,7 +87,7 @@ function Admin() {
 
   return <div className="flex min-h-screen">
     <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col gap-6 bg-card p-4">
-      <img src="/brand/mumoo-logo.png" alt="MUMOO" className="h-4 w-auto self-start" />
+      <img src="/brand/mumoo-logo.png" alt="mumoo" className="h-4 w-auto self-start" />
       <nav aria-label="Admin" className="flex flex-col gap-1">
         {SECTIONS.map(({ id, label, icon: Icon }) => <a key={id} href={`#${id}`} aria-current={section === id ? 'page' : undefined}
           className={`flex items-center gap-2.5 rounded-[var(--radius-control)] px-3 py-2 text-sm no-underline transition-colors ${section === id ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`}>

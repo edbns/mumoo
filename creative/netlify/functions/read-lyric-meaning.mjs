@@ -19,7 +19,7 @@ export default async function readLyricMeaning(request) {
     return error(404, 'Lyric meaning is only available on staging.');
   }
   if (request.method !== 'POST') return error(405, 'Use POST.');
-  if (request.headers.get('origin') !== STAGING_ORIGIN) return error(403, 'Open MUMOO Staging to read lyrics.');
+  if (request.headers.get('origin') !== STAGING_ORIGIN) return error(403, 'Open mumoo Staging to read lyrics.');
   if (!validAccess(request.headers.get('x-mumoo-brain-access') ?? '', process.env.MUMOO_BRAIN_TESTER_KEY)) {
     return error(401, 'Staging access is invalid or expired.');
   }
