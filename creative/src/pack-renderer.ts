@@ -7,7 +7,10 @@
  * this file only loads them as textures. No WebGPU / Shaders in the browser.
  * A person's own picture (Our photography, Riso, Window, the treatments) is loaded from `photoUrl`: a link in the browser, a page the worker serves in the cloud.
  */
-import { Application, Assets, ColorMatrixFilter, Rectangle, Texture, type WebGLRenderer } from 'pixi.js';
+// Pixi would fetch its WebGL renderer and browser setup only when the first card is drawn; loaded with the page instead,
+// a tab opened before a deploy never asks for files the deploy has since removed.
+import 'pixi.js/browser';
+import { Application, Assets, ColorMatrixFilter, Rectangle, Texture, WebGLRenderer } from 'pixi.js';
 import { FULL_CLIP_MS, HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
 import { ensureFonts, type AdFont, type AdLayout } from './ad-fonts';
 import type { AdPunchStyle } from './ad-punch';
@@ -266,7 +269,8 @@ export async function createPackRenderer(
     app.ticker.stop();
 
     // The surface Pixi itself drew on. Asking the canvas for one again can come back empty.
-    const surface = (app.renderer as WebGLRenderer).gl;
+    if (!(app.renderer instanceof WebGLRenderer)) throw new Error('This browser can’t draw the creatives (no WebGL).');
+    const surface = app.renderer.gl;
     gl = surface;
     // Cancelling the event is what allows the browser to give the surface back; we make a fresh renderer instead of waiting for it.
     canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); contextLost = true; });
