@@ -1,5 +1,5 @@
 import { validAccess } from '../lib/access.mjs';
-import { CHECK_ANSWERS, GUESS_ANSWERS, blendGuess, checkPick, countCheckAnswer, countGuessAnswer, loadPrints, storePrint, validLabel, validPrint } from '../lib/style-prints.mjs';
+import { CHECK_ANSWERS, GUESS_ANSWERS, blendGuess, checkPick, countCheckAnswer, countGuessAnswer, guardrailsOn, loadPrints, loadTempo, storePrint, validLabel, validPrint } from '../lib/style-prints.mjs';
 
 /**
  * Genre learning, step two: ask for a sound print job (from style-print). 202 while it runs. Only answers go back to the
@@ -12,6 +12,8 @@ import { CHECK_ANSWERS, GUESS_ANSWERS, blendGuess, checkPick, countCheckAnswer, 
  * A guess or an answer with `picked: { style, genre, subGenre }` is the check of a creator's own pick: the guess is offered only when
  * the brain is very sure it is another genre (else the print is kept with the pick at once, and the guess is null). Answering it,
  * "yes" switches (the print is kept with the guess as 'corrected'), "no" keeps the pick (kept as the creator's), "unsure" keeps nothing.
+ * With the tempo guardrails on, the clip's tempo (kept from style-print) nudges the guess; it may arrive between the question
+ * and the answer, so an answer stands for the guess made with it or without it.
  */
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
 const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
@@ -66,23 +68,30 @@ export default async function stylePrintStatus(request) {
   }
 
   const clip = kind === 'guess' ? data.guess : data.clip;
+  const guardrails = guardrailsOn();
+  const tempo = guardrails ? await loadTempo(clip) : null;
+  const rows = await loadPrints();
+  /** The guess with the clip's tempo first, then without it. */
+  const guesses = make => [make({ guardrails, tempo }), ...(tempo ? [make({ guardrails, tempo: null })] : [])];
   if (data.picked) {
     const { style, genre, subGenre } = data.picked;
     const picked = { sourceSha256: clip.sourceSha256, offsetMs: clip.offsetMs, style, genre, subGenre, source: 'creator' };
-    const offer = checkPick(result.values, await loadPrints(), clip.sourceSha256, picked);
+    const offers = guesses(options => checkPick(result.values, rows, clip.sourceSha256, picked, options));
     if (kind === 'guess') {
-      if (!offer) await storePrint(picked, result);
-      return Response.json({ status: 'guessed', guess: offer }, { headers });
+      if (!offers[0]) await storePrint(picked, result);
+      return Response.json({ status: 'guessed', guess: offers[0] }, { headers });
     }
-    if (offer?.style !== data.style) return error(409, 'The guess for this clip has changed.');
+    const offer = offers.find(item => item?.style === data.style);
+    if (!offer) return error(409, 'The guess for this clip has changed.');
     if (data.answer === 'yes') await storePrint({ ...picked, ...offer, source: 'corrected' }, result);
     if (data.answer === 'no') await storePrint(picked, result);
     await countCheckAnswer(style, offer.style, CHECK_ANSWERS[data.answer]);
     return Response.json({ status: data.answer === 'unsure' ? 'counted' : 'stored' }, { headers });
   }
-  const guess = blendGuess(result.values, await loadPrints(), clip.sourceSha256);
-  if (kind === 'guess') return Response.json({ status: 'guessed', guess }, { headers });
-  if (guess?.style !== data.style) return error(409, 'The guess for this clip has changed.');
+  const made = guesses(options => blendGuess(result.values, rows, clip.sourceSha256, options));
+  if (kind === 'guess') return Response.json({ status: 'guessed', guess: made[0] }, { headers });
+  const guess = made.find(item => item?.style === data.style);
+  if (!guess) return error(409, 'The guess for this clip has changed.');
   if (data.answer === 'yes') await storePrint({ ...clip, ...guess, source: 'confirmed' }, result);
   await countGuessAnswer(guess.style, data.answer);
   return Response.json({ status: data.answer === 'yes' ? 'stored' : 'counted' }, { headers });

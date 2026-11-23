@@ -3,7 +3,7 @@ the sound prints, averaged per lane into one unit vector each, and written for t
 
 Run from `audio-intelligence`:
   python3 -m modal run -e mumoo-staging genre-evaluation/clap_text_anchors.py --embeddings <prompts.json>
-embeds the prompts in the cloud (only the prompts are sent, no audio), keeps them in <prompts.json> and writes the anchors;
+embeds the prompts not yet in <prompts.json> in the cloud (only the prompts are sent, no audio), keeps them there and writes the anchors;
   python3 genre-evaluation/clap_text_anchors.py <prompts.json>
 writes the anchors again from embeddings kept before, with nothing sent anywhere.
 """
@@ -64,7 +64,9 @@ else:
 
     @app.local_entrypoint()
     def main(embeddings: str):
-        prompts = prompts_of(json.loads((HERE / "anchors.json").read_text())["lanes"])
-        kept = dict(zip(prompts, embed.remote(prompts)))
+        kept = json.loads(Path(embeddings).read_text()) if Path(embeddings).exists() else {}
+        prompts = [prompt for prompt in prompts_of(json.loads((HERE / "anchors.json").read_text())["lanes"]) if prompt not in kept]
+        if prompts:
+            kept |= dict(zip(prompts, embed.remote(prompts)))
         Path(embeddings).write_text(json.dumps(kept))
         write_anchors(kept)

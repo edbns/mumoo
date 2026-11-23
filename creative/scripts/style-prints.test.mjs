@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { BLEND, blendGuess, checkPick, guessStyle, storePrint, validLabel, validPrint, validTempo } from '../netlify/lib/style-prints.mjs';
+import { BLEND, GUARDRAILS, blendGuess, checkPick, genreChances, guardrailsOn, guessStyle, houseOrTechno, storePrint, storeTempo, tempoNudge, validLabel, validPrint, validTempo } from '../netlify/lib/style-prints.mjs';
 import ANCHORS from '../netlify/lib/genre-anchors.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import printHandler from '../netlify/functions/style-print.mjs';
@@ -99,6 +99,68 @@ test('a creator\'s pick is questioned only when the brain is very sure it is ano
   const split = [...rows.slice(0, 2), ...['e', 'f'].map((sha, i) => row(sha, 'jazz pop', 'Smooth Jazz / Soul', toward(hipHop, i + 1), 'Jazz, Soul & Blues'))];
   assert.equal(checkPick(hipHop, split, '0'.repeat(64), jazzPop), null, 'songs of the pick\'s genre as near: not sure enough');
   assert.ok(blendGuess(hipHop, split, '0'.repeat(64)), 'though enough to guess for "I don\'t know"');
+});
+
+test('tempo only nudges: trap and drum and bass heard at half time, techno below 126 BPM, house above 132, a quiet slow clip', () => {
+  const { nudge } = GUARDRAILS;
+  const at = (bpm, energy = 0.4) => ({ bpm, energy });
+  assert.equal(tempoNudge(at(70), { id: 'trap', subGenre: 'Trap' }), 0, '140 heard as 70');
+  assert.equal(tempoNudge(at(100), { id: 'trap', subGenre: 'Trap' }), -nudge);
+  assert.equal(tempoNudge(at(87), { id: 'drum-and-bass', subGenre: 'General Electronic' }), 0, '174 heard as 87');
+  assert.equal(tempoNudge(at(120), { id: 'drum-and-bass', subGenre: 'General Electronic' }), -nudge);
+  assert.equal(tempoNudge(at(118), { id: 'techno', subGenre: 'Techno' }), -nudge);
+  assert.equal(tempoNudge(at(140), { id: 'techno', subGenre: 'Techno' }), 0);
+  assert.equal(tempoNudge(at(140), { subGenre: 'Slap House' }), -nudge, 'a kept house song, at techno tempo');
+  assert.equal(tempoNudge(at(122), { subGenre: 'House' }), 0);
+  assert.equal(tempoNudge(at(80, 0.1), { id: 'lo-fi', subGenre: 'Boom Bap / Lo-Fi' }), nudge);
+  assert.equal(tempoNudge(at(70, 0.5), { id: 'lo-fi', subGenre: 'Boom Bap / Lo-Fi' }), 0, 'loud half-time trap is never quiet');
+  assert.equal(tempoNudge(at(120, 0.1), { id: 'ambient', subGenre: 'Ambient / Downtempo' }), 0);
+  assert.equal(tempoNudge({ bpm: 80, energy: null }, { id: 'ambient', subGenre: 'Ambient / Downtempo' }), 0);
+  assert.equal(tempoNudge(null, { id: 'techno', subGenre: 'Techno' }), 0);
+
+  const previous = { ...process.env };
+  try {
+    Object.assign(process.env, { SITE_ID: '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5' });
+    delete process.env.ENABLE_BPM_GUARDRAILS;
+    assert.equal(guardrailsOn(), true, 'on for staging');
+    process.env.ENABLE_BPM_GUARDRAILS = 'false';
+    assert.equal(guardrailsOn(), false);
+    process.env.SITE_ID = 'production';
+    delete process.env.ENABLE_BPM_GUARDRAILS;
+    assert.equal(guardrailsOn(), false, 'off elsewhere');
+  } finally {
+    for (const key of ['SITE_ID', 'ENABLE_BPM_GUARDRAILS']) if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key];
+  }
+});
+
+test('lo-fi and ambient are guessed by their words while no song of theirs is kept', () => {
+  const loFi = lane('lo-fi');
+  const rows = ['a', 'b', 'c'].map((sha, i) => row(sha, 'trap music', 'Trap', toward(loFi, 1, 0.1 * (i + 1)), 'Hip-Hop & Rap'));
+  assert.deepEqual(blendGuess(loFi, rows, 'e'.repeat(64)), { style: 'lofi hip-hop', genre: 'Hip-Hop & Rap', subGenre: 'Boom Bap / Lo-Fi' });
+  const kept = [...rows, row('d', 'lo-fi music', 'Boom Bap / Lo-Fi', toward(loFi, 1, 0.4), 'Hip-Hop & Rap')];
+  assert.equal(blendGuess(loFi, kept, 'e'.repeat(64)).style, 'trap music', 'once one is kept, the nearest song names the style');
+  const hipHop = lane('hip-hop');
+  assert.equal(blendGuess(hipHop, rows.map(item => ({ ...item, print: toward(hipHop, 1) })), 'e'.repeat(64)).style, 'trap music', 'only for those two lanes');
+});
+
+test('house or techno: an electronic pick is questioned only with the guardrails on, and tempo tips an even split', () => {
+  const techno = lane('techno');
+  const rows = ['a', 'b', 'c', 'd'].map((sha, i) => row(sha, 'techno', 'Techno', toward(techno, 1, 0.1 * (i + 1)), 'Electronic & Dance (EDM)'));
+  const house = { style: 'house music', genre: 'Electronic & Dance (EDM)', subGenre: 'House' };
+  assert.equal(checkPick(techno, rows, 'e'.repeat(64), house), null, 'off: the same genre is never questioned');
+  assert.deepEqual(checkPick(techno, rows, 'e'.repeat(64), house, { guardrails: true }), { style: 'techno', genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' });
+  assert.equal(checkPick(techno, rows, 'e'.repeat(64), { ...house, style: 'techno', subGenre: 'Techno' }, { guardrails: true }), null);
+  assert.equal(checkPick(techno, rows, 'e'.repeat(64), { ...house, style: 'synthwave', subGenre: 'Synthwave / Vaporwave' }, { guardrails: true }), null, 'only house against techno');
+
+  const between = toward(lane('house'), 0, 0);
+  const even = [row('a', 'techno', 'Techno', between, 'Electronic & Dance (EDM)'), row('b', 'house music', 'House', between, 'Electronic & Dance (EDM)')];
+  const split = tempo => {
+    const { songs, likeness } = genreChances(between, even, 'e'.repeat(64), BLEND, tempo);
+    return houseOrTechno(songs, likeness, tempo);
+  };
+  assert.ok(split({ bpm: 140, energy: 0.4 }).techno > split(null).techno, 'at 140 BPM techno gains');
+  assert.ok(split({ bpm: 118, energy: 0.4 }).techno < split(null).techno, 'below 126 it loses');
+  assert.equal(houseOrTechno([], genreChances(between, [], 'e'.repeat(64)).likeness), null, 'the words alone never decide');
 });
 
 test('a clip keeps its latest answer, and the print as it was sent', { skip: !READY, timeout: 60000 }, async () => {
@@ -228,6 +290,43 @@ test('"We think it sounds like…": the guess is made by the server, and only a 
     }
     await db()`delete from style_guess_answers where count = 0`;
     for (const key of ['SITE_ID', 'MUMOO_BRAIN_TESTER_KEY', 'MUMOO_MUSIC_BRIDGE_SECRET']) {
+      if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key];
+    }
+  }
+});
+
+test('"Sounds more like techno": a house pick the server hears as techno at the clip\'s tempo is questioned on staging', { skip: !READY, timeout: 60000 }, async () => {
+  const previous = { ...process.env };
+  const realFetch = globalThis.fetch;
+  Object.assign(process.env, { SITE_ID: '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5', MUMOO_BRAIN_TESTER_KEY: 'a'.repeat(40), MUMOO_MUSIC_BRIDGE_SECRET: 'b'.repeat(40) });
+  delete process.env.ENABLE_BPM_GUARDRAILS;
+  const techno = lane('techno');
+  const seeds = Array.from({ length: 5 }, () => label({ offsetMs: 0, source: 'seeded', style: 'Zz techno', genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' }));
+  const picked = { style: 'Zz house', genre: 'Electronic & Dance (EDM)', subGenre: 'House' };
+  const clip = { sourceSha256: randomBytes(32).toString('hex'), offsetMs: 30_000 };
+  globalThis.fetch = async (url, init = {}) => String(url).includes('mumoo-sound-print-staging') ? Response.json(print({ values: techno })) : realFetch(url, init);
+  try {
+    for (const [i, seed] of seeds.entries()) await storePrint(seed, print({ values: toward(techno, 402, 0.1 * (i + 1)) }));
+    await storeTempo({ ...clip, bpm: 140, energy: 0.4 });
+    const { token } = await (await accessHandler(new Request(`${ORIGIN}/api/brain-tester-access`, { method: 'POST', headers: { origin: ORIGIN, 'content-type': 'application/json' }, body: '{}' }))).json();
+    const ask = body => statusHandler(new Request(`${ORIGIN}/.netlify/functions/style-print-status`, {
+      method: 'POST', headers: { origin: ORIGIN, 'content-type': 'application/json', 'x-mumoo-brain-access': token }, body: JSON.stringify({ version: 1, id: 'fc-abcdefgh1234', ...body }),
+    }));
+    const heard = { style: 'Zz techno', genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' };
+    assert.deepEqual(await (await ask({ guess: clip, picked })).json(), { status: 'guessed', guess: heard });
+    assert.deepEqual(await (await ask({ answer: 'yes', style: 'Zz techno', clip, picked })).json(), { status: 'stored' });
+    const kept = await db()`select style, sub_genre, source from style_prints where source_sha256 = ${clip.sourceSha256}`;
+    assert.deepEqual(kept.map(r => [r.style, r.sub_genre, r.source]), [['Zz techno', 'Techno', 'corrected']]);
+    process.env.ENABLE_BPM_GUARDRAILS = 'false';
+    const other = { sourceSha256: randomBytes(32).toString('hex'), offsetMs: 30_000 };
+    assert.deepEqual(await (await ask({ guess: other, picked })).json(), { status: 'guessed', guess: null }, 'with the guardrails off the pick is kept');
+    await db()`delete from style_prints where source_sha256 = ${other.sourceSha256}`;
+  } finally {
+    globalThis.fetch = realFetch;
+    for (const sha of [clip, ...seeds].map(item => item.sourceSha256)) await db()`delete from style_prints where source_sha256 = ${sha}`;
+    await db()`delete from style_clip_tempos where source_sha256 = ${clip.sourceSha256}`;
+    await db()`delete from style_check_answers where picked = 'Zz house'`;
+    for (const key of ['SITE_ID', 'MUMOO_BRAIN_TESTER_KEY', 'MUMOO_MUSIC_BRIDGE_SECRET', 'ENABLE_BPM_GUARDRAILS']) {
       if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key];
     }
   }

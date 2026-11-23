@@ -211,6 +211,19 @@
       ]
     },
     {
+      "id": "ambient",
+      "style": "ambient music",
+      "genre": "Electronic & Dance (EDM)",
+      "subGenre": "Ambient / Downtempo",
+      "prompts": [
+        "slow beatless atmospheric ambient music with lush warm synth pads, deep reverb, and no drums",
+        "meditative ambient drone soundscape with floating ethereal textures, soft harmonic swells, and calm minimal atmosphere",
+        "space ambient electronic music with slow evolving synthesizer washes, gentle airy tones, and zero percussion",
+        "minimalist tranquil ambient piano and pad composition with wide stereo reverb and peaceful slow movement",
+        "cinematic dark ambient sound design with deep sub drones, subtle wind textures, and sparse hypnotic chords"
+      ]
+    },
+    {
       "id": "hip-hop",
       "style": "hip-hop",
       "genre": "Hip-Hop & Rap",
@@ -234,6 +247,19 @@
         "lo-fi hip hop beat with mellow jazzy chords, vinyl crackle and lazy swung drums",
         "underground boom bap with chopped soul samples and a raw rap verse",
         "chill lofi beats with soft piano, muted kick and crackling tape texture"
+      ]
+    },
+    {
+      "id": "lo-fi",
+      "style": "lofi hip-hop",
+      "genre": "Hip-Hop & Rap",
+      "subGenre": "Boom Bap / Lo-Fi",
+      "prompts": [
+        "chill lo-fi hip hop study beat at 80 BPM with dusty vinyl crackle, warm Rhodes electric piano, and soft muted snare",
+        "nostalgic bedroom lo-fi chillhop instrumental with detuned jazzy guitar chords, cassette tape hiss, and lazy swing drums",
+        "mellow rainy day lo-fi beat with warm analog bass, soft bell melody, and relaxed low-pass filtered boom bap rhythm",
+        "cozy atmospheric lo-fi instrumental with gentle piano loop, subtle tape wobble, and quiet laid-back percussion",
+        "downtempo jazzhop lo-fi groove with mellow saxophone sample, warm vinyl warmth, and slow head-nodding drums"
       ]
     },
     {
