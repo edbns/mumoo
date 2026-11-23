@@ -3,6 +3,7 @@ import { creditsAdded, referralEarned } from '../lib/letters.mjs';
 import { sendMail } from '../lib/mail.mjs';
 import { polarEvent, recordPaid, recordRefund } from '../lib/polar.mjs';
 import { REFERRAL_VIDEOS, revokeReferral, rewardReferral } from '../lib/referrals.mjs';
+import { note } from '../lib/service-health.mjs';
 
 const money = (cents, currency) => new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
 
@@ -33,11 +34,12 @@ async function tellReferrer(order, reward) {
  * takes the videos (and those bonuses) back after a full refund. Anything not signed by Polar is refused; events we do not use are
  * acknowledged, so Polar does not send them again.
  */
-export default async function handler(request) {
+export default async function handler(request, context) {
   if (request.method !== 'POST') return new Response(null, { status: 405 });
   if (!process.env.DATABASE_URL || !process.env.POLAR_WEBHOOK_SECRET) return new Response(null, { status: 503 });
   const event = polarEvent(await request.text(), request.headers);
   if (!event) return new Response(null, { status: 403 });
+  const startedAt = Date.now();
   try {
     if (event.type === 'order.paid') {
       const recorded = await recordPaid(event.data);
@@ -54,8 +56,10 @@ export default async function handler(request) {
   } catch (cause) {
     // A failure is answered with an error, so Polar tries again (up to 10 times); recording is safe to repeat.
     console.error('polar webhook:', event.type, cause);
+    await note(context, 'payments', false, startedAt);
     return new Response(null, { status: 500 });
   }
+  await note(context, 'payments', true, startedAt);
   return new Response(null, { status: 202 });
 }
 

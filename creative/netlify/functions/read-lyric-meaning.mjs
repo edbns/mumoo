@@ -1,4 +1,5 @@
 import { validAccess } from '../lib/access.mjs';
+import { note } from '../lib/service-health.mjs';
 
 /**
  * Start a lyric-meaning job. The lyrics go only to our own model on Modal, which keeps them in memory for the
@@ -14,7 +15,7 @@ function error(status, message) {
   return Response.json({ error: message }, { status, headers });
 }
 
-export default async function readLyricMeaning(request) {
+export default async function readLyricMeaning(request, context) {
   if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) {
     return error(404, 'Lyric meaning is only available on staging.');
   }
@@ -26,22 +27,26 @@ export default async function readLyricMeaning(request) {
   const bridgeSecret = process.env.MUMOO_MUSIC_BRIDGE_SECRET || '';
   if (bridgeSecret.length < 32) return error(503, 'Lyric meaning is not configured.');
 
+  let startedAt = 0;
   try {
     if (Number(request.headers.get('content-length') || 0) > BODY_LIMIT) return error(413, 'The lyrics are too long.');
     const body = await request.text();
     if (!body || body.length > BODY_LIMIT) return error(400, 'Expected the lyric lines.');
+    startedAt = Date.now();
     const response = await fetch(MODAL_SUBMIT, {
       method: 'POST', body, redirect: 'error', signal: AbortSignal.timeout(25_000),
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bridgeSecret}` },
     });
     const result = await response.json().catch(() => null);
-    if (response.ok && typeof result?.id === 'string') return Response.json({ id: result.id }, { status: 202, headers });
+    if (response.ok && typeof result?.id === 'string') { await note(context, 'meaning', true, startedAt); return Response.json({ id: result.id }, { status: 202, headers }); }
     const detail = result?.detail ?? result?.error;
     if ([400, 401, 413].includes(response.status)) {
       return error(response.status, typeof detail === 'string' ? detail : 'Lyric reading couldn’t start.');
     }
+    await note(context, 'meaning', false, startedAt);
     return error(502, 'The lyric reading worker could not accept these lyrics.');
   } catch {
+    if (startedAt) await note(context, 'meaning', false, startedAt);
     return error(504, 'The lyric reading worker did not respond in time.');
   }
 }

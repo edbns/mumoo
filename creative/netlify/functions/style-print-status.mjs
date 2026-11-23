@@ -1,4 +1,5 @@
 import { validAccess } from '../lib/access.mjs';
+import { note } from '../lib/service-health.mjs';
 import { CHECK_ANSWERS, GUESS_ANSWERS, blendGuess, checkPick, countCheckAnswer, countGuessAnswer, guardrailsOn, loadPrints, loadTempo, storePrint, validLabel, validPrint } from '../lib/style-prints.mjs';
 
 /**
@@ -25,7 +26,7 @@ const error = (status, message) => Response.json({ error: message }, { status, h
 const validClip = clip => validLabel({ ...clip, style: '-', genre: '-', subGenre: '-', source: 'creator' });
 const validPicked = (clip, picked) => picked === undefined || validLabel({ ...clip, ...picked, source: 'creator' });
 
-export default async function stylePrintStatus(request) {
+export default async function stylePrintStatus(request, context) {
   if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) {
     return error(404, 'Genre learning is only available on staging.');
   }
@@ -48,20 +49,24 @@ export default async function stylePrintStatus(request) {
   if (bridgeSecret.length < 32) return error(503, 'Genre learning is not configured.');
 
   let response;
+  const startedAt = Date.now();
+  const noted = ok => note(context, 'genre', ok, startedAt);
   try {
     response = await fetch(`${MODAL_STATUS}?id=${encodeURIComponent(data.id)}`, {
       redirect: 'error', signal: AbortSignal.timeout(20_000),
       headers: { Authorization: `Bearer ${bridgeSecret}` },
     });
   } catch {
+    await noted(false);
     return error(504, 'The sound print worker did not respond in time.');
   }
   if (response.status === 202) return Response.json({ status: 'running' }, { status: 202, headers });
   if (response.status === 410) return error(410, 'This print expired.');
-  if (!response.ok) return error(502, 'The sound print job failed.');
+  if (!response.ok) { await noted(false); return error(502, 'The sound print job failed.'); }
   const result = await response.json().catch(() => null);
-  if (result?.version === 1 && result.status === 'unavailable') return Response.json({ status: 'skipped' }, { headers });
-  if (!validPrint(result)) return error(502, 'The sound print worker returned an invalid result.');
+  if (result?.version === 1 && result.status === 'unavailable') { await noted(true); return Response.json({ status: 'skipped' }, { headers }); }
+  if (!validPrint(result)) { await noted(false); return error(502, 'The sound print worker returned an invalid result.'); }
+  await noted(true);
   if (kind === 'label') {
     await storePrint(data.label, result);
     return Response.json({ status: 'stored' }, { headers });

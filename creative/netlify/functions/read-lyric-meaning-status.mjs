@@ -1,4 +1,5 @@
 import { validAccess } from '../lib/access.mjs';
+import { note } from '../lib/service-health.mjs';
 
 /** Poll a lyric-meaning job: 202 while running, 200 + a few codes when done. */
 const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
@@ -11,7 +12,7 @@ function error(status, message) {
   return Response.json({ error: message }, { status, headers });
 }
 
-export default async function readLyricMeaningStatus(request) {
+export default async function readLyricMeaningStatus(request, context) {
   const url = new URL(request.url);
   if (process.env.SITE_ID !== STAGING_SITE || url.origin !== STAGING_ORIGIN) {
     return error(404, 'Lyric meaning is only available on staging.');
@@ -25,6 +26,8 @@ export default async function readLyricMeaningStatus(request) {
   const id = url.searchParams.get('id') ?? '';
   if (!CALL_ID.test(id)) return error(400, 'Invalid job id.');
 
+  const startedAt = Date.now();
+  const noted = ok => note(context, 'meaning', ok, startedAt);
   try {
     const response = await fetch(`${MODAL_STATUS}?id=${encodeURIComponent(id)}`, {
       redirect: 'error', signal: AbortSignal.timeout(20_000),
@@ -33,7 +36,8 @@ export default async function readLyricMeaningStatus(request) {
     if (response.status === 202) return Response.json({ status: 'running' }, { status: 202, headers });
     if (response.ok) {
       const result = await response.json().catch(() => null);
-      if (result?.version !== 1) return error(502, 'The lyric reading worker returned an invalid result.');
+      if (result?.version !== 1) { await noted(false); return error(502, 'The lyric reading worker returned an invalid result.'); }
+      await noted(true);
       // Only the codes leave this function; the one-line gist the model wrote to think with stays behind.
       const { version, clarity, attitude, sadness, intensity } = result;
       const codes = (list, most) => (Array.isArray(list) ? list.filter(code => typeof code === 'string' && /^[a-z]{2,16}$/.test(code)).slice(0, most) : []);
@@ -44,8 +48,10 @@ export default async function readLyricMeaningStatus(request) {
     if ([400, 401, 410].includes(response.status)) {
       return error(response.status, typeof detail === 'string' ? detail : 'The lyric reading could not proceed.');
     }
+    await noted(false);
     return error(502, 'The lyric reading failed.');
   } catch {
+    await noted(false);
     return error(504, 'The lyric reading worker did not respond in time.');
   }
 }

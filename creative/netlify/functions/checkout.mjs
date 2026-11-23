@@ -1,6 +1,7 @@
 import { db, personFrom, recordPerson } from '../lib/person.mjs';
 import { creditsOf } from '../lib/credits.mjs';
 import { polar, polarReady, productFor } from '../lib/polar.mjs';
+import { note } from '../lib/service-health.mjs';
 
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const CHECKOUT_ID = /^[A-Za-z0-9_-]{8,64}$/;
@@ -11,7 +12,7 @@ const CHECKOUT_ID = /^[A-Za-z0-9_-]{8,64}$/;
  * to the page that opened it and closes. The credits are added when Polar's webhook says the order is paid (`polar-webhook.mjs`).
  * GET /api/checkout?id=… — whether that checkout's payment has reached us yet, the videos it added (and a friend's invite with it), and the person's credits.
  */
-export default async function handler(request) {
+export default async function handler(request, context) {
   if (request.method !== 'GET' && request.method !== 'POST') return reply(405, { error: 'Use GET or POST.' });
   if (!process.env.DATABASE_URL || !process.env.NEON_AUTH_JWKS_URL || !process.env.NEON_AUTH_BASE_URL) return reply(503, { error: 'Accounts are unavailable.' });
   const person = await personFrom(request);
@@ -31,6 +32,7 @@ export default async function handler(request) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body.usd !== 'number') return reply(400, { error: 'Choose a pack.' });
   if (!await recordPerson(person)) return reply(401, { error: 'Sign in to continue.' });
+  const startedAt = Date.now();
   try {
     const product = await productFor(body.usd);
     if (!product) return reply(400, { error: 'That pack isn’t on sale.' });
@@ -52,9 +54,11 @@ export default async function handler(request) {
       if (cause.status === 422 && /customer_email/.test(cause.detail ?? '')) return open(null);
       throw cause;
     });
+    await note(context, 'checkout', true, startedAt);
     return reply(200, { url: checkout.url, id: checkout.id });
   } catch (cause) {
     console.error('checkout:', cause.message, cause.detail ?? '');
+    await note(context, 'checkout', false, startedAt);
     return reply(502, { error: 'Checkout is unavailable right now. Try again in a moment.' });
   }
 }

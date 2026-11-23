@@ -1,4 +1,5 @@
 import { validAccess } from '../lib/access.mjs';
+import { note } from '../lib/service-health.mjs';
 import { clipMs, maxBytes } from '../lib/clip-wav.mjs';
 import { countUnknown, storeTempo, validTempo } from '../lib/style-prints.mjs';
 
@@ -15,7 +16,7 @@ const RATE = 48_000;
 const headers = { 'Cache-Control': 'no-store' };
 const error = (status, message) => Response.json({ error: message }, { status, headers });
 
-export default async function stylePrint(request) {
+export default async function stylePrint(request, context) {
   if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) {
     return error(404, 'Genre learning is only available on staging.');
   }
@@ -40,16 +41,19 @@ export default async function stylePrint(request) {
   if (bridgeSecret.length < 32) return error(503, 'Genre learning is not configured.');
   const audio = await request.arrayBuffer();
   if (clipMs(audio, RATE) === null) return error(400, 'Expected 10 to 15 seconds of mono 48 kHz WAV.');
+  const startedAt = Date.now();
   try {
     const response = await fetch(MODAL_SUBMIT, {
       method: 'POST', body: audio, redirect: 'error', signal: AbortSignal.timeout(20_000),
       headers: { Authorization: `Bearer ${bridgeSecret}`, 'Content-Type': 'audio/wav' },
     });
     const result = await response.json().catch(() => null);
-    if (response.ok && typeof result?.id === 'string') return Response.json({ id: result.id }, { status: 202, headers });
+    if (response.ok && typeof result?.id === 'string') { await note(context, 'genre', true, startedAt); return Response.json({ id: result.id }, { status: 202, headers }); }
     if ([400, 413].includes(response.status)) return error(response.status, 'The sound print worker could not take this clip.');
+    await note(context, 'genre', false, startedAt);
     return error(502, 'The sound print worker could not take this clip.');
   } catch {
+    await note(context, 'genre', false, startedAt);
     return error(504, 'The sound print worker did not respond in time.');
   }
 }

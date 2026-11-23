@@ -1,4 +1,5 @@
 import { validAccess } from '../lib/access.mjs';
+import { note } from '../lib/service-health.mjs';
 
 /**
  * Start a lyrics job (transcribe + time words, any language). Tiny request: a 10 to 15 s mono 16 kHz WAV
@@ -16,7 +17,7 @@ function error(status, message) {
   return Response.json({ error: message }, { status, headers });
 }
 
-export default async function transcribeLyrics(request) {
+export default async function transcribeLyrics(request, context) {
   if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) {
     return error(404, 'Lyrics are only available on staging.');
   }
@@ -28,6 +29,7 @@ export default async function transcribeLyrics(request) {
   const bridgeSecret = process.env.MUMOO_MUSIC_BRIDGE_SECRET || '';
   if (bridgeSecret.length < 32) return error(503, 'Lyrics are not configured.');
 
+  let startedAt = 0;
   try {
     if (Number(request.headers.get('content-length') || 0) > BODY_LIMIT) return error(413, 'The clip is too large.');
     const incoming = await request.formData();
@@ -41,18 +43,21 @@ export default async function transcribeLyrics(request) {
     const outbound = new FormData();
     outbound.append('audio', audio, 'clip.wav');
     outbound.append('meta', meta);
+    startedAt = Date.now();
     const response = await fetch(MODAL_SUBMIT, {
       method: 'POST', body: outbound, redirect: 'error', signal: AbortSignal.timeout(25_000),
       headers: { Authorization: `Bearer ${bridgeSecret}` },
     });
     const result = await response.json().catch(() => null);
-    if (response.ok && typeof result?.id === 'string') return Response.json({ id: result.id }, { status: 202, headers });
+    if (response.ok && typeof result?.id === 'string') { await note(context, 'lyrics', true, startedAt); return Response.json({ id: result.id }, { status: 202, headers }); }
     const detail = result?.detail ?? result?.error;
     if ([400, 401, 413, 429].includes(response.status)) {
       return error(response.status, typeof detail === 'string' ? detail : 'Lyrics couldn’t start.');
     }
+    await note(context, 'lyrics', false, startedAt);
     return error(502, 'The lyrics worker could not accept this clip.');
   } catch {
+    if (startedAt) await note(context, 'lyrics', false, startedAt);
     return error(504, 'The lyrics worker did not respond in time.');
   }
 }
