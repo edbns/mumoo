@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "note": "Thin styles to seed from Freesound's CC0 loops: `typed` as a creator would search it, `lane` the anchor a sound must hear as (among its closest three) to be kept, `queries` what Freesound is searched for.",
+  "styles": [
+    { "typed": "heavy metal", "lane": "metal", "queries": ["metal guitar riff", "metal drums"] },
+    { "typed": "punk rock", "lane": "punk", "queries": ["punk"] },
+    { "typed": "rock music", "lane": "rock", "queries": ["rock beat", "rock guitar loop"] },
+    { "typed": "gospel", "lane": "gospel", "queries": ["gospel", "choir organ"] },
+    { "typed": "jazz", "lane": "jazz", "queries": ["jazz"] },
+    { "typed": "country music", "lane": "country", "queries": ["country guitar", "banjo"] },
+    { "typed": "folk music", "lane": "folk", "queries": ["folk guitar", "acoustic guitar loop"] },
+    { "typed": "lofi hip-hop", "lane": "lo-fi", "queries": ["lofi"] },
+    { "typed": "ambient music", "lane": "ambient", "queries": ["ambient pad", "ambient drone music"] },
+    { "typed": "classical music", "lane": "classical", "queries": ["classical piano", "string quartet", "orchestra"] },
+    { "typed": "techno", "lane": "techno", "queries": ["techno"] },
+    { "typed": "slap house", "lane": "slap-house", "queries": ["slap house", "house bass"] },
+    { "typed": "UK drill", "lane": "drill", "queries": ["uk drill"] },
+    { "typed": "trap music", "lane": "trap", "queries": ["trap beat"] },
+    { "typed": "reggaeton", "lane": "reggaeton", "queries": ["reggaeton", "dembow"] },
+    { "typed": "Afrobeats", "lane": "afrobeats", "queries": ["afrobeat"] }
+  ]
+}
