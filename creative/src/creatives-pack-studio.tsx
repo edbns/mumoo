@@ -6,7 +6,7 @@ import { posterFrame } from './lyric-motion';
 import { isLookRow, isTreatmentRow, recommendRow, rowsFor, shelfOrder, SHELF_ROWS, type CreativesPackSlot, type Deal, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
 import { cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
-import { RELOAD, friendlyError, quietError } from './friendly-error';
+import { NO_GRAPHICS, RELOAD, friendlyError, quietError } from './friendly-error';
 import { reportProblem } from './report-problem';
 import { PauseIcon, PlayIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -684,6 +684,7 @@ export function CreativesPackStudio({
     <p className="hint text-center">This is just a preview. Downloads are HD.</p>
     {/* The one failure shown here: the cards cannot be drawn until the page is reloaded. */}
     {error === RELOAD && <p className="hint text-center" role="alert">{RELOAD} <button type="button" className="underline" onClick={() => location.reload()}>Reload</button></p>}
+    {error === NO_GRAPHICS && <p className="hint text-center" role="alert">{NO_GRAPHICS}</p>}
     <UploadProgress uploads={uploads} />
     {ownKind && uploads.batchPercent === null && <p className="hint text-center">{ownPool
       ? (ownKind === 'motion' ? `Your ${ownPool.length} videos or GIFs get shared across templates that can use them.` : `Your ${ownPool.length} pictures get shared across templates that use photos.`)

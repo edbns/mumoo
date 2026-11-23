@@ -12,6 +12,7 @@
 import 'pixi.js/browser';
 import { Application, Assets, ColorMatrixFilter, Rectangle, Texture, WebGLRenderer } from 'pixi.js';
 import { FULL_CLIP_MS, HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
+import { NO_WEBGL } from './friendly-error';
 import { ensureFonts, type AdFont, type AdLayout } from './ad-fonts';
 import type { AdPunchStyle } from './ad-punch';
 import { activePackCopy, packReaction, packWordEnter } from './pack-copy';
@@ -269,7 +270,7 @@ export async function createPackRenderer(
     app.ticker.stop();
 
     // The surface Pixi itself drew on. Asking the canvas for one again can come back empty.
-    if (!(app.renderer instanceof WebGLRenderer)) throw new Error('This browser can’t draw the creatives (no WebGL).');
+    if (!(app.renderer instanceof WebGLRenderer)) throw new Error(NO_WEBGL);
     const surface = app.renderer.gl;
     gl = surface;
     // Cancelling the event is what allows the browser to give the surface back; we make a fresh renderer instead of waiting for it.

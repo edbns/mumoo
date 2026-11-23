@@ -1,4 +1,7 @@
 export const RELOAD = 'mumoo just updated. Reload to continue.';
+/** After the graphics crashed a few times, Chrome, Brave and Edge refuse WebGL to the site until the browser is restarted. */
+export const NO_GRAPHICS = 'Your browser switched off graphics for mumoo, so the creatives can’t be drawn. Quit the browser fully (⌘Q) and open it again, or use another browser.';
+export const NO_WEBGL = 'This browser can’t draw the creatives (no WebGL).';
 
 /** After a new deploy, an already-open tab asks for chunk files that no longer exist. */
 const STALE_CHUNK = /dynamically imported module|Importing a module script failed|Loading chunk/i;
@@ -26,5 +29,6 @@ export function friendlyError(cause: unknown, fallback: string): string {
 
 /** For failures of the page's own machinery (drawing, rendering): never the cause's words, only `fallback`, or the reload after a deploy. */
 export function quietError(cause: unknown, fallback: string): string {
+  if (cause instanceof Error && cause.message === NO_WEBGL) return NO_GRAPHICS;
   return cause instanceof Error && STALE_CHUNK.test(cause.message) ? RELOAD : fallback;
 }

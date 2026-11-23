@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { createServer } from 'vite';
 
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
-const { friendlyError, quietError } = await server.ssrLoadModule('/src/friendly-error.ts');
+const { friendlyError, quietError, NO_GRAPHICS, NO_WEBGL } = await server.ssrLoadModule('/src/friendly-error.ts');
 await server.close();
 
 const FALLBACK = 'Try again soon.';
@@ -48,4 +48,10 @@ test('no public page puts an error’s own message on screen', () => {
     const lines = readFileSync(file, 'utf8').split('\n').filter(line => /(cause|error|reason)( as Error\))?\??\.message/.test(line) && !/reportProblem|note\(`(Uncaught|Unhandled)/.test(line));
     assert.deepEqual(lines, [], file);
   }
+});
+
+test('a browser that switched off graphics is told how to get them back, instead of blank cards', () => {
+  assert.equal(quietError(new Error(NO_WEBGL), FALLBACK), NO_GRAPHICS);
+  assert.match(NO_GRAPHICS, /Quit the browser/);
+  assert.equal(quietError(new Error('Drawing took too long.'), FALLBACK), FALLBACK);
 });
