@@ -35,3 +35,7 @@
 @keyframes chosen-blink { 50% { opacity: .45; } }
 @keyframes chosen-wave { from { scale: 1; opacity: .6; } to { scale: 2.8; opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .chosen-bar-dot, .chosen-bar-dot::after { animation: none; } }
+/* The status dot at the bottom left: the chosen-videos wave, smaller, in the colour of its word; it waves only while all is well. */
+.status-dot { position: relative; display: inline-block; flex: none; width: .4rem; height: .4rem; border-radius: 50%; background: currentColor; }
+.status-dot[data-live]::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: currentColor; animation: chosen-wave 1.8s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .status-dot[data-live]::after { animation: none; } }
