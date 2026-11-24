@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "Zero-shot genre anchors for the CLAP sound print: each lane is a sound, filed under one MUMOO style (and so its genre and sub-genre), described five ways (drums, bass, tempo feel, instruments). A lane's anchor is the mean of its prompts' text embeddings.",
+  "about": "Zero-shot genre anchors for the CLAP sound print: each lane is a sound, filed under one MUMOO style (and so its genre and sub-genre), described five ways (drums, bass, tempo feel, instruments), and some also by short tag-style lines like the labels this CLAP model was trained on. A lane's anchor is the mean of its prompts' text embeddings.",
   "lanes": [
     {
       "id": "house",
@@ -233,7 +233,9 @@
         "modern rap song with fast rap vocals, sparse piano loop and booming bass",
         "west coast hip hop with a laid back groove, funky bass and rap verses",
         "street rap track with aggressive rap flow, heavy drums and dark sampled melody",
-        "mainstream hip hop song with a catchy rap hook, snappy snares and deep sub bass"
+        "mainstream hip hop song with a catchy rap hook, snappy snares and deep sub bass",
+        "This is a sound of hip hop music.",
+        "Hip hop music, rap."
       ]
     },
     {
@@ -272,7 +274,9 @@
         "atlanta trap song with mumbled rap vocals, dark bells melody and sliding 808s",
         "hard trap banger with triplet hi-hat rolls, heavy distorted 808 and autotune rap",
         "melodic trap with emotional piano, rattling hats and deep rumbling bass",
-        "dark trap instrumental with eerie synths, punchy claps and gliding 808 bass"
+        "dark trap instrumental with eerie synths, punchy claps and gliding 808 bass",
+        "This is a sound of trap music.",
+        "Hip hop music, trap."
       ]
     },
     {
@@ -285,7 +289,9 @@
         "drill rap track with menacing strings, off beat snares and aggressive rap vocals",
         "new york drill beat with bouncy sliding bass and choppy drums",
         "dark uk drill instrumental with eerie choir and gliding sub bass",
-        "brooklyn drill song with hard rap flows over sliding 808s and stuttering hats"
+        "brooklyn drill song with hard rap flows over sliding 808s and stuttering hats",
+        "This is a sound of drill music.",
+        "Hip hop music, UK drill."
       ]
     },
     {
@@ -298,7 +304,9 @@
         "trap latino song with autotuned spanish vocals and dark trap beat",
         "puerto rican trap with heavy 808, triplet hats and spanish rap verses",
         "melodic latin trap, emotional spanish singing over slow trap drums",
-        "hard latin trap banger with distorted bass and spanish rap"
+        "hard latin trap banger with distorted bass and spanish rap",
+        "This is a sound of Latin trap.",
+        "Latin trap music."
       ]
     },
     {
@@ -376,7 +384,9 @@
         "alternative r&b with atmospheric pads, falsetto vocals and minimal trap drums",
         "90s r&b slow jam with silky vocal harmonies and a laid back groove",
         "neo soul with live bass, rhodes piano and a soulful singer",
-        "modern r&b ballad with airy vocals and soft 808 bass"
+        "modern r&b ballad with airy vocals and soft 808 bass",
+        "This is a sound of rhythm and blues.",
+        "Contemporary R&B music."
       ]
     },
     {
@@ -389,7 +399,9 @@
         "motown soul with tambourine, bass guitar and gospel backing vocals",
         "funk with slap bass, tight drums, wah guitar and brass stabs",
         "retro soul ballad with strings and an emotional vocal",
-        "70s funk groove with syncopated bass, clavinet and horns"
+        "70s funk groove with syncopated bass, clavinet and horns",
+        "This is a sound of soul music.",
+        "Soul music, funk."
       ]
     },
     {
@@ -441,7 +453,10 @@
         "perreo reggaeton song with dembow drums, synth melody and autotuned spanish singing",
         "romantic reggaeton with a slow dembow beat and smooth spanish vocals",
         "old school reggaeton with hard dembow drums and spanish rap",
-        "latin urban hit with a dembow groove and catchy spanish chorus"
+        "latin urban hit with a dembow groove and catchy spanish chorus",
+        "This is a sound of reggaeton.",
+        "Reggaeton music.",
+        "Spanish language reggaeton song with a dembow beat."
       ]
     },
     {
@@ -480,7 +495,9 @@
         "afropop song with highlife guitar, swaying rhythm and catchy chorus",
         "afrobeats party track with talking drum, claps and melodic vocals",
         "afro fusion with laid back percussion, warm bass and soft singing",
-        "nigerian afrobeats hit with rolling percussion and pidgin english vocals"
+        "nigerian afrobeats hit with rolling percussion and pidgin english vocals",
+        "This is a sound of Afrobeat.",
+        "Music of Africa, Afrobeats pop."
       ]
     },
     {
@@ -493,7 +510,9 @@
         "modern dancehall track with patois vocals and bouncy drums",
         "soca music with fast energetic beat, steel drums and carnival vocals",
         "dancehall riddim with snappy snares, deep bass and toasting vocals",
-        "slow dancehall bashment with heavy kicks and catchy patois hook"
+        "slow dancehall bashment with heavy kicks and catchy patois hook",
+        "This is a sound of dancehall.",
+        "Dancehall reggae music."
       ]
     },
     {
@@ -506,7 +525,9 @@
         "classic jamaican reggae with organ bubble, rimshot snare and conscious vocals",
         "dub reggae with echoing snare, heavy bass and spacious delay effects",
         "lovers rock reggae with smooth vocals and a relaxed one drop beat",
-        "reggae song with upstroke guitar chops and warm bassline"
+        "reggae song with upstroke guitar chops and warm bassline",
+        "This is a sound of reggae.",
+        "Reggae music."
       ]
     },
     {
