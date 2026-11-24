@@ -165,11 +165,14 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
     });
   }
 
-  /** One file goes straight to the downloads; several go as one zip. */
+  /** One file goes straight to the downloads; several go as one zip. Once they are downloaded, the selection is let go. */
   async function downloadChosen() {
     setError('');
     const files = chosen.filter(item => item.download);
-    if (files.length === 1) return download(() => saveItem(files[0]));
+    if (files.length === 1) {
+      await download(() => saveItem(files[0])).then(() => setSelected(new Set()), () => setError('Couldn’t download it. Try again.'));
+      return;
+    }
     await download(async () => {
       const { zipSync } = await import('fflate');
       const zipped: Record<string, Uint8Array> = {};
@@ -182,7 +185,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
       link.download = tab === 'creatives' ? 'mumoo-creatives.zip' : 'mumoo-uploads.zip';
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 30000);
-    }).catch(() => setError('Couldn’t make the zip. Download them one by one instead.'));
+    }).then(() => setSelected(new Set()), () => setError('Couldn’t make the zip. Download them one by one instead.'));
   }
 
   async function deleteChosen() {
@@ -203,8 +206,8 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
     </EmptyState>}
 
     {items && items.length > 0 && <div className="sticky top-4 z-10 flex min-h-12 items-center justify-between gap-3 rounded-full bg-background/80 px-5 py-1.5 backdrop-blur-md">
-      <Button variant="secondary" onClick={() => setSelected(chosen.length === items.length ? new Set() : new Set(items.map(item => item.id)))}>
-        {chosen.length === items.length ? 'Clear selection' : 'Select all'}
+      <Button variant="secondary" disabled={busy} onClick={() => setSelected(chosen.length ? new Set() : new Set(items.map(item => item.id)))}>
+        {chosen.length ? 'Clear selection' : 'Select all'}
       </Button>
       {chosen.length === 0 ? storage && <StorageMeter used={storage.used} quota={storage.quota} /> : <div className="flex items-center gap-3">
         <span className="text-sm text-muted-foreground" role="status">{chosen.length} selected</span>
