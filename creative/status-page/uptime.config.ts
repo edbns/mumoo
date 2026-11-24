@@ -27,12 +27,12 @@ const part = (id: string, name: string, tooltip: string) => ({
 const pageConfig: PageConfig = {
   title: 'mumoo Status',
   links: [
-    { link: SITE, label: 'mumoo', highlight: true },
+    { link: SITE, label: 'Go to mumoo', highlight: true },
   ],
   logo: '/logo.png',
   favicon: '/favicon.png',
-  // UptimeFlare's credit (Apache-2.0), kept small in place of its footer.
-  customFooter: '<p style="text-align: center; font-size: 11px; color: #868e96; margin: 24px 0 16px;">Status page by <a href="https://github.com/lyc8503/UptimeFlare" target="_blank" rel="noopener" style="color: inherit;">UptimeFlare</a></p>',
+  // UptimeFlare's credit (Apache-2.0), small at the bottom right like the site's legal links.
+  customFooter: 'Status page by <a href="https://github.com/lyc8503/UptimeFlare" target="_blank" rel="noopener">UptimeFlare</a>',
   group: {
     'Video Creation': ['analysis', 'lyrics', 'renders'],
     'Accounts': ['website', 'accounts', 'storage', 'payments'],
