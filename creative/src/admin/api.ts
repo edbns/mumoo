@@ -40,6 +40,12 @@ export type Overview = {
   library: { approved: number; pending: number; hidden: number };
   problems: { unseen: number };
   people: number;
+  /** Amounts in cents. `sales`: one line per currency and status (`paid` or `refunded`). Credits: videos sold, given (referrals), made. */
+  money: {
+    sales: { currency: string; status: 'paid' | 'refunded'; orders: number; amount: number; last30: number }[];
+    credits: { sold: number; bonus: number; used: number; free: number; buyers: number };
+    recent: { at: string; videos: number; amount: number; currency: string; status: 'paid' | 'refunded' }[];
+  };
 };
 
 /** What people did with one kind of thing (a row, a look, a picture…) over the period. */

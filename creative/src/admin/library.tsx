@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { CheckIcon, EyeOffIcon, FilmIcon, ImageIcon, PlayIcon, Trash2Icon, UploadIcon, XIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
@@ -161,13 +161,19 @@ function Uploader({ onAdded }: { onAdded: (item: LibraryItem) => void }) {
   </section>;
 }
 
-/** A card opens its item; its tick puts it in the selection (shift-click ticks every card between this one and the last ticked). */
-function Card({ item, selected, ticked, onSelect, onTick, onPlay }: {
-  item: LibraryItem; selected: boolean; ticked: boolean; onSelect: () => void; onTick: (range: boolean) => void; onPlay: () => void;
-}) {
+type CardActions = { select: (id: string) => void; tick: (id: string, range: boolean) => void; play: (id: string) => void };
+
+/**
+ * A card opens its item; its tick puts it in the selection (shift-click ticks every card between this one and the last ticked).
+ * Only a card whose own item or state changed is drawn again: the actions stay the same for the whole page.
+ */
+const Card = memo(function Card({ item, selected, ticked, actions }: { item: LibraryItem; selected: boolean; ticked: boolean; actions: CardActions }) {
+  const onSelect = () => actions.select(item.id);
+  const onTick = (range: boolean) => actions.tick(item.id, range);
+  const onPlay = () => actions.play(item.id);
   const boards = BOARDS.filter(board => item.boards.includes(board.id)).map(board => board.name);
   const [hover, setHover] = useState(false);
-  return <div className="group/card relative" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+  return <div className="group/card relative [contain-intrinsic-size:auto_360px] [content-visibility:auto]" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
   <button type="button" onClick={onSelect} aria-pressed={selected} aria-label={`${item.kind}, ${STATUS_LABEL[item.status]}${boards.length ? `, ${boards.join(', ')}` : ', no board yet'}`}
     className={`group flex w-full flex-col overflow-hidden rounded-[var(--radius-panel)] bg-card p-0 text-left shadow-sm outline-ring transition-shadow focus-visible:outline-2 ${selected || ticked ? 'ring-2 ring-foreground' : 'hover:shadow-md'}`}>
     <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
@@ -190,16 +196,17 @@ function Card({ item, selected, ticked, onSelect, onTick, onPlay }: {
     <CheckIcon className="size-4" aria-hidden="true" />
   </button>
   </div>;
-}
+});
 
 /** Tags worth offering that the list does not have yet: the chosen genre's looks, then the common words. */
 const suggestionsFor = (genre: string, subGenre: string, poolNames: readonly string[]) =>
   [...new Set([...(genre ? themesFor(genre, subGenre) : []), ...COMMON_TAGS])].filter(tag => !poolNames.includes(tag));
 
 /** The side panel for one item: what is in it (tags), a genre it is kept for, where it came from, and approve, hide or delete. It closes once saved. */
-function Panel({ item, pool, onClose, onPlay, onSaved, onDeleted }: {
+function Panel({ item, pool, onClose, onPlay, onSave, onDelete }: {
   item: LibraryItem; pool: TagCount[]; onClose: () => void; onPlay: () => void;
-  onSaved: (item: LibraryItem, tags: TagCount[]) => void; onDeleted: (library: Library) => void;
+  /** Shown on the card at once and saved behind it; a refusal puts the card back and says why. */
+  onSave: (change: Change) => void; onDelete: () => void;
 }) {
   const [tags, setTags] = useState(item.tags);
   const [genre, setGenre] = useState(item.genre ?? '');
@@ -207,8 +214,8 @@ function Panel({ item, pool, onClose, onPlay, onSaved, onDeleted }: {
   const [boards, setBoards] = useState(item.boards);
   const [note, setNote] = useState(item.note);
   const [newTag, setNewTag] = useState('');
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  useClosesOnEscape(onClose);
 
   // Another item was chosen: start from its values.
   useEffect(() => {
@@ -239,27 +246,15 @@ function Panel({ item, pool, onClose, onPlay, onSaved, onDeleted }: {
     setError(''); setTags(list => list.includes(tag) ? list : [...list, tag]); setNewTag('');
   }
 
-  async function save(status?: 'approved' | 'hidden') {
-    setBusy(true); setError('');
-    const change: Change = { tags, genre, subGenre: genre ? subGenre : '', boards, note, ...(status && { status }) };
-    try {
-      const saved = await changeItem(item.id, change);
-      onSaved(saved.item, saved.tags);
-    } catch (cause) { setError((cause as Error).message); } finally { setBusy(false); }
-  }
+  const save = (status?: 'approved' | 'hidden') => onSave({ tags, genre, subGenre: genre ? subGenre : '', boards, note, ...(status && { status }) });
+  const remove = () => { if (window.confirm('Delete this file for good? It is removed from storage and cannot be undone.')) onDelete(); };
 
-  async function remove() {
-    if (!window.confirm('Delete this file for good? It is removed from storage and cannot be undone.')) return;
-    setBusy(true);
-    try { onDeleted(await deleteItem(item.id)); } catch (cause) { setError((cause as Error).message); setBusy(false); }
-  }
-
-  return <aside aria-label="Edit item" className="fixed inset-y-0 right-0 z-10 flex w-full max-w-md flex-col gap-5 overflow-y-auto bg-card p-6 shadow-2xl">
+  return <SidePanel label="Edit item" onClose={onClose}>
     <div className="flex items-center justify-between">
       <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[item.status]}`}>{STATUS_LABEL[item.status]}</span>
       <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close"><XIcon className="size-4" aria-hidden="true" /></Button>
     </div>
-    <div className="relative aspect-[3/4] max-h-80 self-center overflow-hidden rounded-[var(--radius-panel)] bg-muted"><Media item={item} live /></div>
+    <div className="relative aspect-[3/4] max-h-80 self-center overflow-hidden rounded-[var(--radius-panel)] bg-muted"><Media item={item} /></div>
     {item.kind !== 'photo' && <Button variant="secondary" className="self-center" onClick={onPlay}><PlayIcon className="size-4" aria-hidden="true" />Play the whole file</Button>}
     {(item.seenAs || item.suggestion) && <div className="flex flex-col gap-1 rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm">
       {item.seenAs && <span>{item.seenAs}</span>}
@@ -337,12 +332,33 @@ function Panel({ item, pool, onClose, onPlay, onSaved, onDeleted }: {
 
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
     <div className="mt-auto flex flex-wrap items-center gap-2">
-      {item.status !== 'approved' && <Button disabled={busy} onClick={() => void save('approved')}><CheckIcon className="size-4" aria-hidden="true" />Approve</Button>}
-      {item.status !== 'hidden' && <Button variant="secondary" disabled={busy} onClick={() => void save('hidden')}><EyeOffIcon className="size-4" aria-hidden="true" />Hide</Button>}
-      <Button variant="secondary" disabled={busy || !dirty} onClick={() => void save()}>Save changes</Button>
-      <Button variant="ghost" className="ml-auto text-destructive hover:text-destructive" disabled={busy} onClick={() => void remove()}><Trash2Icon className="size-4" aria-hidden="true" />Delete</Button>
+      {item.status !== 'approved' && <Button onClick={() => save('approved')}><CheckIcon className="size-4" aria-hidden="true" />{dirty ? 'Save and approve' : 'Approve'}</Button>}
+      {item.status !== 'hidden' && <Button variant="secondary" onClick={() => save('hidden')}><EyeOffIcon className="size-4" aria-hidden="true" />Hide</Button>}
+      <Button variant="secondary" disabled={!dirty} onClick={() => save()}>Save changes</Button>
+      <Button variant="ghost" className="ml-auto text-destructive hover:text-destructive" onClick={remove}><Trash2Icon className="size-4" aria-hidden="true" />Delete</Button>
     </div>
-  </aside>;
+  </SidePanel>;
+}
+
+/** Esc closes it (unless a dialog over it, such as the player, takes Esc first). */
+function useClosesOnEscape(onClose: () => void) {
+  const latest = useRef(onClose);
+  latest.current = onClose;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !event.defaultPrevented && !document.querySelector('[role="dialog"][aria-modal="true"]')) latest.current(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+}
+
+/** The panel at the right that edits items: it slides in over the page, and a click beside it (or Esc, or ×) closes it. */
+function SidePanel({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
+  return <>
+    <div aria-hidden="true" className="fixed inset-0 z-10 bg-black/20 animate-in fade-in duration-150" onClick={onClose} />
+    <aside aria-label={label} className="fixed inset-y-0 right-0 z-10 flex w-full max-w-md flex-col gap-5 overflow-y-auto bg-card p-6 shadow-2xl animate-in slide-in-from-right duration-200 ease-out">
+      {children}
+    </aside>
+  </>;
 }
 
 /** What a bulk edit does to each chosen item: tags to add and to take off. A tag in neither is left as each item has it. */
@@ -409,6 +425,7 @@ function BulkPanel({ items, pool, onClose, onDone, onSaved, onDeleted }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [report, setReport] = useState('');
+  useClosesOnEscape(onClose);
 
   const poolNames = pool.map(entry => entry.name);
   const shownTags = [...poolNames, ...tags.add.filter(tag => !poolNames.includes(tag))];
@@ -477,7 +494,7 @@ function BulkPanel({ items, pool, onClose, onDone, onSaved, onDeleted }: {
   }
 
   const label = 'mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground';
-  return <aside aria-label="Edit selected items" className="fixed inset-y-0 right-0 z-10 flex w-full max-w-md flex-col gap-5 overflow-y-auto bg-card p-6 shadow-2xl">
+  return <SidePanel label="Edit selected items" onClose={onClose}>
     <div className="flex items-center justify-between">
       <h2 className="m-0 text-base font-semibold">{items.length} selected</h2>
       <Button variant="ghost" size="sm" onClick={onClose} aria-label="Back to the selection"><XIcon className="size-4" aria-hidden="true" /></Button>
@@ -546,7 +563,7 @@ function BulkPanel({ items, pool, onClose, onDone, onSaved, onDeleted }: {
       <Button variant="secondary" disabled={busy || !dirty} onClick={() => void apply()}>Save changes</Button>
       <Button variant="ghost" className="ml-auto text-destructive hover:text-destructive" disabled={busy} onClick={() => void removeAll()}><Trash2Icon className="size-4" aria-hidden="true" />Delete all</Button>
     </div>
-  </aside>;
+  </SidePanel>;
 }
 
 /** The whole tag list, with how many items use each; remove one you do not need, so the list stays short. */
@@ -780,14 +797,33 @@ const withSaved = (item: LibraryItem, saved: LibraryItem): LibraryItem => ({
   suggestion: saved.boards.length ? null : item.suggestion,
 });
 
-type StatusFilter = 'all' | LibraryStatus;
+export type StatusFilter = 'all' | LibraryStatus;
+/** Cards drawn at first, and added each time the end of the page comes into view. */
+const PAGE = 60;
 
-export function LibraryView({ onChanged }: { onChanged: () => void }) {
+/** An item as it will be once `change` is saved: shown on its card at once. */
+const changed = (item: LibraryItem, change: Change): LibraryItem => ({
+  ...item,
+  ...(change.status && { status: change.status }),
+  ...(change.tags && { tags: change.tags }),
+  ...(change.boards && { boards: change.boards, suggestion: change.boards.length ? null : item.suggestion }),
+  ...(change.notBoards && { notBoards: change.notBoards }),
+  ...(change.note !== undefined && { note: change.note }),
+  ...(change.genre !== undefined && { genre: change.genre || null, subGenre: change.genre ? change.subGenre || null : null }),
+});
+
+/** `initialStatus`: opened from a number on the overview, on every item with that status. */
+export function LibraryView({ initialStatus, onChanged }: { initialStatus?: StatusFilter; onChanged: () => void }) {
   const [library, setLibrary] = useState<Library | null>(null);
   const [error, setError] = useState('');
-  const [status, setStatus] = useState<StatusFilter>('all');
+  /** A change that could not be saved, after its card was put back. */
+  const [notice, setNotice] = useState('');
+  const [status, setStatus] = useState<StatusFilter>(initialStatus ?? 'all');
   /** What still needs a board is shown first; an item filed on one is found under its board. */
-  const [board, setBoard] = useState(NO_BOARD);
+  const [board, setBoard] = useState(initialStatus ? '' : NO_BOARD);
+  const [limit, setLimit] = useState(PAGE);
+  useEffect(() => setLimit(PAGE), [status, board]);
+  const end = useRef<HTMLDivElement>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
@@ -835,6 +871,36 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
   const open = items.find(item => item.id === openId) ?? null;
   const chosen = items.filter(item => picked.includes(item.id));
   const allShownPicked = shown.length > 0 && shown.every(item => picked.includes(item.id));
+  const more = shown.length > limit;
+  useEffect(() => {
+    if (!more || !end.current) return;
+    const watch = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) setLimit(count => count + PAGE); }, { rootMargin: '800px' });
+    watch.observe(end.current);
+    return () => watch.disconnect();
+  }, [more, limit]);
+
+  /** Shown at once, saved behind it: the admin never waits on the server to move on. A refusal puts the card back and says why. */
+  function save(item: LibraryItem, change: Change) {
+    setNotice('');
+    setLibrary(current => current && { ...current, items: current.items.map(entry => entry.id === item.id ? changed(entry, change) : entry) });
+    changeItem(item.id, change).then(saved => merge([saved.item], saved.tags), (cause: Error) => {
+      setLibrary(current => current && { ...current, items: current.items.map(entry => entry.id === item.id ? item : entry) });
+      setNotice(`Not saved: ${cause.message}`);
+    });
+  }
+  function remove(item: LibraryItem) {
+    setNotice('');
+    setLibrary(current => current && { ...current, items: current.items.filter(entry => entry.id !== item.id) });
+    deleteItem(item.id).then(() => onChanged(), (cause: Error) => {
+      setLibrary(current => current && { ...current, items: [item, ...current.items.filter(entry => entry.id !== item.id)] });
+      setNotice(`Not deleted: ${cause.message}`);
+    });
+  }
+  /** Shows only the items with this status; from "To sort" it moves to every item, since those on a board are not there. */
+  function showStatus(value: StatusFilter) {
+    setStatus(value);
+    if (board === NO_BOARD) setBoard('');
+  }
 
   /** Ticks or unticks one card; with shift, every card shown between it and the last one ticked follows it. */
   function tick(id: string, range: boolean) {
@@ -846,6 +912,15 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
     setPicked(list => (on ? [...new Set([...list, ...ids])] : list.filter(entry => !ids.includes(entry))));
     anchor.current = id;
   }
+  // The cards' actions are the same for the whole page, so a card is only drawn again when its own item changes.
+  const latest = useRef({ tick, open: setOpenId, picked });
+  latest.current = { tick, open: setOpenId, picked };
+  const actions = useMemo<CardActions>(() => ({
+    select: id => (latest.current.picked.length ? latest.current.tick(id, false) : latest.current.open(id)),
+    tick: (id, range) => latest.current.tick(id, range),
+    play: id => setPlayingId(id),
+  }), []);
+
   /** Saved items on their cards; the library is asked again once the admin pauses, since one answer changes what our models offer for others. */
   function merge(saved: LibraryItem[], tags?: TagCount[]) {
     setLibrary(current => current && {
@@ -860,20 +935,23 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
     <header><h1 className="m-0 text-2xl font-semibold">Library</h1>
       <p className="m-0 mt-1 text-sm text-muted-foreground">Cleared photos, videos and GIFs the templates may use. Only approved items are ever used.</p></header>
     <Uploader onAdded={item => { setLibrary(current => current && { ...current, items: [item, ...current.items] }); onChanged(); }} />
-    {library && <Boards items={items} chosen={board} onChoose={setBoard} />}
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
 
-    <div className="flex flex-wrap items-center gap-2">
-      {sorting ? <span className="text-sm text-muted-foreground">New items, sorted by our models. Click a board above to see what is on it.</span>
-        : (['all', 'pending', 'approved', 'hidden'] as const).map(value => <Chip key={value} on={status === value} onClick={() => setStatus(value)}>
-          {value === 'all' ? 'All' : STATUS_LABEL[value]} {count(value)}</Chip>)}
-      <select aria-label="Filter by board" value={board} onChange={event => setBoard(event.target.value)}
+    {/* Always in view: what is waiting or hidden is one click away, wherever it is filed. */}
+    <div className="sticky top-0 z-[5] -mx-2 flex flex-wrap items-center gap-2 rounded-[var(--radius-panel)] bg-background/90 px-2 py-2 backdrop-blur">
+      <Chip on={sorting} onClick={() => { setBoard(NO_BOARD); setStatus('all'); }}>To sort {unsorted.length}</Chip>
+      <span aria-hidden="true" className="mx-1 h-5 w-px bg-border" />
+      {(['all', 'pending', 'approved', 'hidden'] as const).map(value => <Chip key={value} on={!sorting && status === value} onClick={() => showStatus(value)}>
+        {value === 'all' ? 'All' : STATUS_LABEL[value]} {count(value)}</Chip>)}
+      <select aria-label="Filter by board" value={sorting ? '' : board} onChange={event => setBoard(event.target.value)}
         className="ml-auto rounded-[var(--radius-control)] bg-card px-3 py-1.5 text-sm shadow-sm outline-ring focus-visible:outline-2">
-        <option value={NO_BOARD}>To sort ({unsorted.length})</option>
-        <option value="">Every item ({items.length})</option>
+        <option value="">Any board ({items.length})</option>
         {BOARDS.map(entry => <option key={entry.id} value={entry.id}>{entry.name} ({items.filter(item => item.boards.includes(entry.id)).length})</option>)}
       </select>
     </div>
+    {notice && <p role="alert" className="m-0 flex items-center justify-between gap-3 rounded-[var(--radius-control)] bg-red-50 px-4 py-2 text-sm text-destructive">
+      {notice}<button type="button" className="bg-transparent p-0 text-xs font-medium text-destructive underline-offset-4 hover:underline" onClick={() => setNotice('')}>Dismiss</button></p>}
+    {library && sorting && <Boards items={items} chosen={board} onChoose={setBoard} />}
     {library && board && board !== NO_BOARD && <AlsoTray items={items} only={board} onOpen={setOpenId} onSaved={merge} />}
     {sorting && library ? <>
       <SortTray items={unsorted} filed={items.length - items.filter(item => !item.boards.length).length} onOpen={setOpenId} onFiled={merge} />
@@ -891,10 +969,11 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
       : shown.length === 0 ? <p className="m-0 rounded-[var(--radius-panel)] bg-card p-10 text-center text-sm text-muted-foreground">
         {items.length === 0 ? 'Nothing here yet. Add your first cleared file above.' : 'Nothing matches these filters.'}</p>
       : <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-        {shown.map(item => <Card key={item.id} item={item} selected={item.id === openId} ticked={picked.includes(item.id)}
-          onSelect={() => (picked.length ? tick(item.id, false) : setOpenId(item.id))} onTick={range => tick(item.id, range)}
-          onPlay={() => { if (!picked.length) setOpenId(item.id); setPlayingId(item.id); }} />)}
+        {shown.slice(0, limit).map(item => <Card key={item.id} item={item} selected={item.id === openId} ticked={picked.includes(item.id)} actions={actions} />)}
       </div>}
+    {more && <div ref={end} className="flex justify-center">
+      <Button variant="secondary" onClick={() => setLimit(count => count + PAGE)}>Show more ({shown.length - limit} left)</Button>
+    </div>}
     </>}
     {library && <Tags tags={library.tags} onChange={replace} />}
 
@@ -903,8 +982,8 @@ export function LibraryView({ onChanged }: { onChanged: () => void }) {
       onSaved={(saved, tags) => merge(saved, tags ?? undefined)}
       onDeleted={(next, gone) => { setPicked(list => list.filter(id => !gone.includes(id))); if (next) replace(next); else void refresh(); }} />}
     {!chosen.length && open && library && <Panel item={open} pool={library.tags} onClose={() => setOpenId(null)} onPlay={() => setPlayingId(open.id)}
-      onSaved={(saved, tags) => { merge([saved], tags); setOpenId(null); }}
-      onDeleted={next => { setOpenId(null); replace(next); }} />}
+      onSave={change => { setOpenId(null); save(open, change); }}
+      onDelete={() => { setOpenId(null); remove(open); }} />}
     <Player item={items.find(item => item.id === playingId) ?? null} onClose={() => setPlayingId(null)} />
   </div>;
 }
