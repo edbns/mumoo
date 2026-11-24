@@ -14,6 +14,8 @@ import type { SongTheme } from './song-themes';
  *               sub-genre or genre names one of them fits it too.
  *   secondary   genres it serves only when the words fit (the board's themes or moods): "pop (summer/happy)" on Sunset & Coast.
  * `hunt` is what to look for when filling the board.
+ * `apart`: a board kept out of the creatives (Memes & Funny, to be used its own way): the admin files into it and our models learn
+ *   it, but no song is ever dealt from it, and its pictures are never used on a song's creatives.
  */
 export type Board = {
   id: string;
@@ -26,6 +28,7 @@ export type Board = {
   primary: readonly string[];
   secondary: readonly string[];
   hunt: string;
+  apart?: true;
 };
 
 export const BOARDS: readonly Board[] = [
@@ -166,9 +169,17 @@ export const BOARDS: readonly Board[] = [
     secondary: ['Deep house', 'indie', 'worship (restrained/thoughtful)'],
     hunt: 'Fog, mountains, slow time-lapse, the sea from above, empty landscape, soft light',
   },
+  {
+    id: 'funny-memes', name: 'Memes & Funny',
+    styles: [], subGenres: [], genres: [], themes: [], moods: [], primary: [], secondary: [],
+    hunt: 'Meme clips, funny reactions, pranks, fails, animals doing something silly, people laughing, comedy moments',
+    apart: true,
+  },
 ];
 
 export const BOARD_IDS = BOARDS.map(board => board.id);
+/** The boards kept out of the creatives (`apart`). */
+export const APART_BOARD_IDS = BOARDS.filter(board => board.apart).map(board => board.id);
 /** A board is used once it has this many ready pictures: enough for one reel. Until then the library is chosen from as before. */
 export const BOARD_MIN = 8;
 /** What the brain knows of a song that the boards care about. */
@@ -224,10 +235,10 @@ function hash(text: string) {
   return h >>> 0;
 }
 
-/** The boards that have enough ready pictures to be used, by id: how many each has. */
+/** The boards that have enough ready pictures to be used, by id: how many each has. A board kept apart is never used. */
 export function filledBoards(items: readonly { boards?: readonly string[] }[]): Map<string, number> {
   const counts = new Map<string, number>();
-  for (const item of items) for (const id of item.boards ?? []) counts.set(id, (counts.get(id) ?? 0) + 1);
+  for (const item of items) for (const id of item.boards ?? []) if (!APART_BOARD_IDS.includes(id)) counts.set(id, (counts.get(id) ?? 0) + 1);
   return new Map([...counts].filter(([, count]) => count >= BOARD_MIN));
 }
 

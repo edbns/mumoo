@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { db } from './person.mjs';
 import { askPrepare, startPrepare } from './prepare.mjs';
-import { BOARDS } from './boards.mjs';
+import { APART_BOARDS, BOARDS } from './boards.mjs';
 import { alsoFits, suggestBoards } from './board-suggest.mjs';
 import { jpegColours } from './colours.mjs';
 import { deleteObject, getObject, objectSize, signedDownload, signedUpload } from './storage.mjs';
@@ -436,7 +436,9 @@ export async function removeItem(id) {
  */
 export async function listApproved() {
   await prepareWaiting();
-  const rows = await db()`select id, kind, attitudes, tags, genre, sub_genre, boards, looks, colours, cutout, shots, small from library_items where arrived and ready and status = 'approved' order by created_at desc limit ${LIBRARY_MAX}`;
+  // An item on a board kept apart (Memes & Funny) is never used on a song's creatives, even when it is on another board too.
+  const rows = await db()`select id, kind, attitudes, tags, genre, sub_genre, boards, looks, colours, cutout, shots, small from library_items
+    where arrived and ready and status = 'approved' and not (boards && ${APART_BOARDS}::text[]) order by created_at desc limit ${LIBRARY_MAX}`;
   const learned = await learnedCounts();
   return Promise.all(rows.map(async (row) => ({
     id: row.id,

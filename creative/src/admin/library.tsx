@@ -608,8 +608,10 @@ function Boards({ items, chosen, onChoose }: { items: readonly LibraryItem[]; ch
         return <button key={board.id} type="button" aria-pressed={chosen === board.id} onClick={() => onChoose(chosen === board.id ? NO_BOARD : board.id)}
           className={`flex flex-col gap-1 rounded-[var(--radius-control)] p-3 text-left outline-ring transition-colors focus-visible:outline-2 ${chosen === board.id ? 'bg-foreground text-background' : 'bg-muted hover:bg-secondary'}`}>
           <span className="flex items-center justify-between gap-2 text-sm font-medium">{board.name}
-            <span className={`rounded-full px-2 py-0.5 text-xs ${ready >= BOARD_MIN ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-              {ready >= BOARD_MIN ? `In use · ${ready}` : `${ready} of ${BOARD_MIN}`}</span>
+            {board.apart
+              ? <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">Kept apart · {ready}</span>
+              : <span className={`rounded-full px-2 py-0.5 text-xs ${ready >= BOARD_MIN ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                {ready >= BOARD_MIN ? `In use · ${ready}` : `${ready} of ${BOARD_MIN}`}</span>}
           </span>
           <span className={`text-xs ${chosen === board.id ? 'text-background/80' : 'text-muted-foreground'}`}>{board.hunt}</span>
           <BoardGenres board={board} className={chosen === board.id ? 'text-background' : 'text-foreground'} />
@@ -623,6 +625,7 @@ function Boards({ items, chosen, onChoose }: { items: readonly LibraryItem[]; ch
 
 /** The songs a board serves (the genre map in `boards.ts`): the brain sends songs of these genres to it. */
 function BoardGenres({ board, className = 'text-foreground' }: { board: (typeof BOARDS)[number]; className?: string }) {
+  if (board.apart) return <span className={`text-xs ${className}`}>Not used in songs’ creatives. Our models learn it from what you file here.</span>;
   return <span className={`flex flex-col text-xs ${className}`}>
     <span><span className="font-medium">Genres:</span> {board.primary.join(', ')}</span>
     <span className="opacity-75"><span className="font-medium">When the words fit:</span> {board.secondary.join(', ')}</span>

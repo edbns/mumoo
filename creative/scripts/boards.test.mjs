@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
-import { BOARDS as SERVER_BOARDS } from '../netlify/lib/boards.mjs';
+import { APART_BOARDS, BOARDS as SERVER_BOARDS } from '../netlify/lib/boards.mjs';
 import { ATTITUDES } from '../netlify/lib/library.mjs';
 import { validFeedback } from '../netlify/lib/feedback.mjs';
 
@@ -53,7 +53,7 @@ test('the admin\'s genre map routes too: its genres always, its "when the words 
   try {
     const board = id => boards.BOARDS.find(entry => entry.id === id);
     const fit = (id, wanted) => boards.boardFit(board(id), { genre: '', subGenre: '', attitude: null, ...wanted });
-    for (const entry of boards.BOARDS) assert.ok(entry.primary.length && entry.secondary.length, `${entry.name} shows its genres`);
+    for (const entry of boards.BOARDS.filter(one => !one.apart)) assert.ok(entry.primary.length && entry.secondary.length, `${entry.name} shows its genres`);
     const rnb = { genre: 'Jazz, Soul & Blues', subGenre: 'Smooth Jazz / Soul', style: 'contemporary R&B' };
     assert.equal(fit('night-drive', rnb) - fit('night-drive', { ...rnb, style: 'soul' }), 2, 'R&B (its style) is on Night Drive\'s map');
     const pop = { genre: 'Pop', subGenre: 'General Pop', style: 'pop music' };
@@ -68,6 +68,19 @@ test('the admin\'s genre map routes too: its genres always, its "when the words 
 const filed = (prefix, board, count, over = {}) => Array.from({ length: count }, (_, i) => ({
   id: `${prefix}${i}`, kind: 'video', attitudes: [], tags: [], genre: null, subGenre: null, boards: [board], url: `https://x/${prefix}${i}`, motionUrl: `https://x/${prefix}${i}.mp4`, ...over,
 }));
+
+test('a board kept apart (Memes & Funny) is never dealt to a song, however full, and the server keeps its items off the creatives', async () => {
+  const { server, boards } = await load();
+  try {
+    assert.deepEqual(APART_BOARDS, boards.APART_BOARD_IDS);
+    assert.ok(APART_BOARDS.includes('funny-memes'));
+    const wanted = { genre: 'Pop', subGenre: 'General Pop', attitude: 'fun', themes: ['party'] };
+    const items = filed('m', 'funny-memes', 60);
+    assert.equal(boards.boardForRow('photography', wanted, items, 'song'), null, 'only memes filled: no board, as if none were filled');
+    const both = [...items, ...filed('p', 'pop-studio', boards.BOARD_MIN)];
+    assert.deepEqual(boards.songBoards(wanted, both, 'song').map(board => board.id), ['pop-studio']);
+  } finally { await server.close(); }
+});
 
 test('every row of a song is dealt from its best filled board, through every Refresh; an empty board is never used', async () => {
   const { server, boards } = await load();

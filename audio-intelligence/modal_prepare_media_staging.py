@@ -153,6 +153,10 @@ BOARD_SCENES = {
                        ["a church choir", "hands playing a piano", "a saxophone player"]),
     "still-open": ("still and wide: fog, mountains, a slow time-lapse, the sea from above, an empty landscape, soft light",
                    ["fog over mountains", "the sea seen from above", "an empty landscape in soft light"]),
+    # Kept apart from the songs' creatives (`apart` in boards.ts): chosen by what happens in it, wherever it is and in any light.
+    "funny-memes": ("meant to be funny, anywhere and in any light: a meme clip, a funny reaction or face, a prank, a fail, "
+                    "an animal doing something silly, people laughing, a comedy moment",
+                    ["a funny meme video", "a person making a funny face", "a funny fail or prank", "an animal doing something silly"]),
 }
 # SigLIP's own odds are small and spread: a clear look scores about 0.2 to 0.7, a faint one 0.01. Strength is read on a log scale between these.
 FAINT = 0.003
@@ -172,7 +176,7 @@ READER_ASK = (
     "light and colour, so the pictures on a board look right one after another.\n\nThe boards:\n"
     + "\n".join(f"- {board}: {scene}" for board, (scene, _) in BOARD_SCENES.items())
     + "\n\nChoose the board this picture belongs on (several pictures are stills from one video). The place and the light decide, "
-    "not who is in it. Name a second board only if it truly fits as well. Then list every other board it would also look right "
+    "not who is in it, except for funny-memes: choose it whenever the picture is meant to be funny, wherever it is. Name a second board only if it truly fits as well. Then list every other board it would also look right "
     "on, among that board's pictures (a picture used on more boards is more useful; leave the list empty when none). "
     "Answer with JSON only:\n"
     '{"description": "one short sentence: what is in it, where, and the light", "boards": ["best-board-id"], '
