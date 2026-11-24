@@ -14,7 +14,7 @@ then keeps them as `seeded`.
     python3 -m modal run -e mumoo-staging seed_style_prints.py::seed --folder "<folder>" --out <out.json>
     python3 -m modal run -e mumoo-staging seed_style_prints.py::seed_loops --folder "<folder>" --licence "CC0 1.0" --out <out.json> [--most 20]
     python3 -m modal run --detach -e mumoo-staging seed_style_prints.py::seed_freesound --run <name> [--most 20] [--only "techno,gospel"]
-    python3 -m modal run --detach -e mumoo-staging seed_style_prints.py::seed_fma --run <name>    # songs of genre-evaluation/fma-cc0.json (fma.py)
+    python3 -m modal run --detach -e mumoo-staging seed_style_prints.py::seed_fma --run <name> [--plan fma-by]    # songs of genre-evaluation/<plan>.json (fma.py)
 """
 import hashlib
 import json
@@ -160,12 +160,12 @@ def fetch_freesound(run: str, most: int, only: list[str]):
 
 
 fma_image = seed_image.add_local_file(str(HERE / "genre-evaluation" / "fma-cc0.json"), "/seed/fma-cc0.json") \
-    .add_local_python_source("fma")
+    .add_local_file(str(HERE / "genre-evaluation" / "fma-by.json"), "/seed/fma-by.json").add_local_python_source("fma")
 
 
 @app.function(image=fma_image, volumes={"/out": seed_volume}, cpu=1, memory=2048, timeout=6 * 3600, retries=0)
-def fetch_fma(run: str):
-    """Each lane's songs, written as they are done; `heard` says whether CLAP hears the song as its lane, so whether to
+def fetch_fma(run: str, plan: str, only: str):
+    """The songs of one lane (each lane runs on its own, at once); `heard` says whether CLAP hears the song as its lane, so whether to
     keep only those can be measured rather than assumed."""
     import io
     import zipfile
@@ -173,12 +173,12 @@ def fetch_fma(run: str):
     import freesound
     anchors = freesound.lanes()
     style_of = {lane["id"]: lane["style"] for lane in anchors}
-    songs = json.loads(Path("/seed/fma-cc0.json").read_text())["songs"]
+    songs = json.loads(Path(f"/seed/{plan}.json").read_text())["songs"]
     if unknown := sorted({song["lane"] for song in songs} - set(style_of)):
         raise SystemExit(f"No lane {unknown}")
     archive = zipfile.ZipFile(io.BufferedReader(fma.Ranged(fma.ZIP), buffer_size=1 << 20))
     Path(f"/out/{run}").mkdir(parents=True, exist_ok=True)
-    for lane in sorted({song["lane"] for song in songs}):
+    for lane in [only]:
         files = []
         with tempfile.TemporaryDirectory() as folder:
             for song in (song for song in songs if song["lane"] == lane):
@@ -207,10 +207,12 @@ def fetch_fma(run: str):
 
 
 @app.local_entrypoint()
-def seed_fma(run: str):
+def seed_fma(run: str, plan: str = "fma-cc0"):
     """Like `seed_freesound`: run with `--detach`, collect from the volume's <run>/<lane>.json."""
-    call = fetch_fma.spawn(run)
-    print(f"started {call.object_id}: writes to the mumoo-seed-prints volume, {run}/<lane>.json")
+    lanes = sorted({song["lane"] for song in json.loads((HERE / "genre-evaluation" / f"{plan}.json").read_text())["songs"]})
+    for lane in lanes:
+        fetch_fma.spawn(run, plan, lane)
+    print(f"started {len(lanes)} lanes: writes to the mumoo-seed-prints volume, {run}/<lane>.json")
 
 
 @app.local_entrypoint()

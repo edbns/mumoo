@@ -1,13 +1,16 @@
 """The FMA dataset's public-domain songs for genre seeding (https://github.com/mdeff/fma).
 
-Real, finished songs, each with the genre its artist gave it. Only songs under CC0 1.0 or the Public Domain Mark are taken;
-"Sound Recording Common Law Protection" is not (old recordings still under state law), nor any CC licence. Each FMA genre
+Real, finished songs, each with the genre its artist gave it. Only songs under CC0 1.0 or the Public Domain Mark are taken,
+or with `--by` only those under CC BY (credit only: no NonCommercial, ShareAlike or NoDerivatives); "Sound Recording Common
+Law Protection" is not (old recordings still under state law). CC BY asks for credit where the work is shared: the audio
+never is, and each print keeps the artist and track for a credits list. Each FMA genre
 that names one of our lanes maps to it; the rest (experimental, noise, spoken) are left out. At most `most` songs a lane,
 most listened first, so one genre cannot outweigh the others.
 
 The audio is the 30 s clips of `fma_large.zip`, read song by song over HTTP ranges, so the 93 GiB zip is never downloaded.
 
     python3 fma.py <fma_metadata folder> [--most 80]    # writes genre-evaluation/fma-cc0.json
+    python3 fma.py <fma_metadata folder> --by --skip edm,pop    # writes genre-evaluation/fma-by.json
 """
 import argparse
 import ast
@@ -21,22 +24,30 @@ import urllib.request
 from freesound import tls
 
 HERE = Path(__file__).resolve().parent
-PLAN = HERE / "genre-evaluation" / "fma-cc0.json"
+PLANS = {False: HERE / "genre-evaluation" / "fma-cc0.json", True: HERE / "genre-evaluation" / "fma-by.json"}
 ZIP = "https://os.unil.cloud.switch.ch/fma/fma_large.zip"
 LICENCES = {"CC0 1.0 Universal": "CC0 1.0", "Public Domain Mark 1.0": "Public Domain Mark 1.0"}
+BY = {"Attribution": "CC BY", "Creative Commons Attribution": "CC BY", "Creative Commons Attribution 4.0": "CC BY 4.0",
+      "Attribution 4.0 International": "CC BY 4.0", "Attribution 3.0 International": "CC BY 3.0",
+      "Attribution 3.0 United States": "CC BY 3.0 US", "Attribution 3.0 Netherlands": "CC BY 3.0 NL",
+      "Attribution 2.0 France": "CC BY 2.0 FR", "Attribution 1.0 Finland": "CC BY 1.0 FI"}
 # The first FMA genre of a song found here gives its lane.
 LANES = {
-    "Metal": "metal", "Industrial": "industrial", "Punk": "punk", "Shoegaze": "rock", "Noise-Rock": "rock", "Rock": "rock",
-    "Americana": "folk", "Folk": "folk", "Country": "country",
+    "Death-Metal": "metal", "Grindcore": "metal", "Metal": "metal", "Industrial": "industrial",
+    "Hardcore": "punk", "Post-Punk": "punk", "Electro-Punk": "punk", "Punk": "punk", "Shoegaze": "rock", "Noise-Rock": "rock", "Rock": "rock",
+    "Americana": "folk", "Folk": "folk", "Bluegrass": "country", "Country": "country",
     "Contemporary Classical": "neoclassical", "Soundtrack": "neoclassical", "20th Century Classical": "classical", "Classical": "classical",
+    "Choral Music": "classical",
     "Hip-Hop Beats": "boom-bap", "Hip-Hop": "hip-hop", "Rap": "hip-hop",
-    "Big Band/Swing": "jazz", "Jazz: Vocal": "jazz", "Jazz": "jazz", "Blues": "jazz", "Gospel": "gospel",
-    "Ambient": "ambient", "Synth Pop": "pop", "Pop": "pop",
+    "Big Band/Swing": "jazz", "Jazz: Vocal": "jazz", "Modern Jazz": "jazz", "Jazz": "jazz", "Blues": "jazz",
+    "Gospel": "gospel", "Soul-RnB": "soul", "Funk": "soul", "Reggae - Dub": "reggae",
+    "Trip-Hop": "downtempo", "Chill-out": "downtempo", "Downtempo": "downtempo", "Ambient": "ambient", "Synth Pop": "pop", "Pop": "pop",
     "Techno": "techno", "House": "house", "Dubstep": "dubstep", "Drum & Bass": "drum-and-bass", "Electronic": "edm",
 }
 
 
-def build(metadata: Path, most: int) -> list[dict]:
+def build(metadata: Path, most: int, by: bool = False, skip: frozenset = frozenset()) -> list[dict]:
+    licences = BY if by else LICENCES
     csv.field_size_limit(sys.maxsize)
     titles = {row["genre_id"]: row["title"] for row in csv.DictReader((metadata / "genres.csv").open())}
     rows = csv.reader((metadata / "tracks.csv").open(encoding="utf-8"))
@@ -45,9 +56,9 @@ def build(metadata: Path, most: int) -> list[dict]:
     order = list(LANES)
     by_lane = {}
     for row in rows:
-        licence = LICENCES.get(row[columns["track.license"]])
+        licence = licences.get(row[columns["track.license"]])
         genres = [titles[str(g)] for g in ast.literal_eval(row[columns["track.genres"]] or "[]")]
-        mapped = sorted((order.index(g), g) for g in genres if g in LANES)
+        mapped = sorted((order.index(g), g) for g in genres if g in LANES and LANES[g] not in skip)
         if not licence or not mapped:
             continue
         genre = mapped[0][1]
@@ -106,10 +117,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("metadata", type=Path)
     parser.add_argument("--most", type=int, default=80)
+    parser.add_argument("--by", action="store_true")
+    parser.add_argument("--skip", default="", help="lanes to leave out, e.g. edm,pop")
     args = parser.parse_args()
-    songs = build(args.metadata, args.most)
-    PLAN.write_text(json.dumps({"version": 1, "songs": songs}, indent=1) + "\n")
+    songs = build(args.metadata, args.most, args.by, frozenset(filter(None, args.skip.split(","))))
+    PLANS[args.by].write_text(json.dumps({"version": 1, "songs": songs}, indent=1) + "\n")
     counts = {}
     for song in songs:
         counts[song["lane"]] = counts.get(song["lane"], 0) + 1
-    print(f"{len(songs)} songs -> {PLAN}: {counts}")
+    print(f"{len(songs)} songs -> {PLANS[args.by]}: {counts}")
