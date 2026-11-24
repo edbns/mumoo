@@ -69,6 +69,8 @@ export type Learning = {
   /** Genre learning: the kept style prints (all time), "I don't know" presses, the answers to the brain's guesses per guessed style, and to its checks of picks. */
   genre: {
     prints: { songs: number; creator: number; confirmed: number; corrected: number; seeded: number };
+    /** Public answers waiting for the daily check, held by it for a person, or rejected as never confirmed. */
+    candidates: { waiting: number; held: number; rejected: number };
     unknowns: number;
     answers: { style: string; yes: number; no: number; unsure: number }[];
     checks: { picked: string; guessed: string; switched: number; kept: number; unsure: number }[];

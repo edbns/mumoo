@@ -215,9 +215,10 @@ test('the endpoints start a print, keep it with the creator\'s style, and count 
     assert.equal((await ask(job)).status, 202);
     assert.equal((await ask({ ...job, label: { ...clip, source: 'seeded' } })).status, 400, 'only a creator\'s pick comes from the browser');
     running = false;
-    assert.deepEqual(await (await ask(job)).json(), { status: 'stored' });
-    const rows = await db()`select style, source from style_prints where source_sha256 = ${clip.sourceSha256}`;
-    assert.deepEqual(rows.map(row => [row.style, row.source]), [['Amapiano', 'creator']]);
+    assert.deepEqual(await (await ask(job)).json(), { status: 'waiting' });
+    const rows = await db()`select style, source, status from style_print_candidates where source_sha256 = ${clip.sourceSha256}`;
+    assert.deepEqual(rows.map(row => [row.style, row.source, row.status]), [['Amapiano', 'creator', 'waiting']]);
+    assert.deepEqual(await db()`select 1 from style_prints where source_sha256 = ${clip.sourceSha256}`, [], 'nothing teaches the brain before the daily check');
 
     assert.equal((await send(printHandler, 'style-print', 'application/json', JSON.stringify({ version: 1, unknown: true }))).status, 204);
     const after = (await db()`select count from style_unknowns where day = current_date`)[0].count;
@@ -235,6 +236,7 @@ test('the endpoints start a print, keep it with the creator\'s style, and count 
   } finally {
     globalThis.fetch = realFetch;
     await db()`delete from style_prints where source_sha256 = ${clip.sourceSha256}`;
+    await db()`delete from style_print_candidates where source_sha256 = ${clip.sourceSha256}`;
     await db()`delete from style_clip_tempos where source_sha256 = ${clip.sourceSha256}`;
     await db()`update style_unknowns set count = count - 1 where day = current_date and count > ${before}`;
     for (const key of ['SITE_ID', 'MUMOO_BRAIN_TESTER_KEY', 'MUMOO_MUSIC_BRIDGE_SECRET']) {
@@ -243,7 +245,7 @@ test('the endpoints start a print, keep it with the creator\'s style, and count 
   }
 });
 
-test('"We think it sounds like…": the guess is made by the server, and only a yes keeps the print', { skip: !READY, timeout: 60000 }, async () => {
+test('"We think it sounds like…": the guess is made by the server, and only a yes leaves the print for the daily check', { skip: !READY, timeout: 60000 }, async () => {
   const previous = { ...process.env };
   const realFetch = globalThis.fetch;
   Object.assign(process.env, { SITE_ID: '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5', MUMOO_BRAIN_TESTER_KEY: 'a'.repeat(40), MUMOO_MUSIC_BRIDGE_SECRET: 'b'.repeat(40) });
@@ -264,7 +266,7 @@ test('"We think it sounds like…": the guess is made by the server, and only a 
     const ask = body => statusHandler(new Request(`${ORIGIN}/.netlify/functions/style-print-status`, {
       method: 'POST', headers: { origin: ORIGIN, 'content-type': 'application/json', 'x-mumoo-brain-access': token }, body: JSON.stringify({ version: 1, id: 'fc-abcdefgh1234', ...body }),
     }));
-    const kept = async () => (await db()`select style, source from style_prints where source_sha256 = ${clip.sourceSha256}`).map(r => [r.style, r.source]);
+    const kept = async () => (await db()`select style, source from style_print_candidates where source_sha256 = ${clip.sourceSha256}`).map(r => [r.style, r.source]);
 
     assert.equal((await ask({ guess: clip })).status, 202);
     running = false;
@@ -279,12 +281,12 @@ test('"We think it sounds like…": the guess is made by the server, and only a 
     assert.deepEqual(await kept(), [], 'a no teaches nothing');
     assert.equal(await answered('no'), before.no + 1);
 
-    assert.deepEqual(await (await ask({ answer: 'yes', style: 'Amapiano', clip })).json(), { status: 'stored' });
+    assert.deepEqual(await (await ask({ answer: 'yes', style: 'Amapiano', clip })).json(), { status: 'waiting' });
     assert.deepEqual(await kept(), [['Amapiano', 'confirmed']]);
     assert.equal(await answered('yes'), before.yes + 1);
   } finally {
     globalThis.fetch = realFetch;
-    for (const sha of [clip.sourceSha256, ...seeds.map(seed => seed.sourceSha256)]) await db()`delete from style_prints where source_sha256 = ${sha}`;
+    for (const sha of [clip.sourceSha256, ...seeds.map(seed => seed.sourceSha256)]) { await db()`delete from style_prints where source_sha256 = ${sha}`; await db()`delete from style_print_candidates where source_sha256 = ${sha}`; }
     for (const answer of ['yes', 'no']) {
       await db()`update style_guess_answers set count = count - 1 where day = current_date and style = 'Amapiano' and answer = ${answer} and count > ${before[answer]}`;
     }
@@ -314,16 +316,16 @@ test('"Sounds more like techno": a house pick the server hears as techno at the 
     }));
     const heard = { style: 'Zz techno', genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' };
     assert.deepEqual(await (await ask({ guess: clip, picked })).json(), { status: 'guessed', guess: heard });
-    assert.deepEqual(await (await ask({ answer: 'yes', style: 'Zz techno', clip, picked })).json(), { status: 'stored' });
-    const kept = await db()`select style, sub_genre, source from style_prints where source_sha256 = ${clip.sourceSha256}`;
+    assert.deepEqual(await (await ask({ answer: 'yes', style: 'Zz techno', clip, picked })).json(), { status: 'waiting' });
+    const kept = await db()`select style, sub_genre, source from style_print_candidates where source_sha256 = ${clip.sourceSha256}`;
     assert.deepEqual(kept.map(r => [r.style, r.sub_genre, r.source]), [['Zz techno', 'Techno', 'corrected']]);
     process.env.ENABLE_BPM_GUARDRAILS = 'false';
     const other = { sourceSha256: randomBytes(32).toString('hex'), offsetMs: 30_000 };
     assert.deepEqual(await (await ask({ guess: other, picked })).json(), { status: 'guessed', guess: null }, 'with the guardrails off the pick is kept');
-    await db()`delete from style_prints where source_sha256 = ${other.sourceSha256}`;
+    await db()`delete from style_print_candidates where source_sha256 = ${other.sourceSha256}`;
   } finally {
     globalThis.fetch = realFetch;
-    for (const sha of [clip, ...seeds].map(item => item.sourceSha256)) await db()`delete from style_prints where source_sha256 = ${sha}`;
+    for (const sha of [clip, ...seeds].map(item => item.sourceSha256)) { await db()`delete from style_prints where source_sha256 = ${sha}`; await db()`delete from style_print_candidates where source_sha256 = ${sha}`; }
     await db()`delete from style_clip_tempos where source_sha256 = ${clip.sourceSha256}`;
     await db()`delete from style_check_answers where picked = 'Zz house'`;
     for (const key of ['SITE_ID', 'MUMOO_BRAIN_TESTER_KEY', 'MUMOO_MUSIC_BRIDGE_SECRET', 'ENABLE_BPM_GUARDRAILS']) {
@@ -352,7 +354,7 @@ test('"Sounds more like…": a pick the brain is sure of is kept at once; a ques
     const ask = body => statusHandler(new Request(`${ORIGIN}/.netlify/functions/style-print-status`, {
       method: 'POST', headers: { origin: ORIGIN, 'content-type': 'application/json', 'x-mumoo-brain-access': token }, body: JSON.stringify({ version: 1, id: 'fc-abcdefgh1234', ...body }),
     }));
-    const kept = async clip => (await db()`select style, genre, source from style_prints where source_sha256 = ${clip.sourceSha256}`).map(r => [r.style, r.genre, r.source]);
+    const kept = async clip => (await db()`select style, genre, source from style_print_candidates where source_sha256 = ${clip.sourceSha256}`).map(r => [r.style, r.genre, r.source]);
     const heard = { style: 'Zz check', genre: 'Hip-Hop & Rap', subGenre: 'Zz sub' };
 
     assert.equal((await ask({ guess: clips[0], picked: { ...picked, style: ' ' } })).status, 400);
@@ -360,9 +362,9 @@ test('"Sounds more like…": a pick the brain is sure of is kept at once; a ques
     assert.deepEqual(await (await ask({ guess: clips[1], picked })).json(), { status: 'guessed', guess: heard });
     assert.deepEqual(await kept(clips[1]), [], 'a questioned pick waits for the answer');
     assert.equal((await ask({ answer: 'yes', style: 'Drill', clip: clips[1], picked })).status, 409);
-    assert.deepEqual(await (await ask({ answer: 'yes', style: 'Zz check', clip: clips[1], picked })).json(), { status: 'stored' });
+    assert.deepEqual(await (await ask({ answer: 'yes', style: 'Zz check', clip: clips[1], picked })).json(), { status: 'waiting' });
     assert.deepEqual(await kept(clips[1]), [['Zz check', 'Hip-Hop & Rap', 'corrected']]);
-    assert.deepEqual(await (await ask({ answer: 'no', style: 'Zz check', clip: clips[2], picked })).json(), { status: 'stored' });
+    assert.deepEqual(await (await ask({ answer: 'no', style: 'Zz check', clip: clips[2], picked })).json(), { status: 'waiting' });
     assert.deepEqual(await kept(clips[2]), [['Zz other', 'Zz elsewhere', 'creator']], 'kept: the creator knows');
     assert.deepEqual(await (await ask({ answer: 'unsure', style: 'Zz check', clip: clips[3], picked })).json(), { status: 'counted' });
     assert.deepEqual(await kept(clips[3]), [], 'not sure teaches nothing');
@@ -371,7 +373,7 @@ test('"Sounds more like…": a pick the brain is sure of is kept at once; a ques
     assert.deepEqual(await kept(clips[0]), [['Zz cousin', 'Hip-Hop & Rap', 'creator']], 'a pick of the genre it hears is kept straight away');
   } finally {
     globalThis.fetch = realFetch;
-    for (const sha of [...clips, ...seeds].map(item => item.sourceSha256)) await db()`delete from style_prints where source_sha256 = ${sha}`;
+    for (const sha of [...clips, ...seeds].map(item => item.sourceSha256)) { await db()`delete from style_prints where source_sha256 = ${sha}`; await db()`delete from style_print_candidates where source_sha256 = ${sha}`; }
     await db()`delete from style_check_answers where picked = 'Zz other'`;
     for (const key of ['SITE_ID', 'MUMOO_BRAIN_TESTER_KEY', 'MUMOO_MUSIC_BRIDGE_SECRET']) {
       if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key];

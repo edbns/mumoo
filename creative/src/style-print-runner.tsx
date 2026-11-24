@@ -13,9 +13,14 @@ const CUT_OFF_GRACE_MS = 15_000;
 /** The sound print hears 48 kHz (a 16 kHz clip prints as another song); the song is decoded at 44.1 kHz. */
 const RATE = 48_000;
 
-const post = (accessToken: string, signal: AbortSignal, url: string, type: string, body: BodyInit) => withAccess(accessToken, access => fetch(url, {
-  method: 'POST', signal, headers: { 'Content-Type': type, 'X-Mumoo-Brain-Access': access }, body,
-}));
+/** The signed-in account goes along when there is one: the server counts each account as one voice per song. */
+const bearer = () => import('./account').then(account => account.sessionToken()).catch(() => null);
+const post = async (accessToken: string, signal: AbortSignal, url: string, type: string, body: BodyInit) => {
+  const token = await bearer();
+  return withAccess(accessToken, access => fetch(url, {
+    method: 'POST', signal, headers: { 'Content-Type': type, 'X-Mumoo-Brain-Access': access, ...(token && { Authorization: `Bearer ${token}` }) }, body,
+  }));
+};
 
 /** Starts the sound print of the selected clip and returns its job id. */
 async function startPrint(accessToken: string, signal: AbortSignal, audio: AudioBuffer, { offsetMs, durationMs }: ClipIdentity): Promise<string> {

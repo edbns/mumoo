@@ -74,6 +74,11 @@ export default async function handler(request) {
         count(*) filter (where source = 'corrected')::int as corrected,
         count(*) filter (where source = 'seeded')::int as seeded
       from style_prints`;
+    // Public answers waiting for the daily check, and those it held for a person to look at.
+    const [candidates] = await sql`
+      select count(*) filter (where status = 'waiting')::int as waiting, count(*) filter (where status = 'held')::int as held,
+        count(*) filter (where status = 'rejected')::int as rejected
+      from style_print_candidates`;
     const [unknowns] = await sql`select coalesce(sum(count), 0)::int as count from style_unknowns where day > current_date - ${days}::int`;
     const answers = await sql`
       select style,
@@ -106,7 +111,7 @@ export default async function handler(request) {
       boards: shape(boards),
       colours: shape(colours),
       boardGenres: shape(boardGenres),
-      genre: { prints, unknowns: unknowns.count, answers, checks },
+      genre: { prints, candidates, unknowns: unknowns.count, answers, checks },
       recent: recent.map(row => ({
         at: row.created_at, event: row.event, row: row.row_id, look: row.look, vibe: row.vibe, lane: row.lane,
         mood: row.attitude, genre: row.genre, watchMs: row.watch_ms, nthDownload: row.nth_download,

@@ -145,10 +145,11 @@ function GenreLearning({ genre }: { genre: Learning['genre'] }) {
   return <section aria-label="Genre learning" className="flex flex-col gap-3">
     <div>
       <h2 className="m-0 text-sm font-medium">Genre learning</h2>
-      <p className="m-0 text-xs text-muted-foreground">Songs with a known genre, and the answers to “We think it sounds like…”. Only a yes teaches the brain.</p>
+      <p className="m-0 text-xs text-muted-foreground">Songs with a known genre, and the answers to “We think it sounds like…”. Answers wait for the daily check before they teach the brain.</p>
     </div>
     <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
       <Stat label="Songs to learn from" value={genre.prints.songs} note={`${genre.prints.creator} picked · ${genre.prints.confirmed} confirmed · ${genre.prints.corrected} corrected · ${genre.prints.seeded} seeded clips`} />
+      <Stat label="Waiting to be checked" value={genre.candidates.waiting} note={`${genre.candidates.held} held for you · ${genre.candidates.rejected} never confirmed`} />
       <Stat label="I don’t know" value={genre.unknowns} note={asked ? `${asked} were asked a guess` : 'None asked a guess yet'} />
       <Stat label="Guesses right" value={asked ? `${Math.round((yes / asked) * 100)}%` : '–'} note={asked ? `${yes} yes of ${asked} answers` : undefined} />
     </div>
