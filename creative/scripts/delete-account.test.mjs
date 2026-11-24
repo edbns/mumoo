@@ -20,6 +20,7 @@ test('the free video is once per address: a deleted account signed up again with
   const tag = randomUUID().slice(0, 8);
   const used = `free.${tag}@gmail.com`;
   const unused = `never-${tag}@example.test`;
+  const olden = `older-${tag}@example.test`;
   const comeBack = [used, `FREE${tag}+again@googlemail.com`, `f.r.e.e.${tag}@gmail.com`];
   const ids = [];
   const signUp = async email => {
@@ -46,12 +47,20 @@ test('the free video is once per address: a deleted account signed up again with
       await deleteAccount({ id: again, email }, async () => {});
     }
 
+    // An older account: its videos were made before free videos were counted, so it has renders but no free spend.
+    const older = await signUp(olden);
+    await sql`insert into renders (id, user_id, job_id, bytes) values (${randomUUID()}, ${older}, ${randomUUID()}, 3)`;
+    assert.equal((await allowanceOf(older)).freeVideo, false, 'an account that made videos has had its free one');
+    await deleteAccount({ id: older, email: olden }, async () => {});
+    const olderAgain = await signUp(olden);
+    assert.deepEqual(await allowanceOf(olderAgain), { credits: 0, freeVideo: false }, 'deleting an older account does not bring a free video');
+
     const never = await signUp(unused);
     await deleteAccount({ id: never, email: unused }, async () => {});
     const back = await signUp(unused);
     assert.equal((await allowanceOf(back)).freeVideo, true, 'an address that never used it still has it');
   } finally {
-    await sql`delete from free_videos_used where email_key in (select free_video_key(e) from unnest(${[used, unused]}::text[]) as e)`;
+    await sql`delete from free_videos_used where email_key in (select free_video_key(e) from unnest(${[used, unused, olden]}::text[]) as e)`;
     for (const id of ids) {
       await sql`delete from neon_auth."user" where id = ${id}`;
       await sql`delete from app_users where id = ${id}`;

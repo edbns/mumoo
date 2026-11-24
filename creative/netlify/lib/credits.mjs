@@ -12,14 +12,16 @@ const STALE = '10 minutes';
 
 /**
  * Remembers that the person's address had its free video (a code of it, never the address), before the account is deleted or
- * moves to another address: signing up again with it does not give another.
+ * moves to another address: signing up again with it does not give another. The free video counts as used once the account
+ * made any video, free or paid, including those made before free videos were counted (a render, but no free spend), here and
+ * in `allowanceOf` and `reserveVideo` alike.
  */
 export async function rememberFreeVideo(userId) {
   await db()`
     insert into free_videos_used (email_key)
     select free_video_key(email) from app_users
-    where id = ${userId} and exists (select 1 from credit_spends where user_id = ${userId} and free
-      and (render_id is not null or created_at > now() - ${STALE}::interval))
+    where id = ${userId} and (exists (select 1 from credit_spends where user_id = ${userId} and (render_id is not null or created_at > now() - ${STALE}::interval))
+           or exists (select 1 from renders where user_id = ${userId}))
     on conflict do nothing`;
 }
 
@@ -30,8 +32,8 @@ export async function allowanceOf(userId) {
          + coalesce((select sum(videos) from credit_bonuses where user_id = ${userId} and revoked_at is null), 0)
          - coalesce((select sum(videos) from credit_spends where user_id = ${userId} and not free
              and (render_id is not null or created_at > now() - ${STALE}::interval)), 0) as credits,
-         not exists (select 1 from credit_spends where user_id = ${userId} and free
-             and (render_id is not null or created_at > now() - ${STALE}::interval))
+         not (exists (select 1 from credit_spends where user_id = ${userId} and (render_id is not null or created_at > now() - ${STALE}::interval))
+           or exists (select 1 from renders where user_id = ${userId}))
          and not exists (select 1 from free_videos_used where email_key = (select free_video_key(email) from app_users where id = ${userId})) as free_video`;
   return { credits: Math.max(0, Number(row?.credits ?? 0)), freeVideo: Boolean(row?.free_video) };
 }
@@ -53,7 +55,8 @@ export async function reserveVideo(userId) {
         select coalesce((select sum(videos) from credit_orders where user_id = ${userId} and status = 'paid'), 0)
          + coalesce((select sum(videos) from credit_bonuses where user_id = ${userId} and revoked_at is null), 0)
              - coalesce((select sum(videos) from credit_spends where user_id = ${userId} and not free), 0) as credits,
-             exists (select 1 from credit_spends where user_id = ${userId} and free)
+             (exists (select 1 from credit_spends where user_id = ${userId} and (render_id is not null or created_at > now() - ${STALE}::interval))
+           or exists (select 1 from renders where user_id = ${userId}))
                or exists (select 1 from free_videos_used where email_key = (select free_video_key(email) from app_users where id = ${userId})) as free_used
       )
       insert into credit_spends (user_id, videos, free)

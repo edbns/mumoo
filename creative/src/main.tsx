@@ -95,9 +95,11 @@ function App() {
   useEffect(() => { if (cartOpen) stop(); }, [cartOpen]);
   const [askingStartOver, setAskingStartOver] = useState(false);
   const downloadRef = useRef<(() => Promise<boolean>) | null>(null);
-  // Paid for the videos a download was short of: they start straight away (in the person's Media, where the payment was made).
+  /** The person's Media, where the videos show up and their progress shows as they are made. */
+  const toMedia = () => { setCartOpen(false); setProfileTab('creatives'); setPage('history'); };
+  // Paid for the videos a download was short of: they start straight away, in the person's Media.
   useEffect(() => {
-    const resume = () => { void downloadRef.current?.(); };
+    const resume = () => { toMedia(); void downloadRef.current?.(); };
     window.addEventListener(CREDITS_BOUGHT, resume);
     return () => window.removeEventListener(CREDITS_BOUGHT, resume);
   }, []);
@@ -164,6 +166,9 @@ function App() {
   const uploads = useUploads();
   const [delivered, setDelivered] = useState(0);
   const download = useCartDownload({ token: accessToken, cart, onDelivered: () => { setCartOpen(false); setDelivered(count => count + 1); } });
+  // However videos start while the chosen videos page is open, the person watches them being made in Media, not there.
+  const making = download.progress !== null;
+  useEffect(() => { if (making && cartOpen) toMedia(); }, [making, cartOpen]);
   // The words are read the moment they are final (synced and not being edited), so the answer is ready by the creatives screen.
   const lyricMeaning = useLyricMeaning(accessToken, composition.cues, lyricsInfo.language,
     IS_ALIGNMENT_STAGING && clipValid && !lyricsState.busy && !lyricsState.dirty);
@@ -402,7 +407,6 @@ function App() {
     // Making videos needs an account (the free first video is theirs, and it is kept in Media): signed out, it asks first and then carries on.
     // Pressing Create takes the person to their Media at once, where the videos show up as they are made; nothing downloads by itself.
     // Too few credits: the popup that asks opens over Media, and choosing fewer opens the chosen videos page again.
-    const toMedia = () => { setCartOpen(false); setProfileTab('creatives'); setPage('history'); };
     if (uploads.pending) return { kind: 'blocked', reason: 'Checking your account…' };
     if (!uploads.signedIn) return { kind: 'download', run: () => {
       void askSignIn(DOWNLOAD_SIGN_IN).then(signedIn => { if (signedIn) { toMedia(); void downloadRef.current?.(); } });

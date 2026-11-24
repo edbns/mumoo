@@ -96,6 +96,9 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
   const busy = progress !== null;
   const excess = limit ? ready.length - limit.have : 0;
   const close = useRef<HTMLButtonElement>(null);
+  const hint = action.kind === 'download' ? (busy ? 'We’re working on it. You can keep making other visuals in the meantime.' : '')
+    : action.kind === 'go' ? 'Videos get made and downloaded from your creatives page.'
+    : action.reason;
   useEffect(() => {
     close.current?.focus();
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
@@ -113,6 +116,15 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
           : <span />}
         <Button ref={close} variant="secondary" className="size-9 rounded-full p-0" onClick={onClose} aria-label="Close"><XIcon aria-hidden="true" className="size-4" /></Button>
       </div>
+      {/* What stops or explains making them shows up here, at the top, where it is seen however many rows are chosen. */}
+      {lines.length > 0 && (limit && excess > 0 || hint) && <div className="flex flex-col gap-3">
+        {limit && excess > 0 && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-primary/10 px-4 py-3 text-sm text-foreground">
+          {limit.free ? 'You can make 1 video free.' : `You have ${limit.have} ${limit.have === 1 ? 'credit' : 'credits'}.`} Take
+          out {videos(excess)} with the × so only {limit.have} {limit.have === 1 ? 'is' : 'are'} left, then make {limit.have === 1 ? 'it' : 'them'}.
+        </p>}
+        {hint && <p role="status" className="hint m-0">{hint}</p>}
+        {action.kind === 'blocked' && action.fix && <Button className="self-start" onClick={action.fix.run}>{action.fix.label}</Button>}
+      </div>}
       {lines.length === 0
         ? <EmptyState>Pick the creatives you like. They stay here for this song and clip while you refresh for more.</EmptyState>
         : <ul className="m-0 grid list-none grid-cols-4 gap-4 p-0">
@@ -128,22 +140,9 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
         </ul>}
       {lines.length > 0 && <div className="mt-auto flex flex-col gap-3 pt-2">
         <p className="m-0 flex justify-between text-sm"><span>Total</span><strong>{ready.length} {ready.length === 1 ? 'credit' : 'credits'}</strong></p>
-        {limit && excess > 0 && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-primary/10 px-4 py-3 text-sm text-foreground">
-          {limit.free ? 'You can make 1 video free.' : `You have ${limit.have} ${limit.have === 1 ? 'credit' : 'credits'}.`} Take
-          out {videos(excess)} with the × so only {limit.have} {limit.have === 1 ? 'is' : 'are'} left, then make {limit.have === 1 ? 'it' : 'them'}.
-        </p>}
-        {action.kind === 'download' && <>
-          <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>Create</Button>
-          {busy && <p className="hint">We’re working on it. You can keep making other visuals in the meantime.</p>}
-        </>}
-        {action.kind === 'go' && <>
-          <Button disabled={busy} onClick={action.run}>Go to your creatives</Button>
-          <p className="hint">Videos get made and downloaded from your creatives page.</p>
-        </>}
-        {action.kind === 'blocked' && <>
-          {action.fix && <Button onClick={action.fix.run}>{action.fix.label}</Button>}
-          <p className="hint">{action.reason}</p>
-        </>}
+        {action.kind === 'download' && <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>Create</Button>}
+        {action.kind === 'go' && <Button disabled={busy} onClick={action.run}>Go to your creatives</Button>}
+        {action.kind === 'blocked' && action.fix && <Button onClick={action.fix.run}>{action.fix.label}</Button>}
       </div>}
     </div>
   </motion.aside>;
