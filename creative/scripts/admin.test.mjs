@@ -100,7 +100,7 @@ async function teachesGenre(asRequest, id) {
     assert.equal(started.status, 202);
     assert.deepEqual(await started.json(), { id: 'fc-abcdefgh1234' });
 
-    const label = { sourceSha256: song, offsetMs: 60_000, style: 'Amapiano', genre: 'African', subGenre: 'Amapiano', source: 'seeded' };
+    const label = { sourceSha256: song, offsetMs: 60_000, style: 'Zz amapiano', genre: 'Zz test', subGenre: 'Zz amapiano', source: 'seeded' };
     const keep = body => send('PUT', JSON.stringify(body), 'application/json');
     assert.equal((await keep({ id: 'fc-abcdefgh1234', label: { ...label, source: 'creator' } })).status, 400, 'the admin only seeds');
     assert.equal((await keep({ id: 'fc-abcdefgh1234', label })).status, 202);
@@ -109,7 +109,7 @@ async function teachesGenre(asRequest, id) {
 
     const overview = await (await send('GET')).json();
     assert.deepEqual(overview.songs.find(row => row.song === song)?.clips, 1);
-    assert.ok(overview.groups.some(group => group.subGenre === 'Amapiano' && group.songs >= 1));
+    assert.ok(overview.groups.some(group => group.subGenre === 'Zz amapiano' && group.songs >= 1));
     assert.equal(typeof overview.ready.clips, 'number');
 
     assert.equal((await send('DELETE', undefined, undefined, '?song=nope')).status, 400);

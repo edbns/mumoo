@@ -21,7 +21,7 @@ function silentWav(ms) {
   wav.set(new TextEncoder().encode('data'), 36); view.setUint32(40, data, true);
   return wav;
 }
-const label = (over = {}) => ({ sourceSha256: randomBytes(32).toString('hex'), offsetMs: 42_000, style: 'Amapiano', genre: 'African', subGenre: 'Amapiano', source: 'creator', ...over });
+const label = (over = {}) => ({ sourceSha256: randomBytes(32).toString('hex'), offsetMs: 42_000, style: 'Zz amapiano', genre: 'Zz test', subGenre: 'Zz amapiano', source: 'creator', ...over });
 const print = (over = {}) => ({ version: 1, status: 'ready', model: 'laion-clap music_audioset_epoch_15_esc_90.14', values: Array.from({ length: 512 }, (_, i) => Math.round(Math.sin(i) * 1e5) / 2e6), ...over });
 
 test('a clip\'s label and a print are accepted only in their exact shape', () => {
@@ -217,7 +217,7 @@ test('the endpoints start a print, keep it with the creator\'s style, and count 
     running = false;
     assert.deepEqual(await (await ask(job)).json(), { status: 'waiting' });
     const rows = await db()`select style, source, status from style_print_candidates where source_sha256 = ${clip.sourceSha256}`;
-    assert.deepEqual(rows.map(row => [row.style, row.source, row.status]), [['Amapiano', 'creator', 'waiting']]);
+    assert.deepEqual(rows.map(row => [row.style, row.source, row.status]), [['Zz amapiano', 'creator', 'waiting']]);
     assert.deepEqual(await db()`select 1 from style_prints where source_sha256 = ${clip.sourceSha256}`, [], 'nothing teaches the brain before the daily check');
 
     assert.equal((await send(printHandler, 'style-print', 'application/json', JSON.stringify({ version: 1, unknown: true }))).status, 204);
@@ -249,7 +249,7 @@ test('"We think it sounds like…": the guess is made by the server, and only a 
   const previous = { ...process.env };
   const realFetch = globalThis.fetch;
   Object.assign(process.env, { SITE_ID: '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5', MUMOO_BRAIN_TESTER_KEY: 'a'.repeat(40), MUMOO_MUSIC_BRIDGE_SECRET: 'b'.repeat(40) });
-  const seeds = [label({ offsetMs: 0, source: 'seeded' }), label({ offsetMs: 0, source: 'seeded', style: 'Private school amapiano' })];
+  const seeds = [label({ offsetMs: 0, source: 'seeded' }), label({ offsetMs: 0, source: 'seeded', style: 'Zz private school' })];
   const clip = { sourceSha256: randomBytes(32).toString('hex'), offsetMs: 30_000 };
   let running = true;
   globalThis.fetch = async (url, init = {}) => {
@@ -257,7 +257,7 @@ test('"We think it sounds like…": the guess is made by the server, and only a 
     if (running) return Response.json({ status: 'running' }, { status: 202 });
     return Response.json(print({ values: near(500) }));
   };
-  const answered = async answer => (await db()`select coalesce(sum(count), 0)::int as count from style_guess_answers where day = current_date and style = 'Amapiano' and answer = ${answer}`)[0].count;
+  const answered = async answer => (await db()`select coalesce(sum(count), 0)::int as count from style_guess_answers where day = current_date and style = 'Zz amapiano' and answer = ${answer}`)[0].count;
   const before = { yes: await answered('yes'), no: await answered('no') };
   try {
     await storePrint(seeds[0], print({ values: near(500, 501) }));
@@ -270,25 +270,25 @@ test('"We think it sounds like…": the guess is made by the server, and only a 
 
     assert.equal((await ask({ guess: clip })).status, 202);
     running = false;
-    assert.deepEqual(await (await ask({ guess: clip })).json(), { status: 'guessed', guess: { style: 'Amapiano', genre: 'African', subGenre: 'Amapiano' } });
+    assert.deepEqual(await (await ask({ guess: clip })).json(), { status: 'guessed', guess: { style: 'Zz amapiano', genre: 'Zz test', subGenre: 'Zz amapiano' } });
     assert.deepEqual(await kept(), [], 'guessing keeps nothing');
 
-    assert.equal((await ask({ label: { ...clip, style: 'Amapiano', genre: 'African', subGenre: 'Amapiano', source: 'confirmed' } })).status, 400, 'the browser cannot say a guess was confirmed');
-    assert.equal((await ask({ answer: 'maybe', style: 'Amapiano', clip })).status, 400);
+    assert.equal((await ask({ label: { ...clip, style: 'Zz amapiano', genre: 'Zz test', subGenre: 'Zz amapiano', source: 'confirmed' } })).status, 400, 'the browser cannot say a guess was confirmed');
+    assert.equal((await ask({ answer: 'maybe', style: 'Zz amapiano', clip })).status, 400);
     assert.equal((await ask({ answer: 'yes', style: 'Drill', clip })).status, 409, 'only the guess the server would make');
 
-    assert.deepEqual(await (await ask({ answer: 'no', style: 'Amapiano', clip })).json(), { status: 'counted' });
+    assert.deepEqual(await (await ask({ answer: 'no', style: 'Zz amapiano', clip })).json(), { status: 'counted' });
     assert.deepEqual(await kept(), [], 'a no teaches nothing');
     assert.equal(await answered('no'), before.no + 1);
 
-    assert.deepEqual(await (await ask({ answer: 'yes', style: 'Amapiano', clip })).json(), { status: 'waiting' });
-    assert.deepEqual(await kept(), [['Amapiano', 'confirmed']]);
+    assert.deepEqual(await (await ask({ answer: 'yes', style: 'Zz amapiano', clip })).json(), { status: 'waiting' });
+    assert.deepEqual(await kept(), [['Zz amapiano', 'confirmed']]);
     assert.equal(await answered('yes'), before.yes + 1);
   } finally {
     globalThis.fetch = realFetch;
     for (const sha of [clip.sourceSha256, ...seeds.map(seed => seed.sourceSha256)]) { await db()`delete from style_prints where source_sha256 = ${sha}`; await db()`delete from style_print_candidates where source_sha256 = ${sha}`; }
     for (const answer of ['yes', 'no']) {
-      await db()`update style_guess_answers set count = count - 1 where day = current_date and style = 'Amapiano' and answer = ${answer} and count > ${before[answer]}`;
+      await db()`update style_guess_answers set count = count - 1 where day = current_date and style = 'Zz amapiano' and answer = ${answer} and count > ${before[answer]}`;
     }
     await db()`delete from style_guess_answers where count = 0`;
     for (const key of ['SITE_ID', 'MUMOO_BRAIN_TESTER_KEY', 'MUMOO_MUSIC_BRIDGE_SECRET']) {
