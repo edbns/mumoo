@@ -27,7 +27,7 @@ const part = (id: string, name: string, tooltip: string) => ({
 const pageConfig: PageConfig = {
   title: 'mumoo Status',
   links: [
-    { link: SITE, label: 'Go to mumoo', highlight: true },
+    { link: SITE, label: 'Back to mumoo', highlight: true },
   ],
   logo: '/logo.png',
   favicon: '/favicon.png',
