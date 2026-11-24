@@ -550,11 +550,17 @@ function footageReel(library: readonly LibraryPicture[], groups: readonly (reado
   // A Refresh never straddles two laps, so no clip is on two of its templates: while the footage holds another whole hand a Refresh
   // goes on to it, and once it is used up each Refresh walks it again in its own order.
   const rounds = Math.max(1, Math.floor(firstLap.length / (hand * size)));
-  const start = small ? card * Math.max(1, Math.floor(firstLap.length / hand)) : ((generation % rounds) * hand + place) * size;
   const lap = small ? 0 : Math.floor(generation / rounds);
   const order = lap ? footageOf(library, groups, wanted, `${song}:lap${lap}`, size, seen, lap) : firstLap;
-  const from = start % order.length;
-  const reel = Array.from({ length: Math.min(size, order.length) }, (_, step) => order[(from + step) % order.length]);
+  // The Refresh's stretch of the footage is dealt round the templates like cards, one picture to each in turn: the freshest pictures
+  // (the person has not seen them, often new uploads) lead every template's reel instead of filling the first templates alone.
+  const first = small ? card : (generation % rounds) * hand * size + place;
+  const reel: LibraryPicture[] = [];
+  for (let at = first; reel.length < Math.min(size, order.length); at += hand) {
+    let next = at % order.length;
+    while (reel.includes(order[next])) next = (next + 1) % order.length;
+    reel.push(order[next]);
+  }
   // Too few clips to give every template its own: the templates share them, last in the reel, so each still opens on its own picture.
   const clips = order.filter(isClip);
   let have = reel.filter(isClip).length;

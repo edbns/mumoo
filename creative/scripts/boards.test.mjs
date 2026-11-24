@@ -181,16 +181,36 @@ test('each time the same song is made it deals its own reels, on the board, and 
   } finally { await server.close(); }
 });
 
-test('within a board, the clips that show what the song is about lead', async () => {
+test('within a board, the clips that show what the song is about lead every template, and the rest of the board fills them', async () => {
   const { server, pack } = await load();
   try {
     const party = filed('p', 'block-party', 20, { tags: ['party'] });
     const plain = filed('q', 'block-party', 80);
-    const reels = Array.from({ length: 10 }, (_, k) => pack.recommendRow('photography', profile(), 0, [], [...party, ...plain], false, {}, { seed: `s${k}` })[0].reelIds ?? []);
-    const share = reels.flat().filter(id => id.startsWith('p')).length / reels.flat().length;
-    assert.ok(share > 0.35, `party clips are ${Math.round(share * 100)}% of the first reel, a fifth of the board`);
-    const later = Array.from({ length: 10 }, (_, k) => pack.recommendRow('typewriter', profile(), 0, [], [...party, ...plain], false, {}, { seed: `s${k}` })[0].reelIds ?? []);
-    assert.ok(later.flat().some(id => id.startsWith('q')), 'and the others still get their turn');
+    const rows = ['photography', 'triptych', 'fisheye', 'typewriter', 'thermal', 'riso', 'window', 'silhouette'];
+    const reels = Array.from({ length: 10 }, (_, k) => rows.map(row => pack.recommendRow(row, profile(), 0, [], [...party, ...plain], false, {}, { seed: `s${k}` })[0].reelIds ?? [])).flat();
+    const leads = reels.map(reel => reel[0]);
+    const share = leads.filter(id => id.startsWith('p')).length / leads.length;
+    assert.ok(share > 0.45, `party clips open ${Math.round(share * 100)}% of the reels, a fifth of the board`);
+    for (const reel of reels) assert.ok(reel.some(id => id.startsWith('q')), 'and every reel mixes in the rest of the board');
+  } finally { await server.close(); }
+});
+
+test('pictures the person has not seen (new uploads) are shared out over every template, not packed into the first ones', async () => {
+  const { server, pack } = await load();
+  try {
+    const fresh = filed('n', 'block-party', 19);
+    const old = filed('o', 'block-party', 120);
+    const seen = new Map(old.map((item, at) => [item.id, (at + 1) / old.length]));
+    const rows = pack.SHELF_ROWS.map(def => def.id);
+    const reels = rows.map(row => pack.recommendRow(row, profile(), 0, [], [...fresh, ...old], false, {}, { seed: 'x', seen })[0]?.reelIds).filter(Boolean);
+    assert.ok(reels.length >= 10, `${reels.length} templates`);
+    const shown = reels.flat().filter(id => id.startsWith('n'));
+    assert.ok(shown.length >= Math.min(fresh.length, reels.length) - 1, `${shown.length} new ones shown`);
+    for (const reel of reels) {
+      assert.ok(reel.filter(id => id.startsWith('n')).length <= 2, `no template is all new: ${reel.join(',')}`);
+      assert.ok(reel.some(id => id.startsWith('o')), 'every template mixes in the board it already had');
+    }
+    assert.equal(new Set(reels.flat()).size, reels.flat().length, 'no picture on two templates');
   } finally { await server.close(); }
 });
 

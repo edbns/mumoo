@@ -21,11 +21,25 @@ export function seenLibrary(): Map<string, number> {
   return new Map(list.map((id, at) => [id, (at + 1) / list.length]));
 }
 
+/**
+ * The pictures of one deal are remembered in a random order: in shelf order, those of the first templates would always count as seen
+ * longest ago, come first next time and land on the first templates again.
+ */
 export function rememberSeen(ids: readonly string[]) {
   if (!ids.length) return;
-  const fresh = new Set(ids);
+  const fresh = new Set(shuffled([...new Set(ids)]));
   const list = [...read().filter(id => !fresh.has(id)), ...fresh].slice(-KEEP);
   try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* private mode: the next deal simply knows less */ }
+}
+
+function shuffled<T>(list: T[]): T[] {
+  const draws = new Uint32Array(list.length);
+  crypto.getRandomValues(draws);
+  for (let at = list.length - 1; at > 0; at--) {
+    const other = draws[at] % (at + 1);
+    [list[at], list[other]] = [list[other], list[at]];
+  }
+  return list;
 }
 
 /** A seed of its own for each time a person makes creatives: the same song never deals the same reels twice, or to two people. */
