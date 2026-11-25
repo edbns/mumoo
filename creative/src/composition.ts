@@ -31,6 +31,8 @@ export interface ImpactMusic {
   snaresMs?: number[];
   hatsMs?: number[];
   dropsMs?: number[];
+  /** How driving the song really is, 0..1 (tempo and busy drums): a slow song is cut slower whatever its genre. */
+  drive?: number;
 }
 
 /** One timed word (or short phrase) of the lyrics, in milliseconds from the start of the clip. */

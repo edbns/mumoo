@@ -443,7 +443,7 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
     texture,
     durationMs: 15_000,
     direct(music, seed, durationMs, preset) {
-      const key = `${seed}|${durationMs}|${music?.beatsMs.length ?? 0}|${music?.energy.length ?? 0}|${music?.accentsMs?.join(',') ?? ''}|${music?.pace ?? ''}|${assets.length}|${preset ? JSON.stringify(preset) : ''}|${music?.snaresMs?.length ?? 0}|${music?.hatsMs?.length ?? 0}|${music?.dropsMs?.join(',') ?? ''}`;
+      const key = `${seed}|${durationMs}|${music?.beatsMs.length ?? 0}|${music?.energy.length ?? 0}|${music?.accentsMs?.join(',') ?? ''}|${music?.pace ?? ''}|${assets.length}|${preset ? JSON.stringify(preset) : ''}|${music?.snaresMs?.length ?? 0}|${music?.hatsMs?.length ?? 0}|${music?.dropsMs?.join(',') ?? ''}|${music?.drive ?? ''}`;
       if (key === plannedFor) return;
       segments = planReel(assets, music, seed, durationMs, preset?.rhythm);
       dissolveMs = preset?.dissolveMs ?? 0;

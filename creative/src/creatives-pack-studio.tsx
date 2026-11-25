@@ -44,7 +44,8 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
   const downbeatsMs = data.rhythm.downbeatsMs.slice(0, 200);
   const clipMs = profile.clip.durationMs;
   const accentsMs = songAccents(data.temporalV1?.segments ?? [], profile.approvedLyrics?.cues ?? [], downbeatsMs, clipMs).slice(0, 60);
-  const pace = deriveMusicIntent(data)?.treatmentHint;
+  const intent = deriveMusicIntent(data);
+  const pace = intent?.treatmentHint;
   const beatsMs = data.rhythm.beatsMs.slice(0, 500);
   const hits = musicHits({
     beatsMs,
@@ -63,6 +64,7 @@ function impactMusic(profile: CreativeProfileV1): ImpactMusic | null {
     })),
     ...(accentsMs.length ? { accentsMs } : {}),
     ...(pace ? { pace } : {}),
+    ...(intent ? { drive: intent.drive } : {}),
     ...hits,
   };
 }

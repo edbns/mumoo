@@ -7,7 +7,7 @@
  * Like every plan in the pack it is a pure function of (assets, music, seed): the shelf preview in the browser and
  * the cloud render make exactly the same edit.
  */
-import type { PresetRhythm } from './edit-presets';
+import { SLOW_DRIVE, type PresetRhythm } from './edit-presets';
 
 export type Shot = readonly [startMs: number, endMs: number];
 
@@ -42,7 +42,27 @@ export type DirectorMusic = {
   snaresMs?: readonly number[];
   hatsMs?: readonly number[];
   dropsMs?: readonly number[];
+  /** How driving the song really is, 0..1, from its tempo and how busy its drums are (`MusicIntentV1.drive`), not from its genre. */
+  drive?: number;
 };
+
+/** At or above this drive a song may be cut its preset's fast way; below `SLOW_DRIVE` its cuts hold longest. */
+const STEADY_DRIVE = 0.55;
+/** How much longer a preset's cuts hold on a slow song, and on one between slow and steady. */
+const SLOW_STRETCH = 1.8;
+const EASY_STRETCH = 1.3;
+
+/** How a song's drive bends a preset's cutting: how much longer its cuts hold, how hard its loudest parts count, and whether it may cut fast. */
+export function driveBend(drive: number | undefined) {
+  if (drive === undefined || !Number.isFinite(drive)) return { stretch: 1, hardness: 1, fast: true, ramp: true };
+  return {
+    stretch: drive < SLOW_DRIVE ? SLOW_STRETCH : drive < STEADY_DRIVE ? EASY_STRETCH : 1,
+    // A soft song's loudest bar is loud only next to the rest of it: it never counts as hard.
+    hardness: Math.min(1, 0.35 + (0.65 * drive) / STEADY_DRIVE),
+    fast: drive >= STEADY_DRIVE,
+    ramp: drive >= SLOW_DRIVE,
+  };
+}
 
 export type Pace = 'kinetic' | 'balanced' | 'restrained';
 const PACE: Record<Pace, number> = { kinetic: 1, balanced: 1.5, restrained: 2 };
@@ -124,8 +144,10 @@ const band = (level: number) => (level >= HIGH ? 'high' : level >= LOW ? 'mid' :
 
 /** Where the cuts fall: on beats, holding fewer beats where the music is loud, ending on the bar where it is soft. */
 function cutTimes(music: DirectorMusic | null, seed: number, durationMs: number) {
-  const temper = TEMPER[Math.abs(seed) % TEMPER.length] * PACE[music?.pace ?? 'kinetic'];
-  const level = loudness(music?.energy ?? []);
+  const bend = driveBend(music?.drive);
+  const temper = TEMPER[Math.abs(seed) % TEMPER.length] * PACE[music?.pace ?? 'kinetic'] * bend.stretch;
+  const measured = loudness(music?.energy ?? []);
+  const level = (from: number, to: number) => measured(from, to) * bend.hardness;
   let beats = (music?.beatsMs ?? []).filter(ms => ms > 0 && ms < durationMs);
   if (!beats.length) beats = Array.from({ length: Math.floor(durationMs / 1000) - 1 }, (_, i) => (i + 1) * 1000);
   const bars = music?.downbeatsMs ?? [];
@@ -180,7 +202,9 @@ const LOOSE_HIGH = 1.25;
  */
 function presetCutTimes(music: DirectorMusic | null, rhythm: PresetRhythm, seed: number, durationMs: number) {
   const next = random(seed ^ 0x5bd1e995);
-  const level = loudness(music?.energy ?? []);
+  const bend = driveBend(music?.drive);
+  const measured = loudness(music?.energy ?? []);
+  const level = (from: number, to: number) => measured(from, to) * bend.hardness;
   const inside = (list: readonly number[] | undefined) => (list ?? []).filter(ms => ms > 0 && ms < durationMs);
   let beats = inside(music?.beatsMs);
   if (!beats.length) beats = Array.from({ length: Math.floor(durationMs / STAND_IN_BEAT_MS) - 1 }, (_, i) => (i + 1) * STAND_IN_BEAT_MS);
@@ -201,8 +225,14 @@ function presetCutTimes(music: DirectorMusic | null, rhythm: PresetRhythm, seed:
     const at = times[times.length - 1];
     const here = level(at, at + 1500);
     const afterDrop = drops.some(drop => at >= drop - 50);
-    const fast = rhythm.fast && (rhythm.fastAfterDrop ? (drops.length ? afterDrop : here >= HIGH) : here >= HIGH || (afterDrop && here >= LOW));
-    const way = fast ? rhythm.fast! : rhythm;
+    const fast = rhythm.fast && bend.fast && (rhythm.fastAfterDrop ? (drops.length ? afterDrop : here >= HIGH) : here >= HIGH || (afterDrop && here >= LOW));
+    const chosen = fast ? rhythm.fast! : rhythm;
+    const way = bend.stretch === 1 ? chosen : {
+      ...chosen,
+      minMs: Math.min(MAX_CUT_MS, chosen.minMs * bend.stretch),
+      maxMs: Math.min(MAX_CUT_MS * 1.25, chosen.maxMs * bend.stretch),
+      ...(chosen.every === undefined ? {} : { every: typeof chosen.every === 'number' ? Math.round(chosen.every * bend.stretch) : [Math.round(chosen.every[0] * bend.stretch), Math.round(chosen.every[1] * bend.stretch)] as const }),
+    };
     const low = at + way.minMs;
     const high = at + way.maxMs;
     const share = Math.min(1, Math.max(0, 0.85 * (1 - here) + 0.3 * (next() - 0.5)));
@@ -306,7 +336,7 @@ export function planReel(assets: readonly ReelAsset[], music: DirectorMusic | nu
       }
       picked.used = choice + 1;
       const [startMs, pieceEndMs] = all[choice];
-      segments.push({ atMs, endMs, asset, startMs, pieceEndMs, fromMs: startMs, zoom: [1, 1], ...(rhythm?.ramp ? { ramp: true } : {}) });
+      segments.push({ atMs, endMs, asset, startMs, pieceEndMs, fromMs: startMs, zoom: [1, 1], ...(rhythm?.ramp && driveBend(music?.drive).ramp ? { ramp: true } : {}) });
     } else {
       segments.push({ atMs, endMs, asset, startMs: 0, pieceEndMs: 0, fromMs: 0, zoom: k % 2 === 0 ? [1, 1.12] : [1.12, 1] });
     }

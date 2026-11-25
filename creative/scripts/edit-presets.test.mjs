@@ -36,24 +36,25 @@ const plan = (id, seed = 3, music = MUSIC) => director.planReel(ASSETS, music, s
 
 test('the genre picks the preset the brief names, a style more than a sub-genre, a sub-genre more than a genre', () => {
   const pick = song => presets.presetsFor(song);
-  assert.deepEqual(pick({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'Brazilian funk' }), ['y2k']);
+  assert.deepEqual(pick({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'Brazilian funk' }), ['y2k', 'baile']);
   assert.deepEqual(pick({ genre: 'Hip-Hop & Rap', subGenre: 'General Hip-Hop', style: 'UK drill' }), ['mono']);
   assert.deepEqual(pick({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }), ['strobe', 'y2k']);
   assert.deepEqual(pick({ genre: 'Hip-Hop & Rap', subGenre: 'Boom Bap / Lo-Fi' }), ['vhs']);
-  assert.deepEqual(pick({ genre: 'Electronic & Dance (EDM)', subGenre: 'Deep House' }), ['dreamy']);
+  assert.deepEqual(pick({ genre: 'Electronic & Dance (EDM)', subGenre: 'Deep House' }), ['dreamy', 'afterhours']);
   assert.deepEqual(pick({ genre: 'Electronic & Dance (EDM)', subGenre: 'Ambient / Downtempo' }), ['dreamy']);
   assert.deepEqual(pick({ genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' }), ['strobe']);
   assert.deepEqual(pick({ genre: 'Electronic & Dance (EDM)', subGenre: 'Synthwave / Vaporwave' }), ['vhs']);
   assert.deepEqual(pick({ genre: 'Pop', subGenre: 'General Pop', style: 'contemporary R&B' }), ['kodak', 'dreamy']);
   assert.deepEqual(pick({ genre: 'Metal', subGenre: 'Heavy Metal / Hard Rock' }), ['mono']);
-  assert.deepEqual(pick({ genre: 'Country & Folk', subGenre: 'Modern Country' }), ['kodak']);
+  assert.deepEqual(pick({ genre: 'Country & Folk', subGenre: 'Modern Country' }), ['kodak', 'super8']);
   assert.deepEqual(pick({ genre: 'Pop', subGenre: 'K-Pop / J-Pop' }), ['y2k']);
-  assert.deepEqual(pick({ genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats' }), ['y2k']);
+  assert.deepEqual(pick({ genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats' }), ['y2k', 'baile']);
 });
 
 test('groovy house is never strobed; hard electronic is; punk, Latin and the quiet genres get their own cut', () => {
   const pick = (genre, subGenre) => presets.presetsFor({ genre, subGenre });
-  for (const house of ['House', 'Slap House', 'Tech House', 'G-House']) assert.deepEqual(pick('Electronic & Dance (EDM)', house), ['kodak'], house);
+  for (const house of ['House', 'Tech House', 'G-House']) assert.deepEqual(pick('Electronic & Dance (EDM)', house), ['kodak', 'afterhours'], house);
+  assert.deepEqual(pick('Electronic & Dance (EDM)', 'Slap House'), ['kodak']);
   assert.deepEqual(pick('Electronic & Dance (EDM)', 'Afro House'), ['dreamy']);
   for (const hard of ['Techno', 'Dubstep / Riddim', 'General Electronic']) assert.deepEqual(pick('Electronic & Dance (EDM)', hard), ['strobe'], hard);
   assert.deepEqual(pick('Punk', 'Pop-Punk'), ['vhs']);
@@ -65,13 +66,31 @@ test('groovy house is never strobed; hard electronic is; punk, Latin and the qui
   assert.deepEqual(pick('Latin & Urbano', 'Latin Trap'), ['y2k']);
   assert.deepEqual(presets.presetsFor({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'corridos tumbados' }), ['y2k']);
   assert.deepEqual(pick('Pop', 'Indie Pop'), ['kodak', 'dreamy']);
-  assert.deepEqual(pick('Country & Folk', 'Americana / Folk'), ['kodak', 'dreamy']);
+  assert.deepEqual(pick('Country & Folk', 'Americana / Folk'), ['kodak', 'dreamy', 'super8']);
   assert.deepEqual(pick('Classical & Cinematic', 'Neoclassical'), ['kodak', 'dreamy']);
 });
 
 test('a song the brief does not name is cut as Raw 16mm, the most popular', () => {
-  assert.deepEqual(presets.presetsFor({ genre: 'Gospel & Christian', subGenre: 'Gospel' }), ['kodak']);
   assert.deepEqual(presets.presetsFor({ genre: '' }), ['kodak']);
+  assert.deepEqual(presets.presetsFor({ genre: 'Spoken Word' }), ['kodak']);
+});
+
+test('gospel, soul and jazz get Golden Hour; the new presets join the ones a genre already had', () => {
+  assert.deepEqual(presets.presetsFor({ genre: 'Gospel & Christian', subGenre: 'Gospel' }), ['golden']);
+  assert.deepEqual(presets.presetsFor({ genre: 'Jazz & Blues', subGenre: 'General Jazz' }), ['golden']);
+  assert.deepEqual(presets.presetsFor({ genre: 'R&B & Soul', subGenre: 'Neo-Soul' }), ['kodak', 'golden']);
+  assert.deepEqual(presets.presetsFor({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk carioca' }), ['y2k', 'baile']);
+  assert.deepEqual([0, 1].map(g => presets.presetAt({ genre: 'Country & Folk', subGenre: 'Modern Country' }, g)), ['kodak', 'super8']);
+});
+
+test('a slow song never gets a fast-cut preset, whatever its genre says', () => {
+  const slow = presets.SLOW_DRIVE - 0.05;
+  assert.deepEqual(presets.presetsFor({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'Brazilian funk' }, slow), ['kodak']);
+  assert.deepEqual(presets.presetsFor({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }, slow), ['kodak']);
+  assert.deepEqual(presets.presetsFor({ genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' }, slow), ['kodak']);
+  assert.deepEqual(presets.presetsFor({ genre: 'Electronic & Dance (EDM)', subGenre: 'Deep House' }, slow), ['dreamy', 'afterhours']);
+  assert.deepEqual(presets.presetsFor({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }, presets.SLOW_DRIVE), ['strobe', 'y2k']);
+  assert.deepEqual(presets.presetsFor({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }), ['strobe', 'y2k'], 'no measured drive: the genre decides');
 });
 
 test('each Refresh takes the next preset that fits best, and the takes are spread across the four cards', () => {
@@ -174,6 +193,21 @@ test('with no beats heard a preset still cuts in its own window', () => {
   for (const length of lengths(segments)) assert.ok(length >= 1000 && length <= 2000, `${length}`);
 });
 
+test('the song\'s drive sets the pace: a slowed song holds longer and never snaps fast, whatever the preset', () => {
+  const mean = list => list.reduce((a, b) => a + b, 0) / list.length;
+  for (const id of ['strobe', 'y2k', 'baile', 'mono', 'kodak']) {
+    const driving = lengths(plan(id, 3, { ...MUSIC, drive: 0.8 }));
+    const slow = plan(id, 3, { ...MUSIC, drive: 0.25 });
+    const slowed = lengths(slow);
+    assert.ok(mean(slowed) > mean(driving) * 1.3, `${id}: ${mean(slowed)} vs ${mean(driving)}`);
+    assert.ok(slowed.every((length, i) => length >= 700 || slow[i + 1].atMs === DROP), `${id}: ${slowed}`);
+  }
+  assert.deepEqual(plan('strobe', 3, { ...MUSIC, drive: 0.8 }), plan('strobe'), 'a driving song cuts as the preset says');
+  for (const id of ['strobe', 'y2k', 'baile']) assert.ok(plan(id, 3, { ...MUSIC, drive: 0.25 }).every(segment => !segment.ramp), `${id}: no ramp on a slow song`);
+  assert.deepEqual(director.driveBend(undefined), { stretch: 1, hardness: 1, fast: true, ramp: true });
+  assert.ok(director.driveBend(0.2).hardness < 0.7, 'a soft song\'s loud part is not hard');
+});
+
 test('without a preset the Director cuts as it always has', () => {
   const music = { beatsMs: BEATS, downbeatsMs: BARS, energy: ENERGY };
   assert.deepEqual(director.planReel(ASSETS, MUSIC, 5, DURATION), director.planReel(ASSETS, music, 5, DURATION));
@@ -223,6 +257,38 @@ test('Gritty Mono shakes on bass hits, and is black and white', () => {
   const still = motion.presetFrame('mono', 'grit', moment(BARS[2] + 400));
   assert.equal(still.shiftX, 0);
   assert.equal(still.look.mono, 1);
+});
+
+test('Gritty Mono punches and flashes on the drop, or ghosts with a heavy grain', () => {
+  assert.ok(motion.presetFrame('mono', 'punch', moment(BEATS[0] + 20)).zoom > 1.03);
+  assert.notEqual(motion.presetFrame('mono', 'punch', moment(DROP + 10)).flash, 0);
+  const ghost = motion.presetFrame('mono', 'ghost', moment(3000));
+  assert.ok(ghost.zoomBlur > 0 && ghost.look.grain > motion.presetFrame('mono', 'grit', moment(3000)).look.grain);
+  for (const take of ['grit', 'punch', 'ghost']) assert.equal(motion.presetFrame('mono', take, moment(3000)).look.mono, 1, take);
+});
+
+test('Golden Hour glows warm and dissolves; Baile bends the lens and bounces on the kick', () => {
+  for (const take of ['amber', 'bloom', 'live']) assert.ok(motion.presetFrame('golden', take, moment(3000)).look.halation > 0, take);
+  assert.equal(presets.TRANSITION.golden('amber'), 'dissolve');
+  for (const take of ['fisheye', 'neon', 'whip']) assert.ok(motion.presetFrame('baile', take, moment(3000)).look.barrel > 0.2, take);
+  assert.ok(motion.presetFrame('baile', 'fisheye', moment(BEATS[0] + 20)).zoom > motion.presetFrame('baile', 'fisheye', moment(BEATS[0] + 300)).zoom);
+  assert.equal(presets.TRANSITION.baile('whip'), 'whip');
+});
+
+test('Afterhours drags the shutter on the kick; Super 8 sits in a weaving gate', () => {
+  assert.ok(motion.presetFrame('afterhours', 'cyan', moment(BEATS[0] + 20)).whipBlur !== 0);
+  assert.ok(motion.presetFrame('afterhours', 'drag', moment(BEATS[0] + 300)).whipBlur !== 0, 'the drag take always smears a little');
+  for (const take of ['porch', 'dust']) assert.equal(motion.presetFrame('super8', take, moment(3000)).look.gate, 1, take);
+  assert.equal(motion.presetFrame('kodak', 'portra-drift', moment(3000)).look.gate, 0);
+});
+
+test('under a treatment the preset never bends Fisheye twice or draws a gate inside the panels', () => {
+  const baile = motion.presetFrame('baile', 'fisheye', moment(3000));
+  assert.equal(motion.fitTreatment(baile, 'fisheye').look.barrel, 0);
+  assert.equal(motion.fitTreatment(baile, 'zoom').look.barrel, baile.look.barrel);
+  const super8 = motion.presetFrame('super8', 'porch', moment(3000));
+  for (const treatment of ['triptych', 'collage', 'bento', 'frame', 'sideways']) assert.equal(motion.fitTreatment(super8, treatment).look.gate, 0, treatment);
+  assert.equal(motion.fitTreatment(super8, undefined), super8);
 });
 
 test('Club Pulse and Y2K pulse the lens on a bass hit, at most three times a second; the calmer presets never do', () => {
@@ -278,7 +344,7 @@ function profile(subGenre, style) {
     version: 1,
     clip: { sourceSha256: 'c'.repeat(64), offsetMs: 0, durationMs: 15000 },
     creator: { primaryGenre: { value: 'Hip-Hop & Rap', source: 'creator' }, subGenre: { value: subGenre, source: 'creator' }, ...(style ? { style: { value: style, name: style, source: 'creator' } } : {}) },
-    musicAnalysis: { status: 'ready', clip: {}, result: { rhythm: { tempo: { status: 'estimated', bpm: 125, gridBpm: 125, alternativesBpm: [] }, beatsMs: [1000, 2000] }, features: { transientsMs: [500], frames } } },
+    musicAnalysis: { status: 'ready', clip: {}, result: { rhythm: { tempo: { status: 'estimated', bpm: 125, gridBpm: 125, alternativesBpm: [] }, beatsMs: [1000, 2000] }, features: { transientsMs: Array.from({ length: 10 }, (_, i) => 50 + i * 190), frames } } },
     approvedLyrics: { cues: [{ text: 'hello', startMs: 0, endMs: 380 }], source: 'creator_reviewed' },
     lyricMeaning: { status: 'ready', meaning: { attitude: 'fun', sadness: 0, intensity: 3 } },
   };

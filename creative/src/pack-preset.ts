@@ -68,6 +68,7 @@ uniform float uLeak;
 uniform float uLeakX;
 uniform float uTear;
 uniform float uPulse;
+uniform float uGate;
 
 vec2 frameMax() { return uOutputFrame.zw * uInputSize.zw; }
 vec2 mirrored(vec2 n) { return 1.0 - abs(1.0 - mod(n, 2.0)); }
@@ -165,6 +166,15 @@ void main(void) {
   vec2 v = (n - 0.5) * vec2(1.0, 0.75);
   c *= 1.0 - smoothstep(0.25, 0.8, length(v)) * uVignette;
   c = mix(c, vec3(step(0.0, uFlash)), abs(uFlash));
+  if (uGate > 0.0) {
+    // The Super 8 gate: black round the picture, its corners rounded, its edge a little soft.
+    vec2 g = (n - 0.5) * vec2(1.0, uAspect);
+    vec2 inner = vec2(0.5 - 0.035, (0.5 - 0.022) * uAspect);
+    float r = 0.07;
+    vec2 q = abs(g) - inner + r;
+    float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+    c *= mix(1.0, 1.0 - smoothstep(-0.004, 0.003, d), uGate);
+  }
   finalColor = vec4(clamp(c, 0.0, 1.0), 1.0);
 }
 `;
@@ -173,7 +183,7 @@ const NAMES = [
   'uTime', 'uSeed', 'uAspect', 'uZoom', 'uShiftX', 'uShiftY', 'uRotate', 'uWhip', 'uZoomBlur', 'uBarrel',
   'uExposure', 'uContrast', 'uSaturation', 'uLift', 'uCrush', 'uShR', 'uShG', 'uShB', 'uHiR', 'uHiG', 'uHiB', 'uMono',
   'uHalation', 'uHaR', 'uHaG', 'uHaB', 'uGrain', 'uGrainSize', 'uChroma', 'uTracking', 'uScan', 'uSoften', 'uSharpen',
-  'uVignette', 'uFlash', 'uLeak', 'uLeakX', 'uTear', 'uPulse',
+  'uVignette', 'uFlash', 'uLeak', 'uLeakX', 'uTear', 'uPulse', 'uGate',
 ] as const;
 
 /** The REC display's face: a pixel face of the catalogue, loaded with the card's own (pack-renderer.ts). */
@@ -238,7 +248,7 @@ export function createPresetPass(): PresetPass {
         uHalation: look.halation, uHaR: look.halationTint[0], uHaG: look.halationTint[1], uHaB: look.halationTint[2],
         uGrain: look.grain, uGrainSize: look.grainSize, uChroma: look.chroma, uTracking: look.tracking, uScan: look.scan,
         uSoften: look.soften, uSharpen: look.sharpen, uVignette: look.vignette,
-        uFlash: frame.flash, uLeak: frame.leak, uLeakX: frame.leakX, uTear: frame.tear, uPulse: frame.pulse,
+        uFlash: frame.flash, uLeak: frame.leak, uLeakX: frame.leakX, uTear: frame.tear, uPulse: frame.pulse, uGate: look.gate,
       });
       sprite.texture = picture;
       sprite.width = WIDTH;

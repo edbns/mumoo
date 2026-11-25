@@ -629,7 +629,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
   const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, turn, pickLibrary(from(), wanted, `${song}:${family}`, generation, ROW_SIZE), ownPicture);
   // Directed and its treatments are cut and finished in the preset the song's genre calls for; each Refresh may take the next that fits.
-  const preset = presetAt({ genre, subGenre: profile.creator.subGenre?.value, style: profile.creator.style?.name }, generation);
+  const preset = presetAt({ genre, subGenre: profile.creator.subGenre?.value, style: profile.creator.style?.name }, generation, intent?.drive);
   const withPreset = (slots: CreativesPackSlot[]) => slots.map((slot, index) => ({
     ...slot,
     label: [presetTitle(preset), slot.label].join(' · '),

@@ -86,7 +86,11 @@ PRESETS = {
     "strobe": {"neon-white", "mono-black", "neon-black", "mono-white"},
     "y2k": {"whip", "zoom"},
     "dreamy": {"pastel", "golden"},
-    "mono": {"grit"},
+    "mono": {"grit", "punch", "ghost"},
+    "golden": {"amber", "bloom", "live"},
+    "baile": {"fisheye", "neon", "whip"},
+    "afterhours": {"cyan", "magenta", "drag"},
+    "super8": {"porch", "dust"},
 }
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
 # Pulse's colour sets (creative/src/pack-pulise.ts).

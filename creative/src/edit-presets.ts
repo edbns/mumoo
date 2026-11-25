@@ -5,10 +5,11 @@
  *   transition  how one picture gives way to the next (a hard cut, a dissolve, a whip-pan, a zoom-out),
  *   motion      how the camera moves (handheld drift, a slow push, a punch-in on the kick, shake on the bass),
  *   look        the colour and texture (film, tape, club light, early digicam, glow, gritty black and white).
- * The song's genre picks the preset (`presetsFor`); each card of a row plays one of the preset's takes (its named options), on its own edit.
+ * The song's genre picks the preset (`presetsFor`), never a fast one on a slow song; each card of a row plays one of the preset's takes (its named
+ * options), on its own edit. How fast it really cuts follows the song's drive (pack-director.ts).
  * This file is only the list, the fit and the deal; pack-director.ts cuts to the rhythm and pack-preset.ts draws the rest.
  */
-export const PRESET_IDS = ['kodak', 'vhs', 'strobe', 'y2k', 'dreamy', 'mono'] as const;
+export const PRESET_IDS = ['kodak', 'vhs', 'strobe', 'y2k', 'dreamy', 'mono', 'golden', 'baile', 'afterhours', 'super8'] as const;
 export type PresetId = (typeof PRESET_IDS)[number];
 export const isPresetId = (value: unknown): value is PresetId => PRESET_IDS.includes(value as PresetId);
 
@@ -36,6 +37,8 @@ export type PresetDef = {
   rhythm: PresetRhythm;
   /** Its named options, spread across the four cards of a row. */
   takes: readonly string[];
+  /** Cut hard and fast: never dealt on a song whose drive (`MusicIntentV1.drive`) is below `SLOW_DRIVE`, however its genre reads. */
+  fast?: true;
 };
 
 export const PRESETS: readonly PresetDef[] = [
@@ -67,6 +70,7 @@ export const PRESETS: readonly PresetDef[] = [
     rhythm: { on: 'beats', every: 2, minMs: 700, maxMs: 1400, fast: { on: 'beats', every: 1, minMs: 300, maxMs: 800 }, ramp: true },
     // Cool neon or crisp black and white; a white or a black flash on the drops.
     takes: ['neon-white', 'mono-black', 'neon-black', 'mono-white'],
+    fast: true,
   },
   {
     id: 'y2k',
@@ -75,6 +79,7 @@ export const PRESETS: readonly PresetDef[] = [
       /reggaeton|dembow|salsa|bachata|latin pop|traditional latin/, /corridos/],
     rhythm: { on: 'hits', minMs: 500, maxMs: 1000, ramp: true },
     takes: ['whip', 'zoom'],
+    fast: true,
   },
   {
     id: 'dreamy',
@@ -88,7 +93,41 @@ export const PRESETS: readonly PresetDef[] = [
     title: 'Gritty Mono',
     genres: [/uk drill/, /metal/, /\brock\b/, /dark techno|industrial/, /conscious/, /hardcore/],
     rhythm: { on: 'bars', every: 1, minMs: 1600, maxMs: 2400, fast: { on: 'beats', every: 1, minMs: 300, maxMs: 650 }, fastAfterDrop: true },
-    takes: ['grit'],
+    // The plain grit; punched in on the kicks with flashes on the drops; or ghosting under heavy grain.
+    takes: ['grit', 'punch', 'ghost'],
+  },
+  {
+    id: 'golden',
+    title: 'Golden Hour',
+    // A live session in warm light: gospel, worship, soul and jazz.
+    genres: [/gospel|worship|christian|church/, /\bsoul\b/, /jazz/, /blues/],
+    rhythm: { on: 'bars', every: 1, minMs: 1800, maxMs: 2800 },
+    takes: ['amber', 'bloom', 'live'],
+  },
+  {
+    id: 'baile',
+    title: 'Baile Fisheye',
+    genres: [/brazilian funk|funk carioca|baile funk|funk mtg|montagem|brega funk/, /amapiano/, /afrobeats?/, /dancehall/, /gqom/],
+    rhythm: { on: 'hits', minMs: 450, maxMs: 900, ramp: true },
+    // A wide fisheye bouncing on the kicks; saturated neon; whip-pans between the pictures.
+    takes: ['fisheye', 'neon', 'whip'],
+    fast: true,
+  },
+  {
+    id: 'afterhours',
+    title: 'Afterhours',
+    genres: [/(?<!afro |slap )house/, /melodic (house|techno)/, /\bminimal\b/],
+    rhythm: { on: 'beats', every: [2, 4], minMs: 900, maxMs: 1800 },
+    // Club light, cyan or magenta, and light dragging behind the kicks.
+    takes: ['cyan', 'magenta', 'drag'],
+  },
+  {
+    id: 'super8',
+    title: 'Super 8',
+    genres: [/country/, /\bfolk\b|americana|bluegrass/, /acoustic|singer[- ]songwriter/],
+    rhythm: { on: 'bars', every: 1, minMs: 1600, maxMs: 2600 },
+    // Home movie in its rounded gate, dusty and warm, at a storyteller's pace.
+    takes: ['porch', 'dust'],
   },
 ];
 
@@ -100,6 +139,10 @@ export const TRANSITION: Record<PresetId, (take: string) => PresetTransition> = 
   y2k: take => (take === 'zoom' ? 'zoom' : 'whip'),
   dreamy: () => 'dissolve',
   mono: () => 'cut',
+  golden: () => 'dissolve',
+  baile: take => (take === 'whip' ? 'whip' : 'cut'),
+  afterhours: () => 'cut',
+  super8: () => 'cut',
 };
 export const DISSOLVE_MS = 300;
 
@@ -121,15 +164,20 @@ export function presetFit(preset: PresetDef, song: SongGenre): number {
  * The presets that fit the song best, in the brief's order: only those named by its most specific word (an ambient song filed under
  * Electronic is Dreamy, not also Club Pulse because of its genre). A song none fits is cut as Raw 16mm, the most popular.
  */
-export function presetsFor(song: SongGenre): PresetId[] {
-  const fits = PRESETS.map(preset => ({ id: preset.id, fit: presetFit(preset, song) }));
+export function presetsFor(song: SongGenre, drive?: number | null): PresetId[] {
+  // A slow song (slowed and reverbed phonk, a funk ballad) is never cut like the club, whatever its genre says.
+  const slow = typeof drive === 'number' && drive < SLOW_DRIVE;
+  const fits = PRESETS.filter(preset => !(slow && preset.fast)).map(preset => ({ id: preset.id, fit: presetFit(preset, song) }));
   const best = Math.max(...fits.map(entry => entry.fit));
   return best > 0 ? fits.filter(entry => entry.fit === best).map(entry => entry.id) : ['kodak'];
 }
 
+/** Below this drive (tempo and how busy the drums are, 0..1) a song is slow: see `presetsFor` and the Director's cutting. */
+export const SLOW_DRIVE = 0.4;
+
 /** The preset of a row at its `generation`: the first that fits best, and each Refresh the next of them. */
-export const presetAt = (song: SongGenre, generation: number): PresetId => {
-  const fitting = presetsFor(song);
+export const presetAt = (song: SongGenre, generation: number, drive?: number | null): PresetId => {
+  const fitting = presetsFor(song, drive);
   return fitting[Math.abs(generation) % fitting.length];
 };
 

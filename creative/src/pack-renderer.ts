@@ -38,7 +38,7 @@ import type { WindowMode } from './window-deal';
 import { DRAWN_SCREENS, SILHOUETTE_IDS, SILHOUETTE_SCREENS, isDrawnFigure, silhouetteUrl } from './silhouette';
 import { isTreatmentId, isTreatmentVariant, type TreatmentId } from './treatment-deal';
 import { DISSOLVE_MS, TRANSITION, isPresetId, isPresetTake, presetDef, type PresetId } from './edit-presets';
-import { presetFrame } from './preset-motion';
+import { fitTreatment, presetFrame } from './preset-motion';
 import { PICTURE_BODY_MS, bodyWithin, fetchFresh } from './fetch-fresh';
 import { REC_FONT, createPresetPass, type PresetPass } from './pack-preset';
 import type { TypeEmphasis, TypeFinish } from './type-finish';
@@ -369,7 +369,7 @@ export async function createPackRenderer(
             await motion.seek(ms % Math.max(1, motion.durationMs));
           } else {
             // The edit: pieces of the clip, cut on the beat, differently for each card.
-            const key = `${motionUrlLoaded}|${current.cutSeed ?? 0}|${JSON.stringify(current.motionShots ?? null)}|${current.music?.beatsMs.length ?? 0}|${current.music?.energy.length ?? 0}|${current.music?.accentsMs?.join(',') ?? ''}|${current.music?.pace ?? ''}|${preset ?? ''}`;
+            const key = `${motionUrlLoaded}|${current.cutSeed ?? 0}|${JSON.stringify(current.motionShots ?? null)}|${current.music?.beatsMs.length ?? 0}|${current.music?.energy.length ?? 0}|${current.music?.accentsMs?.join(',') ?? ''}|${current.music?.pace ?? ''}|${current.music?.drive ?? ''}|${preset ?? ''}`;
             if (key !== cutsKey) {
               cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, durationOf(current), current.music, presetCut?.rhythm);
               cutsKey = key;
@@ -417,7 +417,8 @@ export async function createPackRenderer(
           presetPass ??= createPresetPass();
           const cutsMs = reel ? reel.cutsMs() : motion && !current.look ? cuts.slice(1).map(cut => cut.atMs) : [];
           const seed = current.cutSeed ?? 0;
-          picture = presetPass.draw(picture, presetFrame(preset, presetTake, { ms, cutsMs, durationMs: durationOf(current), music: current.music, energy, seed }), ms, seed, app.renderer);
+          const moment = presetFrame(preset, presetTake, { ms, cutsMs, durationMs: durationOf(current), music: current.music, energy, seed });
+          picture = presetPass.draw(picture, style === 'treatment' ? fitTreatment(moment, current.treatment) : moment, ms, seed, app.renderer);
         }
         const beat = calmBeat(reaction.beat, current.grade);
         // A preset is the card's colour: the lyrics' grade only calms its beat.
