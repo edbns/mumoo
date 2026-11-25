@@ -414,11 +414,15 @@ test('Silhouette deals four different drawn figures (a man and a woman taking tu
   const { SILHOUETTES, SILHOUETTE_TYPES } = await server.ssrLoadModule('/src/silhouette.ts');
   const kind = id => SILHOUETTES.find(figure => figure.id === id).kind;
   try {
-    for (const genre of [...GENRES.filter(genre => genre !== 'Gospel'), 'Funk Carioca', 'Brazilian Phonk', 'Montagem', 'Phonk', 'Funk']) {
+    // A song is dealt the skull by the style picked for it: any phonk, or Brazilian funk; never plain funk.
+    const picked = { 'Funk Carioca': 'funk carioca', 'Brazilian Phonk': 'Brazilian phonk', Montagem: 'montagem', Phonk: 'phonk', Funk: 'funk', 'Brega Funk': 'brega funk' };
+    for (const genre of [...GENRES.filter(genre => genre !== 'Gospel'), ...Object.keys(picked)]) {
       const skullSong = !['Slap House', 'Pop', 'Ambient', 'Reggaeton', 'Funk'].includes(genre);
       let skulls = 0;
       for (let generation = 0; generation < 12; generation++) {
-        const row = pack.recommendRow('silhouette', profile(genre, 'hello', `${genre.length}${generation % 3}`.padEnd(64, 'c')), generation, PLATES);
+        const song = profile(genre, 'hello', `${genre.length}${generation % 3}`.padEnd(64, 'c'));
+        if (picked[genre]) song.creator.style = { value: genre, name: picked[genre], source: 'creator' };
+        const row = pack.recommendRow('silhouette', song, generation, PLATES);
         const name = `${genre} #${generation}`;
         assert.equal(row.length, 4, name);
         assert.ok(row.every(slot => slot.style === 'window' && slot.row === 'silhouette' && slot.windowMode === 'silhouette'), name);

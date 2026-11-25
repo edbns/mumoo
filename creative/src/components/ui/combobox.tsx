@@ -8,6 +8,7 @@ import {
 } from "motion/react";
 import { CheckIcon as Check, SearchIcon as Search, XIcon as X } from '@/components/icons';
 import {
+  Fragment,
   forwardRef,
   useEffect,
   useId,
@@ -30,6 +31,8 @@ export interface ComboboxOption {
   label: string;
   disabled?: boolean;
   keywords?: string[];
+  /** The heading the option is listed under; options of one group come together. */
+  group?: string;
 }
 
 export interface ComboboxProps extends Omit<
@@ -418,8 +421,11 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
                 >
                   {filteredOptions.length ? (
                     filteredOptions.map((option, index) => (
+                      <Fragment key={option.value}>
+                      {option.group && option.group !== filteredOptions[index - 1]?.group && (
+                        <div className={styles.group} role="presentation">{option.group}</div>
+                      )}
                       <div
-                        key={option.value}
                         ref={(element) => {
                           optionRefs.current[option.value] = element;
                         }}
@@ -446,6 +452,7 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
                           />
                         )}
                       </div>
+                      </Fragment>
                     ))
                   ) : (
                     <motion.div

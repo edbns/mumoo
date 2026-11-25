@@ -14,7 +14,7 @@ import { STYLE_NAMES, type AdPunchStyle } from './ad-punch';
 import { dustColors, type DustColors } from './dust-colors';
 import { RISO_INK_SETS } from './riso-look';
 import { dealSilhouette, dealWindow, type WindowCard, type WindowMode } from './window-deal';
-import { SKULL_GENRE } from './silhouette';
+import { isSkullStyle } from './style-families';
 import effectsData from '../punch-plates/effects/effects.json';
 import { laneFromMeaning, leansDeep, type LyricAttitude, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
@@ -665,7 +665,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     ascii: () => effectRow('ascii'),
     riso: () => risoSlots(lane, intent, seed, turn, risoPhotos),
     window: () => windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates),
-    silhouette: () => (GOSPEL_GENRE.test(genres) ? [] : windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates, dealSilhouette(seed, TYPE_ALLOW[lane], SKULL_GENRE.test(genres)))),
+    silhouette: () => (GOSPEL_GENRE.test(genres) ? [] : windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates, dealSilhouette(seed, TYPE_ALLOW[lane], isSkullStyle(profile.creator.style?.name ?? '')))),
     pulise: () => puliseSlots(lane, intent, seed, turn),
     dust: () => dustSlots(lane, intent, seed, turn, cover?.hue),
   }[row]();

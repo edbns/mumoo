@@ -55,7 +55,7 @@ const ProfilePage = lazy(loadProfilePage);
 const AUDITION_PAUSE_MS = 200;
 const INITIAL: Composition = { sourceSha256: '', clipStartMs: 0, cues: [] };
 
-const styleOption = ({ label }: StyleMatch): ComboboxOption => ({ value: label, label });
+const styleOption = ({ label, family }: StyleMatch): ComboboxOption => ({ value: label, label, group: family });
 const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const cuesOf = (words: readonly LyricWord[]) => words.map(({ text, startMs, endMs }) => ({ text, startMs, endMs }));
 
@@ -109,7 +109,7 @@ function App() {
   const [genreUnknown, setGenreUnknown] = useState(false);
   // The directory is large: it loads beside the page, and the box searches once it is here.
   const [searchStyles, setSearchStyles] = useState<((typed: string) => StyleMatch[]) | null>(null);
-  useEffect(() => { void import('./style-search').then(module => setSearchStyles(() => module.searchStyles)); }, []);
+  useEffect(() => { void import('./style-search').then(module => setSearchStyles(() => module.searchStyleFamilies)); }, []);
   const found = useRef<StyleMatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [composition, setComposition] = useState(INITIAL);
