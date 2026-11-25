@@ -37,6 +37,7 @@ export const WINDOW_PALETTES: readonly WindowPalette[] = [
   { id: 'off-white', screen: '#f1ede4', rim: '#9c9484', flips: ['black'] },
   { id: 'red', screen: '#e10600', rim: '#7a0300', flips: ['black'] },
   { id: 'plum', screen: '#1c1418', rim: '#4a3540', flips: ['off-white'] },
+  { id: 'pink', screen: '#ffd3e2', rim: '#c27a93', flips: ['black'] },
 ];
 
 /** Every palette id, for whoever stores or checks a card's screen colour. */

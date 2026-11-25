@@ -9,7 +9,7 @@ import { HEIGHT, WIDTH } from './composition';
 import type { AdFont } from './ad-fonts';
 import { hexToRgb } from './dust-colors';
 import { createTypeLayer, type TimedWord, type TypeStyleId } from './pack-type';
-import { headTop } from './silhouette';
+import { DRAWN_ACCENT, headTop, isDrawnFigure } from './silhouette';
 import { SAFE_BOX, coverSize, paletteOf, pictureScale, punchAt } from './window-look';
 
 /** The lyrics keep this far from the frame's sides and from the head below them, in px. */
@@ -44,18 +44,23 @@ uniform vec3 uScreen;
 uniform vec2 uCover;
 uniform float uPush;
 uniform float uMono;
+uniform float uDrawn;
+uniform vec3 uAccent;
 uniform sampler2D uFigure;
 uniform sampler2D uPhoto;
 out vec4 finalColor;
 
 void main() {
   vec2 frame = vec2(${WIDTH}.0, ${HEIGHT}.0);
-  float inside = texture(uFigure, vFrame / frame).r;
+  vec4 mask = texture(uFigure, vFrame / frame);
+  float inside = mask.r;
+  // A drawn figure's green is its accent ink; a plain figure's mask is grey, so it has none.
+  vec3 ground = mix(uScreen, uAccent, mask.g * uDrawn);
   vec3 seen = texture(uPhoto, (vFrame - frame * 0.5) / (uCover * uPush) + 0.5).rgb;
   // On red the picture is black and white, pushed hard, like a screen print.
   float grey = dot(seen, vec3(0.2126, 0.7152, 0.0722));
   seen = mix(seen, vec3(smoothstep(0.08, 0.85, grey)), uMono);
-  finalColor = vec4(mix(uScreen, seen, inside), 1.0);
+  finalColor = vec4(mix(ground, seen, inside), 1.0);
 }
 `;
 
@@ -69,6 +74,8 @@ function screen(picture: Texture, figure: Texture) {
     uCover: { value: new Float32Array(2), type: 'vec2<f32>' },
     uPush: { value: 1, type: 'f32' },
     uMono: { value: 0, type: 'f32' },
+    uDrawn: { value: 0, type: 'f32' },
+    uAccent: { value: new Float32Array(hexToRgb(DRAWN_ACCENT)), type: 'vec3<f32>' },
   };
   const shader = Shader.from({ gl: { vertex: VERTEX, fragment: FRAGMENT }, resources: { silhouette: uniforms, uFigure: figure.source, uPhoto: picture.source } as never });
   const mesh = new Mesh({ geometry, shader });
@@ -76,11 +83,12 @@ function screen(picture: Texture, figure: Texture) {
   const group = shader.resources.silhouette;
   return {
     mesh,
-    set(screenHex: string, cover: readonly number[], push: number, mono: number) {
+    set(screenHex: string, cover: readonly number[], push: number, mono: number, drawn: boolean) {
       (group.uniforms.uScreen as Float32Array).set(hexToRgb(screenHex));
       (group.uniforms.uCover as Float32Array).set(cover);
       group.uniforms.uPush = push;
       group.uniforms.uMono = mono;
+      group.uniforms.uDrawn = drawn ? 1 : 0;
       group.update();
     },
     destroy() {
@@ -137,7 +145,7 @@ export function createSilhouetteWorld(): SilhouetteWorld {
       }
       if (!type.root.parent) root.addChild(type.root);
       const punch = punchAt(input.ms, input.beatsMs, input.downbeatsMs);
-      view.screen.set(paletteOf(input.palette).screen, coverSize(input.picture.width, input.picture.height), pictureScale(input.ms, punch), input.palette === 'red' ? 1 : 0);
+      view.screen.set(paletteOf(input.palette).screen, coverSize(input.picture.width, input.picture.height), pictureScale(input.ms, punch), input.palette === 'red' ? 1 : 0, isDrawnFigure(input.shape));
 
       // The lyrics fill the solid colour above the head: as big as that room allows, never over the figure.
       const ink = input.palette === 'black' || input.palette === 'plum' ? LIGHT_INK : DARK_INK;

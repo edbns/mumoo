@@ -16,12 +16,24 @@ export const SILHOUETTES = [
   { id: 'man-hood', headAt: 0.21 },
   { id: 'woman-head', headAt: 0.218 },
   { id: 'man-head', headAt: 0.267 },
+  // Drawn figures, on trial: the video plays in the drawing's black, its accent ink (red nails) stays, the rest is the screen.
+  { id: 'art-embrace', headAt: 0.2 },
+  { id: 'art-afro', headAt: 0.417 },
 ] as const;
 
 export const SILHOUETTE_IDS: readonly string[] = SILHOUETTES.map(figure => figure.id);
 
+/** A drawn figure: its mask's red is where the video plays and its green where the accent ink is. */
+export const isDrawnFigure = (id: string) => id.startsWith('art-');
+
 /** The screens a Silhouette card is dealt in (ids of `WINDOW_PALETTES`). */
 export const SILHOUETTE_SCREENS = ['red', 'black', 'off-white', 'plum'] as const;
+
+/** The screen a drawn figure is dealt on. */
+export const DRAWN_SCREEN = 'pink';
+
+/** The accent ink of a drawn figure. */
+export const DRAWN_ACCENT = '#e1121b';
 
 /** The lyric styles a Silhouette card is dealt: each card of a row has its own. */
 export const SILHOUETTE_TYPES = ['stack', 'swap', 'karaoke', 'outline', 'editorial', 'glitch', 'echo', 'wipe', 'flicker', 'slide', 'bounce', 'zoom'] as const satisfies readonly TypeStyleId[];

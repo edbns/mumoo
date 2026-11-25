@@ -88,14 +88,14 @@ PRESETS = {
     "mono": {"grit"},
 }
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
-WINDOW_PALETTES = {"black", "off-white", "red", "plum"}
+WINDOW_PALETTES = {"black", "off-white", "red", "plum", "pink"}
 WINDOW_FACES = {"Anton", "Big Shoulders Display", "Staatliches", "Bangers", "Barlow Condensed"}
 # What a Window card shows its picture through (a Director's reel, our approved photo, or a photo or clip of the library or the person):
 # the lyric word (`plain`, on black or white), or the still figure of a person (`silhouette`, on red, black or white).
 WINDOW_MODES = {"plain", "silhouette"}
-WINDOW_SCREENS = {"plain": {"black", "off-white", "plum"}, "silhouette": {"red", "black", "off-white", "plum"}}
+WINDOW_SCREENS = {"plain": {"black", "off-white", "plum"}, "silhouette": {"red", "black", "off-white", "plum", "pink"}}
 # The figures of creative/public/silhouettes (creative/src/silhouette.ts).
-WINDOW_SHAPES = {"man-cap", "woman-hair", "man-wide", "woman-wide", "woman-curls", "man-hood", "woman-head", "man-head"}
+WINDOW_SHAPES = {"man-cap", "woman-hair", "man-wide", "woman-wide", "woman-curls", "man-hood", "woman-head", "man-head", "art-embrace", "art-afro"}
 WINDOW_KEYS = ("windowMode", "windowPalette", "windowAllowed")
 # Lyric type styles and display fonts the page knows (creative/src/pack-type.ts, font-catalog.ts; a test keeps these in step).
 TYPE_STYLES = {
