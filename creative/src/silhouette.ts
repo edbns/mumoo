@@ -18,7 +18,10 @@ export const SILHOUETTES = [
   { id: 'man-head', headAt: 0.267 },
   // Drawn figures, on trial: the video plays in the drawing's black, its accent ink (red nails) stays, the rest is the screen.
   { id: 'art-embrace', headAt: 0.2 },
-  { id: 'art-afro', headAt: 0.417 },
+  { id: 'art-afro', headAt: 0.218 },
+  { id: 'art-locs', headAt: 0.321 },
+  { id: 'art-profile', headAt: 0.237 },
+  { id: 'art-hood', headAt: 0.257 },
 ] as const;
 
 export const SILHOUETTE_IDS: readonly string[] = SILHOUETTES.map(figure => figure.id);

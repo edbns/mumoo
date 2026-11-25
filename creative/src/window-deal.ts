@@ -35,12 +35,11 @@ export function dealWindow(seed: string): WindowCard[] {
 export function dealSilhouette(seed: string, moodTypes: readonly TypeStyleId[]): WindowCard[] {
   const faces = order(WINDOW_FACES, `${seed}:faces`, face => face);
   const [men, women, drawn] = ['man-', 'woman-', 'art-'].map(kind => order(SILHOUETTE_IDS.filter(id => id.startsWith(kind)), `${seed}:figures`, id => id));
-  const manFirst = hashPick(seed, 'figure', 2) === 0;
   const types = order(SILHOUETTE_TYPES.filter(type => moodTypes.includes(type)), `${seed}:types`, type => type);
   const first = hashPick(seed, 'screen', SILHOUETTE_SCREENS.length);
   return Array.from({ length: CARDS }, (_, index) => {
-    // On trial: the row's second woman is one of the drawn figures, on pink.
-    const shape = (index % 2 === 0) === manFirst ? men[index >> 1] : index >> 1 ? drawn[0] : women[0];
+    // On trial: the shelf's lead card is one of the drawn figures, on pink; then a man, a woman and a man.
+    const shape = index === 0 ? drawn[0] : index % 2 ? men[index >> 1] : women[0];
     const palette = isDrawnFigure(shape) ? DRAWN_SCREEN : SILHOUETTE_SCREENS[(first + index) % SILHOUETTE_SCREENS.length];
     return { mode: 'silhouette', palette, allowed: [palette], font: faces[index], shape, type: types[index % types.length] };
   });
