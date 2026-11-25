@@ -2,7 +2,8 @@
  * Window — a blank, flat, single-colour screen with a giant heavy lyric word cut out of it: the word is a window,
  * and the picture behind shows through the letters. The edges are crisp, with a thin darker rim and a hard shadow
  * inside the top left of every letter, so the word reads as a hole cut in thick card. On every beat the window
- * punches and the picture behind pushes in. New words pop in, taking turns running across the frame and up it.
+ * punches and the picture behind pushes in. New words pop in: a card either stacks them upright, a row each filling the
+ * screen, or turns them to run up it as one big line.
  * The picture is any Pixi texture: a photo, or the texture of a video (`Motion` in `pack-motion.ts`), which the
  * caller has already moved to the right moment. Every frame is a pure function of the clock, the beat times and the
  * lyric cues, so the shelf preview and the cloud render draw the same picture.
@@ -13,7 +14,7 @@ import { cssFont, displayFace, setCase, type AdFont } from './ad-fonts';
 import { hexToRgb } from './dust-colors';
 import { textMeasureCtx } from './pack-text';
 import {
-  WORD_CENTRE, coverSize, groupAt, layoutWindow, pictureScale, punchAt, screenAt, turnedAt, windowScale, wordGroups,
+  STACK_LETTERS, STACK_WORDS, WORD_CENTRE, coverSize, groupAt, layoutWindow, pictureScale, punchAt, screenAt, turnedCard, windowScale, wordGroups,
   type Measure, type WindowLayout, type WordGroup,
 } from './window-look';
 
@@ -227,7 +228,7 @@ export function createWindowWorld(seed: number): WindowWorld {
         dropWords();
         dropView();
         built = { cues: input.cues, font };
-        groups = wordGroups(input.cues);
+        groups = turnedCard(seed) ? wordGroups(input.cues) : wordGroups(input.cues, { words: STACK_WORDS, letters: STACK_LETTERS });
       }
       const index = groupAt(groups, ms);
       if (index < 0) {
@@ -235,7 +236,7 @@ export function createWindowWorld(seed: number): WindowWorld {
       } else if (words?.index !== index) {
         dropWords();
         const text = setCase(font, groups[index].text);
-        const turned = turnedAt(seed, index);
+        const turned = turnedCard(seed);
         words = { index, texture: drawWords(layoutWindow(text, measureFor(font), turned), font), centre: WORD_CENTRE, turned };
       }
       // The picture, or the words' texture, is new: the screen is made again to point at it.

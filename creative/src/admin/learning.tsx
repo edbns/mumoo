@@ -21,10 +21,12 @@ const downloadRate = (tally: Tally) => share(tally.delivered, offered(tally));
 /** The shelf's templates by name, in the shelf's own order (`SHELF_ROWS`). */
 export const TEMPLATE_TITLES: Record<string, string> = {
   photography: 'Directed',
-  ...Object.fromEntries(TREATMENT_IDS.map(id => [id, treatmentTitle(id)])),
-  thermal: 'Thermal', halftone: 'Halftone', dither: 'Dither', ascii: 'ASCII', riso: 'Riso', window: 'Window', silhouette: 'Silhouette', pulise: 'Pulse', dust: 'Dust',
+  ...Object.fromEntries(TREATMENT_IDS.filter(id => id !== 'stutter').map(id => [id, treatmentTitle(id)])),
+  thermal: 'Thermal', halftone: 'Halftone', stutter: treatmentTitle('stutter'), ascii: 'ASCII', riso: 'Riso', window: 'Window', silhouette: 'Silhouette', pulise: 'Pulse',
 };
-const templateName = (id: string) => TEMPLATE_TITLES[id] ?? id;
+/** Templates no longer on the shelf, still named where their past numbers show. */
+const RETIRED_TITLES: Record<string, string> = { dither: 'Dither', dust: 'Dust' };
+const templateName = (id: string) => TEMPLATE_TITLES[id] ?? RETIRED_TITLES[id] ?? id;
 
 /** Fewer cards shown than this, and a template is too early to judge. */
 export const JUDGE_AFTER = 30;

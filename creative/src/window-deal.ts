@@ -31,7 +31,7 @@ export function dealWindow(seed: string): WindowCard[] {
   });
 }
 
-/** Four Silhouette cards: four different drawn figures (men and women taking turns, the skull first on some refreshes when `skull`) and lyric styles (those of `SILHOUETTE_TYPES` the song's mood allows), the screens pink, white and red taking turns from the seed's pick. */
+/** Four Silhouette cards: four different drawn figures (men and women taking turns, the skull first on some refreshes when `skull`) and lyric styles (those of `SILHOUETTE_TYPES` the song's mood allows), the screens white, black, red and green taking turns from the seed's pick. */
 export function dealSilhouette(seed: string, moodTypes: readonly TypeStyleId[], skull = false): WindowCard[] {
   const faces = order(WINDOW_FACES, `${seed}:faces`, face => face);
   const men = order(figuresOf('man'), `${seed}:figures`, id => id);

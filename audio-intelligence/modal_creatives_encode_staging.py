@@ -75,6 +75,7 @@ TREATMENTS = {
     "typewriter": {"newsprint", "letter", "faded", "yellowed", "red-ink", "yellow-ink", "purple-ink"},
     "broken": {"shatter", "corner", "spider", "pixels"},
     "screenshot": {"light-black", "light-white", "dark-white", "screen"},
+    "stutter": {"bar", "beat", "roll", "flash"},
 }
 # Screenshot's phone clock: the time the person made the card, "HH:MM" on 24 hours.
 CLOCK_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
@@ -88,12 +89,16 @@ PRESETS = {
     "mono": {"grit"},
 }
 RISO_INK_SETS = {"pink-blue", "orange-teal", "violet-coral", "red-green"}
-WINDOW_PALETTES = {"black", "off-white", "red", "plum", "pink"}
-WINDOW_FACES = {"Anton", "Big Shoulders Display", "Staatliches", "Bangers", "Barlow Condensed"}
+# Pulse's colour sets (creative/src/pack-pulise.ts).
+PULISE_SETS = {"red", "green"}
+INK_SETS = {"riso": RISO_INK_SETS, "pulise": PULISE_SETS}
+WINDOW_PALETTES = {"black", "off-white", "red", "plum", "pink", "green"}
+# Staatliches and Bangers are no longer dealt; cards made with them still render.
+WINDOW_FACES = {"Anton", "Big Shoulders Display", "Barlow Condensed", "League Gothic", "Staatliches", "Bangers"}
 # What a Window card shows its picture through (a Director's reel, our approved photo, or a photo or clip of the library or the person):
 # the lyric word (`plain`, on black or white), or the still figure of a person (`silhouette`, on red, black or white).
 WINDOW_MODES = {"plain", "silhouette"}
-WINDOW_SCREENS = {"plain": {"black", "off-white", "plum"}, "silhouette": {"red", "black", "off-white", "plum", "pink"}}
+WINDOW_SCREENS = {"plain": {"black", "off-white", "plum"}, "silhouette": {"red", "black", "off-white", "plum", "pink", "green"}}
 # The figures of creative/public/silhouettes (creative/src/silhouette.ts).
 WINDOW_SHAPES = {"art-locs", "art-hood", "art-cap", "art-beard", "art-headphones", "art-afro", "art-profile", "art-braids", "art-bun", "art-lying", "art-shades", "art-embrace", "art-skull", "man-cap", "woman-hair", "man-wide", "woman-wide", "woman-curls", "man-hood", "woman-head", "man-head"}
 WINDOW_KEYS = ("windowMode", "windowPalette", "windowAllowed")
@@ -304,11 +309,13 @@ def parse_meta(raw: str) -> dict:
     if not all(type(layout[key]) in (int, float) for key in ("rotate", "scaleBias", "cut")) or ("seed" in layout and type(layout["seed"]) is not int):
         raise ValueError("layout")
     # Riso is drawn from a seed (where the words fall, how the paper is stained), its inks by id, and nothing else.
-    for style, key, known in (("riso", "inkSet", RISO_INK_SETS),):
-        if (opts["style"] == style) != (key in opts) or (key in opts and opts[key] not in known):
-            raise ValueError(key)
-        if opts["style"] == style and "seed" not in layout:
-            raise ValueError("layout")
+    # Pulse may name its colour set (red when it does not); no other style has inks.
+    if "inkSet" in opts and opts["inkSet"] not in INK_SETS.get(opts["style"], set()):
+        raise ValueError("inkSet")
+    if opts["style"] == "riso" and "inkSet" not in opts:
+        raise ValueError("inkSet")
+    if opts["style"] == "riso" and "seed" not in layout:
+        raise ValueError("layout")
     # Window is drawn from a seed (the screen flips), a kind of picture, the screen it opens on and the screens it may flip to, in one of its condensed faces.
     if opts["style"] == "window":
         allowed = opts.get("windowAllowed")

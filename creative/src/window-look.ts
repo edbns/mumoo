@@ -27,7 +27,7 @@ const PLACE_TOP = Math.round(HEIGHT * 0.1);
 // Screens
 
 /**
- * A screen is one flat colour, black, white or plum noir (and red for Silhouette): no texture, no fade. With it comes the rim cut round the window, and
+ * A screen is one flat colour, black, white or plum noir (and red and our green for Silhouette; pink only for cards made before): no texture, no fade. With it comes the rim cut round the window, and
  * the screen it could flip to on a downbeat (the shelf deals each card only its own, so it holds).
  */
 export type WindowPalette = { id: string; screen: string; rim: string; flips: readonly string[] };
@@ -38,6 +38,7 @@ export const WINDOW_PALETTES: readonly WindowPalette[] = [
   { id: 'red', screen: '#e10600', rim: '#7a0300', flips: ['black'] },
   { id: 'plum', screen: '#1c1418', rim: '#4a3540', flips: ['off-white'] },
   { id: 'pink', screen: '#ffd3e2', rim: '#c27a93', flips: ['black'] },
+  { id: 'green', screen: '#2fe92b', rim: '#178a15', flips: ['black'] },
 ];
 
 /** Every palette id, for whoever stores or checks a card's screen colour. */
@@ -69,7 +70,9 @@ export function screenAt(seed: number, startId: string, ms: number, downbeatsMs:
  * the face: these heavy, condensed ones give letters twice as tall as the wide heavy faces (a seven-letter word is
  * about 250 px tall in them, and about 130 px in Archivo Black or Dela Gothic One), which is what a giant word is.
  */
-export const WINDOW_FACES: readonly AdFont[] = ['Anton', 'Big Shoulders Display', 'Staatliches', 'Bangers', 'Barlow Condensed'];
+export const WINDOW_FACES: readonly AdFont[] = ['Anton', 'Big Shoulders Display', 'Barlow Condensed', 'League Gothic'];
+/** Faces no longer dealt, still accepted so cards made with them render. */
+export const RETIRED_WINDOW_FACES: readonly AdFont[] = ['Staatliches', 'Bangers'];
 
 // ---------------------------------------------------------------------------------------------------------------
 // Which words are in the window
@@ -77,6 +80,9 @@ export const WINDOW_FACES: readonly AdFont[] = ['Anton', 'Big Shoulders Display'
 /** At most this many cues share the window, and only while together they are no longer than `GROUP_LETTERS`: on one line, a longer pair would be set too thin to show the picture. */
 export const GROUP_WORDS = 2;
 export const GROUP_LETTERS = 6;
+/** An upright card stacks its words a row each down the screen, so more of them share it. */
+export const STACK_WORDS = 3;
+export const STACK_LETTERS = 14;
 /** A pause between two cues longer than this closes the window until the next words. */
 export const PHRASE_GAP_MS = 400;
 /** The last words of a phrase stay this long after they are sung. */
@@ -90,13 +96,13 @@ const bare = (text: string) => text.trim().replace(/[,.;:]+$/u, '');
 const lettersIn = (text: string) => [...text.replace(/\s/gu, '')].length;
 
 /** The cues, dealt into the groups of words that are in the window together, in time order. */
-export function wordGroups(cues: readonly LyricCue[]): WordGroup[] {
+export function wordGroups(cues: readonly LyricCue[], most: { words: number; letters: number } = { words: GROUP_WORDS, letters: GROUP_LETTERS }): WordGroup[] {
   const groups: (WordGroup & { cues: number })[] = [];
   for (const cue of cues) {
     const text = bare(cue.text);
     if (!text) continue;
     const last = groups.at(-1);
-    const joins = last && last.cues < GROUP_WORDS && cue.startMs - last.endMs <= PHRASE_GAP_MS && lettersIn(last.text) + lettersIn(text) <= GROUP_LETTERS;
+    const joins = last && last.cues < most.words && cue.startMs - last.endMs <= PHRASE_GAP_MS && lettersIn(last.text) + lettersIn(text) <= most.letters;
     if (last && joins) {
       last.text = `${last.text} ${text}`;
       last.endMs = cue.endMs;
@@ -160,11 +166,41 @@ const WINDOW_SIDE = 24;
 export const ACROSS_BOX = { width: (WIDTH - WINDOW_SIDE * 2) / (1 + PUNCH_SWELL), height: SAFE_BOX.height / (1 + PUNCH_SWELL) } as const;
 export const UP_BOX = { width: SAFE_BOX.height / (1 + PUNCH_SWELL), height: (WIDTH - WINDOW_SIDE * 2) / (1 + PUNCH_SWELL) } as const;
 
-/** Whether the words of group `group` run up the frame instead of across it: the card's words take turns, the seed saying which way it starts. */
-export const turnedAt = (seed: number, group: number) => ((seed + group) & 1) === 1;
+/** Whether a card's words run up the frame instead of across it, the whole card one way: the seed says which. */
+export const turnedCard = (seed: number) => (seed & 1) === 1;
 
-/** How a group of words is set in the window: one line, across the frame or turned up it (its width then runs along the frame's height). */
-export const layoutWindow = (text: string, measure: Measure, turned: boolean): WindowLayout => layoutWords(text, measure, turned ? UP_BOX : ACROSS_BOX);
+/** The room between two stacked rows, and the most of the box's height one row may take (a short word is not made a wall). */
+const STACK_GAP = 18;
+const STACK_ROW_MOST = 0.42;
+
+/**
+ * Words stacked a row each, every row as wide as the box (so the rows fill the screen), all shrunk together when
+ * they would be taller than it.
+ */
+export function layoutStack(text: string, measure: Measure, box: { width: number; height: number } = ACROSS_BOX): WindowLayout {
+  const words = text.split(/\s+/u).filter(Boolean);
+  if (!words.length) throw new Error('A window needs a word to open on.');
+  const rows = words.map(word => {
+    const ink = measure(word);
+    const size = Math.min((box.width * 100) / ink.width, (box.height * STACK_ROW_MOST * 100) / ink.height);
+    return { text: word, ink, size };
+  });
+  const tall = rows.reduce((sum, row) => sum + (row.ink.height * row.size) / 100, 0) + STACK_GAP * (rows.length - 1);
+  const shrink = Math.min(1, box.height / tall);
+  let y = 0;
+  const lines = rows.map(row => {
+    const size = row.size * shrink;
+    const line = { text: row.text, size, width: (row.ink.width * size) / 100, height: (row.ink.height * size) / 100, x: 0, y };
+    y += line.height + STACK_GAP * shrink;
+    return line;
+  });
+  const width = Math.max(...lines.map(line => line.width));
+  for (const line of lines) line.x = (width - line.width) / 2;
+  return { lines, width, height: y - STACK_GAP * shrink };
+}
+
+/** How a group of words is set in the window: turned up the frame as one big line (its width then runs along the frame's height), or upright, a row a word. */
+export const layoutWindow = (text: string, measure: Measure, turned: boolean): WindowLayout => (turned ? layoutWords(text, measure, UP_BOX) : layoutStack(text, measure));
 
 /** Where the middle of the words sits in the frame: the middle of the safe box. */
 export const WORD_CENTRE: readonly [number, number] = [WIDTH / 2, SAFE_BOX.y + SAFE_BOX.height / 2];

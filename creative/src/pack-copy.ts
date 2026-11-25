@@ -55,6 +55,8 @@ export type PackSceneInput = {
   seed: number;
   /** Riso: the card's inks, and the person's photo read for the halftone. */
   inks?: RisoInkSet['inks'];
+  /** Pulse: its colour set (`PULISE_SETS`), red when none. */
+  pulseSet?: string;
   risoPhoto?: RisoPhoto | null;
   /** Window: the picture seen through the word (with the cut-out of a person to stand in front), the screen colour it opens on, and the colours it may flip to (only its own, on the cards dealt now). */
   windowPicture?: Texture;

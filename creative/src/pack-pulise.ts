@@ -1,5 +1,5 @@
 /**
- * Pulise — neon red and neon white cut hard on every beat, one big word at a time.
+ * Pulise — neon red and neon white (or our green, black and white) cut hard on every beat, one big word at a time.
  * The field only changes on the beat (never on lyric timing) and never faster than three times a second,
  * which keeps it clear of the photosensitivity limit that ad platforms and viewers care about.
  * The signature colours are fixed on purpose: this template is recognisable by them.
@@ -16,14 +16,30 @@ import { paletteOf } from './window-look';
 const RED = paletteOf('red').screen;
 const WHITE = '#fbfdff';
 const BLACK = '#050506';
+/** The site's green. */
+const GREEN = '#2fe92b';
 
-/** Field and type colours in turn: mostly red and white, with a black beat so the cut has room to land. */
-const PHASES = [
-  { field: RED, ink: WHITE, glow: '#ffd2c8' },
-  { field: WHITE, ink: RED, glow: '#ff6b4f' },
-  { field: RED, ink: WHITE, glow: '#ffd2c8' },
-  { field: BLACK, ink: RED, glow: RED },
-] as const;
+type Phase = { field: string; ink: string; glow: string };
+
+/**
+ * Field and type colours in turn, by set. Red: mostly red and white, with a black beat so the cut has room to land.
+ * Green: green and black, with a white beat; green type only ever on black, where it reads.
+ */
+export const PULISE_SETS: Readonly<Record<string, readonly Phase[]>> = {
+  red: [
+    { field: RED, ink: WHITE, glow: '#ffd2c8' },
+    { field: WHITE, ink: RED, glow: '#ff6b4f' },
+    { field: RED, ink: WHITE, glow: '#ffd2c8' },
+    { field: BLACK, ink: RED, glow: RED },
+  ],
+  green: [
+    { field: GREEN, ink: BLACK, glow: '#0b5a09' },
+    { field: BLACK, ink: GREEN, glow: GREEN },
+    { field: GREEN, ink: BLACK, glow: '#0b5a09' },
+    { field: WHITE, ink: BLACK, glow: '#9aa09a' },
+  ],
+};
+export const PULISE_SET_IDS = Object.keys(PULISE_SETS);
 
 /** Beats closer than this (over 176 BPM) change the field every second beat: at most three cuts a second. */
 const MIN_CUT_MS = 340;
@@ -69,7 +85,8 @@ export function createPuliseWorld(): PuliseWorld {
   return {
     root,
     update(input) {
-      const phase = PHASES[puliseCuts(input.beatIndex, input.beatGapMs, input.layout.cut) % PHASES.length];
+      const phases = PULISE_SETS[input.pulseSet ?? 'red'] ?? PULISE_SETS.red;
+      const phase = phases[puliseCuts(input.beatIndex, input.beatGapMs, input.layout.cut) % phases.length];
       field.clear();
       field.rect(0, 0, WIDTH, HEIGHT);
       field.fill({ color: phase.field });

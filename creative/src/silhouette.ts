@@ -27,7 +27,7 @@ export const SILHOUETTES: readonly Figure[] = [
   { id: 'art-bun', headAt: 0.237, kind: 'woman' },
   { id: 'art-lying', headAt: 0.218, kind: 'woman' },
   { id: 'art-shades', headAt: 0.237, kind: 'woman' },
-  // The couple carries red accent ink (her nails), so it is only dealt on pink.
+  // The couple carries red accent ink (her nails), so it is only dealt on white.
   { id: 'art-embrace', headAt: 0.2, kind: 'couple' },
   // Only for phonk and Brazilian funk (`isSkullStyle`).
   { id: 'art-skull', headAt: 0.296, kind: 'skull' },
@@ -54,7 +54,7 @@ export const isDrawnFigure = (id: string) => id.startsWith('art-');
 export const SILHOUETTE_SCREENS = ['red', 'black', 'off-white', 'plum'] as const;
 
 /** The screens a drawn figure is dealt on, taking turns; the couple only on the first. */
-export const DRAWN_SCREENS = ['pink', 'off-white', 'red'] as const;
+export const DRAWN_SCREENS = ['off-white', 'black', 'red', 'green'] as const;
 
 /** The accent ink of a drawn figure. */
 export const DRAWN_ACCENT = '#e1121b';

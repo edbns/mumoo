@@ -58,26 +58,26 @@ export const SHELF_ROWS: readonly ShelfRowDef[] = [
   { id: 'photography', title: 'Directed', lyrics: 'switch', picture: 'any' },
   // Video treatments: each finishes the Directed reel with one creative pass (gaps, lens, collage, grain…).
   // Screenshot is the lyrics as a chat, so it has no switch: without words it is not on the shelf.
-  ...TREATMENT_IDS.map(id => ({ id, title: treatmentTitle(id), lyrics: id === 'screenshot' ? 'always' as const : 'switch' as const, picture: 'any' as const })),
+  ...TREATMENT_IDS.filter(id => id !== 'stutter').map(id => ({ id, title: treatmentTitle(id), lyrics: id === 'screenshot' ? 'always' as const : 'switch' as const, picture: 'any' as const })),
   // One effect per row, each dealt in its different colourings, on pictures of our library or the person's own (a row has no picture to draw until the library has one or they upload theirs).
   { id: 'thermal', title: 'Thermal', lyrics: 'switch', picture: 'any' },
   { id: 'halftone', title: 'Halftone', lyrics: 'switch', picture: 'any' },
-  { id: 'dither', title: 'Dither', lyrics: 'switch', picture: 'any' },
+  // Stutter is a treatment of the reel, shown where Dither was (Dither's cards still render, but it is no longer dealt).
+  { id: 'stutter', title: treatmentTitle('stutter'), lyrics: 'switch', picture: 'any' },
   { id: 'ascii', title: 'ASCII', lyrics: 'switch', picture: 'any' },
   { id: 'riso', title: 'Riso', lyrics: 'switch', picture: 'any' },
   { id: 'window', title: 'Window', lyrics: 'always', picture: 'any' },
   // The song's video inside the still figure of a person, on red, black or white; never for gospel.
   { id: 'silhouette', title: 'Silhouette', lyrics: 'switch', picture: 'any' },
   { id: 'pulise', title: 'Pulse', lyrics: 'always' },
-  // The lyrics alone, made of dust: no picture to choose or wait for.
-  { id: 'dust', title: 'Dust', lyrics: 'always' },
+  // Dust is no longer dealt; its cards still render.
 ];
 /** What the person's own picture is: a photo (with its cut-out), or a video or GIF. */
 export type OwnKind = 'photo' | 'motion';
 /**
  * The rows of the shelf for a song and the person's own picture. With no words, only the rows that work without them
- * (Window, Pulse, Dust and Screenshot are made of the lyrics). With any picture of their own, only the rows that draw a picture
- * (Pulise and Dust take none, so they leave).
+ * (Window, Pulse and Screenshot are made of the lyrics). With any picture of their own, only the rows that draw a picture
+ * (Pulise takes none, so it leaves).
  */
 export const rowsFor = (noLyrics: boolean, own: OwnKind | null = null): readonly ShelfRowDef[] =>
   SHELF_ROWS.filter(def => !(noLyrics && def.lyrics === 'always') && !(own && !def.picture));
@@ -659,6 +659,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     typewriter: () => treatmentRow('typewriter'),
     broken: () => treatmentRow('broken'),
     screenshot: () => treatmentRow('screenshot'),
+    stutter: () => treatmentRow('stutter'),
     thermal: () => effectRow('thermal'),
     halftone: () => effectRow('halftone'),
     dither: () => effectRow('dither'),
@@ -981,6 +982,7 @@ function puliseSlots(lane: MoodLane, intent: MusicIntentV1 | null, seed: string,
   const faces = dealFaces(lane, intent, seed, turn, 'pulise', HEAVY_CAPS_ROW);
   return faces.map((face, index) => {
     const slot = adPunchSlot('pulise', index, intent, seed, lane, 'pulise', face);
-    return { ...slot, layout: { ...slot.layout, cut: index } };
+    // Red and green take turns, the seed picking which leads.
+    return { ...slot, layout: { ...slot.layout, cut: index }, inkSet: (index + hashPick(seed, 'pulise-set', 2)) % 2 === 0 ? 'red' : 'green' };
   });
 }

@@ -12,11 +12,11 @@ const measure = text => ({ width: [...text].reduce((sum, letter) => sum + (lette
 
 const cue = (text, startMs, endMs) => ({ text, startMs, endMs });
 
-test('there are five flat screens, black, off-white, red and pink (Silhouette\'s) and plum noir, each with a rim that shows against it', async () => {
+test('there are six flat screens, black, off-white, red, pink and green (Silhouette\'s) and plum noir, each with a rim that shows against it', async () => {
   const { server, look, colors } = await load();
   try {
     const { WINDOW_PALETTES: palettes, WINDOW_PALETTE_IDS: ids } = look;
-    assert.deepEqual(ids, ['black', 'off-white', 'red', 'plum', 'pink']);
+    assert.deepEqual(ids, ['black', 'off-white', 'red', 'plum', 'pink', 'green']);
     for (const { id, screen, rim, flips } of palettes) {
       assert.match(screen, /^#[0-9a-f]{6}$/);
       assert.match(rim, /^#[0-9a-f]{6}$/);
@@ -109,23 +109,25 @@ test('words are set on one horizontal line, as big as the safe area allows, and 
   } finally { await server.close(); }
 });
 
-test('the words take turns running across the frame and up it, and both ways they are set bigger than other lyrics, inside the frame at a full punch', async () => {
+test('a card keeps one way: upright it stacks its words a row each to fill the screen, turned it sets them as one bigger line, both inside the frame at a full punch', async () => {
   const { server, look } = await load();
   try {
-    for (const seed of [0, 1, 7]) {
-      const ways = Array.from({ length: 6 }, (_, group) => look.turnedAt(seed, group));
-      ways.forEach((turned, group) => group && assert.notEqual(turned, ways[group - 1], `seed ${seed}: group ${group} turns the other way`));
-    }
-    assert.notEqual(look.turnedAt(0, 0), look.turnedAt(1, 0), 'the seed decides which way a card starts');
-    for (const text of ['NO', 'CAMBIAR', 'MY BAD']) {
-      const across = look.layoutWindow(text, measure, false);
+    assert.notEqual(look.turnedCard(0), look.turnedCard(1), 'the seed decides which way a card goes');
+    for (const text of ['NO', 'CAMBIAR', 'MY BAD', 'LOVE ME NOW']) {
+      const upright = look.layoutWindow(text, measure, false);
       const up = look.layoutWindow(text, measure, true);
-      assert.ok(across.lines[0].size >= look.layoutWords(text, measure).lines[0].size, `${text}: across, at least as big as before`);
-      assert.ok(across.width * (1 + look.PUNCH_SWELL) <= 1080 + 1e-6 && across.height * (1 + look.PUNCH_SWELL) <= look.SAFE_BOX.height + 1e-6, `${text}: across stays in the frame`);
+      assert.equal(upright.lines.length, text.split(' ').length, `${text}: a row a word`);
+      assert.ok(upright.lines.every((line, i) => i === 0 || line.y > upright.lines[i - 1].y), `${text}: rows go down the screen`);
+      assert.ok(upright.width * (1 + look.PUNCH_SWELL) <= 1080 + 1e-6 && upright.height * (1 + look.PUNCH_SWELL) <= look.SAFE_BOX.height + 1e-6, `${text}: upright stays in the frame`);
+      assert.equal(up.lines.length, 1, `${text}: turned, one line`);
       // Turned, the line's width runs along the frame's height, its height across the frame.
       assert.ok(up.width * (1 + look.PUNCH_SWELL) <= look.SAFE_BOX.height + 1e-6 && up.height * (1 + look.PUNCH_SWELL) <= 1080 + 1e-6, `${text}: up stays in the frame`);
-      if (text.length > 2) assert.ok(up.lines[0].size > across.lines[0].size, `${text}: turned, it is set bigger`);
     }
+    const rows = look.layoutWindow('LOVE ME NOW', measure, false);
+    assert.ok(rows.height > look.SAFE_BOX.height * 0.6, 'three rows fill most of the screen');
+    assert.ok(look.layoutWindow('CAMBIAR', measure, true).lines[0].size > look.layoutWindow('CAMBIAR', measure, false).lines[0].size, 'turned, a word is set bigger');
+    const stacked = look.wordGroups([cue('love', 0, 200), cue('me', 200, 400), cue('now', 400, 600)], { words: look.STACK_WORDS, letters: look.STACK_LETTERS });
+    assert.deepEqual(stacked.map(group => group.text), ['love me now'], 'an upright card shares the screen among more words');
   } finally { await server.close(); }
 });
 

@@ -9,6 +9,8 @@
  */
 // Pixi would fetch its WebGL renderer and browser setup only when the first card is drawn; loaded with the page instead,
 // a tab opened before a deploy never asks for files the deploy has since removed.
+import { PULISE_SET_IDS } from './pack-pulise';
+import { stutterSourceMs } from './pack-stutter';
 import 'pixi.js/browser';
 import { Application, Assets, ColorMatrixFilter, Rectangle, Texture, WebGLRenderer } from 'pixi.js';
 import { FULL_CLIP_MS, HEIGHT, WIDTH, type ImpactMusic, type LyricCue } from './composition';
@@ -25,7 +27,7 @@ import { typeFamilies, type TypeStyleId } from './pack-type';
 import { calmBeat, gradeMatrix, type MoodGrade } from './mood-grade';
 import type { DustColors } from './dust-colors';
 import { airDust, dustWordAt, type DustPoints } from './pack-dust';
-import { loadMotion, type Motion } from './pack-motion';
+import { loadMotion, motionLive, type Motion } from './pack-motion';
 import { clearReelPictures, loadReel, noteLinks, reelKey, warmStills, type Reel, type ReelSource } from './pack-reel';
 import { planCuts, sourceMsAt, sourceRateAt, type Cut, type Shot } from './pack-cuts';
 import { plateCutoutUrl, plateUrl } from './punch-plates';
@@ -315,6 +317,7 @@ export async function createPackRenderer(
         const windowMode = style === 'window' ? checkWindow(current) : null;
         const windowOwn = Boolean(windowMode);
         if (style === 'riso' && !current.inkSet) throw new Error('Riso needs an ink set.');
+        if (style === 'pulise' && current.inkSet && !PULISE_SET_IDS.includes(current.inkSet)) throw new Error('Pulse has no such colour set.');
         // Riso on a clip is whole-frame: no cut-out.
         const risoMotion = style === 'riso' && Boolean(current.motionUrl || reelled);
         if (style === 'dust' && (current.plateId || current.effectId || current.photoUrl || current.cutoutUrl || current.motionUrl || current.reel)) throw new Error('Dust is drawn from the lyrics alone.');
@@ -349,12 +352,16 @@ export async function createPackRenderer(
 
         const reaction = packReaction(current.music, frame);
         const { ms, energy, beatIndex, beatGapMs } = reaction;
-        // A video or GIF shows the clip's frame for this moment.
+        // A video or GIF shows the clip's frame for this moment. Stutter holds the beat's frame: found exactly here, while
+        // live the treatment keeps a copy of the frame it was on.
+        const seekMs = style === 'treatment' && current.treatment === 'stutter' && !motionLive()
+          ? stutterSourceMs(ms, current.music?.beatsMs ?? NOTHING, current.music?.downbeatsMs ?? NOTHING, current.treatmentVariant)
+          : ms;
         if (motion) {
           if (reel) {
             // The Director's edit of several pictures, to this music; `seek` takes the moment of the song.
             reel.direct(current.music, current.cutSeed ?? 0, durationOf(current), presetCut);
-            await motion.seek(ms);
+            await motion.seek(seekMs);
           } else if (current.look) {
             // A card with a live look plays its video straight through, as one piece (looping if it is shorter than the clip), not cut up.
             cuts = [];
@@ -367,7 +374,7 @@ export async function createPackRenderer(
               cuts = planCuts(current.motionShots ?? [[0, motion.durationMs]], current.music?.beatsMs ?? [], current.cutSeed ?? 0, durationOf(current), current.music, presetCut?.rhythm);
               cutsKey = key;
             }
-            await motion.seek(cuts.length ? sourceMsAt(cuts, ms) : ms, cuts.length ? sourceRateAt(cuts, ms) : 1);
+            await motion.seek(cuts.length ? sourceMsAt(cuts, seekMs) : seekMs, cuts.length ? sourceRateAt(cuts, seekMs) : 1);
           }
         }
 
@@ -452,6 +459,7 @@ export async function createPackRenderer(
           cues: current.lyrics !== false ? current.cues : NOTHING,
           seed: current.layout.seed,
           inks: style === 'riso' && current.inkSet ? risoInkSetById(current.inkSet).inks : undefined,
+          pulseSet: style === 'pulise' ? current.inkSet : undefined,
           risoPhoto: style === 'riso' ? risoPhoto : null,
           windowPicture,
           windowPalette: current.windowPalette,

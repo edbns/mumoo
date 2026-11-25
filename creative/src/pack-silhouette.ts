@@ -106,7 +106,7 @@ export type SilhouetteInput = {
   beatIndex: number;
   energy: number;
   seed: number;
-  /** The id of the screen colour (`WINDOW_PALETTES`): red, black, off-white or plum. */
+  /** The id of the screen colour (`WINDOW_PALETTES`). */
   palette: string;
   /** The figure (`SILHOUETTES` id) and its mask. */
   shape: string;

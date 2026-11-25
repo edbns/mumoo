@@ -186,7 +186,7 @@ test('a Window card draws our photo or a person\'s own photo as it is, on black 
     const page = await chrome.newPage();
     await page.goto(`${site.resolvedUrls.local[0]}render.html`);
     await page.waitForFunction(() => 'mumooPack' in window, null, { timeout: 60000 });
-    const card = (extra) => ({ ...opts(undefined), style: 'window', typeStyle: undefined, fallbackText: 'HELLO', lyrics: true, font: 'Anton', fontSecondary: 'Anton', windowMode: 'plain', windowPalette: 'black', windowAllowed: ids.filter(id => !['red', 'pink'].includes(id)), ...extra });
+    const card = (extra) => ({ ...opts(undefined), style: 'window', typeStyle: undefined, fallbackText: 'HELLO', lyrics: true, font: 'Anton', fontSecondary: 'Anton', windowMode: 'plain', windowPalette: 'black', windowAllowed: ids.filter(id => !['red', 'pink', 'green'].includes(id)), ...extra });
     const own = `${files.url}/own.jpg?signature=1`;
     const woman = 'burnnet-woman-1547507-1920';
 

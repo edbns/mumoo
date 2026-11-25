@@ -2,7 +2,7 @@
  * Video treatments — one creative finish over the Director's finished reel.
  * The reel texture is already cut, pushed-in and levelled (pack-reel.ts). This world draws that picture into
  * an off-screen texture, then finishes it: sliced into panels (Triptych, Bento, Collage, Colored Frame) or passed
- * through a shader (Fisheye, Film Grain, Broken Screen), or exposed twice (Double Exposure). The lyrics are drawn on top so they
+ * through a shader (Fisheye, Film Grain, Broken Screen), exposed twice (Double Exposure), or caught on the beat (Stutter). The lyrics are drawn on top so they
  * stay readable, except under Fisheye, where they sit in the black below the lens and pass behind it, and Colored
  * Frame, where they sit on the solid colour above and below the video. Preview and cloud render share this code.
  */
@@ -16,6 +16,7 @@ import { FRAME_UV, makeFilter } from './treatment-filter';
 import { createTypewriterPage } from './pack-typewriter';
 import { createScreenshotChat } from './pack-screenshot';
 import { BROKEN, BROKEN_LOOK, brokenBlocks, brokenHitsMs, brokenStage } from './pack-broken';
+import { stutterAt, stutterKick } from './pack-stutter';
 
 export type TreatmentWorld = {
   root: Container;
@@ -333,12 +334,20 @@ export function createTreatmentWorld(): TreatmentWorld {
   let frozenStage = -1;
   let frozen = false;
   const broken = makeFilter(BROKEN, 'treatment-broken', { uStage: 0, uAge: 1e6, uSeed: 0, uMode: 0, uAspect: HEIGHT / WIDTH, uTime: 0, uHasFrozen: 0, ...brokenBlocks(0, 0) }, { uFrozen: frozenRt.source });
+  // Stutter's held frame: copied when a hold begins, and jolted on each kick.
+  const heldRt = RenderTexture.create({ width: WIDTH, height: HEIGHT, resolution: 1 });
+  let heldFrom = -1;
+  const stuttered = new Sprite();
+  stuttered.anchor.set(0.5);
+  const flash = new Graphics();
   const doubleBase = new Sprite();
   const doubleOver = new Sprite();
   doubleOver.anchor.set(0.5);
   const doubleLayer = new Container();
   doubleLayer.addChild(doubleBase, doubleOver);
   root.addChildAt(doubleLayer, 3);
+  root.addChildAt(stuttered, root.getChildIndex(treated) + 1);
+  root.addChildAt(flash, root.getChildIndex(stuttered) + 1);
   const page = createTypewriterPage();
   root.addChildAt(page.root, root.getChildIndex(type.root));
   const chat = createScreenshotChat();
@@ -488,6 +497,8 @@ export function createTreatmentWorld(): TreatmentWorld {
   function hideAll() {
     treated.visible = false;
     treated.filters = [];
+    stuttered.visible = false;
+    flash.clear();
     doubleLayer.visible = false;
     panels.visible = false;
     blurred.visible = false;
@@ -606,6 +617,23 @@ export function createTreatmentWorld(): TreatmentWorld {
         blurred.visible = true;
         chat.root.visible = true;
         chat.update({ cues: input.cues, ms: input.ms, seed: input.layout.seed, variant, clock: input.clock });
+      } else if (kind === 'stutter') {
+        const hold = stutterAt(input.ms, input.beatsMs, input.downbeatsMs, variant);
+        if (!hold) heldFrom = -1;
+        else if (hold.startMs !== heldFrom) {
+          paint(sourceRt, renderer, heldRt);
+          heldFrom = hold.startMs;
+        }
+        const push = hold ? stutterKick(hold, variant, input.layout.seed % 97) : { scale: 1, x: 0, y: 0, flash: 0 };
+        stuttered.visible = true;
+        stuttered.texture = hold ? heldRt : sourceRt;
+        stuttered.width = WIDTH * push.scale;
+        stuttered.height = HEIGHT * push.scale;
+        stuttered.position.set(WIDTH / 2 + push.x, HEIGHT / 2 + push.y);
+        if (push.flash > 0.01) {
+          flash.rect(0, 0, WIDTH, HEIGHT);
+          flash.fill({ color: '#ffffff', alpha: push.flash });
+        }
       } else if (kind === 'double') {
         const look = DOUBLE_LOOK[variant] ?? DOUBLE_LOOK.blend;
         doubleLayer.visible = true;
@@ -623,7 +651,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       }
 
       scrim.clear();
-      if (input.lyrics && palette.scrim.alpha > 0 && (kind === 'grain' || kind === 'double' || kind === 'broken')) {
+      if (input.lyrics && palette.scrim.alpha > 0 && (kind === 'grain' || kind === 'double' || kind === 'broken' || kind === 'stutter')) {
         scrim.rect(0, 0, WIDTH, HEIGHT);
         scrim.fill({ color: palette.scrim.color, alpha: palette.scrim.alpha * 0.6 });
       }
@@ -689,6 +717,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       grain.filter.destroy();
       broken.filter.destroy();
       frozenRt.destroy(true);
+      heldRt.destroy(true);
       page.destroy();
       chat.destroy();
       type.destroy();
