@@ -29,7 +29,7 @@ export const SILHOUETTES: readonly Figure[] = [
   { id: 'art-shades', headAt: 0.237, kind: 'woman' },
   // The couple carries red accent ink (her nails), so it is only dealt on pink.
   { id: 'art-embrace', headAt: 0.2, kind: 'couple' },
-  // Only for Brazilian funk and phonk (`SKULL_GENRE`).
+  // Only for phonk and Brazilian funk (`SKULL_GENRE`).
   { id: 'art-skull', headAt: 0.296, kind: 'skull' },
   // The first figures: plain white-on-black masks of the whole person.
   { id: 'man-cap', headAt: 0.238, kind: 'retired' },
@@ -46,8 +46,8 @@ export const SILHOUETTE_IDS: readonly string[] = SILHOUETTES.map(figure => figur
 
 export const figuresOf = (kind: Figure['kind']): readonly string[] => SILHOUETTES.filter(figure => figure.kind === kind).map(figure => figure.id);
 
-/** The songs the skull is dealt for: Brazilian funk (funk carioca, baile funk, montagem) and Brazilian phonk. */
-export const SKULL_GENRE = /brazilian (funk|phonk)|funk (carioca|brasileiro|mandela|automotivo)|baile funk|phonk (brasileiro|brazil)|montagem|\bmtg\b/;
+/** The songs the skull is dealt for: any phonk, and Brazilian funk (funk carioca, baile funk, montagem). Plain funk is not: that is the jazzy kind. */
+export const SKULL_GENRE = /phonk|brazilian funk|funk (carioca|brasileiro|mandela|automotivo)|baile funk|montagem|\bmtg\b/;
 
 /** A drawn figure: its mask's red is where the video plays and its green where the accent ink is. */
 export const isDrawnFigure = (id: string) => id.startsWith('art-');

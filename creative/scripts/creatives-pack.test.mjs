@@ -409,13 +409,13 @@ test('Window deals four cards of the picture as it is, each on one black, off-wh
   } finally { await server.close(); }
 });
 
-test('Silhouette deals four different drawn figures (a man and a woman taking turns) in four lyric styles on pink, white and red, the song\'s picture inside, the skull only for Brazilian funk and phonk, and never for gospel', async () => {
+test('Silhouette deals four different drawn figures (a man and a woman taking turns) in four lyric styles on pink, white and red, the song\'s picture inside, the skull only for phonk and Brazilian funk (never plain funk), and never for gospel', async () => {
   const { server, pack } = await load();
   const { SILHOUETTES, SILHOUETTE_TYPES } = await server.ssrLoadModule('/src/silhouette.ts');
   const kind = id => SILHOUETTES.find(figure => figure.id === id).kind;
   try {
-    for (const genre of [...GENRES.filter(genre => genre !== 'Gospel'), 'Funk Carioca', 'Brazilian Phonk', 'Montagem']) {
-      const skullSong = !['Slap House', 'Pop', 'Ambient', 'Reggaeton'].includes(genre);
+    for (const genre of [...GENRES.filter(genre => genre !== 'Gospel'), 'Funk Carioca', 'Brazilian Phonk', 'Montagem', 'Phonk', 'Funk']) {
+      const skullSong = !['Slap House', 'Pop', 'Ambient', 'Reggaeton', 'Funk'].includes(genre);
       let skulls = 0;
       for (let generation = 0; generation < 12; generation++) {
         const row = pack.recommendRow('silhouette', profile(genre, 'hello', `${genre.length}${generation % 3}`.padEnd(64, 'c')), generation, PLATES);
