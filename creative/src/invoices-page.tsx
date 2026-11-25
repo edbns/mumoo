@@ -64,7 +64,7 @@ export default function InvoicesPage() {
             <span className="truncate text-sm font-medium">{invoice.description}</span>
             <span className="text-xs text-muted-foreground">{day(invoice.createdAt)} · {invoice.number}</span>
           </div>
-          <span className={cn('rounded-full px-2 py-0.5 text-xs', invoice.status === 'paid' ? 'bg-primary/15 text-primary' : 'bg-secondary text-muted-foreground')}>
+          <span className={cn('rounded-full px-2 py-0.5 text-xs', invoice.status === 'paid' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>
             {invoice.status === 'paid' ? 'Paid' : 'Refunded'}
           </span>
           <span className="w-20 text-right text-sm font-medium tabular-nums">{money(invoice.amount, invoice.currency)}</span>

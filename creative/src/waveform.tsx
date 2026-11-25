@@ -73,7 +73,7 @@ export function Waveform({ audio, start, position, onSelect }: {
         const inside = time >= selected && time <= selected + clipMs;
         return <span key={bar} className={`flex-1 rounded-full ${inside ? 'bg-primary' : 'bg-white/20'}`} style={{ height: `${height * 0.7}%` }} />;
       })}
-      <div className="absolute inset-y-0 rounded-lg bg-primary/10" style={{ left: `${left}%`, width: `${width}%` }}>
+      <div className="absolute inset-y-0 rounded-lg bg-foreground/10" style={{ left: `${left}%`, width: `${width}%` }}>
         <span className="absolute inset-y-4 left-0 w-1 rounded-full bg-primary" />
         <span className="absolute inset-y-4 right-0 w-1 rounded-full bg-primary" />
       </div>

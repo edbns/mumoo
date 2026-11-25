@@ -75,7 +75,7 @@ export function handOverCheckout(): boolean {
 /** The card shown once Polar brings the person back: centred, with a mark, a heading and what happened. */
 function Outcome({ mark, title, children, onClose }: { mark: ReactNode; title: string; children: ReactNode; onClose?: () => void }) {
   return <div className="flex flex-col items-center gap-4 rounded-[var(--radius-panel)] bg-muted px-8 pt-10 pb-8 text-center shadow-[0_28px_56px_-24px_#000]">
-    <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-primary/15 text-primary">{mark}</span>
+    <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground">{mark}</span>
     <div className="flex flex-col gap-2">
       <p className="m-0 text-xl font-semibold text-foreground">{title}</p>
       <div className="m-0 text-sm text-balance text-muted-foreground">{children}</div>
@@ -171,12 +171,12 @@ export function PurchaseCredits({ open, onClose, initial, autoBuy = false, check
   </Modal>;
   return <Modal open={open} onClose={close} title="Purchase Credits" description="One credit makes one video.">
     <div className="flex flex-col gap-4">
-      {shortfall && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-primary/10 px-4 py-3 text-sm text-foreground">
+      {shortfall && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-secondary px-4 py-3 text-sm text-foreground">
         {shortfall.have === 0
           ? `You’re out of credits. ${shortfall.need === 1 ? 'This video needs' : `These ${shortfall.need} videos need`} ${shortfall.need === 1 ? 'one' : shortfall.need}. Your chosen videos are kept.`
           : `${shortfall.need} videos need ${shortfall.need} credits and you have ${shortfall.have}. Buy a pack or pick fewer.`}
       </p>}
-      {bonus > 0 && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-primary/10 px-4 py-3 text-sm text-foreground">
+      {bonus > 0 && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-secondary px-4 py-3 text-sm text-foreground">
         A friend invited you: your first pack comes with {bonus} extra videos free.
       </p>}
       <PricingInteraction key={initial} packs={CREDIT_PACKS} initial={initial} busy={busy} busyLabel="Finish paying in the Polar window…" onChoose={pack => choose(pack)} />

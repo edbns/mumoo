@@ -158,7 +158,7 @@ function Phone() {
     </>}
     <input ref={input} type="file" accept={kind.accept} multiple={kindName === 'picture'} hidden aria-label={kind.button} onChange={event => void pick(event.target.files)} />
     {state.step === 'sending' && <>
-      <ProgressiveFluxLoader value={state.percent} phases={SEND_PHASES} className="gap-5 [--flux-from:var(--primary)] [--flux-to:#d4ff9a]"
+      <ProgressiveFluxLoader value={state.percent} phases={SEND_PHASES} className="gap-5 [--flux-from:var(--primary)] [--flux-to:var(--foreground)]"
         textClassName="text-2xl font-semibold text-foreground" barClassName="h-3" />
       <p className="m-0 text-muted-foreground">
         {state.count > 1 ? `${state.count} files · ` : ''}{state.percent}%<br />

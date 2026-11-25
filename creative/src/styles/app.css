@@ -11,6 +11,8 @@
   --surface: var(--muted);
   --surface-muted: var(--secondary);
   --surface-raised: var(--popover);
+  /* The theme's muted text is tinted green; the brand's only colours are its green, black, white and greys. */
+  --muted-foreground: #a8a8ac;
   --text-muted: var(--muted-foreground);
   --space-2: .5rem;
   --space-3: .75rem;

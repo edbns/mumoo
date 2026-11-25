@@ -76,6 +76,20 @@ function App() {
   const [stage, setStage] = useState<'analyzing' | 'prepared' | 'revealed'>('analyzing');
   const [paint, setPaint] = useState<PaintProgress | null>(null);
   const [step, setStep] = useState<1 | 2>(1);
+  // A new page, step or tab starts at its top, where its news is (a render in progress shows first in the media); coming back to
+  // the work returns to where the person was in it.
+  const workScroll = useRef(0);
+  const pageNow = useRef(page);
+  pageNow.current = page;
+  useEffect(() => {
+    if (page !== 'create') return;
+    // Leaving shrinks the page, and the browser's scroll back up must not be kept.
+    const keep = () => { if (pageNow.current === 'create') workScroll.current = window.scrollY; };
+    window.addEventListener('scroll', keep, { passive: true });
+    return () => window.removeEventListener('scroll', keep);
+  }, [page]);
+  useEffect(() => { workScroll.current = 0; window.scrollTo({ top: 0 }); }, [profileTab, step, inCreatives]);
+  useEffect(() => { window.scrollTo({ top: page === 'create' ? workScroll.current : 0 }); }, [page]);
   // Nothing is kept between visits except the cart: a refresh starts over, so what an earlier version left in this browser goes.
   useEffect(() => { forgetSession(); }, []);
   // The account pages are fetched in the background, so opening one never waits on a blank moment.

@@ -49,7 +49,7 @@ export function PricingInteraction({
               <span className="flex items-center gap-2 text-xl font-semibold text-foreground">
                 {pack.videos.toLocaleString()} videos
                 {pack.popular && (
-                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">Popular</span>
+                  <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">Popular</span>
                 )}
               </span>
               <span className="text-sm text-muted-foreground">${pack.usd} · {perVideo(pack)} a video</span>

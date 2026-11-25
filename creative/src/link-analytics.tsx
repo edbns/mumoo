@@ -141,7 +141,7 @@ function Breakdown({ title, rows, metric, label, note }: {
     {counted.length === 0 && <p className="m-0 py-6 text-center text-sm text-muted-foreground">Nothing in this period yet.</p>}
     {counted.length > 0 && <ol className="m-0 flex list-none flex-col gap-1 p-0">
       {shown.map(row => <li key={row.key} className="relative flex items-center gap-2 overflow-hidden rounded-[var(--radius-control)] px-3 py-2 text-sm">
-        <span aria-hidden="true" className="absolute inset-y-0 left-0 bg-primary/12" style={{ width: `${(row[metric] / counted[0][metric]) * 100}%` }} />
+        <span aria-hidden="true" className="absolute inset-y-0 left-0 bg-foreground/10" style={{ width: `${(row[metric] / counted[0][metric]) * 100}%` }} />
         <span className="relative flex min-w-0 flex-1 items-center gap-2 truncate">{label(row)}</span>
         <span className="relative tabular-nums">{row[metric].toLocaleString()}<span className="text-muted-foreground"> · {percent(row[metric], total)}</span></span>
       </li>)}

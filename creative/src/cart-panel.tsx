@@ -118,7 +118,7 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
       </div>
       {/* What stops or explains making them shows up here, at the top, where it is seen however many rows are chosen. */}
       {lines.length > 0 && (limit && excess > 0 || hint) && <div className="flex flex-col gap-3">
-        {limit && excess > 0 && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-primary/10 px-4 py-3 text-sm text-foreground">
+        {limit && excess > 0 && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-secondary px-4 py-3 text-sm text-foreground">
           {limit.free ? 'You can make 1 video free.' : `You have ${limit.have} ${limit.have === 1 ? 'credit' : 'credits'}.`} Take
           out {videos(excess)} with the × so only {limit.have} {limit.have === 1 ? 'is' : 'are'} left, then make {limit.have === 1 ? 'it' : 'them'}.
         </p>}

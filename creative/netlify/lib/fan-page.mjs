@@ -75,7 +75,7 @@ export function fanPage(link, address, home, { inPhone = false, countAs = null }
 <meta name="theme-color" content="#0b0b0b"><style>${STYLE}${inPhone ? 'main{padding-top:64px}' : ''}</style>${inPhone ? '<base target="_blank">' : ''}</head><body${tracked ? ` data-l="${esc(countAs)}"` : ''}>
 ${cover ? `<div class="bg" style="background-image:url('${cssUrl(link.cover)}')"></div>` : ''}<main><div class="art">${cover ? `<img src="${cover}" alt="${title} cover" width="280" height="280" fetchpriority="high">` : ''}${link.preview ? '<button id="p" type="button" aria-label="Play preview"></button>' : ''}</div>
 <h1>${title}</h1><p class="by">${artist}</p><ul>${buttons}</ul></main>
-<footer><a href="${esc(home)}/links">Make your own free smart link · <b>mumoo</b></a></footer>${link.preview ? `<audio id="a" preload="none" src="${esc(link.preview)}"></audio><script>${PLAYER}</script>` : ''}${tracked ? `<script>${TRACKER}</script>` : ''}
+<footer><a href="${esc(home)}/smart-links">Make your own free smart link · <b>mumoo</b></a></footer>${link.preview ? `<audio id="a" preload="none" src="${esc(link.preview)}"></audio><script>${PLAYER}</script>` : ''}${tracked ? `<script>${TRACKER}</script>` : ''}
 </body></html>`;
 }
 
@@ -83,5 +83,5 @@ ${cover ? `<div class="bg" style="background-image:url('${cssUrl(link.cover)}')"
 export function missingPage(home) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
 <title>Link not found · mumoo</title><style>${STYLE}main{margin:auto;text-align:center}</style></head><body><main><h1>This link isn’t here</h1>
-<p class="by">It may have been deleted, or the address has a typo.</p><ul><li><a class="s" href="${esc(home)}/links"><span>Make your own smart link</span><em>Free</em></a></li></ul></main></body></html>`;
+<p class="by">It may have been deleted, or the address has a typo.</p><ul><li><a class="s" href="${esc(home)}/smart-links"><span>Make your own smart link</span><em>Free</em></a></li></ul></main></body></html>`;
 }

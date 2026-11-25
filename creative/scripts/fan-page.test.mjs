@@ -34,7 +34,7 @@ test('the page shows the song and only the buttons the artist kept, in their ord
   assert.ok(html.includes('<link rel="canonical" href="https://mumoo.app/l/mr-brightside">'));
   assert.ok(html.includes('og:image'), 'a shared link shows the cover');
   assert.ok(html.includes('Listen to Mr. Brightside'), 'and says where to listen');
-  assert.ok(html.includes('href="https://mumoo.app/links"'), 'the credit leads artists to make their own');
+  assert.ok(html.includes('href="https://mumoo.app/smart-links"'), 'the credit leads artists to make their own');
   assert.ok(html.includes('src="https://mumoo.app/logos/spotify.svg"'), 'each button has its service\'s logo');
   assert.ok(Buffer.byteLength(html) < 15_000, `the page is small (${Buffer.byteLength(html)} bytes)`);
 });

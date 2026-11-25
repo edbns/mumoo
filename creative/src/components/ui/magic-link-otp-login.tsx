@@ -41,9 +41,9 @@ function Envelope() {
   return (
     <div data-envelope aria-hidden="true" className="relative mx-auto h-[78px] w-[88px]" style={{ perspective: 400 }}>
       <div className="absolute left-2 top-7 h-12 w-[72px] rounded-lg bg-secondary" />
-      <div data-envelope-flap className="absolute left-2 top-7 h-8 w-[72px] origin-top bg-primary/25" style={{ clipPath: "polygon(0 0, 100% 0, 50% 100%)", transform: "rotateX(180deg)" }} />
+      <div data-envelope-flap className="absolute left-2 top-7 h-8 w-[72px] origin-top bg-secondary" style={{ clipPath: "polygon(0 0, 100% 0, 50% 100%)", transform: "rotateX(180deg)" }} />
       <div data-envelope-paper className="absolute left-[19px] top-6 flex h-[50px] w-[50px] flex-col items-center gap-1.5 rounded-md bg-background pt-2 shadow-sm" style={{ transform: "translateY(-10px)" }}>
-        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><Check className="size-3" strokeWidth={2.5} /></span><span className="h-0.5 w-6 rounded bg-primary/30" /><span className="h-0.5 w-4 rounded bg-primary/20" />
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><Check className="size-3" strokeWidth={2.5} /></span><span className="h-0.5 w-6 rounded bg-foreground/30" /><span className="h-0.5 w-4 rounded bg-foreground/20" />
       </div>
       <svg viewBox="0 0 74 50" className="absolute left-[7px] top-[27px] h-[50px] w-[74px] text-muted" fill="currentColor">
         <path d="M1 2 37 26 73 2v39a8 8 0 0 1-8 8H9a8 8 0 0 1-8-8Z" />
@@ -330,7 +330,7 @@ export function MagicLinkOtpLogin({
           </div>
         ) : (
           <div className="flex min-h-[288px] flex-col items-center justify-center py-6 text-center">
-            <div data-success-stamp aria-hidden="true" className="mb-6 flex size-[76px] items-center justify-center rounded-full bg-primary text-primary-foreground ring-8 ring-primary/10"><Check className="size-9" strokeWidth={1.75} /></div>
+            <div data-success-stamp aria-hidden="true" className="mb-6 flex size-[76px] items-center justify-center rounded-full bg-primary text-primary-foreground ring-8 ring-secondary"><Check className="size-9" strokeWidth={1.75} /></div>
             <h2 id={`${id}-title`} tabIndex={-1} className="text-[28px] font-semibold tracking-tight outline-none">{successTitle}</h2>
             <p className="mt-2 text-[13px] text-muted-foreground">Welcome back to {appName}.</p>
             <span className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-[11px] text-muted-foreground"><ShieldCheck className="size-3.5" aria-hidden="true" />Email verified</span>

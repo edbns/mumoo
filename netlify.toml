@@ -20,6 +20,12 @@
   to = "/index.html"
   status = 200
 
+# Its old address, still in fan pages shared before it moved.
+[[redirects]]
+  from = "/links"
+  to = "/smart-links"
+  status = 301
+
 [[redirects]]
   from = "/my-smart-links"
   to = "/index.html"

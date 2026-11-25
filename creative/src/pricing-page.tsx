@@ -96,7 +96,7 @@ function PricingPage() {
         <p className="m-0 max-w-xl text-base text-balance text-muted-foreground">
           Pay once, no subscription, credits never expire. First video free, no watermark.
         </p>
-        {invited && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-primary/10 px-4 py-2 text-sm text-foreground">A friend invited you: your first pack comes with 10 extra videos free.</p>}
+        {invited && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-secondary px-4 py-2 text-sm text-foreground">A friend invited you: your first pack comes with 10 extra videos free.</p>}
         {freeLeft && <Button className="mt-2" onClick={() => location.assign('/')}>Make my first video free</Button>}
       </div>
 
@@ -104,7 +104,7 @@ function PricingPage() {
         <div className="grid gap-4 md:grid-cols-3">
         {CREDIT_PACKS.map(pack => <div key={pack.usd}
           className={cn('relative flex flex-col gap-6 rounded-[var(--radius-panel)] bg-muted p-6', pack.popular && 'outline-2 outline-primary')}>
-          {pack.popular && <span className="absolute top-6 right-6 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">Popular</span>}
+          {pack.popular && <span className="absolute top-6 right-6 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">Popular</span>}
           <div className="flex flex-col gap-1">
             <span className="text-sm text-muted-foreground">{pack.videos.toLocaleString()} videos</span>
             <span className="text-4xl font-semibold tracking-tight tabular-nums">${pack.usd}</span>
