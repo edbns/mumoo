@@ -390,6 +390,8 @@ test('Window deals four cards of the picture as it is, each on one black, off-wh
         assert.equal(new Set(row.map(slot => slot.font)).size, 4, `${name} repeats a face`);
         assert.equal(new Set(row.map(slot => slot.layout.seed)).size, 4, `${name} repeats a layout seed`);
         assert.equal(new Set(row.map(slot => slot.cutSeed)).size, 4, `${name}: the same cut on two cards`);
+        const place = pack.SHELF_ROWS.findIndex(def => def.id === 'window');
+        assert.deepEqual(row.map(slot => look.turnedCard(slot.layout.seed)), [0, 1, 2, 3].map(index => ((index + place + generation) & 1) === 1), `${name}: upright and turned take turns, the first card turning on every refresh`);
         for (const slot of row) {
           assert.equal(slot.windowMode, 'plain', name);
           assert.ok(look.WINDOW_FACES.includes(slot.font) && slot.fontSecondary === slot.font, `${name}: ${slot.font} is not one of the condensed faces`);

@@ -352,8 +352,8 @@ export async function createPackRenderer(
 
         const reaction = packReaction(current.music, frame);
         const { ms, energy, beatIndex, beatGapMs } = reaction;
-        // A video or GIF shows the clip's frame for this moment. Stutter holds the beat's frame: found exactly here, while
-        // live the treatment keeps a copy of the frame it was on.
+        // A video or GIF shows the clip's frame for this moment. Stutter rocks back over the frames before the beat: found
+        // exactly here, while live the treatment replays them from the ones it just drew.
         const seekMs = style === 'treatment' && current.treatment === 'stutter' && !motionLive()
           ? stutterSourceMs(ms, current.music?.beatsMs ?? NOTHING, current.music?.downbeatsMs ?? NOTHING, current.treatmentVariant)
           : ms;
@@ -460,6 +460,7 @@ export async function createPackRenderer(
           seed: current.layout.seed,
           inks: style === 'riso' && current.inkSet ? risoInkSetById(current.inkSet).inks : undefined,
           pulseSet: style === 'pulise' ? current.inkSet : undefined,
+          live: motionLive(),
           risoPhoto: style === 'riso' ? risoPhoto : null,
           windowPicture,
           windowPalette: current.windowPalette,

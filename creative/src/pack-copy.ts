@@ -55,6 +55,8 @@ export type PackSceneInput = {
   seed: number;
   /** Riso: the card's inks, and the person's photo read for the halftone. */
   inks?: RisoInkSet['inks'];
+  /** Whether this is the shelf's live preview (videos play by themselves) rather than a render that finds every frame. */
+  live?: boolean;
   /** Pulse: its colour set (`PULISE_SETS`), red when none. */
   pulseSet?: string;
   risoPhoto?: RisoPhoto | null;

@@ -673,7 +673,11 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   // The template's own reel, once there are two or more pictures to edit. The shelf shows one card per template (the lead, after
   // learning has put its favourite first); the others are edited from the same pictures, each opening on another.
   const reel = directedRow && !ownPicture ? footageReel(pool, footage(), wanted, song, generation, place, directed.length, deal.seen) : [];
-  const ordered = isTreatmentId(row) && (TREATMENT_LEAD[row] || TREATMENT_ROTATES.includes(row)) ? slots : learnedLead(slots, cardsInLane(learning, lane, row), seed);
+  const learned = isTreatmentId(row) && (TREATMENT_LEAD[row] || TREATMENT_ROTATES.includes(row)) ? slots : learnedLead(slots, cardsInLane(learning, lane, row), seed);
+  // Window's cards take turns upright and turned (`turnedCard` reads the seed's last bit), and the card shown first turns the other way on every Refresh.
+  const ordered = row === 'window'
+    ? learned.map((slot, index) => ({ ...slot, layout: { ...slot.layout, seed: (slot.layout.seed & ~1) | ((index + turn.at) & 1) } }))
+    : learned;
   const edited = reel.length < 2 ? ordered : ordered.map((slot, index) => reeled(slot, reel, index));
   // A card tells its board only when it really draws a library picture from it.
   const filed = (slot: CreativesPackSlot) => board && [slot.libraryId, ...(slot.reelIds ?? [])].some(id => id && library.find(item => item.id === id)?.boards?.includes(board.id));

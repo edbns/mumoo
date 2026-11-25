@@ -16,7 +16,7 @@ import { FRAME_UV, makeFilter } from './treatment-filter';
 import { createTypewriterPage } from './pack-typewriter';
 import { createScreenshotChat } from './pack-screenshot';
 import { BROKEN, BROKEN_LOOK, brokenBlocks, brokenHitsMs, brokenStage } from './pack-broken';
-import { stutterAt, stutterKick } from './pack-stutter';
+import { stutterAt, stutterKick, stutterSourceMs } from './pack-stutter';
 
 export type TreatmentWorld = {
   root: Container;
@@ -306,6 +306,9 @@ const SIDEWAYS_TURN = 1;
 const TURNED_SIDE = 120;
 const TURNED_PAD = 90;
 
+/** How many of the last frames the live preview keeps for Stutter to rock back over (over 130 ms at 60 fps). */
+const STUTTER_RECENT = 10;
+
 export function createTreatmentWorld(): TreatmentWorld {
   const root = new Container();
   const backdrop = new Graphics();
@@ -334,9 +337,10 @@ export function createTreatmentWorld(): TreatmentWorld {
   let frozenStage = -1;
   let frozen = false;
   const broken = makeFilter(BROKEN, 'treatment-broken', { uStage: 0, uAge: 1e6, uSeed: 0, uMode: 0, uAspect: HEIGHT / WIDTH, uTime: 0, uHasFrozen: 0, ...brokenBlocks(0, 0) }, { uFrozen: frozenRt.source });
-  // Stutter's held frame: copied when a hold begins, and jolted on each kick.
-  const heldRt = RenderTexture.create({ width: WIDTH, height: HEIGHT, resolution: 1 });
-  let heldFrom = -1;
+  // Stutter, live: the last frames drawn (at half size: it is the preview), so a judder can rock back over them. The cloud
+  // render seeks each rocked frame itself.
+  const recent = Array.from({ length: STUTTER_RECENT }, () => ({ rt: RenderTexture.create({ width: WIDTH / 2, height: HEIGHT / 2, resolution: 1 }), ms: -Infinity }));
+  let recentAt = 0;
   const stuttered = new Sprite();
   stuttered.anchor.set(0.5);
   const flash = new Graphics();
@@ -619,14 +623,19 @@ export function createTreatmentWorld(): TreatmentWorld {
         chat.update({ cues: input.cues, ms: input.ms, seed: input.layout.seed, variant, clock: input.clock });
       } else if (kind === 'stutter') {
         const hold = stutterAt(input.ms, input.beatsMs, input.downbeatsMs, variant);
-        if (!hold) heldFrom = -1;
-        else if (hold.startMs !== heldFrom) {
-          paint(sourceRt, renderer, heldRt);
-          heldFrom = hold.startMs;
+        let shown: Texture = sourceRt;
+        if (input.live && !hold) {
+          paint(sourceRt, renderer, recent[recentAt].rt);
+          recent[recentAt].ms = input.ms;
+          recentAt = (recentAt + 1) % recent.length;
+        } else if (input.live && hold) {
+          const wanted = stutterSourceMs(input.ms, input.beatsMs, input.downbeatsMs, variant);
+          const nearest = recent.reduce((best, frame) => (Math.abs(frame.ms - wanted) < Math.abs(best.ms - wanted) ? frame : best));
+          if (Number.isFinite(nearest.ms)) shown = nearest.rt;
         }
-        const push = hold ? stutterKick(hold, variant, input.layout.seed % 97) : { scale: 1, x: 0, y: 0, flash: 0 };
+        const push = hold ? stutterKick(hold, variant) : { scale: 1, x: 0, y: 0, flash: 0 };
         stuttered.visible = true;
-        stuttered.texture = hold ? heldRt : sourceRt;
+        stuttered.texture = shown;
         stuttered.width = WIDTH * push.scale;
         stuttered.height = HEIGHT * push.scale;
         stuttered.position.set(WIDTH / 2 + push.x, HEIGHT / 2 + push.y);
@@ -717,7 +726,7 @@ export function createTreatmentWorld(): TreatmentWorld {
       grain.filter.destroy();
       broken.filter.destroy();
       frozenRt.destroy(true);
-      heldRt.destroy(true);
+      for (const frame of recent) frame.rt.destroy(true);
       page.destroy();
       chat.destroy();
       type.destroy();
