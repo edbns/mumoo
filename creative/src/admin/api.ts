@@ -124,12 +124,18 @@ export const forgetSong = (song: string) => adminFetch<GenreTraining>(`genre?son
 export const startClipPrint = (wav: Blob) => adminFetch<{ id: string }>('genre', { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: wav });
 export const keepClipPrint = (job: string, label: SeedLabel) => adminFetch<{ status: 'running' | 'stored' | 'skipped' }>('genre', json('PUT', { id: job, label }));
 
+/** The library already has this file (sent before, in a batch that was cut off): it is not sent again. */
+export class AlreadyInLibrary extends Error {
+  constructor(readonly id: string) { super('Already in the library.'); }
+}
+
 /** Sends one file: room is reserved, the file goes straight to storage, then it is confirmed. */
 export async function uploadFile(original: File, note: string): Promise<LibraryItem> {
   // A photo is sent as a small JPEG (what the templates draw); a GIF or video goes as it is and our worker prepares it.
   const photo = original.type.startsWith('image/') && original.type !== 'image/gif';
   const file = photo ? new File([await shrinkPhoto(original)], original.name.replace(/\.[^.]*$/, '') + '.jpg', { type: 'image/jpeg' }) : original;
-  const reserved = await adminFetch<{ id: string; putUrl: string }>('library', json('POST', { type: file.type, bytes: file.size, rights: true, note }));
+  const reserved = await adminFetch<{ id: string; putUrl: string } | { duplicate: string }>('library', json('POST', { type: file.type, bytes: file.size, rights: true, note }));
+  if ('duplicate' in reserved) throw new AlreadyInLibrary(reserved.duplicate);
   const sent = await fetch(reserved.putUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
   if (!sent.ok) throw new Error('The file could not be sent. Try again.');
   return (await adminFetch<{ item: LibraryItem }>(`library?${id(reserved.id)}`, { method: 'PUT' })).item;

@@ -6,7 +6,7 @@ import { GENRES } from '../genres';
 import { BOARDS, BOARD_MIN } from '../boards';
 import { themesFor } from '../genre-guide';
 import {
-  changeItem, deleteItem, deleteTag, loadLibrary, uploadFile,
+  AlreadyInLibrary, changeItem, deleteItem, deleteTag, loadLibrary, uploadFile,
   type Change, type Library, type LibraryItem, type LibraryStatus, type TagCount,
 } from './api';
 
@@ -86,7 +86,7 @@ function Player({ item, onClose }: { item: LibraryItem | null; onClose: () => vo
   </Modal>;
 }
 
-type Sending = { name: string; state: 'sending' | 'done' | 'failed'; reason?: string };
+type Sending = { name: string; state: 'sending' | 'done' | 'skipped' | 'failed'; reason?: string };
 
 /**
  * Drop files in, say once that you cleared them, and they join the library as "Waiting", in the tray, until they are filed on a board
@@ -101,6 +101,14 @@ function Uploader({ onAdded }: { onAdded: (item: LibraryItem) => void }) {
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const busy = sending.some(entry => entry.state === 'sending');
+  // Leaving or reloading the page cuts a batch off: the browser asks first while files are still being sent.
+  useEffect(() => {
+    if (!busy) return;
+    const stay = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', stay);
+    return () => window.removeEventListener('beforeunload', stay);
+  }, [busy]);
+  const count = (state: Sending['state']) => sending.filter(entry => entry.state === state).length;
 
   async function send(files: File[]) {
     if (!rights || files.length === 0) return;
@@ -112,7 +120,8 @@ function Uploader({ onAdded }: { onAdded: (item: LibraryItem) => void }) {
         onAdded(board ? (await changeItem(sent.id, { boards: [board], status: 'approved' })).item : sent);
         set(index, { name: file.name, state: 'done' });
       } catch (cause) {
-        set(index, { name: file.name, state: 'failed', reason: (cause as Error).message });
+        if (cause instanceof AlreadyInLibrary) set(index, { name: file.name, state: 'skipped', reason: 'Already in the library, not added again' });
+        else set(index, { name: file.name, state: 'failed', reason: (cause as Error).message });
       }
     }
   }
@@ -149,13 +158,17 @@ function Uploader({ onAdded }: { onAdded: (item: LibraryItem) => void }) {
         {!rights && <p className="m-0 text-xs text-muted-foreground">Tick the box first.</p>}
       </div>
     </div>
-    {sending.length > 0 && <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm">
+    {sending.length > 0 && <p role="status" className="m-0 text-sm font-medium">
+      {busy ? `Sending ${count('done') + count('skipped') + count('failed') + 1} of ${sending.length}… Keep this page open.` : 'Finished.'}
+      {' '}{count('done')} added · {count('skipped')} already in the library · {count('failed')} failed
+    </p>}
+    {sending.length > 0 && <ul className="m-0 flex max-h-64 list-none flex-col gap-1 overflow-y-auto p-0 text-sm">
       {sending.map((entry, index) => <li key={index} className="flex items-center gap-2">
-        <span className={entry.state === 'failed' ? 'text-destructive' : entry.state === 'done' ? 'text-emerald-700' : 'text-muted-foreground'}>
-          {entry.state === 'sending' ? 'Sending' : entry.state === 'done' ? 'Added' : 'Failed'}
+        <span className={entry.state === 'failed' ? 'text-destructive' : entry.state === 'done' ? 'text-emerald-700' : entry.state === 'skipped' ? 'text-sky-700' : 'text-muted-foreground'}>
+          {entry.state === 'sending' ? 'Sending' : entry.state === 'done' ? 'Added' : entry.state === 'skipped' ? 'Skipped' : 'Failed'}
         </span>
         <span className="truncate">{entry.name}</span>
-        {entry.reason && <span className="text-xs text-destructive">{entry.reason}</span>}
+        {entry.reason && <span className={`text-xs ${entry.state === 'skipped' ? 'text-muted-foreground' : 'text-destructive'}`}>{entry.reason}</span>}
       </li>)}
     </ul>}
   </section>;

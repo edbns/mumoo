@@ -33,7 +33,7 @@ export default async function handler(request) {
       const body = await request.json().catch(() => null);
       if (!body || typeof body !== 'object') return refuse(400, 'Say what the file is and how big.');
       const result = await reserveItem(admin, body);
-      return result.refused ? refuse(400, result.refused) : reply(201, result);
+      return result.refused ? refuse(400, result.refused) : reply(result.duplicate ? 200 : 201, result);
     }
 
     const id = params.get('id') ?? '';

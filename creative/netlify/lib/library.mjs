@@ -335,13 +335,19 @@ export async function listTagPool() {
   return rows.map(row => ({ name: row.name, items: row.items }));
 }
 
-/** Makes room for a file: the row and the link to send it to. Refused with a reason in words when it is not allowed. */
+/**
+ * Makes room for a file: the row and the link to send it to. Refused with a reason in words when it is not allowed. A file the
+ * library already has (the same type and the very same number of bytes) is not taken again: `{ duplicate: id }` of the one it has,
+ * so a batch sent again after it was cut off adds only the files that did not arrive.
+ */
 export async function reserveItem(admin, { type, bytes, rights, note }) {
   const accepted = TYPES[type];
   if (!accepted) return { refused: 'Use a photo (it is sent as a JPEG), a GIF, or an MP4, MOV or WebM video.' };
   if (!Number.isInteger(bytes) || bytes < 1) return { refused: 'Say how big the file is.' };
   if (bytes > accepted[1]) return { refused: `That file is too large (the limit is ${Math.round(accepted[1] / 1_000_000)} MB).` };
   if (rights !== true) return { refused: 'Confirm that you cleared the rights to this file.' };
+  const [have] = await db()`select id from library_items where arrived and content_type = ${type} and bytes = ${bytes} limit 1`;
+  if (have) return { duplicate: have.id };
   const id = randomUUID();
   await db()`
     insert into library_items (id, kind, content_type, bytes, source_note, cleared_by)
