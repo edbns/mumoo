@@ -14,6 +14,7 @@ import { STYLE_NAMES, type AdPunchStyle } from './ad-punch';
 import { dustColors, type DustColors } from './dust-colors';
 import { RISO_INK_SETS } from './riso-look';
 import { dealSilhouette, dealWindow, type WindowCard, type WindowMode } from './window-deal';
+import { SKULL_GENRE } from './silhouette';
 import effectsData from '../punch-plates/effects/effects.json';
 import { laneFromMeaning, leansDeep, type LyricAttitude, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
@@ -613,6 +614,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const library = pool.some(item => item.learnedLanes) ? pool.map(item => ({ ...item, learned: inLane(item.learned, item.learnedLanes?.[lane]) })) : pool;
   const cover = profile.creator.cover?.value ?? null;
   const seed = `${song}:${generation}:${lane}:${row}`;
+  const genres = `${genre} ${profile.creator.subGenre?.value ?? ''}`.toLowerCase();
   const turn: Turn = { song: `${song}:${lane}`, at: Math.max(0, SHELF_ROWS.findIndex(def => def.id === row)) + generation };
   const cutOutPlates = plates.filter(plate => plate.cutout).map(plate => plate.id);
   // Riso draws library photos that have a cut-out, or library videos/GIFs; with none, our approved photos.
@@ -663,7 +665,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     ascii: () => effectRow('ascii'),
     riso: () => risoSlots(lane, intent, seed, turn, risoPhotos),
     window: () => windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates),
-    silhouette: () => (GOSPEL_GENRE.test(`${genre} ${profile.creator.subGenre?.value ?? ''}`.toLowerCase()) ? [] : windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates, dealSilhouette(seed, TYPE_ALLOW[lane]))),
+    silhouette: () => (GOSPEL_GENRE.test(genres) ? [] : windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates, dealSilhouette(seed, TYPE_ALLOW[lane], SKULL_GENRE.test(genres)))),
     pulise: () => puliseSlots(lane, intent, seed, turn),
     dust: () => dustSlots(lane, intent, seed, turn, cover?.hue),
   }[row]();

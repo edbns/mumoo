@@ -33,7 +33,7 @@ import { risoInkSetById } from './riso-look';
 import { prepareRisoFrame, prepareRisoPhoto, type RisoPhoto } from './riso-photo';
 import { WINDOW_PALETTE_IDS } from './window-look';
 import type { WindowMode } from './window-deal';
-import { DRAWN_SCREEN, SILHOUETTE_IDS, SILHOUETTE_SCREENS, isDrawnFigure, silhouetteUrl } from './silhouette';
+import { DRAWN_SCREENS, SILHOUETTE_IDS, SILHOUETTE_SCREENS, isDrawnFigure, silhouetteUrl } from './silhouette';
 import { isTreatmentId, isTreatmentVariant, type TreatmentId } from './treatment-deal';
 import { DISSOLVE_MS, TRANSITION, isPresetId, isPresetTake, presetDef, type PresetId } from './edit-presets';
 import { presetFrame } from './preset-motion';
@@ -147,7 +147,7 @@ export async function loadTexture(url: string, what: string): Promise<Texture> {
 function checkWindow(opts: PackRendererOpts): WindowMode {
   const { windowMode: mode, windowPalette: palette, windowAllowed: allowed, windowShape: shape } = opts;
   if ((mode !== 'plain' && mode !== 'silhouette') || !palette || !allowed) throw new Error('Window needs its picture as it is, a screen colour and the colours it may flip to.');
-  const screens: readonly string[] = mode === 'silhouette' ? (shape && isDrawnFigure(shape) ? [DRAWN_SCREEN] : SILHOUETTE_SCREENS) : WINDOW_PALETTE_IDS.filter(id => id !== 'red' && id !== DRAWN_SCREEN);
+  const screens: readonly string[] = mode === 'silhouette' ? (shape && isDrawnFigure(shape) ? DRAWN_SCREENS : SILHOUETTE_SCREENS) : WINDOW_PALETTE_IDS.filter(id => id !== 'red' && id !== 'pink');
   if (![palette, ...allowed].every(id => screens.includes(id))) throw new Error('Window has no such screen colour.');
   if (mode === 'silhouette' ? !shape || !SILHOUETTE_IDS.includes(shape) : shape !== undefined) throw new Error(mode === 'silhouette' ? 'Silhouette has no such figure.' : 'Only a Silhouette has a figure.');
   if (opts.effectId) throw new Error('Window shows only a picture behind the word.');

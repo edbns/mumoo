@@ -95,7 +95,7 @@ WINDOW_FACES = {"Anton", "Big Shoulders Display", "Staatliches", "Bangers", "Bar
 WINDOW_MODES = {"plain", "silhouette"}
 WINDOW_SCREENS = {"plain": {"black", "off-white", "plum"}, "silhouette": {"red", "black", "off-white", "plum", "pink"}}
 # The figures of creative/public/silhouettes (creative/src/silhouette.ts).
-WINDOW_SHAPES = {"man-cap", "woman-hair", "man-wide", "woman-wide", "woman-curls", "man-hood", "woman-head", "man-head", "art-embrace", "art-afro", "art-locs", "art-profile", "art-hood"}
+WINDOW_SHAPES = {"art-locs", "art-hood", "art-cap", "art-beard", "art-headphones", "art-afro", "art-profile", "art-braids", "art-bun", "art-lying", "art-shades", "art-embrace", "art-skull", "man-cap", "woman-hair", "man-wide", "woman-wide", "woman-curls", "man-hood", "woman-head", "man-head"}
 WINDOW_KEYS = ("windowMode", "windowPalette", "windowAllowed")
 # Lyric type styles and display fonts the page knows (creative/src/pack-type.ts, font-catalog.ts; a test keeps these in step).
 TYPE_STYLES = {

@@ -409,28 +409,34 @@ test('Window deals four cards of the picture as it is, each on one black, off-wh
   } finally { await server.close(); }
 });
 
-test('Silhouette deals four different figures (two men, a woman and a drawn figure on trial) in four lyric styles, the song\'s picture inside, and never for gospel', async () => {
+test('Silhouette deals four different drawn figures (a man and a woman taking turns) in four lyric styles on pink, white and red, the song\'s picture inside, the skull only for Brazilian funk and phonk, and never for gospel', async () => {
   const { server, pack } = await load();
-  const { SILHOUETTE_IDS, SILHOUETTE_TYPES } = await server.ssrLoadModule('/src/silhouette.ts');
+  const { SILHOUETTES, SILHOUETTE_TYPES } = await server.ssrLoadModule('/src/silhouette.ts');
+  const kind = id => SILHOUETTES.find(figure => figure.id === id).kind;
   try {
-    for (const genre of GENRES.filter(genre => genre !== 'Gospel')) {
+    for (const genre of [...GENRES.filter(genre => genre !== 'Gospel'), 'Funk Carioca', 'Brazilian Phonk', 'Montagem']) {
+      const skullSong = !['Slap House', 'Pop', 'Ambient', 'Reggaeton'].includes(genre);
+      let skulls = 0;
       for (let generation = 0; generation < 12; generation++) {
         const row = pack.recommendRow('silhouette', profile(genre, 'hello', `${genre.length}${generation % 3}`.padEnd(64, 'c')), generation, PLATES);
         const name = `${genre} #${generation}`;
         assert.equal(row.length, 4, name);
         assert.ok(row.every(slot => slot.style === 'window' && slot.row === 'silhouette' && slot.windowMode === 'silhouette'), name);
         assert.equal(new Set(row.map(slot => slot.windowShape)).size, 4, `${name}: a figure repeated`);
-        assert.ok(row.every(slot => SILHOUETTE_IDS.includes(slot.windowShape)), name);
-        assert.equal(row.filter(slot => slot.windowShape.startsWith('man-')).length, 2, `${name}: two men and two women`);
-        assert.ok(row.every((slot, index) => index === 0 || slot.windowShape.startsWith('man-') !== row[index - 1].windowShape.startsWith('man-')), `${name}: men and women take turns`);
-        assert.equal(row.filter(slot => slot.windowShape.startsWith('art-')).length, 1, `${name}: one drawn figure`);
-        assert.ok(row.every(slot => slot.windowShape.startsWith('art-') === (slot.windowPalette === 'pink')), `${name}: the drawn figure, and only it, on pink`);
+        assert.ok(row.every(slot => kind(slot.windowShape) !== 'retired'), `${name}: only drawn figures`);
+        const people = row.filter(slot => kind(slot.windowShape) !== 'skull');
+        assert.ok(people.every((slot, index) => index === 0 || (kind(slot.windowShape) === 'man') !== (kind(people[index - 1].windowShape) === 'man')), `${name}: men and women take turns`);
+        const skull = row.findIndex(slot => kind(slot.windowShape) === 'skull');
+        assert.ok(skull <= 0, `${name}: the skull leads`);
+        if (skull === 0) skulls++;
         assert.equal(new Set(row.map(slot => slot.typeStyle)).size, 4, `${name}: a lyric style repeated`);
         assert.ok(row.every(slot => SILHOUETTE_TYPES.includes(slot.typeStyle)), name);
-        assert.equal(new Set(row.map(slot => slot.windowPalette)).size, 4, `${name}: the screens take turns`);
-        assert.ok(row.every(slot => ['red', 'black', 'off-white', 'plum', 'pink'].includes(slot.windowPalette) && slot.windowAllowed.length === 1 && slot.windowAllowed[0] === slot.windowPalette), name);
+        assert.ok(row.every(slot => ['pink', 'off-white', 'red'].includes(slot.windowPalette) && slot.windowAllowed.length === 1 && slot.windowAllowed[0] === slot.windowPalette), name);
+        assert.ok(row.every(slot => kind(slot.windowShape) !== 'couple' || slot.windowPalette === 'pink'), `${name}: the couple's red nails need pink`);
         assert.ok(row.every(slot => PLATES.some(plate => plate.id === slot.plateId)), `${name}: with no library our approved photo stands in`);
       }
+      if (skullSong) assert.ok(skulls >= 2 && skulls <= 10, `${genre}: the skull opens some refreshes (${skulls})`);
+      else assert.equal(skulls, 0, `${genre}: no skull`);
     }
     assert.deepEqual(pack.recommendRow('silhouette', profile('Gospel'), 0, PLATES), [], 'no Silhouette for gospel');
     assert.ok(pack.recommendRow('window', profile('Pop'), 0, PLATES).every(slot => slot.windowShape === undefined && !['red', 'pink'].includes(slot.windowPalette)), 'Window keeps its word, on black or white');

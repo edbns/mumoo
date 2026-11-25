@@ -6,7 +6,7 @@
  */
 import { hashPick, type AdFont } from './ad-fonts';
 import { WINDOW_FACES } from './window-look';
-import { DRAWN_SCREEN, SILHOUETTE_IDS, SILHOUETTE_SCREENS, SILHOUETTE_TYPES, isDrawnFigure } from './silhouette';
+import { DRAWN_SCREENS, SILHOUETTE_TYPES, figuresOf } from './silhouette';
 import type { TypeStyleId } from './pack-type';
 
 /** What the picture is seen through: the lyric word (`plain`), or the figure of a person (`silhouette`, Silhouette's cards). */
@@ -31,16 +31,19 @@ export function dealWindow(seed: string): WindowCard[] {
   });
 }
 
-/** Four Silhouette cards: four different figures (two men and two women, taking turns) and lyric styles (those of `SILHOUETTE_TYPES` the song's mood allows), the screens red, black and white taking turns from the seed's pick. */
-export function dealSilhouette(seed: string, moodTypes: readonly TypeStyleId[]): WindowCard[] {
+/** Four Silhouette cards: four different drawn figures (men and women taking turns, the skull first on some refreshes when `skull`) and lyric styles (those of `SILHOUETTE_TYPES` the song's mood allows), the screens pink, white and red taking turns from the seed's pick. */
+export function dealSilhouette(seed: string, moodTypes: readonly TypeStyleId[], skull = false): WindowCard[] {
   const faces = order(WINDOW_FACES, `${seed}:faces`, face => face);
-  const [men, women, drawn] = ['man-', 'woman-', 'art-'].map(kind => order(SILHOUETTE_IDS.filter(id => id.startsWith(kind)), `${seed}:figures`, id => id));
+  const men = order(figuresOf('man'), `${seed}:figures`, id => id);
+  const women = order([...figuresOf('woman'), ...figuresOf('couple')], `${seed}:figures`, id => id);
   const types = order(SILHOUETTE_TYPES.filter(type => moodTypes.includes(type)), `${seed}:types`, type => type);
-  const first = hashPick(seed, 'screen', SILHOUETTE_SCREENS.length);
-  return Array.from({ length: CARDS }, (_, index) => {
-    // On trial: the shelf's lead card is one of the drawn figures, on pink; then a man, a woman and a man.
-    const shape = index === 0 ? drawn[0] : index % 2 ? men[index >> 1] : women[0];
-    const palette = isDrawnFigure(shape) ? DRAWN_SCREEN : SILHOUETTE_SCREENS[(first + index) % SILHOUETTE_SCREENS.length];
+  // A man and a woman take turns. On a Brazilian funk or phonk song every other refresh opens on the skull.
+  const manFirst = hashPick(seed, 'figure', 2) === 0;
+  const people = Array.from({ length: CARDS }, (_, index) => ((index % 2 === 0) === manFirst ? men : women)[index >> 1]);
+  const shapes = skull && hashPick(seed, 'skull', 2) === 0 ? [...figuresOf('skull'), ...people].slice(0, CARDS) : people;
+  const first = hashPick(seed, 'screen', DRAWN_SCREENS.length);
+  return shapes.map((shape, index) => {
+    const palette = figuresOf('couple').includes(shape) ? DRAWN_SCREENS[0] : DRAWN_SCREENS[(first + index) % DRAWN_SCREENS.length];
     return { mode: 'silhouette', palette, allowed: [palette], font: faces[index], shape, type: types[index % types.length] };
   });
 }
