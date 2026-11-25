@@ -21,7 +21,7 @@
 .option > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .option[data-active="true"] { background: var(--surface-muted); }
 .option[data-disabled="true"] { opacity: .42; cursor: not-allowed; }
-.group { padding: 10px 12px 4px; color: var(--text-muted); font-size: var(--text-xs, 12px); font-weight: 600; letter-spacing: .02em; }
+.group { padding: 10px 12px 4px; color: var(--primary); font-size: var(--text-xs, 12px); font-weight: 600; letter-spacing: .02em; }
 .group:first-child { padding-top: 4px; }
 .check { flex: 0 0 auto; color: var(--foreground); }
 .empty { padding: var(--space-3); color: var(--text-muted); font-size: var(--text-sm); }
