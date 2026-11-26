@@ -13,6 +13,7 @@ import { PurchaseCredits } from './purchase-credits';
 import { claimPendingReferral } from './referral';
 import { reportProblem } from './report-problem';
 import { forgetPages } from './page-memory';
+import { humanHeaders } from './human-check';
 
 /**
  * Neon Auth (managed Better Auth), reached through our own address (/api/neon-auth, passed on to Neon as it is) so its session
@@ -22,10 +23,10 @@ import { forgetPages } from './page-memory';
 const AUTH_URL = import.meta.env.DEV ? import.meta.env.VITE_NEON_AUTH_URL : `${location.origin}/api/neon-auth`;
 export const authClient = createAuthClient(AUTH_URL, { adapter: BetterAuthReactAdapter() });
 
-type Outcome = Promise<{ error?: { message?: string } | null }>;
+type Outcome = Promise<{ error?: { message?: string; code?: string } | null }>;
 /** Email-code sign-in is on the client at runtime, but this SDK version's typings leave it out. */
 const emailCode = authClient as unknown as {
-  emailOtp: { sendVerificationOtp(input: { email: string; type: 'sign-in' }): Outcome };
+  emailOtp: { sendVerificationOtp(input: { email: string; type: 'sign-in'; fetchOptions?: { headers: Record<string, string> } }): Outcome };
   signIn: { emailOtp(input: { email: string; otp: string }): Outcome };
 };
 
@@ -80,22 +81,27 @@ function takePurchaseRequest() {
   return (purchaseRequest = { buy, checkoutId });
 }
 
+const NOT_A_PERSON = 'Couldn’t confirm you’re a person. Reload the page and try again.';
+
 /** Runs one request to Neon Auth. The client throws on a rejected request: a 4xx is the person's mistake, anything else is ours. Fails with the words to show. */
 async function attempt(run: () => Outcome, mistake: string) {
   let result;
   try {
     result = await run();
   } catch (cause) {
-    const status = (cause as { status?: number }).status;
+    const { status, error } = cause as { status?: number; error?: { code?: string } };
+    if (error?.code === 'HUMAN_CHECK') throw new Error(NOT_A_PERSON);
     throw new Error(status && status < 500 ? mistake : 'Sign-in is down for a moment. Try again soon.');
   }
+  if (result.error?.code === 'HUMAN_CHECK') throw new Error(NOT_A_PERSON);
   if (result.error) throw new Error(mistake);
 }
 
-/** Sends the sign-in code to `email`. Fails with the words to show, and tells the admin's error log. */
+/** Sends the sign-in code to `email`, with the proof a person asked (human-check.ts). Fails with the words to show, and tells the admin's error log. */
 export async function sendSignInCode(email: string) {
   try {
-    await attempt(() => emailCode.emailOtp.sendVerificationOtp({ email, type: 'sign-in' }), 'Check that email and try again.');
+    const headers = await humanHeaders('sign-in');
+    await attempt(() => emailCode.emailOtp.sendVerificationOtp({ email, type: 'sign-in', fetchOptions: { headers } }), 'Check that email and try again.');
   } catch (cause) {
     reportProblem('sign_in', `Couldn’t send the code: ${(cause as Error).message}`, { email, signedOut: true });
     throw cause;

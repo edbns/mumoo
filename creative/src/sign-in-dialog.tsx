@@ -3,6 +3,7 @@ import { MagicLinkOtpLogin, type MagicLinkStep } from '@/components/ui/magic-lin
 import { Modal } from '@/components/ui/modal';
 import type { SignInReason } from './account-hint';
 import { LEGAL_PATHS } from './site-paths';
+import { warmHumanCheck } from './human-check';
 
 const TERMS_URL = LEGAL_PATHS.terms;
 const PRIVACY_URL = LEGAL_PATHS.privacy;
@@ -27,7 +28,7 @@ export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle,
   const [step, setStep] = useState<MagicLinkStep>('email');
 
   useEffect(() => {
-    if (!open) setStep('email');
+    if (open) warmHumanCheck(); else setStep('email');
   }, [open]);
 
   useEffect(() => {
@@ -47,6 +48,8 @@ export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle,
       onGoogle={onGoogle}
       {...(reason ? { title: reason.title, lead: reason.lead } : {})}
     />
+    {/* Cloudflare's tick box, only when it asks for one (human-check.ts). */}
+    <div data-human-check className="mt-3 flex justify-center empty:hidden" />
     {!hideTerms && <p className="mt-4 text-center text-xs text-muted-foreground">By continuing you agree to our <a className="text-foreground underline underline-offset-4" href={TERMS_URL} target="_blank" rel="noreferrer">Terms</a> and <a className="text-foreground underline underline-offset-4" href={PRIVACY_URL} target="_blank" rel="noreferrer">Privacy Policy</a>.</p>}
   </Modal>;
 }
