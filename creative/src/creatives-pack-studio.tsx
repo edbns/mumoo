@@ -682,7 +682,7 @@ export function CreativesPackStudio({
         <span>Lyrics</span>
       </label>}
       {uploaded && !ours && <Button variant="secondary" onClick={() => { stopPlayback(); setOurs(true); }}>Use our media</Button>}
-      <PictureUpload uploads={uploads} token={token} onChange={stopPlayback} />
+      <PictureUpload uploads={uploads} token={token} onChange={() => { stopPlayback(); setOurs(false); }} />
     </div>
     {uploads.batchPercent === null && cards.length > 0 && <RefreshFloat disabled={!allReady} onRefresh={refreshShelf} />}
     {/* The one failure shown here: the cards cannot be drawn until the page is reloaded. */}

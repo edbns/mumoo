@@ -58,7 +58,7 @@ function UploadsPicker({ uploads, onUse, onClose }: { uploads: Uploads; onUse: (
   }, [watching, onClose]);
 
   return createPortal(<div role="dialog" aria-modal="true" aria-label="Your uploads" className="fixed inset-0 z-40 overflow-y-auto bg-background">
-    <div className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
+    <div className="sticky top-0 z-10 bg-background/90 backdrop-blur">
       <div className="mx-auto flex max-w-[1100px] items-center justify-between gap-4 px-5 py-4">
         <div className="flex flex-col">
           <h2 className="m-0 text-lg font-semibold text-foreground">Your uploads</h2>
@@ -116,7 +116,7 @@ export function PictureUpload({ uploads, token, onChange }: {
   uploads: Uploads;
   /** Staging access, for sending the pictures from a phone. */
   token: string;
-  /** Called before the pictures change, so the page can stop what is playing. */
+  /** Called before the pictures change (or the same ones are picked again), so the page can stop what is playing and show them. */
   onChange: () => void;
 }) {
   const [open, setOpen] = useState(false);
