@@ -10,7 +10,6 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts",
     "test": "node --env-file-if-exists=.env.local --test scripts/*.test.mjs",
-    "bake:photo-effects": "node scripts/bake-photo-effects.mjs",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
     "db:migrate:staging": "DATABASE_URL_UNPOOLED=\"$(neon connection-string staging --project-id blue-meadow-64090892)\" node scripts/migrate.mjs"
   },

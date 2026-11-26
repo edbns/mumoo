@@ -3,3 +3,6 @@ creative/tmp-daily-dom/
 
 # Local Netlify folder
 .netlify
+
+# Design skills for agents: kept on this computer, not in the repository
+.cursor/skills/
