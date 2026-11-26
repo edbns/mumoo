@@ -5,6 +5,7 @@ import { friendlyError } from './friendly-error';
 import { ORDER_WAIT_MS, cancelCloudJobs, followCloudJobs } from './pack-cloud-export';
 import { reportDelivered } from './pack-feedback';
 import { reportProblem } from './report-problem';
+import { videoName } from '../netlify/lib/video-name.mjs';
 
 /** What the server says instead of a render worker's own failure (WORKER_FAULT in netlify/lib/render-queue.mjs), which it logs itself. */
 const RENDER_SNAG = 'Render hit a snag in the cloud. Give it another try.';
@@ -23,10 +24,10 @@ export type DownloadProgress = {
 export type DownloadMessage = { kind: 'ready' | 'error'; text: string };
 
 /** One video as it is; several as one zip. */
-async function bundle(videos: Blob[]): Promise<{ file: Blob; name: string }> {
-  if (videos.length === 1) return { file: videos[0], name: 'mumoo-video.mp4' };
+async function bundle(videos: { id: string; video: Blob }[]): Promise<{ file: Blob; name: string }> {
+  if (videos.length === 1) return { file: videos[0].video, name: videoName(videos[0].id) };
   const files: Record<string, Uint8Array> = {};
-  for (let index = 0; index < videos.length; index++) files[`mumoo-video-${index + 1}.mp4`] = new Uint8Array(await videos[index].arrayBuffer());
+  for (const { id, video } of videos) files[videoName(id)] = new Uint8Array(await video.arrayBuffer());
   const { zipSync } = await import('fflate');
   return { file: new Blob([zipSync(files, { level: 0 }) as BlobPart], { type: 'application/zip' }), name: 'mumoo-videos.zip' };
 }
@@ -91,7 +92,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     const back = results.filter(result => 'cancelled' in result).length;
     if (!made.length && failed.length) throw failed[0];
     // Videos kept in Media are downloaded from there when the person wants them; only ones that could not be kept are saved now.
-    const unkept = made.flatMap(entry => (entry.video ? [entry.video] : []));
+    const unkept = made.flatMap(entry => (entry.video ? [{ id: entry.job.jobId, video: entry.video }] : []));
     if (unkept.length) {
       setProgress({ label: 'Packaging your download…', percent: 100 });
       // The renders are done: from here a failure is the download's (the file could not be put together or saved), not a render's.

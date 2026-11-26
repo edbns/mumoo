@@ -1,5 +1,5 @@
 import { CheckIcon, CopyIcon, Trash2Icon } from '@/components/icons';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { FIELD, POPUP_FIELD } from '@/components/ui/field';
 import { ActionDialog } from '@/components/ui/action-dialog';
 import { Button } from '@/components/ui/button';
@@ -81,6 +81,7 @@ function DeleteAccount({ email }: { email: string }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
   const [copied, setCopied] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
   const matches = Boolean(email) && typed.trim().toLowerCase() === email.toLowerCase();
 
   return <AccountSection label="Delete account">
@@ -90,20 +91,20 @@ function DeleteAccount({ email }: { email: string }) {
       title="Delete your account?"
       description="This permanently deletes your videos, uploads and history. Can’t be undone."
       cancelLabel="Keep my account" confirmLabel="Delete everything" confirmDisabled={!matches}
-      working="Deleting…" done="Deleted"
+      working="Deleting…" done="Deleted" initialFocusRef={field}
       onConfirm={() => deleteAccount(typed.trim())} onDone={() => location.assign('/')}>
       <div className="flex flex-col gap-3 text-sm">
-        <span className="flex flex-wrap items-center justify-center gap-x-1.5 text-center text-muted-foreground">
-          <span>Type</span>
-          <strong className="break-all text-foreground">{email}</strong>
+        <p className="m-0 text-center leading-6 text-muted-foreground">
+          Type{' '}
+          <strong className="break-all text-foreground">{email}</strong>{' '}
           <button type="button" aria-label={copied ? 'Email copied' : 'Copy your email'}
-            className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-md bg-transparent text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+            className="-mx-1 inline-grid size-6 cursor-pointer place-items-center rounded-md border-0 bg-transparent p-0 align-middle text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
             onClick={() => void navigator.clipboard.writeText(email).then(() => setCopied(true))}>
             {copied ? <CheckIcon aria-hidden="true" className="size-3.5 text-primary" /> : <CopyIcon aria-hidden="true" className="size-3.5" />}
-          </button>
-          <span>to confirm.</span>
-        </span>
-        <input className={POPUP_FIELD} type="email" autoComplete="off" autoFocus aria-label="Your email, to confirm" placeholder="Your email" value={typed} onChange={event => setTyped(event.target.value)} />
+          </button>{' '}
+          to confirm.
+        </p>
+        <input ref={field} className={POPUP_FIELD} type="email" autoComplete="off" aria-label="Your email, to confirm" placeholder="Your email" value={typed} onChange={event => setTyped(event.target.value)} />
       </div>
     </ActionDialog>
   </AccountSection>;

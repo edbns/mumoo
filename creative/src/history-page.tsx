@@ -15,10 +15,10 @@ import type { ProfileTab } from './profile-nav';
 import { listUploads, removeUpload, type Upload } from './uploads';
 import { friendlyError } from './friendly-error';
 
-type Creative = { id: string; bytes: number; createdAt: string; url: string; download?: string };
+type Creative = { id: string; name?: string; bytes: number; createdAt: string; url: string; download?: string };
 type Storage = { used: number; quota: number };
 /** One card of the history, whichever kind it is. */
-type Item = { id: string; kind: 'creative' | 'upload'; bytes: number; createdAt: string; picture?: string; video?: string; play?: string; download?: string; extension: 'mp4' | 'jpg'; note?: string };
+type Item = { id: string; kind: 'creative' | 'upload'; bytes: number; createdAt: string; picture?: string; video?: string; play?: string; download?: string; extension: 'mp4' | 'jpg'; name?: string; note?: string };
 
 /** How many cards appear at first, and how many more each time the person scrolls near the end. */
 const PAGE = 24;
@@ -38,7 +38,7 @@ function save(url: string, name = '') {
   link.click();
 }
 
-const fileName = (item: Item) => `${day(item.createdAt)} ${item.id.slice(0, 6)}.${item.extension}`;
+const fileName = (item: Item) => item.name ?? `${day(item.createdAt)} ${item.id.slice(0, 6)}.${item.extension}`;
 
 /** Fetched first, so its button can show the file coming in; a file that can't be fetched here is handed to the browser to download. */
 async function saveItem(item: Item) {
@@ -71,7 +71,7 @@ function size(bytes: number) {
   return `${(bytes / 1e6).toFixed(bytes < 1e7 ? 1 : 0)} MB`;
 }
 
-const creativeItem = (creative: Creative): Item => ({ id: creative.id, kind: 'creative', bytes: creative.bytes, createdAt: creative.createdAt, video: creative.url, play: creative.url, download: creative.download ?? creative.url, extension: 'mp4' });
+const creativeItem = (creative: Creative): Item => ({ id: creative.id, kind: 'creative', bytes: creative.bytes, createdAt: creative.createdAt, video: creative.url, play: creative.url, download: creative.download ?? creative.url, extension: 'mp4', name: creative.name });
 const uploadItem = (upload: Upload): Item => ({
   id: upload.id, kind: 'upload', bytes: upload.bytes, createdAt: upload.createdAt,
   picture: upload.url, play: upload.motionUrl, download: upload.motionUrl ?? upload.url, extension: upload.motionUrl ? 'mp4' : 'jpg',

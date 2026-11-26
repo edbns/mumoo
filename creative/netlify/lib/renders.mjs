@@ -1,5 +1,6 @@
 import { hasRoom } from './allowance.mjs';
 import { db } from './person.mjs';
+import { videoName } from './video-name.mjs';
 import { deleteObject, putObject, signedDownload } from './storage.mjs';
 
 /** Each person's history of finished creatives: the MP4 sits in R2, a row in Postgres says whose it is. */
@@ -28,13 +29,14 @@ export const RENDER_LINK_SECONDS = 3600;
 
 /** Newest first, each with a link to play it (`url`, shown in place) and one that saves it (`download`). */
 export async function listRenders(userId) {
-  const rows = await db()`select id, bytes, created_at from renders where user_id = ${userId} order by created_at desc limit 100`;
+  const rows = await db()`select id, job_id, bytes, created_at from renders where user_id = ${userId} order by created_at desc limit 100`;
   return Promise.all(rows.map(async (row) => ({
     id: row.id,
     bytes: row.bytes,
     createdAt: row.created_at,
+    name: videoName(row.job_id ?? row.id),
     url: await signedDownload(keyOf(userId, row.id), null, RENDER_LINK_SECONDS),
-    download: await signedDownload(keyOf(userId, row.id), 'mumoo-video.mp4', RENDER_LINK_SECONDS),
+    download: await signedDownload(keyOf(userId, row.id), videoName(row.job_id ?? row.id), RENDER_LINK_SECONDS),
   })));
 }
 

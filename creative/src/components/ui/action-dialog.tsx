@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { DONE_MS, StatusButton, wait, type ButtonStatus } from '@/components/ui/status-button';
 import { Modal } from '@/components/ui/modal';
@@ -11,7 +11,7 @@ import { friendlyError } from '../../friendly-error';
  */
 export function ActionDialog({
   open, onClose, title, description, children, confirmLabel, cancelLabel = 'Cancel', destructive = false, confirmDisabled = false,
-  working, done, onConfirm, onDone,
+  working, done, onConfirm, onDone, initialFocusRef,
 }: {
   open: boolean;
   onClose: () => void;
@@ -30,6 +30,8 @@ export function ActionDialog({
   onConfirm: () => Promise<void>;
   /** After the work, once the popup is closed. */
   onDone?: () => void;
+  /** What has the focus when the popup opens, rather than its first button. */
+  initialFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const [status, setStatus] = useState<ButtonStatus>('idle');
   const [error, setError] = useState('');
@@ -55,7 +57,7 @@ export function ActionDialog({
   // The question as it was confirmed: what it names may change under it while the work runs (a selection emptied).
   const asked = useRef(title);
   if (!busy) asked.current = title;
-  return <Modal open={open} onClose={busy ? () => {} : onClose} closeOnEscape={!busy} closeOnBackdrop={!busy} showClose={!busy}
+  return <Modal open={open} onClose={busy ? () => {} : onClose} closeOnEscape={!busy} closeOnBackdrop={!busy} showClose={!busy} initialFocusRef={initialFocusRef}
     title={asked.current} description={description}>
     <div className="flex flex-col gap-4" aria-busy={busy}>
       {children}

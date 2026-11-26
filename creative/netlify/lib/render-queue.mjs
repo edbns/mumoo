@@ -4,6 +4,7 @@ import { db } from './person.mjs';
 import { recordProblem } from './problems.mjs';
 import { outboundFor } from './render-outbound.mjs';
 import { saveRender } from './renders.mjs';
+import { videoName } from './video-name.mjs';
 import { deleteObject, getObject, objectSize, putObject, signedDownload } from './storage.mjs';
 
 /**
@@ -269,7 +270,7 @@ export async function statesOf(userId, ids) {
     if (!row) return [id, { status: 'missing' }];
     if (row.status === 'failed') return [id, { status: 'failed', error: shownError(row.error) }];
     if (row.status === 'cancelled') return [id, { status: 'cancelled' }];
-    if (row.status === 'done') return [id, row.download ? { status: 'done', download: await signedDownload(row.download, 'mumoo-video.mp4') } : { status: 'done' }];
+    if (row.status === 'done') return [id, row.download ? { status: 'done', download: await signedDownload(row.download, videoName(row.id)) } : { status: 'done' }];
     return [id, { status: row.status === 'queued' ? 'queued' : 'running', ...(row.slow ? { slow: true } : {}) }];
   })));
 }
