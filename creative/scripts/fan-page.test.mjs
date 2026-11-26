@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
-import { fanPage, missingPage, POLICY } from '../netlify/lib/fan-page.mjs';
+import { coverAt, fanPage, missingPage, POLICY } from '../netlify/lib/fan-page.mjs';
 import { db } from '../netlify/lib/person.mjs';
 import { publishLink } from '../netlify/lib/smart-links.mjs';
 import handler from '../netlify/functions/fan-page.mjs';
@@ -37,6 +37,18 @@ test('the page shows the song and only the buttons the artist kept, in their ord
   assert.ok(html.includes('href="https://mumoo.app/smart-links"'), 'the credit leads artists to make their own');
   assert.ok(html.includes('src="https://mumoo.app/logos/spotify.svg"'), 'each button has its service\'s logo');
   assert.ok(Buffer.byteLength(html) < 15_000, `the page is small (${Buffer.byteLength(html)} bytes)`);
+});
+
+test('the cover on the page is sized for a phone, the shared preview keeps the full one', () => {
+  const html = fanPage(LINK, 'https://mumoo.app/l/x', 'https://mumoo.app');
+  assert.ok(html.includes('<meta property="og:image" content="https://is1-ssl.mzstatic.com/image/thumb/Music/x/1000x1000bb.jpg">'));
+  assert.ok(html.includes('src="https://is1-ssl.mzstatic.com/image/thumb/Music/x/500x500bb.webp" srcset="https://is1-ssl.mzstatic.com/image/thumb/Music/x/500x500bb.webp 500w, https://is1-ssl.mzstatic.com/image/thumb/Music/x/1000x1000bb.webp 1000w"'));
+  assert.ok(html.includes("url('https://is1-ssl.mzstatic.com/image/thumb/Music/x/120x120bb.webp')"), 'the blurred backdrop needs only a thumbnail');
+  assert.equal(coverAt('https://cdn-images.dzcdn.net/images/cover/ab/1000x1000-000000-80-0-0.jpg', 500), 'https://cdn-images.dzcdn.net/images/cover/ab/500x500-000000-80-0-0.webp');
+  assert.equal(coverAt('https://i.scdn.co/image/ab67616d0000b273ff', 120), 'https://i.scdn.co/image/ab67616d00001e02ff');
+  assert.equal(coverAt('https://i.ytimg.com/vi/x/hqdefault.jpg', 500), 'https://i.ytimg.com/vi/x/hqdefault.jpg');
+  const youtube = fanPage({ ...LINK, cover: 'https://i.ytimg.com/vi/x/hqdefault.jpg' }, 'https://mumoo.app/l/x', 'https://mumoo.app');
+  assert.ok(youtube.includes('<img src="https://i.ytimg.com/vi/x/hqdefault.jpg" alt=') && !youtube.includes('srcset'));
 });
 
 test('the editor\'s phone shows the same page, its links opening in a new tab', () => {

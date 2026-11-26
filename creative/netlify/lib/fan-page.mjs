@@ -14,6 +14,25 @@ const esc = (text) => String(text ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;
 /** A URL inside CSS url('…'): the characters that could end it are encoded (the URL is already a checked https link). */
 const cssUrl = (url) => esc(url.replace(/['"()\\\s]/g, c => `%${c.charCodeAt(0).toString(16).padStart(2, '0')}`));
 
+/**
+ * The cover from its service's image server at about `px` square, where the address names the size (Apple, Deezer, Spotify), as
+ * WebP where the server makes it (Apple, Deezer); other covers as kept. Covers are kept at 1000px JPEG for sharing previews, which
+ * is three times what a phone needs and nine times the bytes.
+ */
+export function coverAt(url, px) {
+  const { hostname } = new URL(url);
+  if (hostname.endsWith('mzstatic.com')) return url.replace(/\/\d+x\d+bb\.(jpg|png|webp)$/, `/${px}x${px}bb.webp`);
+  if (hostname.endsWith('dzcdn.net')) return url.replace(/\/\d+x\d+-(\w+-\d+-\d+-\d+)\.(jpg|webp)$/, `/${px}x${px}-$1.webp`);
+  if (hostname === 'i.scdn.co') return url.replace(/\/ab67616d0000(b273|1e02|4851)/, `/ab67616d0000${px > 300 ? 'b273' : px > 64 ? '1e02' : '4851'}`);
+  return url;
+}
+
+/** The cover's <img> sources: about 500px for most phones, the kept size for sharper screens. */
+function coverSources(url) {
+  const small = coverAt(url, 500);
+  return small === url ? { src: url, srcset: '' } : { src: small, srcset: `${small} 500w, ${coverAt(url, 1000)} 1000w` };
+}
+
 const PLAYER = "var a=document.getElementById('a'),b=document.getElementById('p');"
   + "b.onclick=function(){a.paused?a.play():a.pause()};"
   + "a.onplay=function(){b.className='on';b.setAttribute('aria-label','Pause preview')};"
@@ -67,13 +86,14 @@ export function fanPage(link, address, home, { inPhone = false, countAs = null }
   const names = shown.map(row => LABELS[row.service]);
   const description = esc(`Listen to ${link.title} by ${link.artist} on ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]}.`);
   const cover = link.cover ? esc(link.cover) : '';
+  const art = link.cover ? coverSources(link.cover) : null;
   const tracked = Boolean(countAs && !inPhone);
   const buttons = shown.map(row => `<li><a class="s" href="${esc(row.url)}" data-s="${row.service}"><img src="${esc(logoOf(home, row.service))}" alt="" width="28" height="28"><span>${esc(LABELS[row.service])}</span><em>${row.service === 'youtube' ? 'Watch' : 'Play'}</em></a></li>`).join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} · ${artist}</title><meta name="description" content="${description}"><link rel="canonical" href="${esc(address)}">
 <meta property="og:type" content="music.song"><meta property="og:title" content="${title} · ${artist}"><meta property="og:description" content="${description}"><meta property="og:url" content="${esc(address)}">${cover ? `<meta property="og:image" content="${cover}"><meta name="twitter:card" content="summary_large_image">` : ''}
 <meta name="theme-color" content="#0b0b0b"><style>${STYLE}${inPhone ? 'main{padding-top:64px}' : ''}</style>${inPhone ? '<base target="_blank">' : ''}</head><body${tracked ? ` data-l="${esc(countAs)}"` : ''}>
-${cover ? `<div class="bg" style="background-image:url('${cssUrl(link.cover)}')"></div>` : ''}<main><div class="art">${cover ? `<img src="${cover}" alt="${title} cover" width="280" height="280" fetchpriority="high">` : ''}${link.preview ? '<button id="p" type="button" aria-label="Play preview"></button>' : ''}</div>
+${cover ? `<div class="bg" style="background-image:url('${cssUrl(coverAt(link.cover, 120))}')"></div>` : ''}<main><div class="art">${art ? `<img src="${esc(art.src)}"${art.srcset ? ` srcset="${esc(art.srcset)}" sizes="min(72vw,280px)"` : ''} alt="${title} cover" width="280" height="280" fetchpriority="high">` : ''}${link.preview ? '<button id="p" type="button" aria-label="Play preview"></button>' : ''}</div>
 <h1>${title}</h1><p class="by">${artist}</p><ul>${buttons}</ul></main>
 <footer><a href="${esc(home)}/smart-links">Make your own free smart link · <b>mumoo</b></a></footer>${link.preview ? `<audio id="a" preload="none" src="${esc(link.preview)}"></audio><script>${PLAYER}</script>` : ''}${tracked ? `<script>${TRACKER}</script>` : ''}
 </body></html>`;
