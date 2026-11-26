@@ -15,9 +15,9 @@ Minimum age is 16.
 
 ## 2. Data we collect from creators
 - **Account data:** email address; name and profile picture if you sign in with Google; sign-in session data; join date and last-visit date. Sign-in is by one-time email code or Google (no passwords stored by us).
-- **Song data:** the browser reads title, artist, and cover art locally. Cover art is reduced to colour numbers in the browser and the image is never uploaded. Only a 15-second clip is sent to our servers for analysis (beat, mood, genre) and lyric transcription/interpretation. The clip itself is not stored separately, but it is contained inside the finished Creatives you keep.
+- **Song data:** the browser reads title, artist, and cover art locally. Cover art is reduced to colour numbers in the browser and the image is never uploaded. Only a 15-second clip is sent to our servers for analysis (beat, mood, genre) and lyric transcription/interpretation. The clip itself is not stored separately, but it is contained inside the finished videos you keep.
 - **Uploads:** photos, videos, and GIFs you upload (up to 10 GB and 500 pictures per account). A background cut-out of the person is made automatically for certain templates. These files are private and never shown to other users.
-- **Creatives:** finished videos kept in your history.
+- **Videos:** the finished videos kept in your history.
 - **Smart Links (free service):** song details, cover art, and destination links you provide, together with visit and click statistics. Basic Smart Links do not require a video-credit purchase. Optional Meta Pixel / Conversions API or TikTok Pixel / Events API credentials are stored encrypted if connected.
 - **Usage signals:** plays, selections, downloads, and watch time, recorded as codes. Used only to train mumoo’s own recommendations (never a generative model).
 - **Error reports:** when a render, download, or sign-in fails. These may include your email.
@@ -34,7 +34,7 @@ Minimum age is 16.
 - To process payments via Polar.
 - To send transactional emails (sign-in codes, a welcome email, receipts, deletion reminders, storage warnings). We do not send marketing emails.
 - To improve recommendations based on anonymised usage signals.
-- For security, rate limiting, error diagnosis, and preventing the free Creative from being claimed more than once per email address.
+- For security, rate limiting, error diagnosis, and preventing the free video from being claimed more than once per email address.
 - To comply with law.
 
 ## 5. Use of AI
@@ -63,8 +63,8 @@ Data is transferred to the USA, Singapore, and other locations as needed to prov
 
 ## 7. Retention
 - **Account data:** until you delete the account. Self-service deletion in Settings removes everything (files, history, Smart Links, sign-in).
-- **Free Creative check:** if you used your free Creative, we keep a one-way code (SHA-256 hash) of your email address after you delete the account or change its email, so that the same address cannot claim another free Creative. The code cannot be turned back into your address and is kept for no other purpose.
-- **Uploads and Creatives:** until you delete them, delete the account, or do not visit for 90 days. We email you at 60 and 83 days before automatic deletion. The account itself remains.
+- **Free video check:** if you used your free video, we keep a one-way code (SHA-256 hash) of your email address after you delete the account or change its email, so that the same address cannot claim another free video. The code cannot be turned back into your address and is kept for no other purpose.
+- **Uploads and videos:** until you delete them, delete the account, or do not visit for 90 days. We email you at 60 and 83 days before automatic deletion. The account itself remains.
 - **Usage signals:** anonymised when the account is deleted.
 - **Song style prints and genre labels:** kept when you pick or confirm a genre, with a one-way code tied to that song and account. If you delete your account, your personal link to that code is removed. Labels that do not pass our checks within 120 days are set aside and never used.
 - **Fan event data:** anonymous visit and click statistics (no IP address, user agent, cookie or click ID) are kept until the creator deletes the Smart Link or their account. Data forwarded to Meta or TikTok is sent in real time and not kept by us.

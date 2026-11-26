@@ -3,7 +3,7 @@ import { NotchNav } from './notch-nav';
 
 export type ProfileTab = 'creatives' | 'uploads';
 const TABS = [
-  { id: 'creatives', label: 'Creatives' },
+  { id: 'creatives', label: 'Your videos' },
   { id: 'uploads', label: 'Your uploads' },
 ] as const;
 

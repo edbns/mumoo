@@ -638,7 +638,7 @@ function Boards({ items, chosen, onChoose }: { items: readonly LibraryItem[]; ch
 
 /** The songs a board serves (the genre map in `boards.ts`): the brain sends songs of these genres to it. */
 function BoardGenres({ board, className = 'text-foreground' }: { board: (typeof BOARDS)[number]; className?: string }) {
-  if (board.apart) return <span className={`text-xs ${className}`}>Not used in songs’ creatives. Our models learn it from what you file here.</span>;
+  if (board.apart) return <span className={`text-xs ${className}`}>Not used in songs’ videos. Our models learn it from what you file here.</span>;
   return <span className={`flex flex-col text-xs ${className}`}>
     <span><span className="font-medium">Genres:</span> {board.primary.join(', ')}</span>
     <span className="opacity-75"><span className="font-medium">When the words fit:</span> {board.secondary.join(', ')}</span>

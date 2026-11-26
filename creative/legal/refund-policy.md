@@ -1,10 +1,10 @@
 # Refund Policy
 
-**Last updated:** 19 November 2026  
+**Last updated:** 26 November 2026  
 **Contact:** moo@mumoo.app
 
 ## Free trial
-Every new account receives one free Creative. This free Creative is the trial that allows you to evaluate the Service before purchasing credits.
+Every new account receives one free video. This free video is the trial that allows you to evaluate the Service before purchasing credits.
 
 ## Credits
 - Credits are sold in one-time packs.

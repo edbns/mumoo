@@ -72,7 +72,7 @@ export function resolutionWarning(width, height) {
   const enlarged = Math.max(CREATIVE_WIDTH / width, CREATIVE_HEIGHT / height);
   if (enlarged <= 1.05) return null;
   const portrait = height > width;
-  return `Low resolution: ${width}×${height}. Creatives are ${CREATIVE_WIDTH}×${CREATIVE_HEIGHT}, so this is enlarged ${enlarged.toFixed(1)}× and will look soft. For sharp creatives use at least ${CREATIVE_WIDTH}×${CREATIVE_HEIGHT}${portrait ? '' : ', and portrait (vertical) rather than landscape'}.`;
+  return `Low resolution: ${width}×${height}. Videos are ${CREATIVE_WIDTH}×${CREATIVE_HEIGHT}, so this is enlarged ${enlarged.toFixed(1)}× and will look soft. For sharp videos use at least ${CREATIVE_WIDTH}×${CREATIVE_HEIGHT}${portrait ? '' : ', and portrait (vertical) rather than landscape'}.`;
 }
 
 const isJpeg = (bytes) => bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
