@@ -62,7 +62,7 @@ function Notice({ pending, signedIn, onEnter }: { pending: boolean; signedIn: bo
       </NoticeCard>
       <NoticeCard icon={<SmartphoneIcon className="size-5" />} title="Mobile app coming soon">We’re bringing the studio to mobile next.</NoticeCard>
       <NoticeCard icon={<DownloadIcon className="size-5" />} title="Your Media, ready to post">
-        Sign in here to download your exported videos straight to your camera roll.
+        Sign in here to download your videos straight to your camera roll.
       </NoticeCard>
     </div>
     <Button className="h-12 w-full text-base" disabled={pending} onClick={onEnter}>{signedIn ? 'Open my Media' : 'Sign in to my Media'}</Button>
