@@ -30,12 +30,12 @@ const videos = (count: number) => `${count} ${count === 1 ? 'video' : 'videos'}`
 /** More videos chosen than the person can make: buy credits, or make only as many as they can and take the others out. */
 export function ChooseFewer({ tooMany, onBuy, onFewer, onClose }: { tooMany: TooMany | null; onBuy: () => void; onFewer: () => void; onClose: () => void }) {
   const { need = 0, have = 0, free = false } = tooMany ?? {};
-  return <Modal open={tooMany !== null} onClose={onClose} title={`You chose ${videos(need)}`}
-    description={free ? 'You can only make 1 free video, or buy credits for the rest.'
-      : `You have ${have} ${have === 1 ? 'credit' : 'credits'}. You can only make ${videos(have)}, or buy credits for all of them.`}>
+  return <Modal open={tooMany !== null} onClose={onClose} title={`You selected ${videos(need)}`}
+    description={free ? 'Your first export is free. Grab credits to render the rest.'
+      : `You have ${have} ${have === 1 ? 'credit' : 'credits'}—enough for ${videos(have)}. Top up to export all ${need}.`}>
     <div className="flex items-center justify-between gap-3">
-      <Button variant="secondary" onClick={onFewer}>{free ? 'Get my free video' : `Make ${videos(have)}`}</Button>
-      <Button onClick={onBuy}>Buy credits</Button>
+      <Button variant="secondary" onClick={onFewer}>{free ? 'Export 1 free video' : `Export ${videos(have)}`}</Button>
+      <Button onClick={onBuy}>Get credits</Button>
     </div>
   </Modal>;
 }
@@ -73,7 +73,7 @@ export function ChosenBar({ count, progress, onOpen, onClear, onCancel }: {
             </button>
           </li>}
           {onClear && count > 0 && !progress && <li><button type="button" onClick={onClear} className="chosen-bar-clear" aria-label="Clear the chosen videos">
-            <XIcon aria-hidden="true" className="size-3.5" />Clear
+            <XIcon aria-hidden="true" className="size-3.5" />Clear all
           </button></li>}
         </ol>
         {progress?.note && <p role="status" className="chosen-bar-note">{progress.note}</p>}
@@ -96,8 +96,8 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
   const busy = progress !== null;
   const excess = limit ? ready.length - limit.have : 0;
   const close = useRef<HTMLButtonElement>(null);
-  const hint = action.kind === 'download' ? (busy ? 'We’re working on it. You can keep making other visuals in the meantime.' : '')
-    : action.kind === 'go' ? 'Videos get made and downloaded from your creatives page.'
+  const hint = action.kind === 'download' ? (busy ? 'Rendering in progress. Feel free to keep browsing and tweaking other videos.' : '')
+    : action.kind === 'go' ? 'Head back to your studio page to render and download videos.'
     : action.reason;
   useEffect(() => {
     close.current?.focus();
@@ -112,36 +112,35 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
       {/* Make them from the top too, for whoever does not scroll down to the total. */}
       <div className="flex items-center justify-between gap-3">
         {lines.length > 0 && action.kind === 'download'
-          ? <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>Create · {ready.length} {ready.length === 1 ? 'credit' : 'credits'}</Button>
+          ? <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>Export · {ready.length} {ready.length === 1 ? 'credit' : 'credits'}</Button>
           : <span />}
         <Button ref={close} variant="secondary" className="size-9 rounded-full p-0" onClick={onClose} aria-label="Close"><XIcon aria-hidden="true" className="size-4" /></Button>
       </div>
       {/* What stops or explains making them shows up here, at the top, where it is seen however many rows are chosen. */}
       {lines.length > 0 && (limit && excess > 0 || hint) && <div className="flex flex-col gap-3">
         {limit && excess > 0 && <p role="status" className="m-0 rounded-[var(--radius-control)] bg-secondary px-4 py-3 text-sm text-foreground">
-          {limit.free ? 'You can make 1 video free.' : `You have ${limit.have} ${limit.have === 1 ? 'credit' : 'credits'}.`} Take
-          out {videos(excess)} with the × so only {limit.have} {limit.have === 1 ? 'is' : 'are'} left, then make {limit.have === 1 ? 'it' : 'them'}.
+          {limit.free ? 'You have 1 free export.' : `You have ${limit.have} ${limit.have === 1 ? 'credit' : 'credits'}.`} Remove {videos(excess)} to export now, or top up your balance.
         </p>}
         {hint && <p role="status" className="hint m-0">{hint}</p>}
         {action.kind === 'blocked' && action.fix && <Button className="self-start" onClick={action.fix.run}>{action.fix.label}</Button>}
       </div>}
       {lines.length === 0
-        ? <EmptyState>Pick the creatives you like. They stay here for this song and clip while you refresh for more.</EmptyState>
+        ? <EmptyState>Lock in the videos you like. They’ll stay saved here while you refresh for fresh variations.</EmptyState>
         : <ul className="m-0 grid list-none grid-cols-4 gap-4 p-0">
           {lines.map(({ item, title, available }) => <li key={item.id} className="flex flex-col gap-2">
             <div className="relative aspect-[9/16] overflow-hidden rounded-[var(--radius)] bg-muted">
               {available
                 ? item.thumb && <img className="size-full object-cover" src={item.thumb} alt="" />
-                : <p className="m-0 grid size-full place-items-center p-4 text-center text-sm text-muted-foreground">The picture it used isn’t available anymore.</p>}
+                : <p className="m-0 grid size-full place-items-center p-4 text-center text-sm text-muted-foreground">A visual used in this video is no longer available.</p>}
               <RemoveBadge label={`Remove ${title}`} disabled={busy} onClick={() => onRemove(item.id)} />
             </div>
             <span className="text-sm text-muted-foreground">{title}</span>
           </li>)}
         </ul>}
       {lines.length > 0 && <div className="mt-auto flex flex-col gap-3 pt-2">
-        <p className="m-0 flex justify-between text-sm"><span>Total</span><strong>{ready.length} {ready.length === 1 ? 'credit' : 'credits'}</strong></p>
-        {action.kind === 'download' && <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>Create</Button>}
-        {action.kind === 'go' && <Button disabled={busy} onClick={action.run}>Go to your creatives</Button>}
+        <p className="m-0 flex justify-between text-sm"><span>Total:</span><strong>{ready.length} {ready.length === 1 ? 'credit' : 'credits'}</strong></p>
+        {action.kind === 'download' && <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>Export</Button>}
+        {action.kind === 'go' && <Button disabled={busy} onClick={action.run}>Back to videos</Button>}
         {action.kind === 'blocked' && action.fix && <Button onClick={action.fix.run}>{action.fix.label}</Button>}
       </div>}
     </div>

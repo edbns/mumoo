@@ -45,7 +45,7 @@ import { friendlyError } from './friendly-error';
 import './styles/index.css';
 
 // Sign-in pulls in the auth client; it loads beside the page instead of in front of it.
-const DOWNLOAD_SIGN_IN = { title: 'Sign in to download', lead: 'First video is free, no watermark. It also stays in your Media.' };
+const DOWNLOAD_SIGN_IN = { title: 'Sign in to export', lead: 'Your first video is free—no watermark, saved straight to your Media.' };
 const AccountBar = lazy(() => import('./account').then(module => ({ default: module.AccountBar })));
 const loadProfilePage = () => import('./profile-page');
 const ProfilePage = lazy(loadProfilePage);
@@ -412,19 +412,19 @@ function App() {
       // The chosen videos outlive a refresh, the song's details do not: they are made from the creatives, which need the song finished first.
       const backTo = (target: 1 | 2) => () => { setCartOpen(false); setPage('create'); stop(); setStep(target); };
       return !genreValid
-        ? { kind: 'blocked', reason: 'Tell us the vibe before we make the videos.', fix: { label: 'Finish your song', run: backTo(1) } }
-        : { kind: 'blocked', fix: { label: 'Finish your lyrics', run: backTo(2) },
-          reason: !noLyrics && composition.cues.length === 0 ? 'Add and sync lyrics, or just say the song has none.'
-            : 'Finish syncing your lyrics first.' };
+        ? { kind: 'blocked', reason: 'Pick your track’s vibe first so we can cut to the mood.', fix: { label: 'Set vibe', run: backTo(1) } }
+        : !noLyrics && composition.cues.length === 0
+          ? { kind: 'blocked', reason: 'Add and sync your lyrics, or mark this track as instrumental.', fix: { label: 'Add lyrics', run: backTo(2) } }
+          : { kind: 'blocked', reason: 'Finish syncing your lyrics first.', fix: { label: 'Finish your lyrics', run: backTo(2) } };
     }
     if (profile?.musicAnalysis.status === 'pending' || profile?.lyricMeaning?.status === 'pending') {
-      return { kind: 'blocked', reason: 'Almost done analysing. Videos ready in a moment.' };
+      return { kind: 'blocked', reason: 'Wrapping up track analysis. Your videos will be ready in a second.' };
     }
-    if (checkingPictures) return { kind: 'blocked', reason: 'Checking your pictures…' };
+    if (checkingPictures) return { kind: 'blocked', reason: 'Prepping your visuals…' };
     // Making videos needs an account (the free first video is theirs, and it is kept in Media): signed out, it asks first and then carries on.
     // Pressing Create takes the person to their Media at once, where the videos show up as they are made; nothing downloads by itself.
     // Too few credits: the popup that asks opens over Media, and choosing fewer opens the chosen videos page again.
-    if (uploads.pending) return { kind: 'blocked', reason: 'Checking your account…' };
+    if (uploads.pending) return { kind: 'blocked', reason: 'Checking credits…' };
     if (!uploads.signedIn) return { kind: 'download', run: () => {
       void askSignIn(DOWNLOAD_SIGN_IN).then(signedIn => { if (signedIn) { toMedia(); void downloadRef.current?.(); } });
     } };
@@ -533,7 +533,7 @@ function App() {
           <div className="step-actions mt-6 flex items-center gap-3">
             <Button variant="secondary" onClick={() => { stop(); setStep(1); }}>Back</Button>
             {lyricsState.dirty && <span className="hint">Sync your edits first.</span>}
-            {!noLyrics && <Button variant="secondary" className="ml-auto" onClick={() => chooseNoLyrics(true)}>My song has no lyrics</Button>}
+            {!noLyrics && <Button variant="secondary" className="ml-auto" onClick={() => chooseNoLyrics(true)}>My song has no lyrics (Instrumental)</Button>}
             <Button className={noLyrics ? 'ml-auto' : undefined} disabled={!canContinue} onClick={() => openCreatives(true)}>Continue</Button>
           </div>
         </>}

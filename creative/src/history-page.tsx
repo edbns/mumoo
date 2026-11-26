@@ -129,7 +129,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
       setCreatives(renders.renders); setUploads(pictures); setStorage(account.storage); setError('');
       return [...renders.renders.map(creativeItem), ...pictures.map(uploadItem)];
     } catch (cause) {
-      setError(friendlyError(cause, 'Your media is unavailable right now. Try again soon.'));
+      setError(friendlyError(cause, 'Media library is temporarily offline. Check back in a moment.'));
       return null;
     }
   }
@@ -154,7 +154,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
   }
   const chosen = (items ?? []).filter(item => selected.has(item.id));
   const chosenBytes = chosen.reduce((sum, item) => sum + item.bytes, 0);
-  const noun = tab === 'creatives' ? 'creative' : 'upload';
+  const noun = tab === 'creatives' ? 'video' : 'upload';
   const { shown, end } = useMoreOnScroll(items?.length ?? 0, tab);
 
   function toggle(id: string) {
@@ -170,7 +170,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
     setError('');
     const files = chosen.filter(item => item.download);
     if (files.length === 1) {
-      await download(() => saveItem(files[0])).then(() => setSelected(new Set()), () => setError('Couldn’t download it. Try again.'));
+      await download(() => saveItem(files[0])).then(() => setSelected(new Set()), () => setError('Download failed. Try again.'));
       return;
     }
     await download(async () => {
@@ -182,10 +182,10 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
       }
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([zipSync(zipped, { level: 0 }) as BlobPart], { type: 'application/zip' }));
-      link.download = tab === 'creatives' ? 'mumoo-creatives.zip' : 'mumoo-uploads.zip';
+      link.download = tab === 'creatives' ? 'mumoo-videos.zip' : 'mumoo-uploads.zip';
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 30000);
-    }).then(() => setSelected(new Set()), () => setError('Couldn’t make the zip. Download them one by one instead.'));
+    }).then(() => setSelected(new Set()), () => setError('Couldn’t bundle the ZIP file. Download them one by one instead.'));
   }
 
   async function deleteChosen() {
@@ -202,18 +202,18 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
 
     {items?.length === 0 && <EmptyState>
-      {tab === 'creatives' ? 'The videos you make stay here. Download whenever you want.' : 'Photos, videos and GIFs you upload stay here, private to you, until you delete them.'}
+      {tab === 'creatives' ? 'Your exported videos live here. Download them anytime.' : 'Photos, videos and GIFs you upload stay here, private to you, until you delete them.'}
     </EmptyState>}
 
     {items && items.length > 0 && <div className="sticky top-4 z-20 flex min-h-12 items-center justify-between gap-3 rounded-full bg-black px-5 py-1.5">
       <Button variant="secondary" disabled={busy} onClick={() => setSelected(chosen.length ? new Set() : new Set(items.map(item => item.id)))}>
-        {chosen.length ? 'Clear selection' : 'Select all'}
+        {chosen.length ? 'Deselect' : 'Select all'}
       </Button>
       {chosen.length === 0 ? storage && <StorageMeter used={storage.used} quota={storage.quota} /> : <div className="flex items-center gap-3">
         <span className="text-sm text-muted-foreground" role="status">{chosen.length} selected</span>
         <StatusButton variant="secondary" status={downloading} working="Downloading…" done="Downloaded" className="min-w-32"
           disabled={!busy && (chosen.length === 0 || chosen.every(item => !item.download) || (chosen.length > 1 && chosenBytes > ZIP_LIMIT))}
-          title={chosen.length > 1 && chosenBytes > ZIP_LIMIT ? 'Too many to zip at once. Download one by one.' : undefined}
+          title={chosen.length > 1 && chosenBytes > ZIP_LIMIT ? 'Too many files to zip at once—download them individually.' : undefined}
           onClick={() => void downloadChosen()}><DownloadIcon aria-hidden="true" />Download</StatusButton>
         <Button variant="destructive" disabled={busy} onClick={() => setConfirming(true)}><Trash2Icon aria-hidden="true" />Delete</Button>
       </div>}
@@ -253,7 +253,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
     <div ref={end} aria-hidden="true" />
 
     <Modal open={watching !== null} onClose={() => setWatching(null)} bare maxWidth={460} maxHeight="calc(100vh - 3rem)"
-      title={watching ? `${watching.kind === 'creative' ? 'Creative' : 'Upload'} from ${day(watching.createdAt)}` : ''}>
+      title={watching ? `${watching.kind === 'creative' ? 'Video' : 'Upload'} from ${day(watching.createdAt)}` : ''}>
       {watching?.play && <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-muted p-3 shadow-[0_28px_56px_-24px_#000]">
         {/* A new player each time it opens (and for a renewed link): a reused one can keep a finished or failed load. */}
         <video ref={holdPlayer} key={`${watching.id}|${watching.play}`} src={watching.play} controls autoPlay playsInline preload="auto" onError={() => void relink()}
@@ -268,7 +268,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
 
     <ActionDialog open={confirming} onClose={() => setConfirming(false)} destructive
       title={`Delete ${chosen.length} ${noun}${chosen.length === 1 ? '' : 's'}?`}
-      description="They’re removed from your account and storage. Can’t be undone."
+      description={`This permanently deletes the ${noun}${chosen.length === 1 ? '' : 's'} from your account. This can’t be undone.`}
       confirmLabel="Delete" working="Deleting…" done="Deleted" onConfirm={deleteChosen} />
   </AccountColumn>;
 }

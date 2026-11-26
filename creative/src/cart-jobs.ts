@@ -64,8 +64,8 @@ export function estimatedPercent(done: number, total: number, elapsedMs: number,
 
 /** What the bar says while an order is made: how many of the ones still wanted are made, and how many wait their turn. */
 export function orderLabel({ total, done, takenBack, waiting }: { total: number; done: number; takenBack: number; waiting: number }): string {
-  if (total <= 1) return waiting ? 'Waiting its turn…' : 'Making your creative…';
-  return `Made ${done - takenBack} of ${total - takenBack}${waiting ? ` · ${waiting} waiting their turn` : ''}`;
+  if (total <= 1) return waiting ? 'In queue…' : 'Rendering video…';
+  return `Rendered ${done - takenBack} of ${total - takenBack}${waiting ? ` · ${waiting} in queue` : ''}`;
 }
 
 /**
@@ -74,6 +74,6 @@ export function orderLabel({ total, done, takenBack, waiting }: { total: number;
  */
 export function slowNote(slow: number, total: number): string {
   if (slow <= 0) return '';
-  const which = total <= 1 ? 'This one is' : slow === 1 ? '1 video is' : `${slow} videos are`;
-  return `${which} taking longer than usual and will be tried again if it stalls. You can leave this page: finished videos go to your Media, and a video that can’t be made gives its credit back.`;
+  const which = total <= 1 ? 'This video is' : slow === 1 ? '1 video is' : `${slow} videos are`;
+  return `${which} taking a little extra time—we’ll automatically retry if it stalls. You can safely leave this page; finished videos go straight to your Media, and any failed renders refund your credits.`;
 }

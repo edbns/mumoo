@@ -20,7 +20,7 @@ export function RefreshFloat({ disabled, onRefresh }: { disabled: boolean; onRef
   }, [still]);
   const showWord = word || still;
   return <div className="fixed right-5 top-1/2 z-30 -translate-y-1/2 md:right-8">
-    <button type="button" aria-label="Refresh all creatives" title="Refresh all creatives" disabled={disabled} onClick={onRefresh}
+    <button type="button" aria-label="Refresh all videos" title="Refresh all videos" disabled={disabled} onClick={onRefresh}
       className="shimmer grid size-16 cursor-pointer place-items-center rounded-full border-0 bg-primary text-primary-foreground shadow-[0_12px_30px_-10px_rgba(0,0,0,0.85),0_0_0_4px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
       <AnimatePresence mode="wait" initial={false}>
         {showWord

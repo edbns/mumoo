@@ -89,7 +89,7 @@ async function errorMessage(response: Response): Promise<string> {
   const result = await response.json().catch(() => null) as { error?: string } | null;
   // The page renews its access by itself; if it still could not, say what to do, not what the gateway called it.
   if (response.status === 401 && /staging access/i.test(result?.error ?? '')) return 'Reload the page and try again.';
-  return result?.error || 'Creatives are down for a moment. Reload and try again.';
+  return result?.error || 'Our render servers are catching a breather. Refresh and try again in a moment.';
 }
 
 /** One video to queue. */
@@ -141,7 +141,7 @@ export async function submitCloudJobs(token: string, { wav, order, jobs }: { wav
   if (response.status === 402) throw Object.assign(new Error(await errorMessage(response)), { noCredits: true });
   if (!response.ok) throw new Error(await errorMessage(response));
   const result = await response.json().catch(() => null) as { ids?: string[]; order?: string; noCredits?: boolean } | null;
-  if (!result?.ids?.length || !result.order) throw new Error('Your creatives didn’t start. Reload and try again.');
+  if (!result?.ids?.length || !result.order) throw new Error('Render couldn’t start. Refresh the page and try again.');
   return { ids: result.ids, order: result.order, noCredits: Boolean(result.noCredits) };
 }
 
@@ -221,12 +221,12 @@ export async function followCloudJobs(token: string, ids: readonly string[], on:
       if (job.status === 'running') { making += 1; continue; }
       open.delete(id);
       if (job.status === 'cancelled') on.onEnd(id, { cancelled: true });
-      else if (job.status === 'failed') on.onEnd(id, { cause: new Error(job.error || 'Your creative couldn’t be made. Try again.') });
-      else if (job.status === 'missing') on.onEnd(id, { cause: new Error('This video is no longer being made. Choose it again.') });
+      else if (job.status === 'failed') on.onEnd(id, { cause: new Error(job.error || 'Render failed. Give it another shot.') });
+      else if (job.status === 'missing') on.onEnd(id, { cause: new Error('This render was stopped. Re-select it to try again.') });
       else if (!job.download) on.onEnd(id, { video: null });
       else {
         const video = await fetch(job.download, { signal }).then(file => (file.ok ? file.blob() : null)).catch(() => null);
-        on.onEnd(id, video && video.size >= 1000 ? { video } : { cause: new Error('Your creative was made but couldn’t be downloaded. Try again.') });
+        on.onEnd(id, video && video.size >= 1000 ? { video } : { cause: new Error('Video rendered, but the download failed. Try again.') });
       }
     }
     on.onUpdate(waiting, making, slow);

@@ -6,6 +6,9 @@ import { ORDER_WAIT_MS, cancelCloudJobs, followCloudJobs } from './pack-cloud-ex
 import { reportDelivered } from './pack-feedback';
 import { reportProblem } from './report-problem';
 
+/** What the server says instead of a render worker's own failure (WORKER_FAULT in netlify/lib/render-queue.mjs), which it logs itself. */
+const RENDER_SNAG = 'Render hit a snag in the cloud. Give it another try.';
+
 export type DownloadProgress = {
   label: string;
   percent: number;
@@ -90,7 +93,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     // Videos kept in Media are downloaded from there when the person wants them; only ones that could not be kept are saved now.
     const unkept = made.flatMap(entry => (entry.video ? [entry.video] : []));
     if (unkept.length) {
-      setProgress({ label: 'Getting your download ready…', percent: 100 });
+      setProgress({ label: 'Packaging your download…', percent: 100 });
       // The renders are done: from here a failure is the download's (the file could not be put together or saved), not a render's.
       try {
         const { file, name } = await bundle(unkept);
@@ -104,16 +107,17 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     // Success needs no notice: the person is on their Media, where the creatives appear. Only a partial failure or full storage is told.
     // Taken back: they are still chosen, and their credits are back.
     if (back) {
-      setMessage({ kind: 'ready', text: `${back === 1 ? '1 video was' : `${back} videos were`} cancelled and ${back === 1 ? 'its credit is' : 'their credits are'} back. ${back === 1 ? 'It is' : 'They are'} still chosen.${made.length ? ` ${made.length === 1 ? 'The 1 that was made is' : `The ${made.length} that were made are`} in your Media.` : ''}` });
+      setMessage({ kind: 'ready', text: `Cancelled ${back === 1 ? '1 video and refunded its credit—it’s' : `${back} videos and refunded their credits—they’re`} still saved in your selection.${made.length ? ` Your ${made.length === 1 ? '1 finished video is' : `${made.length} finished videos are`} in Media.` : ''}` });
     }
     if (unkept.length && !failed.length) {
-      setMessage({ kind: 'error', text: `Media storage is full, so ${unkept.length === 1 ? 'your new creative was' : `${unkept.length} new creatives were`} downloaded to this computer instead.` });
+      setMessage({ kind: 'error', text: `Your Media storage is full, so we downloaded ${unkept.length === 1 ? 'your video' : `${unkept.length} new videos`} straight to your device instead.` });
     }
     if (failed.length) {
-      const reason = friendlyError(failed[0], 'Couldn’t export the creatives.');
-      reportProblem('render', reason);
+      const reason = friendlyError(failed[0], 'Render failed. Give it another shot.');
+      // A fault of the render worker is already in the error log, in its own words.
+      if (reason !== RENDER_SNAG) reportProblem('render', reason);
       const count = made.length;
-      setMessage({ kind: 'error', text: `${count === 1 ? 'Your creative is' : `Your ${count} creatives are`} ready. ${failed.length === 1 ? '1 could not be made' : `${failed.length} could not be made`} (${reason.replace(/\.$/, '')}) and ${failed.length === 1 ? 'is' : 'are'} still chosen: open them from the bar at the bottom to try again.` });
+      setMessage({ kind: 'error', text: `${count === 1 ? 'Your video is' : `Your ${count} videos are`} ready. ${failed.length === 1 ? '1 video' : `${failed.length} videos`} hit a snag (${reason.replace(/\.$/, '')}) and stayed in your selection—open the bottom bar to retry.` });
     }
     if (!delivered.length) return;
     latest.current.cart.removeFrom(pending.songKey, delivered);
@@ -133,9 +137,9 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
       await follow(pending);
     } catch (cause) {
       localStorage.removeItem(PENDING_KEY);
-      const text = friendlyError(cause, 'Couldn’t export the creatives.');
+      const text = friendlyError(cause, 'Render failed. Give it another shot.');
       reportProblem((cause as { problemKind?: 'download' }).problemKind ?? 'render', text);
-      setMessage({ kind: 'error', text: `${text} Your chosen videos are kept.` });
+      setMessage({ kind: 'error', text: `${text} Your selected videos are still saved.` });
     } finally {
       running.current = false;
       following.current = [];
@@ -151,7 +155,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     if (following.current.length) {
       void cancelCloudJobs(latest.current.token, following.current).catch(cause => {
         cancelled.current = false;
-        setMessage({ kind: 'error', text: friendlyError(cause, 'Couldn’t cancel. Try again.') });
+        setMessage({ kind: 'error', text: friendlyError(cause, 'Couldn’t cancel—try again.') });
       });
     }
   }
@@ -162,7 +166,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
    */
   function start(songKey: string, items: readonly CartItem[], submit: (report: (label: string) => void, stopped: () => boolean) => Promise<string[]>) {
     if (running.current) return;
-    setProgress({ label: 'Starting…', percent: 0, cancellable: true });
+    setProgress({ label: 'Firing up the render…', percent: 0, cancellable: true });
     void run(async () => {
       const ids = await submit(label => setProgress(current => ({ label, percent: 0, cancellable: !cancelled.current, cancelling: cancelled.current && Boolean(current) })), () => cancelled.current);
       // Fewer ids than items when the credits ran out part way: the rest stay in the cart.
@@ -181,7 +185,7 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     if (!pending || expired(pending, Date.now(), ORDER_WAIT_MS)) {
       localStorage.removeItem(PENDING_KEY);
       reportProblem('download', 'A download that was going didn’t finish.');
-      setMessage({ kind: 'error', text: 'Videos that were being made didn’t finish. Your chosen videos are kept — open them from the bottom bar to try again.' });
+      setMessage({ kind: 'error', text: 'Your render timed out, but your selection is still saved—open the bottom bar to try again.' });
       return;
     }
     void run(async () => pending);

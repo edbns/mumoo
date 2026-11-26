@@ -11,9 +11,9 @@ import type { Uploads } from './use-uploads';
 import { RenderProgress } from './render-progress';
 
 const UPLOAD_PHASES = [
-  { at: 0, label: 'Sending your media' },
-  { at: 70, label: 'Getting it ready' },
-  { at: 95, label: 'Almost there' },
+  { at: 0, label: 'Uploading…' },
+  { at: 70, label: 'Processing…' },
+  { at: 95, label: 'Almost ready…' },
 ];
 
 /** Shown in place of the shelf while a batch comes in: the Director starts once all of it is here. */
@@ -21,10 +21,10 @@ export function UploadProgress({ uploads }: { uploads: Uploads }) {
   const { sending, batchPercent } = uploads;
   if (batchPercent === null) return null;
   const label = sending
-    ? (sending.total > 1 ? `Sending ${sending.index + 1} of ${sending.total}` : 'Sending')
-    : 'Preparing in the cloud';
+    ? (sending.total > 1 ? `Uploading ${sending.index + 1} of ${sending.total}…` : 'Uploading…')
+    : 'Prepping in the cloud…';
   return <RenderProgress phases={UPLOAD_PHASES} progress={{ percent: batchPercent, label }}
-    note="Creatives use your media once everything’s here. Don’t close this window." />;
+    note="Your visuals will appear in the templates as soon as they’re ready. Keep this tab open." />;
 }
 
 /** What the person uploaded before (kept in History → Uploads), to tick and put back on the shelf together. */
@@ -37,7 +37,7 @@ function EarlierUploads({ uploads, onUse }: { uploads: Uploads; onUse: (ids: str
     : current.length < MAX_SHELF_PICTURES ? [...current, id] : current);
   return <section className="flex flex-col gap-3 pt-2" aria-label="Your uploads">
     <div className="flex items-baseline justify-between gap-3">
-      <h3 className="m-0 text-sm font-semibold text-foreground">Or use your uploads</h3>
+      <h3 className="m-0 text-sm font-semibold text-foreground">Or pick from your uploads</h3>
       <span className="text-xs text-muted-foreground">{chosen.length} of {MAX_SHELF_PICTURES}</span>
     </div>
     <ul className="m-0 grid max-h-56 list-none grid-cols-4 gap-2 overflow-y-auto p-0.5 sm:grid-cols-5">
@@ -58,7 +58,7 @@ function EarlierUploads({ uploads, onUse }: { uploads: Uploads; onUse: (ids: str
       })}
     </ul>
     <Button disabled={!chosen.length} onClick={() => onUse(chosen)}>
-      {chosen.length ? `Use ${chosen.length === 1 ? 'this one' : `these ${chosen.length}`}` : 'Pick one or more'}
+      {chosen.length ? `Use ${chosen.length === 1 ? 'this' : `these ${chosen.length}`}` : 'Select media'}
     </Button>
   </section>;
 }
@@ -96,17 +96,17 @@ export function PictureUpload({ uploads, token, onChange }: {
           <FileDropzone
           accept={ACCEPT}
           icon={ImageIcon}
-          title={`Drop up to ${MAX_SHELF_PICTURES} photos, videos or GIFs here`}
-          hint="JPG, PNG, WebP, MP4, MOV, WebM or GIF"
-          buttonLabel="Select files"
+          title={`Drop up to ${MAX_SHELF_PICTURES} photos or clips`}
+          hint="JPG, PNG, WebP, MP4, MOV, WebM, GIF"
+          buttonLabel="Browse files"
           inputLabel="Picture files"
-          note="Only upload media you own."
+          note="Only upload media you have the rights to use."
           onSelectMany={files => void pick(files)}
           />
           {IS_ALIGNMENT_STAGING && token && !sending && <PhoneUpload token={token} kind="picture" onFiles={files => void pick(files)} />}
           <EarlierUploads uploads={uploads} onUse={ids => { onChange(); setOpen(false); uploads.reuse(ids); }} />
         </div>
-        : <p className="text-sm text-muted-foreground">Sign in (top right) to use your own pictures.</p>}
+        : <p className="text-sm text-muted-foreground">Sign in (top right) to use your own media.</p>}
     </Modal>
   </>;
 }

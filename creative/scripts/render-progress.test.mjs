@@ -27,8 +27,8 @@ test('a finished video counts in full, and the bar never goes back when one fini
 
 test('a video taking longer than usual is told, with why the person need not wait on the page', () => {
   assert.equal(slowNote(0, 4), '');
-  assert.match(slowNote(1, 4), /^1 video is taking longer than usual/);
+  assert.match(slowNote(1, 4), /^1 video is taking a little extra time/);
   assert.match(slowNote(2, 4), /^2 videos are /);
-  assert.match(slowNote(1, 1), /^This one is /);
-  assert.match(slowNote(1, 4), /leave this page.*Media.*credit back/);
+  assert.match(slowNote(1, 1), /^This video is /);
+  assert.match(slowNote(1, 4), /leave this page.*Media.*refund your credits/);
 });

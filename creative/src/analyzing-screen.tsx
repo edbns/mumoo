@@ -21,11 +21,11 @@ function titleCase(text: string) {
 /** Everything we know about the song so far. New facts join the loop the moment the analysis or the lyric reading delivers them. */
 function factsOf(profile: CreativeProfileV1): Fact[] {
   const { style, subGenre } = profile.creator;
-  const facts: Fact[] = [{ label: 'Genre', value: profile.creator.primaryGenre.value || 'Not sure' }];
+  const facts: Fact[] = [{ label: 'Genre', value: profile.creator.primaryGenre.value || 'Detecting…' }];
   if (subGenre) facts.push({ label: 'Sub-genre', value: subGenre.value });
   if (style && style.value.toLowerCase() !== subGenre?.value.toLowerCase()) facts.push({ label: 'Style', value: titleCase(style.value) });
   const { approvedLyrics, musicAnalysis, lyricMeaning } = profile;
-  if (profile.noLyrics) facts.push({ label: 'Lyrics', value: 'None' });
+  if (profile.noLyrics) facts.push({ label: 'Lyrics', value: 'Instrumental' });
   if (approvedLyrics) {
     const words = approvedLyrics.cues.reduce((sum, cue) => sum + cue.text.trim().split(/\s+/).filter(Boolean).length, 0);
     facts.push({ label: 'Words', value: String(words) });
@@ -56,10 +56,10 @@ function factsOf(profile: CreativeProfileV1): Fact[] {
 
 /** What is being done right now, in plain words. */
 function stageText(profile: CreativeProfileV1, progress: PaintProgress | null) {
-  if (profile.musicAnalysis.status === 'pending') return 'Listening to your song';
-  if (profile.lyricMeaning?.status === 'pending') return 'Reading your lyrics';
-  if (progress && progress.total > 0) return `Building your creatives · ${progress.done} of ${progress.total}`;
-  return 'Getting your creatives ready';
+  if (profile.musicAnalysis.status === 'pending') return 'Listening to your track…';
+  if (profile.lyricMeaning?.status === 'pending') return 'Syncing your lyrics…';
+  if (progress && progress.total > 0) return `Directing your videos · ${progress.done} of ${progress.total}`;
+  return 'Cutting to the beat…';
 }
 
 /**
@@ -89,7 +89,7 @@ export function AnalyzingScreen({ profile, progress, ready, onDone }: { profile:
   const percent = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 p-6" role="status" aria-label="Analysing your song and building creatives">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 p-6" role="status" aria-label="Analysing your track and directing your videos">
       <div className="inline-flex h-[74px] items-center gap-3 rounded-full bg-muted/60 pl-[9px] pr-10">
         <span className="[&_canvas]:!size-14 [&_canvas]:bg-transparent">
           <ThinkingOrb state="composing" size={64} theme="dark" />

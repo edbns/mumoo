@@ -17,34 +17,34 @@ const chosenPage = (count, limit) => renderToStaticMarkup(createElement(panel.Ca
 
 test('making only the free video: the chosen videos page says how many to take out, and Make waits until they are', () => {
   const over = chosenPage(3, { have: 1, free: true });
-  assert.match(over, /You can make 1 video free\. Take\s+out 2 videos with the × so only 1 is left, then make it\./);
-  assert.match(over, /<button[^>]*disabled=""[^>]*>Create<\/button>/);
+  assert.match(over, /You have 1 free export\. Remove 2 videos to export now, or top up your balance\./);
+  assert.match(over, /<button[^>]*disabled=""[^>]*>Export<\/button>/);
   const fits = chosenPage(1, { have: 1, free: true });
-  assert.doesNotMatch(fits, /Take\s+out/);
-  assert.doesNotMatch(fits, /<button[^>]*disabled=""[^>]*>Create/);
-  assert.match(fits, />Create<\/button>/);
+  assert.doesNotMatch(fits, /Remove \d/);
+  assert.doesNotMatch(fits, /<button[^>]*disabled=""[^>]*>Export/);
+  assert.match(fits, />Export<\/button>/);
   assert.doesNotMatch(fits, /role="progressbar"|progress/i);
 });
 
 test('the chosen videos page: Create with its credits at the top as well as the bottom, and Close is an icon on the right', () => {
   const page = chosenPage(3, null);
-  assert.match(page, />Create · 3 credits<\/button>[\s\S]*aria-label="Close"/);
-  assert.match(page, />Create<\/button>/);
+  assert.match(page, />Export · 3 credits<\/button>[\s\S]*aria-label="Close"/);
+  assert.match(page, />Export<\/button>/);
   assert.doesNotMatch(page, />Close<\/button>/);
-  assert.match(chosenPage(1, null), />Create · 1 credit<\/button>/);
+  assert.match(chosenPage(1, null), />Export · 1 credit<\/button>/);
 });
 
 test('making only what the credits cover says how many credits there are', () => {
-  assert.match(chosenPage(5, { have: 2, free: false }), /You have 2 credits\. Take\s+out 3 videos with the × so only 2 are left, then make them\./);
-  assert.doesNotMatch(chosenPage(2, null), /Take\s+out/);
+  assert.match(chosenPage(5, { have: 2, free: false }), /You have 2 credits\. Remove 3 videos to export now, or top up your balance\./);
+  assert.doesNotMatch(chosenPage(2, null), /Remove \d/);
 });
 
 test('too many chosen with some left to make: the choice is offered first, Purchase Credits only with none left', () => {
   const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
   const fewer = read('cart-panel.tsx');
-  assert.match(fewer, /'You can only make 1 free video, or buy credits for the rest\.'/);
-  assert.match(fewer, /'Get my free video'/);
-  assert.match(fewer, />Buy credits</);
+  assert.match(fewer, /'Your first export is free\. Grab credits to render the rest\.'/);
+  assert.match(fewer, /'Export 1 free video'/);
+  assert.match(fewer, />Get credits</);
   const studio = read('creatives-pack-studio.tsx');
   assert.match(studio, /if \(have === 0\) askToBuyCredits\(\{ need: items\.length, have \}\);\s+else askToChooseFewer\(/);
 });
@@ -109,7 +109,7 @@ test('the upload popup has no title or long text, only a small line under Select
   const upload = read('picture-upload.tsx');
   assert.doesNotMatch(upload, /Use your own photos or videos|Pick up to/);
   assert.match(upload, /hideTitle/);
-  assert.match(upload, /note="Only upload media you own\."/);
+  assert.match(upload, /note="Only upload media you have the rights to use\."/);
   assert.doesNotMatch(read('analyzing-screen.tsx'), /minute or two/);
 });
 
@@ -133,10 +133,12 @@ test('while videos are made the bar opens nothing and changes nothing, and Cance
   assert.doesNotMatch(bar({ label: 'Made 16 of 20', percent: 90 }, () => {}), /<button/);
 });
 
-test('the creatives page shows no error text above the creatives, and the preview line sits under Lyrics and Refresh', () => {
+test('the videos page shows no error text above the videos, the preview line sits left of Lyrics, and Refresh floats on its own', () => {
   const studio = readFileSync(new URL('../src/creatives-pack-studio.tsx', import.meta.url), 'utf8');
   assert.doesNotMatch(studio, /\{error && <p|\{playbackError && <p|no lyric style|Staging access is unavailable/);
-  assert.match(studio, /aria-label="Refresh all creatives">Refresh<\/Button>\n    <\/div>\n    <p className="hint text-center">This is just a preview\. Downloads are HD\.<\/p>/);
+  assert.match(studio, /<p className="hint m-0 mr-auto">Live preview · Exports in full 1080p HD\.<\/p>/);
+  assert.match(studio, /<RefreshFloat disabled=\{!allReady\} onRefresh=\{refreshShelf\} \/>/);
+  assert.match(readFileSync(new URL('../src/refresh-float.tsx', import.meta.url), 'utf8'), /aria-label="Refresh all videos"/);
 });
 
 test('popups: centred text, buttons at their own size set apart left and right; the style guess asks Maybe, No or Yes and nothing about learning', () => {

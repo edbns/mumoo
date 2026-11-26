@@ -58,11 +58,11 @@ export default async function encodeCreative(request) {
       ? { order, metas }
       : { audio: new Uint8Array(await audio.arrayBuffer()), metas });
     if (queued.refused) return error(410, queued.refused);
-    if (!queued.ids.length) return Response.json({ error: 'You’re out of credits. Buy a pack to make this video.', code: 'no_credits' }, { status: 402, headers });
+    if (!queued.ids.length) return Response.json({ error: 'Out of credits. Grab a pack to export this video.', code: 'no_credits' }, { status: 402, headers });
     return Response.json(queued, { status: 202, headers });
   } catch (cause) {
     if (cause instanceof SyntaxError) return error(400, 'Expected the creative’s settings.');
     console.error('encode-creative:', cause);
-    return error(503, 'Your creative could not be queued. Try again in a moment.');
+    return error(503, 'Couldn’t add this to the queue. Try again in a second.');
   }
 }

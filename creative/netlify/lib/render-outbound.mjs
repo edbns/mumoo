@@ -50,7 +50,7 @@ export async function outboundFor(userId, meta, audio) {
   }
   if (upload !== undefined) {
     const media = await uploadMedia(userId, upload);
-    if (!media) return { status: 404, error: 'That picture wasn’t found or is still being prepared.' };
+    if (!media) return { status: 404, error: 'One of your visuals is still processing or couldn’t be found.' };
     const sent = ownMedia(scene.opts.style, media);
     if (sent.refused) return { status: 400, error: sent.refused };
     if (sent.parts.photo) form.append('photo', new Blob([sent.parts.photo], { type: 'image/jpeg' }), 'photo.jpg');
@@ -62,7 +62,7 @@ export async function outboundFor(userId, meta, audio) {
     // A reel of the person's own pictures: only theirs.
     const found = ownReel === true ? await uploadReel(userId, ids) : await libraryReel(ids);
     if (found.includes(null)) {
-      return { status: 404, error: ownReel === true ? 'One of your pictures in that reel was removed or is still being prepared.' : 'A picture of that reel is no longer in the library or has no cut-out yet.' };
+      return { status: 404, error: ownReel === true ? 'A custom visual in this video was removed or is still processing.' : 'One of the library clips in this video was retired.' };
     }
     scene.opts = { ...scene.opts, reel: reelFrom(found) };
   }

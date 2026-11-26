@@ -293,7 +293,7 @@ export function CreativesPackStudio({
       if (plates === null || library === null) {
         return [def.id, { slots: [], note: '' }];
       } else if (!plates.some(plate => plate.cutout) && !libraryCutouts && !libraryRisoMotion) {
-        return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? `${def.title}: no approved photos for this yet. Sign in (top right) to use your own.` : `${def.title}: no approved photos yet. Upload a photo, video or GIF to see it.` }];
+        return [def.id, { slots: [], note: !uploads.signedIn && !uploads.pending ? `${def.title}: No matching visuals yet. Sign in (top right) to drop in your own.` : `${def.title}: Drop in your own photo, video, or GIF to unlock this look.` }];
       }
     }
     // Our photography is dealt once it knows what our library holds and which approved photo it may draw a look on.
@@ -303,7 +303,7 @@ export function CreativesPackStudio({
     if (!textless && !hasLyrics) return [def.id, { slots: [], note: '' }];
     const slots = recommendRow(def.id, profile, controls[def.id].generation, platesFor, libraryFor(def.id), (isLookRow(def.id) || isTreatmentRow(def.id) || isWindowRow(def.id)) && Boolean(ownFor(def.id)), learning, deal);
     // The looks and treatments are drawn on our library pictures, so with none for this song they say so instead of vanishing.
-    const note = !slots.length && (isLookRow(def.id) || isTreatmentRow(def.id) || def.id === 'window') && !ownPool ? `${def.title} uses our library photos and none fit this song yet. Upload your own to see it.` : '';
+    const note = !slots.length && (isLookRow(def.id) || isTreatmentRow(def.id) || def.id === 'window') && !ownPool ? `${def.title}: Needs custom visuals for this track. Upload yours to see it in action.` : '';
     return [def.id, { slots, note }];
   })) as Record<ShelfRow, RowView>, [
     profile.clip.sourceSha256, profile.musicAnalysis, profile.lyricMeaning, creatorKey, lyricKey,
@@ -623,12 +623,12 @@ export function CreativesPackStudio({
     }
     onStop(); setPlayingId(null); setError('');
     download.start(songKeyOf(profile.clip.sourceSha256, profile.clip.offsetMs), items, async (report, stopped) => {
-      report('Preparing audio…');
+      report('Mixing audio…');
       // Let React paint the progress state before any work.
       await yieldFrame();
       // One small WAV for the whole batch (≈960 KB for 15 s).
       const wav = await clipToMonoWav(audio, composition.clipStartMs, clipMs);
-      report(items.length > 1 ? `Queuing ${items.length} creatives…` : 'Starting your creative…');
+      report(items.length > 1 ? `Queuing ${items.length} videos…` : 'Rendering your video…');
       // Every video is queued now, in batches: the server makes them in turns and we only hold their ids. The audio goes once.
       const ids: string[] = [];
       let order: string | undefined;
@@ -676,7 +676,7 @@ export function CreativesPackStudio({
 
   return <main className="desktop trim flex-1 content-start">
     <div className="mt-6 flex flex-wrap items-center justify-end gap-3 rounded-[var(--radius-panel)] bg-background p-5">
-      <p className="hint m-0 mr-auto">This is just a preview. Downloads are HD.</p>
+      <p className="hint m-0 mr-auto">Live preview · Exports in full 1080p HD.</p>
       {!noLyrics && <label className="lyrics-switch">
         <input type="checkbox" role="switch" checked={lyricsSwitch} onChange={event => { stopPlayback(); setLyricsSwitch(event.target.checked); }} />
         <span>Lyrics</span>
@@ -690,9 +690,9 @@ export function CreativesPackStudio({
     {error === NO_GRAPHICS && <p className="hint text-center" role="alert">{NO_GRAPHICS}</p>}
     <UploadProgress uploads={uploads} />
     {ownKind && uploads.batchPercent === null && <p className="hint text-center">{ownPool
-      ? (ownKind === 'motion' ? `Your ${ownPool.length} videos or GIFs get shared across templates that can use them.` : `Your ${ownPool.length} pictures get shared across templates that use photos.`)
-      : ownKind === 'motion' ? 'Your video or GIF shows on templates that can use one.' : 'Your photo shows on templates that use pictures.'}</p>}
-    {!textless && !hasLyrics && <p className="hint text-center" role="status">Approve your synced lyrics, or turn Lyrics off.</p>}
+      ? (ownKind === 'motion' ? `Your ${ownPool.length} clips or GIFs will cycle across motion templates.` : `Your ${ownPool.length} photos will cycle across photo templates.`)
+      : ownKind === 'motion' ? 'Your clip or GIF appears in motion templates.' : 'Your photo appears in photo-based templates.'}</p>}
+    {!textless && !hasLyrics && <p className="hint text-center" role="status">Check your lyric timing, or switch lyrics off.</p>}
     {uploads.batchPercent === null && SHELF_ROWS.map(def => view[def.id].note ? <p key={def.id} className="hint text-center" role="status">{view[def.id].note}</p> : null)}
     {cards.length > 0 && <div className="creatives-pack-grid" role="list" aria-busy={!allReady}>
       {cards.map(({ def, slot: item }) => {
@@ -710,7 +710,7 @@ export function CreativesPackStudio({
                 height={PREVIEW_HEIGHT}
                 aria-hidden="true"
               />
-              <LoadingMask loading={!ready} />
+              <LoadingMask loading={!ready} label="Rendering preview…" />
               <button
                 type="button"
                 className="creatives-pack-select"

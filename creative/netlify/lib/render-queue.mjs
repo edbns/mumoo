@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { releaseReservation, releaseVideo, reserveVideo } from './credits.mjs';
 import { db } from './person.mjs';
+import { recordProblem } from './problems.mjs';
 import { outboundFor } from './render-outbound.mjs';
 import { saveRender } from './renders.mjs';
 import { deleteObject, getObject, objectSize, putObject, signedDownload } from './storage.mjs';
@@ -42,6 +43,14 @@ const ORDER = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const QUEUE_ID = /^rq-[0-9a-f-]{36}$/;
 
 /** The cloud render worker on Modal: takes a creative's form, and answers how a job is doing. */
+/**
+ * The worker's own failures are kept in render_queue.error with this mark and its words, for us; the person is told WORKER_FAULT
+ * instead, never the worker's words.
+ */
+const WORKER = 'worker: ';
+export const WORKER_FAULT = 'Render hit a snag in the cloud. Give it another try.';
+export const shownError = (error) => (typeof error === 'string' && error.startsWith(WORKER) ? WORKER_FAULT : error);
+
 export const modalWorker = {
   async submit(form) {
     const response = await fetch(MODAL_SUBMIT, {
@@ -52,8 +61,8 @@ export const modalWorker = {
     if (response.ok && typeof result?.id === 'string') return { id: result.id };
     const detail = result?.detail ?? result?.error;
     // The creative itself was refused: trying again would not help.
-    if ([400, 413].includes(response.status)) return { error: typeof detail === 'string' ? detail : 'Cloud render could not start.' };
-    return { retry: true, error: 'The cloud render worker could not accept this creative.' };
+    if ([400, 413].includes(response.status)) return { error: WORKER + (typeof detail === 'string' ? detail : 'could not start') };
+    return { retry: true, error: `${WORKER}not accepted (${response.status})` };
   },
   async status(callId) {
     const response = await fetch(`${MODAL_STATUS}?id=${encodeURIComponent(callId)}`, {
@@ -63,12 +72,12 @@ export const modalWorker = {
     if (response.status === 202) return { state: 'running' };
     if (response.ok) {
       const mp4 = new Uint8Array(await response.arrayBuffer());
-      return mp4.byteLength < 1000 ? { state: 'failed', error: 'Cloud render returned an empty file.' } : { state: 'done', mp4 };
+      return mp4.byteLength < 1000 ? { state: 'failed', error: `${WORKER}empty file` } : { state: 'done', mp4 };
     }
     if (response.status >= 500) return { state: 'unknown' };
     const result = await response.json().catch(() => null);
     const detail = result?.detail ?? result?.error;
-    return { state: 'failed', error: typeof detail === 'string' ? detail : 'Cloud render failed. Try again.' };
+    return { state: 'failed', error: WORKER + (typeof detail === 'string' ? detail : `failed (${response.status})`) };
   },
 };
 
@@ -85,7 +94,7 @@ export async function enqueue(userId, { order, audio, metas }) {
     orderId = randomUUID();
     await putObject(audioKey(userId, orderId), audio, 'audio/wav');
   } else if (!ORDER.test(orderId) || await objectSize(audioKey(userId, orderId)) === null) {
-    return { refused: 'That order has ended. Choose the videos again.' };
+    return { refused: 'That session expired. Re-select your videos to export.' };
   }
   const ids = [];
   let free = false;
@@ -144,6 +153,7 @@ async function tidyOrder(userId, orderId) {
 
 async function fail(row, error) {
   await db()`update render_queue set status = 'failed', error = ${error}, finished_at = now() where id = ${row.id} and status in ('starting', 'running')`;
+  if (typeof error === 'string' && error.startsWith(WORKER)) await recordProblem({ kind: 'render', userId: row.user_id, message: `Video ${row.id}: ${error}` });
   await releaseVideo(row.user_id, row.id).catch(cause => console.error('render queue give back:', cause));
   await tidyOrder(row.user_id, row.order_id);
 }
@@ -163,7 +173,7 @@ async function start(row, worker) {
   } catch (cause) {
     console.error('render queue start:', cause);
   }
-  if (row.attempts + 1 >= ATTEMPTS) return fail(row, 'The cloud render worker could not accept this creative.');
+  if (row.attempts + 1 >= ATTEMPTS) return fail(row, `${WORKER}not accepted after ${ATTEMPTS} tries`);
   await sql`update render_queue set status = 'queued', started_at = null, attempts = attempts + 1 where id = ${row.id} and status = 'starting'`;
 }
 
@@ -211,7 +221,7 @@ export async function settleRunning({ worker = modalWorker, keep = saveRender, l
       await sql`update render_queue set status = 'done', download = ${download}, finished_at = now() where id = ${row.id}`;
       await tidyOrder(row.user_id, row.order_id);
     } else if (answer.state === 'failed') await tryAgain(row, answer.error);
-    else if (row.stale) await tryAgain(row, 'Your creative took too long. Try again in a bit.');
+    else if (row.stale) await tryAgain(row, 'Render timed out. Try again in a bit.');
   }).map(work => work.catch(cause => console.error('render queue look:', cause))));
   return rows.length;
 }
@@ -257,7 +267,7 @@ export async function statesOf(userId, ids) {
   return Object.fromEntries(await Promise.all(ids.map(async id => {
     const row = found.get(id);
     if (!row) return [id, { status: 'missing' }];
-    if (row.status === 'failed') return [id, { status: 'failed', error: row.error }];
+    if (row.status === 'failed') return [id, { status: 'failed', error: shownError(row.error) }];
     if (row.status === 'cancelled') return [id, { status: 'cancelled' }];
     if (row.status === 'done') return [id, row.download ? { status: 'done', download: await signedDownload(row.download, 'mumoo-creative.mp4') } : { status: 'done' }];
     return [id, { status: row.status === 'queued' ? 'queued' : 'running', ...(row.slow ? { slow: true } : {}) }];
