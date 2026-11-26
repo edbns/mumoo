@@ -124,3 +124,10 @@
     X-Robots-Tag = "noindex, nofollow"
     Cache-Control = "no-store"
     X-Frame-Options = "DENY"
+
+# Built scripts, styles and fonts carry a hash of their contents in their name: a changed file gets a new name, so a browser may keep
+# each one for good instead of asking the server again on every page.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

@@ -18,7 +18,7 @@ import { isSkullStyle } from './style-families';
 import effectsData from '../punch-plates/effects/effects.json';
 import { laneFromMeaning, leansDeep, type LyricAttitude, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
-import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './pack-type';
+import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './type-styles';
 import { EMPHASIS_ALLOW, FINISH_ALLOW, MONO_ACCENT, MOOD_ACCENTS, type TypeEmphasis, type TypeFinish } from './type-finish';
 import { coverFit } from './look-fit';
 import type { CoverRead } from './cover-palette';

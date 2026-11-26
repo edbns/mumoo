@@ -63,3 +63,19 @@ test('a redirect from Neon is handed to the browser, not followed', async () => 
   assert.equal(answer.status, 302);
   assert.equal(answer.headers.get('location'), 'https://accounts.google.com/o/oauth2');
 });
+
+test('a session check without a session cookie is answered at once, signed out; one with a cookie or a verifier still asks Neon', async () => {
+  let asked = 0;
+  const fetcher = async () => { asked += 1; return Response.json({ session: { token: 't' } }); };
+  const check = (path, cookie) => forwardAuth(new Request(`${SITE}/api/neon-auth/${path}`, { headers: cookie ? { cookie } : {} }), BASE, fetcher);
+  const quick = await check('get-session', 'mumoo-consent=1; _ga=x');
+  assert.equal(await quick.json(), null);
+  assert.equal(quick.headers.get('cache-control'), 'no-store');
+  assert.equal(asked, 0, 'nobody to look up');
+  await check('get-session', 'a=1; __Secure-neon-auth.session_token=abc');
+  assert.equal(asked, 1, 'a session cookie is checked by Neon');
+  await check('get-session?neon_auth_session_verifier=abc');
+  assert.equal(asked, 2, 'the Google sign-in starts its session from the verifier');
+  await check('sign-in/email-otp');
+  assert.equal(asked, 3);
+});

@@ -1,3 +1,4 @@
+import { LIBRARY_LINK_SECONDS } from './public-cache.mjs';
 import { randomUUID } from 'node:crypto';
 import { db } from './person.mjs';
 import { askPrepare, startPrepare } from './prepare.mjs';
@@ -457,8 +458,8 @@ export async function listApproved() {
     ...(row.looks && Object.keys(row.looks).length ? { looks: row.looks } : {}),
     ...(row.colours ? { colours: { palette: row.colours.palette, lightness: row.colours.lightness, saturation: row.colours.saturation, contrast: row.colours.contrast } } : {}),
     ...(learned.has(row.id) ? learned.get(row.id) : {}),
-    url: await signedDownload(row.kind === 'photo' ? keyOf(row.id) : posterKey(row.id), null),
-    ...(row.kind === 'photo' ? (row.cutout ? { cutoutUrl: await signedDownload(cutoutKey(row.id), null) } : {}) : { motionUrl: await signedDownload(motionKey(row.id), null), ...(row.small ? { smallUrl: await signedDownload(smallKey(row.id), null) } : {}), ...(row.shots ? { shots: row.shots } : {}) }),
+    url: await signedDownload(row.kind === 'photo' ? keyOf(row.id) : posterKey(row.id), null, LIBRARY_LINK_SECONDS),
+    ...(row.kind === 'photo' ? (row.cutout ? { cutoutUrl: await signedDownload(cutoutKey(row.id), null, LIBRARY_LINK_SECONDS) } : {}) : { motionUrl: await signedDownload(motionKey(row.id), null, LIBRARY_LINK_SECONDS), ...(row.small ? { smallUrl: await signedDownload(smallKey(row.id), null, LIBRARY_LINK_SECONDS) } : {}), ...(row.shots ? { shots: row.shots } : {}) }),
   })));
 }
 

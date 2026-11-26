@@ -12,7 +12,6 @@ import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdent
 import { MusicAnalysisRunner } from './music-analysis-runner';
 import { StylePrintRunner, useClipTempo, useStyleGuess } from './style-print-runner';
 import { useLyricMeaning } from './lyric-meaning-cloud';
-import { CreativesPackStudio } from './creatives-pack-studio';
 import { SHELF_ROWS } from './creatives-pack';
 import { ownIdsOf, useCart, songKeyOf } from './cart';
 import { CartPanel, ChooseFewer, ChosenBar, DownloadNotice, type CartAction, type CartLine, type ChosenLimit } from './cart-panel';
@@ -50,6 +49,9 @@ const DOWNLOAD_SIGN_IN = { title: 'Sign in to download', lead: 'First video is f
 const AccountBar = lazy(() => import('./account').then(module => ({ default: module.AccountBar })));
 const loadProfilePage = () => import('./profile-page');
 const ProfilePage = lazy(loadProfilePage);
+// The shelf draws with Pixi, the largest code on the site: it is fetched once a song is in, while it is read, not with the first page.
+const loadStudio = () => import('./creatives-pack-studio');
+const CreativesPackStudio = lazy(() => loadStudio().then(module => ({ default: module.CreativesPackStudio })));
 
 /** How long the window must rest before the music inside it plays. */
 const AUDITION_PAUSE_MS = 200;
@@ -276,6 +278,7 @@ function App() {
       setLyricWords(current => unchanged ? current : []);
       currentClip.current = nextClip;
       setBuffer(audio);
+      void loadStudio().catch(() => undefined);
       setSongTags(tags);
       setSongCover(cover);
     } catch (cause) {
@@ -542,7 +545,7 @@ function App() {
         {/* The posters are painted from the final analysis, so the studio starts only once the song has been read. It stays out of sight until they are done. */}
         {analysisSettled && (
           <div className={stage === 'revealed' ? 'contents' : 'invisible absolute inset-0 overflow-hidden'} inert={stage !== 'revealed'}>
-            <CreativesPackStudio
+            <Suspense fallback={null}><CreativesPackStudio
               profile={profile}
               composition={composition}
               audio={buffer}
@@ -563,7 +566,7 @@ function App() {
                 setPaint({ done, total });
                 if (done === total) setStage(current => (current === 'analyzing' ? 'prepared' : current));
               }}
-            />
+            /></Suspense>
           </div>
         )}
       </div>

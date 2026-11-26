@@ -34,9 +34,21 @@ export function upstreamUrl(requestUrl, base, prefix = '/api/neon-auth') {
   return `${base.replace(/\/$/, '')}${rest}${url.search}`;
 }
 
+/**
+ * A plain session check from a browser that holds no session cookie: there is no session to find, so the answer is ours, at once,
+ * instead of a round trip to Neon on every page a signed-out visitor opens. A check carrying anything (the Google sign-in's verifier)
+ * still goes to Neon, which may start a session from it.
+ */
+export function signedOutCheck(request) {
+  const url = new URL(request.url);
+  if (request.method !== 'GET' || !url.pathname.endsWith('/get-session') || url.search) return false;
+  return !/(^|;)\s*[^=;]*session_token=[^;\s]/.test(request.headers.get('cookie') ?? '');
+}
+
 export async function forwardAuth(request, base, fetcher = fetch) {
   const target = upstreamUrl(request.url, base);
   if (!target) return new Response('Not found.', { status: 404 });
+  if (signedOutCheck(request)) return Response.json(null, { headers: { 'cache-control': 'no-store' } });
   const hasBody = !['GET', 'HEAD'].includes(request.method);
   const answer = await fetcher(target, {
     method: request.method,

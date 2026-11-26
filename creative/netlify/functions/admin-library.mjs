@@ -1,6 +1,7 @@
 import { adminFrom, reply, refuse } from '../lib/admin.mjs';
 import { changeItem, itemArrived, listLibrary, listTagPool, removeItem, removeTag, reserveItem } from '../lib/library.mjs';
 import { storageReady } from '../lib/storage.mjs';
+import { forgetPublicLibrary } from '../lib/public-cache.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -24,8 +25,10 @@ export default async function handler(request) {
 
     const tag = params.get('tag');
     if (tag !== null) {
-      if (request.method === 'DELETE') return (await removeTag(tag.trim().toLowerCase())) ? reply(200, await listLibrary()) : refuse(404, 'Not found.');
-      return refuse(405, 'Use DELETE for a tag.');
+      if (request.method !== 'DELETE') return refuse(405, 'Use DELETE for a tag.');
+      if (!(await removeTag(tag.trim().toLowerCase()))) return refuse(404, 'Not found.');
+      await forgetPublicLibrary();
+      return reply(200, await listLibrary());
     }
 
     if (request.method === 'POST') {
@@ -48,9 +51,13 @@ export default async function handler(request) {
       if (!body || typeof body !== 'object' || Array.isArray(body)) return refuse(400, 'Say what to change.');
       const result = await changeItem(id, body);
       if (!result) return refuse(404, 'Not found.');
-      return result.refused ? refuse(400, result.refused) : reply(200, { item: result, tags: await listTagPool() });
+      if (result.refused) return refuse(400, result.refused);
+      await forgetPublicLibrary();
+      return reply(200, { item: result, tags: await listTagPool() });
     }
-    return (await removeItem(id)) ? reply(200, await listLibrary()) : refuse(404, 'Not found.');
+    if (!(await removeItem(id))) return refuse(404, 'Not found.');
+    await forgetPublicLibrary();
+    return reply(200, await listLibrary());
   } catch (cause) {
     console.error('admin library:', cause);
     return refuse(500, 'That did not work. Try again in a moment.');

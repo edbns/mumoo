@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ShelfLearning } from './creatives-pack';
 import type { LibraryPicture } from './library-pick';
 
-/** The links last 15 minutes; they are renewed well before that. */
+/** The links last an hour (and the CDN's copy of the list a few minutes); they are renewed well before that. */
 const RENEW_MS = 10 * 60 * 1000;
 
 type Library = { items: LibraryPicture[] | null; learning: ShelfLearning };

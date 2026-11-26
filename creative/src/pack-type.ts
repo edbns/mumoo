@@ -15,21 +15,14 @@
  */
 import { Container, Graphics } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
-import { displayFace, setCase, type AdFont, type FaceStyle, type FontNeed } from './ad-fonts';
+import { displayFace, setCase, type AdFont, type FaceStyle } from './ad-fonts';
 import { FIXED_FACES } from './font-catalog';
-import { FX_STYLES, FX_TRAITS, type FxStyleId } from './lyric-fx';
+import { isMotion, type ClassicStyle, type TypeStyleId } from './type-styles';
 import { createFxPainter } from './pack-fx';
 import { activeIndex, clamp01, easeOut, faceOfWord, finishedWord, isPlated, keyLabel, KEY_SERIF, layoutWords, litWords, measure, plateInk, type TimedWord, type TypeFrame } from './type-kit';
 
 export type { TimedWord, TypeFrame };
-
-const CLASSIC_STYLES = ['typewriter', 'karaoke', 'stack', 'minimal', 'editorial', 'outline', 'swap', 'poem'] as const;
-type ClassicStyle = (typeof CLASSIC_STYLES)[number];
-export const TYPE_STYLES = [...CLASSIC_STYLES, ...FX_STYLES] as const;
-export type TypeStyleId = (typeof TYPE_STYLES)[number];
-
-const isMotion = (style: TypeStyleId): style is FxStyleId => style in FX_TRAITS;
-
+export { TYPE_STYLES, typeNeeds, type TypeStyleId } from './type-styles';
 const fixed = (family: keyof typeof FIXED_FACES): FaceStyle => ({ family, weight: FIXED_FACES[family].weight, italic: FIXED_FACES[family].italic });
 
 type Fonts = Pick<TypeFrame, 'font' | 'fontSecondary'>;
@@ -67,11 +60,6 @@ export function typeFamilies(style: TypeStyleId, fonts: Fonts & { typeEmphasis?:
 }
 
 /** What a style needs of the faces dealt to its card. Styles with a fixed face need nothing. */
-export function typeNeeds(style: TypeStyleId): readonly FontNeed[] {
-  if (isMotion(style)) return FX_TRAITS[style].needs;
-  return style === 'outline' ? ['heavy'] : [];
-}
-
 function caseFor(style: ClassicStyle, text: string, font: AdFont): string {
   switch (style) {
     case 'karaoke':
