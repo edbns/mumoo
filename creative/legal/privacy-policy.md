@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated:** 23 November 2026  
+**Last updated:** 26 November 2026  
 **Privacy contact / privacy officer:** moo@mumoo.app
 
 This Privacy Policy explains how mumoo (“we”, “us”) collects, uses, and shares personal data when you use the mumoo web application and Smart Link pages.
@@ -38,11 +38,11 @@ Minimum age is 16.
 - To comply with law.
 
 ## 5. Use of AI
-All AI models are open-source and run on servers we rent and control (Modal). No user content is sent to external AI companies (no OpenAI, Anthropic, Google AI, Grok, etc.) and no user content is used to train models.
+All AI models are open-source and run on servers we rent and control (Modal). No user content is sent to external AI companies (no OpenAI, Anthropic, Google AI, Grok, etc.). Your songs, lyrics, photos, and videos are never used to train generative models. The only thing mumoo learns from is genre tagging, as described below.
 
 - Lyrics transcription and word timing (Whisper + alignment model).
 - Lyric meaning for mood/theme suggestions (Qwen3-8B) — lyrics held in memory only, never stored.
-- Genre suggestion from a “style print” of the 15-second clip (CLAP) — print kept only if you confirm the guess, and linked to the song, not to you.
+- Genre suggestion from a “style print” of the 15-second clip (CLAP): a list of numbers describing its sound, not the audio itself. When you pick or confirm a genre, the style print and genre label are saved to help improve genre suggestions for future tracks. They are stored with a one-way cryptographic code tied to that song and account, never your name or email, and are only used once they pass our checks (for example, several accounts agreeing on the genre).
 - Photo background removal (u2net) — no face recognition or identification.
 - Internal library sorting only (Qwen2.5-VL) — never applied to user uploads.
 
@@ -66,7 +66,7 @@ Data is transferred to the USA, Singapore, and other locations as needed to prov
 - **Free Creative check:** if you used your free Creative, we keep a one-way code (SHA-256 hash) of your email address after you delete the account or change its email, so that the same address cannot claim another free Creative. The code cannot be turned back into your address and is kept for no other purpose.
 - **Uploads and Creatives:** until you delete them, delete the account, or do not visit for 90 days. We email you at 60 and 83 days before automatic deletion. The account itself remains.
 - **Usage signals:** anonymised when the account is deleted.
-- **Song style prints:** kept only if you confirm the genre guess; linked to a song fingerprint, never to a person.
+- **Song style prints and genre labels:** kept when you pick or confirm a genre, with a one-way code tied to that song and account. If you delete your account, your personal link to that code is removed. Labels that do not pass our checks within 120 days are set aside and never used.
 - **Fan event data:** anonymous visit and click statistics (no IP address, user agent, cookie or click ID) are kept until the creator deletes the Smart Link or their account. Data forwarded to Meta or TikTok is sent in real time and not kept by us.
 
 ## 8. Your rights
