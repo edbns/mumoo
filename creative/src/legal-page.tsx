@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { parseMarkdown, type Block, type Inline } from './legal-markdown';
-import { CookieBanner } from './legal-corner';
+import { LegalCorner } from './legal-corner';
 import { OrderProgress } from './order-progress';
 import { openCookieSettings } from './consent';
 import { LEGAL_PATHS } from './site-paths';
@@ -95,13 +95,13 @@ function LegalPage() {
         {document ? document.blocks.map(block) : <>
           <h1 className="mb-6 text-3xl font-semibold tracking-tight text-foreground">Legal</h1>
           <p className="my-3">The terms and policies for using mumoo. Questions go to <a href="mailto:moo@mumoo.app" className="text-foreground underline underline-offset-4">moo@mumoo.app</a>.</p>
-          <ul className="mt-6 flex flex-col divide-y divide-border border-y border-border">
-            {LEGAL_DOCUMENTS.map(doc => <li key={doc.slug}><a href={`/${doc.slug}`} className="block py-3 text-foreground hover:text-primary">{doc.title}</a></li>)}
+          <ul className="mt-6 flex flex-col gap-1">
+            {LEGAL_DOCUMENTS.map(doc => <li key={doc.slug}><a href={`/${doc.slug}`} className="block py-2 text-foreground hover:text-primary">{doc.title}</a></li>)}
           </ul>
         </>}
       </article>
     </div>
-    <CookieBanner />
+    <LegalCorner />
     <OrderProgress />
   </div>;
 }

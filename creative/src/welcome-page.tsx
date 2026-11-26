@@ -5,8 +5,7 @@ import { ArrowRightIcon, Link2Icon, PlayIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { checkSignInCode, sendSignInCode, signInWithGoogle } from './account';
 import { PAGE_PATHS } from './account-pages';
-import { CookieBanner, LEGAL_LINKS } from './legal-corner';
-import { openCookieSettings } from './consent';
+import { LegalCorner } from './legal-corner';
 import { keepReferral } from './referral';
 import { SignInDialog } from './sign-in-dialog';
 import { START_COOKIE } from './site-paths';
@@ -25,7 +24,7 @@ function ShowVideo() {
   const still = useReducedMotion();
   const video = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(!still);
-  return <div className="relative mx-auto aspect-[9/16] w-full max-w-[300px] overflow-hidden rounded-[var(--radius-panel)] bg-muted shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] lg:max-w-[320px]">
+  return <div className="relative mx-auto aspect-[9/16] w-full max-w-[300px] overflow-hidden rounded-[var(--radius-panel)] bg-muted shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] lg:h-[min(600px,calc(100svh-13rem))] lg:w-auto lg:max-w-none">
     <video ref={video} className="block size-full object-cover" src="/home/welcome.mp4" poster="/home/welcome.jpg"
       autoPlay={!still} muted loop playsInline preload="auto" aria-label="A video made with mumoo"
       onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
@@ -49,14 +48,14 @@ function WelcomePage() {
   const rise = (delay: number) => still ? {} : {
     initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.5, delay, ease: 'easeOut' as const },
   };
-  return <div className="flex min-h-dvh flex-col text-foreground">
+  return <div className="flex flex-1 flex-col text-foreground">
     <header className="masthead">
       <a className="masthead-logo" href="/" aria-label="mumoo"><img src="/brand/mumoo-logo.png" alt="" /></a>
       <div className="masthead-actions">
         <Button variant="secondary" onClick={() => location.assign(PAGE_PATHS.links ?? '/')}><Link2Icon aria-hidden="true" className="size-4" />Free Smart Links</Button>
       </div>
     </header>
-    <main className="mx-auto grid w-full max-w-5xl flex-1 items-center gap-12 px-6 pt-16 pb-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-16 lg:pt-6">
+    <main className="mx-auto grid w-full max-w-5xl flex-1 items-center gap-12 px-6 pt-16 pb-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-16 lg:pt-6 lg:pb-0">
       <div className="flex flex-col items-start gap-6">
         <motion.h1 {...rise(0)} className="m-0 text-5xl leading-[1.05] font-semibold tracking-tight text-balance md:text-6xl">
           Your song, directed to the beat.
@@ -76,14 +75,7 @@ function WelcomePage() {
         <ShowVideo />
       </motion.div>
     </main>
-    <footer className="flex flex-col items-center gap-2 px-6 pt-6 pb-6 text-xs text-muted-foreground/70">
-      <span>© 2026 mumoo</span>
-      <nav aria-label="Legal" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-        {LEGAL_LINKS.map(link => <a key={link.href} href={link.href} className="hover:text-foreground">{link.label}</a>)}
-        <button type="button" onClick={openCookieSettings} className="cursor-pointer rounded-none bg-transparent p-0 text-inherit hover:text-foreground">Cookie settings</button>
-      </nav>
-    </footer>
-    <CookieBanner />
+    <LegalCorner />
     <SignInDialog open={signingIn} onClose={closeSignIn} reason={SIGN_IN}
       onSendCode={async email => { await sendSignInCode(email); address.current = email; }}
       onCheckCode={async code => { await checkSignInCode(address.current, code); signedIn.current = true; return true; }}

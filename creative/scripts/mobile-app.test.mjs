@@ -20,7 +20,7 @@ test('the phone notice: create on desktop, post from the phone, the app coming, 
   assert.match(phone, /title="Mobile app coming soon">We’re bringing the studio to mobile next\.</);
   assert.match(phone, /title="Your Media, ready to post"/);
   assert.match(phone, /'Open my Media' : 'Sign in to my Media'/);
-  assert.match(read('legal-corner.tsx'), /<span className=\{`contents \$\{NOT_ON_PHONE\}`\}><StatusDot \/><\/span>/);
+  assert.match(read('legal-corner.tsx'), /<div className=\{`flex \$\{NOT_ON_PHONE\}`\}><StatusDot \/><\/div>/);
   assert.match(read('legal-corner.tsx'), /link\.href === PRICING_PATH && NOT_ON_PHONE/);
   assert.doesNotMatch(read('welcome-page.tsx'), /location\.replace\('\/'\)/);
 });

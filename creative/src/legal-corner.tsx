@@ -74,18 +74,21 @@ export function CookieBanner() {
   );
 }
 
-/** How mumoo is doing at the bottom left of the layer, the small links at the bottom right (they scroll with it, clear of its
-    rounded corner), and the cookie banner. */
-/** On a phone (as wide as the CSS's `.mobile`), the status and Pricing are left out: the links have the line to themselves, and buying is for the computer. */
+/** How mumoo is doing at the bottom left of the layer, © mumoo in the middle, the small links at the bottom right (they scroll with
+    it, clear of its rounded corner), and the cookie banner. The same on every page. */
+/** On a phone (as wide as the CSS's `.mobile`), the status and Pricing are left out: © and the links are centred, and buying is for the computer. */
 const NOT_ON_PHONE = 'max-[740px]:hidden';
 
 export function LegalCorner() {
   return <>
-    <nav aria-label="Legal" className="mt-auto flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 pt-8 pb-5 text-[11px] text-muted-foreground/70 sm:justify-end sm:px-8">
-      <span className={`contents ${NOT_ON_PHONE}`}><StatusDot /></span>
-      {LEGAL_LINKS.map(link => <a key={link.href} href={link.href} className={cn('hover:text-foreground', link.href === PRICING_PATH && NOT_ON_PHONE)}>{link.label}</a>)}
-      <button type="button" onClick={openCookieSettings} className="cursor-pointer rounded-none bg-transparent p-0 text-inherit hover:text-foreground">Cookie settings</button>
-    </nav>
+    <footer className="mt-auto grid items-center gap-y-2 px-4 pt-8 pb-5 text-[11px] text-muted-foreground/70 min-[741px]:grid-cols-[1fr_auto_1fr] sm:px-8">
+      <div className={`flex ${NOT_ON_PHONE}`}><StatusDot /></div>
+      <span className="text-center">© 2026 mumoo</span>
+      <nav aria-label="Legal" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 min-[741px]:justify-end">
+        {LEGAL_LINKS.map(link => <a key={link.href} href={link.href} className={cn('hover:text-foreground', link.href === PRICING_PATH && NOT_ON_PHONE)}>{link.label}</a>)}
+        <button type="button" onClick={openCookieSettings} className="cursor-pointer rounded-none bg-transparent p-0 text-inherit hover:text-foreground">Cookie settings</button>
+      </nav>
+    </footer>
     <CookieBanner />
   </>;
 }
