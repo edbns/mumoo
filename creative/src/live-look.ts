@@ -318,8 +318,8 @@ function ditherLook(id: DitherLookId): LiveLook {
 /**
  * ASCII: the picture rebuilt from 5×7 bitmap characters (no font). Each cell reads its part of the picture, its tone picks a glyph from the
  * colouring's ramp, and where the picture has an edge the cell draws the edge's own stroke (| / - \) so outlines read as drawn, not as a screen.
- * Glyphs glow by brightness over a soft, dim copy of the picture. The characters shimmer (bright cells trade glyphs a few times a second),
- * every beat sends a ripple out from the middle that lifts the cells it crosses, and optional rain scrolls columns. All of it from the clock.
+ * Glyphs glow by brightness over a soft, dim copy of the picture. The characters shimmer (bright cells trade glyphs a few times a second)
+ * and optional rain scrolls columns. All of it from the clock.
  */
 const asciiSource = (id: AsciiLookId) => {
   const style = ASCII_STYLES[id];
@@ -359,7 +359,6 @@ in vec2 vTextureCoord;
 out vec4 finalColor;
 uniform sampler2D uTexture;
 uniform highp vec4 uInputSize;
-uniform float uBeat;
 uniform float uEnergy;
 uniform float uTime;
 
@@ -407,10 +406,7 @@ void main(void) {
   // Shimmer: lit cells trade their glyph for a neighbour on the ramp a few times a second.
   float tick = floor(uTime * 7.0);
   float shimmer = (hash3(vec3(col, row, tick)) - 0.5) * 0.9 * smoothstep(0.25, 0.9, tone);
-  // The beat's ripple: a ring that leaves the middle as the beat fades and lifts the cells it crosses.
-  vec2 fromMiddle = (vTextureCoord - 0.5) * vec2(1.0, uInputSize.y / uInputSize.x);
-  float ring = uBeat * exp(-pow((length(fromMiddle) - (1.0 - uBeat) * 0.95) / 0.07, 2.0)) * (0.5 + 0.5 * uEnergy);
-  float x = clamp(tone, 0.0, 1.0) * steps + shimmer + ring * 2.5;
+  float x = clamp(tone, 0.0, 1.0) * steps + shimmer;
   int gid = int(clamp(floor(x + 0.5), 0.0, steps));
   ${edges ? `
   // An edge draws its own stroke: the gradient's direction picks | / - or \\.
@@ -426,7 +422,7 @@ void main(void) {
   vec2 inset = (local - vec2(0.1, 0.07)) / vec2(0.8, 0.86);
   vec3 soft = (sampleRgb * 2.0 + east + west + south + north) / 6.0;
   vec3 paper = mix(${paperExpr}, soft, ${f(ASCII_PICTURE)});
-  float glow = min(1.0, ${f(ASCII_GLOW[0])} + ${f(ASCII_GLOW[1])} * tone) + ring * 0.6;
+  float glow = min(1.0, ${f(ASCII_GLOW[0])} + ${f(ASCII_GLOW[1])} * tone);
   vec3 ink = ${inkExpr};
   if (inset.x < 0.0 || inset.y < 0.0 || inset.x > 1.0 || inset.y > 1.0) {
     finalColor = vec4(paper, 1.0) * centre.a;
@@ -447,8 +443,8 @@ void main(void) {
 };
 
 function asciiLook(id: AsciiLookId): LiveLook {
-  const { filter, set } = make(asciiSource(id), `live-look-${id}`, { uBeat: 0, uEnergy: 0, uTime: 0 });
-  return { filter, update: ({ beat, energy, ms }) => set({ uBeat: beat, uEnergy: energy, uTime: ms / 1000 }) };
+  const { filter, set } = make(asciiSource(id), `live-look-${id}`, { uEnergy: 0, uTime: 0 });
+  return { filter, update: ({ energy, ms }) => set({ uEnergy: energy, uTime: ms / 1000 }) };
 }
 
 const BUILDERS: Record<LiveLookId, () => LiveLook> = {
