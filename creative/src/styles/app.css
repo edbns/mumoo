@@ -59,7 +59,14 @@
       radial-gradient(45% 55% at 100% 55%, var(--layer-glow-warm), transparent 70%),
       var(--layer-base);
   }
+  /* The frame waits for the page drawn in it: shown empty while the script starts, it reads as a flicker before everything lands. */
+  #root:empty { display: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    #root { animation: root-in 0.2s ease-out both; }
+  }
 }
+
+@keyframes root-in { from { opacity: 0; } }
 
 /* Every focus ring is the text boxes' one: thin, soft green, close to the edge (not the bright ring set apart from it). */
 .outline-ring:focus-visible { outline-color: var(--focus-ring); outline-offset: 0; }
