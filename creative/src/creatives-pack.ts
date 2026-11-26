@@ -37,6 +37,7 @@ import {
   type TreatmentId,
 } from './treatment-deal';
 import { presetAt, presetTitle, takeAt, type PresetId } from './edit-presets';
+import { REEL_STILLS } from './pack-director';
 
 
 /** One of our approved photo with a Shaders Pro image effect baked on it (punch-plates/effects), as measured when it was baked. */
@@ -532,47 +533,51 @@ function footageOrder(groups: readonly (readonly LibraryPicture[])[], wanted: Li
 const footageCache = new WeakMap<object, WeakMap<object, Map<string, LibraryPicture[]>>>();
 const NOT_SEEN = {};
 
+/** The most pictures one reel is edited from (the cart, Learning and the cloud worker take no more). */
+export const REEL_MOST = 12;
+/** A reel of stills alone (footage with no clip) is shorter: it is a slideshow however it is cut. */
+const STILLS_ONLY_MOST = 8;
+
 /**
- * The reel for card `place` of Refresh `generation`, when each Refresh deals `hand` cards: the next `size` pictures of the footage,
- * so every template on the shelf is edited from pictures no other shows, and each Refresh goes on past everything the last one showed
- * while the footage has more.
+ * The reel for card `place` of Refresh `generation`, when each Refresh deals `hand` cards. A reel is clips with a few stills
+ * (`REEL_STILLS`) for a moment of stillness, so it never turns into a slideshow. The clips and the stills of the whole footage are each
+ * dealt round the templates like cards, one to each in turn, so every template opens on clips no other shows and its reel takes as
+ * many different clips as the footage can spare before any template shares one; each Refresh deals on from where the last stopped,
+ * and each time round the footage it is shuffled afresh (`lap`).
  */
 function footageReel(library: readonly LibraryPicture[], groups: readonly (readonly LibraryPicture[])[], wanted: LibraryWanted, song: string,
   generation: number, place: number, hand: number, seen: Deal['seen']): LibraryPicture[] {
   const total = new Set(groups.flat().map(item => item.id)).size;
   if (total < 2) return [];
-  const onBoards = new Set(groups.slice(0, -1).flat().map(item => item.id)).size || total;
-  // One Refresh's hand is drawn from the song's boards alone where they hold enough; shorter reels before weaker fits.
-  const size = Math.min(REEL_POOL, total, Math.max(BOARD_REEL_MIN, Math.floor(onBoards / hand)));
-  const card = generation * hand + place;
-  const firstLap = footageOf(library, groups, wanted, song, size, seen, 0);
-  // Footage too small for a reel of its own per template: the templates share as little as it allows, each opening on another picture.
-  const small = firstLap.length < hand * size;
-  // A Refresh never straddles two laps, so no clip is on two of its templates: while the footage holds another whole hand a Refresh
-  // goes on to it, and once it is used up each Refresh walks it again in its own order.
-  const rounds = Math.max(1, Math.floor(firstLap.length / (hand * size)));
-  const lap = small ? 0 : Math.floor(generation / rounds);
-  const order = lap ? footageOf(library, groups, wanted, `${song}:lap${lap}`, size, seen, lap) : firstLap;
-  // The Refresh's stretch of the footage is dealt round the templates like cards, one picture to each in turn: the freshest pictures
-  // (the person has not seen them, often new uploads) lead every template's reel instead of filling the first templates alone.
-  const first = small ? card : (generation % rounds) * hand * size + place;
-  const reel: LibraryPicture[] = [];
-  for (let at = first; reel.length < Math.min(size, order.length); at += hand) {
-    let next = at % order.length;
-    while (reel.includes(order[next])) next = (next + 1) % order.length;
-    reel.push(order[next]);
-  }
-  // Too few clips to give every template its own: the templates share them, last in the reel, so each still opens on its own picture.
-  const clips = order.filter(isClip);
-  let have = reel.filter(isClip).length;
-  for (let step = 0; step < clips.length && have < Math.min(REEL_CLIPS, clips.length); step++) {
-    const clip = clips[(card + step) % clips.length];
-    const still = reel.map(isClip).lastIndexOf(false);
-    if (still <= 0 || reel.includes(clip)) continue;
-    reel[still] = clip;
-    have += 1;
-  }
-  return reel;
+  const lapOf = (lap: number) => footageOf(library, groups, wanted, lap ? `${song}:lap${lap}` : song, REEL_POOL, seen, lap);
+  const first = lapOf(0);
+  const allClips = first.filter(isClip);
+  const allStills = first.filter(item => !isClip(item));
+  const stills = allClips.length ? Math.min(REEL_STILLS, allStills.length) : Math.min(STILLS_ONLY_MOST, allStills.length);
+  const clips = Math.min(REEL_MOST - stills, allClips.length);
+  const deal = (count: number, clip: boolean) => {
+    const length = clip ? allClips.length : allStills.length;
+    if (!count) return [];
+    const perHand = hand * count;
+    const dealt = generation * perHand;
+    const lap = Math.floor(dealt / length);
+    const lapped = lap ? lapOf(lap).filter(item => isClip(item) === clip) : clip ? allClips : allStills;
+    const from = dealt % length;
+    const turned = [...lapped.slice(from), ...lapped.slice(0, from)];
+    const unseen = turned.filter(item => !seen?.has(item.id));
+    const order = [...unseen, ...turned.filter(item => seen?.has(item.id))];
+    // Dealt over as much of the footage as the hand needs; what the person saw waits while the rest holds at least half a hand.
+    const reach = Math.min(length, perHand);
+    const span = unseen.length >= reach / 2 ? Math.min(reach, Math.max(count, unseen.length)) : reach;
+    const picked: LibraryPicture[] = [];
+    for (let k = 0; picked.length < count; k++) {
+      let at = (place + k * hand) % span;
+      while (picked.includes(order[at])) at = (at + 1) % length;
+      picked.push(order[at]);
+    }
+    return picked;
+  };
+  return [...deal(clips, true), ...deal(stills, false)];
 }
 
 function footageOf(library: readonly LibraryPicture[], groups: readonly (readonly LibraryPicture[])[], wanted: LibraryWanted, song: string,

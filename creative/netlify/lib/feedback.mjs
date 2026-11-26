@@ -24,7 +24,7 @@ function validSlot(s) {
   if (typeof s.font !== 'string' || typeof s.fontSecondary !== 'string') return false;
   if (!optional(s.typeStyle, 40) || !optional(s.effectId, 80) || !optional(s.look, 40)) return false;
   if (s.libraryId !== undefined && s.libraryId !== null && !(typeof s.libraryId === 'string' && UUID.test(s.libraryId))) return false;
-  if (s.reelIds !== undefined && !(Array.isArray(s.reelIds) && s.reelIds.length >= 2 && s.reelIds.length <= 8 && s.reelIds.every(id => typeof id === 'string' && UUID.test(id)))) return false;
+  if (s.reelIds !== undefined && !(Array.isArray(s.reelIds) && s.reelIds.length >= 2 && s.reelIds.length <= 12 && s.reelIds.every(id => typeof id === 'string' && UUID.test(id)))) return false;
   if (s.cutSeed !== undefined && !(Number.isInteger(s.cutSeed) && s.cutSeed >= 0 && s.cutSeed < 1_000_000)) return false;
   if (s.board !== undefined && !BOARDS.includes(s.board)) return false;
   if (s.preset !== undefined && !word(s.preset, 16)) return false;

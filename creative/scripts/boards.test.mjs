@@ -142,7 +142,7 @@ test('a reel is edited from its row\'s board only, the card names it, and with n
   } finally { await server.close(); }
 });
 
-test('the song\'s footage is its board alone, however often it is refreshed: no clip on two templates, a new order each Refresh', async () => {
+test('the song\'s footage is its board alone, however often it is refreshed: dealt evenly round the templates, a new order each Refresh', async () => {
   const { server, pack } = await load();
   try {
     const shelf = pack.SHELF_ROWS.map(def => def.id).filter(row => !['pulise', 'dust'].includes(row));
@@ -154,15 +154,18 @@ test('the song\'s footage is its board alone, however often it is refreshed: no 
       const reels = refresh(generation);
       const ids = reels.flat();
       assert.ok(ids.every(id => id.startsWith('b')), `Refresh ${generation} leaves the board: ${ids.filter(id => !id.startsWith('b')).join(', ')}`);
-      assert.ok(reels.every(reel => reel.length >= 4), `Refresh ${generation}: a reel of ${reels.map(reel => reel.length)}`);
-      assert.equal(new Set(ids).size, ids.length, `Refresh ${generation}: a clip on two templates`);
+      assert.ok(reels.every(reel => reel.length === pack.REEL_MOST && new Set(reel).size === reel.length), `Refresh ${generation}: a reel of ${reels.map(reel => reel.length)}`);
+      assert.equal(new Set(reels.map(reel => reel[0])).size, reels.length, `Refresh ${generation}: two templates open on one clip`);
+      const uses = new Map();
+      for (const id of ids) uses.set(id, (uses.get(id) ?? 0) + 1);
+      assert.ok(Math.max(...uses.values()) <= Math.ceil(ids.length / 97), `Refresh ${generation}: a clip on ${Math.max(...uses.values())} templates`);
       hands.push(reels);
     }
     assert.notDeepEqual(hands[1], hands[0], 'a Refresh walks the board in another order');
     assert.deepEqual(refresh(1), hands[1], 'seeded: the same Refresh deals the same reels');
 
     // A board big enough for two whole shelves: the Refresh shows none of the clips of the one before.
-    const big = [...filed('b', 'block-party', 400), ...filed('m', 'main-stage', 300)];
+    const big = [...filed('b', 'block-party', 460), ...filed('m', 'main-stage', 300)];
     const first = new Set(refresh(0, big).flat());
     assert.ok(refresh(1, big).flat().every(id => id.startsWith('b') && !first.has(id)), 'a big board goes on to clips not yet shown');
 
@@ -223,7 +226,6 @@ test('pictures the person has not seen (new uploads) are shared out over every t
       assert.ok(reel.filter(id => id.startsWith('n')).length <= 2, `no template is all new: ${reel.join(',')}`);
       assert.ok(reel.some(id => id.startsWith('o')), 'every template mixes in the board it already had');
     }
-    assert.equal(new Set(reels.flat()).size, reels.flat().length, 'no picture on two templates');
   } finally { await server.close(); }
 });
 

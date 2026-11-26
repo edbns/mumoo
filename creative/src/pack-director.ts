@@ -77,8 +77,11 @@ const MAX_CUT_MS = 2600;
 const HOLD = { high: 1, mid: 2, low: 4 } as const;
 /** Each card of a row is edited with a different temper, which scales how many beats a cut holds: brisk, calm, in between. */
 const TEMPER = [1, 0.5, 2, 1] as const;
-/** The chance a cut is a clip rather than a still, at the loud, middle and soft parts, when there are both. */
-const CLIP_CHANCE = { high: 0.88, mid: 0.72, low: 0.5 } as const;
+/**
+ * Stills only bring a moment of stillness to a reel of clips: at most this many, one in each equal stretch of the song (four: one a
+ * quarter, three: one a third), never the opening cut. More and the reel turns into a photo slideshow.
+ */
+export const REEL_STILLS = 4;
 const HIGH = 0.66;
 const LOW = 0.33;
 /** Many videos open on black or fade in. A clip prepared before we measured that is never played from its very first frame. */
@@ -289,10 +292,11 @@ export function planReel(assets: readonly ReelAsset[], music: DirectorMusic | nu
   const playable = assets.map((asset, index) => ({ asset, index })).filter(({ asset }) => asset.kind === 'photo' || pieces(asset.shots).length > 0);
   if (!playable.length) return [];
   const next = random(seed);
-  const { times, levels } = rhythm ? presetCutTimes(music, rhythm, seed, durationMs) : cutTimes(music, seed, durationMs);
+  const { times } = rhythm ? presetCutTimes(music, rhythm, seed, durationMs) : cutTimes(music, seed, durationMs);
 
   const clips = shuffled(playable.filter(({ asset }) => asset.kind === 'clip').map(({ index }) => index), next);
   const photos = shuffled(playable.filter(({ asset }) => asset.kind === 'photo').map(({ index }) => index), next);
+  const stills = clips.length ? stillCuts(times, durationMs, Math.min(REEL_STILLS, photos.length)) : null;
   const cursor = { clip: 0, photo: 0 };
   // Each clip's pieces, shuffled once, and how far through them the edit has played.
   const playlist = new Map<number, { pieces: Shot[]; used: number }>();
@@ -302,17 +306,11 @@ export function planReel(assets: readonly ReelAsset[], music: DirectorMusic | nu
   }
 
   const segments: Segment[] = [];
-  const shown = new Map<number, number>();
   let previous = -1;
   times.forEach((atMs, k) => {
     const endMs = times[k + 1] ?? durationMs;
-    const chance = CLIP_CHANCE[band(levels[k])];
-    // It opens on a clip; after that a still only follows a clip, and never twice.
-    const afterStill = segments.length > 0 && assets[previous]?.kind === 'photo';
-    // Every picture of the reel gets its turn: a still that has not been seen yet takes the next cut once the clips have each been shown twice.
-    const stillWaiting = photos.some(index => !shown.has(index)) && clips.every(index => (shown.get(index) ?? 0) >= 2);
-    const draw = next();
-    const clip = clips.length > 0 && (photos.length === 0 || k === 0 || afterStill || (draw < chance && !stillWaiting));
+    // Clips carry the reel, each in turn before any comes back; a still has its own few cuts (`stillCuts`), or every cut when there is no clip.
+    const clip = stills ? !stills.has(k) : false;
     const pool = clip ? clips : photos;
     const kind = clip ? 'clip' : 'photo';
     let asset = pool[cursor[kind] % pool.length];
@@ -322,7 +320,6 @@ export function planReel(assets: readonly ReelAsset[], music: DirectorMusic | nu
       cursor[kind] += 1;
     }
     previous = asset;
-    shown.set(asset, (shown.get(asset) ?? 0) + 1);
 
     const length = endMs - atMs;
     const picked = playlist.get(asset);
@@ -342,6 +339,25 @@ export function planReel(assets: readonly ReelAsset[], music: DirectorMusic | nu
     }
   });
   return segments;
+}
+
+/**
+ * Which cuts (by index) are stills: one in each of `count` equal stretches of the song, the cut starting nearest its middle, never the
+ * first cut and never next to another still. A short edit with few cuts takes fewer.
+ */
+export function stillCuts(times: readonly number[], durationMs: number, count: number): Set<number> {
+  const taken = new Set<number>();
+  const wanted = Math.min(count, Math.floor((times.length - 1) / 2));
+  for (let i = 0; i < wanted; i++) {
+    const middle = ((i + 0.5) * durationMs) / wanted;
+    let best = -1;
+    for (let k = 1; k < times.length; k++) {
+      if (taken.has(k) || taken.has(k - 1) || taken.has(k + 1)) continue;
+      if (best < 0 || Math.abs(times[k] - middle) < Math.abs(times[best] - middle)) best = k;
+    }
+    if (best > 0) taken.add(best);
+  }
+  return taken;
 }
 
 /** The segment playing at `ms` of the song. */

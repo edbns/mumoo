@@ -40,7 +40,7 @@ test('the fuller telling: the whole reel and its seed, the watch, the delivery, 
   for (const bad of [
     card({ event: 'watch' }), card({ event: 'watch', watchMs: 0 }), card({ event: 'watch', watchMs: 600_001 }), card({ event: 'watch', watchMs: 1.5 }),
     card({ watchMs: 4200 }),
-    card({ slot: { ...reel, reelIds: [randomUUID()] } }), card({ slot: { ...reel, reelIds: Array.from({ length: 9 }, randomUUID) } }), card({ slot: { ...reel, reelIds: ['x', 'y'] } }),
+    card({ slot: { ...reel, reelIds: [randomUUID()] } }), card({ slot: { ...reel, reelIds: Array.from({ length: 13 }, randomUUID) } }), card({ slot: { ...reel, reelIds: ['x', 'y'] } }),
     card({ slot: { ...reel, cutSeed: -1 } }), card({ slot: { ...reel, cutSeed: 1_000_000 } }),
     card({ lyricMoods: ['fun', 'love', 'sad'] }), card({ lyricThemes: ['Party'] }), card({ lyricThemes: ['the whole chorus goes here'] }),
     card({ drive: 1.2 }), card({ mode: 'dorian' }),

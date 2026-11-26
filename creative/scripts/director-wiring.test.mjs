@@ -10,6 +10,7 @@ import { REEL_MAX, reelFrom, reelIds } from '../netlify/lib/reel.mjs';
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, logLevel: 'error' });
 const pack = await server.ssrLoadModule('/src/creatives-pack.ts');
 const reel = await server.ssrLoadModule('/src/pack-reel.ts');
+const director = await server.ssrLoadModule('/src/pack-director.ts');
 await server.close();
 
 const uuid = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -82,27 +83,42 @@ test('a reel is never made of stills alone when the library has a clip', () => {
   }
 });
 
-test('every template on the shelf is edited from pictures no other shows, with clips, and each Refresh brings new ones', () => {
-  const big = [...Array.from({ length: 200 }, (_, i) => photo(100 + i)), ...Array.from({ length: 140 }, (_, i) => clip(400 + i))];
+test('a reel is clips with four stills at most, and with footage enough no template shares a picture and each Refresh brings new ones', () => {
+  const big = [...Array.from({ length: 200 }, (_, i) => photo(1000 + i)), ...Array.from({ length: 320 }, (_, i) => clip(2000 + i))];
   const clips = new Set(big.filter(item => item.kind !== 'photo').map(item => item.id));
   const shelf = pack.SHELF_ROWS.map(def => def.id).filter(row => !['pulise', 'dust'].includes(row));
   let before = new Set();
   for (const generation of [0, 1]) {
     const leads = shelf.map(row => pack.recommendRow(row, profile(), generation, [], big, false)[0]);
     const ids = leads.flatMap(slot => slot.reelIds);
-    assert.ok(leads.every(slot => slot.reelIds.length >= 4), `Refresh ${generation}: every template is a reel`);
+    for (const slot of leads) {
+      assert.equal(slot.reelIds.length, pack.REEL_MOST, `Refresh ${generation}: a full reel`);
+      assert.equal(slot.reelIds.filter(id => !clips.has(id)).length, director.REEL_STILLS, 'four stills, the rest clips');
+    }
     assert.equal(new Set(ids).size, ids.length, `Refresh ${generation}: a picture on two templates`);
     assert.ok(ids.every(id => !before.has(id)), `Refresh ${generation} repeats a picture of the Refresh before`);
-    assert.ok(leads.every(slot => slot.reelIds.filter(id => clips.has(id)).length >= 3), 'video sells: every reel has clips');
     assert.equal(new Set(leads.map(slot => slot.cutSeed)).size, leads.length, 'and each is cut its own way');
     before = new Set(ids);
   }
 });
 
-test('with too few pictures for a reel each, every template still opens on another picture', () => {
-  const few = [...LIBRARY, ...Array.from({ length: 22 }, (_, i) => photo(20 + i)), clip(60), clip(61)];
-  const openings = REEL_ROWS.map(row => pack.recommendRow(row, profile(), 0, [], few, false)[0].reelIds[0]);
-  assert.equal(new Set(openings).size, openings.length);
+test('a small board is dealt round every template: each reel takes as many different clips as it can, each opening on its own', () => {
+  const board = [...Array.from({ length: 3 }, (_, i) => photo(20 + i)), ...Array.from({ length: 40 }, (_, i) => clip(100 + i))];
+  const leads = REEL_ROWS.map(row => pack.recommendRow(row, profile(), 0, [], board, false)[0].reelIds);
+  for (const reel of leads) {
+    assert.equal(reel.length, pack.REEL_MOST, 'nine clips and the three stills');
+    assert.equal(new Set(reel).size, reel.length, 'no picture twice in a reel');
+  }
+  assert.equal(new Set(leads.map(reel => reel[0])).size, leads.length, 'every template opens on its own clip');
+  const uses = new Map();
+  for (const id of leads.flat()) uses.set(id, (uses.get(id) ?? 0) + 1);
+  const clipUses = board.filter(item => item.kind !== 'photo').map(item => uses.get(item.id) ?? 0);
+  assert.ok(Math.min(...clipUses) >= 1 && Math.max(...clipUses) - Math.min(...clipUses) <= 2, `the whole board is dealt, evenly: ${clipUses}`);
+  const stillsOnly = [...LIBRARY.filter(item => item.kind === 'photo'), ...Array.from({ length: 22 }, (_, i) => photo(20 + i))];
+  for (const row of ['photography', 'riso']) {
+    const reel = pack.recommendRow(row, profile(), 0, [], stillsOnly, false)[0].reelIds;
+    assert.ok(reel.length >= 2 && reel.length <= 8, `${row}: no clip at all, a short reel of stills`);
+  }
 });
 
 test('with fewer than two pictures, or the person’s own, a card is not a reel', () => {
@@ -185,7 +201,8 @@ const cases = {
   rotatingLook: [card({ look: 'halftone', reel: reelOf({}, {}, {}) }), true],
   risoReel: [card({ ...riso, look: undefined, reel: reelOf({ kind: 'clip' }, { kind: 'clip' }) }), true],
   oneOnly: [card({ reel: reelOf({}) }), false],
-  nine: [card({ reel: reelOf({}, {}, {}, {}, {}, {}, {}, {}, {}) }), false],
+  twelve: [card({ reel: reelOf(...Array.from({ length: 12 }, () => ({}))) }), true],
+  thirteen: [card({ reel: reelOf(...Array.from({ length: 13 }, () => ({}))) }), false],
   eight: [card({ reel: reelOf({}, {}, {}, {}, {}, {}, {}, {}) }), true],
   notALink: [card({ reel: reelOf({}, { url: 'javascript:alert(1)' }) }), false],
   httpLink: [card({ reel: reelOf({}, { url: R2.replace('https', 'http') }) }), false],

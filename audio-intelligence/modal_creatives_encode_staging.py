@@ -55,8 +55,8 @@ OPT_KEYS = {
     "treatment", "treatmentVariant", "preset", "presetTake", "clock",
 }
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
-# A Director's reel: two to six library pictures or clips the page fetches itself, from links the site made for them (private bucket, signed, short-lived).
-REEL_MAX = 8
+# A Director's reel: two to twelve library pictures or clips the page fetches itself, from links the site made for them (private bucket, signed, short-lived).
+REEL_MAX = 12
 REEL_HOST_SUFFIX = ".r2.cloudflarestorage.com"
 # The kinds of creative the page draws, the Riso ink sets and the Window screens and faces it knows (creative/src/ad-punch.ts, riso-look.ts, window-look.ts, window-deal.ts; a test keeps these in step).
 # The live looks drawn on a picture of Our photography (creative/src/live-look-deal.ts; a test keeps these in step).

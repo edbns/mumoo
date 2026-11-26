@@ -135,7 +135,7 @@ test('Dust draws nothing from the library; Riso prints a reel of its own and fal
     assert.equal(riso.length, 4);
     const ours = new Set(library.map(entry => entry.id));
     assert.ok(riso.every(slot => slot.reelIds?.length >= 2 && slot.reelIds.every(id => ours.has(id))), 'Riso prints a reel of the library');
-    assert.notEqual(riso[0].reelIds[0], directed[0].reelIds[0], 'opening on another picture than the Directed card');
+    assert.notEqual(riso[0].cutSeed, directed[0].cutSeed, 'cut another way than the Directed card');
     assert.ok(riso.every(slot => !slot.plateId && !slot.libraryId && slot.cutSeed !== undefined));
 
     for (const row of ['riso']) {

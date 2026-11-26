@@ -208,6 +208,30 @@ test('the song\'s drive sets the pace: a slowed song holds longer and never snap
   assert.ok(director.driveBend(0.2).hardness < 0.7, 'a soft song\'s loud part is not hard');
 });
 
+test('a reel is carried by its clips, each in turn; up to four stills stand one in each equal stretch of the song, never at the open', () => {
+  const clipOf = () => ({ kind: 'clip', shots: [[0, 4000], [4000, 9000]] });
+  for (const stills of [0, 1, 2, 3, 4, 6]) {
+    const assets = [...Array.from({ length: 8 }, clipOf), ...Array.from({ length: stills }, () => ({ kind: 'photo' }))];
+    for (const id of [null, 'strobe', 'kodak', 'dreamy']) {
+      const segments = director.planReel(assets, MUSIC, 5, DURATION, id ? presets.presetDef(id).rhythm : undefined);
+      const still = segments.map((s, i) => [s, i]).filter(([s]) => assets[s.asset].kind === 'photo');
+      const count = Math.min(stills, director.REEL_STILLS, Math.floor((segments.length - 1) / 2));
+      assert.equal(still.length, count, `${id} with ${stills} stills`);
+      assert.equal(new Set(still.map(([s]) => s.asset)).size, still.length, `${id}: each still once`);
+      assert.equal(assets[segments[0].asset].kind, 'clip', `${id} opens on a clip`);
+      still.forEach(([s], n) => {
+        const stretch = DURATION / count;
+        assert.ok(s.atMs >= n * stretch - 1500 && s.atMs < (n + 1) * stretch + 1500, `${id}: still ${n + 1} of ${count} at ${s.atMs}`);
+      });
+      const clips = segments.filter(s => assets[s.asset].kind === 'clip').map(s => s.asset);
+      const firstRound = clips.slice(0, 8);
+      assert.equal(new Set(firstRound).size, firstRound.length, `${id}: no clip comes back before every clip has played`);
+    }
+  }
+  const onlyStills = director.planReel([{ kind: 'photo' }, { kind: 'photo' }, { kind: 'photo' }], MUSIC, 5, DURATION);
+  assert.ok(onlyStills.length > 3, 'no clip at all: the stills carry it');
+});
+
 test('without a preset the Director cuts as it always has', () => {
   const music = { beatsMs: BEATS, downbeatsMs: BARS, energy: ENERGY };
   assert.deepEqual(director.planReel(ASSETS, MUSIC, 5, DURATION), director.planReel(ASSETS, music, 5, DURATION));
