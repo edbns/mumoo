@@ -633,8 +633,9 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const risoPhotos: PhotoSources = { plateIds: cutOutPlates, libraryIds: risoLibrary };
   /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
   const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, turn, pickLibrary(from(), wanted, `${song}:${family}`, generation, ROW_SIZE), ownPicture);
-  // Directed and its treatments are cut and finished in the preset the song's genre calls for; each Refresh may take the next that fits.
-  const preset = presetAt({ genre, subGenre: profile.creator.subGenre?.value, style: profile.creator.style?.name }, generation, intent?.drive);
+  // Directed and its treatments are cut and finished in a preset the song's genre calls for: each template takes the next that fits, so a
+  // shelf shows them all, and each Refresh moves every template on to another.
+  const preset = presetAt({ genre, subGenre: profile.creator.subGenre?.value, style: profile.creator.style?.name }, generation + Math.max(0, place), intent?.drive);
   const withPreset = (slots: CreativesPackSlot[]) => slots.map((slot, index) => ({
     ...slot,
     label: [presetTitle(preset), slot.label].join(' · '),

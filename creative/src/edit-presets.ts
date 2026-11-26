@@ -46,8 +46,8 @@ export const PRESETS: readonly PresetDef[] = [
     id: 'kodak',
     title: 'Raw 16mm',
     genres: [
-      /\bindie\b/, /hip[- ]?hop/, /\brap\b/, /r ?& ?b|\brnb\b|rhythm and blues/, /country/, /\bfolk\b|americana/, /\bsoul\b/, /neoclassical/,
-      // Groovy house is warm and filmed, never strobed (deep and Afro house are Dreamy).
+      /\bindie\b/, /hip[- ]?hop/, /\brap\b/, /r ?& ?b|\brnb\b|rhythm and blues/, /country/, /\bfolk\b|americana/, /\bsoul\b/, /neoclassical/, /gospel|worship|christian|church/, /jazz|blues/, /\brock\b/, /corridos/,
+      // Groovy house is warm and filmed, never strobed (deep and Afro house are Dreamy, Golden Hour or Afterhours).
       /(?<!deep |afro )house/,
       /reggaeton|dembow|salsa|bachata|latin pop|traditional latin/,
     ],
@@ -58,15 +58,15 @@ export const PRESETS: readonly PresetDef[] = [
   {
     id: 'vhs',
     title: '90s Camcorder',
-    genres: [/phonk/, /lo-?fi/, /synthwave|vaporwave/, /boom ?bap/, /alt(ernative)?[- ]pop/, /pop[- ]?punk|skate punk|general punk|^punk$/],
+    genres: [/phonk/, /lo-?fi/, /synthwave|vaporwave/, /boom ?bap/, /alt(ernative)?[- ]pop/, /pop[- ]?punk|skate punk|general punk|^punk$/, /hip[- ]?hop/, /\brap\b/, /grunge|garage/, /metal|\brock\b|hardcore/, /uk drill/, /latin trap/, /jazz|blues/, /corridos/],
     rhythm: { on: 'snares', every: 1, minMs: 800, maxMs: 1500 },
     takes: ['rec', 'clean'],
   },
   {
     id: 'strobe',
     title: 'Club Pulse',
-    // Hard, fast electronic music only. Latin trap is Y2K Digicam.
-    genres: [/techno/, /drum ?(and|&|n) ?bass|\bdnb\b/, /dubstep|riddim/, /(?<!latin )\btrap\b/, /\bedm\b/],
+    // Hard, fast music: electronic, trap and drill, baile funk, metal. Latin trap is Y2K Digicam.
+    genres: [/techno/, /drum ?(and|&|n) ?bass|\bdnb\b/, /dubstep|riddim/, /(?<!latin )\btrap\b/, /\bedm\b/, /brazilian funk|funk carioca|baile funk|funk mtg|montagem/, /hardstyle|big room|electro/, /metal/, /drill/],
     rhythm: { on: 'beats', every: 2, minMs: 700, maxMs: 1400, fast: { on: 'beats', every: 1, minMs: 300, maxMs: 800 }, ramp: true },
     // Cool neon or crisp black and white; a white or a black flash on the drops.
     takes: ['neon-white', 'mono-black', 'neon-black', 'mono-white'],
@@ -76,7 +76,7 @@ export const PRESETS: readonly PresetDef[] = [
     id: 'y2k',
     title: 'Y2K Digicam',
     genres: [/\btrap\b/, /(?<!uk )drill/, /hyperpop/, /k-?pop|j-?pop/, /dancehall/, /brazilian funk|funk carioca|baile funk/,
-      /reggaeton|dembow|salsa|bachata|latin pop|traditional latin/, /corridos/],
+      /reggaeton|dembow|salsa|bachata|latin pop|traditional latin/, /corridos/, /hip[- ]?hop/, /\brap\b/, /^pop$|general pop|dance[- ]pop/, /\bedm\b/, /slap house/, /drum ?(and|&|n) ?bass|\bdnb\b/],
     rhythm: { on: 'hits', minMs: 500, maxMs: 1000, ramp: true },
     takes: ['whip', 'zoom'],
     fast: true,
@@ -84,14 +84,14 @@ export const PRESETS: readonly PresetDef[] = [
   {
     id: 'dreamy',
     title: 'Dreamy',
-    genres: [/r ?& ?b|\brnb\b|rhythm and blues/, /afro ?house/, /deep house/, /ambient|downtempo/, /ballad/, /\bindie\b/, /\bfolk\b|americana/, /neoclassical/],
+    genres: [/r ?& ?b|\brnb\b|rhythm and blues/, /afro ?house/, /deep house/, /ambient|downtempo/, /ballad/, /\bindie\b/, /\bfolk\b|americana/, /neoclassical/, /gospel|worship/, /k-?pop|j-?pop/],
     rhythm: { on: 'bars', every: 1, minMs: 2000, maxMs: 3000 },
     takes: ['pastel', 'golden'],
   },
   {
     id: 'mono',
     title: 'Gritty Mono',
-    genres: [/uk drill/, /metal/, /\brock\b/, /dark techno|industrial/, /conscious/, /hardcore/],
+    genres: [/drill/, /metal/, /\brock\b/, /techno|industrial/, /conscious/, /hardcore/, /hip[- ]?hop/, /\brap\b/, /(?<!latin )\btrap\b/, /punk/, /phonk/, /brazilian funk|funk carioca|baile funk|funk mtg|montagem/, /drum ?(and|&|n) ?bass|\bdnb\b/, /dubstep|riddim/],
     rhythm: { on: 'bars', every: 1, minMs: 1600, maxMs: 2400, fast: { on: 'beats', every: 1, minMs: 300, maxMs: 650 }, fastAfterDrop: true },
     // The plain grit; punched in on the kicks with flashes on the drops; or ghosting under heavy grain.
     takes: ['grit', 'punch', 'ghost'],
@@ -99,15 +99,15 @@ export const PRESETS: readonly PresetDef[] = [
   {
     id: 'golden',
     title: 'Golden Hour',
-    // A live session in warm light: gospel, worship, soul and jazz.
-    genres: [/gospel|worship|christian|church/, /\bsoul\b/, /jazz/, /blues/],
+    // A live session in warm light: gospel, worship, soul, jazz, R&B and the warm, slow side of dance.
+    genres: [/gospel|worship|christian|church/, /\bsoul\b/, /jazz/, /blues/, /r ?& ?b|\brnb\b|rhythm and blues/, /ballad/, /afrobeats?/, /amapiano/, /ambient|downtempo/, /afro ?house/, /salsa|bachata|bolero/],
     rhythm: { on: 'bars', every: 1, minMs: 1800, maxMs: 2800 },
     takes: ['amber', 'bloom', 'live'],
   },
   {
     id: 'baile',
     title: 'Baile Fisheye',
-    genres: [/brazilian funk|funk carioca|baile funk|funk mtg|montagem|brega funk/, /amapiano/, /afrobeats?/, /dancehall/, /gqom/],
+    genres: [/brazilian funk|funk carioca|baile funk|funk mtg|montagem|brega funk/, /amapiano/, /afrobeats?/, /dancehall/, /gqom/, /reggaeton|dembow|latin trap/, /\bk-?pop\b/],
     rhythm: { on: 'hits', minMs: 450, maxMs: 900, ramp: true },
     // A wide fisheye bouncing on the kicks; saturated neon; whip-pans between the pictures.
     takes: ['fisheye', 'neon', 'whip'],
@@ -116,7 +116,7 @@ export const PRESETS: readonly PresetDef[] = [
   {
     id: 'afterhours',
     title: 'Afterhours',
-    genres: [/(?<!afro |slap )house/, /melodic (house|techno)/, /\bminimal\b/],
+    genres: [/(?<!afro |slap )house/, /techno/, /\bminimal\b/, /\bedm\b|general electronic/, /trance|progressive/, /synthwave/, /ambient|downtempo/, /afro ?house/],
     rhythm: { on: 'beats', every: [2, 4], minMs: 900, maxMs: 1800 },
     // Club light, cyan or magenta, and light dragging behind the kicks.
     takes: ['cyan', 'magenta', 'drag'],
@@ -124,7 +124,7 @@ export const PRESETS: readonly PresetDef[] = [
   {
     id: 'super8',
     title: 'Super 8',
-    genres: [/country/, /\bfolk\b|americana|bluegrass/, /acoustic|singer[- ]songwriter/],
+    genres: [/country/, /\bfolk\b|americana|bluegrass/, /acoustic|singer[- ]songwriter/, /\bindie\b/, /lo-?fi/, /\bsoul\b/, /ballad/, /boom ?bap/, /neoclassical/, /gospel|worship|christian|church/, /jazz|blues/],
     rhythm: { on: 'bars', every: 1, minMs: 1600, maxMs: 2600 },
     // Home movie in its rounded gate, dusty and warm, at a storyteller's pace.
     takes: ['porch', 'dust'],

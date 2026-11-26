@@ -34,40 +34,56 @@ const plan = (id, seed = 3, music = MUSIC) => director.planReel(ASSETS, music, s
 
 /* ---------- which preset a song gets ---------- */
 
-test('the genre picks the preset the brief names, a style more than a sub-genre, a sub-genre more than a genre', () => {
-  const pick = song => presets.presetsFor(song);
-  assert.deepEqual(pick({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'Brazilian funk' }), ['y2k', 'baile']);
-  assert.deepEqual(pick({ genre: 'Hip-Hop & Rap', subGenre: 'General Hip-Hop', style: 'UK drill' }), ['mono']);
-  assert.deepEqual(pick({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }), ['strobe', 'y2k']);
-  assert.deepEqual(pick({ genre: 'Hip-Hop & Rap', subGenre: 'Boom Bap / Lo-Fi' }), ['vhs']);
-  assert.deepEqual(pick({ genre: 'Electronic & Dance (EDM)', subGenre: 'Deep House' }), ['dreamy', 'afterhours']);
-  assert.deepEqual(pick({ genre: 'Electronic & Dance (EDM)', subGenre: 'Ambient / Downtempo' }), ['dreamy']);
-  assert.deepEqual(pick({ genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' }), ['strobe']);
-  assert.deepEqual(pick({ genre: 'Electronic & Dance (EDM)', subGenre: 'Synthwave / Vaporwave' }), ['vhs']);
-  assert.deepEqual(pick({ genre: 'Pop', subGenre: 'General Pop', style: 'contemporary R&B' }), ['kodak', 'dreamy']);
-  assert.deepEqual(pick({ genre: 'Metal', subGenre: 'Heavy Metal / Hard Rock' }), ['mono']);
-  assert.deepEqual(pick({ genre: 'Country & Folk', subGenre: 'Modern Country' }), ['kodak', 'super8']);
-  assert.deepEqual(pick({ genre: 'Pop', subGenre: 'K-Pop / J-Pop' }), ['y2k']);
-  assert.deepEqual(pick({ genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats' }), ['y2k', 'baile']);
+/** What each song is cut as: the presets named by its most specific word, in the brief's order. */
+const GENRE_PRESETS = [
+  ['Latin & Urbano', 'General Latin', 'Brazilian funk', ['strobe','y2k','mono','baile']],
+  ['Latin & Urbano', 'General Latin', 'funk carioca', ['strobe','y2k','mono','baile']],
+  ['Latin & Urbano', 'General Latin', 'corridos tumbados', ['kodak','vhs','y2k']],
+  ['Latin & Urbano', 'Reggaeton', undefined, ['kodak','y2k','baile']],
+  ['Latin & Urbano', 'Traditional Latin (Salsa, Bachata)', undefined, ['kodak','y2k','golden']],
+  ['Latin & Urbano', 'Latin Trap', undefined, ['vhs','y2k','baile']],
+  ['Hip-Hop & Rap', 'General Hip-Hop', undefined, ['kodak','vhs','y2k','mono']],
+  ['Hip-Hop & Rap', 'General Hip-Hop', 'UK drill', ['vhs','strobe','mono']],
+  ['Hip-Hop & Rap', 'Trap', undefined, ['strobe','y2k','mono']],
+  ['Hip-Hop & Rap', 'Drill', undefined, ['strobe','y2k','mono']],
+  ['Hip-Hop & Rap', 'Boom Bap / Lo-Fi', undefined, ['vhs','super8']],
+  ['Hip-Hop & Rap', 'Phonk', undefined, ['vhs','mono']],
+  ['Electronic & Dance (EDM)', 'Techno', undefined, ['strobe','mono','afterhours']],
+  ['Electronic & Dance (EDM)', 'Drum & Bass', undefined, ['strobe','y2k','mono']],
+  ['Electronic & Dance (EDM)', 'Dubstep / Riddim', undefined, ['strobe','mono']],
+  ['Electronic & Dance (EDM)', 'General Electronic', undefined, ['strobe','afterhours']],
+  ['Electronic & Dance (EDM)', 'House', undefined, ['kodak','afterhours']],
+  ['Electronic & Dance (EDM)', 'Tech House', undefined, ['kodak','afterhours']],
+  ['Electronic & Dance (EDM)', 'Slap House', undefined, ['kodak','y2k']],
+  ['Electronic & Dance (EDM)', 'Deep House', undefined, ['dreamy','afterhours']],
+  ['Electronic & Dance (EDM)', 'Afro House', undefined, ['dreamy','golden','afterhours']],
+  ['Electronic & Dance (EDM)', 'Ambient / Downtempo', undefined, ['dreamy','golden','afterhours']],
+  ['Electronic & Dance (EDM)', 'Synthwave / Vaporwave', undefined, ['vhs','afterhours']],
+  ['Pop', 'General Pop', 'contemporary R&B', ['kodak','dreamy','golden']],
+  ['Pop', 'K-Pop / J-Pop', undefined, ['y2k','dreamy','baile']],
+  ['Pop', 'Indie Pop', undefined, ['kodak','dreamy','super8']],
+  ['Reggae & Dancehall', 'Dancehall / Afrobeats', undefined, ['y2k','golden','baile']],
+  ['Metal', 'Heavy Metal / Hard Rock', undefined, ['kodak','vhs','strobe','mono']],
+  ['Metal', 'Extreme Metal (Thrasher, Death)', undefined, ['vhs','strobe','mono']],
+  ['Rock', 'Alternative Rock', undefined, ['kodak','vhs','mono']],
+  ['Punk', 'Pop-Punk', undefined, ['vhs','mono']],
+  ['Punk', 'General Punk', undefined, ['vhs','mono']],
+  ['Punk', 'Hardcore Punk', undefined, ['vhs','mono']],
+  ['Country & Folk', 'Modern Country', undefined, ['kodak','super8']],
+  ['Country & Folk', 'Americana / Folk', undefined, ['kodak','dreamy','super8']],
+  ['Classical & Cinematic', 'Neoclassical', undefined, ['kodak','dreamy','super8']],
+  ['Gospel & Christian', 'Gospel', undefined, ['kodak','dreamy','golden','super8']],
+  ['R&B & Soul', 'Neo-Soul', undefined, ['kodak','golden','super8']],
+  ['Jazz & Blues', 'General Jazz', undefined, ['kodak','vhs','golden','super8']],
+];
+
+test('the genre picks the presets its most specific word names, a style more than a sub-genre, a sub-genre more than a genre', () => {
+  for (const [genre, subGenre, style, want] of GENRE_PRESETS) assert.deepEqual(presets.presetsFor({ genre, subGenre, style }), want, `${subGenre} ${style ?? ''}`);
 });
 
-test('groovy house is never strobed; hard electronic is; punk, Latin and the quiet genres get their own cut', () => {
-  const pick = (genre, subGenre) => presets.presetsFor({ genre, subGenre });
-  for (const house of ['House', 'Tech House', 'G-House']) assert.deepEqual(pick('Electronic & Dance (EDM)', house), ['kodak', 'afterhours'], house);
-  assert.deepEqual(pick('Electronic & Dance (EDM)', 'Slap House'), ['kodak']);
-  assert.deepEqual(pick('Electronic & Dance (EDM)', 'Afro House'), ['dreamy']);
-  for (const hard of ['Techno', 'Dubstep / Riddim', 'General Electronic']) assert.deepEqual(pick('Electronic & Dance (EDM)', hard), ['strobe'], hard);
-  assert.deepEqual(pick('Punk', 'Pop-Punk'), ['vhs']);
-  assert.deepEqual(pick('Punk', 'General Punk'), ['vhs']);
-  assert.deepEqual(pick('Punk', 'Hardcore Punk'), ['mono']);
-  assert.deepEqual(pick('Metal', 'Extreme Metal (Thrasher, Death)'), ['mono']);
-  assert.deepEqual(pick('Latin & Urbano', 'Reggaeton'), ['kodak', 'y2k']);
-  assert.deepEqual(pick('Latin & Urbano', 'Traditional Latin (Salsa, Bachata)'), ['kodak', 'y2k']);
-  assert.deepEqual(pick('Latin & Urbano', 'Latin Trap'), ['y2k']);
-  assert.deepEqual(presets.presetsFor({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'corridos tumbados' }), ['y2k']);
-  assert.deepEqual(pick('Pop', 'Indie Pop'), ['kodak', 'dreamy']);
-  assert.deepEqual(pick('Country & Folk', 'Americana / Folk'), ['kodak', 'dreamy', 'super8']);
-  assert.deepEqual(pick('Classical & Cinematic', 'Neoclassical'), ['kodak', 'dreamy']);
+test('every genre the brief names has two presets or more to take turns, and groovy house is never strobed', () => {
+  for (const [, subGenre, style, want] of GENRE_PRESETS) assert.ok(want.length >= 2, `${subGenre} ${style ?? ''}: ${want}`);
+  for (const house of ['House', 'Tech House', 'G-House', 'Deep House', 'Afro House']) assert.ok(!presets.presetsFor({ genre: 'Electronic & Dance (EDM)', subGenre: house }).includes('strobe'), house);
 });
 
 test('a song the brief does not name is cut as Raw 16mm, the most popular', () => {
@@ -75,27 +91,22 @@ test('a song the brief does not name is cut as Raw 16mm, the most popular', () =
   assert.deepEqual(presets.presetsFor({ genre: 'Spoken Word' }), ['kodak']);
 });
 
-test('gospel, soul and jazz get Golden Hour; the new presets join the ones a genre already had', () => {
-  assert.deepEqual(presets.presetsFor({ genre: 'Gospel & Christian', subGenre: 'Gospel' }), ['golden']);
-  assert.deepEqual(presets.presetsFor({ genre: 'Jazz & Blues', subGenre: 'General Jazz' }), ['golden']);
-  assert.deepEqual(presets.presetsFor({ genre: 'R&B & Soul', subGenre: 'Neo-Soul' }), ['kodak', 'golden']);
-  assert.deepEqual(presets.presetsFor({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk carioca' }), ['y2k', 'baile']);
-  assert.deepEqual([0, 1].map(g => presets.presetAt({ genre: 'Country & Folk', subGenre: 'Modern Country' }, g)), ['kodak', 'super8']);
-});
-
 test('a slow song never gets a fast-cut preset, whatever its genre says', () => {
   const slow = presets.SLOW_DRIVE - 0.05;
-  assert.deepEqual(presets.presetsFor({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'Brazilian funk' }, slow), ['kodak']);
-  assert.deepEqual(presets.presetsFor({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }, slow), ['kodak']);
-  assert.deepEqual(presets.presetsFor({ genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' }, slow), ['kodak']);
-  assert.deepEqual(presets.presetsFor({ genre: 'Electronic & Dance (EDM)', subGenre: 'Deep House' }, slow), ['dreamy', 'afterhours']);
-  assert.deepEqual(presets.presetsFor({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }, presets.SLOW_DRIVE), ['strobe', 'y2k']);
-  assert.deepEqual(presets.presetsFor({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }), ['strobe', 'y2k'], 'no measured drive: the genre decides');
+  const fast = new Set(presets.PRESETS.filter(def => def.fast).map(def => def.id));
+  for (const [genre, subGenre, style, want] of GENRE_PRESETS) {
+    const picked = presets.presetsFor({ genre, subGenre, style }, slow);
+    assert.ok(picked.length && picked.every(id => !fast.has(id)), `${subGenre}: ${picked}`);
+    if (want.some(id => !fast.has(id))) assert.deepEqual(picked, want.filter(id => !fast.has(id)), `${subGenre}: the calm ones it had`);
+  }
+  assert.deepEqual(presets.presetsFor({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'Brazilian funk' }, slow), ['mono']);
+  assert.deepEqual(presets.presetsFor({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }, presets.SLOW_DRIVE), ['strobe', 'y2k', 'mono']);
+  assert.deepEqual(presets.presetsFor({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }), ['strobe', 'y2k', 'mono'], 'no measured drive: the genre decides');
 });
 
 test('each Refresh takes the next preset that fits best, and the takes are spread across the four cards', () => {
   const trap = { genre: 'Hip-Hop & Rap', subGenre: 'Trap' };
-  assert.deepEqual([0, 1, 2, 3].map(g => presets.presetAt(trap, g)), ['strobe', 'y2k', 'strobe', 'y2k']);
+  assert.deepEqual([0, 1, 2, 3].map(g => presets.presetAt(trap, g)), ['strobe', 'y2k', 'mono', 'strobe']);
   assert.deepEqual([0, 1, 2, 3].map(i => presets.takeAt('vhs', 0, i)), ['rec', 'clean', 'rec', 'clean']);
   assert.deepEqual([0, 1, 2, 3].map(i => presets.takeAt('vhs', 1, i)), ['clean', 'rec', 'clean', 'rec']);
   assert.equal(new Set([0, 1, 2, 3].map(i => presets.takeAt('strobe', 0, i))).size, 4);
@@ -374,18 +385,25 @@ function profile(subGenre, style) {
   };
 }
 
-test('Directed and every treatment carry the song\'s preset, each card its own take, and the label says which', () => {
+test('Directed and every treatment carry a preset of the song, the shelf shows them all, each card its own take, and the label says which', () => {
   const song = profile('Trap');
+  const turn = ['strobe', 'y2k', 'mono'];
+  const shown = new Set();
   for (const row of ['photography', ...deal.TREATMENT_IDS]) {
     const slots = pack.recommendRow(row, song, 0, [], LIBRARY);
     assert.equal(slots.length, 4, row);
+    const preset = slots[0].preset;
+    assert.ok(turn.includes(preset), `${row}: ${preset}`);
+    shown.add(preset);
     for (const [i, slot] of slots.entries()) {
-      assert.equal(slot.preset, 'strobe', row);
-      assert.equal(slot.presetTake, presets.takeAt('strobe', 0, i), row);
-      assert.ok(slot.label.startsWith('Club Pulse'), `${row}: ${slot.label}`);
+      assert.equal(slot.preset, preset, `${row}: one preset a row`);
+      assert.equal(slot.presetTake, presets.takeAt(preset, 0, i), row);
+      assert.ok(slot.label.startsWith(presets.presetTitle(preset)), `${row}: ${slot.label}`);
     }
+    const next = pack.recommendRow(row, song, 1, [], LIBRARY)[0].preset;
+    assert.equal(next, turn[(turn.indexOf(preset) + 1) % turn.length], `${row}: Refresh takes the next that fits`);
   }
-  assert.ok(pack.recommendRow('photography', song, 1, [], LIBRARY).every(slot => slot.preset === 'y2k'), 'Refresh takes the next that fits');
+  assert.deepEqual([...shown].sort(), [...turn].sort(), 'one Refresh of the shelf shows every preset that fits');
 });
 
 test('the other templates carry no preset', () => {
