@@ -80,6 +80,9 @@ test('the only script is the preview player, and the page policy allows exactly 
   const quiet = fanPage({ ...LINK, preview: null, cover: null }, 'https://mumoo.app/l/x', 'https://mumoo.app');
   assert.ok(!quiet.includes('<script') && !quiet.includes('<audio') && !quiet.includes('og:image'), 'no preview, no player; no cover, no image');
   assert.ok(missingPage('https://mumoo.app').includes('noindex'));
+  const deezer = fanPage({ ...LINK, preview: 'deezer:908604612' }, 'https://mumoo.app/l/x', 'https://mumoo.app');
+  assert.ok(deezer.includes('<button id="p"') && deezer.includes('<audio id="a" preload="none" src="https://mumoo.app/api/links/preview?deezer=908604612">'),
+    'a song Apple lacks still has its play button, its preview fetched fresh');
 });
 
 test('/l/<slug> serves the published page, cached until it changes, and "not here" for anything else', { skip: !process.env.DATABASE_URL, timeout: 30000 }, async () => {

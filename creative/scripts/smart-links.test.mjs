@@ -49,6 +49,8 @@ test('a link keeps its buttons in order, each going only to its own service, and
 
   assert.ok(cleanLink({ ...LINK, cover: 'https://tracker.example/pixel.gif' }).error, 'a cover from anywhere else is refused');
   assert.ok(cleanLink({ ...LINK, preview: 'https://audio-ssl.itunes.apple.com.evil.example/a.m4a' }).error);
+  assert.equal(cleanLink({ ...LINK, preview: 'deezer:908604612' }).link.preview, 'deezer:908604612', 'a Deezer track, played fresh each time');
+  assert.ok(cleanLink({ ...LINK, preview: 'deezer:../x' }).error);
   assert.equal(cleanLink({ ...LINK, cover: null, preview: null }).link.cover, null, 'a link may have no cover');
   assert.ok(cleanLink({ ...LINK, source: 'https://example.com/song' }).error, 'the song must come from a link we can look up');
   assert.ok(cleanLink({ ...LINK, artist: '  ' }).error);

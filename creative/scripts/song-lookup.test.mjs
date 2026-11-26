@@ -91,6 +91,13 @@ test('a YouTube link is matched exactly everywhere: Apple\'s preview and cover, 
   assert.equal(song.candidates, undefined);
 });
 
+test('a song Apple Music does not have keeps Deezer\'s track for its preview, never Deezer\'s expiring link', async () => {
+  const { fetcher } = services();
+  const noApple = async (url, init) => new URL(url).hostname === 'itunes.apple.com' ? Response.json({ results: [] }) : fetcher(url, init);
+  const song = await lookupSong('https://youtu.be/4NRXx6U8ABQ', noApple);
+  assert.equal(song.preview, `deezer:${DEEZER.id}`);
+});
+
 test('an Apple Music link is sure of itself and goes straight to Deezer by name', async () => {
   const { fetcher, asked } = services();
   const song = await lookupSong('https://music.apple.com/us/album/after-hours/1499378108?i=1499378615', fetcher);

@@ -263,7 +263,8 @@ export async function lookupSong(raw, fetcher = fetch, picked = null) {
     durationMs: known.durationMs,
     isrc,
     cover: apple?.cover ?? (sureOfDeezer ? deezer.cover : null) ?? seed.cover ?? null,
-    preview: apple?.preview ?? null,
+    // Deezer's own preview links expire in minutes, so a song Apple lacks keeps Deezer's track instead (`deezer:<id>`, played through /api/links/preview).
+    preview: apple?.preview ?? (sureOfDeezer && deezer.deezerId ? `deezer:${deezer.deezerId}` : null),
     links,
     confident,
     ...(confident ? {} : { candidates: ranked.slice(0, CANDIDATES).map(({ found }) => ({ title: found.title, artist: found.artist, cover: found.cover, url: found.url, pick: found.isrc ?? `deezer:${found.deezerId}` })) }),

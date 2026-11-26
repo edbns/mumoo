@@ -1,5 +1,5 @@
 import { db } from './person.mjs';
-import { LABELS, SERVICES } from './services.mjs';
+import { DEEZER_PREVIEW, LABELS, SERVICES } from './services.mjs';
 import { ISRC, parseSource } from './song-lookup.mjs';
 export { LABELS };
 
@@ -71,7 +71,7 @@ export function cleanLink(input) {
   const artist = text(input.artist, true);
   if (!title || !artist) return { error: 'Add the song’s title and artist.' };
   const cover = input.cover ? httpsOn(input.cover, MEDIA_HOSTS) : null;
-  const preview = input.preview ? httpsOn(input.preview, MEDIA_HOSTS) : null;
+  const preview = !input.preview ? null : DEEZER_PREVIEW.test(input.preview) ? input.preview : httpsOn(input.preview, MEDIA_HOSTS);
   if ((input.cover && !cover) || (input.preview && !preview)) return { error: 'Find your song again — its cover or preview didn’t come from a music service.' };
   const isrc = typeof input.isrc === 'string' && ISRC.test(input.isrc) ? input.isrc : null;
   if (!Array.isArray(input.services)) return { error: 'Add at least one button.' };
