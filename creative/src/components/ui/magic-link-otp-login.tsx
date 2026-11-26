@@ -11,6 +11,8 @@ export type MagicLinkStep = "email" | "code" | "success";
 export type MagicLinkStatus = "idle" | "sending" | "verifying" | "error";
 export type MagicLinkOtpLoginProps = {
   defaultEmail?: string;
+  /** Whether the email field takes the focus as it opens. On a phone it does not: the keyboard would cover the choice of Google or email. */
+  focusEmail?: boolean;
   onStepChange?: (step: MagicLinkStep) => void;
   /** Resolve after your service accepts the request; reject (with the words to show) to keep the email form. */
   onSendCode?: (email: string) => unknown;
@@ -71,7 +73,7 @@ export function MagicLinkOtpLogin({
   resendSeconds = 30, codeLength = 6, onResend, onGoogle,
   appName = "your workspace", logo, successTitle = "You're in",
   title = "Your inbox is the key.", lead = <>We email you a one-time code.<br />No password to remember.</>,
-  className = "", ref,
+  className = "", ref, focusEmail = true,
 }: MagicLinkOtpLoginProps) {
   const id = React.useId();
   const length = Number.isFinite(codeLength) ? Math.min(8, Math.max(4, Math.floor(codeLength))) : 6;
@@ -295,7 +297,7 @@ export function MagicLinkOtpLogin({
             <h2 id={`${id}-title`} className="text-center text-[27px] font-semibold leading-tight tracking-tight">{title}</h2>
             <p className="mx-auto mt-2 max-w-[280px] text-center text-[13px] leading-5 text-muted-foreground">{lead}</p>
             <label htmlFor={`${id}-email`} className="sr-only">Email address</label>
-            <input id={`${id}-email`} autoFocus type="email" name="email" required autoComplete="email" autoCapitalize="none" spellCheck={false} value={value} disabled={busy} onChange={(event) => { setValue(event.target.value); setLocalError(""); setStatus("idle"); }} placeholder="you@example.com" aria-invalid={failed || undefined} aria-describedby={failed ? `${id}-error` : undefined} className={`mt-6 h-[var(--control-height-md)] w-full rounded-[var(--radius-control)] bg-secondary px-3.5 text-sm placeholder:text-muted-foreground disabled:opacity-60 ${FIELD_FOCUS}`} />
+            <input id={`${id}-email`} autoFocus={focusEmail} type="email" name="email" required autoComplete="email" autoCapitalize="none" spellCheck={false} value={value} disabled={busy} onChange={(event) => { setValue(event.target.value); setLocalError(""); setStatus("idle"); }} placeholder="you@example.com" aria-invalid={failed || undefined} aria-describedby={failed ? `${id}-error` : undefined} className={`mt-6 h-[var(--control-height-md)] w-full rounded-[var(--radius-control)] bg-secondary px-3.5 text-sm placeholder:text-muted-foreground disabled:opacity-60 ${FIELD_FOCUS}`} />
             <button type="submit" disabled={busy || !onSendCode} className={`mt-3 flex h-[var(--control-height-md)] w-full cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 ${FOCUS}`}>
               {currentStatus === "sending" ? <><LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />Sending code…</> : <>Email me a code <ArrowRight aria-hidden="true" className="size-4" /></>}
             </button>

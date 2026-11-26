@@ -61,4 +61,6 @@ function WelcomePage() {
   </>;
 }
 
-createRoot(document.getElementById('root')!).render(<WelcomePage />);
+// A phone has no desktop to show: it opens mumoo's phone app (a notice, then the person's Media) instead.
+if (window.matchMedia('(max-width: 740px)').matches) location.replace('/');
+else createRoot(document.getElementById('root')!).render(<WelcomePage />);

@@ -75,10 +75,11 @@ export function CookieBanner() {
 
 /** How mumoo is doing at the bottom left of the layer, the small links at the bottom right (they scroll with it, clear of its
     rounded corner), and the cookie banner. */
-export function LegalCorner() {
+/** `status`: the service status dot, left out on a phone, where the links have the line to themselves. */
+export function LegalCorner({ status = true }: { status?: boolean }) {
   return <>
     <nav aria-label="Legal" className="mt-auto flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 pt-8 pb-5 text-[11px] text-muted-foreground/70 sm:justify-end sm:px-8">
-      <StatusDot />
+      {status && <StatusDot />}
       {LEGAL_LINKS.map(link => <a key={link.href} href={link.href} className="hover:text-foreground">{link.label}</a>)}
       <button type="button" onClick={openCookieSettings} className="cursor-pointer rounded-none bg-transparent p-0 text-inherit hover:text-foreground">Cookie settings</button>
     </nav>

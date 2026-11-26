@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MagicLinkOtpLogin, type MagicLinkStep } from '@/components/ui/magic-link-otp-login';
 import { Modal } from '@/components/ui/modal';
 import type { SignInReason } from './account-hint';
@@ -9,6 +9,8 @@ const TERMS_URL = LEGAL_PATHS.terms;
 const PRIVACY_URL = LEGAL_PATHS.privacy;
 /** How long "You're in" stays on screen before the popup closes by itself. */
 const WELCOME_MS = 1400;
+/** A touch screen: its keyboard comes up only once the person picks the email field. */
+const TOUCH = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
 /** The sign-in popup: email, then the code we sent to it, then a short welcome. Or Google, when `onGoogle` is given. */
 export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle, reason, hideTerms = false }: {
@@ -26,6 +28,7 @@ export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle,
   onGoogle?: () => Promise<void>;
 }) {
   const [step, setStep] = useState<MagicLinkStep>('email');
+  const start = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) warmHumanCheck(); else setStep('email');
@@ -37,8 +40,11 @@ export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle,
     return () => window.clearTimeout(timer);
   }, [step, onClose]);
 
-  return <Modal open={open} onClose={onClose} bare maxWidth={420} maxHeight="calc(100vh - 3rem)" title="Sign in or make an account">
+  return <Modal open={open} onClose={onClose} bare maxWidth={420} maxHeight="calc(100vh - 3rem)" title="Sign in or make an account"
+    initialFocusRef={TOUCH ? start : undefined}>
+    <div ref={start} tabIndex={-1} className="outline-none">
     <MagicLinkOtpLogin
+      focusEmail={!TOUCH}
       appName="mumoo"
       logo={<img src="/brand/mumoo-logo.png" alt="" className="h-3.5 w-auto" />}
       onStepChange={setStep}
@@ -48,6 +54,7 @@ export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle,
       onGoogle={onGoogle}
       {...(reason ? { title: reason.title, lead: reason.lead } : {})}
     />
+    </div>
     {/* Cloudflare's tick box, only when it asks for one (human-check.ts). */}
     <div data-human-check className="mt-3 flex justify-center empty:hidden" />
     {!hideTerms && <p className="mt-4 text-center text-xs text-muted-foreground">By continuing you agree to our <a className="text-foreground underline underline-offset-4" href={TERMS_URL} target="_blank" rel="noreferrer">Terms</a> and <a className="text-foreground underline underline-offset-4" href={PRIVACY_URL} target="_blank" rel="noreferrer">Privacy Policy</a>.</p>}
