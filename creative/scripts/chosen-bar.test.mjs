@@ -79,7 +79,7 @@ test('the profile icon is at the top right, its menu opening downwards', () => {
 test('the free video is offered only while it is still to come, and the way to make videos stays', () => {
   const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
   const cta = read('smart-link-cta.tsx');
-  assert.match(cta, /\{free \? 'Make my first video free' : 'Create videos for your music'\}/);
+  assert.match(cta, /\{free \? 'Make my first video free' : 'Create videos'\}/);
   assert.match(cta, /\{free && ' First video free—no watermark\.'\}/);
   assert.match(read('main.tsx'), /onClick=\{\(\) => setStep\(2\)\}>\{freeVideo \? 'Get my free video' : 'Continue'\}<\/Button>/);
   assert.match(read('use-free-video.ts'), /addEventListener\(CREDITS_CHANGED, check\)/);
@@ -209,4 +209,20 @@ test('actions are buttons, not underlined text; Media keeps one tidy bar; the st
   assert.match(media, /chosen\.length === 0 \? storage && <StorageMeter/);
   assert.match(media, /opacity-0 outline-ring transition-\[opacity,background-color\] group-hover:opacity-100/);
   assert.doesNotMatch(read('styles/legacy.css'), /\.link-button \{[^}]*underline/);
+});
+
+test('the smart link, once live: short words, the live song in the phone, and a delete popup named by the song', () => {
+  const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
+  const cta = read('smart-link-cta.tsx');
+  assert.match(cta, /\/>Promote this release\n/);
+  assert.match(cta, /Turn “\{title\}” into beat-cut promo videos\./);
+  assert.doesNotMatch(cta, /lyric videos|in minutes|’s song|cuts for/);
+  const links = read('links-page.tsx');
+  assert.match(links, /Share it anywhere\. Track clicks by platform in My Smart Links\./);
+  assert.match(links, /placeholder="Paste a Spotify, Apple Music, or YouTube link—or type a song"/);
+  assert.match(links, /<PhonePreview link=\{link \?\? \(published \? draftOf\(published\)\.link : null\)\}/);
+  const mine = read('my-links-page.tsx');
+  assert.match(mine, /`Delete smart link for “\$\{deletingTitle\}”\?`/);
+  assert.match(mine, /This link will stop working immediately and its click stats will be permanently deleted\./);
+  assert.match(mine, /No smart links yet\. Create one link for your release across Spotify, Apple Music, YouTube, and more\./);
 });

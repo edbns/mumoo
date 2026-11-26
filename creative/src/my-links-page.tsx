@@ -26,6 +26,8 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
   const [signingIn, setSigningIn] = useState(false);
   /** The link being asked about, then deleted. */
   const [deleting, setDeleting] = useState<string | null>(null);
+  /** The song of the link being deleted, kept from the click so the popup keeps its words once the link is gone. */
+  const [deletingTitle, setDeletingTitle] = useState('');
   const [open, setOpen] = useState<string | null>(() => new URLSearchParams(location.search).get(LINK_PARAM));
   const signInAddress = useRef('');
 
@@ -79,16 +81,19 @@ export default function MyLinksPage({ onNavigate }: { onNavigate: (page: Account
     </ul>}
     {user && shown?.length === 0 && !error && <EmptyState
       action={<Button onClick={() => onNavigate('links')}><PlusIcon aria-hidden="true" className="size-4" />Create Smart Link</Button>}>
-      No smart links yet. Make one for your song — opens in every fan’s app.
+      No smart links yet. Create one link for your release across Spotify, Apple Music, YouTube, and more.
     </EmptyState>}
     {opened && <LinkAnalytics item={opened} onBack={() => show(null)} onEdit={() => edit(opened)} />}
     {!opened && shown && shown.length > 0 && <ul className="m-0 flex list-none flex-col gap-3 p-0 animate-in fade-in-0 duration-300">
-      {shown.map(item => <LinkRow key={item.slug} item={item} onOpen={() => show(item.slug)} onEdit={() => edit(item)} onDelete={() => setDeleting(item.slug)} />)}
+      {shown.map(item => <LinkRow key={item.slug} item={item} onOpen={() => show(item.slug)} onEdit={() => edit(item)} onDelete={() => { setDeleting(item.slug); setDeletingTitle(item.link.title); }} />)}
     </ul>}
 
     <ActionDialog open={deleting !== null} onClose={() => setDeleting(null)} destructive
-      title={`Delete ${deleting ? addressOf(deleting).replace(/^https?:\/\//, '') : 'this link'}?`}
-      description="Anyone who opens it finds nothing, and the analytics go too. Can’t be undone."
+      title={deletingTitle ? `Delete smart link for “${deletingTitle}”?` : 'Delete this smart link?'}
+      description={<>
+        {deleting && <span className="mb-2 block truncate text-xs text-muted-foreground/70">{addressOf(deleting).replace(/^https?:\/\//, '')}</span>}
+        This link will stop working immediately and its click stats will be permanently deleted.
+      </>}
       confirmLabel="Delete link" working="Deleting…" done="Deleted" onConfirm={() => remove(deleting!)} />
 
     <SignInDialog open={signingIn} onClose={() => setSigningIn(false)}

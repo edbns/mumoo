@@ -7,24 +7,24 @@ import { useFreeVideo } from './use-free-video';
 const WORD_STEP_S = 0.45;
 
 /**
- * The next step once a smart link is live: the song as a 9:16 lyric-video ad (its own cover and title, lit word by word), and the
- * way into the creative generator with the song handed over. Shown right after publishing, when the artist is about to promote.
+ * The next step once a smart link is live: the song as a 9:16 promo video (its own cover and title, lit word by word), and the
+ * way into the studio with the song handed over. Shown right after publishing, when the artist is about to promote.
  */
 export function AdsNextStep({ published, onStart }: { published: Published; onStart: () => void }) {
-  const { title, artist } = published.link;
+  const { title } = published.link;
   const free = useFreeVideo() === true;
   return <div className="grid items-center gap-5 rounded-[var(--radius-control)] bg-card p-4 sm:grid-cols-[auto_minmax(0,1fr)]">
     <AdMockup published={published} />
     <div className="flex min-w-0 flex-col items-start gap-3">
       <p className="m-0 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
-        <SparklesIcon aria-hidden="true" className="size-3.5" />Next: get fans to tap it
+        <SparklesIcon aria-hidden="true" className="size-3.5" />Promote this release
       </p>
-      <p className="m-0 text-lg font-semibold leading-snug">Turn “{title}” into scroll-stopping lyric videos.</p>
+      <p className="m-0 text-lg font-semibold leading-snug">Turn “{title}” into beat-cut promo videos.</p>
       <p className="m-0 text-sm text-muted-foreground">
-        Upload {artist ? `${artist}’s` : 'your'} song and mumoo makes 9:16 videos for Reels, TikTok and Shorts in minutes, in the style of your music.{free && ' First video free—no watermark.'}
+        Drop the audio and get 15-second videos for Reels, TikTok, and Shorts—matched to your sound, with optional synced lyrics.{free && ' First video free—no watermark.'}
       </p>
       <Button className="shimmer relative h-[var(--control-height-md)] overflow-hidden px-5" onClick={onStart}>
-        {free ? 'Make my first video free' : 'Create videos for your music'}<ArrowRightIcon aria-hidden="true" className="size-4" />
+        {free ? 'Make my first video free' : 'Create videos'}<ArrowRightIcon aria-hidden="true" className="size-4" />
       </Button>
     </div>
   </div>;

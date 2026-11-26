@@ -15,7 +15,7 @@ import { SignInDialog } from './sign-in-dialog';
 import { LinksSkeleton } from './links-skeleton';
 import { AddressLine, Cover, iconButton, textButton } from './smart-link-parts';
 import {
-  EMPTY_DRAFT, LABELS, SERVICES, addressOf, asLink, checkSlug, fieldsOf, isSearch, listLinks, lookupSong, publishDraft, saveDraft,
+  EMPTY_DRAFT, LABELS, SERVICES, addressOf, draftOf, asLink, checkSlug, fieldsOf, isSearch, listLinks, lookupSong, publishDraft, saveDraft,
   searchSongs, startingDraft, suggestSlug,
   type AdTokens, type Draft, type LinkFields, type Published, type SearchResult, type ServiceRow,
 } from './smart-links';
@@ -165,7 +165,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
       <div className="flex min-w-0 flex-col gap-4">
         {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
           <AddressLine slug={published.slug} />
-          <p className="m-0 text-sm text-muted-foreground">Drop it in your bio and posts. Fans get the right app button, and My Smart Links tracks which ones they press.</p>
+          <p className="m-0 text-sm text-muted-foreground">Share it anywhere. Track clicks by platform in My Smart Links.</p>
           <AdsNextStep published={published} onStart={() => {
             handSong({ title: published.link.title, artist: published.link.artist, cover: published.link.cover });
             onNavigate('create');
@@ -179,7 +179,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
             <label className="m-0 flex h-[var(--control-height-md)] min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-control)] bg-muted px-3 font-normal focus-within:shadow-[0_0_0_2px_var(--focus-ring)]">
               <SearchIcon className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden />
               <input className="h-full w-full min-w-0 bg-transparent p-0 text-sm text-foreground outline-none placeholder:text-muted-foreground" type="text"
-                aria-label="Your song’s name or link" placeholder="Search your song or paste its Spotify, Apple Music or YouTube link" autoComplete="off" spellCheck={false}
+                aria-label="Your song’s name or link" placeholder="Paste a Spotify, Apple Music, or YouTube link—or type a song" autoComplete="off" spellCheck={false}
                 value={draft.url} onChange={event => { setError(''); change(current => ({ ...current, url: event.target.value, link: null, candidates: null })); }}
                 onPaste={event => {
                   const pasted = asLink(event.clipboardData.getData('text'));
@@ -239,7 +239,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
         </AccountSection>}
       </div>
 
-      <PhonePreview link={link} slug={draft.editing ?? draft.slug} onReady={() => setPhoneReady(true)} />
+      <PhonePreview link={link ?? (published ? draftOf(published).link : null)} slug={link ? draft.editing ?? draft.slug : published?.slug ?? draft.slug} onReady={() => setPhoneReady(true)} />
     </div>
     </div>
 
