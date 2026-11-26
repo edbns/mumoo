@@ -205,7 +205,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
       {tab === 'creatives' ? 'The videos you make stay here. Download whenever you want.' : 'Photos, videos and GIFs you upload stay here, private to you, until you delete them.'}
     </EmptyState>}
 
-    {items && items.length > 0 && <div className="sticky top-4 z-10 flex min-h-12 items-center justify-between gap-3 rounded-full bg-background/80 px-5 py-1.5 backdrop-blur-md">
+    {items && items.length > 0 && <div className="sticky top-4 z-20 flex min-h-12 items-center justify-between gap-3 rounded-full bg-black px-5 py-1.5">
       <Button variant="secondary" disabled={busy} onClick={() => setSelected(chosen.length ? new Set() : new Set(items.map(item => item.id)))}>
         {chosen.length ? 'Clear selection' : 'Select all'}
       </Button>

@@ -31,6 +31,7 @@ import { preloadReel, readyToPlay, setReelPreview, type ReelSource } from './pac
 import { setMotionLive } from './pack-motion';
 import { QUEUE_BATCH, clipToMonoWav, submitCloudJobs } from './pack-cloud-export';
 import { LoadingMask } from './loading-mask';
+import { RefreshFloat } from './refresh-float';
 import { loadPunchPlatesManifest } from './punch-plates';
 import { useLibrary } from './use-library';
 import { dealSeed, rememberSeen, seenLibrary } from './library-seen';
@@ -674,16 +675,16 @@ export function CreativesPackStudio({
   useEffect(() => () => { downloadRef.current = null; }, []);
 
   return <main className="desktop trim flex-1 content-start">
-    <div className="flex flex-wrap items-center justify-end gap-3 rounded-[var(--radius-panel)] bg-background p-5">
+    <div className="mt-6 flex flex-wrap items-center justify-end gap-3 rounded-[var(--radius-panel)] bg-background p-5">
+      <p className="hint m-0 mr-auto">This is just a preview. Downloads are HD.</p>
       {!noLyrics && <label className="lyrics-switch">
         <input type="checkbox" role="switch" checked={lyricsSwitch} onChange={event => { stopPlayback(); setLyricsSwitch(event.target.checked); }} />
         <span>Lyrics</span>
       </label>}
       {uploaded && !ours && <Button variant="secondary" onClick={() => { stopPlayback(); setOurs(true); }}>Use our media</Button>}
       <PictureUpload uploads={uploads} token={token} onChange={stopPlayback} />
-      <Button className="shimmer" disabled={!allReady} onClick={refreshShelf} aria-label="Refresh all creatives">Refresh</Button>
     </div>
-    <p className="hint text-center">This is just a preview. Downloads are HD.</p>
+    <RefreshFloat disabled={!allReady} onRefresh={refreshShelf} />
     {/* The one failure shown here: the cards cannot be drawn until the page is reloaded. */}
     {error === RELOAD && <p className="hint text-center" role="alert">{RELOAD} <button type="button" className="underline" onClick={() => location.reload()}>Reload</button></p>}
     {error === NO_GRAPHICS && <p className="hint text-center" role="alert">{NO_GRAPHICS}</p>}
