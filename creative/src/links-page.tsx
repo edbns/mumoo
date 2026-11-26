@@ -162,7 +162,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
 
         <AccountSection label={draft.editing ? 'Editing your link' : 'Your song'} aside={(draft.url || link) &&
           <button type="button" className={textButton} onClick={startAgain}>{draft.editing ? 'Cancel' : 'Start again'}</button>}>
-          {!draft.editing && !link && <p className="m-0 text-sm text-muted-foreground">One link for your song that opens in every fan’s app: Spotify, Apple Music, YouTube and more.</p>}
+          {!draft.editing && !link && <p className="m-0 text-sm text-muted-foreground">One link for your track across Spotify, Apple Music, YouTube, and more.</p>}
           {!draft.editing && <form onSubmit={find} className="flex gap-2">
             <label className="m-0 flex h-[var(--control-height-md)] min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-control)] bg-muted px-3 font-normal focus-within:shadow-[0_0_0_2px_var(--focus-ring)]">
               <SearchIcon className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden />
@@ -297,12 +297,12 @@ function PhonePreview({ link, slug, onReady }: { link: LinkFields | null; slug: 
       <iframe title="Your fan page" srcDoc={html} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" onLoad={onReady}
         className="block origin-top-left border-0" style={{ width: PAGE_WIDTH, height: PAGE_WIDTH * SCREEN_RATIO, transform: `scale(${scale})` }} />
     </Iphone16Pro>
-    <p className="m-0 text-center text-xs text-muted-foreground">{link ? 'What fans see. Press play to hear the preview.' : 'Find your song and your page shows up here.'}</p>
+    <p className="m-0 text-center text-xs text-muted-foreground">{link ? 'What fans see. Press play to hear the preview.' : 'Search for your track to preview your link.'}</p>
   </aside>;
 }
 
 const EXAMPLE: LinkFields = {
-  source: '', title: 'Your song', artist: 'Your name', cover: null, preview: null, isrc: null,
+  source: '', title: 'Your song', artist: 'Artist name', cover: null, preview: null, isrc: null,
   services: SERVICES.map(service => ({ service, url: '#', hidden: false, exact: false })),
 };
 

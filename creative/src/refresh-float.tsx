@@ -3,11 +3,13 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { RefreshIcon } from '@/components/icons';
 
 /** How long the word, then the icon, stays before the other takes its turn. */
-const TURN_MS = 2600;
-const SWAP = { initial: { opacity: 0, scale: 0.6, rotate: -90 }, animate: { opacity: 1, scale: 1, rotate: 0 }, exit: { opacity: 0, scale: 0.6, rotate: 90 }, transition: { duration: 0.28, ease: 'easeOut' } } as const;
+const TURN_MS = 1500;
+/** Just outside the right edge of the cards (914px wide, centred, as `.trim`), or the screen's edge when there is no room. */
+const BESIDE_CARDS = { right: 'max(1.25rem, calc((100vw - 914px) / 2 - 64px - 1.5rem))' };
+const SWAP = { initial: { opacity: 0, scale: 0.6, rotate: -90 }, animate: { opacity: 1, scale: 1, rotate: 0 }, exit: { opacity: 0, scale: 0.6, rotate: 90 }, transition: { duration: 0.18, ease: 'easeOut' } } as const;
 
 /**
- * The shelf's one Refresh, floating at the right edge half-way down so it stays in reach however far the cards are scrolled. It takes
+ * The shelf's one Refresh, floating beside the cards half-way down so it stays in reach however far the cards are scrolled. It takes
  * turns showing its word and its icon: the word says what it does, the icon says it is a button. With reduced motion, the word stays.
  */
 export function RefreshFloat({ disabled, onRefresh }: { disabled: boolean; onRefresh: () => void }) {
@@ -19,7 +21,7 @@ export function RefreshFloat({ disabled, onRefresh }: { disabled: boolean; onRef
     return () => window.clearInterval(timer);
   }, [still]);
   const showWord = word || still;
-  return <div className="fixed right-5 top-1/2 z-30 -translate-y-1/2 md:right-8">
+  return <div className="fixed top-1/2 z-30 -translate-y-1/2" style={BESIDE_CARDS}>
     <button type="button" aria-label="Refresh all videos" title="Refresh all videos" disabled={disabled} onClick={onRefresh}
       className="shimmer grid size-16 cursor-pointer place-items-center rounded-full border-0 bg-primary text-primary-foreground shadow-[0_12px_30px_-10px_rgba(0,0,0,0.85),0_0_0_4px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
       <AnimatePresence mode="wait" initial={false}>
