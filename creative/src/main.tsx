@@ -582,6 +582,16 @@ function App() {
   </>;
 }
 
+/** Phones get their own small app (a notice, then their Media); making videos needs a computer. Same width as the CSS's `.mobile`. */
+const PHONE = '(max-width: 740px)';
+const MobileApp = lazy(() => import('./mobile-app'));
+
+/** Chosen once, as the page opens: a computer window made narrow later keeps the work it has open. */
+function Root() {
+  const [phone] = useState(() => window.matchMedia(PHONE).matches);
+  return phone ? <Suspense fallback={null}><MobileApp /></Suspense> : <App />;
+}
+
 reportUncaughtErrors();
 // The Google sign-in popup, back on our site: starting the auth SDK is all it needs (it hands the session to the page that opened it, and closes).
 const googlePopup = Boolean(window.opener) && new URLSearchParams(location.search).has('neon_popup');
@@ -589,5 +599,5 @@ if (googlePopup) void import('./account');
 // Polar's checkout window, back on our site after paying: it tells the page that opened it, and closes.
 else if (!handOverCheckout()) {
   keepReferral();
-  createRoot(document.getElementById('root')!).render(<CrashGuard><App /></CrashGuard>);
+  createRoot(document.getElementById('root')!).render(<CrashGuard><Root /></CrashGuard>);
 }

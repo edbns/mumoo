@@ -77,7 +77,7 @@ export function CookieBanner() {
     rounded corner), and the cookie banner. */
 export function LegalCorner() {
   return <>
-    <nav aria-label="Legal" className="mt-auto flex items-center justify-end gap-3 px-8 pt-8 pb-5 text-[11px] text-muted-foreground/70">
+    <nav aria-label="Legal" className="mt-auto flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 pt-8 pb-5 text-[11px] text-muted-foreground/70 sm:justify-end sm:px-8">
       <StatusDot />
       {LEGAL_LINKS.map(link => <a key={link.href} href={link.href} className="hover:text-foreground">{link.label}</a>)}
       <button type="button" onClick={openCookieSettings} className="cursor-pointer rounded-none bg-transparent p-0 text-inherit hover:text-foreground">Cookie settings</button>
