@@ -219,12 +219,9 @@ export function CreativesPackStudio({
   // Links are renewed from time to time, so cards are keyed by id, not link.
   const readyOwn = uploads.current.filter(item => item.status === 'ready' && item.url);
   const readyIds = readyOwn.map(item => item.id).join(',');
-  // The person can go back to our pictures after uploading their own; a new upload is used at once.
-  const [ours, setOurs] = useState(false);
-  useEffect(() => { setOurs(false); }, [readyIds]);
   const uploaded = readyOwn.length > 0;
-  const own = ours || readyOwn.length !== 1 ? null : readyOwn[0];
-  const ownPool = ours || readyOwn.length < 2 ? null : readyOwn.map(asLibraryPicture);
+  const own = readyOwn.length !== 1 ? null : readyOwn[0];
+  const ownPool = readyOwn.length < 2 ? null : readyOwn.map(asLibraryPicture);
   const ownKind: OwnKind | null = own ? (own.motionUrl ? 'motion' : 'photo')
     : ownPool ? (ownPool.some(item => item.kind === 'photo') ? 'photo' : 'motion') : null;
   /** Is this card drawn from the person's own pictures (one, or a pool of them)? */
@@ -681,8 +678,9 @@ export function CreativesPackStudio({
         <input type="checkbox" role="switch" checked={lyricsSwitch} onChange={event => { stopPlayback(); setLyricsSwitch(event.target.checked); }} />
         <span>Lyrics</span>
       </label>}
-      {uploaded && !ours && <Button variant="secondary" onClick={() => { stopPlayback(); setOurs(true); }}>Use our media</Button>}
-      <PictureUpload uploads={uploads} token={token} onChange={() => { stopPlayback(); setOurs(false); }} />
+      {/* Back to our pictures: the person's leave the shelf (they stay in their account), so picking them again starts from none. */}
+      {uploaded && <Button variant="secondary" onClick={() => { stopPlayback(); uploads.clear(); }}>Use our media</Button>}
+      <PictureUpload uploads={uploads} token={token} onChange={stopPlayback} />
     </div>
     {uploads.batchPercent === null && cards.length > 0 && <RefreshFloat disabled={!allReady} onRefresh={refreshShelf} />}
     {/* The one failure shown here: the cards cannot be drawn until the page is reloaded. */}

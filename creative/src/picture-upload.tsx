@@ -116,7 +116,7 @@ export function PictureUpload({ uploads, token, onChange }: {
   uploads: Uploads;
   /** Staging access, for sending the pictures from a phone. */
   token: string;
-  /** Called before the pictures change (or the same ones are picked again), so the page can stop what is playing and show them. */
+  /** Called before the pictures change, so the page can stop what is playing. */
   onChange: () => void;
 }) {
   const [open, setOpen] = useState(false);
