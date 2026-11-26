@@ -34,6 +34,8 @@ export type PresetLook = {
   vignette: number;
   /** A Super 8 gate: the picture inside a black frame with rounded corners. */
   gate: number;
+  /** A tilt-shift: the top and bottom of the picture softened by this (a share of the frame), the middle sharp. */
+  edgeBlur: number;
 };
 
 /** The camera and the moment's effects. Shift is in shares of the frame, rotation in radians, blur in shares of the frame. */
@@ -46,8 +48,9 @@ export type PresetFrame = {
   /** A whip-pan's sideways blur, and a zoom transition's blur towards the middle. */
   whipBlur: number;
   zoomBlur: number;
-  /** Above 0 a white flash, below 0 a black one. */
+  /** Above 0 a flash of `flashTint` (white unless a take colours it), below 0 a black one. */
   flash: number;
+  flashTint: readonly [number, number, number];
   /** A warm light leak (0..1) and where across the frame it burns (0..1). */
   leak: number;
   leakX: number;
@@ -55,8 +58,8 @@ export type PresetFrame = {
   tear: number;
   /** A bass hit's lens pulse (0..1): the colours split outward from the middle and the picture blurs towards it. */
   pulse: number;
-  /** The camcorder's REC display, or null. */
-  rec: { blink: boolean; time: string; date: string } | null;
+  /** The camcorder's REC display or a security camera's, or null. `dot` is the blinking red light. */
+  rec: { label: string; dot: boolean; time: string; date: string } | null;
 };
 
 export type PresetMusic = {
@@ -64,6 +67,7 @@ export type PresetMusic = {
   heavyMs?: readonly number[];
   dropsMs?: readonly number[];
   downbeatsMs?: readonly number[];
+  snaresMs?: readonly number[];
   energy?: readonly { timeMs: number; rms: number }[];
 };
 
@@ -84,7 +88,7 @@ const look = (overrides: Partial<PresetLook>): PresetLook => ({
   exposure: 1, contrast: 1, saturation: 1, lift: 0, crush: 0,
   shadow: [0, 0, 0], highlight: [0, 0, 0], mono: 0,
   halation: 0, halationTint: [1, 0.55, 0.3],
-  grain: 0, grainSize: 1.5, chroma: 0, tracking: 0, scan: 0, soften: 0, sharpen: 0, barrel: 0, vignette: 0.2, gate: 0,
+  grain: 0, grainSize: 1.5, chroma: 0, tracking: 0, scan: 0, soften: 0, sharpen: 0, barrel: 0, vignette: 0.2, gate: 0, edgeBlur: 0,
   ...overrides,
 });
 
@@ -119,30 +123,36 @@ export const LOOKS: Record<PresetId, Record<string, PresetLook>> = {
     // Harsher: blacks crushed hard, for drill and metal.
     punch: look({ exposure: 1.05, contrast: 1.7, saturation: 0, crush: 0.14, mono: 1, grain: 0.09, grainSize: 2, sharpen: 0.8, vignette: 0.45 }),
     // Moody: softer contrast under heavy grain, a pale glow.
-    ghost: look({ exposure: 1, contrast: 1.25, saturation: 0, lift: 0.04, mono: 1, grain: 0.2, grainSize: 2.6, halation: 0.3, halationTint: [1, 1, 1], vignette: 0.5 }),
+    ghost: look({ exposure: 0.96, contrast: 1.3, saturation: 0, lift: 0.05, mono: 1, grain: 0.22, grainSize: 2.8, halation: 0.3, halationTint: [1, 1, 1], vignette: 0.55 }),
+    // A security camera: a wide lens, scanlines, raw contrast.
+    cctv: look({ exposure: 1.06, contrast: 1.35, saturation: 0, lift: 0.06, mono: 1, grain: 0.1, grainSize: 1.8, tracking: 0.12, scan: 0.42, sharpen: 0.3, barrel: 0.38, vignette: 0.5 }),
   },
-  // A live session in warm light: amber and gold, glowing skin, a fine 35mm grain.
+  // A live session in warm 35mm light: amber and chocolate, glowing skin, a fine grain; the chorus brighter gold, the outro soft at the edges.
   golden: {
     amber: look({ exposure: 1.04, contrast: 0.95, saturation: 1.02, lift: 0.04, shadow: [0.035, 0.015, -0.025], highlight: [0.085, 0.045, -0.04], halation: 0.45, halationTint: [1, 0.68, 0.32], grain: 0.04, grainSize: 1.6, vignette: 0.26 }),
-    bloom: look({ exposure: 1.06, contrast: 0.88, saturation: 0.96, lift: 0.06, shadow: [0.03, 0.012, -0.015], highlight: [0.09, 0.05, -0.03], halation: 0.75, halationTint: [1, 0.74, 0.4], grain: 0.035, grainSize: 1.6, vignette: 0.22 }),
-    live: look({ exposure: 1.02, contrast: 1.06, saturation: 1.05, lift: 0.03, shadow: [0.02, 0.008, -0.02], highlight: [0.07, 0.035, -0.04], halation: 0.35, halationTint: [1, 0.62, 0.28], grain: 0.05, grainSize: 1.7, vignette: 0.3 }),
+    bloom: look({ exposure: 1.09, contrast: 0.9, saturation: 1, lift: 0.05, shadow: [0.03, 0.014, -0.015], highlight: [0.1, 0.07, -0.02], halation: 0.8, halationTint: [1, 0.74, 0.4], grain: 0.035, grainSize: 1.6, vignette: 0.22 }),
+    live: look({ exposure: 1.02, contrast: 1.06, saturation: 1.05, lift: 0.03, shadow: [0.02, 0.008, -0.02], highlight: [0.07, 0.035, -0.04], halation: 0.35, halationTint: [1, 0.62, 0.28], grain: 0.05, grainSize: 1.7, vignette: 0.48 }),
+    haze: look({ exposure: 1.03, contrast: 0.9, saturation: 0.94, lift: 0.06, shadow: [0.035, 0.014, -0.02], highlight: [0.08, 0.042, -0.035], halation: 0.55, halationTint: [1, 0.66, 0.34], grain: 0.04, grainSize: 1.6, vignette: 0.32, edgeBlur: 0.012 }),
   },
-  // The baile: a wide fisheye, colours turned right up.
+  // The baile: colours turned right up, a wide fisheye; the street cam sharp, plain phone video.
   baile: {
-    fisheye: look({ exposure: 1.05, contrast: 1.15, saturation: 1.38, shadow: [-0.01, 0, 0.04], highlight: [0.03, 0.02, 0.02], barrel: 0.42, vignette: 0.42 }),
+    fisheye: look({ exposure: 1.05, contrast: 1.15, saturation: 1.38, shadow: [-0.01, 0, 0.04], highlight: [0.03, 0.02, 0.02], barrel: 0.6, vignette: 0.45 }),
+    street: look({ exposure: 1.04, contrast: 1.12, saturation: 1.18, shadow: [0, 0, 0.02], sharpen: 0.55, vignette: 0.18 }),
     neon: look({ exposure: 1.04, contrast: 1.22, saturation: 1.45, crush: 0.04, shadow: [0.02, -0.02, 0.07], highlight: [0.06, -0.01, 0.06], barrel: 0.28, halation: 0.25, halationTint: [1, 0.4, 0.9], vignette: 0.38 }),
-    whip: look({ exposure: 1.06, contrast: 1.12, saturation: 1.35, barrel: 0.3, vignette: 0.36 }),
+    whip: look({ exposure: 1.06, contrast: 1.12, saturation: 1.48, barrel: 0.22, vignette: 0.36 }),
   },
-  // After hours: club light in cyan or magenta, crushed blacks, light that smears behind the kicks.
+  // The Boiler Room: club light, crushed blacks, light that smears behind the kicks. The hypnotic groove is cyan and emerald, the
+  // peak drop warm amber and red, the afterhours POV dark with colour fringes on the lights.
   afterhours: {
-    cyan: look({ exposure: 1.02, contrast: 1.18, saturation: 1.05, crush: 0.06, shadow: [-0.04, 0.02, 0.07], highlight: [-0.01, 0.04, 0.06], halation: 0.3, halationTint: [0.4, 0.9, 1], vignette: 0.42 }),
-    magenta: look({ exposure: 1.02, contrast: 1.18, saturation: 1.08, crush: 0.06, shadow: [0.05, -0.02, 0.06], highlight: [0.06, -0.01, 0.05], halation: 0.32, halationTint: [1, 0.35, 0.85], vignette: 0.42 }),
-    drag: look({ exposure: 1.03, contrast: 1.12, saturation: 1.02, crush: 0.05, shadow: [0.01, -0.01, 0.07], highlight: [0.04, 0.02, 0.06], halation: 0.45, halationTint: [0.75, 0.6, 1], vignette: 0.45 }),
+    cyan: look({ exposure: 1.02, contrast: 1.18, saturation: 1.05, crush: 0.06, shadow: [-0.045, 0.035, 0.05], highlight: [-0.02, 0.055, 0.04], halation: 0.32, halationTint: [0.35, 1, 0.8], vignette: 0.42 }),
+    magenta: look({ exposure: 1.03, contrast: 1.22, saturation: 1.12, crush: 0.07, shadow: [0.06, -0.005, -0.03], highlight: [0.08, 0.025, -0.04], halation: 0.4, halationTint: [1, 0.45, 0.2], vignette: 0.42 }),
+    drag: look({ exposure: 0.95, contrast: 1.2, saturation: 1.02, crush: 0.1, shadow: [0.01, -0.01, 0.06], highlight: [0.04, 0.02, 0.06], halation: 0.4, halationTint: [0.75, 0.6, 1], chroma: 3, barrel: 0.32, vignette: 0.55 }),
   },
-  // Super 8: dusty warm sepia with a green cast in the shadows, coarse grain, in its rounded gate.
+  // Super 8: dusty warm sepia with a green cast in the shadows, coarse grain, in its rounded gate; the golden road borderless at sunset.
   super8: {
     porch: look({ exposure: 1.04, contrast: 0.92, saturation: 0.78, lift: 0.08, shadow: [0.0, 0.025, -0.01], highlight: [0.07, 0.04, -0.03], halation: 0.28, grain: 0.08, grainSize: 2.4, vignette: 0.45, gate: 1 }),
-    dust: look({ exposure: 1.02, contrast: 0.98, saturation: 0.66, lift: 0.1, shadow: [0.01, 0.03, -0.005], highlight: [0.06, 0.045, -0.02], halation: 0.2, grain: 0.11, grainSize: 2.6, vignette: 0.5, gate: 1 }),
+    road: look({ exposure: 1.06, contrast: 0.96, saturation: 0.92, lift: 0.06, shadow: [0.02, 0.012, -0.015], highlight: [0.1, 0.05, -0.045], halation: 0.4, halationTint: [1, 0.6, 0.3], grain: 0.07, grainSize: 2.2, vignette: 0.35 }),
+    dust: look({ exposure: 1.02, contrast: 0.98, saturation: 0.5, lift: 0.1, shadow: [0.01, 0.03, -0.005], highlight: [0.06, 0.045, -0.02], halation: 0.2, grain: 0.11, grainSize: 2.6, vignette: 0.5, gate: 1 }),
   },
 };
 
@@ -225,13 +235,39 @@ function recDisplay(ms: number, seed: number) {
   const hour = 1 + Math.floor(chance(seed, 4) * 12);
   const minute = Math.floor(chance(seed, 5) * 50);
   const seconds = Math.floor(ms / 1000) + Math.floor(chance(seed, 6) * 30);
-  const two = (n: number) => String(n).padStart(2, '0');
   return {
-    blink: Math.floor(ms / 500) % 2 === 0,
+    label: 'REC',
+    dot: Math.floor(ms / 500) % 2 === 0,
     time: `PM ${hour}:${two(minute + Math.floor(seconds / 60))}:${two(seconds % 60)}`,
     date: `${month}. ${two(day)} ${year}`,
   };
 }
+
+const two = (n: number) => String(n).padStart(2, '0');
+
+/** A security camera's stamp: its number, a 24-hour clock running with the song, a recent date. */
+function cctvDisplay(ms: number, seed: number) {
+  const hour = Math.floor(chance(seed, 4) * 24);
+  const minute = Math.floor(chance(seed, 5) * 50);
+  const seconds = Math.floor(ms / 1000) + Math.floor(chance(seed, 6) * 30);
+  return {
+    label: `CAM ${two(1 + Math.floor(chance(seed, 7) * 9))}`,
+    dot: false,
+    time: `${two(hour)}:${two(minute + Math.floor(seconds / 60))}:${two(seconds % 60)}`,
+    date: `${2023 + Math.floor(chance(seed, 1) * 4)}-${two(1 + Math.floor(chance(seed, 2) * 12))}-${two(1 + Math.floor(chance(seed, 3) * 28))}`,
+  };
+}
+
+/** A take printed at a low frame rate (step-printing, home movie, a security camera): pack-reel.ts holds each frame this long. */
+const STEP_FPS: Partial<Record<PresetId, Record<string, number>>> = {
+  afterhours: { cyan: 12 },
+  super8: { porch: 18 },
+  mono: { cctv: 10 },
+};
+export const presetStepMs = (preset: PresetId, take: string) => {
+  const fps = STEP_FPS[preset]?.[take];
+  return fps ? 1000 / fps : 0;
+};
 
 /** A whip-pan: the picture leaving flies out one way, blurred, and the next flies in from the other side. */
 function whipBetween(frame: PresetFrame, cutsMs: readonly number[], ms: number) {
@@ -250,116 +286,181 @@ function whipBetween(frame: PresetFrame, cutsMs: readonly number[], ms: number) 
   }
 }
 
+/** The cuts that land on a bar: Groove Lock whips only there, and cuts hard on the rest. */
+const onBars = (cutsMs: readonly number[], bars: readonly number[] | undefined) =>
+  cutsMs.filter(cut => (bars ?? []).some(bar => Math.abs(bar - cut) < 90));
+
+/** Flash colours of the drop take: white, then red, green and blue frames in turn. */
+const RGB: readonly (readonly [number, number, number])[] = [[1, 1, 1], [1, 0.12, 0.2], [0.15, 1, 0.45], [0.2, 0.45, 1]];
+const AMBER: readonly [number, number, number] = [1, 0.55, 0.18];
+
 export function presetFrame(preset: PresetId, take: string, moment: PresetMoment): PresetFrame {
   const { ms, cutsMs, durationMs, music, energy, seed } = moment;
   const t = ms / 1000;
   const frame: PresetFrame = {
     look: lookOf(preset, take), zoom: 1, shiftX: 0, shiftY: 0, rotate: 0, whipBlur: 0, zoomBlur: 0,
-    flash: 0, leak: 0, leakX: 0.5, tear: 0, pulse: 0, rec: null,
+    flash: 0, flashTint: [1, 1, 1], leak: 0, leakX: 0.5, tear: 0, pulse: 0, rec: null,
   };
   const { along, index } = piece(cutsMs, ms, durationMs);
   const hit = (list: readonly number[] | undefined, within: number) => {
     const found = last(list, ms);
     return found && ms - found.at < within ? { since: ms - found.at, index: found.index } : null;
   };
+  /** A slow drift and lean, so no picture ever stands still (the pattern interrupt: nothing static for three seconds). */
+  const drift = (amount: number, lean = 0) => {
+    frame.shiftX += amount * wobble(t * 0.4, seed);
+    frame.shiftY += amount * 0.75 * wobble(t * 0.35, seed + 1);
+    frame.rotate += lean * wobble(t * 0.3, seed + 2);
+  };
+  /** A micro zoom in on each kick, harder when the music is: every take moves with the bass. */
+  const kickZoom = (amount: number) => {
+    const kick = hit(music?.kicksMs, PUNCH_MS * 3);
+    if (kick) frame.zoom += amount * Math.exp(-kick.since / PUNCH_MS) * (0.45 + 0.55 * energy);
+  };
+  /** A flash on the snares while the music is hard, never more than three a second. */
+  const snareFlash = (amount: number, tint?: (n: number) => readonly [number, number, number]) => {
+    if (energy < 0.5 || music?.dropsMs?.some(drop => Math.abs(drop - ms) < PULSE_GAP_MS)) return;
+    const snare = hit(spaced(music?.snaresMs, PULSE_GAP_MS), FLASH_MS);
+    if (!snare) return;
+    frame.flash = amount;
+    if (tint) frame.flashTint = tint(snare.index);
+  };
+  const leakOn = (moments: readonly number[], strength: number, lengthMs = LEAK_MS) => {
+    const leak = moments.map(at => ms - at).find(since => since >= 0 && since < lengthMs);
+    if (leak === undefined) return;
+    frame.leak = Math.max(frame.leak, Math.sin(Math.PI * (leak / lengthMs)) ** 1.5 * strength);
+    frame.leakX = 0.15 + 0.7 * (leak / lengthMs);
+  };
 
   if (preset === 'kodak') {
     if (take.endsWith('push')) {
       // A slow push in over each piece, as if the camera crept towards them.
       frame.zoom = 1.03 + 0.07 * along;
-      frame.shiftX = 0.003 * wobble(t * 0.4, seed);
-      frame.shiftY = 0.003 * wobble(t * 0.4, seed + 1);
+      drift(0.003);
     } else {
       // Handheld: a gentle drift and lean.
       frame.zoom = 1.06;
-      frame.shiftX = 0.011 * wobble(t * 0.45, seed);
-      frame.shiftY = 0.008 * wobble(t * 0.4, seed + 1);
-      frame.rotate = 0.006 * wobble(t * 0.3, seed + 2);
+      drift(0.011, 0.006);
     }
-    const leak = leakMoments(music).map(at => ms - at).find(since => since >= 0 && since < LEAK_MS);
-    if (leak !== undefined) {
-      frame.leak = Math.sin(Math.PI * (leak / LEAK_MS)) ** 1.5;
-      frame.leakX = 0.15 + 0.7 * (leak / LEAK_MS);
-    }
+    kickZoom(0.012);
+    leakOn(leakMoments(music), 1);
   } else if (preset === 'vhs') {
-    frame.zoom = 1.02;
+    frame.zoom = 1.03;
+    drift(0.004);
+    kickZoom(0.012);
     // A heavy bass hit shakes the tape for two frames.
     const jolt = hit(music?.heavyMs, JITTER_MS);
     if (jolt) {
-      frame.shiftX = (chance(seed, jolt.index * 2) - 0.5) * 0.012;
-      frame.shiftY = (chance(seed, jolt.index * 2 + 1) - 0.5) * 0.008;
+      frame.shiftX += (chance(seed, jolt.index * 2) - 0.5) * 0.012;
+      frame.shiftY += (chance(seed, jolt.index * 2 + 1) - 0.5) * 0.008;
       frame.tear = 1;
     }
     if (take === 'rec') frame.rec = recDisplay(ms, seed);
   } else if (preset === 'strobe') {
     // A punch in on each kick, harder when the music is.
-    const kick = hit(music?.kicksMs, PUNCH_MS * 3);
-    frame.zoom = 1.02 + (kick ? 0.075 * Math.exp(-kick.since / PUNCH_MS) * (0.45 + 0.55 * energy) : 0);
+    frame.zoom = 1.03;
+    drift(0.004);
+    kickZoom(0.075);
     // A two-frame flash on each drop, and on the bars while the music is hard.
     const drop = hit(music?.dropsMs, FLASH_MS);
     const bar = energy >= 0.6 ? hit(music?.downbeatsMs, FLASH_MS) : null;
     if (drop || bar) frame.flash = (take.endsWith('black') ? -1 : 1) * (drop ? 1 : 0.85);
   } else if (preset === 'y2k') {
-    frame.zoom = 1.02;
+    frame.zoom = 1.03;
+    drift(0.004);
+    kickZoom(0.02);
     const behind = last(cutsMs, ms);
     if (take === 'zoom') {
       // Each new picture starts close and pulls back, blurred towards the middle.
       if (behind && ms - behind.at < ZOOM_MS) {
         const k = 1 - ease((ms - behind.at) / ZOOM_MS);
-        frame.zoom = 1.02 + 0.3 * k;
+        frame.zoom += 0.3 * k;
         frame.zoomBlur = 0.05 * k;
       }
     } else {
       whipBetween(frame, cutsMs, ms);
     }
   } else if (preset === 'golden') {
-    // A slow push in, or (live) a steady handheld sway, and the warm leak on the song's lift.
-    frame.zoom = take === 'live' ? 1.05 : 1.03 + 0.05 * along;
-    frame.shiftX = (take === 'live' ? 0.008 : 0.003) * wobble(t * 0.35, seed);
-    frame.shiftY = (take === 'live' ? 0.006 : 0.003) * wobble(t * 0.3, seed + 1);
-    if (take === 'live') frame.rotate = 0.004 * wobble(t * 0.25, seed + 2);
+    if (take === 'live') {
+      // Handheld at the session, breathing in and out.
+      frame.zoom = 1.05 + 0.008 * Math.sin(t * 1.6 + seed);
+      drift(0.008, 0.004);
+    } else if (take === 'haze') {
+      // Lingering: the slowest push, the edges soft.
+      frame.zoom = 1.04 + 0.03 * along;
+      drift(0.004);
+    } else {
+      // The verse pushes in 2% over each piece; the chorus lift flares on each bar while the music is up.
+      frame.zoom = 1.03 + 0.02 * along;
+      drift(0.003);
+      if (take === 'bloom' && energy >= 0.45) leakOn(music?.downbeatsMs ?? [], 0.35, 700);
+    }
+    kickZoom(take === 'bloom' ? 0.014 : 0.006);
+    leakOn(leakMoments(music), 0.7);
   } else if (preset === 'baile') {
-    // The lens bounces on every kick; the whip take flies between pictures.
+    // The lens bounces on every kick.
     const kick = hit(music?.kicksMs, BOUNCE_MS * 3);
-    frame.zoom = 1.04 + (kick ? 0.09 * Math.exp(-kick.since / BOUNCE_MS) * (0.5 + 0.5 * energy) : 0);
-    if (kick) frame.shiftY = -0.012 * Math.exp(-kick.since / BOUNCE_MS);
-    if (take === 'whip') whipBetween(frame, cutsMs, ms);
+    const bounce = kick ? Math.exp(-kick.since / BOUNCE_MS) : 0;
+    frame.zoom = 1.04 + 0.09 * bounce * (0.5 + 0.5 * energy);
+    frame.shiftY = -0.012 * bounce;
+    if (take === 'fisheye') {
+      // From low down, looking up, the lens tilted.
+      frame.shiftY += 0.035;
+      frame.rotate = 0.025 + 0.01 * wobble(t * 0.5, seed);
+      drift(0.006);
+    } else if (take === 'street') {
+      // A phone in a hand in the crowd: fast shake, and each jump-cut reframed closer or wider on the same shot.
+      frame.zoom += index % 2 === 0 ? 0 : 0.09;
+      frame.shiftX += 0.012 * wobble(t * 3.2, seed);
+      frame.shiftY += 0.009 * wobble(t * 2.8, seed + 1);
+      frame.rotate = 0.008 * wobble(t * 2.5, seed + 2);
+    } else {
+      drift(0.005);
+      if (take === 'whip') whipBetween(frame, onBars(cutsMs, music?.downbeatsMs), ms);
+      if (take === 'neon') snareFlash(0.6, n => RGB[n % RGB.length]);
+    }
   } else if (preset === 'afterhours') {
-    // A slow drift, and on each kick the light drags sideways behind it.
-    frame.zoom = 1.05;
-    frame.shiftX = 0.006 * wobble(t * 0.3, seed);
-    frame.shiftY = 0.005 * wobble(t * 0.25, seed + 1);
+    frame.zoom = take === 'drag' ? 1.06 : 1.05;
+    drift(take === 'drag' ? 0.01 : 0.006, take === 'drag' ? 0.005 : 0);
+    // On each kick the light drags sideways behind it, as on a long shutter.
     const kick = hit(music?.kicksMs, DRAG_MS * 3);
-    const drag = take === 'drag' ? 0.05 : 0.028;
-    frame.whipBlur = (kick ? drag * Math.exp(-kick.since / DRAG_MS) : 0) + (take === 'drag' ? 0.008 : 0);
+    const drag = take === 'magenta' ? 0.02 : 0.04;
+    frame.whipBlur = (kick ? drag * Math.exp(-kick.since / DRAG_MS) : 0) + (take === 'cyan' ? 0.01 : 0);
+    if (take === 'magenta') {
+      // The peak drop: a zoom pulse on every kick and warm flash bursts while the music is hard.
+      kickZoom(0.06);
+      if (energy >= 0.55 && hit(spaced(music?.kicksMs, PULSE_GAP_MS), FLASH_MS)) {
+        frame.flash = 0.45;
+        frame.flashTint = AMBER;
+      }
+    } else {
+      kickZoom(0.015);
+    }
   } else if (preset === 'super8') {
-    // Handheld at a stroll, the gate weaving a little every frame.
+    // Handheld at a stroll; the acoustic take sways gently; in the gate the film weaves a little every frame.
     frame.zoom = 1.04;
-    frame.shiftX = 0.01 * wobble(t * 0.4, seed);
-    frame.shiftY = 0.007 * wobble(t * 0.35, seed + 1) + (chance(seed, Math.floor(ms / FRAME_MS)) - 0.5) * 0.004;
-    frame.rotate = 0.005 * wobble(t * 0.3, seed + 2);
+    if (take === 'dust') {
+      drift(0.006);
+      frame.rotate = 0.008 * Math.sin(t * 0.7 + seed);
+    } else {
+      drift(0.01, 0.005);
+    }
+    if (frame.look.gate) frame.shiftY += (chance(seed, Math.floor(ms / FRAME_MS)) - 0.5) * 0.004;
+    kickZoom(0.008);
+    leakOn(leakMoments(music), 1);
+    // The golden road burns a warm leak through every cut.
+    if (take === 'road') leakOn(cutsMs.map(cut => cut - 250), 0.55, 700);
   } else if (preset === 'dreamy') {
     // A slow Ken Burns drift over each piece, each piece another way.
     const angle = chance(seed, index) * Math.PI * 2;
     frame.zoom = 1.05 + 0.06 * along;
     frame.shiftX = Math.cos(angle) * 0.018 * (along - 0.5);
     frame.shiftY = Math.sin(angle) * 0.018 * (along - 0.5);
-  }
-  if (preset === 'golden' || preset === 'super8') {
-    const leak = leakMoments(music).map(at => ms - at).find(since => since >= 0 && since < LEAK_MS);
-    if (leak !== undefined) {
-      frame.leak = Math.sin(Math.PI * (leak / LEAK_MS)) ** 1.5 * (preset === 'golden' ? 0.7 : 1);
-      frame.leakX = 0.15 + 0.7 * (leak / LEAK_MS);
-    }
-  }
-  if (preset === 'strobe' || preset === 'y2k' || preset === 'baile') {
-    // The club and party cuts: the lens pulses on each heavy bass hit, harder when the music is.
-    const bass = hit(spaced(music?.heavyMs, PULSE_GAP_MS), PULSE_MS);
-    if (bass) frame.pulse = (1 - bass.since / PULSE_MS) ** 2 * (0.5 + 0.5 * energy);
+    kickZoom(0.006);
   } else if (preset === 'mono') {
     frame.zoom = 1.05;
     // The camera shakes on each bass hit.
-    const jolt = hit(music?.heavyMs, SHAKE_MS);
+    const jolt = take === 'cctv' ? null : hit(music?.heavyMs, SHAKE_MS);
     if (jolt) {
       const k = 1 - jolt.since / SHAKE_MS;
       const wiggle = Math.sin(jolt.since / 18);
@@ -368,14 +469,36 @@ export function presetFrame(preset: PresetId, take: string, moment: PresetMoment
       frame.rotate = (chance(seed, jolt.index * 3 + 2) - 0.5) * 0.02 * k * wiggle;
     }
     if (take === 'punch') {
-      // A micro punch in on each kick, and a two-frame flash on each drop (drops are seconds apart: never three flashes a second).
-      const kick = hit(music?.kicksMs, PUNCH_MS * 3);
-      if (kick) frame.zoom += 0.06 * Math.exp(-kick.since / PUNCH_MS) * (0.5 + 0.5 * energy);
+      // The drill and metal drop: a micro punch in on each kick, white strobe frames on the snare, and on each drop.
+      kickZoom(0.06);
+      drift(0.003);
+      snareFlash(0.9);
       if (hit(music?.dropsMs, FLASH_MS)) frame.flash = 1;
     } else if (take === 'ghost') {
-      // The picture drags towards the middle, as on a long shutter.
-      frame.zoomBlur = 0.012 + 0.012 * energy;
+      // The warehouse: a hypnotic slow zoom, light trailing behind the kicks as on a long shutter.
+      frame.zoom = 1.04 + 0.06 * along;
+      drift(0.004);
+      const kick = hit(music?.kicksMs, DRAG_MS * 3);
+      frame.zoomBlur = 0.012 + 0.012 * energy + (kick ? 0.02 * Math.exp(-kick.since / DRAG_MS) : 0);
+      frame.whipBlur = kick ? 0.025 * Math.exp(-kick.since / DRAG_MS) : 0;
+      kickZoom(0.01);
+    } else if (take === 'cctv') {
+      // A camera on the wall, panning slowly across the room.
+      frame.zoom = 1.08;
+      frame.shiftX = 0.025 * Math.sin(t * 0.22 + seed);
+      kickZoom(0.008);
+      frame.rec = cctvDisplay(ms, seed);
+    } else {
+      // Baseline noir: a slow push over each piece.
+      frame.zoom += 0.02 * along;
+      drift(0.004);
+      kickZoom(0.012);
     }
+  }
+  if (preset === 'strobe' || preset === 'y2k' || preset === 'baile') {
+    // The club and party cuts: the lens pulses on each heavy bass hit, harder when the music is.
+    const bass = hit(spaced(music?.heavyMs, PULSE_GAP_MS), PULSE_MS);
+    if (bass) frame.pulse = (1 - bass.since / PULSE_MS) ** 2 * (0.5 + 0.5 * energy);
   }
   return frame;
 }

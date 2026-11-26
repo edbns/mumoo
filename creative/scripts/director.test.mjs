@@ -89,11 +89,11 @@ test('stills never come twice in a row, and video is most of the reel', () => {
   }
 });
 
-test('a clip plays from the start of a shot-sized piece, always from inside the clip', () => {
+test('a clip plays from the start of a shot-sized piece (the opening later, to loop: see below), always from inside the clip', () => {
   for (const seed of [0, 1, 2, 3]) {
-    for (const segment of planReel(ASSETS, MUSIC, seed, DURATION)) {
+    for (const [k, segment] of planReel(ASSETS, MUSIC, seed, DURATION).entries()) {
       if (ASSETS[segment.asset].kind !== 'clip') continue;
-      assert.equal(segment.fromMs, segment.startMs);
+      if (k > 0) assert.equal(segment.fromMs, segment.startMs);
       for (let ms = segment.atMs; ms < segment.endMs; ms += 50) {
         const at = clipMsAt(segment, ms);
         assert.ok(at >= segment.startMs && at < segment.pieceEndMs, `${at}`);

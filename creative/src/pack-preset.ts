@@ -69,6 +69,10 @@ uniform float uLeakX;
 uniform float uTear;
 uniform float uPulse;
 uniform float uGate;
+uniform float uEdgeBlur;
+uniform float uFlR;
+uniform float uFlG;
+uniform float uFlB;
 
 vec2 frameMax() { return uOutputFrame.zw * uInputSize.zw; }
 vec2 mirrored(vec2 n) { return 1.0 - abs(1.0 - mod(n, 2.0)); }
@@ -113,6 +117,18 @@ void main(void) {
     c = (pick(s - vec2(uSoften, 0.0)) + pick(s) * 2.0 + pick(s + vec2(uSoften, 0.0))) / 4.0;
   } else {
     c = pick(s);
+  }
+  if (uEdgeBlur > 0.0) {
+    // A tilt-shift: soft above and below, sharp across the middle.
+    float e = smoothstep(0.12, 0.45, abs(n.y - 0.5)) * uEdgeBlur;
+    if (e > 0.0002) {
+      vec3 sum = c;
+      for (int i = 1; i <= 4; i++) {
+        float k = float(i) / 4.0;
+        sum += pick(s + vec2(0.0, e * k)) + pick(s - vec2(0.0, e * k));
+      }
+      c = sum / 9.0;
+    }
   }
   if (uChroma > 0.0) {
     vec2 o = vec2(uChroma / 1080.0, 0.0);
@@ -165,7 +181,7 @@ void main(void) {
   }
   vec2 v = (n - 0.5) * vec2(1.0, 0.75);
   c *= 1.0 - smoothstep(0.25, 0.8, length(v)) * uVignette;
-  c = mix(c, vec3(step(0.0, uFlash)), abs(uFlash));
+  c = mix(c, uFlash > 0.0 ? vec3(uFlR, uFlG, uFlB) : vec3(0.0), abs(uFlash));
   if (uGate > 0.0) {
     // The Super 8 gate: black round the picture, its corners rounded, its edge a little soft.
     vec2 g = (n - 0.5) * vec2(1.0, uAspect);
@@ -183,7 +199,7 @@ const NAMES = [
   'uTime', 'uSeed', 'uAspect', 'uZoom', 'uShiftX', 'uShiftY', 'uRotate', 'uWhip', 'uZoomBlur', 'uBarrel',
   'uExposure', 'uContrast', 'uSaturation', 'uLift', 'uCrush', 'uShR', 'uShG', 'uShB', 'uHiR', 'uHiG', 'uHiB', 'uMono',
   'uHalation', 'uHaR', 'uHaG', 'uHaB', 'uGrain', 'uGrainSize', 'uChroma', 'uTracking', 'uScan', 'uSoften', 'uSharpen',
-  'uVignette', 'uFlash', 'uLeak', 'uLeakX', 'uTear', 'uPulse', 'uGate',
+  'uVignette', 'uFlash', 'uLeak', 'uLeakX', 'uTear', 'uPulse', 'uGate', 'uEdgeBlur', 'uFlR', 'uFlG', 'uFlB',
 ] as const;
 
 /** The REC display's face: a pixel face of the catalogue, loaded with the card's own (pack-renderer.ts). */
@@ -249,6 +265,7 @@ export function createPresetPass(): PresetPass {
         uGrain: look.grain, uGrainSize: look.grainSize, uChroma: look.chroma, uTracking: look.tracking, uScan: look.scan,
         uSoften: look.soften, uSharpen: look.sharpen, uVignette: look.vignette,
         uFlash: frame.flash, uLeak: frame.leak, uLeakX: frame.leakX, uTear: frame.tear, uPulse: frame.pulse, uGate: look.gate,
+        uEdgeBlur: look.edgeBlur, uFlR: frame.flashTint[0], uFlG: frame.flashTint[1], uFlB: frame.flashTint[2],
       });
       sprite.texture = picture;
       sprite.width = WIDTH;
@@ -256,7 +273,9 @@ export function createPresetPass(): PresetPass {
       renderer.render({ container: sprite, target, clear: true });
       if (frame.rec) {
         dot.clear();
-        if (frame.rec.blink) {
+        recLabel.text = frame.rec.label;
+        recLabel.x = frame.rec.label === 'REC' ? REC_MARGIN + 46 : REC_MARGIN;
+        if (frame.rec.dot) {
           dot.circle(REC_MARGIN + 16, REC_MARGIN + 24, 15);
           dot.fill({ color: 0xe8202a });
         }

@@ -36,21 +36,21 @@ const plan = (id, seed = 3, music = MUSIC) => director.planReel(ASSETS, music, s
 
 /** What each song is cut as: the presets named by its most specific word, in the brief's order. */
 const GENRE_PRESETS = [
-  ['Latin & Urbano', 'General Latin', 'Brazilian funk', ['strobe','y2k','mono','baile']],
-  ['Latin & Urbano', 'General Latin', 'funk carioca', ['strobe','y2k','mono','baile']],
+  ['Latin & Urbano', 'General Latin', 'Brazilian funk', ['strobe','y2k','baile']],
+  ['Latin & Urbano', 'General Latin', 'funk carioca', ['strobe','y2k','baile']],
   ['Latin & Urbano', 'General Latin', 'corridos tumbados', ['kodak','vhs','y2k']],
   ['Latin & Urbano', 'Reggaeton', undefined, ['kodak','y2k','baile']],
   ['Latin & Urbano', 'Traditional Latin (Salsa, Bachata)', undefined, ['kodak','y2k','golden']],
   ['Latin & Urbano', 'Latin Trap', undefined, ['vhs','y2k','baile']],
-  ['Hip-Hop & Rap', 'General Hip-Hop', undefined, ['kodak','vhs','y2k','mono']],
+  ['Hip-Hop & Rap', 'General Hip-Hop', undefined, ['kodak','vhs','y2k']],
   ['Hip-Hop & Rap', 'General Hip-Hop', 'UK drill', ['vhs','strobe','mono']],
-  ['Hip-Hop & Rap', 'Trap', undefined, ['strobe','y2k','mono']],
-  ['Hip-Hop & Rap', 'Drill', undefined, ['strobe','y2k','mono']],
+  ['Hip-Hop & Rap', 'Trap', undefined, ['strobe','y2k']],
+  ['Hip-Hop & Rap', 'Drill', undefined, ['strobe','y2k']],
   ['Hip-Hop & Rap', 'Boom Bap / Lo-Fi', undefined, ['vhs','super8']],
-  ['Hip-Hop & Rap', 'Phonk', undefined, ['vhs','mono']],
-  ['Electronic & Dance (EDM)', 'Techno', undefined, ['strobe','mono','afterhours']],
-  ['Electronic & Dance (EDM)', 'Drum & Bass', undefined, ['strobe','y2k','mono']],
-  ['Electronic & Dance (EDM)', 'Dubstep / Riddim', undefined, ['strobe','mono']],
+  ['Hip-Hop & Rap', 'Phonk', undefined, ['vhs','strobe']],
+  ['Electronic & Dance (EDM)', 'Techno', undefined, ['strobe','afterhours']],
+  ['Electronic & Dance (EDM)', 'Drum & Bass', undefined, ['strobe','y2k']],
+  ['Electronic & Dance (EDM)', 'Dubstep / Riddim', undefined, ['strobe','y2k']],
   ['Electronic & Dance (EDM)', 'General Electronic', undefined, ['strobe','afterhours']],
   ['Electronic & Dance (EDM)', 'House', undefined, ['kodak','afterhours']],
   ['Electronic & Dance (EDM)', 'Tech House', undefined, ['kodak','afterhours']],
@@ -66,8 +66,8 @@ const GENRE_PRESETS = [
   ['Metal', 'Heavy Metal / Hard Rock', undefined, ['kodak','vhs','strobe','mono']],
   ['Metal', 'Extreme Metal (Thrasher, Death)', undefined, ['vhs','strobe','mono']],
   ['Rock', 'Alternative Rock', undefined, ['kodak','vhs','mono']],
-  ['Punk', 'Pop-Punk', undefined, ['vhs','mono']],
-  ['Punk', 'General Punk', undefined, ['vhs','mono']],
+  ['Punk', 'Pop-Punk', undefined, ['vhs','y2k']],
+  ['Punk', 'General Punk', undefined, ['vhs','y2k']],
   ['Punk', 'Hardcore Punk', undefined, ['vhs','mono']],
   ['Country & Folk', 'Modern Country', undefined, ['kodak','super8']],
   ['Country & Folk', 'Americana / Folk', undefined, ['kodak','dreamy','super8']],
@@ -94,19 +94,52 @@ test('a song the brief does not name is cut as Raw 16mm, the most popular', () =
 test('a slow song never gets a fast-cut preset, whatever its genre says', () => {
   const slow = presets.SLOW_DRIVE - 0.05;
   const fast = new Set(presets.PRESETS.filter(def => def.fast).map(def => def.id));
-  for (const [genre, subGenre, style, want] of GENRE_PRESETS) {
+  for (const [genre, subGenre, style] of GENRE_PRESETS) {
     const picked = presets.presetsFor({ genre, subGenre, style }, slow);
     assert.ok(picked.length && picked.every(id => !fast.has(id)), `${subGenre}: ${picked}`);
-    if (want.some(id => !fast.has(id))) assert.deepEqual(picked, want.filter(id => !fast.has(id)), `${subGenre}: the calm ones it had`);
   }
-  assert.deepEqual(presets.presetsFor({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'Brazilian funk' }, slow), ['mono']);
-  assert.deepEqual(presets.presetsFor({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }, presets.SLOW_DRIVE), ['strobe', 'y2k', 'mono']);
-  assert.deepEqual(presets.presetsFor({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }), ['strobe', 'y2k', 'mono'], 'no measured drive: the genre decides');
+  assert.deepEqual(presets.presetsFor({ genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'Brazilian funk' }, slow), ['kodak']);
+  assert.deepEqual(presets.presetsFor({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }, slow), ['kodak', 'vhs'], 'a slow trap song is filmed as hip-hop');
+  assert.deepEqual(presets.presetsFor({ genre: 'Hip-Hop & Rap', subGenre: 'Trap' }), ['strobe', 'y2k'], 'no measured drive: the genre decides');
+});
+
+test('the measured drive picks among the presets the genre names: each is dealt only at the pace it suits', () => {
+  for (const [genre, subGenre, style] of GENRE_PRESETS) {
+    for (const drive of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+      const picked = presets.presetsFor({ genre, subGenre, style }, drive);
+      const suits = def => drive >= def.drive[0] && drive <= def.drive[1] && !(drive < presets.SLOW_DRIVE && def.fast);
+      const any = presets.PRESETS.some(def => presets.presetFit(def, { genre, subGenre, style }) > 0 && suits(def));
+      // All suit its pace; or none of the song's could, and the nearest in pace is taken.
+      if (any) assert.ok(picked.every(id => suits(presets.presetDef(id))), `${subGenre} at ${drive}: ${picked}`);
+    }
+  }
+  const funk = { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'Brazilian funk' };
+  const techno = { genre: 'Electronic & Dance (EDM)', subGenre: 'Techno' };
+  for (const drive of [undefined, 0.3, 0.5, 0.7, 0.9]) {
+    assert.ok(!presets.presetsFor(funk, drive).includes('mono'), `Gritty Mono is never Brazilian funk (${drive})`);
+    assert.ok(!presets.presetsFor(techno, drive).includes('mono'), `nor techno (${drive})`);
+  }
+  assert.deepEqual(presets.presetsFor(funk, 0.8), ['strobe', 'y2k', 'baile']);
+  assert.deepEqual(presets.presetsFor(techno, 0.45), ['afterhours'], 'a rolling techno groove is the Boiler Room, not strobed');
+  assert.ok(presets.presetsFor({ ...techno, style: 'dark techno' }, 0.7).includes('mono'), 'dark techno is Gritty Mono');
+  assert.deepEqual(presets.presetsFor({ genre: 'Gospel & Christian', subGenre: 'Gospel' }, 0.8), ['kodak'], 'a pounding gospel song is not held like a hymn');
+});
+
+test('a take that cuts its own way says so: long holds for the acoustic take, fast cuts for the drill drop and the street cam', () => {
+  assert.ok(presets.presetRhythm('super8', 'dust').minMs >= 3000);
+  assert.ok(presets.presetRhythm('mono', 'punch').maxMs <= 1000);
+  assert.ok(presets.presetRhythm('baile', 'street').maxMs <= 750);
+  assert.equal(presets.presetRhythm('golden', 'bloom').ramp, true);
+  assert.deepEqual(presets.presetRhythm('kodak', 'portra-drift'), presets.presetDef('kodak').rhythm);
+  for (const def of presets.PRESETS) for (const take of Object.keys(def.takeRhythm ?? {})) assert.ok(def.takes.includes(take), `${def.id}/${take}`);
+  const slow = { ...MUSIC, dropsMs: [], drive: 0.15 };
+  const dust = director.planReel(ASSETS, slow, 3, DURATION, presets.presetRhythm('super8', 'dust'));
+  for (const s of dust.slice(0, -1)) assert.ok(s.endMs - s.atMs >= 3000 * 0.7, `an acoustic hold is long: ${s.endMs - s.atMs}`);
 });
 
 test('each Refresh takes the next preset that fits best, and the takes are spread across the four cards', () => {
   const trap = { genre: 'Hip-Hop & Rap', subGenre: 'Trap' };
-  assert.deepEqual([0, 1, 2, 3].map(g => presets.presetAt(trap, g)), ['strobe', 'y2k', 'mono', 'strobe']);
+  assert.deepEqual([0, 1, 2, 3].map(g => presets.presetAt(trap, g)), ['strobe', 'y2k', 'strobe', 'y2k']);
   assert.deepEqual([0, 1, 2, 3].map(i => presets.takeAt('vhs', 0, i)), ['rec', 'clean', 'rec', 'clean']);
   assert.deepEqual([0, 1, 2, 3].map(i => presets.takeAt('vhs', 1, i)), ['clean', 'rec', 'clean', 'rec']);
   assert.equal(new Set([0, 1, 2, 3].map(i => presets.takeAt('strobe', 0, i))).size, 4);
@@ -226,7 +259,7 @@ test('a reel is carried by its clips, each in turn; up to four stills stand one 
     for (const id of [null, 'strobe', 'kodak', 'dreamy']) {
       const segments = director.planReel(assets, MUSIC, 5, DURATION, id ? presets.presetDef(id).rhythm : undefined);
       const still = segments.map((s, i) => [s, i]).filter(([s]) => assets[s.asset].kind === 'photo');
-      const count = Math.min(stills, director.REEL_STILLS, Math.floor((segments.length - 1) / 2));
+      const count = Math.min(stills, director.REEL_STILLS, Math.floor((segments.length - 2) / 2));
       assert.equal(still.length, count, `${id} with ${stills} stills`);
       assert.equal(new Set(still.map(([s]) => s.asset)).size, still.length, `${id}: each still once`);
       assert.equal(assets[segments[0].asset].kind, 'clip', `${id} opens on a clip`);
@@ -251,6 +284,66 @@ test('without a preset the Director cuts as it always has', () => {
 /* ---------- what the preset does to the picture ---------- */
 
 const moment = (ms, extra = {}) => ({ ms, cutsMs: [2000, 4000, 6250], durationMs: 15_000, music: MUSIC, energy: 0.8, seed: 7, ...extra });
+
+test('no take ever stands still: every one drifts, and every one closes in a little on the kick', () => {
+  const calm = { ...MUSIC, kicksMs: [], heavyMs: [], snaresMs: [], dropsMs: [] };
+  const at = ms => moment(ms, { music: calm, cutsMs: [] });
+  for (const def of presets.PRESETS) {
+    for (const take of def.takes) {
+      const frames = [500, 1500, 2500, 3500].map(ms => motion.presetFrame(def.id, take, at(ms)));
+      const moves = frames.some((frame, i) => i && (Math.abs(frame.shiftX - frames[0].shiftX) + Math.abs(frame.shiftY - frames[0].shiftY) + Math.abs(frame.zoom - frames[0].zoom)) > 0.001);
+      assert.ok(moves, `${def.id}/${take} moves within three seconds`);
+      const kick = MUSIC.kicksMs.find(ms => ms > 1000 && !BARS.includes(ms));
+      const on = motion.presetFrame(def.id, take, moment(kick + 20, { cutsMs: [] }));
+      const off = motion.presetFrame(def.id, take, moment(kick + 20, { cutsMs: [], music: { ...MUSIC, kicksMs: [] } }));
+      assert.ok(on.zoom > off.zoom, `${def.id}/${take} closes in on the kick`);
+    }
+  }
+});
+
+test('the snare flash takes flash at most three times a second, in white or in colour', () => {
+  const snares = Array.from({ length: 40 }, (_, i) => 200 + i * 125);
+  const music = { ...MUSIC, snaresMs: snares, dropsMs: [] };
+  for (const [id, take] of [['mono', 'punch'], ['baile', 'neon']]) {
+    let flashes = 0;
+    let lit = false;
+    const tints = new Set();
+    for (let ms = 0; ms < 5000; ms += 1000 / 30) {
+      const frame = motion.presetFrame(id, take, moment(ms, { music }));
+      if (frame.flash > 0 && !lit) { flashes += 1; tints.add(frame.flashTint.join(',')); }
+      lit = frame.flash > 0;
+    }
+    assert.ok(flashes >= 10 && flashes <= 15, `${id}/${take}: ${flashes} flashes in five seconds`);
+    if (take === 'neon') assert.ok(tints.size > 1, 'the drop take flashes RGB');
+  }
+});
+
+test('CCTV stamps its camera and a 24-hour clock; three takes are step-printed at a low frame rate, the rest play smoothly', () => {
+  const cctv = motion.presetFrame('mono', 'cctv', moment(1000));
+  assert.match(cctv.rec.label, /^CAM \d\d$/);
+  assert.match(cctv.rec.time, /^\d\d:\d\d:\d\d$/);
+  assert.equal(cctv.rec.dot, false);
+  assert.equal(motion.presetFrame('vhs', 'rec', moment(1000)).rec.label, 'REC');
+  assert.equal(Math.round(motion.presetStepMs('afterhours', 'cyan')), 83);
+  assert.equal(Math.round(motion.presetStepMs('super8', 'porch')), 56);
+  assert.equal(motion.presetStepMs('mono', 'cctv'), 100);
+  assert.equal(motion.presetStepMs('kodak', 'portra-drift'), 0);
+  assert.ok(motion.presetFrame('golden', 'haze', moment(1000)).look.edgeBlur > 0, 'the outro is soft at the edges');
+});
+
+test('the last cut leads into the first: it plays the opening clip up to where the video starts, so a replay has no seam', () => {
+  const clips = Array.from({ length: 6 }, () => ({ kind: 'clip', shots: [[0, 12000]] }));
+  for (const seed of [1, 2, 3, 4, 5]) {
+    for (const id of ['kodak', 'strobe', 'baile']) {
+      const segments = director.planReel([...clips, { kind: 'photo' }], MUSIC, seed, DURATION, presets.presetDef(id).rhythm);
+      const [open] = segments;
+      const end = segments[segments.length - 1];
+      assert.equal(end.asset, open.asset, `${id} ${seed}`);
+      assert.ok(!end.ramp);
+      assert.ok(Math.abs(director.clipMsAt(end, DURATION) - director.clipMsAt(open, 0)) < 1, `${id} ${seed}: the end runs into the opening`);
+    }
+  }
+});
 
 test('Club Pulse flashes for two frames on the drop, white or black by take, and punches in on the kick', () => {
   assert.equal(motion.presetFrame('strobe', 'neon-white', moment(DROP + 10)).flash, 1);
@@ -290,7 +383,7 @@ test('Gritty Mono shakes on bass hits, and is black and white', () => {
   const shaken = motion.presetFrame('mono', 'grit', moment(BARS[2] + 60));
   assert.ok(Math.abs(shaken.shiftX) + Math.abs(shaken.shiftY) > 0);
   const still = motion.presetFrame('mono', 'grit', moment(BARS[2] + 400));
-  assert.equal(still.shiftX, 0);
+  assert.ok(Math.abs(still.shiftX) < 0.005, 'between hits only the slow drift');
   assert.equal(still.look.mono, 1);
 });
 
@@ -387,7 +480,7 @@ function profile(subGenre, style) {
 
 test('Directed and every treatment carry a preset of the song, the shelf shows them all, each card its own take, and the label says which', () => {
   const song = profile('Trap');
-  const turn = ['strobe', 'y2k', 'mono'];
+  const turn = ['strobe', 'y2k'];
   const shown = new Set();
   for (const row of ['photography', ...deal.TREATMENT_IDS.filter(id => id !== 'screenshot')]) {
     const slots = pack.recommendRow(row, song, 0, [], LIBRARY);

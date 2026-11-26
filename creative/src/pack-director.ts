@@ -230,10 +230,12 @@ function presetCutTimes(music: DirectorMusic | null, rhythm: PresetRhythm, seed:
     const afterDrop = drops.some(drop => at >= drop - 50);
     const fast = rhythm.fast && bend.fast && (rhythm.fastAfterDrop ? (drops.length ? afterDrop : here >= HIGH) : here >= HIGH || (afterDrop && here >= LOW));
     const chosen = fast ? rhythm.fast! : rhythm;
+    // A slow song holds longer, up to the longest cut, but never shorter than the take itself holds (an acoustic take's long holds).
+    const stretched = (ms: number, cap: number) => (bend.stretch > 1 ? Math.max(ms, Math.min(cap, ms * bend.stretch)) : ms * bend.stretch);
     const way = bend.stretch === 1 ? chosen : {
       ...chosen,
-      minMs: Math.min(MAX_CUT_MS, chosen.minMs * bend.stretch),
-      maxMs: Math.min(MAX_CUT_MS * 1.25, chosen.maxMs * bend.stretch),
+      minMs: stretched(chosen.minMs, MAX_CUT_MS),
+      maxMs: stretched(chosen.maxMs, MAX_CUT_MS * 1.25),
       ...(chosen.every === undefined ? {} : { every: typeof chosen.every === 'number' ? Math.round(chosen.every * bend.stretch) : [Math.round(chosen.every[0] * bend.stretch), Math.round(chosen.every[1] * bend.stretch)] as const }),
     };
     const low = at + way.minMs;
@@ -338,20 +340,37 @@ export function planReel(assets: readonly ReelAsset[], music: DirectorMusic | nu
       segments.push({ atMs, endMs, asset, startMs: 0, pieceEndMs: 0, fromMs: 0, zoom: k % 2 === 0 ? [1, 1.12] : [1.12, 1] });
     }
   });
+  loopBack(segments);
   return segments;
 }
 
 /**
+ * A seamless loop: the last cut plays the moments of the opening clip just before the opening starts (the opening moved later into its
+ * piece to make room), so a feed that replays the video runs from its last frame straight into its first, with no seam to swipe on.
+ * Left as it is where the opening is a still, its piece is too short, or the cut before the last already shows it.
+ */
+function loopBack(segments: Segment[]) {
+  if (segments.length < 3) return;
+  const open = segments[0];
+  const end = segments[segments.length - 1];
+  const lead = end.endMs - end.atMs;
+  const openLength = (open.endMs - open.atMs) * (open.ramp ? RAMP_FAST : 1);
+  if (open.pieceEndMs - open.startMs < lead + openLength || segments[segments.length - 2].asset === open.asset) return;
+  open.fromMs = open.startMs + lead;
+  segments[segments.length - 1] = { atMs: end.atMs, endMs: end.endMs, asset: open.asset, startMs: open.startMs, pieceEndMs: open.pieceEndMs, fromMs: open.startMs, zoom: [1, 1] };
+}
+
+/**
  * Which cuts (by index) are stills: one in each of `count` equal stretches of the song, the cut starting nearest its middle, never the
- * first cut and never next to another still. A short edit with few cuts takes fewer.
+ * first cut or the last (it loops back into the first: `loopBack`) and never next to another still. A short edit with few cuts takes fewer.
  */
 export function stillCuts(times: readonly number[], durationMs: number, count: number): Set<number> {
   const taken = new Set<number>();
-  const wanted = Math.min(count, Math.floor((times.length - 1) / 2));
+  const wanted = Math.min(count, Math.floor((times.length - 2) / 2));
   for (let i = 0; i < wanted; i++) {
     const middle = ((i + 0.5) * durationMs) / wanted;
     let best = -1;
-    for (let k = 1; k < times.length; k++) {
+    for (let k = 1; k < times.length - 1; k++) {
       if (taken.has(k) || taken.has(k - 1) || taken.has(k + 1)) continue;
       if (best < 0 || Math.abs(times[k] - middle) < Math.abs(times[best] - middle)) best = k;
     }

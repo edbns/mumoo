@@ -37,8 +37,8 @@ import { WINDOW_PALETTE_IDS } from './window-look';
 import type { WindowMode } from './window-deal';
 import { DRAWN_SCREENS, SILHOUETTE_IDS, SILHOUETTE_SCREENS, isDrawnFigure, silhouetteUrl } from './silhouette';
 import { isTreatmentId, isTreatmentVariant, type TreatmentId } from './treatment-deal';
-import { DISSOLVE_MS, TRANSITION, isPresetId, isPresetTake, presetDef, type PresetId } from './edit-presets';
-import { fitTreatment, presetFrame } from './preset-motion';
+import { DISSOLVE_MS, TRANSITION, isPresetId, isPresetTake, presetRhythm, type PresetId } from './edit-presets';
+import { fitTreatment, presetFrame, presetStepMs } from './preset-motion';
 import { PICTURE_BODY_MS, bodyWithin, fetchFresh } from './fetch-fresh';
 import { REC_FONT, createPresetPass, type PresetPass } from './pack-preset';
 import type { TypeEmphasis, TypeFinish } from './type-finish';
@@ -112,7 +112,7 @@ function familiesFor(opts: PackRendererOpts): string[] {
   if (opts.style === 'window' && opts.typeStyle) return [...new Set([opts.font, ...typeFamilies(opts.typeStyle, opts)])];
   if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'window') return [opts.font];
   if (opts.style === 'pulise') return [opts.font, opts.fontSecondary];
-  const recording = opts.preset === 'vhs' && opts.presetTake === 'rec' && !cutOnly(opts) ? [REC_FONT] : [];
+  const recording = ((opts.preset === 'vhs' && opts.presetTake === 'rec') || (opts.preset === 'mono' && opts.presetTake === 'cctv')) && !cutOnly(opts) ? [REC_FONT] : [];
   if (opts.style === 'treatment') {
     const typed = opts.treatment === 'typewriter' ? [TYPEWRITER_FONT] : opts.treatment === 'screenshot' ? [SCREENSHOT_FONT] : [];
     return [...(opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [opts.font, opts.fontSecondary]), ...recording, ...typed];
@@ -512,7 +512,11 @@ const durationOf = (opts: PackRendererOpts) => opts.durationMs ?? FULL_CLIP_MS;
 
 function presetCutOf(opts: PackRendererOpts) {
   const preset = opts.preset ?? null;
-  return preset ? { rhythm: presetDef(preset).rhythm, dissolveMs: TRANSITION[preset](opts.presetTake ?? '') === 'dissolve' ? DISSOLVE_MS : 0 } : undefined;
+  if (!preset) return undefined;
+  const take = opts.presetTake ?? '';
+  // A step-printed take's frame rate is part of its look, so a look or Riso that brings only the cut plays smoothly.
+  const stepMs = cutOnly(opts) ? 0 : presetStepMs(preset, take);
+  return { rhythm: presetRhythm(preset, take), dissolveMs: TRANSITION[preset](take) === 'dissolve' ? DISSOLVE_MS : 0, stepMs };
 }
 
 /** Before a shelf of still cards is drawn, each at its `frame`: the pictures they show are fetched side by side (see `warmStills`). */

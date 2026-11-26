@@ -33,7 +33,7 @@ export type Reel = Motion & {
    * Edits the reel to this music (once per music, seed and preset). Call before `seek`; the milliseconds of `seek` are then those of the song.
    * An edit preset (`edit-presets.ts`) cuts to its own rhythm, and a preset that dissolves draws the two pictures over each other for `dissolveMs`.
    */
-  direct(music: ImpactMusic | null, seed: number, durationMs: number, preset?: { rhythm: PresetRhythm; dissolveMs: number }): void;
+  direct(music: ImpactMusic | null, seed: number, durationMs: number, preset?: { rhythm: PresetRhythm; dissolveMs: number; stepMs?: number }): void;
   /** When each cut of the edit falls, in ms of the song (the first piece's start, 0, is not a cut). */
   cutsMs(): number[];
 };
@@ -343,7 +343,7 @@ const assetsOf = (sources: readonly ReelSource[]): ReelAsset[] =>
  * Fetches, side by side, the files a still card of each of these reels is drawn from: the one picture (two in a dissolve) on at `ms` of its
  * edit. The cards are drawn one after another, and none then waits on the network. Never fails: a card says what it could not read when it is drawn.
  */
-export async function warmStills(cards: readonly { sources: readonly ReelSource[]; ms: number; music: ImpactMusic | null; seed: number; durationMs: number; preset?: { rhythm: PresetRhythm; dissolveMs: number } }[]): Promise<void> {
+export async function warmStills(cards: readonly { sources: readonly ReelSource[]; ms: number; music: ImpactMusic | null; seed: number; durationMs: number; preset?: { rhythm: PresetRhythm; dissolveMs: number; stepMs?: number } }[]): Promise<void> {
   await Promise.all(cards.flatMap((card) => {
     noteLinks(card.sources);
     const segments = planReel(assetsOf(card.sources), card.music, card.seed, card.durationMs, card.preset?.rhythm);
@@ -380,6 +380,9 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
   let segments: Segment[] = [];
   let plannedFor = '';
   let dissolveMs = 0;
+  let stepMs = 0;
+  /** The step a step-printed take last drew: until the next, the picture already drawn is left as it is. */
+  let drawnStep = '';
   let seeks = 0;
 
   /**
@@ -447,6 +450,8 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
       if (key === plannedFor) return;
       segments = planReel(assets, music, seed, durationMs, preset?.rhythm);
       dissolveMs = preset?.dissolveMs ?? 0;
+      stepMs = preset?.stepMs ?? 0;
+      drawnStep = '';
       plannedFor = key;
     },
     cutsMs: () => segments.slice(1).map(segment => segment.atMs),
@@ -455,12 +460,18 @@ export async function loadReel(sources: readonly ReelSource[]): Promise<Reel> {
       if (!segment) throw new Error('The reel has nothing to play.');
       const at = segments.indexOf(segment);
       const fading = dissolveMs > 0 && at > 0 && ms - segment.atMs < dissolveMs ? segments[at - 1] : null;
-      // A dissolve draws the picture it leaves first, then this one over it, more of it each frame.
-      if (fading) await draw(fading, ms, 1);
-      const loaded = await draw(segment, ms, fading ? Math.max(0, (ms - segment.atMs) / dissolveMs) : 1);
-      const reference = loaded.reference;
-      if (reference) references.set(texture, { key: reelKey(sources[segment.asset]), canvas: reference });
-      pictureSource.update();
+      // A step-printed take holds each frame of the clip for `stepMs`, so the picture jumps on at its own low frame rate.
+      const shownMs = stepMs > 0 && !fading ? segment.atMs + Math.floor((ms - segment.atMs) / stepMs) * stepMs : ms;
+      const step = `${at}|${shownMs}`;
+      if (stepMs <= 0 || fading || step !== drawnStep) {
+        // A dissolve draws the picture it leaves first, then this one over it, more of it each frame.
+        if (fading) await draw(fading, ms, 1);
+        const loaded = await draw(segment, shownMs, fading ? Math.max(0, (ms - segment.atMs) / dissolveMs) : 1);
+        const reference = loaded.reference;
+        if (reference) references.set(texture, { key: reelKey(sources[segment.asset]), canvas: reference });
+        pictureSource.update();
+        drawnStep = step;
+      }
       // Playing the reel (a poster is one look, playing is many): the pictures the next couple of seconds need are fetched ahead, so a first sight of a clip does not stall it.
       seeks += 1;
       // The next cut's clip, when it is another video sitting still, is got to its first frame now, so the cut does not wait on a seek.
