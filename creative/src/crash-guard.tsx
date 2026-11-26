@@ -7,6 +7,12 @@ const RELOADED_AT = 'mumoo-reloaded-after-update';
 /** A tab reloaded for an update this recently that still fails is not reloaded again: it shows the page below instead of looping. */
 const RELOAD_AGAIN_MS = 30_000;
 
+let workOpen = false;
+/** A song is open in the tab: a missing file in the background then never reloads the page by itself, which would lose it. */
+export function holdWork(open: boolean) {
+  workOpen = open;
+}
+
 /** After a deploy, an open tab asks for files that are gone: the page reloads once by itself, onto the new version. */
 function reloadForUpdate(): boolean {
   try {
@@ -67,7 +73,7 @@ export function reportUncaughtErrors() {
   };
   window.addEventListener('error', event => note(`Uncaught: ${event.message}`));
   window.addEventListener('unhandledrejection', event => {
-    if (isStaleChunk(event.reason) && reloadForUpdate()) return;
+    if (isStaleChunk(event.reason) && (workOpen || reloadForUpdate())) return;
     note(`Unhandled: ${(event.reason as Error)?.message ?? String(event.reason)}`);
   });
 }

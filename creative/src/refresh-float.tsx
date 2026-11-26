@@ -15,19 +15,22 @@ const SWAP = { initial: { opacity: 0, scale: 0.6, rotate: -90 }, animate: { opac
 export function RefreshFloat({ disabled, onRefresh }: { disabled: boolean; onRefresh: () => void }) {
   const still = useReducedMotion();
   const [word, setWord] = useState(true);
+  // Held still under the pointer: a press that starts on the word and ends on the icon would otherwise be lost.
+  const [held, setHeld] = useState(false);
   useEffect(() => {
-    if (still) return;
+    if (still || held) return;
     const timer = window.setInterval(() => setWord(current => !current), TURN_MS);
     return () => window.clearInterval(timer);
-  }, [still]);
+  }, [still, held]);
   const showWord = word || still;
   return <div className="fixed top-1/2 z-30 -translate-y-1/2" style={BESIDE_CARDS}>
     <button type="button" aria-label="Refresh all videos" title="Refresh all videos" disabled={disabled} onClick={onRefresh}
+      onPointerEnter={() => setHeld(true)} onPointerLeave={() => setHeld(false)}
       className="shimmer grid size-16 cursor-pointer place-items-center rounded-full border-0 bg-primary text-primary-foreground shadow-[0_12px_30px_-10px_rgba(0,0,0,0.85),0_0_0_4px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
       <AnimatePresence mode="wait" initial={false}>
         {showWord
-          ? <motion.span key="word" {...SWAP} className="text-[11px] font-semibold tracking-tight">Refresh</motion.span>
-          : <motion.span key="icon" {...SWAP} className="grid place-items-center"><RefreshIcon aria-hidden="true" className="size-6" strokeWidth={2} /></motion.span>}
+          ? <motion.span key="word" {...SWAP} className="pointer-events-none text-[11px] font-semibold tracking-tight">Refresh</motion.span>
+          : <motion.span key="icon" {...SWAP} className="pointer-events-none grid place-items-center"><RefreshIcon aria-hidden="true" className="size-6" strokeWidth={2} /></motion.span>}
       </AnimatePresence>
     </button>
   </div>;

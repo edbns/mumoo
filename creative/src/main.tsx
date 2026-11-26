@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { CrashGuard, reportUncaughtErrors } from './crash-guard';
+import { CrashGuard, holdWork, reportUncaughtErrors } from './crash-guard';
 import { Music2Icon } from '@/components/icons';
 import { decodeAudio, hashAudio, probeDurationMs } from './audio';
 import { ACCEPTED_AUDIO, ACCEPTED_LABEL, readSongCover, readSongTags, sniffAudioFormat, type SongTags } from './audio-format';
@@ -97,8 +97,18 @@ function App() {
   useEffect(() => { window.scrollTo({ top: page === 'create' ? workScroll.current : 0 }); }, [page]);
   // Nothing is kept between visits except the cart: a refresh starts over, so what an earlier version left in this browser goes.
   useEffect(() => { forgetSession(); }, []);
-  // The account pages are fetched in the background, so opening one never waits on a blank moment.
-  useEffect(() => { void loadProfilePage(); }, []);
+  // Every part the work needs later is fetched in the background as the page opens. After a deploy the files of the version this tab
+  // runs are gone, so a part first asked for then could not load, and the song open in the tab would be lost.
+  useEffect(() => {
+    void loadProfilePage();
+    const warm = () => {
+      void loadStudio().catch(() => undefined);
+      void import('fflate').catch(() => undefined);
+      void import('./ad-fonts').then(fonts => fonts.warmFontFiles()).catch(() => undefined);
+    };
+    if ('requestIdleCallback' in window) requestIdleCallback(warm, { timeout: 3000 });
+    else setTimeout(warm, 1500);
+  }, []);
   const [songName, setSongName] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [tooMany, setTooMany] = useState<TooMany | null>(null);
@@ -147,6 +157,7 @@ function App() {
   }, [page]);
   const [songCover, setSongCover] = useState<CoverRead | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer>();
+  useEffect(() => { holdWork(Boolean(buffer)); }, [buffer]);
   const [lyricsState, setLyricsState] = useState({ busy: false, dirty: false });
   const [lyricsInfo, setLyricsInfo] = useState<{ language?: string; origin: 'transcribed' | 'typed' }>({ origin: 'transcribed' });
   /** The same words as `composition.cues`, with the line breaks and timing marks the lyrics editor needs to open on them again. */

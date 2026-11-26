@@ -142,6 +142,11 @@ export async function ensureFonts(families: readonly string[], text = ''): Promi
   }));
 }
 
+/** Fetches every face's small stylesheet now (the font files themselves still load only when a card draws with one). */
+export function warmFontFiles() {
+  for (const file of [...Object.values(DISPLAY_FACES), ...Object.values(FIXED_FACES)]) void file.load().catch(() => undefined);
+}
+
 /** The faces of the fixed type styles (typewriter, minimal, editorial). Display faces load when a card that uses one is drawn. */
 export function loadDisplayFonts(text: string): Promise<void> {
   return ensureFonts(Object.keys(FIXED_FACES), text);

@@ -684,7 +684,7 @@ export function CreativesPackStudio({
       {uploaded && !ours && <Button variant="secondary" onClick={() => { stopPlayback(); setOurs(true); }}>Use our media</Button>}
       <PictureUpload uploads={uploads} token={token} onChange={stopPlayback} />
     </div>
-    <RefreshFloat disabled={!allReady} onRefresh={refreshShelf} />
+    {uploads.batchPercent === null && cards.length > 0 && <RefreshFloat disabled={!allReady} onRefresh={refreshShelf} />}
     {/* The one failure shown here: the cards cannot be drawn until the page is reloaded. */}
     {error === RELOAD && <p className="hint text-center" role="alert">{RELOAD} <button type="button" className="underline" onClick={() => location.reload()}>Reload</button></p>}
     {error === NO_GRAPHICS && <p className="hint text-center" role="alert">{NO_GRAPHICS}</p>}

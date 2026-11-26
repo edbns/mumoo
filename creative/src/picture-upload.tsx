@@ -1,12 +1,14 @@
-import { CheckIcon, ImageIcon, PlayIcon, UploadIcon } from '@/components/icons';
+import { CheckIcon, ImageIcon, PlayIcon, UploadIcon, XIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { LazyMedia } from './lazy-media';
 import { Button } from '@/components/ui/button';
 import { FileDropzone } from '@/components/ui/file-dropzone';
 import { Modal } from '@/components/ui/modal';
 import { PhoneUpload } from './phone-upload';
 import { IS_ALIGNMENT_STAGING } from './staging-alignment';
-import { ACCEPT, MAX_SHELF_PICTURES } from './uploads';
+import { ACCEPT, MAX_SHELF_PICTURES, type Upload } from './uploads';
 import type { Uploads } from './use-uploads';
 import { RenderProgress } from './render-progress';
 
@@ -27,40 +29,83 @@ export function UploadProgress({ uploads }: { uploads: Uploads }) {
     note="Your visuals will appear in the templates as soon as they’re ready. Keep this tab open." />;
 }
 
-/** What the person uploaded before (kept in History → Uploads), to tick and put back on the shelf together. */
-function EarlierUploads({ uploads, onUse }: { uploads: Uploads; onUse: (ids: string[]) => void }) {
-  const earlier = (uploads.list ?? []).filter(item => item.status === 'ready' && item.url);
-  const [chosen, setChosen] = useState<string[]>(() => uploads.current.map(item => item.id));
-  if (!earlier.length) return null;
+const readyUploads = (uploads: Uploads) => (uploads.list ?? []).filter(item => item.status === 'ready' && item.url);
+const dayOf = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
+/**
+ * What the person uploaded before (kept in Media → Uploads), full screen like the Media page: clips play, and up to ten are
+ * ticked together and put back on the shelf.
+ */
+function UploadsPicker({ uploads, onUse, onClose }: { uploads: Uploads; onUse: (ids: string[]) => void; onClose: () => void }) {
+  const earlier = readyUploads(uploads);
+  const [chosen, setChosen] = useState<string[]>(() => uploads.current.map(item => item.id).filter(id => earlier.some(item => item.id === id)));
+  const [watching, setWatching] = useState<Upload | null>(null);
+  const full = chosen.length >= MAX_SHELF_PICTURES;
   const toggle = (id: string) => setChosen(current => current.includes(id)
     ? current.filter(other => other !== id)
     : current.length < MAX_SHELF_PICTURES ? [...current, id] : current);
-  return <section className="flex flex-col gap-3 pt-2" aria-label="Your uploads">
-    <div className="flex items-baseline justify-between gap-3">
-      <h3 className="m-0 text-sm font-semibold text-foreground">Or pick from your uploads</h3>
-      <span className="text-xs text-muted-foreground">{chosen.length} of {MAX_SHELF_PICTURES}</span>
+
+  useEffect(() => {
+    const scroll = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = scroll; };
+  }, []);
+  useEffect(() => {
+    if (watching) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [watching, onClose]);
+
+  return createPortal(<div role="dialog" aria-modal="true" aria-label="Your uploads" className="fixed inset-0 z-40 overflow-y-auto bg-background">
+    <div className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
+      <div className="mx-auto flex max-w-[1100px] items-center justify-between gap-4 px-5 py-4">
+        <div className="flex flex-col">
+          <h2 className="m-0 text-lg font-semibold text-foreground">Your uploads</h2>
+          <span className="text-sm text-muted-foreground">{chosen.length} of {MAX_SHELF_PICTURES} selected</span>
+        </div>
+        <button type="button" aria-label="Close" onClick={onClose}
+          className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-secondary p-0 text-foreground outline-ring transition-colors hover:bg-muted focus-visible:outline-2">
+          <XIcon aria-hidden="true" className="size-5" />
+        </button>
+      </div>
     </div>
-    <ul className="m-0 grid max-h-56 list-none grid-cols-4 gap-2 overflow-y-auto p-0.5 sm:grid-cols-5">
+    <ul className="mx-auto m-0 grid max-w-[1100px] list-none grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-4 px-5 pt-5 pb-28">
       {earlier.map(item => {
         const on = chosen.includes(item.id);
-        return <li key={item.id}>
-          <button type="button" aria-pressed={on} onClick={() => toggle(item.id)}
-            aria-label={`${item.kind === 'motion' ? 'Video' : 'Photo'} from ${new Date(item.createdAt).toLocaleDateString()}`}
-            className={cn('relative block aspect-square w-full overflow-hidden rounded-xl bg-secondary p-0 outline-none transition',
-              'focus-visible:shadow-[0_0_0_2px_var(--focus-ring)]', on ? 'ring-2 ring-primary' : 'opacity-80 hover:opacity-100')}>
-            <img src={item.url} alt="" loading="lazy" className="size-full object-cover" />
-            {item.kind === 'motion' && <PlayIcon aria-hidden="true" className="absolute bottom-1.5 left-1.5 size-3.5 fill-white text-white drop-shadow" />}
-            {on && <span className="absolute top-1.5 right-1.5 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground">
-              <CheckIcon aria-hidden="true" className="size-3.5" strokeWidth={3} />
-            </span>}
-          </button>
+        const noun = item.kind === 'motion' ? 'Video' : 'Photo';
+        return <li key={item.id}
+          className={cn('relative aspect-[9/16] overflow-hidden rounded-[var(--radius)] bg-muted transition-[box-shadow,opacity] duration-200',
+            on && 'shadow-[0_0_0_2px_var(--primary)]', full && !on && 'opacity-50')}>
+          <LazyMedia picture={item.url} />
+          <button type="button" aria-pressed={on} disabled={full && !on} aria-label={`${on ? 'Selected' : 'Select'} ${noun.toLowerCase()} from ${dayOf(item.createdAt)}`}
+            onClick={() => toggle(item.id)}
+            className="absolute inset-0 size-full cursor-pointer rounded-[inherit] bg-transparent p-0 outline-ring focus-visible:outline-2 disabled:cursor-not-allowed" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/75 to-transparent p-2.5 pt-8 text-xs">{noun} · {dayOf(item.createdAt)}</div>
+          {on && <span aria-hidden="true" className="pointer-events-none absolute top-2 left-2 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground"><CheckIcon className="size-4" /></span>}
+          {item.kind === 'motion' && item.motionUrl && <button type="button" aria-label={`Play video from ${dayOf(item.createdAt)}`} onClick={() => setWatching(item)}
+            className="absolute top-1/2 left-1/2 z-10 flex size-12 -translate-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-black/60 p-0 text-white outline-ring transition-colors hover:bg-black/80 focus-visible:outline-2">
+            <PlayIcon aria-hidden="true" className="ml-0.5 size-5 fill-current" />
+          </button>}
         </li>;
       })}
     </ul>
-    <Button disabled={!chosen.length} onClick={() => onUse(chosen)}>
-      {chosen.length ? `Use ${chosen.length === 1 ? 'this' : `these ${chosen.length}`}` : 'Select media'}
-    </Button>
-  </section>;
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 flex justify-center p-5">
+      <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-secondary/95 p-2 shadow-[0_18px_40px_-16px_#000] backdrop-blur">
+        {chosen.length > 0 && <Button variant="ghost" onClick={() => setChosen([])}>Deselect</Button>}
+        <Button disabled={!chosen.length} onClick={() => onUse(chosen)}>
+          {chosen.length ? `Use ${chosen.length === 1 ? 'this' : `these ${chosen.length}`}` : 'Select media'}
+        </Button>
+      </div>
+    </div>
+    <Modal open={watching !== null} onClose={() => setWatching(null)} bare maxWidth={460} maxHeight="calc(100vh - 3rem)"
+      title={watching ? `Video from ${dayOf(watching.createdAt)}` : ''}>
+      {watching?.motionUrl && <div className="rounded-[var(--radius-panel)] bg-muted p-3 shadow-[0_28px_56px_-24px_#000]">
+        <video key={watching.id} src={watching.motionUrl} poster={watching.url} controls autoPlay loop playsInline
+          className="max-h-[calc(100vh-8rem)] w-full rounded-[var(--radius)] bg-black object-contain" />
+      </div>}
+    </Modal>
+  </div>, document.body);
 }
 
 /**
@@ -75,7 +120,9 @@ export function PictureUpload({ uploads, token, onChange }: {
   onChange: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [picking, setPicking] = useState(false);
   const { sending } = uploads;
+  const hasEarlier = readyUploads(uploads).length > 0;
   const problem = uploads.problem?.message ?? '';
 
   async function pick(files: File[]) {
@@ -104,9 +151,11 @@ export function PictureUpload({ uploads, token, onChange }: {
           onSelectMany={files => void pick(files)}
           />
           {IS_ALIGNMENT_STAGING && token && !sending && <PhoneUpload token={token} kind="picture" onFiles={files => void pick(files)} />}
-          <EarlierUploads uploads={uploads} onUse={ids => { onChange(); setOpen(false); uploads.reuse(ids); }} />
+          {hasEarlier && <Button onClick={() => { setOpen(false); setPicking(true); }}>Pick your own uploads</Button>}
         </div>
         : <p className="text-sm text-muted-foreground">Sign in (top right) to use your own media.</p>}
     </Modal>
+    {picking && <UploadsPicker uploads={uploads} onClose={() => setPicking(false)}
+      onUse={ids => { onChange(); setPicking(false); uploads.reuse(ids); }} />}
   </>;
 }
