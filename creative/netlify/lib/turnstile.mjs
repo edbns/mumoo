@@ -13,12 +13,13 @@ const SENDS_EMAIL = ['/email-otp/send-verification-otp', '/sign-in/magic-link', 
 export const sendsEmail = (request) => request.method === 'POST' && SENDS_EMAIL.some(path => new URL(request.url).pathname.endsWith(path));
 
 /**
- * Why the request may not go ahead, or null when it may. Without TURNSTILE_SECRET_KEY (the local preview) nothing is checked. When
- * Cloudflare cannot be asked, the request goes ahead: a person must never be locked out of signing in by an outage of the check.
+ * Why the request may not go ahead, or null when it may. Nothing is checked unless both keys are set (the page is built with
+ * TURNSTILE_SITE_KEY, so a secret alone would refuse everyone). When Cloudflare cannot be asked, the request goes ahead: a person
+ * must never be locked out of signing in by an outage of the check.
  */
 export async function humanProblem(request, action, fetcher = fetch) {
   const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) return null;
+  if (!secret || !process.env.TURNSTILE_SITE_KEY) return null;
   const token = request.headers.get(HUMAN_HEADER);
   if (!token || token.length > 2048) return 'missing';
   const body = new URLSearchParams({ secret, response: token });

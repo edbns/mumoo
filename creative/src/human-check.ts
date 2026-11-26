@@ -4,7 +4,7 @@
  * page's `[data-human-check]` spot. Without a site key (the local preview) no token is asked for.
  */
 
-const SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+const SITE_KEY = import.meta.env.TURNSTILE_SITE_KEY as string | undefined;
 const SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 /** Long enough to tick the box when Cloudflare asks for it. */
 const WAIT_MS = 120_000;

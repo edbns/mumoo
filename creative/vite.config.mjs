@@ -26,6 +26,8 @@ export default defineConfig({
   plugins: [tailwindcss(), localPreviewApi(), preloadInterfaceFont()],
   // `@/` is the source folder, which is what components installed from 21st.dev expect.
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  // Cloudflare Turnstile's site key is public (the page shows it to Cloudflare); its secret key, TURNSTILE_SECRET_KEY, must never match.
+  envPrefix: ['VITE_', 'TURNSTILE_SITE_'],
   build: {
     rollupOptions: {
       input: {

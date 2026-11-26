@@ -8,11 +8,16 @@ import handler from '../netlify/functions/neon-auth.mjs';
 const SEND = 'https://mumoo.app/api/neon-auth/email-otp/send-verification-otp';
 const post = (url, headers = {}) => new Request(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: '{"email":"a@b.co","type":"sign-in"}' });
 
-function withSecret(secret, run) {
-  const before = process.env.TURNSTILE_SECRET_KEY;
-  if (secret === undefined) delete process.env.TURNSTILE_SECRET_KEY; else process.env.TURNSTILE_SECRET_KEY = secret;
-  return Promise.resolve(run()).finally(() => { if (before === undefined) delete process.env.TURNSTILE_SECRET_KEY; else process.env.TURNSTILE_SECRET_KEY = before; });
+function withKeys(secret, site, run) {
+  const before = { TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY, TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY };
+  for (const [name, value] of Object.entries({ TURNSTILE_SECRET_KEY: secret, TURNSTILE_SITE_KEY: site })) {
+    if (value === undefined) delete process.env[name]; else process.env[name] = value;
+  }
+  return Promise.resolve(run()).finally(() => {
+    for (const [name, value] of Object.entries(before)) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
+  });
 }
+const withSecret = (secret, run) => withKeys(secret, secret === undefined ? undefined : 'site-key', run);
 const cloudflare = (answer) => async (_url, init) => { cloudflare.sent = Object.fromEntries(init.body); return Response.json(answer); };
 
 test('only the requests that email someone are checked', () => {
@@ -31,6 +36,7 @@ test('a missing, refused or wrong-purpose token stops the email; a good one, an 
     assert.equal(await humanProblem(post(SEND, { [HUMAN_HEADER]: 'tok' }), 'sign-in', async () => { throw new Error('down'); }), null, 'an outage of the check never locks people out');
   });
   await withSecret(undefined, async () => assert.equal(await humanProblem(post(SEND), 'sign-in'), null));
+  await withKeys('s3cret', undefined, async () => assert.equal(await humanProblem(post(SEND), 'sign-in'), null, 'a secret alone (pages built without the site key) refuses no one'));
 });
 
 test('Cloudflare itself agrees with its test keys', { skip: !process.env.TURNSTILE_LIVE && 'set TURNSTILE_LIVE=1 to ask Cloudflare' }, async () => {
