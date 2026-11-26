@@ -67,9 +67,12 @@ function App() {
   /** The page being shown: making creatives, or a page of the person's account (the work underneath is kept as it was). */
   const [page, setPage] = useState<AccountPage>(() => pageAt(location.pathname));
   const [profileTab, setProfileTab] = useState<ProfileTab>(() => (uploadsAt(location.pathname) ? 'uploads' : 'creatives'));
+  /** The address the page opened with keeps its query (a sign-in or checkout coming back reads it); a page moved to has none of another's (My Smart Links' ?link=). */
+  const opened = useRef(true);
   useEffect(() => {
     const path = page === 'history' && profileTab === 'uploads' ? UPLOADS_PATH : PAGE_PATHS[page] ?? '/';
-    if (location.pathname !== path) history.replaceState(history.state, '', path + location.search + location.hash);
+    if (location.pathname !== path) history.replaceState(history.state, '', opened.current ? path + location.search + location.hash : path);
+    opened.current = false;
     document.title = page === 'history' && profileTab === 'uploads' ? 'Your uploads · mumoo' : PAGE_TITLES[page];
   }, [page, profileTab]);
   /** Pressing Create Smart Link opens the editor anew, so an edit in progress gives way to the new-link draft. */
