@@ -24,7 +24,7 @@ function goBack() {
 }
 
 const INCLUDED = [
-  'Every template and look on the shelf',
+  'Every template and visual style',
   'Your lyrics, read and timed to the song',
   'Cut to the beat of your music',
   'Vertical 1080×1920 video, ready for Reels, TikTok and Shorts',
@@ -36,10 +36,10 @@ const QUESTIONS = [
   { q: 'What is a credit?', a: 'One credit makes one video. That’s it.' },
   { q: 'Is it a subscription?', a: 'Nope. Pay once, credits stay until you use them. They never expire.' },
   { q: 'What does the first video cost?', a: 'Nothing. Every new account gets its first video free, no watermark.' },
-  { q: 'Can I get free videos?', a: 'Yeah. Invite friends from your account menu: they get 10 extra on their first pack, you get 10 free once they pay (up to 20 friends a month).' },
+  { q: 'Can I get free videos?', a: 'Yeah. Invite friends from your account menu: they get 10 bonus credits on their first pack, and you get 10 free credits once they buy (up to 20 friends a month).' },
   { q: 'Who takes the payment?', a: 'Polar (polar.sh), our payment partner, takes the payment and adds tax where it applies. We never see your card. Each invoice is in Invoices in your account.' },
-  { q: 'Can I get a refund?', a: 'Credits are non-refundable except where the law says so (like a render that fails and we can’t fix).' },
-  { q: 'Why do some videos keep going after I cancel?', a: 'Cancel takes back every video that hasn’t started yet and gives those credits straight back. A video that has already started is being drawn on our servers right then, frame by frame, and that work can’t be undone halfway, so it finishes and lands in your Media. You still get the video your credit paid for.' },
+  { q: 'Can I get a refund?', a: 'Credits are non-refundable, though if a render ever fails on our end, your credit is automatically returned.' },
+  { q: 'Why do some videos keep going after I cancel?', a: 'Cancel refunds every video still waiting in the queue. If a video is already rendering, it will finish normally and land in your Media—so you still get the video your credit paid for.' },
 ];
 
 const BUY_SIGN_IN = { title: 'Sign in to buy credits', lead: 'Your credits stay in your account.' };
@@ -122,12 +122,14 @@ function PricingPage() {
 
       <div className="flex flex-col items-center gap-4 text-center">
         <h2 className="m-0 text-lg font-semibold">Every video comes with</h2>
-        <ul className="m-0 flex list-none flex-col items-center gap-3 p-0">
+        <ul className="m-0 flex list-none flex-col items-start gap-3 p-0 text-left">
           {INCLUDED.map(line => <li key={line} className="flex items-start gap-3 text-sm text-muted-foreground">
             <CheckIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />{line}
           </li>)}
         </ul>
-        <p className="m-0 text-sm text-muted-foreground">Smart links for your songs are free, no credits needed.</p>
+        <p className="m-0 mt-2 inline-flex items-center gap-2 rounded-full bg-primary/10 py-1 pr-3 pl-1 text-sm text-foreground">
+          <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">Free</span>Smart links for your songs, no credits needed.
+        </p>
       </div>
 
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
