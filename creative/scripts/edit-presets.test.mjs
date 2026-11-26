@@ -389,7 +389,7 @@ test('Directed and every treatment carry a preset of the song, the shelf shows t
   const song = profile('Trap');
   const turn = ['strobe', 'y2k', 'mono'];
   const shown = new Set();
-  for (const row of ['photography', ...deal.TREATMENT_IDS]) {
+  for (const row of ['photography', ...deal.TREATMENT_IDS.filter(id => id !== 'screenshot')]) {
     const slots = pack.recommendRow(row, song, 0, [], LIBRARY);
     assert.equal(slots.length, 4, row);
     const preset = slots[0].preset;
@@ -407,7 +407,7 @@ test('Directed and every treatment carry a preset of the song, the shelf shows t
 });
 
 test('the other templates carry no preset', () => {
-  for (const row of ['thermal', 'riso', 'pulise']) {
+  for (const row of ['thermal', 'riso', 'pulise', 'screenshot']) {
     for (const slot of pack.recommendRow(row, profile('Trap'), 0, [{ id: 'p1', cutout: true }], LIBRARY)) assert.equal(slot.preset, undefined, row);
   }
 });

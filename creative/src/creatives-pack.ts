@@ -643,7 +643,11 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     preset,
     presetTake: takeAt(preset, generation, index),
   }));
-  const treatmentRow = (kind: TreatmentId) => withPreset(treatmentSlots(kind, lane, intent, seed, turn, pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture));
+  // Screenshot is a phone screen of the lyrics: no preset's cut or film look shows on it.
+  const treatmentRow = (kind: TreatmentId) => {
+    const slots = treatmentSlots(kind, lane, intent, seed, turn, pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture);
+    return kind === 'screenshot' ? slots : withPreset(slots);
+  };
   const slots = {
     photography: () => {
       const cards = photographySlots(
