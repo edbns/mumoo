@@ -6,7 +6,7 @@ import {
   DashboardSquare02Icon, Delete02Icon, Download01Icon, DragDropVerticalIcon, GiftIcon as HugeGiftIcon, Image01Icon, Invoice03Icon,
   Link01Icon, LinkSquare02Icon, PanelLeftCloseIcon as HugePanelLeftCloseIcon, PanelLeftOpenIcon as HugePanelLeftOpenIcon, Loading03Icon, Logout03Icon, Mail01Icon, MusicNote03Icon, PauseIcon as HugePauseIcon,
   PencilEdit02Icon, PlayIcon as HugePlayIcon, Refresh01Icon, RotateLeft01Icon, Search01Icon, SecurityCheckIcon, Settings02Icon, Share08Icon,
-  SmartPhone01Icon, SparklesIcon as HugeSparklesIcon, Tick02Icon, Upload01Icon, Video01Icon, ViewIcon, ViewOffIcon, VolumeHighIcon, VolumeOffIcon, Wallet02Icon,
+  SmartPhone01Icon, SparklesIcon as HugeSparklesIcon, Tick02Icon, Upload01Icon, Video01Icon, ViewIcon, ViewOffIcon, Wallet02Icon,
 } from '@hugeicons/core-free-icons';
 
 /**
@@ -71,7 +71,5 @@ export const SmartphoneIcon = make(SmartPhone01Icon, 'Smartphone');
 export const SparklesIcon = make(HugeSparklesIcon, 'Sparkles');
 export const Trash2Icon = make(Delete02Icon, 'Trash');
 export const UploadIcon = make(Upload01Icon, 'Upload');
-export const SoundOnIcon = make(VolumeHighIcon, 'SoundOn');
-export const SoundOffIcon = make(VolumeOffIcon, 'SoundOff');
 export const WalletIcon = make(Wallet02Icon, 'Wallet');
 export const XIcon = make(Cancel01Icon, 'X');

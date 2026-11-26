@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRightIcon, Link2Icon, PlayIcon, SoundOffIcon, SoundOnIcon } from '@/components/icons';
+import { ArrowRightIcon, Link2Icon, PlayIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { checkSignInCode, sendSignInCode, signInWithGoogle } from './account';
 import { PAGE_PATHS } from './account-pages';
@@ -24,15 +24,7 @@ const SIGN_IN = { title: 'Sign in to mumoo', lead: 'Your videos and credits are 
 function ShowVideo() {
   const still = useReducedMotion();
   const video = useRef<HTMLVideoElement>(null);
-  const [sound, setSound] = useState(false);
   const [playing, setPlaying] = useState(!still);
-  const toggleSound = () => {
-    const element = video.current;
-    if (!element) return;
-    element.muted = !element.muted;
-    setSound(!element.muted);
-    if (element.paused) void element.play();
-  };
   return <div className="relative mx-auto aspect-[9/16] w-full max-w-[300px] overflow-hidden rounded-[var(--radius-panel)] bg-muted shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] lg:max-w-[320px]">
     <video ref={video} className="block size-full object-cover" src="/home/welcome.mp4" poster="/home/welcome.jpg"
       autoPlay={!still} muted loop playsInline preload="auto" aria-label="A video made with mumoo"
@@ -41,10 +33,6 @@ function ShowVideo() {
       className="absolute inset-0 grid cursor-pointer place-items-center border-0 bg-black/20 text-white">
       <span className="grid size-14 place-items-center rounded-full bg-black/50 backdrop-blur-sm"><PlayIcon aria-hidden="true" className="size-6 fill-current" /></span>
     </button>}
-    <button type="button" onClick={toggleSound} aria-label={sound ? 'Sound off' : 'Sound on'} aria-pressed={sound}
-      className="absolute right-3 bottom-3 grid size-10 cursor-pointer place-items-center rounded-full border-0 bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70">
-      {sound ? <SoundOnIcon aria-hidden="true" className="size-5" /> : <SoundOffIcon aria-hidden="true" className="size-5" />}
-    </button>
   </div>;
 }
 

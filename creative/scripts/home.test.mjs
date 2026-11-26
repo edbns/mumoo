@@ -31,6 +31,7 @@ test('the welcome page: its words, the video, the way in, and the links at the f
   assert.match(page, /keepReferral\(\);/);
   assert.match(page, /src="\/home\/welcome\.mp4" poster="\/home\/welcome\.jpg"/);
   assert.match(page, /muted loop playsInline/);
+  assert.doesNotMatch(page, /Sound/);
   for (const file of ['welcome.mp4', 'welcome.jpg']) assert.ok(existsSync(new URL(`../public/home/${file}`, import.meta.url)), file);
 });
 
