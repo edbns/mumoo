@@ -14,6 +14,7 @@ import { claimPendingReferral } from './referral';
 import { reportProblem } from './report-problem';
 import { forgetPages } from './page-memory';
 import { humanHeaders } from './human-check';
+import { START_COOKIE } from './site-paths';
 
 /**
  * Neon Auth (managed Better Auth), reached through our own address (/api/neon-auth, passed on to Neon as it is) so its session
@@ -180,6 +181,7 @@ export async function deleteAccount(email: string) {
   await accountFetch('/api/account', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
   await authClient.signOut().catch(() => undefined);
   forgetPages();
+  forgetStart();
   try {
     for (const key of Object.keys(localStorage)) if (key.startsWith('mumoo-')) localStorage.removeItem(key);
   } catch { /* storage unavailable: nothing kept */ }
@@ -187,8 +189,9 @@ export async function deleteAccount(email: string) {
 
 /** What this browser keeps for the signed-in person (their chosen videos, a download in progress, their free video): another person may sign in here next. */
 const PERSONAL_KEYS = ['mumoo-cart', 'mumoo-pending-download', 'mumoo-free-video'];
-/** The home page a person who signs out lands on. */
-const SIGNED_OUT_PAGE = '/welcome';
+/** The home page a person who signs out lands on: the welcome page, once the choice to start is forgotten too. */
+const SIGNED_OUT_PAGE = '/';
+const forgetStart = () => { document.cookie = `${START_COOKIE}=; Path=/; Max-Age=0`; };
 
 /** Signs out, forgets the person's work on this device, and goes to the home page: the page they were on was theirs. */
 export async function signOut() {
@@ -197,6 +200,7 @@ export async function signOut() {
   for (const key of PERSONAL_KEYS) {
     try { sessionStorage.removeItem(key); localStorage.removeItem(key); } catch { /* storage unavailable: nothing kept */ }
   }
+  forgetStart();
   location.assign(SIGNED_OUT_PAGE);
 }
 

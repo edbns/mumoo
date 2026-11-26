@@ -11,3 +11,5 @@ export const LEGAL_PATHS = {
 /** The index of the legal documents. */
 export const LEGAL_INDEX = '/legal';
 export const PRICING_PATH = '/pricing';
+/** Set for this browser session once someone signed out chooses to start: `/` then opens the studio instead of the welcome page (netlify.toml). */
+export const START_COOKIE = 'mumoo_start';

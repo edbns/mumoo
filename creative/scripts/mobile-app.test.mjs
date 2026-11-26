@@ -22,7 +22,7 @@ test('the phone notice: create on desktop, post from the phone, the app coming, 
   assert.match(phone, /'Open my Media' : 'Sign in to my Media'/);
   assert.match(read('legal-corner.tsx'), /<span className=\{`contents \$\{NOT_ON_PHONE\}`\}><StatusDot \/><\/span>/);
   assert.match(read('legal-corner.tsx'), /link\.href === PRICING_PATH && NOT_ON_PHONE/);
-  assert.match(read('welcome-page.tsx'), /if \(window\.matchMedia\('\(max-width: 740px\)'\)\.matches\) location\.replace\('\/'\);/);
+  assert.doesNotMatch(read('welcome-page.tsx'), /location\.replace\('\/'\)/);
 });
 
 test('phone Media: two a row with nothing on them; a tap selects, and the actions float; iPhone saves through the share sheet, others one by one', () => {

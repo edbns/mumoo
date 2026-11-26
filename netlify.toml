@@ -63,11 +63,55 @@
   to = "/pricing.html"
   status = 200
 
-# The welcome screen.
+# The home page. Signed in, or once this browser session chose to start (creative/src/site-paths.ts), `/` is the studio; for anyone
+# else it is the welcome page. Google's sign-in window and Polar's checkout come back to `/` before there is a session cookie, so
+# they always reach the studio.
 [[redirects]]
-  from = "/welcome"
+  from = "/"
+  to = "/index.html"
+  status = 200
+  force = true
+  query = {neon_popup = ":neon_popup"}
+
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
+  force = true
+  query = {checkout_id = ":checkout_id"}
+
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
+  force = true
+  query = {buy = ":buy"}
+
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
+  force = true
+  conditions = {Cookie = ["__Secure-neon-auth.session_token"]}
+
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
+  force = true
+  conditions = {Cookie = ["mumoo_start"]}
+
+[[redirects]]
+  from = "/"
   to = "/welcome.html"
   status = 200
+  force = true
+
+# Its old address.
+[[redirects]]
+  from = "/welcome"
+  to = "/"
+  status = 301
 
 # The legal documents (creative/legal/*.md): one page, which shows the document its address names.
 [[redirects]]
