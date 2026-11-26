@@ -2,14 +2,29 @@
  * Sets up our Polar organisation once (safe to run again): the three packs as one-time products, and the webhook that tells
  * our server about payments.
  *   POLAR_ACCESS_TOKEN=… node scripts/polar-setup.mjs [site address]
- * POLAR_SERVER=production for the real organisation; otherwise the sandbox. The site address defaults to staging.
- * The webhook's secret is never printed: it goes straight into the Netlify site's POLAR_WEBHOOK_SECRET.
+ * POLAR_SERVER=production for the real organisation; otherwise the sandbox. The site address defaults to staging; the live one
+ * is https://mumoo.app.
+ * The webhook's secret is never printed: it goes straight into that Netlify site's POLAR_WEBHOOK_SECRET (through Netlify's API, with
+ * NETLIFY_AUTH_TOKEN or the Netlify CLI's saved sign-in).
  */
-import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { API_VERSION, apiBase, PACKS, polar } from '../netlify/lib/polar.mjs';
+import { SITES } from '../netlify/lib/sites.mjs';
 
-const SITE_ID = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const site = (process.argv[2] ?? 'https://mumoo-staging.netlify.app').replace(/\/+$/, '');
+const SITE_ID = SITES.find(each => each.origin === site)?.id;
+if (!SITE_ID) throw new Error(`${site} is not one of our sites.`);
+
+async function saveSecret(key, value) {
+  const token = process.env.NETLIFY_AUTH_TOKEN || Object.values(JSON.parse(readFileSync(`${homedir()}/Library/Preferences/netlify/config.json`, 'utf8')).users)
+    .find(user => user.auth?.token)?.auth.token;
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  const { account_id: account } = await (await fetch(`https://api.netlify.com/api/v1/sites/${SITE_ID}`, { headers })).json();
+  const body = [{ key, scopes: ['functions', 'runtime'], is_secret: true, values: [{ context: 'production', value }] }];
+  const response = await fetch(`https://api.netlify.com/api/v1/accounts/${account}/env?site_id=${SITE_ID}`, { method: 'POST', headers, body: JSON.stringify(body) });
+  if (!response.ok) throw new Error(`Netlify refused ${key}: ${response.status}`);
+}
 const EVENTS = ['order.paid', 'order.updated', 'order.refunded'];
 if (!process.env.POLAR_ACCESS_TOKEN) throw new Error('POLAR_ACCESS_TOKEN is not set.');
 console.log(`Polar: ${apiBase()}`);
@@ -41,7 +56,8 @@ if (endpoint) {
   console.log(`webhook ${url}: already there (events and version brought up to date; its secret is unchanged)`);
 } else {
   const made = await polar('/v1/webhooks/endpoints', { method: 'POST', body: { url, name: 'mumoo credits', format: 'raw', events: EVENTS, api_version: API_VERSION } });
-  const set = spawnSync('npx', ['--yes', 'netlify-cli', 'env:set', 'POLAR_WEBHOOK_SECRET', made.secret, `--site=${SITE_ID}`], { stdio: ['ignore', 'ignore', 'pipe'] });
-  if (set.status !== 0) throw new Error(`The webhook was made, but its secret could not be saved to Netlify: ${set.stderr.toString().replaceAll(made.secret, '…')}`);
+  await saveSecret('POLAR_WEBHOOK_SECRET', made.secret).catch(cause => {
+    throw new Error(`The webhook was made, but its secret could not be saved to Netlify: ${String(cause.message).replaceAll(made.secret, '…')}`);
+  });
   console.log(`webhook ${url}: made; its secret is saved to Netlify as POLAR_WEBHOOK_SECRET`);
 }
