@@ -99,7 +99,10 @@ export type PackRendererOpts = {
   treatmentVariant?: string;
   /** Screenshot: the time the card was made ("HH:MM", the person's own clock), so the cloud draws the same phone. */
   clock?: string;
-  /** An edit preset (`edit-presets.ts`) over Directed or a treatment: its cut rhythm, camera, colour and texture, in one of its takes. */
+  /**
+   * An edit preset (`edit-presets.ts`) over Directed or a treatment: its cut rhythm, camera, colour and texture, in one of its takes. Over a
+   * live look or Riso, which colour the picture themselves, only its cut.
+   */
   preset?: PresetId;
   presetTake?: string;
 };
@@ -109,7 +112,7 @@ function familiesFor(opts: PackRendererOpts): string[] {
   if (opts.style === 'window' && opts.typeStyle) return [...new Set([opts.font, ...typeFamilies(opts.typeStyle, opts)])];
   if (opts.style === 'dust' || opts.style === 'riso' || opts.style === 'window') return [opts.font];
   if (opts.style === 'pulise') return [opts.font, opts.fontSecondary];
-  const recording = opts.preset === 'vhs' && opts.presetTake === 'rec' ? [REC_FONT] : [];
+  const recording = opts.preset === 'vhs' && opts.presetTake === 'rec' && !cutOnly(opts) ? [REC_FONT] : [];
   if (opts.style === 'treatment') {
     const typed = opts.treatment === 'typewriter' ? [TYPEWRITER_FONT] : opts.treatment === 'screenshot' ? [SCREENSHOT_FONT] : [];
     return [...(opts.typeStyle ? typeFamilies(opts.typeStyle, opts) : [opts.font, opts.fontSecondary]), ...recording, ...typed];
@@ -311,8 +314,9 @@ export async function createPackRenderer(
         const presetTake = current.presetTake ?? '';
         if (preset || current.presetTake) {
           if (!preset || !isPresetId(preset) || !isPresetTake(preset, presetTake)) throw new Error('An edit preset needs a known preset and take.');
-          if (!(style === 'treatment' || (style === 'filter' && !current.look && !current.effectId && !current.plateId))) throw new Error('An edit preset goes over Directed or a treatment, on a picture with no look of its own.');
+          if (!(style === 'treatment' || style === 'riso' || (style === 'filter' && !current.effectId && !current.plateId))) throw new Error('An edit preset goes over Directed, a treatment, a live look or Riso.');
         }
+        const presetLook = cutOnly(current) ? null : preset;
         const presetCut = presetCutOf(current);
         const windowMode = style === 'window' ? checkWindow(current) : null;
         const windowOwn = Boolean(windowMode);
@@ -413,16 +417,16 @@ export async function createPackRenderer(
 
         // The preset's pass: the picture through its camera, colour and texture, timed to the edit's cuts and the drums.
         let picture = ownBackdrop ? (motion?.texture ?? photoTexture) : still;
-        if (preset && picture) {
+        if (presetLook && picture) {
           presetPass ??= createPresetPass();
           const cutsMs = reel ? reel.cutsMs() : motion && !current.look ? cuts.slice(1).map(cut => cut.atMs) : [];
           const seed = current.cutSeed ?? 0;
-          const moment = presetFrame(preset, presetTake, { ms, cutsMs, durationMs: durationOf(current), music: current.music, energy, seed });
+          const moment = presetFrame(presetLook, presetTake, { ms, cutsMs, durationMs: durationOf(current), music: current.music, energy, seed });
           picture = presetPass.draw(picture, style === 'treatment' ? fitTreatment(moment, current.treatment) : moment, ms, seed, app.renderer);
         }
         const beat = calmBeat(reaction.beat, current.grade);
         // A preset is the card's colour: the lyrics' grade only calms its beat.
-        if (current.grade && !preset) {
+        if (current.grade && !presetLook) {
           gradeFilter.matrix = gradeMatrix(current.grade) as ColorMatrixFilter['matrix'];
           scene.root.filters = [gradeFilter];
         } else scene.root.filters = [];
@@ -445,7 +449,7 @@ export async function createPackRenderer(
           durationMs: durationOf(current),
           words: copy.words,
           background: picture,
-          preset: preset ?? undefined,
+          preset: presetLook ?? undefined,
           colors: current.colors,
           typeStyle: current.typeStyle,
           typeFinish: current.typeFinish,
@@ -499,6 +503,9 @@ async function sharedRenderer(opts: PackRendererOpts): Promise<PackRenderer> {
   shared = await createPackRenderer(offscreen, opts);
   return shared;
 }
+
+/** A live look or Riso colours the picture itself: a preset over it brings only its cut. */
+const cutOnly = (opts: PackRendererOpts) => Boolean(opts.look) || opts.style === 'riso';
 
 /** How a card's edit preset cuts the reel: its rhythm, and how long its dissolves take. */
 const durationOf = (opts: PackRendererOpts) => opts.durationMs ?? FULL_CLIP_MS;

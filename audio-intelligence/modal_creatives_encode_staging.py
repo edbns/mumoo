@@ -347,13 +347,13 @@ def parse_meta(raw: str) -> dict:
         raise ValueError("treatment")
     if (opts.get("treatment") == "screenshot") != ("clock" in opts) or ("clock" in opts and (not isinstance(opts["clock"], str) or not CLOCK_RE.match(opts["clock"]))):
         raise ValueError("clock")
-    # An edit preset goes over Directed (a picture with no look of its own) or a treatment, in one of its takes.
+    # An edit preset goes over Directed or a treatment, in one of its takes; over a live look or Riso only its cut is used.
     if "preset" in opts or "presetTake" in opts:
         preset = opts.get("preset")
         take = opts.get("presetTake")
         if preset not in PRESETS or not isinstance(take, str) or take not in PRESETS[preset]:
             raise ValueError("preset")
-        if opts["style"] not in ("filter", "treatment") or any(key in opts for key in ("look", "effectId", "plateId")):
+        if opts["style"] not in ("filter", "treatment", "riso") or any(key in opts for key in ("effectId", "plateId")):
             raise ValueError("preset")
     for key in ("plateId", "effectId"):
         if key in opts and (not isinstance(opts[key], str) or not ID_RE.match(opts[key])):

@@ -406,10 +406,21 @@ test('Directed and every treatment carry a preset of the song, the shelf shows t
   assert.deepEqual([...shown].sort(), [...turn].sort(), 'one Refresh of the shelf shows every preset that fits');
 });
 
-test('the other templates carry no preset', () => {
-  for (const row of ['thermal', 'riso', 'pulise', 'screenshot']) {
+test('the live looks and Riso are cut in a preset of the song; Screenshot, Window, Silhouette and the lyric-only templates carry none', () => {
+  for (const row of ['thermal', 'halftone', 'ascii', 'riso']) {
+    const slots = pack.recommendRow(row, profile('Trap'), 0, [{ id: 'p1', cutout: true }], LIBRARY);
+    assert.ok(slots.every(slot => ['strobe', 'y2k', 'mono'].includes(slot.preset) && slot.reelIds?.length && slot.label.startsWith(presets.presetTitle(slot.preset))), `${row}: ${slots.map(slot => slot.label)}`);
+  }
+  for (const row of ['pulise', 'screenshot', 'window', 'silhouette']) {
     for (const slot of pack.recommendRow(row, profile('Trap'), 0, [{ id: 'p1', cutout: true }], LIBRARY)) assert.equal(slot.preset, undefined, row);
   }
+});
+
+test('over a live look or Riso the renderer takes only the preset\'s cut, never its colour or camera', () => {
+  const source = readFileSync(new URL('../src/pack-renderer.ts', import.meta.url), 'utf8');
+  assert.match(source, /const cutOnly = \(opts: PackRendererOpts\) => Boolean\(opts\.look\) \|\| opts\.style === 'riso';/);
+  assert.match(source, /const presetLook = cutOnly\(current\) \? null : preset;/);
+  assert.match(source, /if \(presetLook && picture\) \{/);
 });
 
 /* ---------- the worker and Learning ---------- */
@@ -438,12 +449,14 @@ const cases = [
   [card({ preset: 'kaleido' }), false],
   [card({ presetTake: 'portra-drift' }), false],
   [card({ presetTake: undefined }), false],
-  [card({ look: 'thermal' }), false],
-  [card({ style: 'riso', inkSet: 'pink-blue' }), false],
+  [card({ look: 'thermal' }), true],
+  [card({ style: 'riso', inkSet: 'pink-blue' }), true],
+  [card({ style: 'window' }), false],
+  [card({ look: 'thermal', reel: undefined, plateId: 'burnnet-woman-1547507-1920' }), false],
 ];
 const python = spawnSync('python3', ['-c', 'import modal'], { encoding: 'utf8' });
 
-test('the worker accepts a known preset and take over Directed or a treatment, and refuses the rest', { skip: python.status !== 0 && 'Python with Modal is not installed' }, () => {
+test('the worker accepts a known preset and take over Directed, a treatment, a live look or Riso, and refuses the rest', { skip: python.status !== 0 && 'Python with Modal is not installed' }, () => {
   const run = spawnSync('python3', ['-c', PROGRAM], { cwd: fileURLToPath(new URL('../../audio-intelligence/', import.meta.url)), input: JSON.stringify(cases.map(([opts]) => opts)), encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(JSON.parse(run.stdout), cases.map(([, accepted]) => accepted));

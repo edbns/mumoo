@@ -632,7 +632,6 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   const risoLibrary = pickLibrary(from(risoCapable), wanted, song, 0, 50).map(item => item.id);
   const risoPhotos: PhotoSources = { plateIds: cutOutPlates, libraryIds: risoLibrary };
   /** A row of one effect: library pictures that fit the song, or the person's own picture (lookSlots). */
-  const effectRow = (family: LookFamily) => lookSlots(family, lane, intent, seed, turn, pickLibrary(from(), wanted, `${song}:${family}`, generation, ROW_SIZE), ownPicture);
   // Directed and its treatments are cut and finished in a preset the song's genre calls for: each template takes the next that fits, so a
   // shelf shows them all, and each Refresh moves every template on to another.
   const preset = presetAt({ genre, subGenre: profile.creator.subGenre?.value, style: profile.creator.style?.name }, generation + Math.max(0, place), intent?.drive);
@@ -648,6 +647,9 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     const slots = treatmentSlots(kind, lane, intent, seed, turn, pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture);
     return kind === 'screenshot' ? slots : withPreset(slots);
   };
+  // The live looks and Riso colour the picture themselves: they are cut in the preset's rhythm alone (`pack-renderer.ts`).
+  const cutInPreset = (slots: CreativesPackSlot[]) => (slots.some(slot => slot.effectId || slot.plateId) ? slots : withPreset(slots));
+  const effectRow = (family: LookFamily) => cutInPreset(lookSlots(family, lane, intent, seed, turn, pickLibrary(from(), wanted, `${song}:${family}`, generation, ROW_SIZE), ownPicture));
   const slots = {
     photography: () => {
       const cards = photographySlots(
@@ -674,7 +676,7 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
     halftone: () => effectRow('halftone'),
     dither: () => effectRow('dither'),
     ascii: () => effectRow('ascii'),
-    riso: () => risoSlots(lane, intent, seed, turn, risoPhotos),
+    riso: () => cutInPreset(risoSlots(lane, intent, seed, turn, risoPhotos)),
     window: () => windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates),
     silhouette: () => (GOSPEL_GENRE.test(genres) ? [] : windowSlots(lane, intent, seed, ownPicture ? [] : pickLibrary(from(), wanted, song, generation, ROW_SIZE), ownPicture ? [] : plates, dealSilhouette(seed, TYPE_ALLOW[lane], isSkullStyle(profile.creator.style?.name ?? '')))),
     pulise: () => puliseSlots(lane, intent, seed, turn),
