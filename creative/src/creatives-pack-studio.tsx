@@ -687,9 +687,6 @@ export function CreativesPackStudio({
     {error === RELOAD && <p className="hint text-center" role="alert">{RELOAD} <button type="button" className="underline" onClick={() => location.reload()}>Reload</button></p>}
     {error === NO_GRAPHICS && <p className="hint text-center" role="alert">{NO_GRAPHICS}</p>}
     <UploadProgress uploads={uploads} />
-    {ownKind && uploads.batchPercent === null && <p className="hint text-center">{ownPool
-      ? (ownKind === 'motion' ? `Your ${ownPool.length} clips or GIFs will cycle across motion templates.` : `Your ${ownPool.length} photos will cycle across photo templates.`)
-      : ownKind === 'motion' ? 'Your clip or GIF appears in motion templates.' : 'Your photo appears in photo-based templates.'}</p>}
     {!textless && !hasLyrics && <p className="hint text-center" role="status">Check your lyric timing, or switch lyrics off.</p>}
     {uploads.batchPercent === null && SHELF_ROWS.map(def => view[def.id].note ? <p key={def.id} className="hint text-center" role="status">{view[def.id].note}</p> : null)}
     {cards.length > 0 && <div className="creatives-pack-grid" role="list" aria-busy={!allReady}>
