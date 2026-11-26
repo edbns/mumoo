@@ -20,7 +20,8 @@ test('the phone notice: create on desktop, post from the phone, the app coming, 
   assert.match(phone, /title="Mobile app coming soon">We’re bringing the studio to mobile next\.</);
   assert.match(phone, /title="Your Media, ready to post"/);
   assert.match(phone, /'Open my Media' : 'Sign in to my Media'/);
-  assert.match(phone, /<LegalCorner status=\{false\} \/>/);
+  assert.match(read('legal-corner.tsx'), /<span className=\{`contents \$\{NOT_ON_PHONE\}`\}><StatusDot \/><\/span>/);
+  assert.match(read('legal-corner.tsx'), /link\.href === PRICING_PATH && NOT_ON_PHONE/);
   assert.match(read('welcome-page.tsx'), /if \(window\.matchMedia\('\(max-width: 740px\)'\)\.matches\) location\.replace\('\/'\);/);
 });
 
@@ -29,10 +30,14 @@ test('phone Media: two a row with nothing on them; a tap selects, and the action
   assert.match(phone, /grid list-none grid-cols-2 gap-1\.5 p-0/);
   assert.match(phone, /aria-pressed=\{on\}[^>]*onClick=\{\(\) => toggle\(video\)\}/);
   assert.match(phone, /role="toolbar" aria-label="Selected videos"/);
-  assert.match(phone, /if \(IOS\) shareThese\(list\);\s+else void downloadEach\(list\)/);
+  assert.match(phone, /if \(action === 'save' && !IOS\) \{\s+await downloadEach\(list, onFile\);/);
+  assert.match(phone, /\{chosen\.length === 1 && <FloatingAction label="Share"/);
+  assert.match(phone, /`\$\{total\} videos saved to your camera roll\.`/);
+  assert.match(phone, /if \(action === 'save'\) setSelected\(new Set\(\)\);/);
+  assert.match(phone, /busy: work\?\.action === action, ready: again === action/);
   assert.doesNotMatch(phone, /fflate|zipSync/);
   assert.match(phone, /accountFetch\('\/api\/renders'\)/);
-  assert.match(phone, /name === 'NotAllowedError'\) \{ setReady\('ready'\)/);
+  assert.match(phone, /if \(name === 'NotAllowedError'\) return 'tap-again';/);
   assert.match(phone, /document\.addEventListener\('visibilitychange', renew\)/);
 });
 

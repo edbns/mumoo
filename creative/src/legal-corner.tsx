@@ -3,6 +3,7 @@ import {
   CookieConsent, CookieConsentAcceptAll, CookieConsentActions, CookieConsentCategories, CookieConsentCategory,
   CookieConsentDescription, CookieConsentLink, CookieConsentManage, CookieConsentRejectAll, CookieConsentSave, CookieConsentTitle,
 } from '@/components/ui/cookie-consent';
+import { cn } from '@/lib/utils';
 import { CONSENT_KEY, COOKIE_SETTINGS_EVENT, openCookieSettings, readConsent } from './consent';
 import { LEGAL_INDEX, LEGAL_PATHS, PRICING_PATH } from './site-paths';
 
@@ -75,12 +76,14 @@ export function CookieBanner() {
 
 /** How mumoo is doing at the bottom left of the layer, the small links at the bottom right (they scroll with it, clear of its
     rounded corner), and the cookie banner. */
-/** `status`: the service status dot, left out on a phone, where the links have the line to themselves. */
-export function LegalCorner({ status = true }: { status?: boolean }) {
+/** On a phone (as wide as the CSS's `.mobile`), the status and Pricing are left out: the links have the line to themselves, and buying is for the computer. */
+const NOT_ON_PHONE = 'max-[740px]:hidden';
+
+export function LegalCorner() {
   return <>
     <nav aria-label="Legal" className="mt-auto flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 pt-8 pb-5 text-[11px] text-muted-foreground/70 sm:justify-end sm:px-8">
-      {status && <StatusDot />}
-      {LEGAL_LINKS.map(link => <a key={link.href} href={link.href} className="hover:text-foreground">{link.label}</a>)}
+      <span className={`contents ${NOT_ON_PHONE}`}><StatusDot /></span>
+      {LEGAL_LINKS.map(link => <a key={link.href} href={link.href} className={cn('hover:text-foreground', link.href === PRICING_PATH && NOT_ON_PHONE)}>{link.label}</a>)}
       <button type="button" onClick={openCookieSettings} className="cursor-pointer rounded-none bg-transparent p-0 text-inherit hover:text-foreground">Cookie settings</button>
     </nav>
     <CookieBanner />

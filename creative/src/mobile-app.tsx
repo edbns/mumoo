@@ -48,7 +48,7 @@ export default function MobileApp() {
       onSendCode={async email => { await sendSignInCode(email); address.current = email; }}
       onCheckCode={async code => { await checkSignInCode(address.current, code); setInMedia(true); return true; }}
       onGoogle={async () => { await signInWithGoogle(); setInMedia(true); }} />
-    <LegalCorner status={false} />
+    <LegalCorner />
   </div>;
 }
 
@@ -79,15 +79,16 @@ function NoticeCard({ icon, title, children }: { icon: ReactNode; title: string;
   </div>;
 }
 
-type Readiness = 'preparing' | 'ready';
+type Action = 'save' | 'share';
+/** How a press of Save or Share ended: done, put off by the cancelled sheet, or waiting for one more tap (the phone asked for a fresh one). */
+type Outcome = 'done' | 'cancelled' | 'tap-again';
 
 /**
  * The video files themselves, for the share sheet. A phone lets a page open it only straight after a tap, so a chosen video's file
- * is fetched as soon as it is chosen; when a tap still came too early, the button says the files are ready and the next tap opens it.
+ * is fetched as soon as it is chosen; when the tap has gone stale by the time they are in, the caller asks for one more.
  */
 function useFiles() {
   const files = useRef(new Map<string, Promise<File>>());
-  const [ready, setReady] = useState<Readiness | null>(null);
   const fileOf = useCallback((video: Video) => {
     let file = files.current.get(video.id);
     if (!file) {
@@ -100,36 +101,27 @@ function useFiles() {
     }
     return file;
   }, []);
-  /** Opens the share sheet with `videos`, where an iPhone also offers Save Video to the camera roll. */
-  const share = useCallback(async (videos: Video[]) => {
-    setReady('preparing');
-    let shown: File[];
-    try {
-      shown = await Promise.all(videos.map(fileOf));
-    } catch (cause) {
-      setReady(null);
-      throw cause;
-    }
-    if (!navigator.canShare?.({ files: shown })) {
-      setReady(null);
-      throw new Error('Sharing isn’t available in this browser. Save the videos, then share them from your gallery.');
-    }
+  /** Opens the share sheet with `videos` (an iPhone's also offers Save Video to the camera roll); `onFile` counts them in. */
+  const share = useCallback(async (videos: Video[], onFile: () => void): Promise<Outcome> => {
+    const shown = await Promise.all(videos.map(video => fileOf(video).then(file => { onFile(); return file; })));
+    if (!navigator.canShare?.({ files: shown })) throw new Error('Sharing isn’t available in this browser. Save the videos, then share them from your gallery.');
     try {
       await navigator.share({ files: shown });
-      setReady(null);
+      return 'done';
     } catch (cause) {
       const name = (cause as DOMException)?.name;
-      if (name === 'NotAllowedError') { setReady('ready'); return; }
-      setReady(null);
-      if (name !== 'AbortError') throw cause;
+      if (name === 'NotAllowedError') return 'tap-again';
+      if (name === 'AbortError') return 'cancelled';
+      throw cause;
     }
   }, [fileOf]);
-  return { fileOf, share, ready };
+  return { fileOf, share };
 }
 
 /** Saves each video by itself, one after the other (no zip): where the browser puts downloads, the gallery finds them. */
-async function downloadEach(videos: Video[]) {
+async function downloadEach(videos: Video[], onFile: () => void) {
   for (const video of videos) {
+    onFile();
     if (!video.download) continue;
     const link = document.createElement('a');
     link.href = video.download;
@@ -146,7 +138,17 @@ function MediaScreen({ onSignOut }: { onSignOut: () => void }) {
   const [watching, setWatching] = useState<Video | null>(null);
   const [deleting, setDeleting] = useState<Video[] | null>(null);
   const loadedAt = useRef(0);
-  const { fileOf, share, ready } = useFiles();
+  const { fileOf, share } = useFiles();
+  /** The Save or Share under way, with how many of its videos are in; or the one waiting for another tap. */
+  const [work, setWork] = useState<{ action: Action; done: number; total: number } | null>(null);
+  const [again, setAgain] = useState<Action | null>(null);
+  /** A short line floating over the videos: how far a save has got, then that it is done. */
+  const [notice, setNotice] = useState('');
+  useEffect(() => {
+    if (!notice || work) return;
+    const timer = window.setTimeout(() => setNotice(''), 3500);
+    return () => window.clearTimeout(timer);
+  }, [notice, work]);
 
   const load = useCallback(async () => {
     try {
@@ -171,19 +173,45 @@ function MediaScreen({ onSignOut }: { onSignOut: () => void }) {
 
   const chosen = (videos ?? []).filter(video => selected.has(video.id));
   function toggle(video: Video) {
+    setAgain(null);
     setSelected(current => {
       const next = new Set(current);
       if (!next.delete(video.id)) { next.add(video.id); if (IOS) void fileOf(video).catch(() => undefined); }
       return next;
     });
   }
-  const fail = (fallback: string) => (cause: unknown) => setError(friendlyError(cause, fallback));
-  const shareThese = (list: Video[]) => { setError(''); void share(list).catch(fail('Couldn’t share these videos. Try again.')); };
-  const saveThese = (list: Video[]) => {
-    setError('');
-    if (IOS) shareThese(list);
-    else void downloadEach(list).catch(fail('Download failed. Try again.'));
-  };
+  /** Save (to the camera roll on an iPhone, a download elsewhere) or Share `list`; once saved, the selection is let go. */
+  async function act(action: Action, list: Video[]) {
+    if (work) return;
+    setError(''); setAgain(null);
+    const total = list.length;
+    const onFile = () => setWork(current => current && { ...current, done: Math.min(current.total, current.done + 1) });
+    setWork({ action, done: 0, total });
+    try {
+      if (action === 'save' && !IOS) {
+        await downloadEach(list, onFile);
+        setNotice(total === 1 ? 'Video downloaded.' : `${total} videos downloaded.`);
+        setSelected(new Set());
+        return;
+      }
+      const outcome = await share(list, onFile);
+      if (outcome === 'tap-again') { setAgain(action); setNotice('Ready. Tap again.'); return; }
+      if (outcome === 'cancelled') { setNotice(''); return; }
+      setNotice(action === 'share' ? 'Shared.' : total === 1 ? 'Saved to your camera roll.' : `${total} videos saved to your camera roll.`);
+      if (action === 'save') setSelected(new Set());
+    } catch (cause) {
+      setNotice('');
+      setError(friendlyError(cause, action === 'share' ? 'Couldn’t share this video. Try again.' : 'Couldn’t save these videos. Try again.'));
+    } finally {
+      setWork(null);
+    }
+  }
+  const progress = work && (work.action === 'save' && !IOS
+    ? `Downloading ${Math.max(1, work.done)} of ${work.total}…`
+    : work.total === 1 ? 'Getting your video ready…' : `Getting ${work.done} of ${work.total} ready…`);
+  const saveLabel = IOS ? 'Save to camera roll' : 'Download';
+  const actionProps = (action: Action) => ({ busy: work?.action === action, ready: again === action });
+
   async function remove() {
     if (!deleting) return;
     try {
@@ -224,10 +252,8 @@ function MediaScreen({ onSignOut }: { onSignOut: () => void }) {
 
     {chosen.length > 0 && !watching && <FloatingBar>
       {chosen.length === 1 && <FloatingAction label="Watch" onClick={() => setWatching(chosen[0])}><PlayIcon className="ml-0.5 size-5 fill-current" /></FloatingAction>}
-      <FloatingAction label={IOS ? 'Save to camera roll' : 'Download'} busy={IOS && ready === 'preparing'} ready={IOS && ready === 'ready'} onClick={() => saveThese(chosen)}>
-        <DownloadIcon className="size-5" />
-      </FloatingAction>
-      <FloatingAction label="Share" busy={ready === 'preparing'} ready={ready === 'ready'} onClick={() => shareThese(chosen)}><Share2Icon className="size-5" /></FloatingAction>
+      <FloatingAction label={saveLabel} {...actionProps('save')} onClick={() => void act('save', chosen)}><DownloadIcon className="size-5" /></FloatingAction>
+      {chosen.length === 1 && <FloatingAction label="Share" {...actionProps('share')} onClick={() => void act('share', chosen)}><Share2Icon className="size-5" /></FloatingAction>}
       <FloatingAction label="Delete" onClick={() => setDeleting(chosen)}><Trash2Icon className="size-5" /></FloatingAction>
       <FloatingAction label="Deselect" onClick={() => setSelected(new Set())}><XIcon className="size-5" /></FloatingAction>
     </FloatingBar>}
@@ -236,12 +262,16 @@ function MediaScreen({ onSignOut }: { onSignOut: () => void }) {
       const fresh = list?.find(video => video.id === watching.id);
       if (fresh && fresh.url !== watching.url) setWatching(fresh);
     })}>
-      <FloatingAction label={IOS ? 'Save to camera roll' : 'Download'} busy={IOS && ready === 'preparing'} ready={IOS && ready === 'ready'} onClick={() => saveThese([watching])}>
-        <DownloadIcon className="size-5" />
-      </FloatingAction>
-      <FloatingAction label="Share" busy={ready === 'preparing'} ready={ready === 'ready'} onClick={() => shareThese([watching])}><Share2Icon className="size-5" /></FloatingAction>
+      <FloatingAction label={saveLabel} {...actionProps('save')} onClick={() => void act('save', [watching])}><DownloadIcon className="size-5" /></FloatingAction>
+      <FloatingAction label="Share" {...actionProps('share')} onClick={() => void act('share', [watching])}><Share2Icon className="size-5" /></FloatingAction>
       <FloatingAction label="Delete" onClick={() => setDeleting([watching])}><Trash2Icon className="size-5" /></FloatingAction>
     </Viewer>}
+
+    {(progress || notice) && <p role="status" aria-live="polite"
+      className={cn('pointer-events-none fixed inset-x-0 z-50', watching ? 'bottom-[max(9.5rem,calc(env(safe-area-inset-bottom)+8.5rem))]' : 'bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.5rem))]',
+        'm-0 mx-auto w-fit max-w-[calc(100%-2rem)] rounded-full bg-black/85 px-4 py-2 text-center text-sm text-white shadow-[0_12px_32px_-12px_#000,inset_0_0_0_1px_rgba(255,255,255,0.12)] backdrop-blur-md')}>
+      {progress || notice}
+    </p>}
 
     <ActionDialog open={deleting !== null} onClose={() => setDeleting(null)} destructive
       title={deleting && deleting.length > 1 ? `Delete ${deleting.length} videos?` : 'Delete this video?'}
