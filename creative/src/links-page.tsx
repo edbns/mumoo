@@ -55,6 +55,8 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
   /** Publish was pressed while signed out: it goes ahead once they are signed in. */
   const publishWhenIn = useRef(false);
   const signInAddress = useRef('');
+  /** The last link looked up, so a failed one is not tried again until it changes. */
+  const triedLink = useRef('');
 
   const slug = useSlugCheck(draft.editing ? '' : draft.slug);
   const link = draft.link;
@@ -78,6 +80,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
   /** Fills the editor from the song behind `url`: a pasted link, or the Deezer link of a song chosen by name. */
   function lookUp(kind: 'find' | 'pick', url: string, pick?: string) {
     player.stop();
+    if (kind === 'find') triedLink.current = url;
     void run(kind, async () => {
       const song = await lookupSong(url, pick);
       if (pick && !song.confident) throw new Error('That song doesn’t match this link’s title. Pick another or fix the details below.');
@@ -86,6 +89,14 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
         slug: current.editing ? current.slug : suggestSlug(fields.artist, fields.title) }));
     });
   }
+
+  /** A link typed or edited by hand starts on its own once typing rests; a pasted one starts at once (`onPaste`). */
+  const typedLink = link ? null : asLink(draft.url);
+  useEffect(() => {
+    if (!typedLink || busy !== null || triedLink.current === typedLink) return;
+    const timer = window.setTimeout(() => lookUp('find', typedLink), CHECK_PAUSE_MS);
+    return () => window.clearTimeout(timer);
+  }, [typedLink, busy]);
 
   function find(event: FormEvent) {
     event.preventDefault();
@@ -136,6 +147,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
     setDraft(EMPTY_DRAFT);
     setTokens({});
     setError('');
+    triedLink.current = '';
     if (wasEditing) onNavigate('my-links');
   }
 
@@ -173,12 +185,11 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
                   const pasted = asLink(event.clipboardData.getData('text'));
                   if (pasted && !draft.url.trim()) { event.preventDefault(); change(current => ({ ...current, url: pasted, link: null, candidates: null })); lookUp('find', pasted); }
                 }} />
+              {(busy === 'find' || (!link && typedName.length >= 2 && found.state === 'searching')) &&
+                <span className="spinner shrink-0" role="status" aria-label="Looking for your song" />}
             </label>
-            <Button type="submit" className="h-[var(--control-height-md)] px-5" disabled={!draft.url.trim() || busy !== null}>
-              {busy === 'find' ? 'Finding…' : 'Find'}
-            </Button>
           </form>}
-          {!link && typedName.length >= 2 && found.state !== 'done' && <p className="m-0 text-sm text-muted-foreground">{found.state === 'failed' ? found.error : 'Searching…'}</p>}
+          {!link && typedName.length >= 2 && found.state === 'failed' && <p className="m-0 text-sm text-muted-foreground">{found.error}</p>}
           {!link && found.state === 'done' && !found.results?.length && <p className="m-0 text-sm text-muted-foreground">Nothing found for “{typedName}”. Try artist + title or paste the song’s link.</p>}
           {choices && choices.length > 0 && <SongChoices title={link ? 'Not sure. Is this your song?' : 'Pick your song'} choices={choices}
             busy={busy !== null} player={player} />}
