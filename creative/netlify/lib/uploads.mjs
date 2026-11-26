@@ -1,6 +1,7 @@
 import { hasRoom } from './allowance.mjs';
 import { db } from './person.mjs';
 import { deleteObject, getObject, objectSize, putObject, signedDownload, signedUpload } from './storage.mjs';
+import { modal } from './sites.mjs';
 
 /**
  * A person's own pictures, kept privately in R2: up to `MAX_SHELF_PICTURES` for the whole shelf (`use` = 'any'). A photo (the
@@ -17,7 +18,7 @@ export const MAX_GIF_BYTES = 25_000_000;
 export const MAX_VIDEO_BYTES = 150_000_000;
 export const MOTION_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'image/gif'];
 
-const PREPARE = 'https://edbns-mumoo-staging--mumoo-prepare-media-staging';
+const PREPARE = (step) => modal(`mumoo-prepare-media-staging-${step}`);
 const KEYS = {
   still: (userId, id) => `uploads/${userId}/${id}.jpg`,
   cutout: (userId, id) => `uploads/${userId}/${id}.cut.png`,
@@ -54,7 +55,7 @@ async function startPreparing(userId, id, kind) {
   const outputs = kind === 'photo' ? { cutout: KEYS.cutout } : { motion: KEYS.motion, poster: KEYS.still };
   const puts = Object.fromEntries(await Promise.all(Object.entries(outputs).map(async ([name, key]) => [name, await signedUpload(key(userId, id))])));
   const source = kind === 'photo' ? KEYS.still(userId, id) : KEYS.source(userId, id);
-  const response = await fetch(`${PREPARE}-submit.us-east.modal.run`, {
+  const response = await fetch(`${PREPARE('submit')}`, {
     method: 'POST',
     headers: { ...bridge(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ kind, source: await signedDownload(source, null, 1800), puts }),
@@ -120,7 +121,7 @@ async function settle(userId, row) {
     await removeUpload(userId, row.id);
     return { id: row.id, kind: row.kind, status: 'failed', error, bytes: 0, createdAt: row.created_at };
   };
-  const response = await fetch(`${PREPARE}-status.us-east.modal.run?id=${encodeURIComponent(row.job_id)}`, {
+  const response = await fetch(`${PREPARE('status')}?id=${encodeURIComponent(row.job_id)}`, {
     headers: bridge(),
     redirect: 'error',
     signal: AbortSignal.timeout(20_000),

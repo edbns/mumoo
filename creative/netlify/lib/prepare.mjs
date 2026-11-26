@@ -1,13 +1,14 @@
+import { modal } from './sites.mjs';
 /**
  * Our own worker that makes a video or GIF a small clip with a poster (see audio-intelligence/modal_prepare_media_staging.py).
  * It reads the source through a link and writes its files straight to the links it is given.
  */
-const PREPARE = 'https://edbns-mumoo-staging--mumoo-prepare-media-staging';
+const PREPARE = (step) => modal(`mumoo-prepare-media-staging-${step}`);
 const bridge = () => ({ Authorization: `Bearer ${process.env.MUMOO_MUSIC_BRIDGE_SECRET}` });
 
 /** Starts preparing a video or GIF (`kind` 'motion': a small clip and a poster) or cutting the subject out of a photo (`kind` 'photo': a cut-out). Returns the worker's job id. */
 export async function startPrepare(source, puts, kind = 'motion') {
-  const response = await fetch(`${PREPARE}-submit.us-east.modal.run`, {
+  const response = await fetch(`${PREPARE('submit')}`, {
     method: 'POST',
     headers: { ...bridge(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ kind, source, puts }),
@@ -21,7 +22,7 @@ export async function startPrepare(source, puts, kind = 'motion') {
 
 /** How a job is getting on: `{ working: true }`, `{ failed: 'why, in words' }` or `{ done: result }`. */
 export async function askPrepare(job) {
-  const response = await fetch(`${PREPARE}-status.us-east.modal.run?id=${encodeURIComponent(job)}`, {
+  const response = await fetch(`${PREPARE('status')}?id=${encodeURIComponent(job)}`, {
     headers: bridge(),
     redirect: 'error',
     signal: AbortSignal.timeout(20_000),

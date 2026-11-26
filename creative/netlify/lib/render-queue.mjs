@@ -6,6 +6,7 @@ import { outboundFor } from './render-outbound.mjs';
 import { saveRender } from './renders.mjs';
 import { videoName } from './video-name.mjs';
 import { deleteObject, getObject, objectSize, putObject, signedDownload } from './storage.mjs';
+import { modal } from './sites.mjs';
 
 /**
  * The render queue. Every chosen video is queued with its credit already taken; the queue starts a few of each person's at a time
@@ -35,8 +36,8 @@ const KEEP_ROWS = '7 days';
 /** A video kept for the browser to fetch (the person's Media was full) is kept this long. */
 const KEEP_DOWNLOAD = '1 day';
 
-const MODAL_SUBMIT = 'https://edbns-mumoo-staging--mumoo-creatives-encode-staging-submit.us-east.modal.run';
-const MODAL_STATUS = 'https://edbns-mumoo-staging--mumoo-creatives-encode-staging-status.us-east.modal.run';
+const MODAL_SUBMIT = () => modal('mumoo-creatives-encode-staging-submit');
+const MODAL_STATUS = () => modal('mumoo-creatives-encode-staging-status');
 
 const audioKey = (userId, orderId) => `render-queue/${userId}/${orderId}.wav`;
 const downloadKey = (userId, id) => `render-queue/${userId}/${id}.mp4`;
@@ -54,7 +55,7 @@ export const shownError = (error) => (typeof error === 'string' && error.startsW
 
 export const modalWorker = {
   async submit(form) {
-    const response = await fetch(MODAL_SUBMIT, {
+    const response = await fetch(MODAL_SUBMIT(), {
       method: 'POST', body: form, redirect: 'error', signal: AbortSignal.timeout(20_000),
       headers: { Authorization: `Bearer ${process.env.MUMOO_MUSIC_BRIDGE_SECRET}` },
     });
@@ -66,7 +67,7 @@ export const modalWorker = {
     return { retry: true, error: `${WORKER}not accepted (${response.status})` };
   },
   async status(callId) {
-    const response = await fetch(`${MODAL_STATUS}?id=${encodeURIComponent(callId)}`, {
+    const response = await fetch(`${MODAL_STATUS()}?id=${encodeURIComponent(callId)}`, {
       redirect: 'error', signal: AbortSignal.timeout(15_000),
       headers: { Authorization: `Bearer ${process.env.MUMOO_MUSIC_BRIDGE_SECRET}` },
     });

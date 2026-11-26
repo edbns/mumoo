@@ -2,17 +2,17 @@ import { randomUUID } from 'node:crypto';
 import { validAccess } from '../lib/access.mjs';
 import { storeFeedback, validFeedback } from '../lib/feedback.mjs';
 import { personFrom, recordPerson } from '../lib/person.mjs';
+import { siteOf } from '../lib/sites.mjs';
 
-const SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
-const ORIGIN = 'https://mumoo-staging.netlify.app';
 // A "shown" note carries every card of a hand (about 20, a reel each).
 const LIMIT = 24_576;
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
 
 async function processRequest(request) {
-  if (process.env.SITE_ID !== SITE || new URL(request.url).origin !== ORIGIN) return reply(404, { error: 'Not available.' });
+  const site = siteOf(request);
+  if (!site) return reply(404, { error: 'Not available.' });
   if (request.method !== 'POST') return reply(405, { error: 'Use POST.' });
-  if (request.headers.get('origin') !== ORIGIN) return reply(403, { error: 'Open mumoo Staging.' });
+  if (request.headers.get('origin') !== site.origin) return reply(403, { error: 'Open mumoo.' });
   if (!validAccess(request.headers.get('x-mumoo-brain-access') || '', process.env.MUMOO_BRAIN_TESTER_KEY)) {
     return reply(401, { error: 'Tester access is invalid or expired.' });
   }

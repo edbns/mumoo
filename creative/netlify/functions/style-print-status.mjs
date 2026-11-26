@@ -3,6 +3,7 @@ import { note } from '../lib/service-health.mjs';
 import { personFrom } from '../lib/person.mjs';
 import { submitLabel, voterOf } from '../lib/style-learning.mjs';
 import { CHECK_ANSWERS, GUESS_ANSWERS, blendGuess, checkPick, countCheckAnswer, countGuessAnswer, guardrailsOn, loadPrints, loadTempo, validLabel, validPrint } from '../lib/style-prints.mjs';
+import { siteOf, modal } from '../lib/sites.mjs';
 
 /**
  * Genre learning, step two: ask for a sound print job (from style-print). 202 while it runs. Only answers go back to the
@@ -20,9 +21,7 @@ import { CHECK_ANSWERS, GUESS_ANSWERS, blendGuess, checkPick, countCheckAnswer, 
  * With the tempo guardrails on, the clip's tempo (kept from style-print) nudges the guess; it may arrive between the question
  * and the answer, so an answer stands for the guess made with it or without it.
  */
-const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
-const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
-const MODAL_STATUS = 'https://edbns-mumoo-staging--mumoo-sound-print-staging-status.us-east.modal.run';
+const MODAL_STATUS = () => modal('mumoo-sound-print-staging-status');
 const CALL_ID = /^fc-[A-Za-z0-9]{8,48}$/;
 const LIMIT = 4096;
 const headers = { 'Cache-Control': 'no-store' };
@@ -31,13 +30,14 @@ const validClip = clip => validLabel({ ...clip, style: '-', genre: '-', subGenre
 const validPicked = (clip, picked) => picked === undefined || validLabel({ ...clip, ...picked, source: 'creator' });
 
 export default async function stylePrintStatus(request, context) {
-  if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) {
-    return error(404, 'Genre learning is only available on staging.');
+  const site = siteOf(request);
+  if (!site) {
+    return error(404, 'Not available here.');
   }
   if (request.method !== 'POST') return error(405, 'Use POST.');
-  if (request.headers.get('origin') !== STAGING_ORIGIN) return error(403, 'Open mumoo Staging.');
+  if (request.headers.get('origin') !== site.origin) return error(403, 'Open mumoo.');
   if (!validAccess(request.headers.get('x-mumoo-brain-access') ?? '', process.env.MUMOO_BRAIN_TESTER_KEY)) {
-    return error(401, 'Staging access is invalid or expired.');
+    return error(401, 'Access is invalid or expired.');
   }
   if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type') || '')) return error(415, 'Expected JSON.');
   if (Number(request.headers.get('content-length') || 0) > LIMIT) return error(413, 'Request too large.');
@@ -56,7 +56,7 @@ export default async function stylePrintStatus(request, context) {
   const startedAt = Date.now();
   const noted = ok => note(context, 'genre', ok, startedAt);
   try {
-    response = await fetch(`${MODAL_STATUS}?id=${encodeURIComponent(data.id)}`, {
+    response = await fetch(`${MODAL_STATUS()}?id=${encodeURIComponent(data.id)}`, {
       redirect: 'error', signal: AbortSignal.timeout(20_000),
       headers: { Authorization: `Bearer ${bridgeSecret}` },
     });

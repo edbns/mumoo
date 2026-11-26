@@ -1,10 +1,9 @@
 import { validAccess } from '../lib/access.mjs';
 import { note } from '../lib/service-health.mjs';
+import { siteOf, modal } from '../lib/sites.mjs';
 
 /** Poll a lyric-meaning job: 202 while running, 200 + a few codes when done. */
-const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
-const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
-const MODAL_STATUS = 'https://edbns-mumoo-staging--mumoo-lyric-meaning-staging-status.us-east.modal.run';
+const MODAL_STATUS = () => modal('mumoo-lyric-meaning-staging-status');
 const headers = { 'Cache-Control': 'no-store' };
 const CALL_ID = /^fc-[A-Za-z0-9]{8,48}$/;
 
@@ -14,12 +13,13 @@ function error(status, message) {
 
 export default async function readLyricMeaningStatus(request, context) {
   const url = new URL(request.url);
-  if (process.env.SITE_ID !== STAGING_SITE || url.origin !== STAGING_ORIGIN) {
-    return error(404, 'Lyric meaning is only available on staging.');
+  const site = siteOf(request);
+  if (!site) {
+    return error(404, 'Not available here.');
   }
   if (request.method !== 'GET') return error(405, 'Use GET.');
   if (!validAccess(request.headers.get('x-mumoo-brain-access') ?? '', process.env.MUMOO_BRAIN_TESTER_KEY)) {
-    return error(401, 'Staging access is invalid or expired.');
+    return error(401, 'Access is invalid or expired.');
   }
   const bridgeSecret = process.env.MUMOO_MUSIC_BRIDGE_SECRET || '';
   if (bridgeSecret.length < 32) return error(503, 'Lyric meaning is not configured.');
@@ -29,7 +29,7 @@ export default async function readLyricMeaningStatus(request, context) {
   const startedAt = Date.now();
   const noted = ok => note(context, 'meaning', ok, startedAt);
   try {
-    const response = await fetch(`${MODAL_STATUS}?id=${encodeURIComponent(id)}`, {
+    const response = await fetch(`${MODAL_STATUS()}?id=${encodeURIComponent(id)}`, {
       redirect: 'error', signal: AbortSignal.timeout(20_000),
       headers: { Authorization: `Bearer ${bridgeSecret}` },
     });

@@ -88,7 +88,7 @@ export async function clipToMonoWav(audio: AudioBuffer, clipStartMs: number, cli
 async function errorMessage(response: Response): Promise<string> {
   const result = await response.json().catch(() => null) as { error?: string } | null;
   // The page renews its access by itself; if it still could not, say what to do, not what the gateway called it.
-  if (response.status === 401 && /staging access/i.test(result?.error ?? '')) return 'Reload the page and try again.';
+  if (response.status === 401 && /access is invalid/i.test(result?.error ?? '')) return 'Reload the page and try again.';
   return result?.error || 'Our render servers are catching a breather. Refresh and try again in a moment.';
 }
 

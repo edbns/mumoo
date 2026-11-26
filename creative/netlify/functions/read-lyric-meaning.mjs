@@ -1,13 +1,12 @@
 import { validAccess } from '../lib/access.mjs';
 import { note } from '../lib/service-health.mjs';
+import { siteOf, modal } from '../lib/sites.mjs';
 
 /**
  * Start a lyric-meaning job. The lyrics go only to our own model on Modal, which keeps them in memory for the
  * length of the request. Returns a job id at once; the status function hands back a few codes, never the words.
  */
-const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
-const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
-const MODAL_SUBMIT = 'https://edbns-mumoo-staging--mumoo-lyric-meaning-staging-submit.us-east.modal.run';
+const MODAL_SUBMIT = () => modal('mumoo-lyric-meaning-staging-submit');
 const BODY_LIMIT = 40_000;
 const headers = { 'Cache-Control': 'no-store' };
 
@@ -16,13 +15,14 @@ function error(status, message) {
 }
 
 export default async function readLyricMeaning(request, context) {
-  if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) {
-    return error(404, 'Lyric meaning is only available on staging.');
+  const site = siteOf(request);
+  if (!site) {
+    return error(404, 'Not available here.');
   }
   if (request.method !== 'POST') return error(405, 'Use POST.');
-  if (request.headers.get('origin') !== STAGING_ORIGIN) return error(403, 'Open mumoo Staging to read lyrics.');
+  if (request.headers.get('origin') !== site.origin) return error(403, 'Open mumoo to read lyrics.');
   if (!validAccess(request.headers.get('x-mumoo-brain-access') ?? '', process.env.MUMOO_BRAIN_TESTER_KEY)) {
-    return error(401, 'Staging access is invalid or expired.');
+    return error(401, 'Access is invalid or expired.');
   }
   const bridgeSecret = process.env.MUMOO_MUSIC_BRIDGE_SECRET || '';
   if (bridgeSecret.length < 32) return error(503, 'Lyric meaning is not configured.');
@@ -33,7 +33,7 @@ export default async function readLyricMeaning(request, context) {
     const body = await request.text();
     if (!body || body.length > BODY_LIMIT) return error(400, 'Expected the lyric lines.');
     startedAt = Date.now();
-    const response = await fetch(MODAL_SUBMIT, {
+    const response = await fetch(MODAL_SUBMIT(), {
       method: 'POST', body, redirect: 'error', signal: AbortSignal.timeout(25_000),
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bridgeSecret}` },
     });

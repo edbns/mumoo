@@ -2,6 +2,7 @@ import { validAccess } from '../lib/access.mjs';
 import { note } from '../lib/service-health.mjs';
 import { clipMs, maxBytes } from '../lib/clip-wav.mjs';
 import { countUnknown, storeTempo, validTempo } from '../lib/style-prints.mjs';
+import { siteOf, modal } from '../lib/sites.mjs';
 
 /**
  * Genre learning, step one: start the sound print of the selected clip (10 to 15 s of mono 48 kHz WAV, up to ~1.4 MB) and return
@@ -9,21 +10,20 @@ import { countUnknown, storeTempo, validTempo } from '../lib/style-prints.mjs';
  * A JSON body { version: 1, unknown: true } instead counts one "I don't know", with nothing about the song, and
  * { version: 1, tempo: { sourceSha256, offsetMs, bpm, energy } } keeps the song reader's tempo and loudness of the clip.
  */
-const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
-const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
-const MODAL_SUBMIT = 'https://edbns-mumoo-staging--mumoo-sound-print-staging-submit.us-east.modal.run';
+const MODAL_SUBMIT = () => modal('mumoo-sound-print-staging-submit');
 const RATE = 48_000;
 const headers = { 'Cache-Control': 'no-store' };
 const error = (status, message) => Response.json({ error: message }, { status, headers });
 
 export default async function stylePrint(request, context) {
-  if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) {
-    return error(404, 'Genre learning is only available on staging.');
+  const site = siteOf(request);
+  if (!site) {
+    return error(404, 'Not available here.');
   }
   if (request.method !== 'POST') return error(405, 'Use POST.');
-  if (request.headers.get('origin') !== STAGING_ORIGIN) return error(403, 'Open mumoo Staging.');
+  if (request.headers.get('origin') !== site.origin) return error(403, 'Open mumoo.');
   if (!validAccess(request.headers.get('x-mumoo-brain-access') ?? '', process.env.MUMOO_BRAIN_TESTER_KEY)) {
-    return error(401, 'Staging access is invalid or expired.');
+    return error(401, 'Access is invalid or expired.');
   }
   const type = request.headers.get('content-type') || '';
   if (Number(request.headers.get('content-length') || 0) > maxBytes(RATE)) return error(413, 'The clip is too large.');
@@ -43,7 +43,7 @@ export default async function stylePrint(request, context) {
   if (clipMs(audio, RATE) === null) return error(400, 'Expected 10 to 15 seconds of mono 48 kHz WAV.');
   const startedAt = Date.now();
   try {
-    const response = await fetch(MODAL_SUBMIT, {
+    const response = await fetch(MODAL_SUBMIT(), {
       method: 'POST', body: audio, redirect: 'error', signal: AbortSignal.timeout(20_000),
       headers: { Authorization: `Bearer ${bridgeSecret}`, 'Content-Type': 'audio/wav' },
     });

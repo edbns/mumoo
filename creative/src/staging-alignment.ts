@@ -1,4 +1,6 @@
-export const IS_ALIGNMENT_STAGING = location.hostname === 'mumoo-staging.netlify.app' || (import.meta.env.DEV && location.hostname === '127.0.0.1');
+/** The cloud features (lyrics, music and genre reading, sending from a phone) run only at the two addresses whose servers allow them. */
+export const IS_ALIGNMENT_STAGING = ['mumoo-staging.netlify.app', 'mumoo.app'].includes(location.hostname)
+  || (import.meta.env.DEV && location.hostname === '127.0.0.1');
 
 /** 16-bit mono PCM WAV (44-byte header). */
 export function encodePcmWav(samples: Float32Array, rate: number) {

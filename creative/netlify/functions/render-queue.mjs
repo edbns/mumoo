@@ -1,7 +1,7 @@
 import { pump, sweep } from '../lib/render-queue.mjs';
 import { storageReady } from '../lib/storage.mjs';
+import { thisSite } from '../lib/sites.mjs';
 
-const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 /** Kept under the scheduled function's 30 seconds. */
 const BUDGET_MS = 22_000;
 const PAUSE_MS = 3_000;
@@ -11,7 +11,7 @@ const PAUSE_MS = 3_000;
  * of failed ones even when nobody's page is open; then clears what is no longer needed.
  */
 export default async function renderQueue() {
-  if (process.env.SITE_ID !== STAGING_SITE || !process.env.DATABASE_URL || !storageReady()) return;
+  if (!thisSite() || !process.env.DATABASE_URL || !storageReady()) return;
   const end = Date.now() + BUDGET_MS;
   while (Date.now() < end) {
     const moved = await pump({ limit: 8 }).catch(cause => { console.error('render queue turn:', cause); return 0; });

@@ -1,14 +1,12 @@
 import { validAccess } from '../lib/access.mjs';
 import { note } from '../lib/service-health.mjs';
+import { siteOf, modal } from '../lib/sites.mjs';
 
 /**
  * Start a lyrics job (transcribe + time words, any language). Tiny request: a 10 to 15 s mono 16 kHz WAV
  * (~480 KB) plus a small JSON with optional lyric tokens and language. Returns a job id at once.
  */
-const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
-const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
-const MODAL_SUBMIT =
-  'https://edbns-mumoo-staging--mumoo-lyrics-v2-staging-submit.us-east.modal.run';
+const MODAL_SUBMIT = () => modal('mumoo-lyrics-v2-staging-submit');
 const BODY_LIMIT = 700_000;
 const META_LIMIT = 60_000;
 const headers = { 'Cache-Control': 'no-store' };
@@ -18,13 +16,14 @@ function error(status, message) {
 }
 
 export default async function transcribeLyrics(request, context) {
-  if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) {
-    return error(404, 'Lyrics are only available on staging.');
+  const site = siteOf(request);
+  if (!site) {
+    return error(404, 'Not available here.');
   }
   if (request.method !== 'POST') return error(405, 'Use POST.');
-  if (request.headers.get('origin') !== STAGING_ORIGIN) return error(403, 'Open mumoo Staging to find lyrics.');
+  if (request.headers.get('origin') !== site.origin) return error(403, 'Open mumoo to find lyrics.');
   if (!validAccess(request.headers.get('x-mumoo-brain-access') ?? '', process.env.MUMOO_BRAIN_TESTER_KEY)) {
-    return error(401, 'Staging access is invalid or expired.');
+    return error(401, 'Access is invalid or expired.');
   }
   const bridgeSecret = process.env.MUMOO_MUSIC_BRIDGE_SECRET || '';
   if (bridgeSecret.length < 32) return error(503, 'Lyrics are not configured.');
@@ -44,7 +43,7 @@ export default async function transcribeLyrics(request, context) {
     outbound.append('audio', audio, 'clip.wav');
     outbound.append('meta', meta);
     startedAt = Date.now();
-    const response = await fetch(MODAL_SUBMIT, {
+    const response = await fetch(MODAL_SUBMIT(), {
       method: 'POST', body: outbound, redirect: 'error', signal: AbortSignal.timeout(25_000),
       headers: { Authorization: `Bearer ${bridgeSecret}` },
     });

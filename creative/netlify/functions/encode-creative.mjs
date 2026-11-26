@@ -3,6 +3,7 @@ import { personFrom, recordPerson } from '../lib/person.mjs';
 import { refusalOf } from '../lib/render-outbound.mjs';
 import { enqueue } from '../lib/render-queue.mjs';
 import { storageReady } from '../lib/storage.mjs';
+import { siteOf } from '../lib/sites.mjs';
 
 /**
  * Queue creatives to be made (`render-queue.mjs`), up to `BATCH` per request (one `meta` each): returns their queue ids at once, and
@@ -12,8 +13,6 @@ import { storageReady } from '../lib/storage.mjs';
  * A video that fails gives its credit back. The picture is named, never sent: the queue reads it from the library or from that
  * person's own storage when the render starts.
  */
-const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
-const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 const BODY_LIMIT = 4_000_000;
 /** The most videos queued by one request; a bigger order comes in several. */
 const BATCH = 10;
@@ -24,15 +23,16 @@ function error(status, message) {
 }
 
 export default async function encodeCreative(request) {
-  if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) {
-    return error(404, 'Cloud render is only available on staging.');
+  const site = siteOf(request);
+  if (!site) {
+    return error(404, 'Not available here.');
   }
   if (request.method !== 'POST') return error(405, 'Use POST.');
-  if (request.headers.get('origin') !== STAGING_ORIGIN) {
-    return error(403, 'Open mumoo Staging to export a video.');
+  if (request.headers.get('origin') !== site.origin) {
+    return error(403, 'Open mumoo to export a video.');
   }
   if (!validAccess(request.headers.get('x-mumoo-brain-access') ?? '', process.env.MUMOO_BRAIN_TESTER_KEY)) {
-    return error(401, 'Staging access is invalid or expired.');
+    return error(401, 'Access is invalid or expired.');
   }
   if ((process.env.MUMOO_MUSIC_BRIDGE_SECRET || '').length < 32 || !storageReady()) return error(503, 'Cloud render is not configured.');
   if (!process.env.DATABASE_URL) return error(503, 'Accounts are unavailable.');

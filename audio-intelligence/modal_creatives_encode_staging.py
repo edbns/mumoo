@@ -20,6 +20,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -32,7 +33,8 @@ import modal
 from clip_wav import clip_ms, max_bytes
 
 APP = "mumoo-creatives-encode-staging"
-SITE = "https://mumoo-staging.netlify.app"
+# The site whose render page draws the frames: each Modal environment's mumoo-music-bridge secret names its own (live: mumoo.app).
+STAGING_SITE = "https://mumoo-staging.netlify.app"
 FPS = 30
 CHUNK_FRAMES = 45
 # A whole video's chunks are in by then or the job fails (and the queue tries it again); one takes about a minute, more under load.
@@ -211,7 +213,7 @@ def render_chunk(opts: dict, media: dict[str, bytes], start: int, end: int) -> b
                 page = browser.new_page(viewport={"width": 1080, "height": 1920}, device_scale_factor=1)
                 for name in media:
                     page.route(f"**{MEDIA_PATHS[name]}", handing(media[name], MEDIA_TYPES[name]))
-                page.goto(f"{SITE}/render.html", wait_until="load", timeout=60_000)
+                page.goto(f"{os.environ.get('MUMOO_SITE') or STAGING_SITE}/render.html", wait_until="load", timeout=60_000)
                 page.wait_for_function("window.mumooPack", timeout=60_000)
                 problems: list[str] = []
                 page.on("console", lambda message: problems.append(message.text[:200]) if message.type == "error" else None)

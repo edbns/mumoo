@@ -1,9 +1,8 @@
 import { validAccess } from '../lib/access.mjs';
 import { note } from '../lib/service-health.mjs';
 import { clipMs, maxBytes } from '../lib/clip-wav.mjs';
-const STAGING_ORIGIN = 'https://mumoo-staging.netlify.app';
-const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
-const MODAL_ENDPOINT = 'https://edbns-mumoo-staging--mumoo-music-analysis-staging-analyze-clip.us-east.modal.run';
+import { siteOf, modal } from '../lib/sites.mjs';
+const MODAL_ENDPOINT = () => modal('mumoo-music-analysis-staging-analyze-clip');
 const RATE = 16_000;
 const headers = { 'Cache-Control': 'no-store' };
 
@@ -12,17 +11,18 @@ function error(status, message) {
 }
 
 export default async function analyzeMusic(request, context) {
-  if (process.env.SITE_ID !== STAGING_SITE || new URL(request.url).origin !== STAGING_ORIGIN) {
-    return error(404, 'Music analysis is only available on staging.');
+  const site = siteOf(request);
+  if (!site) {
+    return error(404, 'Not available here.');
   }
   if (request.method !== 'POST') return error(405, 'Use POST.');
-  if (request.headers.get('origin') !== STAGING_ORIGIN) return error(403, 'Open mumoo Staging to analyze a clip.');
+  if (request.headers.get('origin') !== site.origin) return error(403, 'Open mumoo to analyze a clip.');
   const access = request.headers.get('x-mumoo-analysis-access') ?? '';
   const stagingAccess = request.headers.get('x-mumoo-brain-access') ?? '';
   const bridgeSecret = process.env.MUMOO_MUSIC_BRIDGE_SECRET || '';
   const legacy = /^\d{10}\.[a-f0-9]{64}$/.test(access);
   const bridged = validAccess(stagingAccess, process.env.MUMOO_BRAIN_TESTER_KEY);
-  if (!legacy && !bridged) return error(401, 'Staging access is invalid or expired.');
+  if (!legacy && !bridged) return error(401, 'Access is invalid or expired.');
   if (!legacy && bridgeSecret.length < 32) return error(503, 'Music analysis is not configured.');
   let startedAt = 0;
   try {
@@ -30,7 +30,7 @@ export default async function analyzeMusic(request, context) {
     const body = await request.arrayBuffer();
     if (clipMs(body, RATE) === null) return error(400, 'Expected 10 to 15 seconds of PCM audio.');
     startedAt = Date.now();
-    const response = await fetch(MODAL_ENDPOINT, {
+    const response = await fetch(MODAL_ENDPOINT(), {
       method: 'POST', body, redirect: 'error', signal: AbortSignal.timeout(54_000),
       headers: { 'Content-Type': 'audio/wav', ...(request.headers.get('x-mumoo-music-features') === 'temporal-v1' ? { 'X-Mumoo-Music-Features': 'temporal-v1' } : {}), ...(legacy ? { 'X-Mumoo-Analysis-Access': access } : { 'Authorization': `Bearer ${bridgeSecret}` }) },
     });

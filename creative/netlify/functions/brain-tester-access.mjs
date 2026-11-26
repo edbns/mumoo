@@ -1,13 +1,12 @@
 import { createHmac, randomUUID } from 'node:crypto';
-const SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
-const ORIGIN = 'https://mumoo-staging.netlify.app';
+import { siteOf } from '../lib/sites.mjs';
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 async function processRequest(request) {
-  if (process.env.SITE_ID !== SITE || new URL(request.url).origin !== ORIGIN) return reply(404, { error: 'Not available.' });
+  const site = siteOf(request);
+  if (!site) return reply(404, { error: 'Not available.' });
   if (request.method !== 'POST') return reply(405, { error: 'Use POST.' });
-  if (request.headers.get('origin') !== ORIGIN) return reply(403, { error: 'Open mumoo Staging.' });
-  // Staging open access: no tester password. Tokens are still HMAC-signed and
-  // only minted for the staging origin. Production never hosts this function.
+  if (request.headers.get('origin') !== site.origin) return reply(403, { error: 'Open mumoo.' });
+  // Open access: no tester password. Tokens are still HMAC-signed, each site with its own key, and only minted for its own address.
   const key = process.env.MUMOO_BRAIN_TESTER_KEY || '';
   if (key.length < 32) {
     console.info(JSON.stringify({ event: 'brain_access_config', signingKeyPresent: Boolean(key), signingKeyMeetsMinimum: key.length >= 32 }));

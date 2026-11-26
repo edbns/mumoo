@@ -1,5 +1,6 @@
 import { db } from './person.mjs';
 import ANCHORS from './genre-anchors.mjs';
+import { thisSite, modal } from './sites.mjs';
 
 /**
  * Genre learning (see migrations 025 and 026): the sound print of a selected clip, kept with the style a person gave it,
@@ -126,10 +127,9 @@ export const CHECK_ANSWERS = { yes: 'switch', no: 'keep', unsure: 'unsure' };
  * Unmeasured: on for staging, off elsewhere, until about 100 clips with tempo are kept and checked (ENABLE_BPM_GUARDRAILS=true|false overrides).
  */
 export const GUARDRAILS = { nudge: 0.015, halfTimeBelow: 95, technoFrom: 126, houseTo: 132, quietBelow: 0.35, slowBelow: 105 };
-const STAGING_SITE = '097cfd7a-2b9e-4b7c-9ad2-4092e6694dc5';
 export const guardrailsOn = () => process.env.ENABLE_BPM_GUARDRAILS
   ? process.env.ENABLE_BPM_GUARDRAILS === 'true'
-  : process.env.SITE_ID === STAGING_SITE;
+  : thisSite()?.name === 'staging';
 /** The lowest tempo, counted at full time, of the lanes often heard at half time. */
 const HALF_TIME = { trap: 120, drill: 120, 'drum-and-bass': 150 };
 /** Lanes boosted only for a slow, quiet clip, and, with no song of their sub-genre kept yet, guessed by their words. */
@@ -266,8 +266,8 @@ export function readiness(rows) {
 
 /** The sound print worker on Modal: `SUBMIT` takes a clip and returns a job id, `STATUS?id=` its print once ready. */
 export const PRINT_WORKER = {
-  SUBMIT: 'https://edbns-mumoo-staging--mumoo-sound-print-staging-submit.us-east.modal.run',
-  STATUS: 'https://edbns-mumoo-staging--mumoo-sound-print-staging-status.us-east.modal.run',
+  get SUBMIT() { return modal('mumoo-sound-print-staging-submit'); },
+  get STATUS() { return modal('mumoo-sound-print-staging-status'); },
 };
 export const CLIP_WAV_SIZE = 44 + 15 * 48_000 * 2;
 export const CALL_ID = /^fc-[A-Za-z0-9]{8,48}$/;
