@@ -99,7 +99,7 @@ test('the pricing page and popups say the same numbers the server gives', async 
   const { readFileSync } = await import('node:fs');
   const { REFERRAL_CAP, REFERRAL_VIDEOS } = await import('../netlify/lib/referrals.mjs');
   const pricing = readFileSync(new URL('../src/pricing-page.tsx', import.meta.url), 'utf8');
-  assert.match(pricing, new RegExp(`they get ${REFERRAL_VIDEOS} extra on their first pack, you get ${REFERRAL_VIDEOS} free once they pay`));
+  assert.match(pricing, new RegExp(`they get ${REFERRAL_VIDEOS} bonus credits on their first pack, and you get ${REFERRAL_VIDEOS} free credits once they buy`));
   assert.match(pricing, new RegExp(`up to ${REFERRAL_CAP} friends a month`));
   assert.match(pricing, new RegExp(`comes with ${REFERRAL_VIDEOS} extra videos`));
   const route = readFileSync(new URL('../netlify/functions/referral.mjs', import.meta.url), 'utf8');

@@ -1,6 +1,6 @@
 import { NotchNav } from './notch-nav';
 
-const STEPS = ['Upload', 'Choose clip & sync', 'Analyzing', 'Creatives'] as const;
+const STEPS = ['Upload', 'Choose clip & sync', 'Analyzing', 'Videos'] as const;
 export type StepNumber = 1 | 2 | 3 | 4;
 /** The analysis runs by itself, so it is a place to be, never somewhere to go back to. */
 export const ANALYZING_STEP: StepNumber = 3;

@@ -133,7 +133,7 @@ test('every card on the shelf plays from the start of the 15 seconds, wherever t
     });
     await uploadSong(page);
     await reachShelf(page);
-    const play = page.getByRole('button', { name: /^Play .+ creative$/ });
+    const play = page.getByRole('button', { name: /^Play .+ video preview$/ });
     const second = await play.nth(1).getAttribute('aria-label');
     await play.nth(0).click();
     await page.waitForTimeout(3000);
@@ -170,7 +170,7 @@ test('a 12-second song (a saved TikTok) is the clip, whole, and its cards play a
     await page.locator('.step-actions').getByRole('button', { name: 'Continue' }).click();
     await page.waitForFunction(() => document.querySelectorAll('.creatives-pack-card').length > 0 && !document.querySelector('.creatives-pack-card.pending'), null, { timeout: 30000 });
     assert.equal(analysisCalls.length, 1);
-    await page.getByRole('button', { name: /^Play .+ creative$/ }).first().click();
+    await page.getByRole('button', { name: /^Play .+ video preview$/ }).first().click();
     await page.waitForTimeout(500);
     const starts = await page.evaluate(() => window.__starts);
     assert.deepEqual(starts.at(-1), [0, 12], `the card plays the whole 12 s: ${JSON.stringify(starts)}`);

@@ -51,7 +51,7 @@ export default function SettingsPage() {
   return <AccountColumn>
     <AccountSection label="Email">
       <p className="m-0 text-sm">{current}</p>
-      <p className="m-0 text-sm text-muted-foreground">Your creatives, uploads and history stay with your account when you change email.</p>
+      <p className="m-0 text-sm text-muted-foreground">Your videos, uploads and history stay with your account when you change email.</p>
 
       {sentTo === null
         ? <form onSubmit={sendCode} className="flex flex-col gap-3">
@@ -84,11 +84,11 @@ function DeleteAccount({ email }: { email: string }) {
   const matches = Boolean(email) && typed.trim().toLowerCase() === email.toLowerCase();
 
   return <AccountSection label="Delete account">
-    <p className="m-0 text-sm text-muted-foreground">Deletes your account and everything in it: creatives, pictures and history. Can’t be undone. Download what you want first.</p>
+    <p className="m-0 text-sm text-muted-foreground">Permanently deletes your account, videos, uploads and history. Can’t be undone. Download what you want first.</p>
     <div className="flex justify-end"><Button variant="destructive" onClick={() => { setTyped(''); setCopied(false); setOpen(true); }}><Trash2Icon aria-hidden="true" />Delete account</Button></div>
     <ActionDialog open={open} onClose={() => setOpen(false)} destructive
       title="Delete your account?"
-      description="Your creatives, pictures and history get deleted for good. Can’t be undone."
+      description="This permanently deletes your videos, uploads and history. Can’t be undone."
       cancelLabel="Keep my account" confirmLabel="Delete everything" confirmDisabled={!matches}
       working="Deleting…" done="Deleted"
       onConfirm={() => deleteAccount(typed.trim())} onDone={() => location.assign('/')}>

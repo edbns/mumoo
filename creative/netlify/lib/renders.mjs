@@ -34,7 +34,7 @@ export async function listRenders(userId) {
     bytes: row.bytes,
     createdAt: row.created_at,
     url: await signedDownload(keyOf(userId, row.id), null, RENDER_LINK_SECONDS),
-    download: await signedDownload(keyOf(userId, row.id), 'mumoo-creative.mp4', RENDER_LINK_SECONDS),
+    download: await signedDownload(keyOf(userId, row.id), 'mumoo-video.mp4', RENDER_LINK_SECONDS),
   })));
 }
 

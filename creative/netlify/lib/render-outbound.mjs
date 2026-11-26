@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
  */
 export function refusalOf(meta) {
   const { upload, library, opts } = meta ?? {};
-  if (typeof opts !== 'object' || opts === null) return 'Expected the creative’s settings.';
+  if (typeof opts !== 'object' || opts === null) return 'Missing video settings.';
   if (library !== undefined && upload !== undefined) return 'Choose one picture.';
   if (library !== undefined) {
     if (!UUID.test(library)) return 'Invalid picture.';

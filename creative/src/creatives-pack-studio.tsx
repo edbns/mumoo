@@ -652,7 +652,7 @@ export function CreativesPackStudio({
           // Out of credits part way (spent elsewhere meanwhile), or a batch that failed: the videos already queued are still made.
           if (!ids.length) throw cause;
           if ((cause as { noCredits?: boolean }).noCredits) askToBuyCredits({ need: items.length - ids.length, have: 0 });
-          else setError(`${ids.length} of ${items.length} creatives were queued. ${friendlyError(cause, 'The rest couldn’t be.')} They are still chosen.`);
+          else setError(`${ids.length} of ${items.length} videos started exporting, but ${items.length - ids.length} couldn’t start. They’re still selected—try again in a moment.`);
           break;
         }
         ids.push(...queued.ids);
@@ -716,14 +716,14 @@ export function CreativesPackStudio({
                 className="creatives-pack-select"
                 disabled={!ready}
                 aria-pressed={inCart}
-                aria-label={`${def.title} creative, ${inCart ? 'chosen' : 'choose it'}`}
+                aria-label={`${def.title} video preview, ${inCart ? 'selected' : 'select it'}`}
                 onClick={() => toggleCart(item)}
               />
               <button
                 type="button"
                 className="creatives-pack-play"
                 disabled={!ready}
-                aria-label={`${isPlaying || isStarting ? 'Pause' : 'Play'} ${def.title} creative`}
+                aria-label={`${isPlaying || isStarting ? 'Pause' : 'Play'} ${def.title} video preview`}
                 aria-busy={isStarting}
                 onClick={() => void togglePlay(item.id)}
               >{isStarting ? <span className="spinner" aria-hidden="true" /> : isPlaying ? <PauseIcon aria-hidden="true" className="size-5" /> : <PlayIcon aria-hidden="true" className="size-5" />}</button>

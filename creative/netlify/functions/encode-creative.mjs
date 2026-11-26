@@ -29,7 +29,7 @@ export default async function encodeCreative(request) {
   }
   if (request.method !== 'POST') return error(405, 'Use POST.');
   if (request.headers.get('origin') !== STAGING_ORIGIN) {
-    return error(403, 'Open mumoo Staging to render a creative.');
+    return error(403, 'Open mumoo Staging to export a video.');
   }
   if (!validAccess(request.headers.get('x-mumoo-brain-access') ?? '', process.env.MUMOO_BRAIN_TESTER_KEY)) {
     return error(401, 'Staging access is invalid or expired.');
@@ -45,7 +45,7 @@ export default async function encodeCreative(request) {
     const audio = incoming.get('audio');
     const order = incoming.get('order');
     const raws = incoming.getAll('meta');
-    if (!raws.length || raws.length > BATCH || !raws.every(raw => typeof raw === 'string' && raw.length <= 400_000)) return error(400, 'Expected the creatives’ settings.');
+    if (!raws.length || raws.length > BATCH || !raws.every(raw => typeof raw === 'string' && raw.length <= 400_000)) return error(400, 'Missing video settings.');
     if (typeof order === 'string' ? audio !== null : !(audio instanceof Blob)) return error(400, 'Send the song’s audio, or the order it joins.');
     if (audio instanceof Blob && audio.size < 1000) return error(400, 'Audio file is too small.');
     const metas = raws.map(raw => JSON.parse(raw));
@@ -61,7 +61,7 @@ export default async function encodeCreative(request) {
     if (!queued.ids.length) return Response.json({ error: 'Out of credits. Grab a pack to export this video.', code: 'no_credits' }, { status: 402, headers });
     return Response.json(queued, { status: 202, headers });
   } catch (cause) {
-    if (cause instanceof SyntaxError) return error(400, 'Expected the creative’s settings.');
+    if (cause instanceof SyntaxError) return error(400, 'Missing video settings.');
     console.error('encode-creative:', cause);
     return error(503, 'Couldn’t add this to the queue. Try again in a second.');
   }

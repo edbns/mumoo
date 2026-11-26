@@ -7,7 +7,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const REFUSALS = {
   format: [415, 'Use a JPEG, PNG or WebP photo, or an MP4, MOV, WebM or GIF.'],
   size: [413, 'That file is too large.'],
-  full: [409, 'Storage is full. Delete some files or creatives to make room.'],
+  full: [409, 'Storage is full. Delete some videos or uploads to free up space.'],
   many: [409, `You have ${MAX_KEPT_PICTURES} pictures saved. Delete some in History to add more.`],
 };
 const refuse = (reason) => reply(...REFUSALS[reason]);

@@ -24,11 +24,11 @@ export type DownloadMessage = { kind: 'ready' | 'error'; text: string };
 
 /** One video as it is; several as one zip. */
 async function bundle(videos: Blob[]): Promise<{ file: Blob; name: string }> {
-  if (videos.length === 1) return { file: videos[0], name: 'mumoo-creative.mp4' };
+  if (videos.length === 1) return { file: videos[0], name: 'mumoo-video.mp4' };
   const files: Record<string, Uint8Array> = {};
-  for (let index = 0; index < videos.length; index++) files[`mumoo-creative-${index + 1}.mp4`] = new Uint8Array(await videos[index].arrayBuffer());
+  for (let index = 0; index < videos.length; index++) files[`mumoo-video-${index + 1}.mp4`] = new Uint8Array(await videos[index].arrayBuffer());
   const { zipSync } = await import('fflate');
-  return { file: new Blob([zipSync(files, { level: 0 }) as BlobPart], { type: 'application/zip' }), name: 'mumoo-creatives.zip' };
+  return { file: new Blob([zipSync(files, { level: 0 }) as BlobPart], { type: 'application/zip' }), name: 'mumoo-videos.zip' };
 }
 
 function saveFile(file: Blob, name: string) {

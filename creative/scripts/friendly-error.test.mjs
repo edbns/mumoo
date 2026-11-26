@@ -14,14 +14,15 @@ test('the browser’s and the network’s words never reach the public', () => {
     new TypeError('Failed to fetch'), new TypeError('Load failed'), new TypeError('NetworkError when attempting to fetch resource.'),
     new SyntaxError('Unexpected token < in JSON at position 0'), new DOMException('The user aborted a request.', 'AbortError'),
     new DOMException('Unable to decode audio data', 'EncodingError'), new TypeError("Cannot read properties of undefined (reading 'id')"),
-    new Error('Unable to fetch'), new Error('HTTP 502'), new Error('Open mumoo Staging to render a creative.'), new Error('Invalid request.'),
-    new Error('<!doctype html><title>502</title>'), 'a string', null, undefined, {},
+    new Error('Unable to fetch'), new Error('HTTP 502'), new Error('Open mumoo Staging to export a video.'), new Error('Invalid request.'),
+    new Error('<!doctype html><title>502</title>'), new Error('The lyrics worker did not respond in time.'), new Error('Invalid job id.'),
+    'a string', null, undefined, {},
   ];
   for (const cause of system) assert.equal(friendlyError(cause, FALLBACK), FALLBACK, String(cause?.message ?? cause));
 });
 
 test('the words our own code wrote for the person come through', () => {
-  for (const message of ['That picture has no cut-out yet.', 'Looks like you’re offline. Check your connection and try again.', 'That name is taken.']) {
+  for (const message of ['That picture has no cut-out yet.', 'Couldn’t add this to the queue. Try again in a second.', 'Render hit a snag in the cloud. Give it another try.', 'Looks like you’re offline. Check your connection and try again.', 'That name is taken.']) {
     assert.equal(friendlyError(new Error(message), FALLBACK), message);
   }
   class LyricsError extends Error {}

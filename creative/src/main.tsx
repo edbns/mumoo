@@ -462,7 +462,7 @@ function App() {
     {/* A check of the creator's own pick is asked on the analysis page, before anything is painted for the wrong genre; closing it keeps the pick. */}
     <Modal open={page === 'create' && styleGuess.status === 'asking' && inCreatives && stage !== 'revealed' && Boolean(style)} onClose={() => answerGuess('unsure')}
       title={styleGuess.status === 'asking' ? <>Sounds more like {capitalised(styleGuess.style.name)}</> : ''}
-      description={`You picked ${picked?.label ?? ''}. Your creatives are made for the genre, so it’s worth getting right.`}
+      description={`You picked ${picked?.label ?? ''}. Your videos are tailored to the genre, so it’s worth getting right.`}
       closeLabel={`Keep ${picked?.label ?? ''}`}>
       <div className="flex items-center justify-between gap-3">
         <Button variant="secondary" onClick={() => answerGuess('no')}>Keep {picked?.label}</Button>
@@ -491,7 +491,7 @@ function App() {
               {handed.cover ? <img src={handed.cover} alt="" className="size-11 shrink-0 rounded-[6px] object-cover" /> : <span className="size-11 shrink-0 rounded-[6px] bg-muted" />}
               <p className="m-0 min-w-0 flex-1 text-sm">
                 <span className="block truncate font-semibold">{handed.title}{handed.artist ? ` · ${handed.artist}` : ''}</span>
-                <span className="block text-muted-foreground">Drop the song file to start.{freeVideo && ' First creative is free.'}</span>
+                <span className="block text-muted-foreground">Drop the song file to start.{freeVideo && ' Your first video is free.'}</span>
               </p>
               <button type="button" aria-label="Not this song" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={() => setHanded(null)}><XIcon aria-hidden="true" className="size-4" /></button>
