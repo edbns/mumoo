@@ -233,7 +233,7 @@ function MediaScreen({ onSignOut }: { onSignOut: () => void }) {
         {Array.from({ length: 4 }, (_, index) => <li key={index} className="aspect-[9/16] animate-pulse rounded-[var(--radius)] bg-muted" />)}
       </ul>}
       {videos?.length === 0 && <p className="m-0 p-6 text-center text-sm text-muted-foreground">
-        No videos yet. Make them on your computer—they show up here as soon as they’re exported.
+        No videos yet. Make them on your computer—they show up here as soon as they’re ready.
       </p>}
       {videos && videos.length > 0 && <ul aria-label="Your videos" className="m-0 grid list-none grid-cols-2 gap-1.5 p-0">
         {videos.map(video => {

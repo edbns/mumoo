@@ -70,7 +70,7 @@ ${why ? `<p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#6b7280"
 export function signInCode(value, minutes, type = 'sign-in') {
   if (type === 'email-verification') {
     return letter(`${value} — confirm your mumoo email`, [
-      p(`Just one more step! Use this code to confirm your email. **It expires in ${minutes} minutes.**`),
+      p(`Use this code to confirm your email. **It expires in ${minutes} minutes.**`),
       code(value),
       note('Didn’t request this? You can safely ignore this email.'),
     ]);
@@ -93,10 +93,9 @@ export function emailChangeCode(value, minutes) {
 /** Once, after signing up, to an address whose free video is still to come. */
 export function welcome(siteUrl) {
   return letter('Welcome to mumoo — your first video is on us', [
-    p('Welcome to mumoo!'),
-    p('We’ve added **1 free video** to your account so you can give it a try. Pick your music, make something you like, and see where it takes you.'),
-    button('Start creating', site(siteUrl)),
-    note('Have fun creating!'),
+    p('Welcome to mumoo.'),
+    p('We’ve added **1 free video** to your account—no watermark. Drop a track, pick your hook, and get a beat-cut 9:16 video for Reels, TikTok, and Shorts.'),
+    button('Make your first video', site(siteUrl)),
   ], { siteUrl });
 }
 
@@ -110,25 +109,24 @@ export function creditsAdded(videos, credits, paid, siteUrl, bonus = 0) {
     p('One credit makes one video, and your credits never expire.'),
     facts([['You paid', paid], ['Your balance', `${credits} ${credits === 1 ? 'credit' : 'credits'}`]]),
     button('View invoice', `${home}/invoices`),
-    note(`Your payment was processed by Polar, so you may see Polar on your statement. ${bonus ? 'Thanks for giving mumoo a try. ' : ''}Have fun creating!`),
+    note('Your payment was processed by Polar, so you may see Polar on your statement.'),
   ], { siteUrl });
 }
 
 /** Someone the person invited bought their first pack, and it earned the person `videos` free videos. */
 export function referralEarned(videos, credits, siteUrl) {
-  return letter(`Your invite worked! ${videos} free credits for you`, [
-    p(`Good news! Someone you invited just bought their first video pack, so we’ve added **${videos} free credits** to your account as a thank you.`),
+  return letter(`Your invite worked: ${videos} bonus credits for you`, [
+    p(`Someone you invited just picked up their first credit pack—we’ve added **${videos} bonus credits** to your account.`),
     facts([['Your new balance', `${credits} ${credits === 1 ? 'credit' : 'credits'}`]]),
-    button('Make something', site(siteUrl)),
-    note('You can find your invite link under “Invite friends” in your account menu. Thanks for sharing mumoo!'),
+    button('Make a video', site(siteUrl)),
+    note('Find your invite link anytime under “Invite friends” in your account menu.'),
   ], { siteUrl });
 }
 
 export function storageAlmostFull(used, quota, siteUrl) {
   return letter('A heads-up about your mumoo storage', [
-    p(`Hey, just a heads-up! You’re getting close to your storage limit. You’ve used **${size(used)} of ${size(quota)}**.`),
-    p('Once it’s full, you won’t be able to save new videos or uploads until you make some room.'),
-    p('To free up space, open Media, download anything you’d like to keep, and delete what you no longer need.'),
+    p(`Heads-up—you’ve used **${size(used)} of your ${size(quota)}** storage limit.`),
+    p('Once it’s full, new videos and uploads won’t save until you free up space. Open Media to download what you want to keep and clear out old files.'),
     button('Open Media', `${site(siteUrl)}/media`),
   ], { siteUrl });
 }
@@ -139,26 +137,25 @@ export function inactivityReminder(days, deleteDays, siteUrl) {
   const keep = note('Want a copy on your computer? Open Media, choose “Select all”, then “Download”.');
   if (left <= 10) {
     return letter(`${left} days left to keep your mumoo files`, [
-      p(`One last heads-up! It’s been ${days} days since your last visit. **Your stored videos and uploads will be deleted in ${left} days** if you don’t sign in.`),
-      p('Want to keep everything? Just sign in before then.'),
+      p(`Final heads-up—it’s been ${days} days since your last visit. **Your stored videos and uploads will be deleted in ${left} days** unless you sign in.`),
+      p('Sign in anytime before then to keep everything saved.'),
       button('Keep my files', site(siteUrl)),
       keep,
     ], { siteUrl });
   }
-  return letter('It’s been a while — your mumoo files are still here', [
-    p(`Hey, it’s been a while! You haven’t visited mumoo in ${days} days, so here’s a quick heads-up.`),
-    p(`We delete stored videos and uploads after ${deleteDays} days without a visit. That means you have **about ${left} days left** to keep yours. Just sign in before then, and your files will stay.`),
+  return letter('Your mumoo files are still here', [
+    p(`It’s been ${days} days since your last visit to mumoo.`),
+    p(`To keep storage clean, we remove videos and uploads after ${deleteDays} days without a visit—so you have **about ${left} days left** before yours are cleared. Sign in anytime before then to keep everything saved.`),
     button('Keep my files', site(siteUrl)),
     keep,
-    note('Hope to see you around!'),
   ], { siteUrl });
 }
 
 export function accountDeleted() {
   return letter('Your mumoo account has been deleted', [
     p('Your mumoo account has been deleted, as requested.'),
-    p('Your saved videos, uploaded photos, videos, GIFs, and history have been removed from storage. This account can no longer be used to sign in.'),
+    p('Your saved videos, uploads, and history have been removed from storage. This account can no longer be used to sign in.'),
     p('If you ever decide to come back, signing up again will start a fresh, empty account. The free video comes only with an email address’s first account.'),
-    note('Didn’t request this? Please reply to this email so we can look into it. Thanks for spending some time with mumoo.'),
+    note('Didn’t request this? Please reply to this email so we can look into it. Thanks for trying mumoo.'),
   ]);
 }

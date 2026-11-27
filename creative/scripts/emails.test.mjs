@@ -51,7 +51,7 @@ test('an invited friend\'s receipt counts the invite, and the inviter is told wh
   assert.match(friend.text, /20 video credits from your purchase, plus 10 extra credits for joining through a friend’s invite/);
   assert.doesNotMatch(LETTERS['credits added'].text, /invite/);
   const inviter = LETTERS['referral earned'];
-  assert.equal(inviter.subject, 'Your invite worked! 10 free credits for you');
+  assert.equal(inviter.subject, 'Your invite worked: 10 bonus credits for you');
   assert.match(inviter.text, /Your new balance: 15 credits/);
   assert.match(inviter.text, /Invite friends/);
 });
@@ -66,11 +66,11 @@ test('a code is in the subject and in its own box, and there is no password to r
 
 test('the welcome says the first video is free', () => {
   assert.match(LETTERS.welcome.text, /1 free video/);
-  assert.match(LETTERS.welcome.text, /Start creating: https:\/\/mumoo-staging\.netlify\.app/);
+  assert.match(LETTERS.welcome.text, /Make your first video: https:\/\/mumoo-staging\.netlify\.app/);
 });
 
 test('the storage and reminder letters say how much, how long, and point to Media', () => {
-  assert.match(LETTERS['storage almost full'].text, /9\.2 GB of 10 GB/);
+  assert.match(LETTERS['storage almost full'].text, /9\.2 GB of your 10 GB/);
   assert.match(LETTERS['inactivity, early'].text, /about 30 days left/);
   assert.equal(LETTERS['inactivity, late'].subject, '7 days left to keep your mumoo files');
   for (const name of ['storage almost full', 'inactivity, early', 'inactivity, late']) {
@@ -149,7 +149,7 @@ test('storage is reported almost full once, and again only after the person has 
     await run();
     await run();
     assert.equal(letters.length, 1, 'past 90% once, not every day');
-    assert.match(letters[0].text, /9\.2 GB of 10 GB/);
+    assert.match(letters[0].text, /9\.2 GB of your 10 GB/);
     await fill(0.85);
     await run();
     const [{ warned }] = await sql`select storage_warned_at as warned from app_users where id = ${id}`;
