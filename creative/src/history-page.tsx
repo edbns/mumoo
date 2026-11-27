@@ -202,7 +202,7 @@ export default function HistoryPage({ tab, delivered }: { tab: ProfileTab; deliv
     {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
 
     {items?.length === 0 && <EmptyState>
-      {tab === 'creatives' ? 'Your videos live here. Download them anytime.' : 'Photos, videos and GIFs you upload stay here, private to you, until you delete them.'}
+      {tab === 'creatives' ? 'Your videos live here. Download them anytime.' : 'No uploads yet—photos, clips, and GIFs you add to mumoo appear here.'}
     </EmptyState>}
 
     {items && items.length > 0 && <div className="sticky top-4 z-20 flex min-h-12 items-center justify-between gap-3 rounded-full bg-black px-5 py-1.5">
