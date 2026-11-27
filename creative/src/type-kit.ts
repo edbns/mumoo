@@ -29,6 +29,8 @@ export type TypeFrame = {
   onAccent?: string;
   /** How the line's key word is set apart (type-finish.ts); absent, the word being sung is lit. */
   emphasis?: TypeEmphasis;
+  /** Drawn on a flat screen colour rather than over the picture: the locked styles (pack-presets.ts) then write in `ink`. */
+  screen?: boolean;
 };
 
 /** The italic serif a mixed-serif card sets the key word in. */

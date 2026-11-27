@@ -94,13 +94,26 @@ export const DISPLAY_FACES = {
 export type AdFont = keyof typeof DISPLAY_FACES;
 export const AD_FONTS = Object.keys(DISPLAY_FACES) as AdFont[];
 
-/** Faces the fixed type styles use (typewriter, minimal, editorial): not part of the brain's choice. */
-export const FIXED_FACES = {
+/** A cut of a fixed face beyond its main one, which some style also draws with. */
+export type FaceCut = { weight: number; italic: boolean };
+
+/** Faces the fixed type styles use (typewriter, minimal, editorial and the locked styles of pack-presets.ts): not part of the brain's choice. */
+export const FIXED_FACES: Record<string, { weight: number; italic: boolean; cuts?: readonly FaceCut[]; load: () => Promise<unknown> }> = {
   'Space Mono': { weight: 700, italic: false, load: () => import('@fontsource/space-mono/latin-700.css') },
   'Outfit': { weight: 400, italic: false, load: () => import('@fontsource/outfit/latin-400.css') },
   'Playfair Display': { weight: 700, italic: true, load: () => import('@fontsource/playfair-display/latin-700-italic.css') },
-  /** Typewriter's ink (pack-typewriter.ts). */
+  /** Typewriter's ink (pack-typewriter.ts) and Inked's. */
   'Special Elite': { weight: 400, italic: false, load: () => import('@fontsource/special-elite/latin-400.css') },
   /** Screenshot's chat (pack-screenshot.ts), the interface face. */
   'Inter Variable': { weight: 400, italic: false, load: () => import('@fontsource-variable/inter/index.css') },
-} as const;
+  'TikTok Sans': {
+    weight: 800, italic: false, cuts: [{ weight: 700, italic: false }, { weight: 600, italic: false }],
+    load: () => Promise.all([import('@fontsource/tiktok-sans/latin-800.css'), import('@fontsource/tiktok-sans/latin-700.css'), import('@fontsource/tiktok-sans/latin-600.css')]),
+  },
+  'Arimo': { weight: 400, italic: false, load: () => import('@fontsource/arimo/latin-400.css') },
+  'JetBrains Mono': { weight: 800, italic: false, load: () => import('@fontsource/jetbrains-mono/latin-800.css') },
+  'Instrument Serif': {
+    weight: 400, italic: false, cuts: [{ weight: 400, italic: true }],
+    load: () => Promise.all([import('@fontsource/instrument-serif/latin-400.css'), import('@fontsource/instrument-serif/latin-400-italic.css')]),
+  },
+};

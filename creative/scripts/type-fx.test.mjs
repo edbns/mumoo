@@ -204,7 +204,10 @@ test('refreshing brings different motion: each mood rotates through most of its 
     for (const [lane, allowed] of Object.entries(pack.TYPE_ALLOW)) {
       assert.ok(allowed.every(style => type.TYPE_STYLES.includes(style)), lane);
     }
-    assert.ok(pack.TYPE_ALLOW.general.length === type.TYPE_STYLES.length);
+    // New videos are dealt the locked styles, Typewriter and Swap; the older styles only draw for videos made before.
+    const { DEALT_STYLES } = await server.ssrLoadModule('/src/type-styles.ts');
+    assert.deepEqual([...pack.TYPE_ALLOW.general].sort(), [...DEALT_STYLES].sort());
+    for (const allowed of Object.values(pack.TYPE_ALLOW)) assert.ok(allowed.every(style => DEALT_STYLES.includes(style)));
     const seen = new Map();
     for (const song of LANE_SONGS) {
       for (const rows of refreshes(pack, song, 16)) {

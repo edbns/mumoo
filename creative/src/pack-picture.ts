@@ -15,7 +15,7 @@ import { createTypeLayer, type TimedWord, type TypeStyleId } from './pack-type';
 
 /** Calm styles keep the picture still; the rest let it drift and breathe with the beat. */
 const DRIFT: Partial<Record<TypeStyleId, number>> = {
-  typewriter: 0.6, minimal: 0.5, editorial: 0.6, wipe: 0.6, slide: 0.6, wave: 0.7,
+  typewriter: 0.6, minimal: 0.5, editorial: 0.6, wipe: 0.6, slide: 0.6, wave: 0.7, subtitle: 0.5, elegant: 0.6,
 };
 
 export type PictureWorld = {

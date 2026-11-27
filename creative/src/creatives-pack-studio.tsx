@@ -6,7 +6,7 @@ import { posterFrame } from './lyric-motion';
 import { isLookRow, isTreatmentRow, recommendRow, rowsFor, shelfOrder, SHELF_ROWS, type CreativesPackSlot, type Deal, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
 import { cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
-import { NO_GRAPHICS, RELOAD, friendlyError, quietError } from './friendly-error';
+import { NO_GRAPHICS, RELOAD, quietError } from './friendly-error';
 import { reportProblem } from './report-problem';
 import { PauseIcon, PlayIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';

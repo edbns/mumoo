@@ -676,7 +676,7 @@ export function createTreatmentWorld(): TreatmentWorld {
         // The phrase is shared out over the two bands of solid colour: its first half above the video, the rest below; never over the video.
         const look = FRAME_LOOK[variant] ?? FRAME_LOOK.slim;
         const dark = look.matte === '#000000';
-        const colours = { ink: dark ? LIGHT : BLACK, accent: dark ? LIGHT : BLACK, shadow: dark ? '#000000' : '#ffffff' };
+        const colours = { ink: dark ? LIGHT : BLACK, accent: dark ? LIGHT : BLACK, shadow: dark ? '#000000' : '#ffffff', screen: true };
         const half = Math.ceil(words.length / 2);
         const band = (HEIGHT * (1 - look.scale)) / 2 - FRAME_EDGE;
         for (const [layer, part, middle] of [[type, words.slice(0, half), band / 2], [below, words.slice(half), HEIGHT - band / 2]] as const) {

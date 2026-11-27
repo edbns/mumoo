@@ -151,7 +151,7 @@ export function createSilhouetteWorld(): SilhouetteWorld {
       const ink = input.palette === 'black' || input.palette === 'plum' ? LIGHT_INK : DARK_INK;
       const frame = {
         words: [...input.words], beatIndex: input.beatIndex, seed: input.seed,
-        ink, accent: ink, shadow: ink === DARK_INK ? '#ffffff' : '#000000', font: input.font, fontSecondary: input.font,
+        ink, accent: ink, shadow: ink === DARK_INK ? '#ffffff' : '#000000', font: input.font, fontSecondary: input.font, screen: true,
       };
       type.paint(input.typeStyle, { ...frame, ms: input.ms, beat: input.beat, energy: input.energy });
       if (!input.words.length) return;

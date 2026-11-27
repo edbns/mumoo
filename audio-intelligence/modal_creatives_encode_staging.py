@@ -113,6 +113,7 @@ TYPE_STYLES = {
     "typewriter", "karaoke", "stack", "minimal", "editorial", "outline", "swap", "poem",
     "bounce", "wave", "glitch", "rotate", "stretch", "split", "wipe", "flicker",
     "zoom", "scatter", "jitter", "echo", "slide", "tilt", "rise", "glow", "drift",
+    "clean", "brat", "subtitle", "impact", "hollow", "inked", "inked-red", "elegant", "scramble", "blur",
 }
 # How a card's lyric letters are finished (creative/src/type-finish.ts; a test keeps these in step).
 # How a card sets the line's key word apart (creative/src/type-finish.ts; a test keeps these in step).

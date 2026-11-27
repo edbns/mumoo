@@ -18,7 +18,7 @@ import { isSkullStyle } from './style-families';
 import effectsData from '../punch-plates/effects/effects.json';
 import { laneFromMeaning, leansDeep, type LyricAttitude, type LyricMeaning } from './lyric-meaning';
 import { moodGrade, type MoodGrade } from './mood-grade';
-import { TYPE_STYLES, typeNeeds, type TypeStyleId } from './type-styles';
+import { DEALT_STYLES, TYPE_STYLES, typeNeeds, type TypeStyleId } from './type-styles';
 import { EMPHASIS_ALLOW, FINISH_ALLOW, MONO_ACCENT, MOOD_ACCENTS, type TypeEmphasis, type TypeFinish } from './type-finish';
 import { coverFit } from './look-fit';
 import type { CoverRead } from './cover-palette';
@@ -180,12 +180,12 @@ export function moodLane(intent: MusicIntentV1 | null, genre: string): MoodLane 
  * Order is a preference, the seed rotates which style leads.
  */
 export const TYPE_ALLOW: Record<MoodLane, readonly TypeStyleId[]> = {
-  gospel: ['editorial', 'poem', 'minimal', 'typewriter', 'karaoke', 'slide', 'wipe', 'wave', 'rise', 'glow', 'drift'],
-  quiet: ['poem', 'minimal', 'editorial', 'typewriter', 'karaoke', 'slide', 'wipe', 'wave', 'jitter', 'rise', 'glow', 'drift'],
-  dark: ['typewriter', 'swap', 'outline', 'poem', 'minimal', 'editorial', 'glitch', 'flicker', 'wipe', 'split', 'scatter', 'zoom'],
-  techno: ['stack', 'swap', 'outline', 'karaoke', 'typewriter', 'glitch', 'stretch', 'split', 'zoom', 'flicker', 'scatter', 'echo', 'bounce'],
-  party: ['swap', 'stack', 'karaoke', 'outline', 'typewriter', 'bounce', 'stretch', 'rotate', 'zoom', 'echo', 'wave', 'tilt', 'scatter', 'jitter', 'slide'],
-  general: TYPE_STYLES,
+  gospel: ['elegant', 'subtitle', 'typewriter', 'clean', 'blur', 'brat'],
+  quiet: ['elegant', 'brat', 'subtitle', 'blur', 'typewriter', 'clean', 'hollow', 'inked'],
+  dark: ['inked', 'inked-red', 'typewriter', 'scramble', 'hollow', 'blur', 'swap', 'impact', 'elegant', 'brat'],
+  techno: ['scramble', 'impact', 'swap', 'hollow', 'blur', 'clean', 'brat', 'typewriter', 'inked-red'],
+  party: ['clean', 'impact', 'swap', 'brat', 'hollow', 'blur', 'scramble', 'inked-red', 'subtitle', 'typewriter'],
+  general: DEALT_STYLES,
 };
 
 /**

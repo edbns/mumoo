@@ -59,8 +59,8 @@ export const DRAWN_SCREENS = ['off-white', 'black', 'red', 'green'] as const;
 /** The accent ink of a drawn figure. */
 export const DRAWN_ACCENT = '#e1121b';
 
-/** The lyric styles a Silhouette card is dealt: each card of a row has its own. */
-export const SILHOUETTE_TYPES = ['stack', 'swap', 'karaoke', 'outline', 'editorial', 'glitch', 'echo', 'wipe', 'flicker', 'slide', 'bounce', 'zoom'] as const satisfies readonly TypeStyleId[];
+/** The lyric styles a Silhouette card is dealt: each card of a row has its own. Never Inked, whose red would vanish on the red screen. */
+export const SILHOUETTE_TYPES = ['swap', 'impact', 'clean', 'hollow', 'scramble', 'brat', 'blur', 'elegant'] as const satisfies readonly TypeStyleId[];
 
 export const silhouetteUrl = (id: string) => `/silhouettes/${id}.png`;
 

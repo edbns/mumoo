@@ -1,5 +1,5 @@
 /**
- * Lyric type system — twenty-three styles, driven by word-level timing.
+ * Lyric type system — thirty-five styles, driven by word-level timing.
  * Deterministic: output depends only on the frame inputs (shelf and cloud agree).
  *
  *  typewriter  characters appear with a blinking caret
@@ -8,8 +8,9 @@
  *  minimal     quiet lowercase subtitle, line by line
  *  editorial   serif italic, lines slide up through a mask
  *  outline     hollow letters that fill as each word lands
- *  swap        the phrase holds the middle of the screen and is set again in another face on every beat
  *  poem        the whole line as a small verse, ranged left, each word inked in as it is sung
+ *  + swap and the locked styles of pack-presets.ts (clean, brat, subtitle, impact, hollow, inked, inked-red, elegant,
+ *    scramble, blur), each with its own face, colours and motion
  *  + the motion styles of lyric-fx.ts (bounce, wave, glitch, rotate, stretch, split, wipe, flicker, zoom,
  *    scatter, jitter, echo, slide, tilt, and the calm rise, glow, drift), drawn by pack-fx.ts
  */
@@ -17,13 +18,14 @@ import { Container, Graphics } from 'pixi.js';
 import { HEIGHT, WIDTH } from './composition';
 import { displayFace, setCase, type AdFont, type FaceStyle } from './ad-fonts';
 import { FIXED_FACES } from './font-catalog';
-import { isMotion, type ClassicStyle, type TypeStyleId } from './type-styles';
+import { isMotion, isPreset, type ClassicStyle, type TypeStyleId } from './type-styles';
 import { createFxPainter } from './pack-fx';
+import { createPresetPainter, LOCKED_FAMILIES } from './pack-presets';
 import { activeIndex, clamp01, easeOut, faceOfWord, finishedWord, isPlated, keyLabel, KEY_SERIF, layoutWords, litWords, measure, plateInk, type TimedWord, type TypeFrame } from './type-kit';
 
 export type { TimedWord, TypeFrame };
 export { TYPE_STYLES, typeNeeds, type TypeStyleId } from './type-styles';
-const fixed = (family: keyof typeof FIXED_FACES): FaceStyle => ({ family, weight: FIXED_FACES[family].weight, italic: FIXED_FACES[family].italic });
+const fixed = (family: string): FaceStyle => ({ family, weight: FIXED_FACES[family].weight, italic: FIXED_FACES[family].italic });
 
 type Fonts = Pick<TypeFrame, 'font' | 'fontSecondary'>;
 
@@ -35,26 +37,16 @@ const FACES: Record<ClassicStyle, (fonts: Fonts) => FaceStyle> = {
   minimal: () => fixed('Outfit'),
   editorial: () => fixed('Playfair Display'),
   outline: f => displayFace(f.font),
-  swap: () => SWAP_FACES[0],
+  swap: () => fixed('Arimo'),
   poem: () => fixed('Outfit'),
 };
-
-/** Swap's faces, as unlike each other as faces get: condensed, script, light grotesk, serif italic, wide, heavy. */
-const SWAP_FACES: readonly FaceStyle[] = [
-  displayFace('League Gothic'),
-  displayFace('Kaushan Script'),
-  fixed('Outfit'),
-  fixed('Playfair Display'),
-  displayFace('Syne'),
-  displayFace('Anton'),
-];
 
 const POEM_FACES: readonly FaceStyle[] = [fixed('Outfit'), fixed('Playfair Display'), fixed('Space Mono')];
 
 /** The font families a style draws with, so they can be fetched before the first frame. */
 export function typeFamilies(style: TypeStyleId, fonts: Fonts & { typeEmphasis?: string }): string[] {
   const key = fonts.typeEmphasis === 'serif' ? [KEY_SERIF.family] : [];
-  if (style === 'swap') return SWAP_FACES.map(face => face.family);
+  if (style === 'swap' || isPreset(style)) return [...LOCKED_FAMILIES[style]];
   if (style === 'poem') return [...POEM_FACES.map(face => face.family), ...key];
   return [isMotion(style) ? fonts.font : FACES[style](fonts).family, ...key];
 }
@@ -86,6 +78,7 @@ export type TypeLayer = {
 export function createTypeLayer(): TypeLayer {
   const root = new Container();
   const motion = createFxPainter();
+  const locked = createPresetPainter();
 
   function clear() {
     while (root.children.length) {
@@ -278,30 +271,6 @@ export function createTypeLayer(): TypeLayer {
     root.addChild(group);
   }
 
-  function swap(frame: TypeFrame) {
-    const active = activeIndex(frame.words, frame.ms);
-    // A song with no beat grid still swaps, on each word as it is sung.
-    const turn = frame.beatIndex > 0 ? frame.beatIndex : Math.max(0, active);
-    const face = SWAP_FACES[Math.abs(frame.seed + turn) % SWAP_FACES.length];
-    const lit = litWords(frame, active);
-    const labels = frame.words.map(w => caseFor('swap', w.text, frame.font));
-    const fit = layoutWords(labels, face, 280, 880, 3, 0.94);
-    const total = fit.lines.length * fit.lineHeight;
-    const group = new Container();
-    fit.lines.forEach((line, row) => {
-      const y = (row + 0.5) * fit.lineHeight - total / 2;
-      for (const item of line.items) {
-        if (frame.ms < frame.words[item.index].startMs) continue;
-        const t = finishedWord(item.text, { size: fit.size, face }, frame, lit(item.index));
-        t.position.set(item.x + item.w / 2, y);
-        group.addChild(t);
-      }
-    });
-    group.position.set(WIDTH / 2, HEIGHT * 0.5);
-    group.scale.set(1 + frame.beat * 0.04 * Math.max(0.4, frame.energy));
-    root.addChild(group);
-  }
-
   function poem(frame: TypeFrame) {
     const face = POEM_FACES[Math.abs(frame.seed) % POEM_FACES.length];
     const faceAt = faceOfWord(frame, face);
@@ -333,6 +302,10 @@ export function createTypeLayer(): TypeLayer {
         root.addChild(motion.paint(style, frame));
         return;
       }
+      if (style === 'swap' || isPreset(style)) {
+        root.addChild(locked.paint(style, frame));
+        return;
+      }
       switch (style) {
         case 'typewriter': typewriter(frame); break;
         case 'karaoke': karaoke(frame); break;
@@ -340,12 +313,12 @@ export function createTypeLayer(): TypeLayer {
         case 'minimal': minimal(frame); break;
         case 'editorial': editorial(frame); break;
         case 'outline': outline(frame); break;
-        case 'swap': swap(frame); break;
         case 'poem': poem(frame); break;
       }
     },
     destroy() {
       clear();
+      locked.destroy();
       root.destroy({ children: true });
     },
   };

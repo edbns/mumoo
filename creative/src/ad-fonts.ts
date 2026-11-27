@@ -1,6 +1,6 @@
 import '@fontsource-variable/inter';
 import type { IntentVibe } from './music-intent';
-import { AD_FONTS, DISPLAY_FACES, FIXED_FACES, type AdFont, type DisplayFace, type FontMood } from './font-catalog';
+import { AD_FONTS, DISPLAY_FACES, FIXED_FACES, type AdFont, type DisplayFace, type FaceCut, type FontMood } from './font-catalog';
 
 export { AD_FONTS, type AdFont };
 
@@ -121,12 +121,14 @@ const SAMPLE = 'ABC abc NOW PLAYING LYRICS 9:41';
 const loading = new Map<string, Promise<void>>();
 
 async function fetchFace(family: string, text: string) {
-  const file: { weight: number; italic?: boolean; load: () => Promise<unknown> } | undefined =
-    (DISPLAY_FACES as Record<string, DisplayFace>)[family] ?? (FIXED_FACES as Record<string, (typeof FIXED_FACES)[keyof typeof FIXED_FACES]>)[family];
+  const file: { weight: number; italic?: boolean; cuts?: readonly FaceCut[]; load: () => Promise<unknown> } | undefined =
+    (DISPLAY_FACES as Record<string, DisplayFace>)[family] ?? FIXED_FACES[family];
   if (!file) throw new Error(`${family} is not a bundled font.`);
   await file.load();
-  const fonts = await document.fonts.load(cssFont({ family, weight: file.weight, italic: file.italic }, 120), `${text} ${SAMPLE}`.trim());
-  if (!fonts.length) throw new Error(`The ${family} font could not load.`);
+  for (const cut of [{ weight: file.weight, italic: file.italic }, ...(file.cuts ?? [])]) {
+    const fonts = await document.fonts.load(cssFont({ family, ...cut }, 120), `${text} ${SAMPLE}`.trim());
+    if (!fonts.length) throw new Error(`The ${family} font could not load.`);
+  }
 }
 
 /** Makes these bundled faces ready to draw (fetched from this site, once per page). A face that cannot load is an error. */

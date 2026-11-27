@@ -87,7 +87,7 @@ test('Typewriter comes in four inks, the original page with only the colour chan
   }
 });
 
-test('Swap sets the phrase in faces as unlike as faces get, Poem in a quiet one; every face is one the site serves', async () => {
+test('Swap sets the phrase in faces as unlike as faces get (condensed, serif italic, mono…), Poem in a quiet one; every face is one the site serves', async () => {
   const vite = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, logLevel: 'error' });
   try {
     const { typeFamilies, TYPE_STYLES } = await vite.ssrLoadModule('/src/pack-type.ts');
@@ -97,7 +97,7 @@ test('Swap sets the phrase in faces as unlike as faces get, Poem in a quiet one;
     const swap = typeFamilies('swap', fonts);
     assert.ok(new Set(swap).size >= 5, swap.join());
     for (const family of [...swap, ...typeFamilies('poem', fonts)]) assert.ok(family in DISPLAY_FACES || family in FIXED_FACES, family);
-    assert.ok(swap.some(family => DISPLAY_FACES[family]?.moods.includes('script')), 'a script among the faces');
+    for (const family of ['Anton', 'Instrument Serif', 'JetBrains Mono']) assert.ok(swap.includes(family), `${family} is not among the faces`);
   } finally {
     await vite.close();
   }
