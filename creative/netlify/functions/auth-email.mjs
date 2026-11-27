@@ -1,5 +1,5 @@
 import { signInCode } from '../lib/letters.mjs';
-import { sendMail } from '../lib/mail.mjs';
+import { mailReady, sendMail } from '../lib/mail.mjs';
 import { neonEvent } from '../lib/neon-webhook.mjs';
 
 const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -7,11 +7,11 @@ const reply = (status, data) => Response.json(data, { status, headers: { 'Cache-
 /**
  * POST /api/auth/email — Neon Auth's `send.otp` webhook: Neon hands us the sign-in code instead of mailing it itself, so the email
  * comes from mumoo with the code in the subject. The sign-in waits for this answer (Neon tries three times within 15 seconds),
- * and a retry carries the same event id, which Resend uses to send nothing twice.
+ * and a retry carries the same event id, so a retry sends nothing twice.
  */
 export default async function handler(request) {
   if (request.method !== 'POST') return reply(405, { error: 'Use POST.' });
-  if (!process.env.NEON_AUTH_JWKS_URL || !process.env.RESEND_API_KEY) return reply(503, { error: 'Email is unavailable.' });
+  if (!process.env.NEON_AUTH_JWKS_URL || !mailReady()) return reply(503, { error: 'Email is unavailable.' });
   const event = await neonEvent(await request.text(), request.headers);
   if (!event) return reply(401, { error: 'Not signed by Neon.' });
   if (event.event_type !== 'send.otp') return reply(200, { ignored: true });
