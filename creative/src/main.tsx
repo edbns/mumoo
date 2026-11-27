@@ -617,5 +617,7 @@ if (googlePopup) void import('./account');
 else if (!handOverCheckout()) {
   keepReferral();
   arrive();
+  // A reload opens at the top, where notices about the visit are shown, not wherever the person had scrolled to.
+  history.scrollRestoration = 'manual';
   createRoot(document.getElementById('root')!).render(<CrashGuard><Root /></CrashGuard>);
 }

@@ -60,10 +60,10 @@ export function useBrowserTrouble(): Trouble | null {
 export function troubleMessage(kind: Trouble): string {
   const brave = browserName() === 'Brave';
   if (kind === 'no-graphics') return 'This browser can’t play video previews. Open mumoo in Chrome or Safari to see your videos.';
-  if (kind === 'software') return 'This browser is set to play video without graphics acceleration, so previews will be slow. Turn on “Use graphics acceleration” in its settings, or open mumoo in Chrome or Safari.';
+  if (kind === 'software') return 'Previews lagging: graphics acceleration is off. Turn on “Use graphics acceleration” in your browser settings (your final 1080p export will still render smoothly), or open in Chrome/Safari.';
   return brave
-    ? 'Video previews are struggling in Brave. Turn off Shields for mumoo, or open it in Chrome or Safari.'
-    : 'Video previews are struggling in this browser. For smooth playback, open mumoo in Chrome or Safari.';
+    ? 'Previews lagging in Brave. Turn off Brave Shields for mumoo (your final 1080p export will still render smoothly), or open in Chrome/Safari.'
+    : 'Previews lagging in this browser. Your final 1080p export will still render smoothly. For smooth previews, open in Chrome/Safari.';
 }
 
 let checked = false;

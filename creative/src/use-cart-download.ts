@@ -192,7 +192,16 @@ export function useCartDownload({ token, cart, onDelivered }: { token: string; c
     void run(async () => pending);
   }, [token]);
 
-  return { progress, message, dismiss: () => setMessage(null), start, cancel };
+  /**
+   * Shows the render as started the moment Export is pressed, while the credits are still being checked, so Export is not offered
+   * again in the meantime; `false` takes it back when the check stops the render before anything was queued.
+   */
+  function preparing(on: boolean) {
+    if (running.current) return;
+    setProgress(on ? { label: 'Firing up the render…', percent: 0 } : null);
+  }
+
+  return { progress, message, dismiss: () => setMessage(null), start, cancel, preparing };
 }
 
 export type CartDownload = ReturnType<typeof useCartDownload>;

@@ -10,7 +10,7 @@ import { launchToTray } from './cart-panel';
 import { NO_GRAPHICS, RELOAD, quietError } from './friendly-error';
 import { reportProblem } from './report-problem';
 import { checkGraphics, dismissTrouble, troubleMessage, useBrowserTrouble, watchPlayback } from './browser-trouble';
-import { PauseIcon, PlayIcon } from '@/components/icons';
+import { AlertTriangleIcon, PauseIcon, PlayIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { PictureUpload, UploadProgress } from './picture-upload';
 import type { Upload } from './uploads';
@@ -620,8 +620,10 @@ export function CreativesPackStudio({
     if (download.progress !== null || !items.length) return false;
     // Each video takes a credit (the first is free): with too few nothing starts. With none, Purchase Credits opens; with some, the
     // person picks between buying more and making only as many as they can.
+    download.preparing(true);
     const allowance = await import('./account').then(account => account.loadAllowance()).catch(() => null);
     if (allowance && videosLeft(allowance) < items.length) {
+      download.preparing(false);
       const have = videosLeft(allowance);
       if (have === 0) askToBuyCredits({ need: items.length, have });
       else askToChooseFewer({ need: items.length, have, free: allowance.credits === 0 });
@@ -695,9 +697,14 @@ export function CreativesPackStudio({
     {/* The one failure shown here: the cards cannot be drawn until the page is reloaded. */}
     {error === RELOAD && <p className="hint text-center" role="alert">{RELOAD} <button type="button" className="underline" onClick={() => location.reload()}>Reload</button></p>}
     {error === NO_GRAPHICS && <p className="hint text-center" role="alert">{NO_GRAPHICS}</p>}
-    {trouble && error !== NO_GRAPHICS && <p className="hint text-center" role="status">
-      {troubleMessage(trouble)} <button type="button" className="underline" onClick={dismissTrouble}>Got it</button>
-    </p>}
+    {/* Amber, apart from the green of the actions and the red of failures: something to act on, not a fault. */}
+    {trouble && error !== NO_GRAPHICS && <div role="status"
+      className="trouble-in flex items-center gap-3 rounded-[11px] border border-[rgba(245,158,11,0.35)] bg-[rgba(245,158,11,0.12)] py-2.5 pr-2.5 pl-4 text-sm text-foreground">
+      <AlertTriangleIcon aria-hidden="true" className="size-4 shrink-0 text-amber-500" />
+      <p className="m-0 flex-1 leading-snug">{troubleMessage(trouble)}</p>
+      <button type="button" onClick={dismissTrouble}
+        className="shrink-0 cursor-pointer rounded-full border border-[rgba(245,158,11,0.5)] bg-transparent px-3 py-1 text-xs font-medium text-amber-200 transition-colors hover:bg-[rgba(245,158,11,0.16)]">Got it</button>
+    </div>}
     <UploadProgress uploads={uploads} />
     {!textless && !hasLyrics && <p className="hint text-center" role="status">Check your lyric timing, or switch lyrics off.</p>}
     {uploads.batchPercent === null && SHELF_ROWS.map(def => view[def.id].note ? <p key={def.id} className="hint text-center" role="status">{view[def.id].note}</p> : null)}
