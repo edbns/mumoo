@@ -176,6 +176,7 @@ test('Clear on the bottom tray; chosen videos never made are not kept for anothe
   assert.doesNotMatch(bar(2, undefined), /Clear/);
   const main = read('main.tsx');
   assert.match(main, /onClear=\{cart\.clear\}/);
+  assert.doesNotMatch(main, /onExport=/, 'the tray only opens the chosen videos page; Export there makes them');
   assert.match(main, /setInCreatives\(false\);\n\s+cart\.clearAll\(\);/);
   const cart = read('cart.ts');
   assert.match(cart, /sessionStorage\.setItem\(KEY/);

@@ -59,16 +59,14 @@ type Flight = { id: string; thumb: string; from: DOMRect; to: { x: number; y: nu
 
 /**
  * The tray at the bottom of the window while videos are chosen: a deck of their miniatures, how many, and Export with what it
- * costs (one credit a video). A card picked flies down into the deck, so it is plain it is kept whatever is refreshed. The deck
- * and the count open the chosen videos page. While the videos are being made it shows how far along they are, and Cancel takes
- * back the ones that have not started.
+ * costs (one credit a video). A card picked flies down into the deck, so it is plain it is kept whatever is refreshed. The deck,
+ * the count and Export all open the chosen videos page, where videos can still be taken out before Export there makes them.
+ * While the videos are being made it only shows how far along they are, and Cancel takes back the ones that have not started.
  */
-export function ChosenBar({ items = [], count, progress, onOpen, onExport, onClear, onCancel }: {
+export function ChosenBar({ items = [], count, progress, onOpen, onClear, onCancel }: {
   /** The chosen videos, oldest first, for their miniatures. */
   items?: { id: string; thumb?: string }[];
   count: number; progress: DownloadProgress | null; onOpen: () => void;
-  /** Makes them at once; without it, Export opens the chosen videos page, which says what is still needed. */
-  onExport?: () => void;
   /** Takes every chosen video out. */
   onClear?: () => void;
   /** Takes back the videos being made that have not started yet. */
@@ -124,7 +122,7 @@ export function ChosenBar({ items = [], count, progress, onOpen, onExport, onCle
               {progress.cancelling ? 'Cancelling…' : 'Cancel'}
             </button>}
           {count > 0 && !busy && <>
-            <Button className="h-10 rounded-full px-5" onClick={onExport ?? onOpen}>Export · {credits(count)}<ArrowRightIcon aria-hidden="true" className="size-4" /></Button>
+            <Button className="h-10 rounded-full px-5" onClick={onOpen}>Export · {credits(count)}<ArrowRightIcon aria-hidden="true" className="size-4" /></Button>
             {onClear && <button type="button" onClick={onClear} aria-label="Clear the chosen videos"
               className="cursor-pointer whitespace-nowrap border-0 bg-transparent pr-3 pl-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Clear</button>}
           </>}
