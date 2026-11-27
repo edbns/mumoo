@@ -33,7 +33,7 @@ export function AddressLine({ slug }: { slug: string }) {
   const address = addressOf(slug);
   return <div className="flex items-center gap-2 rounded-[var(--radius-control)] bg-muted py-1 pl-3 pr-1">
     <span className="min-w-0 flex-1 truncate text-sm">{address.replace(/^https?:\/\//, '')}</span>
-    <span className="flex items-center gap-1">
+    <span className="flex items-center [&>*]:w-7">
       <CopyButton text={address} />
       <OpenButton slug={slug} />
     </span>

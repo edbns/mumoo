@@ -6,6 +6,7 @@ import { posterFrame } from './lyric-motion';
 import { isLookRow, isTreatmentRow, recommendRow, rowsFor, shelfOrder, SHELF_ROWS, type CreativesPackSlot, type Deal, type OwnKind, type PlateRef, type ShelfRow } from './creatives-pack';
 import { cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
+import { launchToTray } from './cart-panel';
 import { NO_GRAPHICS, RELOAD, quietError } from './friendly-error';
 import { reportProblem } from './report-problem';
 import { checkGraphics, dismissTrouble, troubleMessage, useBrowserTrouble, watchPlayback } from './browser-trouble';
@@ -554,6 +555,7 @@ export function CreativesPackStudio({
       generation: controls[slot.row].generation,
       thumb: cardThumbnail(card),
     };
+    launchToTray(item.id, card.getBoundingClientRect());
     cart.add(item);
     reportPackFeedback(token, profile, 'select', slot, { selectedIds: [...cart.items.map(held => held.id), slot.id], generation: item.generation, ownPicture: ownCard(slot), place: placeOf(slot.row) });
   }

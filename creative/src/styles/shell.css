@@ -17,24 +17,9 @@
 .step-nav button:disabled { cursor: default; opacity: .45; }
 /* The place the person is at: green with dark text. */
 .step-nav button[aria-current="step"] { background: var(--primary); color: var(--primary-foreground); font-weight: 600; opacity: 1; }
-/* The chosen videos: the same notch, upside down, rising from the bottom edge of the window. */
-/* Above the Media cards' play buttons (z 10), under notices (20) and popups (50). */
-.chosen-bar { position: fixed; z-index: 15; bottom: 0; left: 50%; translate: -50% 0; border-radius: var(--layer-radius) var(--layer-radius) 0 0; padding: 1.2rem 2rem calc(.75rem + env(safe-area-inset-bottom)); }
-.chosen-bar button { padding: .5rem 1.2rem; font-size: .9375rem; }
-.chosen-bar::before, .chosen-bar::after { top: auto; bottom: 0; }
-.chosen-bar::before { background: radial-gradient(circle at 0 0, transparent 1rem, var(--background) calc(1rem + 1px)); }
-.chosen-bar::after { background: radial-gradient(circle at 100% 0, transparent 1rem, var(--background) calc(1rem + 1px)); }
-.chosen-bar button { cursor: pointer; }
-.chosen-bar-status { display: inline-block; padding: .5rem 1.2rem; border-radius: 999px; font-size: .9375rem; color: var(--muted-foreground); }
-.chosen-bar-status.chosen-bar-count { background: var(--primary); color: var(--primary-foreground); font-weight: 600; }
-.chosen-bar-note { max-width: 30rem; margin: .4rem auto 0; padding: 0 1.2rem; font-size: .8125rem; line-height: 1.4; text-align: center; color: var(--muted-foreground); }
-.step-nav .chosen-bar-clear { display: inline-flex; align-items: center; gap: .3rem; color: var(--foreground); background: var(--secondary); }
-/* An orange dot (the brand orange, not the green of the bar's button) at the bar's top right, sending out small waves, so the chosen videos (and how far along they are) catch the eye. */
-.chosen-bar-dot { position: absolute; top: .6rem; right: .75rem; width: .8rem; height: .8rem; border-radius: 50%; background: var(--destructive); animation: chosen-blink 1.6s ease-in-out infinite; }
-.chosen-bar-dot::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--destructive); animation: chosen-wave 1.6s ease-out infinite; }
-@keyframes chosen-blink { 50% { opacity: .45; } }
+/* The chosen videos tray floats above Media cards' play buttons (z 10), under notices (20) and popups (50). */
+.chosen-bar-note { max-width: 30rem; margin: 0 auto .2rem; padding: 0 1.2rem; font-size: .8125rem; line-height: 1.4; text-align: center; color: var(--muted-foreground); }
 @keyframes chosen-wave { from { scale: 1; opacity: .6; } to { scale: 2.8; opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .chosen-bar-dot, .chosen-bar-dot::after { animation: none; } }
 /* The status dot at the bottom left: the chosen-videos wave, smaller, in the colour of its word; it waves only while all is well. */
 .status-dot { position: relative; display: inline-block; flex: none; width: .4rem; height: .4rem; border-radius: 50%; background: currentColor; }
 .status-dot[data-live]::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: currentColor; animation: chosen-wave 1.8s ease-out infinite; }

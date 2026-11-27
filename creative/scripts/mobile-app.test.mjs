@@ -41,10 +41,10 @@ test('phone Media: two a row with nothing on them; a tap selects, and the action
   assert.match(phone, /document\.addEventListener\('visibilitychange', renew\)/);
 });
 
-test('on a touch screen the sign-in popup opens without the keyboard, and popups sit at the top of a phone', () => {
+test('on a touch screen the sign-in popup opens without the keyboard, and popups sit in the middle of a phone', () => {
   const dialog = read('sign-in-dialog.tsx');
   assert.match(dialog, /initialFocusRef=\{TOUCH \? start : undefined\}/);
   assert.match(dialog, /focusEmail=\{!TOUCH\}/);
   assert.match(read('components/ui/magic-link-otp-login.tsx'), /autoFocus=\{focusEmail\}/);
-  assert.match(read('components/ui/modal.tsx'), /grid items-start justify-items-center p-4 pt-\[max\(1rem,env\(safe-area-inset-top\)\)\] sm:place-items-center/);
+  assert.match(read('components/ui/modal.tsx'), /fixed inset-0 z-50 grid place-items-center p-4 pt-\[max\(1rem,env\(safe-area-inset-top\)\)\] pb-\[max\(1rem,env\(safe-area-inset-bottom\)\)\]/);
 });

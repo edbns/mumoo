@@ -485,8 +485,9 @@ function App() {
         <Button onClick={() => answerGuess('yes')}>Switch to {styleGuess.status === 'asking' ? capitalised(styleGuess.style.name) : ''}</Button>
       </div>
     </Modal>
-    {!cartOpen && <ChosenBar count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)}
-      onClear={page === 'create' && inCreatives && stage === 'revealed' ? cart.clear : undefined} onCancel={download.cancel} />}
+    {!cartOpen && <ChosenBar items={cart.items} count={cart.items.length} progress={download.progress} onOpen={() => setCartOpen(true)}
+      onExport={cartAction.kind === 'download' && lines.every(line => line.available) && !(chosenLimit && lines.length > chosenLimit.have) ? cartAction.run : undefined}
+      onClear={cart.clear} onCancel={download.cancel} />}
     {cartOpen && <CartPanel lines={lines} progress={download.progress} action={cartAction} limit={chosenLimit} onClose={() => setCartOpen(false)} onRemove={cart.remove} />}
     <ChooseFewer tooMany={tooMany} onClose={() => setTooMany(null)}
       onBuy={() => { if (tooMany) askToBuyCredits(tooMany); setTooMany(null); }}

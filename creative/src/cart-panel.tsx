@@ -1,9 +1,9 @@
-import { XIcon } from '@/components/icons';
-import { AnimatePresence, MotionConfig, motion } from 'motion/react';
+import { ArrowRightIcon, XIcon } from '@/components/icons';
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { RemoveBadge } from '@/components/ui/remove-badge';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EmptyState } from './account-section';
 import type { CartItem } from './cart';
 import type { TooMany } from './credit-events';
@@ -40,45 +40,105 @@ export function ChooseFewer({ tooMany, onBuy, onFewer, onClose }: { tooMany: Too
   </Modal>;
 }
 
-/** What the bar says: one credit makes one video, so the count is the price. */
-export const chosenLabel = (count: number) => (count === 1 ? '1 video = 1 credit' : `${count} videos = ${count} credits`);
+const credits = (count: number) => `${count} ${count === 1 ? 'credit' : 'credits'}`;
+
+/** Where each card just picked was on screen, so the tray can fly a small copy of it down into the deck. */
+const launches = new Map<string, DOMRect>();
+export function launchToTray(id: string, from: DOMRect) {
+  launches.set(id, from);
+}
+
+/** The deck's miniatures: the newest last, on top. */
+const DECK = 4;
+const THUMB_W = 24;
+const THUMB_H = 40;
+/** How far each miniature overlaps the one before it. */
+const OVERLAP = 10;
+
+type Flight = { id: string; thumb: string; from: DOMRect; to: { x: number; y: number } };
 
 /**
- * The bar at the bottom of the page while videos are chosen: the step notch turned upside down, rising from the bottom edge.
- * Pressing it opens the page where the videos are made. While they are being made it only shows how far along they are: the
- * chosen videos cannot be changed then, and Cancel takes back the ones that have not started.
+ * The tray at the bottom of the window while videos are chosen: a deck of their miniatures, how many, and Export with what it
+ * costs (one credit a video). A card picked flies down into the deck, so it is plain it is kept whatever is refreshed. The deck
+ * and the count open the chosen videos page. While the videos are being made it shows how far along they are, and Cancel takes
+ * back the ones that have not started.
  */
-export function ChosenBar({ count, progress, onOpen, onClear, onCancel }: {
+export function ChosenBar({ items = [], count, progress, onOpen, onExport, onClear, onCancel }: {
+  /** The chosen videos, oldest first, for their miniatures. */
+  items?: { id: string; thumb?: string }[];
   count: number; progress: DownloadProgress | null; onOpen: () => void;
-  /** Shown on the creatives page only: takes every chosen video out. */
+  /** Makes them at once; without it, Export opens the chosen videos page, which says what is still needed. */
+  onExport?: () => void;
+  /** Takes every chosen video out. */
   onClear?: () => void;
   /** Takes back the videos being made that have not started yet. */
   onCancel?: () => void;
 }) {
+  const reduce = useReducedMotion();
+  const deck = useRef<HTMLButtonElement>(null);
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const shown = items.slice(-DECK);
+  const ids = items.map(item => item.id).join(',');
+  useEffect(() => {
+    const landing = items.filter(item => launches.has(item.id));
+    if (!landing.length) return;
+    // The deck is measured once the tray is in place, so the miniature lands where it will stay.
+    const frame = requestAnimationFrame(() => {
+      const box = deck.current?.getBoundingClientRect();
+      const next: Flight[] = [];
+      for (const item of landing) {
+        const from = launches.get(item.id)!;
+        launches.delete(item.id);
+        if (!box || !item.thumb || reduce) continue;
+        const place = Math.max(0, shown.findIndex(candidate => candidate.id === item.id));
+        next.push({ id: item.id, thumb: item.thumb, from, to: { x: box.left + place * (THUMB_W - OVERLAP), y: box.top + (box.height - THUMB_H) / 2 } });
+      }
+      if (next.length) setFlights(current => [...current, ...next]);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [ids]);
+  const flying = new Set(flights.map(flight => flight.id));
+  const busy = Boolean(progress);
   return <MotionConfig reducedMotion="user">
     <AnimatePresence>
-      {(count > 0 || progress) && <motion.nav key="chosen" className="step-nav chosen-bar" aria-label="Chosen videos"
-        initial={{ y: '110%' }} animate={{ y: 0 }} exit={{ y: '110%' }} transition={{ type: 'spring', visualDuration: 0.35, bounce: 0.2 }}>
-        <span aria-hidden="true" className="chosen-bar-dot" />
-        <ol>
-          {count > 0 && !progress && <li><motion.button key={count} type="button" aria-current="step" onClick={onOpen}
-            initial={{ scale: 0.92 }} animate={{ scale: 1 }} transition={{ type: 'spring', visualDuration: 0.25, bounce: 0.45 }}>
-            {chosenLabel(count)}
-          </motion.button></li>}
-          {count > 0 && progress && <li><span className="chosen-bar-status chosen-bar-count">{chosenLabel(count)}</span></li>}
-          {progress && <li><span role="status" className="chosen-bar-status tabular-nums">{progress.label} {progress.percent}%</span></li>}
-          {progress && onCancel && (progress.cancellable || progress.cancelling) && <li>
-            <button type="button" onClick={onCancel} disabled={progress.cancelling} className="chosen-bar-clear" aria-label="Cancel the videos that have not started">
-              <XIcon aria-hidden="true" className="size-3.5" />{progress.cancelling ? 'Cancelling…' : 'Cancel'}
-            </button>
-          </li>}
-          {onClear && count > 0 && !progress && <li><button type="button" onClick={onClear} className="chosen-bar-clear" aria-label="Clear the chosen videos">
-            <XIcon aria-hidden="true" className="size-3.5" />Clear all
-          </button></li>}
-        </ol>
+      {(count > 0 || progress) && <motion.nav key="chosen" aria-label="Chosen videos"
+        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[15] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col items-center gap-1 rounded-[1.75rem] bg-[#1A1A1D]/90 p-2 shadow-[0_18px_44px_-14px_#000,inset_0_0_0_1px_rgba(255,255,255,0.12)] backdrop-blur-md"
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ type: 'spring', visualDuration: 0.3, bounce: 0.2 }}>
+        <div className="flex items-center gap-3">
+          {count > 0 && <button ref={deck} type="button" onClick={onOpen} disabled={busy}
+            className="flex cursor-pointer items-center gap-3 rounded-full border-0 bg-transparent py-1 pr-1 pl-1.5 text-sm text-foreground disabled:cursor-default"
+            aria-label={`See your ${count} chosen ${count === 1 ? 'video' : 'videos'}`}>
+            <span aria-hidden="true" className="flex">
+              {shown.map((item, index) => <span key={item.id} style={{ width: THUMB_W, height: THUMB_H, marginLeft: index ? -OVERLAP : 0, zIndex: index }}
+                className={`relative block shrink-0 overflow-hidden rounded-[5px] bg-muted shadow-[0_0_0_2px_#1A1A1D] transition-opacity duration-150 ${flying.has(item.id) ? 'opacity-0' : 'opacity-100'}`}>
+                {item.thumb && <img src={item.thumb} alt="" className="size-full object-cover" />}
+              </span>)}
+            </span>
+            <motion.span key={count} className="whitespace-nowrap font-medium tabular-nums" initial={{ scale: 0.9 }} animate={{ scale: 1 }}
+              transition={{ type: 'spring', visualDuration: 0.25, bounce: 0.45 }}>{count} selected</motion.span>
+          </button>}
+          {progress && <span role="status" className="whitespace-nowrap px-1 text-sm text-muted-foreground tabular-nums">{progress.label} {progress.percent}%</span>}
+          {progress && onCancel && (progress.cancellable || progress.cancelling) &&
+            <button type="button" onClick={onCancel} disabled={progress.cancelling} aria-label="Cancel the videos that have not started"
+              className="cursor-pointer whitespace-nowrap border-0 bg-transparent px-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:cursor-default">
+              {progress.cancelling ? 'Cancelling…' : 'Cancel'}
+            </button>}
+          {count > 0 && !busy && <>
+            <Button className="h-10 rounded-full px-5" onClick={onExport ?? onOpen}>Export · {credits(count)}<ArrowRightIcon aria-hidden="true" className="size-4" /></Button>
+            {onClear && <button type="button" onClick={onClear} aria-label="Clear the chosen videos"
+              className="cursor-pointer whitespace-nowrap border-0 bg-transparent pr-3 pl-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Clear</button>}
+          </>}
+        </div>
         {progress?.note && <p role="status" className="chosen-bar-note">{progress.note}</p>}
       </motion.nav>}
     </AnimatePresence>
+    {flights.map(flight => <motion.img key={flight.id} src={flight.thumb} alt="" aria-hidden="true"
+      className="pointer-events-none fixed top-0 left-0 z-[16] origin-top-left rounded-[5px] object-cover shadow-[0_12px_30px_-10px_#000]"
+      style={{ width: THUMB_W, height: THUMB_H }}
+      initial={{ x: flight.from.left, y: flight.from.top, scaleX: flight.from.width / THUMB_W, scaleY: flight.from.height / THUMB_H }}
+      animate={{ x: flight.to.x, y: flight.to.y, scaleX: 1, scaleY: 1 }}
+      transition={{ duration: 0.55, ease: [0.5, 0, 0.2, 1] }}
+      onAnimationComplete={() => setFlights(current => current.filter(other => other.id !== flight.id))} />)}
   </MotionConfig>;
 }
 

@@ -49,10 +49,22 @@ test('too many chosen with some left to make: the choice is offered first, Purch
   assert.match(studio, /if \(have === 0\) askToBuyCredits\(\{ need: items\.length, have \}\);\s+else askToChooseFewer\(/);
 });
 
-test('the bottom bar says what the chosen videos cost, one credit a video', () => {
-  assert.equal(panel.chosenLabel(1), '1 video = 1 credit');
-  assert.equal(panel.chosenLabel(3), '3 videos = 3 credits');
-  assert.equal(panel.chosenLabel(24), '24 videos = 24 credits');
+test('the bottom tray: a deck of up to 4 miniatures, how many are selected, Export with its credits, and Clear', () => {
+  const items = count => Array.from({ length: count }, (_, index) => ({ id: String(index), thumb: `data:image/jpeg;base64,${index}` }));
+  const tray = (count, extra = {}) => renderToStaticMarkup(createElement(panel.ChosenBar, { items: items(count), count, progress: null, onOpen: () => {}, ...extra }));
+  const six = tray(6, { onClear: () => {} });
+  assert.equal((six.match(/<img/g) ?? []).length, 4, 'the newest four only');
+  assert.match(six, /base64,5"/);
+  assert.doesNotMatch(six, /base64,1"/);
+  assert.match(six, />6 selected</);
+  assert.match(six, />Export · 6 credits<svg/);
+  assert.match(six, /aria-label="Clear the chosen videos"[^>]*>Clear</);
+  assert.match(tray(1), />Export · 1 credit<svg/);
+  assert.doesNotMatch(six, /videos = |credits = /);
+  assert.equal(tray(0), '', 'nothing chosen, no tray');
+  const css = readFileSync(new URL('../src/cart-panel.tsx', import.meta.url), 'utf8');
+  assert.match(css, /bg-\[#1A1A1D\]\/90[^"]*shadow-\[[^\]]*inset_0_0_0_1px_rgba\(255,255,255,0\.12\)\][^"]*backdrop-blur-md/);
+  assert.match(readFileSync(new URL('../src/creatives-pack-studio.tsx', import.meta.url), 'utf8'), /launchToTray\(item\.id, card\.getBoundingClientRect\(\)\);\s+cart\.add\(item\);/);
 });
 
 test('no cart icon, and nothing a person reads says cart', () => {
@@ -89,7 +101,7 @@ test('the free video is offered only while it is still to come, and the way to m
   assert.doesNotMatch(read('pricing-page.tsx'), /invisible/);
 });
 
-test('Create goes straight to Media, where the bottom bar blinks beside the percentage and the actions scroll away', () => {
+test('Create goes straight to Media, where the bottom tray shows the percentage and the actions scroll away', () => {
   const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
   const main = read('main.tsx');
   assert.match(main, /return \{ kind: 'download', run: \(\) => \{ toMedia\(\); void downloadRef\.current\?\.\(\); \} \};/);
@@ -97,11 +109,9 @@ test('Create goes straight to Media, where the bottom bar blinks beside the perc
   assert.match(main, /<div className="masthead-actions">/);
   assert.doesNotMatch(read('history-page.tsx'), /RenderProgress/);
   assert.doesNotMatch(read('cart-panel.tsx'), /RenderProgress/);
-  assert.match(read('cart-panel.tsx'), /className="chosen-bar-dot"/);
   const css = read('styles/shell.css');
   assert.match(css, /\.masthead-actions \{ position: absolute; z-index: 9; top: 1rem; right: 1\.5rem;/, 'the actions scroll away on every page');
-  assert.match(css, /prefers-reduced-motion: reduce\) \{ \.chosen-bar-dot, \.chosen-bar-dot::after \{ animation: none; \}/);
-  assert.match(css, /\.chosen-bar \{ position: fixed; z-index: 15;/);
+  assert.match(read('cart-panel.tsx'), /className="fixed bottom-\[max\(1rem,env\(safe-area-inset-bottom\)\)\] left-1\/2 z-\[15\]/);
 });
 
 test('the upload popup has no title or long text, only a small line under Select files', () => {
@@ -113,24 +123,23 @@ test('the upload popup has no title or long text, only a small line under Select
   assert.doesNotMatch(read('analyzing-screen.tsx'), /minute or two/);
 });
 
-test('the bottom bar has its blinking dot whenever it shows: while choosing and while the videos are made', () => {
+test('the bottom tray shows while choosing and while the videos are made', () => {
   const bar = (count, progress) => renderToStaticMarkup(createElement(panel.ChosenBar, { count, progress, onOpen: () => {} }));
-  assert.match(bar(2, null), /class="chosen-bar-dot"/);
-  const making = bar(0, { label: 'Making your videos', percent: 42 });
-  assert.match(making, /class="chosen-bar-dot"/);
-  assert.match(making, />Making your videos 42%</);
+  assert.match(bar(2, null), />2 selected</);
+  assert.match(bar(0, { label: 'Making your videos', percent: 42 }), />Making your videos 42%</);
   assert.equal(bar(0, null), '');
 });
 
 test('while videos are made the bar opens nothing and changes nothing, and Cancel shows only while some have not started', () => {
   const bar = (progress, onCancel) => renderToStaticMarkup(createElement(panel.ChosenBar, { count: 20, progress, onOpen: () => {}, onClear: () => {}, onCancel }));
   const making = bar({ label: 'Made 9 of 20 · 7 waiting their turn', percent: 64, cancellable: true }, () => {});
-  assert.match(making, />20 videos = 20 credits</);
-  assert.equal((making.match(/<button/g) ?? []).length, 1, 'only Cancel can be pressed');
+  assert.match(making, />20 selected</);
+  assert.doesNotMatch(making, /Export/);
+  assert.equal((making.match(/<button(?![^>]*disabled="")/g) ?? []).length, 1, 'only Cancel can be pressed');
   assert.match(making, /aria-label="Cancel the videos that have not started"[^>]*>.*Cancel</);
   assert.doesNotMatch(making, /Clear the chosen videos/);
   assert.match(bar({ label: 'x', percent: 70, cancelling: true }, () => {}), /disabled=""[^>]*>.*Cancelling…</);
-  assert.doesNotMatch(bar({ label: 'Made 16 of 20', percent: 90 }, () => {}), /<button/);
+  assert.doesNotMatch(bar({ label: 'Made 16 of 20', percent: 90 }, () => {}), /<button(?![^>]*disabled="")/);
 });
 
 test('the videos page shows no error text above the videos, the preview line sits left of Lyrics, and Refresh floats on its own', () => {
@@ -149,8 +158,6 @@ test('popups: centred text, buttons at their own size set apart left and right; 
   const main = read('main.tsx');
   assert.match(main, /<div className="flex items-center justify-between gap-3">\s+<Button variant="secondary" onClick=\{\(\) => answerGuess\('unsure'\)\}>Maybe<\/Button>\s+<Button variant="secondary" onClick=\{\(\) => answerGuess\('no'\)\}>No<\/Button>\s+<Button onClick=\{\(\) => answerGuess\('yes'\)\}>Yes<\/Button>/);
   assert.doesNotMatch(main, /learn your music/);
-  const css = read('styles/shell.css');
-  assert.match(css, /\.chosen-bar-dot \{[^}]*width: \.8rem; height: \.8rem;[^}]*background: var\(--destructive\)/);
 });
 
 test('pricing: centred "Every video comes with", questions that open one by one, no Terms line under them', () => {
@@ -161,13 +168,13 @@ test('pricing: centred "Every video comes with", questions that open one by one,
   assert.doesNotMatch(pricing, /See the <a|Anything else:|>Questions</);
 });
 
-test('Clear on the bottom bar, on the creatives page only; chosen videos never made are not kept for another visit', () => {
+test('Clear on the bottom tray; chosen videos never made are not kept for another visit', () => {
   const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
   const bar = (count, onClear) => renderToStaticMarkup(createElement(panel.ChosenBar, { count, progress: null, onOpen: () => {}, onClear }));
   assert.match(bar(2, () => {}), /aria-label="Clear the chosen videos"/);
   assert.doesNotMatch(bar(2, undefined), /Clear/);
   const main = read('main.tsx');
-  assert.match(main, /onClear=\{page === 'create' && inCreatives && stage === 'revealed' \? cart\.clear : undefined\}/);
+  assert.match(main, /onClear=\{cart\.clear\}/);
   assert.match(main, /setInCreatives\(false\);\n\s+cart\.clearAll\(\);/);
   const cart = read('cart.ts');
   assert.match(cart, /sessionStorage\.setItem\(KEY/);
