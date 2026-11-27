@@ -14,7 +14,7 @@ import { claimPendingReferral } from './referral';
 import { reportProblem } from './report-problem';
 import { forgetPages } from './page-memory';
 import { humanHeaders } from './human-check';
-import { START_COOKIE } from './site-paths';
+import { START_COOKIE, fadeOut, leaveFor } from './site-paths';
 
 /**
  * Neon Auth (managed Better Auth), reached through our own address (/api/neon-auth, passed on to Neon as it is) so its session
@@ -195,13 +195,15 @@ const forgetStart = () => { document.cookie = `${START_COOKIE}=; Path=/; Max-Age
 
 /** Signs out, forgets the person's work on this device, and goes to the home page: the page they were on was theirs. */
 export async function signOut() {
+  fadeOut();
   await authClient.signOut().catch(() => undefined);
   forgetPages();
   for (const key of PERSONAL_KEYS) {
     try { sessionStorage.removeItem(key); localStorage.removeItem(key); } catch { /* storage unavailable: nothing kept */ }
   }
   forgetStart();
-  location.assign(SIGNED_OUT_PAGE);
+  rememberSignedIn(false);
+  leaveFor(SIGNED_OUT_PAGE);
 }
 
 /** Confirms the new address. */

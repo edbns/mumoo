@@ -14,7 +14,7 @@ export const HUMAN_HEADER = 'x-human-check';
 type Turnstile = {
   render(container: HTMLElement, options: {
     sitekey: string; action: string; appearance: 'interaction-only'; theme: 'dark'; 'refresh-expired': 'never';
-    callback(token: string): void; 'error-callback'(code: string): boolean; 'timeout-callback'(): void;
+    callback(token: string): void; 'error-callback'(code: string): boolean; 'timeout-callback'(): void; 'before-interactive-callback'(): void;
   }): string | undefined;
   remove(id: string): void;
 };
@@ -54,7 +54,9 @@ export async function humanHeaders(action: string): Promise<Record<string, strin
     spot.className = 'fixed bottom-4 left-1/2 z-[1000] -translate-x-1/2';
     document.body.append(spot);
   }
+  // Folded away while Cloudflare checks unseen, so the popup holding it keeps its size; it opens only if a tick is asked for.
   const box = document.createElement('div');
+  box.style.cssText = 'height:0;overflow:hidden';
   spot.append(box);
   let id: string | undefined;
   try {
@@ -65,6 +67,7 @@ export async function humanHeaders(action: string): Promise<Record<string, strin
         callback: (value) => { clearTimeout(timer); resolve(value); },
         'error-callback': () => { clearTimeout(timer); reject(failed); return true; },
         'timeout-callback': () => { clearTimeout(timer); reject(failed); },
+        'before-interactive-callback': () => { box.style.cssText = own ? '' : 'margin-top:12px'; },
       });
     });
     return { [HUMAN_HEADER]: token };

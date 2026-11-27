@@ -214,12 +214,15 @@ test('actions are buttons, not underlined text; Media keeps one tidy bar; the st
 test('the smart link, once live: short words, the live song in the phone, and a delete popup named by the song', () => {
   const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
   const cta = read('smart-link-cta.tsx');
-  assert.match(cta, /\/>Promote this release\n/);
+  assert.match(cta, />Promote this release<\/p>/);
+  assert.doesNotMatch(cta, /Sparkles/);
   assert.match(cta, /Turn “\{title\}” into beat-cut promo videos\./);
   assert.doesNotMatch(cta, /lyric videos|in minutes|’s song|cuts for/);
   const links = read('links-page.tsx');
   assert.match(links, /Share it anywhere\. Track clicks by platform in My Smart Links\./);
   assert.match(links, /placeholder="Paste a Spotify, Apple Music, or YouTube link—or type a song"/);
+  assert.match(links, />Create another smart link<\/Button>/);
+  assert.match(links, /'What fans see.'/);
   assert.match(links, /<PhonePreview link=\{link \?\? \(published \? draftOf\(published\)\.link : null\)\}/);
   const mine = read('my-links-page.tsx');
   assert.match(mine, /`Delete smart link for “\$\{deletingTitle\}”\?`/);

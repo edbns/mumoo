@@ -6,8 +6,8 @@ export function AccountColumn({ wide, children }: { wide?: boolean; children: Re
 }
 
 /** A titled panel of the account, in the same black as the rows of the main screen. */
-export function AccountSection({ label, aside, children }: { label: string; aside?: ReactNode; children: ReactNode }) {
-  return <section aria-label={label} className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-background p-5">
+export function AccountSection({ label, aside, children, className = '' }: { label: string; aside?: ReactNode; children: ReactNode; className?: string }) {
+  return <section aria-label={label} className={`flex flex-col gap-4 rounded-[var(--radius-panel)] bg-background p-5 ${className}`}>
     <div className="flex min-h-9 items-center justify-between gap-3">
       <h2 className="m-0 text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</h2>
       {aside}

@@ -16,8 +16,8 @@ const TIMEOUT_MS = 6000;
 /** A kept lookup is redone after this long, so moved or newly released links are found. */
 const KEEP_DAYS = 30;
 const CANDIDATES = 4;
-/** Raised when the lookup finds more than it used to (2: Spotify by ISRC), so songs kept by an older one are looked up again. */
-const LOOKUP_VERSION = 2;
+/** Raised when the lookup finds more than it used to (2: Spotify by ISRC; 3: Deezer's preview), so songs kept by an older one are looked up again. */
+const LOOKUP_VERSION = 3;
 
 /** The service and its id behind a pasted link, or null when it is not a song link we know. */
 export function parseSource(raw) {

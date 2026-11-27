@@ -8,14 +8,15 @@ import { PAGE_PATHS } from './account-pages';
 import { LegalCorner } from './legal-corner';
 import { keepReferral } from './referral';
 import { SignInDialog } from './sign-in-dialog';
-import { START_COOKIE } from './site-paths';
+import { START_COOKIE, leaveFor } from './site-paths';
+import { rememberSignedIn } from './account-hint';
 import '@fontsource-variable/inter';
 import './styles/index.css';
 
 /** Into the studio. `/` shows this page to anyone signed out (netlify.toml) unless this browser session has chosen to start. */
 function start() {
   document.cookie = `${START_COOKIE}=1; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
-  location.assign('/');
+  leaveFor('/');
 }
 
 const SIGN_IN = { title: 'Sign in to mumoo', lead: 'Your videos and credits are waiting.' };
@@ -43,7 +44,10 @@ function WelcomePage() {
   const address = useRef('');
   const closeSignIn = useCallback(() => {
     setSigningIn(false);
-    if (signedIn.current) location.assign('/');
+    if (!signedIn.current) return;
+    // The studio then draws the profile icon at once, rather than Sign in until the account answers.
+    rememberSignedIn(true);
+    leaveFor('/');
   }, []);
   const rise = (delay: number) => still ? {} : {
     initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.5, delay, ease: 'easeOut' as const },

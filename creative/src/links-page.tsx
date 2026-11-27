@@ -130,7 +130,15 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
       setDraft(EMPTY_DRAFT);
       setTokens({});
       setPublished(done);
+      window.scrollTo({ top: 0 });
     });
+  }
+
+  function createAnother() {
+    player.stop();
+    triedLink.current = '';
+    setPublished(null);
+    window.scrollTo({ top: 0 });
   }
   useEffect(() => {
     if (user) listLinks(user.id).catch(() => { /* My Smart Links fetches again and shows the error */ });
@@ -159,19 +167,20 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
 
   return <main className="relative mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 pb-24 pt-6">
     {/* Cross-fades with the page, so there is never a blank moment between the two. */}
-    <LinksSkeleton hidden={phoneReady} className={`pointer-events-none absolute inset-x-0 top-0 transition-opacity duration-150 ${phoneReady ? 'opacity-0' : 'opacity-100'}`} />
+    <LinksSkeleton hidden={phoneReady} filled={Boolean(link)} className={`pointer-events-none absolute inset-x-0 top-0 transition-opacity duration-150 ${phoneReady ? 'opacity-0' : 'opacity-100'}`} />
     <div className={`flex flex-col gap-4 transition-opacity duration-150 ${phoneReady ? 'opacity-100' : 'opacity-0'}`}>
-    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="flex min-w-0 flex-col gap-4">
-        {published && <AccountSection label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
+    <div className={`grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] ${published ? 'items-stretch' : 'items-start'}`}>
+      {published ? <div className="flex min-w-0 flex-col gap-4 lg:pb-9">
+        <AccountSection className="flex-1" label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
           <AddressLine slug={published.slug} />
           <p className="m-0 text-sm text-muted-foreground">Share it anywhere. Track clicks by platform in My Smart Links.</p>
           <AdsNextStep published={published} onStart={() => {
             handSong({ title: published.link.title, artist: published.link.artist, cover: published.link.cover });
             onNavigate('create');
           }} />
-        </AccountSection>}
-
+        </AccountSection>
+        <Button variant="secondary" className="h-[var(--control-height-md)] w-full" onClick={createAnother}>Create another smart link</Button>
+      </div> : <div className="flex min-w-0 flex-col gap-4">
         <AccountSection label={draft.editing ? 'Editing your link' : 'Your song'} aside={(draft.url || link) &&
           <button type="button" className={textButton} onClick={startAgain}>{draft.editing ? 'Cancel' : 'Start again'}</button>}>
           {!draft.editing && !link && <p className="m-0 text-sm text-muted-foreground">One link for your track across Spotify, Apple Music, YouTube, and more.</p>}
@@ -237,7 +246,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
             </Button>
           </div>
         </AccountSection>}
-      </div>
+      </div>}
 
       <PhonePreview link={link ?? (published ? draftOf(published).link : null)} slug={link ? draft.editing ?? draft.slug : published?.slug ?? draft.slug} onReady={() => setPhoneReady(true)} />
     </div>
@@ -308,7 +317,7 @@ function PhonePreview({ link, slug, onReady }: { link: LinkFields | null; slug: 
       <iframe title="Your fan page" srcDoc={html} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" onLoad={onReady}
         className="block origin-top-left border-0" style={{ width: PAGE_WIDTH, height: PAGE_WIDTH * SCREEN_RATIO, transform: `scale(${scale})` }} />
     </Iphone16Pro>
-    <p className="m-0 text-center text-xs text-muted-foreground">{link ? 'What fans see. Press play to hear the preview.' : 'Search for your track to preview your link.'}</p>
+    <p className="m-0 text-center text-xs text-muted-foreground">{link ? 'What fans see.' : 'Search for your track to preview your link.'}</p>
   </aside>;
 }
 

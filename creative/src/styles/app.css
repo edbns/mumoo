@@ -64,6 +64,8 @@
   @media (prefers-reduced-motion: no-preference) {
     #root { animation: root-in 0.2s ease-out both; }
   }
+  /* Signing in or out on the way to another page (`leaveFor`): the page fades out at once, so its signed-out or half-loaded state is never seen. */
+  html.leaving #root { opacity: 0; transition: opacity 0.15s ease-out; pointer-events: none; }
 }
 
 @keyframes root-in { from { opacity: 0; } }

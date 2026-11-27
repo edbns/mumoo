@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { authClient, confirmEmailChange, deleteAccount, requestEmailChange } from './account';
 import { AccountColumn, AccountSection } from './account-section';
 import { friendlyError } from './friendly-error';
+import { leaveFor } from './site-paths';
 
 /** How long the confirmation is read before the page reloads. */
 const RELOAD_MS = 2000;
@@ -92,7 +93,7 @@ function DeleteAccount({ email }: { email: string }) {
       description="This permanently deletes your videos, uploads and history. Can’t be undone."
       cancelLabel="Keep my account" confirmLabel="Delete everything" confirmDisabled={!matches}
       working="Deleting…" done="Deleted" initialFocusRef={field}
-      onConfirm={() => deleteAccount(typed.trim())} onDone={() => location.assign('/')}>
+      onConfirm={() => deleteAccount(typed.trim())} onDone={() => leaveFor('/')}>
       <div className="flex flex-col gap-3 text-sm">
         <p className="m-0 text-center leading-6 text-muted-foreground">
           Type{' '}

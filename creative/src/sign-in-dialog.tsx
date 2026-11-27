@@ -56,7 +56,7 @@ export function SignInDialog({ open, onClose, onSendCode, onCheckCode, onGoogle,
     />
     </div>
     {/* Cloudflare's tick box, only when it asks for one (human-check.ts). */}
-    <div data-human-check className="mt-3 flex justify-center empty:hidden" />
+    <div data-human-check className="flex justify-center empty:hidden" />
     {!hideTerms && <p className="mt-4 text-center text-xs text-muted-foreground">By continuing you agree to our <a className="text-foreground underline underline-offset-4" href={TERMS_URL} target="_blank" rel="noreferrer">Terms</a> and <a className="text-foreground underline underline-offset-4" href={PRIVACY_URL} target="_blank" rel="noreferrer">Privacy Policy</a>.</p>}
   </Modal>;
 }
