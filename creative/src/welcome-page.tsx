@@ -8,7 +8,7 @@ import { PAGE_PATHS } from './account-pages';
 import { LegalCorner } from './legal-corner';
 import { keepReferral } from './referral';
 import { SignInDialog } from './sign-in-dialog';
-import { START_COOKIE, leaveFor } from './site-paths';
+import { START_COOKIE, arrive, leaveFor } from './site-paths';
 import { rememberSignedIn } from './account-hint';
 import '@fontsource-variable/inter';
 import './styles/index.css';
@@ -88,4 +88,5 @@ function WelcomePage() {
 }
 
 keepReferral();
+arrive();
 createRoot(document.getElementById('root')!).render(<WelcomePage />);

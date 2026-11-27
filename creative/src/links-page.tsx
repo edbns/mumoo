@@ -276,10 +276,12 @@ function ServiceEditor({ row, onChange, onMove }: { row: ServiceRow; onChange: (
     <input className={field} type="url" aria-label={`${label} link`} value={row.url}
       onChange={event => onChange({ url: event.target.value, exact: !isSearch(event.target.value) })} />
     <span className={`w-14 shrink-0 text-center text-xs ${row.exact ? 'text-primary' : 'text-muted-foreground'}`}>{row.exact ? 'Song' : 'Search'}</span>
-    <a className={`${iconButton} ${opens ? '' : 'pointer-events-none opacity-30'}`} href={opens ? row.url : undefined} target="_blank" rel="noreferrer"
-      aria-label={`Open the ${label} link in a new tab`} aria-disabled={!opens}><ExternalLinkIcon className="size-4" /></a>
-    <button type="button" className={iconButton} aria-label={row.hidden ? `Show ${label}` : `Hide ${label}`} aria-pressed={row.hidden}
-      onClick={() => onChange({ hidden: !row.hidden })}>{row.hidden ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}</button>
+    <span className="flex shrink-0 items-center gap-1">
+      <a className={`${iconButton} ${opens ? '' : 'pointer-events-none opacity-30'}`} href={opens ? row.url : undefined} target="_blank" rel="noreferrer"
+        aria-label={`Open the ${label} link in a new tab`} aria-disabled={!opens}><ExternalLinkIcon className="size-4" /></a>
+      <button type="button" className={iconButton} aria-label={row.hidden ? `Show ${label}` : `Hide ${label}`} aria-pressed={row.hidden}
+        onClick={() => onChange({ hidden: !row.hidden })}>{row.hidden ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}</button>
+    </span>
   </Reorder.Item>;
 }
 

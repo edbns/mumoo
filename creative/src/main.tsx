@@ -39,6 +39,7 @@ import { LinksNav, ProfileNav, type ProfileTab } from './profile-nav';
 import { ClipPicker } from './clip-picker';
 import { LegalCorner } from './legal-corner';
 import { keepReferral } from './referral';
+import { arrive } from './site-paths';
 import { LinksSkeleton } from './links-skeleton';
 import { useFreeVideo } from './use-free-video';
 import { friendlyError } from './friendly-error';
@@ -613,5 +614,6 @@ if (googlePopup) void import('./account');
 // Polar's checkout window, back on our site after paying: it tells the page that opened it, and closes.
 else if (!handOverCheckout()) {
   keepReferral();
+  arrive();
   createRoot(document.getElementById('root')!).render(<CrashGuard><Root /></CrashGuard>);
 }

@@ -17,7 +17,20 @@ export const START_COOKIE = 'mumoo_start';
 /** Fades the page out (app.css) and opens `path`: for signing in or out, where the page in between should not be seen. */
 export function leaveFor(path: string) {
   fadeOut();
+  try { sessionStorage.setItem(ARRIVING, '1'); } catch { /* storage unavailable: the next page fades in whole */ }
   location.assign(path);
+}
+
+const ARRIVING = 'mumoo-arriving';
+/**
+ * Called by each page before it is drawn: after `leaveFor`, only the page's contents fade in, inside the frame already shown.
+ * index.html and welcome.html set the same class from their <head>, so the empty frame shows from the first paint.
+ */
+export function arrive() {
+  try {
+    if (sessionStorage.getItem(ARRIVING)) document.documentElement.classList.add('arriving');
+    sessionStorage.removeItem(ARRIVING);
+  } catch { /* storage unavailable */ }
 }
 
 export function fadeOut() {
