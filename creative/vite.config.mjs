@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 import { localPreviewApi } from './dev/local-preview-api.mjs';
+import { seoPages } from './dev/seo-pages.mjs';
 
 /**
  * The interface font is fetched with the page, not after it: otherwise the browser finds it only once the CSS is in and
@@ -23,7 +24,7 @@ function preloadInterfaceFont() {
 
 // Seven entries: the app, the cloud-only frame renderer used by the Modal worker, the admin page (/admin), the page a phone sends the song from (/phone), the legal documents (/terms, /privacy, … and /legal), the welcome screen (/welcome) and the public pricing page (/pricing).
 export default defineConfig({
-  plugins: [tailwindcss(), localPreviewApi(), preloadInterfaceFont()],
+  plugins: [tailwindcss(), localPreviewApi(), preloadInterfaceFont(), seoPages()],
   // `@/` is the source folder, which is what components installed from 21st.dev expect.
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   // Cloudflare Turnstile's site key is public (the page shows it to Cloudflare); its secret key, TURNSTILE_SECRET_KEY, must never match.

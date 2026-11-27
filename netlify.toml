@@ -14,10 +14,10 @@
   to = "/admin.html"
   status = 200
 
-# Smart links: the editor is a page of the app, at its own address.
+# Smart links: the editor is a page of the app, at its own address, with its own head for search engines (creative/dev/seo-pages.mjs).
 [[redirects]]
   from = "/smart-links"
-  to = "/index.html"
+  to = "/smart-links.html"
   status = 200
 
 # Its old address, still in fan pages shared before it moved.
@@ -113,7 +113,7 @@
   to = "/"
   status = 301
 
-# The legal documents (creative/legal/*.md): one page, which shows the document its address names.
+# The legal documents (creative/legal/*.md): one page, which shows the document its address names; each address has its own copy of it with that document's title for search engines (creative/dev/seo-pages.mjs).
 [[redirects]]
   from = "/legal"
   to = "/legal.html"
@@ -121,37 +121,37 @@
 
 [[redirects]]
   from = "/terms-of-service"
-  to = "/legal.html"
+  to = "/terms-of-service.html"
   status = 200
 
 [[redirects]]
   from = "/privacy-policy"
-  to = "/legal.html"
+  to = "/privacy-policy.html"
   status = 200
 
 [[redirects]]
   from = "/cookie-policy"
-  to = "/legal.html"
+  to = "/cookie-policy.html"
   status = 200
 
 [[redirects]]
   from = "/acceptable-use-policy"
-  to = "/legal.html"
+  to = "/acceptable-use-policy.html"
   status = 200
 
 [[redirects]]
   from = "/refund-policy"
-  to = "/legal.html"
+  to = "/refund-policy.html"
   status = 200
 
 [[redirects]]
   from = "/ai-disclosure"
-  to = "/legal.html"
+  to = "/ai-disclosure.html"
   status = 200
 
 [[redirects]]
   from = "/data-processing-agreement"
-  to = "/legal.html"
+  to = "/data-processing-agreement.html"
   status = 200
 
 [[headers]]

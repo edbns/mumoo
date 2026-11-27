@@ -1,5 +1,6 @@
 import { cacheTag, fanPage, missingPage, POLICY } from '../lib/fan-page.mjs';
 import { db } from '../lib/person.mjs';
+import { thisSite } from '../lib/sites.mjs';
 import { slugProblem } from '../lib/smart-links.mjs';
 
 function page(status, html, slug, cdnSeconds) {
@@ -17,6 +18,8 @@ function page(status, html, slug, cdnSeconds) {
       // The page is the same whatever the query, and ads add a click ID unique to each visit: no query parameter (but one that is
       // never sent) makes another copy, so they all share one.
       'Netlify-Vary': 'query=mumoo-none',
+      // Only the live site's fan pages are for search engines.
+      ...(thisSite()?.name === 'live' ? {} : { 'X-Robots-Tag': 'noindex, nofollow' }),
     },
   });
 }

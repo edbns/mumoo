@@ -16,7 +16,7 @@ test('every legal document has its own address, in netlify.toml and the dev serv
   const dev = readFileSync(new URL('../dev/local-preview-api.mjs', import.meta.url), 'utf8');
   const page = readFileSync(new URL('../src/legal-page.tsx', import.meta.url), 'utf8');
   for (const slug of [...SLUGS, 'legal']) {
-    assert.match(toml, new RegExp(`from = "/${slug}"\\n  to = "/legal.html"`), slug);
+    assert.match(toml, new RegExp(`from = "/${slug}"\\n  to = "/${slug}\\.html"`), slug);
     assert.match(dev, new RegExp(`[|(]${slug}[|)]`), slug);
   }
   const paths = readFileSync(new URL('../src/site-paths.ts', import.meta.url), 'utf8');

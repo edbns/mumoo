@@ -85,17 +85,20 @@ export function fanPage(link, address, home, { inPhone = false, countAs = null }
   const shown = link.services.filter(row => !row.hidden);
   const names = shown.map(row => LABELS[row.service]);
   const description = esc(`Listen to ${link.title} by ${link.artist} on ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]}.`);
+  // The title a search result shows: the song, then the first three services it opens on.
+  const first = names.slice(0, 3);
+  const listen = esc(`${link.title} by ${link.artist} — Listen on ${first.length > 1 ? `${first.slice(0, -1).join(', ')} & ${first.at(-1)}` : first[0]}`);
   const cover = link.cover ? esc(link.cover) : '';
   const art = link.cover ? coverSources(link.cover) : null;
   const tracked = Boolean(countAs && !inPhone);
   const buttons = shown.map(row => `<li><a class="s" href="${esc(row.url)}" data-s="${row.service}"><img src="${esc(logoOf(home, row.service))}" alt="" width="28" height="28"><span>${esc(LABELS[row.service])}</span><em>${row.service === 'youtube' ? 'Watch' : 'Play'}</em></a></li>`).join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title} · ${artist}</title><meta name="description" content="${description}"><link rel="canonical" href="${esc(address)}">
-<meta property="og:type" content="music.song"><meta property="og:title" content="${title} · ${artist}"><meta property="og:description" content="${description}"><meta property="og:url" content="${esc(address)}">${cover ? `<meta property="og:image" content="${cover}"><meta name="twitter:card" content="summary_large_image">` : ''}
+<title>${listen}</title><meta name="description" content="${description}"><link rel="canonical" href="${esc(address)}">
+<meta property="og:type" content="music.song"><meta property="og:site_name" content="mumoo"><meta property="og:title" content="${title} · ${artist}"><meta property="og:description" content="${description}"><meta property="og:url" content="${esc(address)}">${cover ? `<meta property="og:image" content="${cover}"><meta name="twitter:card" content="summary_large_image">` : ''}
 <meta name="theme-color" content="#0b0b0b"><style>${STYLE}${inPhone ? 'main{padding-top:64px}' : ''}</style>${inPhone ? '<base target="_blank">' : ''}</head><body${tracked ? ` data-l="${esc(countAs)}"` : ''}>
 ${cover ? `<div class="bg" style="background-image:url('${cssUrl(coverAt(link.cover, 120))}')"></div>` : ''}<main><div class="art">${art ? `<img src="${esc(art.src)}"${art.srcset ? ` srcset="${esc(art.srcset)}" sizes="min(72vw,280px)"` : ''} alt="${title} cover" width="280" height="280" fetchpriority="high">` : ''}${link.preview ? '<button id="p" type="button" aria-label="Play preview"></button>' : ''}</div>
 <h1>${title}</h1><p class="by">${artist}</p><ul>${buttons}</ul></main>
-<footer><a href="${esc(home)}/smart-links">Make your own free smart link · <b>mumoo</b></a></footer>${link.preview ? `<audio id="a" preload="none" src="${esc(previewSrc(link.preview, home))}"></audio><script>${PLAYER}</script>` : ''}${tracked ? `<script>${TRACKER}</script>` : ''}
+<footer><a href="${esc(home)}/smart-links">Made with <b>mumoo</b></a></footer>${link.preview ? `<audio id="a" preload="none" src="${esc(previewSrc(link.preview, home))}"></audio><script>${PLAYER}</script>` : ''}${tracked ? `<script>${TRACKER}</script>` : ''}
 </body></html>`;
 }
 
