@@ -68,11 +68,12 @@
    * Signing in or out on the way to another page (`leaveFor`): what is on the page fades out at once, so its signed-out or
    * half-loaded state is never seen, and the next page's fades in. The frame itself stays, so the screen never goes black between.
    */
-  html.leaving #root > * { opacity: 0; transition: opacity 0.15s ease-out; pointer-events: none; }
+  /* A `contents` wrapper has no box of its own to fade, so what is in it fades instead. */
+  html.leaving #root > *, html.leaving #root > .contents > * { opacity: 0; transition: opacity 0.15s ease-out; pointer-events: none; }
   html.arriving #root { animation: none; }
   html.arriving #root:empty { display: flex; }
   @media (prefers-reduced-motion: no-preference) {
-    html.arriving #root > * { animation: root-in 0.2s ease-out both; }
+    html.arriving #root > *:not(.contents), html.arriving #root > .contents > * { animation: root-in 0.2s ease-out both; }
   }
 }
 

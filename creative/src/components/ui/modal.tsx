@@ -438,7 +438,7 @@ export function Modal({
           animate="open"
           exit="gone"
           variants={{ closed: {}, open: {}, gone: {} }}
-          className="fixed inset-0 z-50 grid items-start justify-items-center p-4 pt-[max(1rem,env(safe-area-inset-top))] sm:place-items-center sm:p-6"
+          className="fixed inset-0 z-50 grid place-items-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6"
         >
           <motion.div
             aria-hidden="true"

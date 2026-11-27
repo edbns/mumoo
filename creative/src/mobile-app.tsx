@@ -139,6 +139,8 @@ function MediaScreen({ onSignOut }: { onSignOut: () => void }) {
   const [deleting, setDeleting] = useState<Video[] | null>(null);
   const loadedAt = useRef(0);
   const { fileOf, share } = useFiles();
+  // Media opens at its newest videos, not wherever the notice before it was scrolled to.
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   /** The Save or Share under way, with how many of its videos are in; or the one waiting for another tap. */
   const [work, setWork] = useState<{ action: Action; done: number; total: number } | null>(null);
   const [again, setAgain] = useState<Action | null>(null);

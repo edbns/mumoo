@@ -129,6 +129,41 @@ test('the sign-in webhook mails Neon\'s code from mumoo, once per event, and onl
   }
 });
 
+test('a slow mail server does not hold up the sign-in: Neon hears back at once and the code is still sent', async () => {
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const kid = `test-${randomUUID()}`;
+  const saved = { jwks: process.env.NEON_AUTH_JWKS_URL, resend: process.env.RESEND_API_KEY, fetch: globalThis.fetch };
+  process.env.NEON_AUTH_JWKS_URL = `data:application/json,${encodeURIComponent(JSON.stringify({ keys: [{ ...publicKey.export({ format: 'jwk' }), kid }] }))}`;
+  process.env.RESEND_API_KEY = 'test';
+  const sent = [];
+  globalThis.fetch = async (url, init) => {
+    if (!String(url).startsWith('https://api.resend.com/')) return saved.fetch(url, init);
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    sent.push(JSON.parse(init.body));
+    return new Response('{}');
+  };
+  try {
+    const { default: handler } = await import('../netlify/functions/auth-email.mjs');
+    const event = JSON.stringify({
+      event_id: 'evt-slow', event_type: 'send.otp', user: { email: 'someone@example.com', name: '' },
+      event_data: { otp_code: '111222', otp_type: 'sign-in', expires_at: new Date(Date.now() + 5 * 60_000).toISOString() },
+    });
+    const later = [];
+    const started = Date.now();
+    const answer = await handler(new Request('https://example.test/api/auth/email', { method: 'POST', body: event, headers: signed(event, privateKey, kid) }),
+      { waitUntil: promise => later.push(promise) });
+    assert.equal(answer.status, 200);
+    assert.ok(Date.now() - started < 2200, 'answered before the letter was taken');
+    assert.equal(later.length, 1);
+    await Promise.all(later);
+    assert.equal(sent.length, 1, 'and the letter still went');
+  } finally {
+    process.env.NEON_AUTH_JWKS_URL = saved.jwks;
+    if (saved.resend === undefined) delete process.env.RESEND_API_KEY; else process.env.RESEND_API_KEY = saved.resend;
+    globalThis.fetch = saved.fetch;
+  }
+});
+
 test('storage is reported almost full once, and again only after the person has made room', { skip: !process.env.DATABASE_URL, timeout: 60000 }, async () => {
   const sql = db();
   const id = `test-${randomUUID()}`;
