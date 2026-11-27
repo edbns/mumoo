@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ThinkingOrb } from '@/components/ui/thinking-orbs';
 import type { CreativeProfileV1 } from './creative-profile';
@@ -9,6 +9,13 @@ import { deriveMusicIntent } from './music-intent';
 const FLASH_MS = 1800;
 /** Once the last poster is painted, the full bar is seen for a beat before the page opens. */
 const HOLD_MS = 150;
+/**
+ * The bar moves from the first moment: while the song is still being read it creeps towards `READING_SHARE` (never reaching it,
+ * slower and slower), then the painted posters fill the rest for real. It never goes back.
+ */
+const READING_SHARE = 40;
+const CREEP_MS = 12_000;
+const CREEP_TICK_MS = 400;
 
 export type PaintProgress = { done: number; total: number };
 
@@ -63,8 +70,8 @@ function stageText(profile: CreativeProfileV1, progress: PaintProgress | null) {
 }
 
 /**
- * Its own step, from "Continue" until the creatives are painted. The bar follows the posters as they are really finished,
- * and the page opens when the last one is done.
+ * Its own step, from "Continue" until the creatives are painted. The bar starts moving at once while the song is read, then
+ * follows the posters as they are really finished, and the page opens when the last one is done.
  */
 export function AnalyzingScreen({ profile, progress, ready, onDone }: { profile: CreativeProfileV1; progress: PaintProgress | null; ready: boolean; onDone: () => void }) {
   const calm = useReducedMotion();
@@ -86,7 +93,19 @@ export function AnalyzingScreen({ profile, progress, ready, onDone }: { profile:
   const enter = calm ? { opacity: 0 } : { opacity: 0, y: 10, filter: 'blur(6px)' };
   const leave = calm ? { opacity: 0 } : { opacity: 0, y: -10, filter: 'blur(6px)' };
 
-  const percent = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+  const [opened] = useState(() => performance.now());
+  const [now, setNow] = useState(opened);
+  const painting = Boolean(progress && progress.total > 0);
+  useEffect(() => {
+    if (painting) return;
+    const timer = window.setInterval(() => setNow(performance.now()), CREEP_TICK_MS);
+    return () => window.clearInterval(timer);
+  }, [painting]);
+  const reading = 3 + (READING_SHARE - 3) * (1 - Math.exp(-(now - opened) / CREEP_MS));
+  const painted = progress && progress.total > 0 ? READING_SHARE + (100 - READING_SHARE) * progress.done / progress.total : 0;
+  const shown = useRef(0);
+  shown.current = Math.max(shown.current, reading, painted);
+  const percent = Math.round(shown.current);
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-6" role="status" aria-label="Analysing your track and directing your videos">

@@ -15,8 +15,8 @@ test('a saved cart comes back with its pictures', () => {
   assert.deepEqual(readCarts(writeCarts(carts)), carts);
 });
 
-test('the key of a cart is the song and where the clip starts', () => {
-  assert.equal(songKeyOf('abc', 1500), 'abc:1500');
+test('the key of a cart is the song, where the clip starts and how long it is', () => {
+  assert.equal(songKeyOf('abc', 1500, 12_000), 'abc:1500:12000');
 });
 
 test('each song and clip keeps its own cart, so moving the clip never empties another', () => {

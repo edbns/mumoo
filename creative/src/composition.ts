@@ -9,10 +9,20 @@ export const MIN_SONG_MS = 10_000;
 /** The most frames a creative has (a 15-second clip). */
 export const MAX_FRAMES = FPS * FULL_CLIP_MS / 1000;
 
-/** How long the clip of a song this long is: 15 seconds, or all of a shorter song in whole tenths of a second (so samples at every rate, and frames, come out whole). */
+/** The longest clip a song this long can give: 15 seconds, or all of a shorter song in whole tenths of a second (so samples at every rate, and frames, come out whole). */
 export function clipLengthMs(songMs: number) {
   return Math.min(FULL_CLIP_MS, Math.floor(songMs / 100) * 100);
 }
+
+/** A clip length the creator asked for, kept to 10–15 seconds, inside the song, in whole tenths of a second. */
+export function fitClipMs(ms: number, songMs: number) {
+  const longest = clipLengthMs(songMs);
+  return Math.min(longest, Math.max(MIN_SONG_MS, Math.round(ms / 100) * 100));
+}
+
+/** How long the chosen clip is: the creator's length, or the longest the song gives when none was chosen. */
+export const chosenClipMs = (composition: Pick<Composition, 'clipMs'>, songMs: number) =>
+  composition.clipMs === undefined ? clipLengthMs(songMs) : composition.clipMs;
 
 export const framesOf = (clipMs: number) => Math.round(clipMs * FPS / 1000);
 
@@ -38,10 +48,11 @@ export interface ImpactMusic {
 /** One timed word (or short phrase) of the lyrics, in milliseconds from the start of the clip. */
 export interface LyricCue { text: string; startMs: number; endMs: number }
 
-/** What the creator chose: which clip of which song (its length follows from the song's, `clipLengthMs`), and the timed lyrics for it. */
+/** What the creator chose: which clip of which song, how long (10–15 s; the longest the song gives when unset), and the timed lyrics for it. */
 export interface Composition {
   sourceSha256: string;
   clipStartMs: number;
+  clipMs?: number;
   cues: LyricCue[];
 }
 
@@ -55,11 +66,14 @@ export function validate(value: unknown, sourceDurationMs: number): asserts valu
       ? `Song is ${Math.floor(sourceDurationMs / 100) / 10} seconds. Need at least ${MIN_SONG_MS / 1000}.`
       : `Pick a song that’s at least ${MIN_SONG_MS / 1000} seconds.`);
   }
-  const clipMs = clipLengthMs(sourceDurationMs);
   if (!value || typeof value !== 'object') throw new Error('Invalid composition.');
   const { sourceSha256, clipStartMs, cues } = value as Composition;
   if (typeof sourceSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(sourceSha256)) {
     throw new Error('Invalid source audio identity.');
+  }
+  const clipMs = chosenClipMs(value as Composition, sourceDurationMs);
+  if (!isTime(clipMs) || clipMs !== fitClipMs(clipMs, sourceDurationMs)) {
+    throw new Error(`Pick a clip of ${MIN_SONG_MS / 1000} to ${clipLengthMs(sourceDurationMs) / 1000} seconds.`);
   }
   if (!isTime(clipStartMs) || clipStartMs > sourceDurationMs - clipMs) {
     throw new Error(`Select a ${clipMs / 1000}-second range (whole milliseconds).`);

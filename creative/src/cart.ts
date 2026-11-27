@@ -89,8 +89,8 @@ export function writeCarts(carts: readonly CartEntry[]): string {
 export const ownIdsOf = (item: CartItem): string[] =>
   item.uploadId !== null ? [item.uploadId] : item.ownReel ? [...(item.slot.reelIds ?? [])] : [];
 
-/** The id of one song's cart: the song and where the 15 seconds start. */
-export const songKeyOf = (sourceSha256: string, clipStartMs: number) => `${sourceSha256}:${clipStartMs}`;
+/** The id of one song's cart: the song, where the clip starts and how long it is. */
+export const songKeyOf = (sourceSha256: string, clipStartMs: number, clipMs: number) => `${sourceSha256}:${clipStartMs}:${clipMs}`;
 
 const NONE: CartItem[] = [];
 

@@ -626,7 +626,7 @@ export function CreativesPackStudio({
       return false;
     }
     onStop(); setPlayingId(null); setError('');
-    download.start(songKeyOf(profile.clip.sourceSha256, profile.clip.offsetMs), items, async (report, stopped) => {
+    download.start(songKeyOf(profile.clip.sourceSha256, profile.clip.offsetMs, profile.clip.durationMs), items, async (report, stopped) => {
       report('Mixing audio…');
       // Let React paint the progress state before any work.
       await yieldFrame();

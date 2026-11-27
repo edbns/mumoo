@@ -4,7 +4,7 @@ import {
   Add01Icon, AiBrain01Icon, Alert02Icon, Album01Icon, Album02Icon, Analytics01Icon, ArrowDown01Icon, ArrowLeft02Icon,
   ArrowRight01Icon, ArrowRight02Icon, AlertCircleIcon as HugeAlertCircleIcon, Cancel01Icon, CheckmarkCircle02Icon, CircleDashedIcon as HugeCircleDashedIcon, CircleIcon as HugeCircleIcon, Clock01Icon, ComputerIcon, CookieIcon as HugeCookieIcon, Copy01Icon,
   DashboardSquare02Icon, Delete02Icon, Download01Icon, DragDropVerticalIcon, GiftIcon as HugeGiftIcon, Image01Icon, Invoice03Icon,
-  Link01Icon, LinkSquare02Icon, PanelLeftCloseIcon as HugePanelLeftCloseIcon, PanelLeftOpenIcon as HugePanelLeftOpenIcon, Loading03Icon, Logout03Icon, Mail01Icon, MusicNote03Icon, PauseIcon as HugePauseIcon,
+  Link01Icon, LinkSquare02Icon, MinusSignIcon, PanelLeftCloseIcon as HugePanelLeftCloseIcon, PanelLeftOpenIcon as HugePanelLeftOpenIcon, Loading03Icon, Logout03Icon, Mail01Icon, MusicNote03Icon, PauseIcon as HugePauseIcon,
   PencilEdit02Icon, PlayIcon as HugePlayIcon, Refresh01Icon, RotateLeft01Icon, Search01Icon, SecurityCheckIcon, Settings02Icon, Share08Icon,
   SmartPhone01Icon, SparklesIcon as HugeSparklesIcon, Tick02Icon, Upload01Icon, Video01Icon, ViewIcon, ViewOffIcon, Wallet02Icon,
 } from '@hugeicons/core-free-icons';
@@ -55,6 +55,7 @@ export const Link2Icon = make(Link01Icon, 'Link');
 export const LoaderCircleIcon = make(Loading03Icon, 'LoaderCircle');
 export const LogOutIcon = make(Logout03Icon, 'LogOut');
 export const MailIcon = make(Mail01Icon, 'Mail');
+export const MinusIcon = make(MinusSignIcon, 'Minus');
 export const Music2Icon = make(MusicNote03Icon, 'Music');
 export const PauseIcon = make(HugePauseIcon, 'Pause');
 export const PencilIcon = make(PencilEdit02Icon, 'Pencil');

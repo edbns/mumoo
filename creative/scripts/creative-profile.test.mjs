@@ -49,3 +49,26 @@ test('a song of 10 to 15 seconds is the clip, whole; a shorter one is refused', 
     await server.close();
   }
 });
+
+test('the creator picks a clip of 10 to 15 seconds, never past the song', async () => {
+  const server = await createServer({ server: { middlewareMode: true }, optimizeDeps: { noDiscovery: true }, appType: 'custom', logLevel: 'error' });
+  try {
+    const { fitClipMs, chosenClipMs, validate } = await server.ssrLoadModule('/src/composition.ts');
+    assert.equal(fitClipMs(8_000, 180_000), 10_000);
+    assert.equal(fitClipMs(20_000, 180_000), 15_000);
+    assert.equal(fitClipMs(12_345, 180_000), 12_300, 'whole tenths of a second');
+    assert.equal(fitClipMs(15_000, 12_389.7), 12_300, 'no longer than the song');
+    assert.equal(chosenClipMs({}, 180_000), 15_000, 'the longest clip until one is chosen');
+    assert.equal(chosenClipMs({ clipMs: 11_000 }, 180_000), 11_000);
+    const base = { sourceSha256: 'a'.repeat(64), clipStartMs: 0, cues: [] };
+    assert.doesNotThrow(() => validate({ ...base, clipMs: 10_000 }, 180_000));
+    assert.doesNotThrow(() => validate({ ...base, clipStartMs: 170_000, clipMs: 10_000 }, 180_000));
+    assert.throws(() => validate({ ...base, clipStartMs: 170_000, clipMs: 12_000 }, 180_000), /range/);
+    assert.throws(() => validate({ ...base, clipMs: 9_000 }, 180_000), /10 to 15 seconds/);
+    assert.throws(() => validate({ ...base, clipMs: 16_000 }, 180_000), /10 to 15 seconds/);
+    assert.throws(() => validate({ ...base, clipMs: 12_050 }, 180_000), /10 to 15 seconds/);
+    assert.throws(() => validate({ ...base, cues: [{ text: 'hi', startMs: 11_000, endMs: 11_500 }], clipMs: 11_000 }, 180_000), /inside the clip/);
+  } finally {
+    await server.close();
+  }
+});

@@ -5,7 +5,7 @@ import { Music2Icon } from '@/components/icons';
 import { decodeAudio, hashAudio, probeDurationMs } from './audio';
 import { ACCEPTED_AUDIO, ACCEPTED_LABEL, readSongCover, readSongTags, sniffAudioFormat, type SongTags } from './audio-format';
 import { describeCover, type CoverRead } from './cover-palette';
-import { FULL_CLIP_MS, MIN_SONG_MS, clipLengthMs, validate, type Composition } from './composition';
+import { FULL_CLIP_MS, MIN_SONG_MS, chosenClipMs, clipLengthMs, fitClipMs, validate, type Composition } from './composition';
 import type { StyleMatch } from './style-search';
 import { PhoneUpload } from './phone-upload';
 import { NO_ANALYSIS, acceptsAnalysis, analysisForClip, sameClip, type ClipIdentity, type CreativeProfileV1, type MusicAnalysisState } from './creative-profile';
@@ -186,12 +186,12 @@ function App() {
     }
   }
 
-  const clipMs = buffer ? clipLengthMs(buffer.duration * 1000) : FULL_CLIP_MS;
-  const clipValid = Boolean(buffer && buffer.duration * 1000 >= MIN_SONG_MS && Number.isSafeInteger(composition.clipStartMs) &&
+  const clipMs = buffer ? chosenClipMs(composition, buffer.duration * 1000) : FULL_CLIP_MS;
+  const clipValid = Boolean(buffer && buffer.duration * 1000 >= MIN_SONG_MS && clipMs === fitClipMs(clipMs, buffer.duration * 1000) && Number.isSafeInteger(composition.clipStartMs) &&
     composition.clipStartMs >= 0 && composition.clipStartMs <= buffer.duration * 1000 - clipMs);
   const clip: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: clipMs };
   // The cart belongs to the song and clip being worked on, and is the same on every page.
-  const cart = useCart(clipValid ? songKeyOf(composition.sourceSha256, composition.clipStartMs) : '');
+  const cart = useCart(clipValid ? songKeyOf(composition.sourceSha256, composition.clipStartMs, clipMs) : '');
   /** Cart items whose library pictures were removed, as the creatives page last found them (comma-separated ids). */
   const [goneFromLibrary, setGoneFromLibrary] = useState('');
   const uploads = useUploads();
@@ -289,7 +289,7 @@ function App() {
       const nextClip: ClipIdentity = { sourceSha256, offsetMs: 0, durationMs: clipLengthMs(audio.duration * 1000) };
       const unchanged = sameClip(previousClip, nextClip);
       if (!unchanged) setMusicAnalysis(NO_ANALYSIS);
-      setComposition(current => ({ ...current, sourceSha256, clipStartMs: 0, cues: unchanged ? current.cues : [] }));
+      setComposition(current => ({ ...current, sourceSha256, clipStartMs: 0, clipMs: undefined, cues: unchanged ? current.cues : [] }));
       setLyricWords(current => unchanged ? current : []);
       currentClip.current = nextClip;
       setBuffer(audio);
@@ -372,16 +372,17 @@ function App() {
     }
   }
 
-  function selectClip(clipStartMs: number) {
+  function selectClip(clipStartMs: number, length = clipMs) {
     stop();
     seekTo(0);
-    const next: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: clipStartMs, durationMs: clipMs };
+    const next: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: clipStartMs, durationMs: length };
     if (!sameClip(currentClip.current, next)) {
       currentClip.current = next;
       setMusicAnalysis(NO_ANALYSIS);
     }
-    setComposition(current => ({ ...current, clipStartMs, cues: current.clipStartMs === clipStartMs ? current.cues : [] }));
-    if (composition.clipStartMs !== clipStartMs) setLyricWords([]);
+    const moved = composition.clipStartMs !== clipStartMs || clipMs !== length;
+    setComposition(current => ({ ...current, clipStartMs, clipMs: length, cues: moved ? [] : current.cues }));
+    if (moved) setLyricWords([]);
     // The audio output is unlocked here, inside the person's own gesture; the music itself starts after the pause.
     void (context.current ??= new AudioContext()).resume();
     audition.current = window.setTimeout(() => void playLatest.current(true), AUDITION_PAUSE_MS);
@@ -532,13 +533,13 @@ function App() {
           <Button disabled={!buffer || !genreValid || loading} onClick={() => setStep(2)}>{freeVideo ? 'Get my free video' : 'Continue'}</Button>
         </div></>}
         {buffer && step === 2 && <>
-          <ClipPicker audio={buffer} start={composition.clipStartMs} valid={clipValid} position={position}
+          <ClipPicker audio={buffer} start={composition.clipStartMs} clipMs={clipMs} valid={clipValid} position={position}
             playing={playing} onPlay={() => playing ? stop() : void play(true)} onSelect={selectClip} />
           {clipValid && noLyrics && <div className="flex flex-wrap items-center gap-3 rounded-[var(--radius-panel)] bg-background p-5">
             <p className="m-0 flex-1">Changed your mind?</p>
             <Button variant="secondary" onClick={() => chooseNoLyrics(false)}>Add lyrics instead</Button>
           </div>}
-          {clipValid && !noLyrics && <LyricsStudio key={composition.clipStartMs} audio={buffer} clipStartMs={composition.clipStartMs} clipMs={clipMs}
+          {clipValid && !noLyrics && <LyricsStudio key={`${composition.clipStartMs}:${clipMs}`} audio={buffer} clipStartMs={composition.clipStartMs} clipMs={clipMs}
             token={accessToken} position={position} playing={playing}
             initial={lyricWords.length ? { words: lyricWords, ...lyricsInfo } : undefined}
             onPlay={() => playing ? stop() : void play(true)}
@@ -587,9 +588,9 @@ function App() {
       </div>
     )}
     </div>
-    {buffer && clipValid && IS_ALIGNMENT_STAGING && (composition.cues.length > 0 || noLyrics || inCreatives) && <MusicAnalysisRunner key={composition.sourceSha256 + ':' + composition.clipStartMs}
+    {buffer && clipValid && IS_ALIGNMENT_STAGING && (composition.cues.length > 0 || noLyrics || inCreatives) && <MusicAnalysisRunner key={`${composition.sourceSha256}:${composition.clipStartMs}:${clipMs}`}
       audio={buffer} clip={clip} analysis={analysisForClip(musicAnalysis, clip)} accessToken={accessToken} onChange={state => { if (acceptsAnalysis(currentClip.current, state)) setMusicAnalysis(state); }} />}
-    {buffer && clipValid && IS_ALIGNMENT_STAGING && inCreatives && genreUnknown && <StylePrintRunner key={`${composition.sourceSha256}:${composition.clipStartMs}`}
+    {buffer && clipValid && IS_ALIGNMENT_STAGING && inCreatives && genreUnknown && <StylePrintRunner key={`${composition.sourceSha256}:${composition.clipStartMs}:${clipMs}`}
       clip={clip} accessToken={accessToken} />}
 
     {page === 'create' && <main className="mobile"><h1>Open mumoo on desktop</h1><p>Use desktop to time lyrics and preview.</p></main>}
