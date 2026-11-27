@@ -531,6 +531,8 @@ export function CreativesPackStudio({
   /** One Refresh for the whole shelf: every template deals a new creative. */
   function refreshShelf() {
     stopPlayback();
+    // Back to the top, so the new cards are seen from the first row, with any notice above them.
+    window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     // One report for the whole shelf, not one per template.
     if (shelf[0]) reportRefresh(token, profile, controls[shelf[0].id].generation + 1);
     setControls(current => Object.fromEntries(SHELF_ROWS.map(def => [def.id, { generation: current[def.id].generation + 1 }])) as Record<ShelfRow, RowControls>);
