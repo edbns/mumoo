@@ -17,6 +17,8 @@
 .step-nav button:disabled { cursor: default; opacity: .45; }
 /* The place the person is at: green with dark text. */
 .step-nav button[aria-current="step"] { background: var(--primary); color: var(--primary-foreground); font-weight: 600; opacity: 1; }
+/* Refresh deals new cards on the page underneath, so it is not shown over the chosen videos. */
+html.chosen-open .refresh-float { display: none; }
 /* The chosen videos tray floats above Media cards' play buttons (z 10), under notices (20) and popups (50). */
 .chosen-bar-note { max-width: 30rem; margin: 0 auto .2rem; padding: 0 1.2rem; font-size: .8125rem; line-height: 1.4; text-align: center; color: var(--muted-foreground); }
 @keyframes chosen-wave { from { scale: 1; opacity: .6; } to { scale: 2.8; opacity: 0; } }

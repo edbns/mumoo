@@ -163,7 +163,11 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
     close.current?.focus();
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    document.documentElement.classList.add('chosen-open');
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.documentElement.classList.remove('chosen-open');
+    };
   }, [onClose]);
   // Above every page's own layers (a card's play button is z-10), under the notices and dialogs.
   return <motion.aside className="fixed inset-0 z-[18] overflow-y-auto bg-background/90 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Your chosen videos"

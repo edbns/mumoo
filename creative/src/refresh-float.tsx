@@ -23,7 +23,8 @@ export function RefreshFloat({ disabled, onRefresh }: { disabled: boolean; onRef
     return () => window.clearInterval(timer);
   }, [still, held]);
   const showWord = word || still;
-  return <div className="fixed top-1/2 z-30 -translate-y-1/2" style={BESIDE_CARDS}>
+  // Over the cards (z 10) and the chosen videos tray (15), under the chosen videos page (18), notices (20) and popups (50).
+  return <div className="refresh-float fixed top-1/2 z-[16] -translate-y-1/2" style={BESIDE_CARDS}>
     <button type="button" aria-label="Refresh all videos" title="Refresh all videos" disabled={disabled} onClick={onRefresh}
       onPointerEnter={() => setHeld(true)} onPointerLeave={() => setHeld(false)}
       className="shimmer grid size-16 cursor-pointer place-items-center rounded-full border-0 bg-primary text-primary-foreground shadow-[0_12px_30px_-10px_rgba(0,0,0,0.85),0_0_0_4px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
