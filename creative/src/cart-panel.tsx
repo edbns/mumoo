@@ -169,11 +169,7 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
   return <motion.aside className="fixed inset-0 z-[18] overflow-y-auto bg-background/90 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Your chosen videos"
     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
     <div className="mx-auto flex min-h-full w-full max-w-[914px] flex-col gap-6 px-6 py-8">
-      {/* Make them from the top too, for whoever does not scroll down to the total. */}
-      <div className="flex items-center justify-between gap-3">
-        {lines.length > 0 && action.kind === 'download'
-          ? <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>Export · {ready.length} {ready.length === 1 ? 'credit' : 'credits'}</Button>
-          : <span />}
+      <div className="flex items-center justify-end gap-3">
         <Button ref={close} variant="secondary" className="size-9 rounded-full p-0" onClick={onClose} aria-label="Close"><XIcon aria-hidden="true" className="size-4" /></Button>
       </div>
       {/* What stops or explains making them shows up here, at the top, where it is seen however many rows are chosen. */}
@@ -182,7 +178,6 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
           {limit.free ? 'You have 1 free export.' : `You have ${limit.have} ${limit.have === 1 ? 'credit' : 'credits'}.`} Remove {videos(excess)} to export now, or top up your balance.
         </p>}
         {hint && <p role="status" className="hint m-0">{hint}</p>}
-        {action.kind === 'blocked' && action.fix && <Button className="self-start" onClick={action.fix.run}>{action.fix.label}</Button>}
       </div>}
       {lines.length === 0
         ? <EmptyState>Lock in the videos you like. They’ll stay saved here while you refresh for fresh variations.</EmptyState>
@@ -197,7 +192,9 @@ export function CartPanel({ lines, progress, action, limit = null, onClose, onRe
             <span className="text-sm text-muted-foreground">{title}</span>
           </li>)}
         </ul>}
-      {lines.length > 0 && <div className="mt-auto flex flex-col gap-3 pt-2">
+      {/* Pinned to the bottom of the window, so Export is there however far the rows are scrolled. */}
+      {lines.length > 0 && <div className="sticky bottom-0 mt-auto -mx-6 -mb-8 flex flex-col gap-3 bg-background/95 px-6 pt-4 pb-[max(2rem,env(safe-area-inset-bottom))] backdrop-blur-md">
+
         <p className="m-0 flex justify-between text-sm"><span>Total:</span><strong>{ready.length} {ready.length === 1 ? 'credit' : 'credits'}</strong></p>
         {action.kind === 'download' && <Button disabled={busy || ready.length === 0 || excess > 0} onClick={action.run}>Export</Button>}
         {action.kind === 'go' && <Button disabled={busy} onClick={action.run}>Back to videos</Button>}
