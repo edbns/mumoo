@@ -497,7 +497,7 @@ function App() {
     {!inCreatives ? <main className={step === 1 ? 'desktop trim flex-1 grid-cols-[minmax(320px,900px)] content-center py-8' : 'desktop trim'}>
       <section>
         <p className="eyebrow mb-6">0{step} / {step === 1 ? 'MUSIC' : 'YOUR CLIP'}</p>
-        {step === 2 && <h1>{clipMs < FULL_CLIP_MS ? 'Your clip' : 'Pick your 15 seconds'}</h1>}
+        {step === 2 && <h1>{clipMs < FULL_CLIP_MS ? 'Your clip' : 'Pick your clip'}</h1>}
         {step === 1 && <>
         <div className="grid items-start gap-5 md:grid-cols-2">
           <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-background p-5">

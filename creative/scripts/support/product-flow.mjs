@@ -148,7 +148,7 @@ export async function openProduct({ lyrics, analysisCalls = [], lyricsCalls = []
 }
 
 /** Step 1: the song, then what kind of music it is (typed into the one style box and picked from its list), then Continue. */
-export async function uploadSong(page, { genre = 'Pop', seconds = 20, name = 'song.wav', file, heading = 'Pick your 15 seconds' } = {}) {
+export async function uploadSong(page, { genre = 'Pop', seconds = 20, name = 'song.wav', file, heading = 'Pick your clip' } = {}) {
   await page.locator('input[type=file]').first().setInputFiles(file ?? { name, mimeType: 'audio/wav', buffer: songWav(seconds) });
   const style = page.getByRole('combobox', { name: 'What kind of music is it?' });
   await style.fill(genre);

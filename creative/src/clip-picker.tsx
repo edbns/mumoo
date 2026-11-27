@@ -31,7 +31,7 @@ export function ClipPicker({ audio, start, valid, position, playing, onPlay, onS
     </div>
     <Waveform audio={audio} start={start} position={position} onSelect={onSelect} />
     <p className="m-0 mt-3 text-center text-xs text-muted-foreground">
-      {whole ? `Your whole song is the clip: ${clipMs / 1000} seconds.` : 'Drag the highlighted window to pick your 15 seconds.'}
+      {whole ? `Your whole song is the clip: ${clipMs / 1000} seconds.` : 'Drag the highlighted window to pick your clip.'}
     </p>
   </div>;
 }

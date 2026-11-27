@@ -22,7 +22,7 @@ test('`/` is the studio when signed in, chosen, or coming back from Google or a 
 test('the welcome page: its words, the video, the way in, and the same foot as every page', () => {
   const page = read('welcome-page.tsx');
   assert.match(page, />\s*Your song, directed to the beat\.\s*</);
-  assert.match(page, /Drop a track, pick 15 seconds, and get ready-to-post Reels, TikToks, and Shorts—matched to your sound, with optional beat-synced lyrics\. No editing\./);
+  assert.match(page, /Drop a track, pick 10 to 15 seconds, and get ready-to-post Reels, TikToks, and Shorts—matched to your sound, with optional beat-synced lyrics\. No editing\./);
   assert.match(page, /onClick=\{start\}>Make your first video free<ArrowRightIcon/);
   assert.match(page, />Sign in<\/Button>/);
   assert.match(page, /First video free, no watermark · Then from 25¢ a video · No subscription/);

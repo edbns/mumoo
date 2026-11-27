@@ -61,7 +61,7 @@ function WelcomePage() {
           Your song, directed to the beat.
         </motion.h1>
         <motion.p {...rise(0.08)} className="m-0 max-w-xl text-lg text-pretty text-muted-foreground">
-          Drop a track, pick 15 seconds, and get ready-to-post Reels, TikToks, and Shorts—matched to your sound, with optional beat-synced lyrics. No editing.
+          Drop a track, pick 10 to 15 seconds, and get ready-to-post Reels, TikToks, and Shorts—matched to your sound, with optional beat-synced lyrics. No editing.
         </motion.p>
         <motion.div {...rise(0.16)} className="flex flex-wrap items-center gap-3">
           <Button className="h-11 px-6 text-base" onClick={start}>Make your first video free<ArrowRightIcon aria-hidden="true" className="size-4" /></Button>

@@ -42,7 +42,7 @@ try {
   await style.fill(genre);
   await page.getByRole('option', { name: genre, exact: true }).click();
   await page.locator('main.desktop').getByRole('button', { name: /^(Continue|Get my free video)$/ }).click();
-  await page.getByRole('heading', { name: 'Pick your 15 seconds' }).waitFor();
+  await page.getByRole('heading', { name: 'Pick your clip' }).waitFor();
   await page.getByRole('button', { name: 'Find the lyrics for me' }).click();
   await page.locator('.lyrics-editor').waitFor({ timeout: 30000 });
   const shelfAt = Date.now();

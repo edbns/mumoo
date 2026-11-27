@@ -21,7 +21,7 @@ export function AdsNextStep({ published, onStart }: { published: Published; onSt
       </p>
       <p className="m-0 text-lg font-semibold leading-snug">Turn “{title}” into beat-cut promo videos.</p>
       <p className="m-0 text-sm text-muted-foreground">
-        Drop the audio and get 15-second videos for Reels, TikTok, and Shorts—matched to your sound, with optional synced lyrics.{free && ' First video free—no watermark.'}
+        Drop the audio and get 10 to 15 second videos for Reels, TikTok, and Shorts—matched to your sound, with optional synced lyrics.{free && ' First video free—no watermark.'}
       </p>
       <Button className="shimmer relative h-[var(--control-height-md)] overflow-hidden px-5" onClick={onStart}>
         {free ? 'Make my first video free' : 'Create videos'}<ArrowRightIcon aria-hidden="true" className="size-4" />

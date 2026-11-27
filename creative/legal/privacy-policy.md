@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated:** 26 November 2026  
+**Last updated:** 27 November 2026  
 **Privacy contact / privacy officer:** moo@mumoo.app
 
 This Privacy Policy explains how mumoo (“we”, “us”) collects, uses, and shares personal data when you use the mumoo web application and Smart Link pages.
@@ -15,7 +15,7 @@ Minimum age is 16.
 
 ## 2. Data we collect from creators
 - **Account data:** email address; name and profile picture if you sign in with Google; sign-in session data; join date and last-visit date. Sign-in is by one-time email code or Google (no passwords stored by us).
-- **Song data:** the browser reads title, artist, and cover art locally. Cover art is reduced to colour numbers in the browser and the image is never uploaded. Only a 15-second clip is sent to our servers for analysis (beat, mood, genre) and lyric transcription/interpretation. The clip itself is not stored separately, but it is contained inside the finished videos you keep.
+- **Song data:** the browser reads title, artist, and cover art locally. Cover art is reduced to colour numbers in the browser and the image is never uploaded. Only your selected audio clip is sent to our servers for analysis (beat, mood, genre) and lyric transcription/interpretation. The clip itself is not stored separately, but it is contained inside the finished videos you keep.
 - **Uploads:** photos, videos, and GIFs you upload (up to 10 GB and 500 pictures per account). A background cut-out of the person is made automatically for certain templates. These files are private and never shown to other users.
 - **Videos:** the finished videos kept in your history.
 - **Smart Links (free service):** song details, cover art, and destination links you provide, together with visit and click statistics. Basic Smart Links do not require a video-credit purchase. Optional Meta Pixel / Conversions API or TikTok Pixel / Events API credentials are stored encrypted if connected.
@@ -42,7 +42,7 @@ All AI models are open-source and run on servers we rent and control (Modal). No
 
 - Lyrics transcription and word timing (Whisper + alignment model).
 - Lyric meaning for mood/theme suggestions (Qwen3-8B) — lyrics held in memory only, never stored.
-- Genre suggestion from a “style print” of the 15-second clip (CLAP): a list of numbers describing its sound, not the audio itself. When you pick or confirm a genre, the style print and genre label are saved to help improve genre suggestions for future tracks. They are stored with a one-way cryptographic code tied to that song and account, never your name or email, and are only used once they pass our checks (for example, several accounts agreeing on the genre).
+- Genre suggestion from a “style print” of your selected clip (CLAP): a list of numbers describing its sound, not the audio itself. When you pick or confirm a genre, the style print and genre label are saved to help improve genre suggestions for future tracks. They are stored with a one-way cryptographic code tied to that song and account, never your name or email, and are only used once they pass our checks (for example, several accounts agreeing on the genre).
 - Photo background removal (u2net) — no face recognition or identification.
 - Internal library sorting only (Qwen2.5-VL) — never applied to user uploads.
 
