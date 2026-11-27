@@ -8,6 +8,7 @@ import { cardThumbnail, songKeyOf, type Cart, type CartItem } from './cart';
 import type { CartDownload } from './use-cart-download';
 import { NO_GRAPHICS, RELOAD, quietError } from './friendly-error';
 import { reportProblem } from './report-problem';
+import { checkGraphics, dismissTrouble, troubleMessage, useBrowserTrouble, watchPlayback } from './browser-trouble';
 import { PauseIcon, PlayIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { PictureUpload, UploadProgress } from './picture-upload';
@@ -193,6 +194,8 @@ export function CreativesPackStudio({
   const starting = useRef<string | null>(null);
   const [fontReady, setFontReady] = useState(false);
   const [error, setError] = useState('');
+  const trouble = useBrowserTrouble();
+  useEffect(checkGraphics, []);
   useEffect(() => { if (error) console.warn('[creatives]', error); }, [error]);
   useEffect(() => { if (playbackError) console.warn('[creatives] playback', playbackError); }, [playbackError]);
   /** One Refresh for the whole shelf deals every template again. */
@@ -478,12 +481,14 @@ export function CreativesPackStudio({
     let lastFrame = -1;
     let reported = false;
     setMotionLive(true);
+    const watch = watchPlayback();
 
     const paint = (frame: number) => {
       if (!alive || painting || frame === lastFrame) return;
       painting = true;
       lastFrame = frame;
       void blitPackFrame(canvas, opts, frame)
+        .then(() => watch.drawn())
         .catch((cause) => {
           if (alive) {
             if (!reported) reportProblem('render', `Live preview: ${(cause as Error)?.message ?? String(cause)}`);
@@ -495,6 +500,7 @@ export function CreativesPackStudio({
     };
     const loop = () => {
       paint(playheadFrame(getPositionRef.current(), clipMs));
+      watch.tick();
       if (alive) raf = requestAnimationFrame(loop);
     };
     // The card plays at once, over its posters; its clips are read meanwhile, in the order it opens on them.
@@ -502,6 +508,7 @@ export function CreativesPackStudio({
     loop();
     return () => {
       alive = false;
+      watch.stop();
       cancelAnimationFrame(raf);
       setMotionLive(false);
       // The card goes back to its own poster. Drawing is queued after the last live frame, so a late frame can never land on top of it.
@@ -686,6 +693,9 @@ export function CreativesPackStudio({
     {/* The one failure shown here: the cards cannot be drawn until the page is reloaded. */}
     {error === RELOAD && <p className="hint text-center" role="alert">{RELOAD} <button type="button" className="underline" onClick={() => location.reload()}>Reload</button></p>}
     {error === NO_GRAPHICS && <p className="hint text-center" role="alert">{NO_GRAPHICS}</p>}
+    {trouble && error !== NO_GRAPHICS && <p className="hint text-center" role="status">
+      {troubleMessage(trouble)} <button type="button" className="underline" onClick={dismissTrouble}>Got it</button>
+    </p>}
     <UploadProgress uploads={uploads} />
     {!textless && !hasLyrics && <p className="hint text-center" role="status">Check your lyric timing, or switch lyrics off.</p>}
     {uploads.batchPercent === null && SHELF_ROWS.map(def => view[def.id].note ? <p key={def.id} className="hint text-center" role="status">{view[def.id].note}</p> : null)}

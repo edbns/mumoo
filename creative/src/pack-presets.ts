@@ -111,8 +111,12 @@ export function createPresetPainter(): PresetPainter {
   // Filters are kept and reused frame after frame; only their strength changes.
   const softBlur = new BlurFilter({ strength: 2.7, quality: 3 });
   const bleedBlur = new BlurFilter({ strength: 4.2, quality: 3 });
-  const focus: BlurFilter[] = [];
-  const focusAt = (i: number) => (focus[i] ??= new BlurFilter({ strength: 0, quality: 4 }));
+  const focus = new Map<number, BlurFilter>();
+  const focusAt = (i: number) => {
+    let filter = focus.get(i);
+    if (!filter) focus.set(i, filter = new BlurFilter({ strength: 0, quality: 4 }));
+    return filter;
+  };
 
   function paint(style: LockedStyle, frame: TypeFrame): Container {
     const group = new Container();
@@ -310,7 +314,8 @@ export function createPresetPainter(): PresetPainter {
     destroy() {
       softBlur.destroy();
       bleedBlur.destroy();
-      for (const filter of focus) filter.destroy();
+      for (const filter of focus.values()) filter.destroy();
+      focus.clear();
     },
   };
 }

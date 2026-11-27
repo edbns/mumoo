@@ -53,22 +53,22 @@ try {
   await page.waitForFunction(() => !document.querySelector('.creatives-pack-card.pending'), null, { timeout: 900000 });
   const cards = await page.locator('.creatives-pack-card').count();
   console.log(`shelf of ${cards} cards painted after ${((Date.now() - shelfAt) / 1000).toFixed(1)} s: ${requests} requests, ${mb()} MB downloaded`);
-  await page.getByRole('button', { name: /^Play .+ creative$/ }).first().waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: /^Play .+ video preview$/ }).first().waitFor({ timeout: 30000 });
   console.log(`shelf on screen after ${((Date.now() - shelfAt) / 1000).toFixed(1)} s`);
   await page.waitForTimeout(1500);
   await page.screenshot({ path: '/tmp/measure-shelf.png', fullPage: false });
-  const names = templates[0] === 'ALL' ? [...new Set(await page.$$eval('button[aria-label^="Play "][aria-label$=" creative"]', bs => bs.map(b => b.getAttribute('aria-label').slice(5, -9))))] : templates;
+  const names = templates[0] === 'ALL' ? [...new Set(await page.$$eval('button[aria-label^="Play "][aria-label$=" video preview"]', bs => bs.map(b => b.getAttribute('aria-label').slice(5, -14))))] : templates;
   for (const name of names) {
-    const button = page.getByRole('button', { name: `Play ${name} creative` }).first();
+    const button = page.getByRole('button', { name: `Play ${name} video preview` }).first();
     if (!(await button.count())) { console.log(name, 'no card'); continue; }
     const before = bytes;
     const pressed = Date.now();
     await button.click();
     // The card reads its first pictures before music and pictures start together.
-    await page.getByRole('button', { name: `Pause ${name} creative` }).first().and(page.locator(':not([aria-busy=true])')).waitFor({ timeout: 30000 });
+    await page.getByRole('button', { name: `Pause ${name} video preview` }).first().and(page.locator(':not([aria-busy=true])')).waitFor({ timeout: 30000 });
     const waitedMs = Date.now() - pressed;
     const result = await page.evaluate(async ([label, ms]) => {
-      const card = [...document.querySelectorAll('.creatives-pack-card')].find(c => c.querySelector(`button[aria-label="Play ${label} creative"], button[aria-label="Pause ${label} creative"]`));
+      const card = [...document.querySelectorAll('.creatives-pack-card')].find(c => c.querySelector(`button[aria-label="Play ${label} video preview"], button[aria-label="Pause ${label} video preview"]`));
       const canvas = card.querySelector('canvas');
       const probe = document.createElement('canvas'); probe.width = 24; probe.height = 40;
       const ctx = probe.getContext('2d', { willReadFrequently: true });
@@ -90,8 +90,8 @@ try {
       return { fps: +(changes / (ms / 1000)).toFixed(1), raf: +(frames / (ms / 1000)).toFixed(1), firstMoveMs: Math.round(firstChange), longestStallMs: Math.round(longest), perSecond: perSecond.join(' ') };
     }, [name, playMs]);
     console.log(name.padEnd(16), `starts after ${waitedMs} ms | moving frames/s ${result.fps} (page ${result.raf}) | first movement after ${result.firstMoveMs} ms | longest freeze ${result.longestStallMs} ms | per second: ${result.perSecond} | +${((bytes - before) / 1e6).toFixed(1)} MB`);
-    await page.locator('.creatives-pack-card', { has: page.getByRole('button', { name: `Pause ${name} creative` }) }).first().screenshot({ path: `/tmp/measure-card-${name.replace(/ /g, '-')}.png` }).catch(() => undefined);
-    await page.getByRole('button', { name: `Pause ${name} creative` }).first().click().catch(() => undefined);
+    await page.locator('.creatives-pack-card', { has: page.getByRole('button', { name: `Pause ${name} video preview` }) }).first().screenshot({ path: `/tmp/measure-card-${name.replace(/ /g, '-')}.png` }).catch(() => undefined);
+    await page.getByRole('button', { name: `Pause ${name} video preview` }).first().click().catch(() => undefined);
     await page.waitForTimeout(800);
   }
   const heap = await page.evaluate(() => Math.round((performance.memory?.usedJSHeapSize ?? 0) / 1e6));
