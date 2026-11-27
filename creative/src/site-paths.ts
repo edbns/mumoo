@@ -27,11 +27,26 @@ const ARRIVING = 'mumoo-arriving';
  * index.html and welcome.html set the same class from their <head>, so the empty frame shows from the first paint.
  */
 export function arrive() {
+  let arriving = false;
   try {
-    if (sessionStorage.getItem(ARRIVING)) document.documentElement.classList.add('arriving');
+    arriving = Boolean(sessionStorage.getItem(ARRIVING));
     sessionStorage.removeItem(ARRIVING);
   } catch { /* storage unavailable */ }
+  if (!arriving) return;
+  const html = document.documentElement;
+  html.classList.add('arriving');
+  // The dots give way once the page is drawn and its fonts are in, and a moment more for what it fetches first; never longer than SETTLE_CAP_MS.
+  const drawn = new Promise<void>(resolve => {
+    const root = document.getElementById('root');
+    if (!root || root.childElementCount) { resolve(); return; }
+    const watch = new MutationObserver(() => { if (root.childElementCount) { watch.disconnect(); resolve(); } });
+    watch.observe(root, { childList: true });
+  });
+  const settled = Promise.all([drawn, document.fonts?.ready]).then(() => new Promise(resolve => setTimeout(resolve, SETTLE_MS)));
+  void Promise.race([settled, new Promise(resolve => setTimeout(resolve, SETTLE_CAP_MS))]).then(() => html.classList.add('arrived'));
 }
+const SETTLE_MS = 350;
+const SETTLE_CAP_MS = 3000;
 
 export function fadeOut() {
   document.documentElement.classList.add('leaving');

@@ -79,5 +79,23 @@
 
 @keyframes root-in { from { opacity: 0; } }
 
+/*
+ * Between pages when signing in or out (`leaveFor`): the logo's four dots, one held still and three circling it, on the page's
+ * black, from the moment the old page fades until the new one has settled (`arrive`), so nothing half-drawn is seen in between.
+ */
+.page-wait { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--background); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .25s ease-out, visibility 0s .25s; }
+html.leaving .page-wait, html.arriving:not(.arrived) .page-wait { opacity: 1; visibility: visible; transition: opacity .15s ease-out; }
+html.arriving:not(.arrived) .page-wait { transition: none; }
+.page-wait > span { position: relative; width: .75rem; height: .75rem; border-radius: 50%; background: var(--primary); }
+.page-wait > span > span { position: absolute; inset: 0; border-radius: 50%; background: inherit; transform: rotate(0deg) translate(155%); animation: page-wait-orbit 1.2s ease infinite; }
+.page-wait > span > span:nth-child(2) { animation-delay: -.4s; }
+.page-wait > span > span:nth-child(3) { animation-delay: -.8s; }
+@keyframes page-wait-orbit { to { transform: rotate(360deg) translate(155%); } }
+@media (prefers-reduced-motion: reduce) {
+  .page-wait > span > span { animation: none; }
+  .page-wait > span > span:nth-child(2) { transform: rotate(120deg) translate(155%); }
+  .page-wait > span > span:nth-child(3) { transform: rotate(240deg) translate(155%); }
+}
+
 /* Every focus ring is the text boxes' one: thin, soft green, close to the edge (not the bright ring set apart from it). */
 .outline-ring:focus-visible { outline-color: var(--focus-ring); outline-offset: 0; }
