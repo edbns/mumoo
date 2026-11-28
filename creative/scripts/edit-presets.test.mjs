@@ -36,10 +36,10 @@ const plan = (id, seed = 3, music = MUSIC) => director.planReel(ASSETS, music, s
 
 /** What each song is cut as: the presets named by its most specific word, in the brief's order. */
 const GENRE_PRESETS = [
-  ['Latin & Urbano', 'General Latin', 'Brazilian funk', ['strobe','y2k','baile']],
-  ['Latin & Urbano', 'General Latin', 'funk carioca', ['strobe','y2k','baile']],
+  ['Latin & Urbano', 'General Latin', 'Brazilian funk', ['vhs','strobe','y2k','baile']],
+  ['Latin & Urbano', 'General Latin', 'funk carioca', ['vhs','strobe','y2k','baile']],
   ['Latin & Urbano', 'General Latin', 'corridos tumbados', ['kodak','vhs','y2k']],
-  ['Latin & Urbano', 'Reggaeton', undefined, ['strobe','y2k','baile']],
+  ['Latin & Urbano', 'Reggaeton', undefined, ['vhs','strobe','y2k','baile']],
   ['Latin & Urbano', 'Traditional Latin (Salsa, Bachata)', undefined, ['kodak','y2k','golden']],
   ['Latin & Urbano', 'Latin Trap', undefined, ['vhs','y2k','baile']],
   ['Hip-Hop & Rap', 'General Hip-Hop', undefined, ['kodak','vhs','y2k']],
@@ -47,7 +47,7 @@ const GENRE_PRESETS = [
   ['Hip-Hop & Rap', 'Trap', undefined, ['strobe','y2k']],
   ['Hip-Hop & Rap', 'Drill', undefined, ['strobe','y2k']],
   ['Hip-Hop & Rap', 'Boom Bap / Lo-Fi', undefined, ['vhs','super8']],
-  ['Hip-Hop & Rap', 'Phonk', undefined, ['strobe','y2k','baile']],
+  ['Hip-Hop & Rap', 'Phonk', undefined, ['vhs','strobe','y2k','baile']],
   ['Electronic & Dance (EDM)', 'Techno', undefined, ['strobe','afterhours']],
   ['Electronic & Dance (EDM)', 'Drum & Bass', undefined, ['strobe','y2k']],
   ['Electronic & Dance (EDM)', 'Dubstep / Riddim', undefined, ['strobe','y2k']],
@@ -119,7 +119,7 @@ test('the measured drive picks among the presets the genre names: each is dealt 
     assert.ok(!presets.presetsFor(funk, drive).includes('mono'), `Gritty Mono is never Brazilian funk (${drive})`);
     assert.ok(!presets.presetsFor(techno, drive).includes('mono'), `nor techno (${drive})`);
   }
-  assert.deepEqual(presets.presetsFor(funk, 0.8), ['strobe', 'y2k', 'baile']);
+  assert.deepEqual(presets.presetsFor(funk, 0.8), ['vhs', 'strobe', 'y2k', 'baile']);
   assert.deepEqual(presets.presetsFor(techno, 0.45), ['afterhours'], 'a rolling techno groove is the Boiler Room, not strobed');
   assert.ok(presets.presetsFor({ ...techno, style: 'dark techno' }, 0.7).includes('mono'), 'dark techno is Gritty Mono');
   assert.deepEqual(presets.presetsFor({ genre: 'Gospel & Christian', subGenre: 'Gospel' }, 0.8), ['kodak'], 'a pounding gospel song is not held like a hymn');
@@ -581,21 +581,23 @@ test('all of Block Party\'s music is cut as Brazilian funk is at every drive, sl
     { genre: 'Latin & Urbano', subGenre: 'Reggaeton', style: 'Dominican dembow' },
     { genre: 'Reggae & Dancehall', subGenre: 'General Reggae', style: 'soca music' },
     { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk mandelão' },
+    { genre: 'Electronic & Dance (EDM)', subGenre: 'House', style: 'gqom' },
   ];
   for (const song of songs) for (const drive of [undefined, 0.2, 0.45, 0.7, 0.95]) {
     assert.deepEqual(presets.presetsFor(song, drive), presets.presetsFor(carioca, drive), `${song.style ?? song.subGenre} at ${drive}`);
   }
+  assert.deepEqual(presets.presetsFor(carioca, 0.7), ['vhs', 'strobe', 'y2k', 'baile'], 'a new look at each Refresh, the 90s Camcorder among them');
+  for (const drive of [0.1, 0.2, 0.35]) assert.deepEqual(presets.presetsFor(carioca, drive), ['kodak'], `slowed is Raw 16mm (${drive})`);
   const afro = presets.presetsFor({ genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'Afrobeats' }, 0.7);
   assert.notDeepEqual(afro, presets.presetsFor(carioca, 0.7), 'Afrobeats is Sunset & Coast\'s, cut its own way');
 });
 
-test('phonk is cut as Brazilian funk is at every drive, slowed included; never the 90s Camcorder', () => {
+test('phonk is cut as Brazilian funk is at every drive, slowed included', () => {
   const carioca = { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk carioca' };
   for (const style of ['Brazilian phonk', 'drift phonk', 'phonk', 'phonk house', 'rare phonk']) {
     for (const drive of [undefined, 0.15, 0.3, 0.45, 0.6, 0.8, 0.95]) {
       const phonk = presets.presetsFor({ genre: 'Electronic & Dance (EDM)', subGenre: 'General Electronic', style }, drive);
       assert.deepEqual(phonk, presets.presetsFor(carioca, drive), `${style} at ${drive}`);
-      assert.ok(!phonk.includes('vhs'), `${style} at ${drive}`);
     }
   }
 });

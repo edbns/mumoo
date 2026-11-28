@@ -148,7 +148,7 @@ test('the merged boards: rave and warehouse music on one, still, soulful and cou
     const items = boards.BOARDS.flatMap(board => filed(board.id[0] + board.id.at(-1), board.id, 8));
     const best = wanted => boards.songBoards(wanted, items, 'song')[0].id;
     assert.equal(best({ genre: 'Electronic & Dance (EDM)', subGenre: 'Techno', style: 'hard techno', attitude: null }), 'rave-warehouse');
-    assert.equal(best({ genre: 'Electronic & Dance (EDM)', subGenre: 'House', style: 'gqom', attitude: null }), 'rave-warehouse');
+    assert.equal(best({ genre: 'Electronic & Dance (EDM)', subGenre: 'House', style: 'gqom', attitude: null }), 'block-party');
     assert.equal(best({ genre: 'Electronic & Dance (EDM)', subGenre: 'Techno', style: 'melodic techno', attitude: 'thoughtful' }), 'horizon-soul');
     assert.equal(best({ genre: 'Country & Folk', subGenre: 'Modern Country', style: 'country music', attitude: null }), 'horizon-soul');
     assert.equal(best({ genre: 'Gospel & Christian', subGenre: 'Worship / Contemporary Christian', attitude: 'spiritual' }), 'horizon-soul');

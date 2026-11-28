@@ -66,7 +66,8 @@ export const PRESETS: readonly PresetDef[] = [
   {
     id: 'vhs',
     title: '90s Camcorder',
-    genres: [/lo-?fi/, /synthwave|vaporwave/, /boom ?bap/, /alt(ernative)?[- ]pop/, /pop[- ]?punk|skate punk|general punk|^punk$/, /hip[- ]?hop/, /\brap\b/, /grunge|garage/, /metal|\brock\b|hardcore/, /uk drill/, /latin trap/, /jazz|blues/, /corridos/],
+    genres: [/lo-?fi/, /synthwave|vaporwave/, /boom ?bap/, /alt(ernative)?[- ]pop/, /pop[- ]?punk|skate punk|general punk|^punk$/, /hip[- ]?hop/, /\brap\b/, /grunge|garage/, /metal|\brock\b|hardcore/, /uk drill/, /latin trap/, /jazz|blues/, /corridos/,
+      /brazilian funk|funk carioca|baile funk/],
     rhythm: { on: 'snares', every: 1, minMs: 800, maxMs: 1500 },
     takes: ['rec', 'clean'],
     drive: [0.15, 0.9],
@@ -214,6 +215,7 @@ export function presetFit(preset: PresetDef, song: SongGenre): number {
  */
 export function presetsFor(heard: SongGenre, drive?: number | null): PresetId[] {
   const song = funkLike(heard);
+  if (song !== heard && typeof drive === 'number' && drive < SLOW_DRIVE) return ['kodak'];
   const fits = PRESETS.map(preset => ({ preset, fit: presetFit(preset, song) })).filter(entry => entry.fit > 0);
   const best = (entries: typeof fits) => {
     const top = Math.max(...entries.map(entry => entry.fit));
@@ -232,11 +234,11 @@ export function presetsFor(heard: SongGenre, drive?: number | null): PresetId[] 
 }
 
 /**
- * Block Party's music (phonk, Brazilian funk, dancehall, reggaeton and dembow, soca: by its style, else, with none picked, its sub-genre) is cut
- * as Brazilian funk is (Club Pulse, Y2K Digicam, Baile Kinetic), and slowed falls back as a slowed funk does: its own genre words would
- * otherwise offer Boiler Room, Raw 16mm or the 90s Camcorder beside them.
+ * Block Party's music (phonk, Brazilian funk, dancehall, reggaeton and dembow, soca, gqom: by its style, else, with none picked, its sub-genre)
+ * is cut as Brazilian funk is (the 90s Camcorder, Club Pulse, Y2K Digicam, Baile Kinetic, a new one at each Refresh), and a slowed one is Raw
+ * 16mm: its own genre words would otherwise offer Boiler Room, Velvet Halation or Dreamy beside them.
  */
-const BLOCK_PARTY = /phonk|dancehall|reggaeton|dembow|soca|funk carioca|brazilian funk|baile funk|funk mtg|montagem|brega funk|mandel/i;
+const BLOCK_PARTY = /phonk|gqom|dancehall|reggaeton|dembow|soca|funk carioca|brazilian funk|baile funk|funk mtg|montagem|brega funk|mandel/i;
 const funkLike = (song: SongGenre): SongGenre => {
   const named = song.style || song.subGenre || '';
   // "Dancehall / Afrobeats" with no style picked is half Sunset & Coast's: it keeps its own presets.
