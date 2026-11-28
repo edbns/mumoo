@@ -153,7 +153,7 @@ export const markAllSeen = () => adminFetch<{ problems: Problem[]; unseen: numbe
 
 export type Change = Partial<{ status: 'approved' | 'hidden'; attitudes: string[]; tags: string[]; genre: string; subGenre: string; boards: string[]; notBoards: string[]; note: string }>;
 export const changeItem = (item: string, change: Change) => adminFetch<{ item: LibraryItem; tags: TagCount[] }>(`library?${id(item)}`, json('PATCH', change));
-export const deleteItem = (item: string) => adminFetch<Library>(`library?${id(item)}`, { method: 'DELETE' });
+export const deleteItem = (item: string) => adminFetch<{ removed: string; tags: TagCount[] }>(`library?${id(item)}`, { method: 'DELETE' });
 export const deleteTag = (name: string) => adminFetch<Library>(`library?tag=${encodeURIComponent(name)}`, { method: 'DELETE' });
 
 /** Genre training: the songs the brain learns genres from, and how ready its guess is (see admin-genre). */

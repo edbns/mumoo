@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
  *   POST   JSON {type, bytes, rights, note?}   room for a file: {id, putUrl} to send it to
  *   PUT    ?id=…             the file has been sent: it joins the library as pending
  *   PATCH  ?id=… JSON        change status, attitudes, tags, genre, subGenre or note
- *   DELETE ?id=…             removes the item and its file
+ *   DELETE ?id=…             removes the item and its file; answers with the tag pool (the page drops the card itself)
  *   DELETE ?tag=name         removes a tag from the list and from every item (a new tag joins the list when an item is given it)
  */
 export default async function handler(request) {
@@ -57,7 +57,7 @@ export default async function handler(request) {
     }
     if (!(await removeItem(id))) return refuse(404, 'Not found.');
     await forgetPublicLibrary();
-    return reply(200, await listLibrary());
+    return reply(200, { removed: id, tags: await listTagPool() });
   } catch (cause) {
     console.error('admin library:', cause);
     return refuse(500, 'That did not work. Try again in a moment.');

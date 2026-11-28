@@ -426,7 +426,7 @@ function SelectionBar({ count, shown, onClear, onEdit }: { count: number; shown:
  */
 function BulkPanel({ items, pool, onClose, onDone, onSaved, onDeleted }: {
   items: LibraryItem[]; pool: TagCount[]; onClose: () => void; onDone: () => void;
-  onSaved: (items: LibraryItem[], tags: TagCount[] | null) => void; onDeleted: (library: Library | null, gone: string[]) => void;
+  onSaved: (items: LibraryItem[], tags: TagCount[] | null) => void; onDeleted: (gone: string[], tags: TagCount[] | null) => void;
 }) {
   const [tags, setTags] = useState<Edit>(NO_EDIT);
   const [boards, setBoards] = useState<Edit>(NO_EDIT);
@@ -498,12 +498,12 @@ function BulkPanel({ items, pool, onClose, onDone, onSaved, onDeleted }: {
   async function removeAll() {
     if (!window.confirm(`Delete these ${items.length} files for good? They are removed from storage and cannot be undone.`)) return;
     setBusy(true); setError('');
-    const results = await inTurns(items.map(item => () => deleteItem(item.id)), 2);
+    const results = await inTurns(items.map(item => () => deleteItem(item.id)), 4);
     const gone = items.filter((_, at) => results[at].status === 'fulfilled').map(item => item.id);
-    const last = [...results].reverse().find(result => result.status === 'fulfilled') as PromiseFulfilledResult<Library> | undefined;
+    const last = [...results].reverse().find(result => result.status === 'fulfilled') as PromiseFulfilledResult<{ tags: TagCount[] }> | undefined;
     if (gone.length < items.length) setError(`${items.length - gone.length} could not be deleted. Try again in a moment.`);
     setBusy(false);
-    onDeleted(last?.value ?? null, gone);
+    onDeleted(gone, last?.value.tags ?? null);
   }
 
   const label = 'mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground';
@@ -859,7 +859,9 @@ export function LibraryView({ initialStatus, onChanged }: { initialStatus?: Stat
       return { ...next, items: next.items.map(item => { const old = shown.get(item.id); return old ? { ...item, ...linksOf(old, item) } : item; }) };
     });
   }
-  const refresh = () => loadLibrary().then(take, () => undefined);
+  /** One listing at a time: a slow answer is not stacked on by the next poll. */
+  const listing = useRef<Promise<void> | null>(null);
+  const refresh = () => listing.current ??= loadLibrary().then(take, () => undefined).finally(() => { listing.current = null; });
   const settle = useRef<number | undefined>(undefined);
   function refreshSoon() {
     window.clearTimeout(settle.current);
@@ -907,7 +909,7 @@ export function LibraryView({ initialStatus, onChanged }: { initialStatus?: Stat
   function remove(item: LibraryItem) {
     setNotice('');
     setLibrary(current => current && { ...current, items: current.items.filter(entry => entry.id !== item.id) });
-    deleteItem(item.id).then(() => onChanged(), (cause: Error) => {
+    deleteItem(item.id).then(done => { setLibrary(current => current && { ...current, tags: done.tags }); onChanged(); }, (cause: Error) => {
       setLibrary(current => current && { ...current, items: [item, ...current.items.filter(entry => entry.id !== item.id)] });
       setNotice(`Not deleted: ${cause.message}`);
     });
@@ -996,7 +998,11 @@ export function LibraryView({ initialStatus, onChanged }: { initialStatus?: Stat
     <SelectionBar count={chosen.length} shown={chosen.length > 0 && !editing} onClear={() => setPicked([])} onEdit={() => setEditing(true)} />
     {chosen.length > 0 && editing && library && <BulkPanel items={chosen} pool={library.tags} onClose={() => setEditing(false)} onDone={() => setPicked([])}
       onSaved={(saved, tags) => merge(saved, tags ?? undefined)}
-      onDeleted={(next, gone) => { setPicked(list => list.filter(id => !gone.includes(id))); if (next) replace(next); else void refresh(); }} />}
+      onDeleted={(gone, tags) => {
+        setPicked(list => list.filter(id => !gone.includes(id)));
+        setLibrary(current => current && { items: current.items.filter(item => !gone.includes(item.id)), tags: tags ?? current.tags });
+        onChanged();
+      }} />}
     {!chosen.length && open && library && <Panel item={open} pool={library.tags} onClose={() => setOpenId(null)} onPlay={() => setPlayingId(open.id)}
       onSave={change => { setOpenId(null); save(open, change); }}
       onDelete={() => { setOpenId(null); remove(open); }} />}

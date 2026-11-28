@@ -314,13 +314,26 @@ async function prepareWaiting() {
 /** A safety cap on one listing, far above the library: a smaller one silently hid the oldest items (and their boards) once the library outgrew it. */
 const LIBRARY_MAX = 10_000;
 
+/**
+ * Each item's SigLIP embedding, kept between listings while the function stays warm. They are most of the table's bytes (seconds to read
+ * every time), and one never changes once it is written, so a listing reads only those it has not seen.
+ */
+const embeddings = new Map();
+
 /** Every item that has arrived (newest first) and the tag pool with how many items use each tag. */
 export async function listLibrary() {
   const sql = db();
   const stale = await sql`delete from library_items where arrived = false and created_at < now() - ${`${STALE_MS} milliseconds`}::interval returning id`;
   await Promise.all(stale.map(row => deleteObject(keyOf(row.id)).catch(() => undefined)));
   await prepareWaiting();
-  const rows = await sql`select * from library_items where arrived order by created_at desc limit ${LIBRARY_MAX}`;
+  const rows = await sql`
+    select id, kind, content_type, bytes, status, attitudes, tags, genre, sub_genre, source_note, cleared_by, cleared_at, arrived, created_at, ready,
+      prepare_job, shots, problem, prepare_at, cutout, cutout_tries, width, height, looks, seen, look_tries, boards, board_odds, reading, not_boards,
+      colours, colour_tries, small, embedding is not null as embedded
+    from library_items where arrived order by created_at desc limit ${LIBRARY_MAX}`;
+  const unread = rows.filter(row => row.embedded && !embeddings.has(row.id)).map(row => row.id);
+  if (unread.length) for (const row of await sql`select id, embedding from library_items where id = any (${unread}::uuid[])`) embeddings.set(row.id, row.embedding);
+  for (const row of rows) row.embedding = row.embedded ? embeddings.get(row.id) ?? null : null;
   const filed = rows.filter(row => row.boards?.length && row.embedding).map(row => ({ id: row.id, embedding: row.embedding, boards: row.boards }));
   const answered = rows.filter(row => row.embedding && (row.boards?.length || row.not_boards?.length)).map(row => ({ id: row.id, embedding: row.embedding, boards: row.boards ?? [], notBoards: row.not_boards ?? [] }));
   const suggested = (row) => (row.boards?.length || row.status === 'hidden' ? null : suggestBoards(row, filed));
@@ -430,6 +443,7 @@ export async function changeItem(id, change) {
 
 export async function removeItem(id) {
   const [row] = await db()`delete from library_items where id = ${id} returning id`;
+  embeddings.delete(id);
   if (!row) return false;
   await Promise.all([keyOf(id), motionKey(id), posterKey(id), cutoutKey(id), smallKey(id)].map(key => deleteObject(key).catch(() => undefined)));
   return true;
