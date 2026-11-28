@@ -38,10 +38,11 @@ test('the style chooses the board first, and the words choose between the boards
   try {
     const best = wanted => [...boards.BOARDS].sort((a, b) => boards.boardFit(b, wanted) - boards.boardFit(a, wanted))[0].id;
     const house = { genre: 'Electronic & Dance (EDM)', subGenre: 'House', attitude: 'fun' };
-    assert.equal(best({ ...house, style: 'Amapiano' }), 'block-party', 'Amapiano shares House with house music, not its board');
+    const dealt = wanted => boards.songBoards(wanted, boards.BOARDS.flatMap(board => filed(board.id, board.id, 8)), 'song')[0].id;
+    assert.equal(dealt({ ...house, style: 'Amapiano' }), 'sunset-coast', 'Amapiano shares House with house music, not its board');
     assert.equal(best({ ...house, style: 'house music' }), 'rave-warehouse');
     const afrobeats = { genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'Afrobeats' };
-    assert.equal(best({ ...afrobeats, attitude: 'fun', themes: ['party'] }), 'block-party', 'an afrobeats party song');
+    assert.equal(dealt({ ...afrobeats, attitude: 'fun', themes: ['party'] }), 'sunset-coast', 'an afrobeats party song is Sunset & Coast\'s too');
     assert.equal(best({ ...afrobeats, attitude: 'love', themes: ['romance'] }), 'sunset-coast', 'an afrobeats love song');
     assert.equal(best({ genre: '', subGenre: '', attitude: 'sad', themes: ['heartbreak'] }), 'night-neon', 'no genre: the words alone');
     assert.equal(best({ genre: 'Gospel & Christian', subGenre: 'Gospel', attitude: 'spiritual' }), 'horizon-soul');
@@ -85,7 +86,7 @@ test('a board kept apart (Memes & Funny) is never dealt to a song, however full,
 test('every row of a song is dealt from its best filled board, through every Refresh; an empty board is never used', async () => {
   const { server, boards } = await load();
   try {
-    const wanted = { genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'Afrobeats', attitude: 'fun', themes: ['party'] };
+    const wanted = { genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'dancehall', attitude: 'fun', themes: ['party'] };
     assert.equal(boards.boardForRow('photography', wanted, [], 'song'), null, 'no filled board: the library as before');
     assert.equal(boards.boardForRow('photography', wanted, filed('b', 'block-party', boards.BOARD_MIN - 1), 'song'), null, 'one short of a reel');
 
@@ -123,6 +124,21 @@ test('every phonk is dealt from Block Party alone, whatever else it fits; the bo
     }
     const withoutParty = items.filter(item => !item.boards.includes('block-party'));
     assert.notDeepEqual(boards.songBoards(songs[0], withoutParty, 'song'), [], 'with Block Party not filled, the song still gets boards');
+  } finally { await server.close(); }
+});
+
+test('Afrobeats and Amapiano are dealt from Sunset & Coast alone; dancehall filed under Dancehall / Afrobeats stays on Block Party', async () => {
+  const { server, boards } = await load();
+  try {
+    const items = boards.BOARDS.flatMap(board => filed(board.id[0] + board.id.at(-1), board.id, 8));
+    const only = wanted => boards.songBoards(wanted, items, 'song').map(board => board.id);
+    assert.deepEqual(only({ genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'Afrobeats', attitude: 'fun', themes: ['party'] }), ['sunset-coast']);
+    assert.deepEqual(only({ genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'Afrobeat', attitude: null }), ['sunset-coast']);
+    assert.deepEqual(only({ genre: 'Electronic & Dance (EDM)', subGenre: 'House', style: 'Amapiano', attitude: 'confident', themes: ['money'] }), ['sunset-coast']);
+    assert.equal(only({ genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'dancehall', attitude: 'fun' })[0], 'block-party');
+    for (const board of boards.BOARDS.filter(one => one.id !== 'sunset-coast')) {
+      assert.ok(![...board.styles, ...board.primary, ...board.secondary].some(name => /afrobeat|amapiano/i.test(name)), board.name);
+    }
   } finally { await server.close(); }
 });
 

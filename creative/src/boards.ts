@@ -15,7 +15,7 @@ import type { SongTheme } from './song-themes';
  *   secondary   genres it serves only when the words fit (the board's themes or moods): "pop (summer/happy)" on Sunset & Coast.
  * `hunt` is what to look for when filling the board.
  * `owns`: styles the board takes alone, whatever else they fit (every phonk is Block Party: the board is the scene people mix today, cars,
- *   drifting and swag with the party).
+ *   drifting and swag with the party; Afrobeats and Amapiano are Sunset & Coast).
  * `apart`: a board kept out of the creatives (Memes & Funny, to be used its own way): the admin files into it and our models learn
  *   it, but no song is ever dealt from it, and its pictures are never used on a song's creatives.
  */
@@ -30,7 +30,7 @@ export type Board = {
   primary: readonly string[];
   secondary: readonly string[];
   hunt: string;
-  /** Styles this board takes alone: a song whose style or sub-genre it matches is dealt from no other board while this one is filled. */
+  /** Styles this board takes alone: a song whose style (else, with none picked, its sub-genre) it matches is dealt from no other board while this one is filled. */
   owns?: RegExp;
   apart?: true;
 };
@@ -48,12 +48,13 @@ export const BOARDS: readonly Board[] = [
   },
   {
     id: 'sunset-coast', name: 'Sunset & Coast',
-    styles: ['Afro house', 'deep house', 'Afrobeats', 'tropical house', 'chill-out music', 'Balearic beat', 'lo-fi house'],
+    styles: ['Afro house', 'deep house', 'Afrobeats', 'Afrobeat', 'Amapiano', 'tropical house', 'chill-out music', 'Balearic beat', 'lo-fi house'],
     subGenres: ['Afro House', 'Deep House', 'Dancehall / Afrobeats'], genres: [],
     themes: ['summer', 'freedom', 'romance'], moods: ['love', 'happy', 'thoughtful'],
-    primary: ['Afro house', 'deep house', 'afrobeats', 'tropical house', 'reggae'],
+    primary: ['Afro house', 'deep house', 'afrobeats', 'amapiano', 'tropical house', 'reggae'],
     secondary: ['Pop (summer/happy)', 'R&B (chill)', 'reggaeton (beach vibe)'],
     hunt: 'Beach sunset, palm trees, ocean waves, rooftop party, golden hour, bonfire',
+    owns: /^(?!dancehall).*(afrobeat|amapiano)/i,
   },
   {
     id: 'street-concrete', name: 'Street & Concrete',
@@ -66,11 +67,11 @@ export const BOARDS: readonly Board[] = [
   },
   {
     id: 'block-party', name: 'Block Party',
-    styles: ['Afrobeats', 'Amapiano', 'dancehall', 'funk carioca', 'Brazilian funk', 'reggaeton', 'soca music', 'gqom',
+    styles: ['dancehall', 'funk carioca', 'Brazilian funk', 'reggaeton', 'soca music', 'gqom',
       'phonk', 'Brazilian phonk', 'drift phonk', 'phonk house', 'rare phonk', 'doomshop phonk'],
     subGenres: ['Dancehall / Afrobeats', 'Reggaeton'], genres: ['Reggae & Dancehall', 'Latin & Urbano'],
     themes: ['party', 'dancing', 'friends', 'summer'], moods: ['fun', 'happy', 'flirty'],
-    primary: ['Afrobeats', 'amapiano', 'dancehall', 'baile funk', 'reggaeton', 'phonk'],
+    primary: ['dancehall', 'baile funk', 'reggaeton', 'phonk'],
     secondary: ['Hip-hop (party/fun)', 'pop (summer/upbeat)'],
     hunt: 'Street dancing, colourful outfits, outdoor crowd, summer party, sunglasses, cars, drifting, swag, flexing',
     owns: /phonk/i,
@@ -100,7 +101,7 @@ export const BOARDS: readonly Board[] = [
     subGenres: ['Traditional Latin (Salsa, Bachata)', 'Smooth Jazz / Soul'], genres: [],
     themes: ['romance', 'seduction'], moods: ['love', 'flirty'],
     primary: ['R&B', 'bachata', 'salsa', 'soul'],
-    secondary: ['Pop (romance/seduction)', 'afrobeats (slow/romantic)'],
+    secondary: ['Pop (romance/seduction)'],
     hunt: 'Candlelight, silk sheets, couple dancing, dim lounge, city skyline at night',
   },
   {
@@ -218,8 +219,8 @@ export function rankBoards(wanted: BoardWanted, filled: ReadonlyMap<string, numb
 /** The filled boards that fit the song, best first; a song no board fits gets them all, in its own order. */
 export function songBoards(wanted: BoardWanted, items: readonly { boards?: readonly string[] }[], song: string): Board[] {
   const all = rankBoards(wanted, filledBoards(items), song);
-  const named = `${wanted.style ?? ''} ${wanted.subGenre}`;
-  const owner = all.find(board => board.owns?.test(named));
+  const named = wanted.style || wanted.subGenre;
+  const owner = named ? all.find(board => board.owns?.test(named)) : undefined;
   if (owner) return [owner];
   const fitting = all.filter(board => boardFit(board, wanted) > 0);
   return fitting.length ? fitting : all;

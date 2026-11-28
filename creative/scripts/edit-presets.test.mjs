@@ -39,7 +39,7 @@ const GENRE_PRESETS = [
   ['Latin & Urbano', 'General Latin', 'Brazilian funk', ['strobe','y2k','baile']],
   ['Latin & Urbano', 'General Latin', 'funk carioca', ['strobe','y2k','baile']],
   ['Latin & Urbano', 'General Latin', 'corridos tumbados', ['kodak','vhs','y2k']],
-  ['Latin & Urbano', 'Reggaeton', undefined, ['kodak','y2k','baile']],
+  ['Latin & Urbano', 'Reggaeton', undefined, ['strobe','y2k','baile']],
   ['Latin & Urbano', 'Traditional Latin (Salsa, Bachata)', undefined, ['kodak','y2k','golden']],
   ['Latin & Urbano', 'Latin Trap', undefined, ['vhs','y2k','baile']],
   ['Hip-Hop & Rap', 'General Hip-Hop', undefined, ['kodak','vhs','y2k']],
@@ -570,6 +570,23 @@ test('Learning keeps the preset and take of each card', () => {
   assert.match(sent, /preset: slot\.preset, presetTake: slot\.presetTake/);
   assert.match(kept, /preset, preset_take[,)]/);
   assert.match(readFileSync(new URL('../db/migrations/030_feedback_preset.sql', import.meta.url), 'utf8'), /add column if not exists preset text/);
+});
+
+test('all of Block Party\'s music is cut as Brazilian funk is at every drive, slowed included', () => {
+  const carioca = { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk carioca' };
+  const songs = [
+    { genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'dancehall' },
+    { genre: 'Latin & Urbano', subGenre: 'Reggaeton', style: 'reggaeton' },
+    { genre: 'Latin & Urbano', subGenre: 'Reggaeton' },
+    { genre: 'Latin & Urbano', subGenre: 'Reggaeton', style: 'Dominican dembow' },
+    { genre: 'Reggae & Dancehall', subGenre: 'General Reggae', style: 'soca music' },
+    { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk mandelão' },
+  ];
+  for (const song of songs) for (const drive of [undefined, 0.2, 0.45, 0.7, 0.95]) {
+    assert.deepEqual(presets.presetsFor(song, drive), presets.presetsFor(carioca, drive), `${song.style ?? song.subGenre} at ${drive}`);
+  }
+  const afro = presets.presetsFor({ genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'Afrobeats' }, 0.7);
+  assert.notDeepEqual(afro, presets.presetsFor(carioca, 0.7), 'Afrobeats is Sunset & Coast\'s, cut its own way');
 });
 
 test('phonk is cut as Brazilian funk is at every drive, slowed included; never the 90s Camcorder', () => {

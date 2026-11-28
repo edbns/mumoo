@@ -232,10 +232,16 @@ export function presetsFor(heard: SongGenre, drive?: number | null): PresetId[] 
 }
 
 /**
- * Every phonk (a style or the sub-genre) is cut as Brazilian funk is (Baile Kinetic, Club Pulse, Y2K Digicam), and a slowed one falls back as a
- * slowed funk does: its filing under Electronic, or the house in phonk house, would otherwise offer Boiler Room or Raw 16mm beside them.
+ * Block Party's music (phonk, Brazilian funk, dancehall, reggaeton and dembow, soca: by its style, else, with none picked, its sub-genre) is cut
+ * as Brazilian funk is (Club Pulse, Y2K Digicam, Baile Kinetic), and slowed falls back as a slowed funk does: its own genre words would
+ * otherwise offer Boiler Room, Raw 16mm or the 90s Camcorder beside them.
  */
-const funkLike = (song: SongGenre): SongGenre => (/phonk/i.test(`${song.style ?? ''} ${song.subGenre ?? ''}`) ? { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'phonk' } : song);
+const BLOCK_PARTY = /phonk|dancehall|reggaeton|dembow|soca|funk carioca|brazilian funk|baile funk|funk mtg|montagem|brega funk|mandel/i;
+const funkLike = (song: SongGenre): SongGenre => {
+  const named = song.style || song.subGenre || '';
+  // "Dancehall / Afrobeats" with no style picked is half Sunset & Coast's: it keeps its own presets.
+  return BLOCK_PARTY.test(named) && !/afrobeat|amapiano/i.test(named) ? { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk carioca' } : song;
+};
 
 /** Below this drive (tempo and how busy the drums are, 0..1) a song is slow: see `presetsFor` and the Director's cutting. */
 export const SLOW_DRIVE = 0.4;
