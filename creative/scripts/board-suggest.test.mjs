@@ -52,9 +52,9 @@ test('before there is enough filing, the reader and SigLIP decide; an unsure rea
 });
 
 test('a second board only when it is nearly as strong and named too; nothing to go on is no suggestion', () => {
-  const item = { id: 'n', embedding: like(6), board_odds: { 'horizon-soul': 0.6, 'rain-blue': 0.5 }, reading: { description: 'Hands on a piano, black and white.', boards: ['horizon-soul', 'rain-blue'], sure: false } };
-  assert.deepEqual(suggestBoards(item, []).boards, ['horizon-soul', 'rain-blue']);
-  assert.deepEqual(suggestBoards({ ...item, reading: { ...item.reading, boards: ['horizon-soul'] }, board_odds: { 'rain-blue': 0.9 } }, []).boards, ['horizon-soul'],
+  const item = { id: 'n', embedding: like(6), board_odds: { 'horizon-soul': 0.6, 'night-neon': 0.5 }, reading: { description: 'Hands on a piano, black and white.', boards: ['horizon-soul', 'night-neon'], sure: false } };
+  assert.deepEqual(suggestBoards(item, []).boards, ['horizon-soul', 'night-neon']);
+  assert.deepEqual(suggestBoards({ ...item, reading: { ...item.reading, boards: ['horizon-soul'] }, board_odds: { 'night-neon': 0.9 } }, []).boards, ['horizon-soul'],
     'SigLIP alone does not add a second board');
   assert.equal(suggestBoards({ id: 'n', embedding: null, board_odds: null, reading: null }, many), null);
   assert.equal(suggestBoards({ id: 'f0', ...many[0], board_odds: {}, reading: null }, many).boards[0], 'sunset-coast', 'an item is not its own neighbour, its look-alikes still vote');
@@ -64,10 +64,10 @@ test('a second board only when it is nearly as strong and named too; nothing to 
 test('a filed item also fits the boards the reader names and SigLIP sees, best seen first, never its own or one turned down', () => {
   const item = {
     id: 'n', embedding: like(1), boards: ['rave-warehouse'], not_boards: ['pop-studio'],
-    board_odds: { 'rave-warehouse': 1, 'street-concrete': 0.6, 'live-raw': 0.9, 'night-drive': ALSO.seen - 0.01, 'pop-studio': 0.8 },
-    reading: { description: 'A concert crowd under red lights.', boards: ['rave-warehouse', 'street-concrete'], also: ['live-raw', 'night-drive', 'pop-studio', 'sunset-coast'], sure: true },
+    board_odds: { 'rave-warehouse': 1, 'street-concrete': 0.6, 'live-raw': 0.9, 'night-neon': ALSO.seen - 0.01, 'pop-studio': 0.8 },
+    reading: { description: 'A concert crowd under red lights.', boards: ['rave-warehouse', 'street-concrete'], also: ['live-raw', 'night-neon', 'pop-studio', 'sunset-coast'], sure: true },
   };
-  assert.deepEqual(alsoFits(item, []), ['live-raw', 'street-concrete'], 'not Night Drive (SigLIP barely sees it), Pop & Studio (turned down) or Sunset & Coast (not seen)');
+  assert.deepEqual(alsoFits(item, []), ['live-raw', 'street-concrete'], 'not Night Drive, Neon & Lo-Fi (SigLIP barely sees it), Pop & Studio (turned down) or Sunset & Coast (not seen)');
   assert.deepEqual(alsoFits({ ...item, reading: null }, []), []);
 });
 
@@ -82,17 +82,17 @@ test('turning a board down for an item stops it being offered for close look-ali
 
 test('only what we asked the worker for is kept', () => {
   const kept = described({
-    looks: { cars: 1 }, seen: ['car', 'Not A Tag!'], boards: { 'night-drive': 0.7, nightclub: 1, 'rave-warehouse': 3 },
+    looks: { cars: 1 }, seen: ['car', 'Not A Tag!'], boards: { 'night-neon': 0.7, nightclub: 1, 'rave-warehouse': 3 },
     embedding: like(2).concat(Array(120).fill(0)),
-    reading: { description: `  ${'a'.repeat(300)}`, boards: ['night-drive', 'nightclub', 'night-drive', 'vhs-retro', 'rave-warehouse'], also: ['vhs-retro', 'disco', 'rain-blue', 'rain-blue', 'pop-studio', 'live-raw', 'sunset-coast'], sure: 'yes' },
+    reading: { description: `  ${'a'.repeat(300)}`, boards: ['night-neon', 'nightclub', 'night-neon', 'intimate-velvet', 'rave-warehouse'], also: ['intimate-velvet', 'disco', 'horizon-soul', 'horizon-soul', 'pop-studio', 'live-raw', 'sunset-coast'], sure: 'yes' },
   });
-  assert.deepEqual(kept.reading.also, ['rain-blue', 'pop-studio', 'live-raw'], 'other known boards only, at most three');
-  assert.deepEqual(described({ reading: { description: 'A car.', boards: ['night-drive'] } }).reading.also, []);
+  assert.deepEqual(kept.reading.also, ['horizon-soul', 'pop-studio', 'live-raw'], 'other known boards only, at most three');
+  assert.deepEqual(described({ reading: { description: 'A car.', boards: ['night-neon'] } }).reading.also, []);
   assert.deepEqual(kept.seen, ['car']);
-  assert.deepEqual(kept.boardOdds, { 'night-drive': 0.7, 'rave-warehouse': 1 });
+  assert.deepEqual(kept.boardOdds, { 'night-neon': 0.7, 'rave-warehouse': 1 });
   assert.equal(kept.embedding.length, 128);
   assert.equal(kept.reading.description.length, 200);
-  assert.deepEqual(kept.reading.boards, ['night-drive', 'vhs-retro']);
+  assert.deepEqual(kept.reading.boards, ['night-neon', 'intimate-velvet']);
   assert.equal(kept.reading.sure, false);
   assert.equal(described({ embedding: [1, 2], reading: { boards: ['nightclub'] } }).embedding, null);
   assert.equal(described({ reading: { boards: ['nightclub'] } }).reading, null);

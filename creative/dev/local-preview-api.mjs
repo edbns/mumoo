@@ -225,13 +225,13 @@ export function localPreviewApi() {
       let library = [
         sample('preview-lib-1', ['#ff9821', '#2b231a'], { status: 'approved', tags: ['sunset', 'beach'], boards: ['sunset-coast'], note: 'Licence 118, Studio Ray', seen: ['couple', 'sea'], seenAs: 'A couple on a beach at sunset, warm golden light.', also: ['intimate-velvet'] }),
         sample('preview-lib-9', ['#c1121f', '#0b0204'], { status: 'approved', boards: ['rave-warehouse'], seenAs: 'A concert crowd under red stage lights and smoke.', also: ['rave-warehouse', 'live-raw'] }),
-        sample('preview-lib-10', ['#1d3557', '#05070d'], { status: 'approved', boards: ['luxury-flex'], seenAs: 'A car interior at night, city lights through the windscreen.', also: ['night-drive'] }),
+        sample('preview-lib-10', ['#1d3557', '#05070d'], { status: 'approved', boards: ['luxury-flex'], seenAs: 'A car interior at night, city lights through the windscreen.', also: ['night-neon'] }),
         sample('preview-lib-11', ['#e63946', '#14050a'], { status: 'approved', boards: ['rave-warehouse'], seenAs: 'A red-lit stage with a crowd below.', also: ['rave-warehouse'] }),
         sample('preview-lib-2', ['#ffb347', '#3a2a1a'], { seenAs: 'Palm trees against an orange sky at golden hour.', suggestion: { boards: ['sunset-coast'], sure: true } }),
         sample('preview-lib-4', ['#ff7f50', '#20160f'], { seenAs: 'A woman dancing under a bridge on the beach at sunset.', suggestion: { boards: ['sunset-coast'], sure: true } }),
         sample('preview-lib-5', ['#7b2ff7', '#0a0a1a'], { seenAs: 'A festival crowd with laser lights and smoke.', suggestion: { boards: ['rave-warehouse'], sure: true } }),
         sample('preview-lib-6', ['#b3122e', '#120306'], { seenAs: 'A pole dancer in dim red light.', suggestion: { boards: ['intimate-velvet', 'rave-warehouse'], sure: false } }),
-        sample('preview-lib-7', ['#d9d9d9', '#1a1a1a'], { seenAs: 'Hands playing a piano, black and white.', suggestion: { boards: ['horizon-soul', 'rain-blue'], sure: false } }),
+        sample('preview-lib-7', ['#d9d9d9', '#1a1a1a'], { seenAs: 'Hands playing a piano, black and white.', suggestion: { boards: ['horizon-soul', 'night-neon'], sure: false } }),
         sample('preview-lib-8', ['#2fe92b', '#0f0f0f'], { looking: true }),
         sample('preview-lib-3', ['#6b7367', '#26272d'], { kind: 'gif', contentType: 'image/gif', status: 'hidden', tags: ['dance'], genre: 'Pop', subGenre: 'Dance-Pop', note: 'Own work' }),
       ];

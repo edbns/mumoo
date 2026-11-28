@@ -43,7 +43,7 @@ test('the style chooses the board first, and the words choose between the boards
     const afrobeats = { genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'Afrobeats' };
     assert.equal(best({ ...afrobeats, attitude: 'fun', themes: ['party'] }), 'block-party', 'an afrobeats party song');
     assert.equal(best({ ...afrobeats, attitude: 'love', themes: ['romance'] }), 'sunset-coast', 'an afrobeats love song');
-    assert.equal(best({ genre: '', subGenre: '', attitude: 'sad', themes: ['heartbreak'] }), 'rain-blue', 'no genre: the words alone');
+    assert.equal(best({ genre: '', subGenre: '', attitude: 'sad', themes: ['heartbreak'] }), 'night-neon', 'no genre: the words alone');
     assert.equal(best({ genre: 'Gospel & Christian', subGenre: 'Gospel', attitude: 'spiritual' }), 'horizon-soul');
   } finally { await server.close(); }
 });
@@ -55,7 +55,7 @@ test('the admin\'s genre map routes too: its genres always, its "when the words 
     const fit = (id, wanted) => boards.boardFit(board(id), { genre: '', subGenre: '', attitude: null, ...wanted });
     for (const entry of boards.BOARDS.filter(one => !one.apart)) assert.ok(entry.primary.length && entry.secondary.length, `${entry.name} shows its genres`);
     const rnb = { genre: 'Jazz, Soul & Blues', subGenre: 'Smooth Jazz / Soul', style: 'contemporary R&B' };
-    assert.equal(fit('night-drive', rnb) - fit('night-drive', { ...rnb, style: 'soul' }), 2, 'R&B (its style) is on Night Drive\'s map');
+    assert.equal(fit('night-neon', rnb) - fit('night-neon', { ...rnb, style: 'soul' }), 4 + 2, 'contemporary R&B is one of Night Drive, Neon & Lo-Fi\'s styles and on its map');
     const pop = { genre: 'Pop', subGenre: 'General Pop', style: 'pop music' };
     assert.equal(fit('sunset-coast', pop), 0, 'pop is only on Sunset & Coast when the words fit');
     assert.equal(fit('sunset-coast', { ...pop, attitude: 'happy', themes: ['summer'] }), 3, 'a happy summer pop song: its words, and pop counts');
@@ -100,7 +100,7 @@ test('every row of a song is dealt from its best filled board, through every Ref
 test('Funk Carioca with party words stays on Block Party, never Rave, Strobes & Warehouse; a song no board fits still gets one', async () => {
   const { server, boards } = await load();
   try {
-    const items = [...filed('b', 'block-party', 8), ...filed('n', 'night-drive', 8), ...filed('m', 'rave-warehouse', 8), ...filed('d', 'rave-warehouse', 8)];
+    const items = [...filed('b', 'block-party', 8), ...filed('n', 'night-neon', 8), ...filed('m', 'rave-warehouse', 8), ...filed('d', 'rave-warehouse', 8)];
     const carioca = { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk carioca', attitude: 'fun', themes: ['party', 'dancing'] };
     for (const row of ['photography', 'thermal', 'halftone', 'riso', 'window']) assert.equal(boards.boardForRow(row, carioca, items, 'song').id, 'block-party', row);
     assert.ok(boards.boardForRow('photography', { genre: '', subGenre: '', attitude: null }, items, 'song'));

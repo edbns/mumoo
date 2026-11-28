@@ -93,8 +93,8 @@ class Reading(unittest.TestCase):
         self.assertEqual(reading_from(answer), {"description": "A pole dancer in red light.", "boards": ["intimate-velvet", "rave-warehouse"], "also": [], "sure": False})
 
     def test_also_is_other_known_boards_at_most_three(self):
-        answer = '{"description": "A neon arcade.", "boards": ["vhs-retro"], "also": ["vhs-retro", "night-drive", "disco", "night-drive", "rave-warehouse", "main-stage", "horizon-soul", "pop-studio"]}'
-        self.assertEqual(reading_from(answer)["also"], ["night-drive", "rave-warehouse", "horizon-soul"])
+        answer = '{"description": "A neon arcade.", "boards": ["night-neon"], "also": ["night-neon", "intimate-velvet", "disco", "intimate-velvet", "rave-warehouse", "main-stage", "horizon-soul", "pop-studio"]}'
+        self.assertEqual(reading_from(answer)["also"], ["intimate-velvet", "rave-warehouse", "horizon-soul"])
 
     def test_nothing_usable_is_none(self):
         self.assertIsNone(reading_from("I cannot tell."))
