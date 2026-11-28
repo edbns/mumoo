@@ -1,5 +1,6 @@
 import { PauseIcon, PlayIcon } from '@/components/icons';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { arriveAt, expectArrival, noArrival } from './arrival';
 import {
   LYRIC_LANGUAGES, MAX_LYRIC_WORDS, clipToWav16k, groupLines, languageName,
   runLyricsJob, wordsToText, type LyricWord, type LyricsResult,
@@ -20,7 +21,7 @@ const clock = (ms: number) => `0:${String(Math.floor(Math.max(0, ms) / 1000)).pa
  * One text box is the whole editor — fix words, add missing ones, press Sync again.
  */
 export function LyricsStudio({
-  audio, clipStartMs, clipMs, token, position, playing, initial, onPlay, onSeek, onLyrics, onState,
+  audio, clipStartMs, clipMs, token, position, playing, initial, onPlay, onSeek, onLyrics, onState, actions,
 }: {
   audio: AudioBuffer;
   clipStartMs: number;
@@ -37,6 +38,8 @@ export function LyricsStudio({
   onLyrics: (lyrics: { words: LyricWord[]; language?: string; origin: 'transcribed' | 'typed' }) => void;
   /** Tells the page whether lyrics are being worked on / edited and not yet synced. */
   onState: (state: { busy: boolean; dirty: boolean }) => void;
+  /** The page's Back / Continue row under the lyrics: a finished sync brings the editor, the timed preview and it into view. */
+  actions?: RefObject<HTMLElement | null>;
 }) {
   const seconds = clipMs / 1000;
   const [phase, setPhase] = useState<Phase>(initial ? 'edit' : 'start');
@@ -55,11 +58,18 @@ export function LyricsStudio({
   const run = useRef(0);
   const abort = useRef<AbortController | null>(null);
   const wav = useRef<Promise<Uint8Array> | null>(null);
+  const editTop = useRef<HTMLLabelElement>(null);
+  const preview = useRef<HTMLDivElement>(null);
+  /** Counts finished syncs, so the page arrives at the result once it is drawn. */
+  const [landed, setLanded] = useState(0);
 
   const dirty = phase === 'edit' && text.trim() !== syncedText.trim();
 
   useEffect(() => { onState({ busy: phase === 'working', dirty }); }, [phase, dirty, onState]);
-  useEffect(() => () => { run.current++; abort.current?.abort(); }, []);
+  useEffect(() => () => { run.current++; abort.current?.abort(); noArrival(); }, []);
+  useEffect(() => {
+    if (landed) arriveAt(editTop.current, { through: actions?.current ?? preview.current, cue: preview.current });
+  }, [landed, actions]);
   useEffect(() => {
     if (phase !== 'working') return;
     setElapsed(0);
@@ -71,6 +81,7 @@ export function LyricsStudio({
   function cancel() {
     run.current++;
     abort.current?.abort();
+    noArrival();
     setPhase(words.length ? 'edit' : 'start');
   }
 
@@ -91,6 +102,7 @@ export function LyricsStudio({
       setSyncedText(text);
     }
     setPhase('edit');
+    setLanded(count => count + 1);
   }
 
   async function start(wasMode: 'transcribe' | 'sync') {
@@ -108,6 +120,7 @@ export function LyricsStudio({
     setError('');
     setNotice('');
     setMode(wasMode);
+    expectArrival();
     setPhase('working');
     try {
       wav.current ??= clipToWav16k(audio, clipStartMs, clipMs);
@@ -118,6 +131,7 @@ export function LyricsStudio({
       });
       if (id !== run.current) return;
       if (!result.words.length) {
+        noArrival();
         setPhase(words.length ? 'edit' : 'start');
         setPasting(true);
         setNotice(wasMode === 'transcribe'
@@ -131,6 +145,7 @@ export function LyricsStudio({
       }
     } catch (cause) {
       if (id !== run.current || (cause as Error).name === 'AbortError') return;
+      noArrival();
       setError(friendlyError(cause, 'Lyrics are down for a moment. Try again soon.'));
       setPhase(words.length ? 'edit' : 'start');
     }
@@ -180,7 +195,7 @@ export function LyricsStudio({
     </div>}
 
     {phase === 'edit' && <>
-      <label className="lyrics-edit-label" htmlFor="lyrics-editor">Fix any wrong or missing words, then sync again.</label>
+      <label ref={editTop} className="lyrics-edit-label" htmlFor="lyrics-editor">Fix any wrong or missing words, then sync again.</label>
       <textarea id="lyrics-editor" className="lyrics-editor" rows={Math.min(10, Math.max(3, text.split('\n').length + 1))}
         value={text} onChange={event => { setText(event.target.value); setError(''); }} spellCheck={false} />
       <div className="lyrics-editor-bar">
@@ -195,7 +210,7 @@ export function LyricsStudio({
         </div>
       </details>
 
-      <div className="lyrics-preview" aria-label="Lyrics timing preview">
+      <div ref={preview} className="lyrics-preview" aria-label="Lyrics timing preview">
         <div className="lyrics-preview-bar">
           <button type="button" className="round-play" onClick={onPlay} aria-label={playing ? 'Pause' : `Play the ${seconds} seconds`}>
             {playing ? <PauseIcon aria-hidden="true" className="size-4 fill-current" /> : <PlayIcon aria-hidden="true" className="size-4 fill-current" />}

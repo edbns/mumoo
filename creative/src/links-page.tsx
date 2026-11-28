@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { arriveAt, expectArrival, noArrival } from './arrival';
 import { FIELD } from '@/components/ui/field';
 import { Reorder, useDragControls } from 'motion/react';
 import { ExternalLinkIcon, EyeIcon, EyeOffIcon, GripVerticalIcon, PauseIcon, PlayIcon, SearchIcon } from '@/components/icons';
@@ -125,14 +126,19 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
 
   function publish() {
     if (!user) { publishWhenIn.current = true; setSigningIn(true); return; }
+    expectArrival();
     void run('publish', async () => {
-      const done = await publishDraft(draft, tokens);
+      const done = await publishDraft(draft, tokens).catch(cause => { noArrival(); throw cause; });
       setDraft(EMPTY_DRAFT);
       setTokens({});
       setPublished(done);
-      window.scrollTo({ top: 0 });
     });
   }
+  // A link just published: the page glides to it and rings it, so the address to share is the first thing seen.
+  const live = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (published) arriveAt(live.current, { cue: live.current?.firstElementChild });
+  }, [published]);
 
   function createAnother() {
     player.stop();
@@ -170,7 +176,7 @@ export default function LinksPage({ onNavigate }: { onNavigate: (page: AccountPa
     <LinksSkeleton hidden={phoneReady} filled={Boolean(link)} className={`pointer-events-none absolute inset-x-0 top-0 transition-opacity duration-150 ${phoneReady ? 'opacity-0' : 'opacity-100'}`} />
     <div className={`flex flex-col gap-4 transition-opacity duration-150 ${phoneReady ? 'opacity-100' : 'opacity-0'}`}>
     <div className={`grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] ${published ? 'items-stretch' : 'items-start'}`}>
-      {published ? <div className="flex min-w-0 flex-col gap-4 lg:pb-9">
+      {published ? <div ref={live} className="flex min-w-0 flex-col gap-4 lg:pb-9">
         <AccountSection className="flex-1" label={published.updated_at === published.created_at ? 'Your link is live' : 'Your changes are live'}>
           <AddressLine slug={published.slug} />
           <p className="m-0 text-sm text-muted-foreground">Share it anywhere. Track clicks by platform in My Smart Links.</p>

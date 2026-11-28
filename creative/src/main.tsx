@@ -40,6 +40,7 @@ import { ClipPicker } from './clip-picker';
 import { LegalCorner } from './legal-corner';
 import { keepReferral } from './referral';
 import { arrive } from './site-paths';
+import { arriveAt, expectArrival, noArrival } from './arrival';
 import { LinksSkeleton } from './links-skeleton';
 import { useFreeVideo } from './use-free-video';
 import { friendlyError } from './friendly-error';
@@ -145,7 +146,17 @@ function App() {
   const [composition, setComposition] = useState(INITIAL);
   const [musicAnalysis, setMusicAnalysis] = useState<MusicAnalysisState>(NO_ANALYSIS);
   const currentClip = useRef<ClipIdentity | null>(null);
+  /** Step 1's style box and its Continue row, and step 2's Back / Continue row: where a finished action arrives (`arrival.ts`). */
+  const styleBox = useRef<HTMLDivElement>(null);
+  const songActions = useRef<HTMLDivElement>(null);
+  const stepActions = useRef<HTMLDivElement>(null);
+  /** Counts songs that finished opening, so the page arrives at what comes next once it is drawn. */
+  const [songIn, setSongIn] = useState(0);
   const genreValid = Boolean(picked) || genreUnknown;
+  // A song that finished opening brings its style box and Continue into view: the style box rings while it is still to fill in, else Continue.
+  useEffect(() => {
+    if (songIn) arriveAt(styleBox.current, { through: songActions.current, cue: genreValid ? songActions.current?.querySelector('button') : styleBox.current });
+  }, [songIn]);
   const [songTags, setSongTags] = useState<SongTags>();
   /** The song a smart link handed over ("Make my first video free"), until the creator dismisses it. */
   const [handed, setHanded] = useState<HandedSong | null>(null);
@@ -273,9 +284,11 @@ function App() {
     seekTo(0);
     setError('');
     if (!file) {
+      noArrival();
       setMusicAnalysis(NO_ANALYSIS);
       return;
     }
+    expectArrival();
     try {
       const [probedMs, bytes] = await Promise.all([probeDurationMs(file), file.arrayBuffer()]);
       // Everything read from the original bytes starts before decoding detaches the buffer: the hash and the cover copy them as they start.
@@ -293,11 +306,13 @@ function App() {
       setLyricWords(current => unchanged ? current : []);
       currentClip.current = nextClip;
       setBuffer(audio);
+      setSongIn(count => count + 1);
       void loadStudio().catch(() => undefined);
       setSongTags(tags);
       setSongCover(cover);
     } catch (cause) {
       if (request === upload.current) {
+        noArrival();
         setMusicAnalysis(NO_ANALYSIS);
         setError(friendlyError(cause, 'That song couldn’t be opened. Try an MP3, WAV or M4A file.'));
       }
@@ -519,7 +534,7 @@ function App() {
             {!loading && !buffer && <p className="hint">Needs to be at least 10 seconds. No song file? A video with the song playing works too (saved TikTok/Reel, screen recording, voice memo).</p>}
             {IS_ALIGNMENT_STAGING && !loading && !buffer && <PhoneUpload token={accessToken} kind="song" onFiles={([file]) => void choose(file)} />}
           </div>
-          <div className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-background p-5">
+          <div ref={styleBox} className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-background p-5">
             <Combobox label="What kind of music is it?" placeholder={genreUnknown ? 'Not sure' : 'Type a style: afrobeats, slap house, drill…'}
               disabled={genreUnknown} search={searchOptions} emptyMessage={searchStyles ? 'Type a style, or just say you don’t know.' : 'Loading styles…'}
               options={picked ? [styleOption(picked)] : []} value={picked?.label ?? ''} onValueChange={chooseStyle} />
@@ -530,7 +545,7 @@ function App() {
             {genreUnknown && <p className="hint m-0">We’ll go by the sound and the lyrics.</p>}
           </div>
         </div>
-        <div className="mt-6 flex justify-end">
+        <div ref={songActions} className="mt-6 flex justify-end">
           <Button disabled={!buffer || !genreValid || loading} onClick={() => setStep(2)}>{freeVideo ? 'Get my free video' : 'Continue'}</Button>
         </div></>}
         {buffer && step === 2 && <>
@@ -546,8 +561,8 @@ function App() {
             onPlay={() => playing ? stop() : void play(true)}
             onSeek={ms => { stop(); seekTo(ms); }}
             onLyrics={({ words, ...info }) => { setLyricsInfo(info); setLyricWords(words); setComposition(current => ({ ...current, cues: cuesOf(words) })); }}
-            onState={setLyricsState} />}
-          <div className="step-actions mt-6 flex items-center gap-3">
+            onState={setLyricsState} actions={stepActions} />}
+          <div ref={stepActions} className="step-actions mt-6 flex items-center gap-3">
             <Button variant="secondary" onClick={() => { stop(); setStep(1); }}>Back</Button>
             {lyricsState.dirty && <span className="hint">Sync your edits first.</span>}
             {!noLyrics && <Button variant="secondary" className="ml-auto" onClick={() => chooseNoLyrics(true)}>My song has no lyrics (Instrumental)</Button>}

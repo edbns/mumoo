@@ -85,6 +85,10 @@
 }
 @keyframes trouble-in { from { opacity: 0; translate: 0 -.5rem; } }
 
+/* Where a finished action's result is (`arrival.ts`): a soft emerald ring (ring-2 ring-emerald-500/40) for about a second. An outline, so the element's own shadow stays. */
+.arrival-cue { outline: 2px solid rgb(16 185 129 / 0); outline-offset: 2px; transition: outline-color .7s ease; }
+.arrival-cue.arrival-on { outline-color: rgb(16 185 129 / .4); }
+
 /*
  * Between pages when signing in or out (`leaveFor`): the logo's four dots turning as a ring on the page's black, from the moment
  * the old page fades until the new one has settled (`arrive`), so nothing half-drawn is seen in between.
