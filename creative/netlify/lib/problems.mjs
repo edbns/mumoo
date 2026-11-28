@@ -1,3 +1,4 @@
+import { sameProblemText, tellOwner, worthTelling } from './alert.mjs';
 import { db } from './person.mjs';
 
 /** What can go wrong, as the app names it. */
@@ -11,7 +12,12 @@ export async function recordProblem({ kind, userId = null, email = null, message
   if (!text) return false;
   const address = typeof email === 'string' && email.trim() ? email.trim().slice(0, 200) : null;
   try {
-    await db()`insert into problems (kind, user_id, email, message) values (${kind}, ${userId}, ${address}, ${text})`;
+    const sql = db();
+    await sql`insert into problems (kind, user_id, email, message) values (${kind}, ${userId}, ${address}, ${text})`;
+    const same = sameProblemText(text);
+    const [{ count }] = await sql`select count(*)::int as count from problems where kind = ${kind} and created_at > now() - interval '1 hour'
+      and regexp_replace(message, '^(Video|Upload) [^:]+: ', '') = ${same}`;
+    if (worthTelling(count)) await tellOwner({ kind, email: address, message: text, count });
     return true;
   } catch (cause) {
     console.error('problems:', cause);
