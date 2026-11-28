@@ -55,9 +55,21 @@ export type LearningEvent = {
   at: string; event: string; row: string | null; look: string | null; vibe: string | null; lane: string | null;
   mood: string | null; genre: string | null; watchMs: number | null; nthDownload: number | null;
 };
+export type LearningDay = { day: string; shown: number; plays: number; selects: number; delivered: number; refreshes: number; songs: number; people: number };
 export type Learning = {
   days: number;
   totals: Tally & { songs: number };
+  /** The same totals for the period just before. */
+  before: Tally & { songs: number };
+  /** Day by day, oldest first: this period, and the one before it. */
+  series: LearningDay[];
+  beforeSeries: LearningDay[];
+  /** By where the words came from: typed, transcribed, none (no lyrics) or unknown. */
+  lyrics: Tally[];
+  /** By the genre the creator gave. */
+  genres: Tally[];
+  /** People whose own shelf leads with what they kept. */
+  peopleLearned: number;
   rows: Tally[];
   /** Each template in the period just before this one, for the trend. */
   earlier: { key: string; shown: number; plays: number; delivered: number }[];

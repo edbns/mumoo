@@ -64,6 +64,23 @@ export default async function handler(request) {
       from brain_feedback where ${since} and (library_id is not null or reel_ids is not null) and own_picture is not true and event <> 'refresh'
       group by 1`;
     colours.sort((a, b) => COLOUR_ORDER.indexOf(a.key) - COLOUR_ORDER.indexOf(b.key));
+    // Day by day over this period and the one before it, for the trend and the change against before.
+    const daily = await sql`
+      select d::date::text as day,
+        count(f.*) filter (where f.event = 'shown')::int as shown, count(f.*) filter (where f.event = 'play')::int as plays,
+        count(f.*) filter (where f.event = 'select')::int as selects, count(f.*) filter (where f.event = 'delivered')::int as delivered,
+        count(f.*) filter (where f.event = 'refresh')::int as refreshes,
+        count(distinct f.clip_sha256)::int as songs, count(distinct f.user_id)::int as people
+      from generate_series(current_date - ${2 * days - 1}::int, current_date, interval '1 day') as d
+      left join brain_feedback f on f.created_at >= d and f.created_at < d + interval '1 day'
+      group by d order by d`;
+    const [earlierTotals] = await sql`select ${tally}, count(distinct clip_sha256)::int as songs from brain_feedback where ${before}`;
+    const lyrics = await sql`
+      select case when lyrics_origin = 'none' then 'none' when lyrics_origin = 'typed' then 'typed' when lyrics_origin = 'transcribed' then 'transcribed' else 'unknown' end as key, ${tally}
+      from brain_feedback where ${since} and event <> 'refresh' group by 1 order by delivered desc`;
+    const genres = await sql`select coalesce(genre, 'unknown') as key, ${tally} from brain_feedback where ${since} and event <> 'refresh' group by 1 order by delivered desc, shown desc limit 20`;
+    // People whose own shelf leads with what they kept (`/api/my-shelf`, the last 180 days).
+    const [known] = await sql`select count(distinct user_id)::int as people from brain_feedback where user_id is not null and event in ('select', 'download', 'delivered') and created_at > now() - interval '180 days'`;
     const recent = await sql`
       select created_at, event, row_id, coalesce(look, type_style, style) as look, vibe, lane, attitude, genre, watch_ms, nth_download
       from brain_feedback where ${since} order by created_at desc limit 50`;
@@ -99,6 +116,11 @@ export default async function handler(request) {
     return reply(200, {
       days,
       totals: { ...shape([{ key: 'all', ...totals }])[0], songs: totals.songs },
+      before: { ...shape([{ key: 'all', ...earlierTotals }])[0], songs: earlierTotals.songs },
+      series: daily.slice(days), beforeSeries: daily.slice(0, days),
+      lyrics: shape(lyrics),
+      genres: shape(genres),
+      peopleLearned: known.people,
       rows: shape(rows),
       earlier: earlier.map(({ key, shown, plays, delivered }) => ({ key, shown, plays, delivered })),
       cards: shape(cards),
