@@ -374,7 +374,7 @@ test('a big mood board is walked: every card and every Refresh is edited from ne
   const { server, pack } = await load();
   try {
     const wanted = { attitude: 'confident', genre: 'Pop', subGenre: '', themes: ['money'] };
-    const clip = (id, tags) => item(id, { kind: 'video', attitudes: [], tags, motionUrl: `https://x/${id}.mp4`, shots: [[0, 2000]], boards: ['main-stage'] });
+    const clip = (id, tags) => item(id, { kind: 'video', attitudes: [], tags, motionUrl: `https://x/${id}.mp4`, shots: [[0, 2000]], boards: ['rave-warehouse'] });
     const board = [clip('star', ['money', 'confident']), ...Array.from({ length: 120 }, (_, i) => clip(`c${i}`, i % 10 ? [] : ['money']))];
     const reels = [0, 1, 2].flatMap(generation => [0, 1, 2, 3].map(card => ids(pack.reelPool(board, wanted, 'song', generation, card, true))));
     assert.ok(new Set(reels.flat()).size >= 80, `12 reels draw ${new Set(reels.flat()).size} clips`);

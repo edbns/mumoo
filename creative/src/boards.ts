@@ -14,6 +14,8 @@ import type { SongTheme } from './song-themes';
  *               sub-genre or genre names one of them fits it too.
  *   secondary   genres it serves only when the words fit (the board's themes or moods): "pop (summer/happy)" on Sunset & Coast.
  * `hunt` is what to look for when filling the board.
+ * `owns`: styles the board takes alone, whatever else they fit (every phonk is Block Party: the board is the scene people mix today, cars,
+ *   drifting and swag with the party).
  * `apart`: a board kept out of the creatives (Memes & Funny, to be used its own way): the admin files into it and our models learn
  *   it, but no song is ever dealt from it, and its pictures are never used on a song's creatives.
  */
@@ -28,27 +30,21 @@ export type Board = {
   primary: readonly string[];
   secondary: readonly string[];
   hunt: string;
+  /** Styles this board takes alone: a song whose style or sub-genre it matches is dealt from no other board while this one is filled. */
+  owns?: RegExp;
   apart?: true;
 };
 
 export const BOARDS: readonly Board[] = [
   {
-    id: 'main-stage', name: 'Main Stage',
-    styles: ['techno', 'tech house', 'slap house', 'dubstep', 'drum and bass', 'electronic dance music', 'house music', 'hard dance', 'bass music (EDM)'],
-    subGenres: ['Techno', 'Tech House', 'Slap House', 'House', 'Dubstep / Riddim', 'G-House'], genres: ['Electronic & Dance (EDM)'],
-    themes: ['party', 'dancing', 'nightlife'], moods: ['fun', 'confident', 'happy'],
-    primary: ['Tech house', 'slap house', 'dubstep', 'drum and bass', 'EDM', 'big room'],
-    secondary: ['Pop (upbeat/dance)', 'hip-hop (festival anthems)'],
-    hunt: 'Festival crowd, DJ booth, laser lights, stage smoke, strobe lights, rave',
-  },
-  {
-    id: 'dark-warehouse', name: 'Dark Warehouse',
-    styles: ['techno', 'gqom', 'industrial techno', 'industrial dance', 'electronic body music', 'dark ambient'],
-    subGenres: ['Techno', 'Industrial'], genres: ['Experimental & Avant-Garde'],
-    themes: ['nightlife', 'city'], moods: ['angry', 'confident', 'thoughtful'],
-    primary: ['Techno', 'gqom', 'minimal', 'industrial', 'dark electronic'],
-    secondary: ['Drill', 'UK drill', 'phonk (aggressive/dark tracks)'],
-    hunt: 'Concrete warehouse, silhouette dancing, red neon, dark club, shadows',
+    id: 'rave-warehouse', name: 'Rave, Strobes & Warehouse',
+    styles: ['techno', 'hard techno', 'industrial techno', 'tech house', 'slap house', 'house music', 'hard dance', 'drum and bass', 'dubstep',
+      'bass music (EDM)', 'electronic dance music', 'gqom', 'industrial dance', 'electronic body music', 'dark ambient'],
+    subGenres: ['Techno', 'Tech House', 'Slap House', 'House', 'Dubstep / Riddim', 'G-House', 'Industrial'], genres: ['Electronic & Dance (EDM)', 'Experimental & Avant-Garde'],
+    themes: ['party', 'dancing', 'nightlife', 'city'], moods: ['fun', 'confident', 'happy', 'angry'],
+    primary: ['Tech house', 'techno', 'hard techno', 'slap house', 'drum and bass', 'dubstep', 'gqom', 'dark drill', 'EDM', 'big room', 'minimal', 'industrial', 'dark electronic'],
+    secondary: ['Pop (upbeat/dance)', 'hip-hop (festival anthems)', 'drill', 'UK drill'],
+    hunt: 'Festival crowd, DJ booth, laser lights, strobes, stage smoke, concrete warehouse, silhouettes dancing, red neon, dark club',
   },
   {
     id: 'sunset-coast', name: 'Sunset & Coast',
@@ -65,17 +61,19 @@ export const BOARDS: readonly Board[] = [
     subGenres: ['Trap', 'Boom Bap / Lo-Fi', 'General Hip-Hop'], genres: ['Hip-Hop & Rap'],
     themes: ['street', 'city'], moods: ['angry', 'confident'],
     primary: ['Hip-hop', 'trap', 'drill', 'UK drill', 'boom bap', 'grime'],
-    secondary: ['Phonk', 'punk (urban/gritty tracks)'],
+    secondary: ['punk (urban/gritty tracks)'],
     hunt: 'City night street, hoodies, graffiti wall, subway station, basketball court, smoke',
   },
   {
     id: 'block-party', name: 'Block Party',
-    styles: ['Afrobeats', 'Amapiano', 'dancehall', 'funk carioca', 'Brazilian funk', 'reggaeton', 'soca music', 'gqom'],
+    styles: ['Afrobeats', 'Amapiano', 'dancehall', 'funk carioca', 'Brazilian funk', 'reggaeton', 'soca music', 'gqom',
+      'phonk', 'Brazilian phonk', 'drift phonk', 'phonk house', 'rare phonk', 'doomshop phonk'],
     subGenres: ['Dancehall / Afrobeats', 'Reggaeton'], genres: ['Reggae & Dancehall', 'Latin & Urbano'],
     themes: ['party', 'dancing', 'friends', 'summer'], moods: ['fun', 'happy', 'flirty'],
-    primary: ['Afrobeats', 'amapiano', 'dancehall', 'baile funk', 'reggaeton'],
+    primary: ['Afrobeats', 'amapiano', 'dancehall', 'baile funk', 'reggaeton', 'phonk'],
     secondary: ['Hip-hop (party/fun)', 'pop (summer/upbeat)'],
-    hunt: 'Street dancing, colourful outfits, outdoor crowd, summer party, sunglasses',
+    hunt: 'Street dancing, colourful outfits, outdoor crowd, summer party, sunglasses, cars, drifting, swag, flexing',
+    owns: /phonk/i,
   },
   {
     id: 'luxury-flex', name: 'Luxury & Flex',
@@ -88,19 +86,19 @@ export const BOARDS: readonly Board[] = [
   },
   {
     id: 'vhs-retro', name: 'VHS & Retro',
-    styles: ['synthwave', 'phonk', 'lo-fi music', 'lofi hip-hop', 'vaporwave', 'chillwave', 'late night lo-fi', 'chillsynth'],
+    styles: ['synthwave', 'lo-fi music', 'lofi hip-hop', 'vaporwave', 'chillwave', 'late night lo-fi', 'chillsynth'],
     subGenres: ['Synthwave / Vaporwave', 'Boom Bap / Lo-Fi', 'Indie Pop', 'Alternative / Indie Rock', 'General Electronic'], genres: [],
     themes: ['cars', 'city', 'nightlife'], moods: ['thoughtful', 'sad', 'fun'],
-    primary: ['Synthwave', 'phonk', 'lo-fi', 'vaporwave', 'indie'],
+    primary: ['Synthwave', 'lo-fi', 'vaporwave', 'indie'],
     secondary: ['Boom bap (90s nostalgia)', 'pop (retro)', 'R&B'],
     hunt: 'Retro 80s car, neon grid, cassette tape, night driving, rainy window, arcade',
   },
   {
     id: 'night-drive', name: 'Night Drive',
-    styles: ['phonk', 'drift phonk', 'drill', 'UK drill', 'synthwave', 'trap music'],
+    styles: ['drill', 'UK drill', 'synthwave', 'trap music'],
     subGenres: ['Trap', 'Synthwave / Vaporwave'], genres: [],
     themes: ['cars', 'nightlife', 'city'], moods: ['confident', 'angry', 'thoughtful'],
-    primary: ['Phonk', 'synthwave', 'R&B', 'deep house', 'trap (melodic)'],
+    primary: ['synthwave', 'R&B', 'deep house', 'trap (melodic)'],
     secondary: ['Hip-hop', 'lo-fi', 'pop (late-night/thoughtful moods)'],
     hunt: 'Car interior at night, highway lights, tunnel, rain on windscreen, city from the road, headlights',
   },
@@ -133,15 +131,6 @@ export const BOARDS: readonly Board[] = [
     hunt: 'Electric guitar, leather jacket, stage fire, skatepark, live band, mosh pit',
   },
   {
-    id: 'heartland-dust', name: 'Heartland & Dust',
-    styles: [],
-    subGenres: ['Americana / Folk', 'Modern Country', 'General Country & Folk'], genres: ['Country & Folk'],
-    themes: ['nature', 'freedom'], moods: ['thoughtful', 'happy', 'sad'],
-    primary: ['Country', 'folk', 'Americana'],
-    secondary: ['Acoustic pop', 'rock (southern/classic)'],
-    hunt: 'Pickup truck, dirt road, cowboy boots, open field, barn, campfire',
-  },
-  {
     id: 'pop-studio', name: 'Pop & Studio',
     styles: ['pop music', 'hyperpop', 'K-pop', 'dance-pop'],
     subGenres: ['Dance-Pop', 'K-Pop / J-Pop', 'General Pop', 'Indie Pop'], genres: ['Pop'],
@@ -151,23 +140,16 @@ export const BOARDS: readonly Board[] = [
     hunt: 'Confetti, colourful studio backdrop, synchronised dancers, fashion editorial, glitter',
   },
   {
-    id: 'sanctuary-soul', name: 'Sanctuary & Soul',
-    styles: ['soul', 'church music'],
-    subGenres: ['Gospel', 'Worship / Contemporary Christian', 'Christian Hip-Hop', 'General Gospel & Christian', 'General Jazz & Blues', 'Smooth Jazz / Soul'],
-    genres: ['Gospel & Christian', 'Jazz, Soul & Blues'],
-    themes: ['faith'], moods: ['spiritual'],
-    primary: ['Gospel', 'worship', 'jazz', 'soul'],
-    secondary: ['Hip-hop (spiritual/thoughtful)', 'R&B'],
-    hunt: 'Choir singing, church stained glass, raised hands, saxophone, grand piano',
-  },
-  {
-    id: 'still-open', name: 'Still & Open',
-    styles: ['ambient music', 'chill-out music'],
-    subGenres: ['Ambient / Downtempo', 'Neoclassical', 'Dark Academia / Gothic Classical', 'General Classical'], genres: ['Classical & Cinematic'],
-    themes: ['nature'], moods: ['thoughtful', 'spiritual'],
-    primary: ['Ambient', 'chill', 'lo-fi', 'acoustic', 'instrumental'],
-    secondary: ['Deep house', 'indie', 'worship (restrained/thoughtful)'],
-    hunt: 'Fog, mountains, slow time-lapse, the sea from above, empty landscape, soft light',
+    id: 'horizon-soul', name: 'Horizon, Still & Soul',
+    styles: ['ambient music', 'chill-out music', 'downtempo', 'melodic house', 'melodic techno', 'progressive house', 'organic house', 'melodic dubstep',
+      'soul', 'church music', 'gospel music', 'Christian music', 'jazz', 'country music', 'folk music'],
+    subGenres: ['Ambient / Downtempo', 'Neoclassical', 'Dark Academia / Gothic Classical', 'General Classical', 'Gospel', 'Worship / Contemporary Christian',
+      'Christian Hip-Hop', 'General Gospel & Christian', 'General Jazz & Blues', 'Smooth Jazz / Soul', 'Americana / Folk', 'Modern Country', 'General Country & Folk'],
+    genres: ['Classical & Cinematic', 'Gospel & Christian', 'Jazz, Soul & Blues', 'Country & Folk'],
+    themes: ['nature', 'faith', 'freedom'], moods: ['thoughtful', 'spiritual', 'happy', 'sad'],
+    primary: ['Ambient', 'chill', 'acoustic', 'worship', 'gospel', 'jazz', 'soul', 'country', 'folk', 'Americana', 'instrumental', 'melodic house', 'melodic techno', 'emotional electronic'],
+    secondary: ['Deep house', 'indie', 'Acoustic pop', 'rock (southern/classic)', 'Hip-hop (spiritual/thoughtful)', 'R&B'],
+    hunt: 'Fog, mountains, the sea from above, empty landscape, soft light, open field, dirt road, campfire, choir, stained glass, piano, saxophone',
   },
   {
     id: 'funny-memes', name: 'Memes & Funny',
@@ -253,6 +235,9 @@ export function rankBoards(wanted: BoardWanted, filled: ReadonlyMap<string, numb
 /** The filled boards that fit the song, best first; a song no board fits gets them all, in its own order. */
 export function songBoards(wanted: BoardWanted, items: readonly { boards?: readonly string[] }[], song: string): Board[] {
   const all = rankBoards(wanted, filledBoards(items), song);
+  const named = `${wanted.style ?? ''} ${wanted.subGenre}`;
+  const owner = all.find(board => board.owns?.test(named));
+  if (owner) return [owner];
   const fitting = all.filter(board => boardFit(board, wanted) > 0);
   return fitting.length ? fitting : all;
 }

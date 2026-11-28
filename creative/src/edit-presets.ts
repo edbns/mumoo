@@ -66,7 +66,7 @@ export const PRESETS: readonly PresetDef[] = [
   {
     id: 'vhs',
     title: '90s Camcorder',
-    genres: [/phonk/, /lo-?fi/, /synthwave|vaporwave/, /boom ?bap/, /alt(ernative)?[- ]pop/, /pop[- ]?punk|skate punk|general punk|^punk$/, /hip[- ]?hop/, /\brap\b/, /grunge|garage/, /metal|\brock\b|hardcore/, /uk drill/, /latin trap/, /jazz|blues/, /corridos/],
+    genres: [/lo-?fi/, /synthwave|vaporwave/, /boom ?bap/, /alt(ernative)?[- ]pop/, /pop[- ]?punk|skate punk|general punk|^punk$/, /hip[- ]?hop/, /\brap\b/, /grunge|garage/, /metal|\brock\b|hardcore/, /uk drill/, /latin trap/, /jazz|blues/, /corridos/],
     rhythm: { on: 'snares', every: 1, minMs: 800, maxMs: 1500 },
     takes: ['rec', 'clean'],
     drive: [0.15, 0.9],
@@ -85,7 +85,7 @@ export const PRESETS: readonly PresetDef[] = [
   {
     id: 'y2k',
     title: 'Y2K Digicam',
-    genres: [/\btrap\b/, /(?<!uk )drill/, /hyperpop/, /k-?pop|j-?pop/, /dancehall/, /brazilian funk|funk carioca|baile funk/,
+    genres: [/\btrap\b/, /(?<!uk )drill/, /hyperpop/, /k-?pop|j-?pop/, /dancehall/, /brazilian funk|funk carioca|baile funk/, /phonk/,
       /reggaeton|dembow|salsa|bachata|latin pop|traditional latin/, /corridos/, /hip[- ]?hop/, /\brap\b/, /^pop$|general pop|dance[- ]pop/, /\bedm\b/, /slap house/,
       /drum ?(and|&|n) ?bass|\bdnb\b/, /dubstep|riddim/, /pop[- ]?punk|skate punk|general punk|^punk$/],
     rhythm: { on: 'hits', minMs: 500, maxMs: 1000, ramp: true },
@@ -136,7 +136,7 @@ export const PRESETS: readonly PresetDef[] = [
   {
     id: 'baile',
     title: 'Baile Kinetic',
-    genres: [/brazilian funk|funk carioca|baile funk|funk mtg|montagem|brega funk/, /amapiano/, /afrobeats?/, /dancehall/, /gqom/, /reggaeton|dembow|latin trap/, /\bk-?pop\b/],
+    genres: [/brazilian funk|funk carioca|baile funk|funk mtg|montagem|brega funk/, /phonk/, /amapiano/, /afrobeats?/, /dancehall/, /gqom/, /reggaeton|dembow|latin trap/, /\bk-?pop\b/],
     rhythm: { on: 'hits', minMs: 450, maxMs: 900, ramp: true },
     // Groove lock (saturated, bass micro-zooms, a whip-pan on the bar); fisheye hype (a heavy wide lens from low down, fast rhythmic
     // cuts); the drop (speed ramps, white and RGB flash frames on the snare); and the street cam (sharp phone video, shaking, jump-cuts).
@@ -212,7 +212,8 @@ export function presetFit(preset: PresetDef, song: SongGenre): number {
  * not also Club Pulse because of its genre) that suit its measured drive. When none of them suits it, the drive wins: the presets of a
  * broader word that do, else the nearest in pace (never a fast one on a slow song). A song none fits is cut as Raw 16mm, the most popular.
  */
-export function presetsFor(song: SongGenre, drive?: number | null): PresetId[] {
+export function presetsFor(heard: SongGenre, drive?: number | null): PresetId[] {
+  const song = funkLike(heard);
   const fits = PRESETS.map(preset => ({ preset, fit: presetFit(preset, song) })).filter(entry => entry.fit > 0);
   const best = (entries: typeof fits) => {
     const top = Math.max(...entries.map(entry => entry.fit));
@@ -229,6 +230,12 @@ export function presetsFor(song: SongGenre, drive?: number | null): PresetId[] {
   const nearest = Math.min(...allowed.map(gap));
   return best(allowed.filter(entry => gap(entry) - nearest < 0.05));
 }
+
+/**
+ * Every phonk (a style or the sub-genre) is cut as Brazilian funk is (Baile Kinetic, Club Pulse, Y2K Digicam), and a slowed one falls back as a
+ * slowed funk does: its filing under Electronic, or the house in phonk house, would otherwise offer Boiler Room or Raw 16mm beside them.
+ */
+const funkLike = (song: SongGenre): SongGenre => (/phonk/i.test(`${song.style ?? ''} ${song.subGenre ?? ''}`) ? { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'phonk' } : song);
 
 /** Below this drive (tempo and how busy the drums are, 0..1) a song is slow: see `presetsFor` and the Director's cutting. */
 export const SLOW_DRIVE = 0.4;

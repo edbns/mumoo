@@ -15,7 +15,7 @@ const like = (axis, lean = axis, mix = 0) => {
 };
 /** `count` filed items on `boards`, all looking alike along `axis`. */
 const filedOn = (boards, axis, count, from = 0) => Array.from({ length: count }, (_, at) => ({ id: `f${from + at}`, embedding: like(axis, (axis + 1) % 8, 0.05 * (at % 3)), boards }));
-const many = [...filedOn(['sunset-coast'], 0, 25), ...filedOn(['main-stage'], 1, 25, 100)];
+const many = [...filedOn(['sunset-coast'], 0, 25), ...filedOn(['rave-warehouse'], 1, 25, 100)];
 
 test('the worker is asked about exactly the boards the site has', () => {
   const worker = readFileSync(new URL('../../audio-intelligence/modal_prepare_media_staging.py', import.meta.url), 'utf8');
@@ -27,9 +27,9 @@ test('the filed items most like it vote, the closest the most', () => {
   const shares = learnedShares(like(0), many);
   assert.ok(shares['sunset-coast'] > 0.99, 'all its nearest are on Sunset & Coast');
   const between = learnedShares(like(0, 1, 0.45), many);
-  assert.ok(between['sunset-coast'] > (between['main-stage'] ?? 0), 'leaning toward the beach, the beach leads');
+  assert.ok(between['sunset-coast'] > (between['rave-warehouse'] ?? 0), 'leaning toward the beach, the beach leads');
   const festival = learnedShares(like(1, 0, 0.3), many);
-  assert.ok(festival['main-stage'] > (festival['sunset-coast'] ?? 0), 'leaning toward the festival, the festival leads');
+  assert.ok(festival['rave-warehouse'] > (festival['sunset-coast'] ?? 0), 'leaning toward the festival, the festival leads');
   assert.equal(learnedShares(like(0), []).constructor, Object);
 });
 
@@ -39,22 +39,22 @@ test('reader, SigLIP and the admin\'s own filing agree: a sure suggestion', () =
 });
 
 test('the admin\'s taste leads once they have filed enough: the reader alone cannot make it sure', () => {
-  const item = { id: 'n', embedding: like(1), board_odds: {}, reading: { description: 'A crowd at night.', boards: ['dark-warehouse'], sure: true } };
+  const item = { id: 'n', embedding: like(1), board_odds: {}, reading: { description: 'A crowd at night.', boards: ['street-concrete'], sure: true } };
   const suggestion = suggestBoards(item, many);
-  assert.equal(suggestion.boards[0], 'main-stage', 'twenty-five filed festival clips outweigh the reader');
+  assert.equal(suggestion.boards[0], 'rave-warehouse', 'twenty-five filed festival clips outweigh the reader');
   assert.equal(suggestion.sure, false, 'the reader was sure of another board: not sure');
 });
 
 test('before there is enough filing, the reader and SigLIP decide; an unsure reader is never sure', () => {
-  const item = { id: 'n', embedding: like(5), board_odds: { 'heartland-dust': 0.6, 'still-open': 0.2 }, reading: { description: 'A truck on a dirt road.', boards: ['heartland-dust'], sure: true } };
-  assert.deepEqual(suggestBoards(item, filedOn(['main-stage'], 1, 3)), { boards: ['heartland-dust'], sure: true });
+  const item = { id: 'n', embedding: like(5), board_odds: { 'horizon-soul': 0.6, 'sunset-coast': 0.2 }, reading: { description: 'A truck on a dirt road.', boards: ['horizon-soul'], sure: true } };
+  assert.deepEqual(suggestBoards(item, filedOn(['rave-warehouse'], 1, 3)), { boards: ['horizon-soul'], sure: true });
   assert.equal(suggestBoards({ ...item, reading: { ...item.reading, sure: false } }, []).sure, false);
 });
 
 test('a second board only when it is nearly as strong and named too; nothing to go on is no suggestion', () => {
-  const item = { id: 'n', embedding: like(6), board_odds: { 'sanctuary-soul': 0.6, 'rain-blue': 0.5 }, reading: { description: 'Hands on a piano, black and white.', boards: ['sanctuary-soul', 'rain-blue'], sure: false } };
-  assert.deepEqual(suggestBoards(item, []).boards, ['sanctuary-soul', 'rain-blue']);
-  assert.deepEqual(suggestBoards({ ...item, reading: { ...item.reading, boards: ['sanctuary-soul'] }, board_odds: { 'rain-blue': 0.9 } }, []).boards, ['sanctuary-soul'],
+  const item = { id: 'n', embedding: like(6), board_odds: { 'horizon-soul': 0.6, 'rain-blue': 0.5 }, reading: { description: 'Hands on a piano, black and white.', boards: ['horizon-soul', 'rain-blue'], sure: false } };
+  assert.deepEqual(suggestBoards(item, []).boards, ['horizon-soul', 'rain-blue']);
+  assert.deepEqual(suggestBoards({ ...item, reading: { ...item.reading, boards: ['horizon-soul'] }, board_odds: { 'rain-blue': 0.9 } }, []).boards, ['horizon-soul'],
     'SigLIP alone does not add a second board');
   assert.equal(suggestBoards({ id: 'n', embedding: null, board_odds: null, reading: null }, many), null);
   assert.equal(suggestBoards({ id: 'f0', ...many[0], board_odds: {}, reading: null }, many).boards[0], 'sunset-coast', 'an item is not its own neighbour, its look-alikes still vote');
@@ -63,33 +63,33 @@ test('a second board only when it is nearly as strong and named too; nothing to 
 
 test('a filed item also fits the boards the reader names and SigLIP sees, best seen first, never its own or one turned down', () => {
   const item = {
-    id: 'n', embedding: like(1), boards: ['main-stage'], not_boards: ['pop-studio'],
-    board_odds: { 'main-stage': 1, 'dark-warehouse': 0.6, 'live-raw': 0.9, 'night-drive': ALSO.seen - 0.01, 'pop-studio': 0.8 },
-    reading: { description: 'A concert crowd under red lights.', boards: ['main-stage', 'dark-warehouse'], also: ['live-raw', 'night-drive', 'pop-studio', 'still-open'], sure: true },
+    id: 'n', embedding: like(1), boards: ['rave-warehouse'], not_boards: ['pop-studio'],
+    board_odds: { 'rave-warehouse': 1, 'street-concrete': 0.6, 'live-raw': 0.9, 'night-drive': ALSO.seen - 0.01, 'pop-studio': 0.8 },
+    reading: { description: 'A concert crowd under red lights.', boards: ['rave-warehouse', 'street-concrete'], also: ['live-raw', 'night-drive', 'pop-studio', 'sunset-coast'], sure: true },
   };
-  assert.deepEqual(alsoFits(item, []), ['live-raw', 'dark-warehouse'], 'not Night Drive (SigLIP barely sees it), Pop & Studio (turned down) or Still & Open (not seen)');
+  assert.deepEqual(alsoFits(item, []), ['live-raw', 'street-concrete'], 'not Night Drive (SigLIP barely sees it), Pop & Studio (turned down) or Sunset & Coast (not seen)');
   assert.deepEqual(alsoFits({ ...item, reading: null }, []), []);
 });
 
 test('turning a board down for an item stops it being offered for close look-alikes, not for different ones', () => {
-  const item = { id: 'n', embedding: like(1), boards: ['main-stage'], board_odds: { 'dark-warehouse': 0.9 }, reading: { boards: ['main-stage'], also: ['dark-warehouse'] } };
-  const twin = { id: 't', embedding: like(1, 2, 0.05), boards: ['main-stage'], notBoards: ['dark-warehouse'] };
-  const far = { id: 'f', embedding: like(4), boards: ['main-stage'], notBoards: ['dark-warehouse'] };
+  const item = { id: 'n', embedding: like(1), boards: ['rave-warehouse'], board_odds: { 'street-concrete': 0.9 }, reading: { boards: ['rave-warehouse'], also: ['street-concrete'] } };
+  const twin = { id: 't', embedding: like(1, 2, 0.05), boards: ['rave-warehouse'], notBoards: ['street-concrete'] };
+  const far = { id: 'f', embedding: like(4), boards: ['rave-warehouse'], notBoards: ['street-concrete'] };
   assert.deepEqual(alsoFits(item, [twin]), []);
-  assert.deepEqual(alsoFits(item, [far]), ['dark-warehouse']);
-  assert.deepEqual(alsoFits(item, [twin, { id: 'y1', embedding: like(1), boards: ['dark-warehouse'], notBoards: [] }]), ['dark-warehouse'], 'a closer look-alike put on the board outweighs it');
+  assert.deepEqual(alsoFits(item, [far]), ['street-concrete']);
+  assert.deepEqual(alsoFits(item, [twin, { id: 'y1', embedding: like(1), boards: ['street-concrete'], notBoards: [] }]), ['street-concrete'], 'a closer look-alike put on the board outweighs it');
 });
 
 test('only what we asked the worker for is kept', () => {
   const kept = described({
-    looks: { cars: 1 }, seen: ['car', 'Not A Tag!'], boards: { 'night-drive': 0.7, nightclub: 1, 'main-stage': 3 },
+    looks: { cars: 1 }, seen: ['car', 'Not A Tag!'], boards: { 'night-drive': 0.7, nightclub: 1, 'rave-warehouse': 3 },
     embedding: like(2).concat(Array(120).fill(0)),
-    reading: { description: `  ${'a'.repeat(300)}`, boards: ['night-drive', 'nightclub', 'night-drive', 'vhs-retro', 'main-stage'], also: ['vhs-retro', 'disco', 'rain-blue', 'rain-blue', 'pop-studio', 'live-raw', 'still-open'], sure: 'yes' },
+    reading: { description: `  ${'a'.repeat(300)}`, boards: ['night-drive', 'nightclub', 'night-drive', 'vhs-retro', 'rave-warehouse'], also: ['vhs-retro', 'disco', 'rain-blue', 'rain-blue', 'pop-studio', 'live-raw', 'sunset-coast'], sure: 'yes' },
   });
   assert.deepEqual(kept.reading.also, ['rain-blue', 'pop-studio', 'live-raw'], 'other known boards only, at most three');
   assert.deepEqual(described({ reading: { description: 'A car.', boards: ['night-drive'] } }).reading.also, []);
   assert.deepEqual(kept.seen, ['car']);
-  assert.deepEqual(kept.boardOdds, { 'night-drive': 0.7, 'main-stage': 1 });
+  assert.deepEqual(kept.boardOdds, { 'night-drive': 0.7, 'rave-warehouse': 1 });
   assert.equal(kept.embedding.length, 128);
   assert.equal(kept.reading.description.length, 200);
   assert.deepEqual(kept.reading.boards, ['night-drive', 'vhs-retro']);

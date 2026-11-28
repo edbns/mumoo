@@ -1,5 +1,5 @@
 import { db } from './person.mjs';
-import { BOARDS } from './boards.mjs';
+import { BOARDS, MERGED_BOARDS } from './boards.mjs';
 
 /**
  * What people do with the creatives, for the brain to learn from (see migration 011). Only codes are kept, never lyrics.
@@ -26,6 +26,7 @@ function validSlot(s) {
   if (s.libraryId !== undefined && s.libraryId !== null && !(typeof s.libraryId === 'string' && UUID.test(s.libraryId))) return false;
   if (s.reelIds !== undefined && !(Array.isArray(s.reelIds) && s.reelIds.length >= 2 && s.reelIds.length <= 12 && s.reelIds.every(id => typeof id === 'string' && UUID.test(id)))) return false;
   if (s.cutSeed !== undefined && !(Number.isInteger(s.cutSeed) && s.cutSeed >= 0 && s.cutSeed < 1_000_000)) return false;
+  if (typeof s.board === 'string' && Object.hasOwn(MERGED_BOARDS, s.board)) s.board = MERGED_BOARDS[s.board];
   if (s.board !== undefined && !BOARDS.includes(s.board)) return false;
   if (s.preset !== undefined && !word(s.preset, 16)) return false;
   if (s.presetTake !== undefined && !word(s.presetTake, 24)) return false;

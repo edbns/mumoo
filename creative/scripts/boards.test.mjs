@@ -39,12 +39,12 @@ test('the style chooses the board first, and the words choose between the boards
     const best = wanted => [...boards.BOARDS].sort((a, b) => boards.boardFit(b, wanted) - boards.boardFit(a, wanted))[0].id;
     const house = { genre: 'Electronic & Dance (EDM)', subGenre: 'House', attitude: 'fun' };
     assert.equal(best({ ...house, style: 'Amapiano' }), 'block-party', 'Amapiano shares House with house music, not its board');
-    assert.equal(best({ ...house, style: 'house music' }), 'main-stage');
+    assert.equal(best({ ...house, style: 'house music' }), 'rave-warehouse');
     const afrobeats = { genre: 'Reggae & Dancehall', subGenre: 'Dancehall / Afrobeats', style: 'Afrobeats' };
     assert.equal(best({ ...afrobeats, attitude: 'fun', themes: ['party'] }), 'block-party', 'an afrobeats party song');
     assert.equal(best({ ...afrobeats, attitude: 'love', themes: ['romance'] }), 'sunset-coast', 'an afrobeats love song');
     assert.equal(best({ genre: '', subGenre: '', attitude: 'sad', themes: ['heartbreak'] }), 'rain-blue', 'no genre: the words alone');
-    assert.equal(best({ genre: 'Gospel & Christian', subGenre: 'Gospel', attitude: 'spiritual' }), 'sanctuary-soul');
+    assert.equal(best({ genre: 'Gospel & Christian', subGenre: 'Gospel', attitude: 'spiritual' }), 'horizon-soul');
   } finally { await server.close(); }
 });
 
@@ -59,7 +59,7 @@ test('the admin\'s genre map routes too: its genres always, its "when the words 
     const pop = { genre: 'Pop', subGenre: 'General Pop', style: 'pop music' };
     assert.equal(fit('sunset-coast', pop), 0, 'pop is only on Sunset & Coast when the words fit');
     assert.equal(fit('sunset-coast', { ...pop, attitude: 'happy', themes: ['summer'] }), 3, 'a happy summer pop song: its words, and pop counts');
-    assert.equal(fit('main-stage', { genre: 'Electronic & Dance (EDM)', subGenre: 'Trance' }), 1 + 2, 'EDM, named in the genre\'s own name');
+    assert.equal(fit('rave-warehouse', { genre: 'Electronic & Dance (EDM)', subGenre: 'Trance' }), 1 + 2, 'EDM, named in the genre\'s own name');
     assert.equal(fit('luxury-flex', { genre: 'Pop', subGenre: 'K-Pop / J-Pop', style: 'K-pop', attitude: 'confident', themes: ['fame'] }), 2 + 1,
       'K-pop is not "pop": only Luxury & Flex\'s words count');
   } finally { await server.close(); }
@@ -89,21 +89,53 @@ test('every row of a song is dealt from its best filled board, through every Ref
     assert.equal(boards.boardForRow('photography', wanted, [], 'song'), null, 'no filled board: the library as before');
     assert.equal(boards.boardForRow('photography', wanted, filed('b', 'block-party', boards.BOARD_MIN - 1), 'song'), null, 'one short of a reel');
 
-    const items = [...filed('b', 'block-party', 8), ...filed('s', 'sunset-coast', 8), ...filed('m', 'main-stage', 8), ...filed('h', 'heartland-dust', 8)];
+    const items = [...filed('b', 'block-party', 8), ...filed('s', 'sunset-coast', 8), ...filed('m', 'rave-warehouse', 8), ...filed('h', 'horizon-soul', 8)];
     const rows = ['photography', 'thermal', 'halftone', 'dither', 'ascii', 'riso', 'window'];
     assert.deepEqual([...new Set(rows.map(row => boards.boardForRow(row, wanted, items, 'song').id))], ['block-party'], 'one scene for the whole shelf');
     assert.deepEqual(boards.songBoards(wanted, items, 'song').map(board => board.id).slice(0, 2), ['block-party', 'sunset-coast'], 'the others that fit stand behind it');
-    assert.ok(!boards.songBoards(wanted, items, 'song').some(board => board.id === 'heartland-dust'), 'a board that does not fit is never behind it');
+    assert.ok(!boards.songBoards(wanted, items, 'song').some(board => board.id === 'horizon-soul'), 'a board that does not fit is never behind it');
   } finally { await server.close(); }
 });
 
-test('Funk Carioca with party words stays on Block Party, never Main Stage; a song no board fits still gets one', async () => {
+test('Funk Carioca with party words stays on Block Party, never Rave, Strobes & Warehouse; a song no board fits still gets one', async () => {
   const { server, boards } = await load();
   try {
-    const items = [...filed('b', 'block-party', 8), ...filed('n', 'night-drive', 8), ...filed('m', 'main-stage', 8), ...filed('d', 'dark-warehouse', 8)];
+    const items = [...filed('b', 'block-party', 8), ...filed('n', 'night-drive', 8), ...filed('m', 'rave-warehouse', 8), ...filed('d', 'rave-warehouse', 8)];
     const carioca = { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk carioca', attitude: 'fun', themes: ['party', 'dancing'] };
     for (const row of ['photography', 'thermal', 'halftone', 'riso', 'window']) assert.equal(boards.boardForRow(row, carioca, items, 'song').id, 'block-party', row);
     assert.ok(boards.boardForRow('photography', { genre: '', subGenre: '', attitude: null }, items, 'song'));
+  } finally { await server.close(); }
+});
+
+test('every phonk is dealt from Block Party alone, whatever else it fits; the boards it used to share never take it', async () => {
+  const { server, boards } = await load();
+  try {
+    const items = boards.BOARDS.flatMap(board => filed(board.id[0] + board.id.at(-1), board.id, 8));
+    const songs = [
+      { genre: 'Electronic & Dance (EDM)', subGenre: 'General Electronic', style: 'Brazilian phonk', attitude: 'confident', themes: ['cars', 'nightlife'] },
+      { genre: 'Electronic & Dance (EDM)', subGenre: 'General Electronic', style: 'drift phonk', attitude: 'angry', themes: ['city'] },
+      { genre: 'Electronic & Dance (EDM)', subGenre: 'General Electronic', style: 'rare phonk', attitude: 'sad' },
+      { genre: 'Hip-Hop & Rap', subGenre: 'Phonk', attitude: 'confident' },
+    ];
+    for (const song of songs) {
+      assert.deepEqual(boards.songBoards(song, items, 'song').map(board => board.id), ['block-party'], song.style ?? song.subGenre);
+      for (const row of ['photography', 'thermal', 'riso']) assert.equal(boards.boardForRow(row, song, items, 'song').id, 'block-party');
+    }
+    const withoutParty = items.filter(item => !item.boards.includes('block-party'));
+    assert.notDeepEqual(boards.songBoards(songs[0], withoutParty, 'song'), [], 'with Block Party not filled, the song still gets boards');
+  } finally { await server.close(); }
+});
+
+test('the merged boards: rave and warehouse music on one, still, soulful and country music on the other', async () => {
+  const { server, boards } = await load();
+  try {
+    const items = boards.BOARDS.flatMap(board => filed(board.id[0] + board.id.at(-1), board.id, 8));
+    const best = wanted => boards.songBoards(wanted, items, 'song')[0].id;
+    assert.equal(best({ genre: 'Electronic & Dance (EDM)', subGenre: 'Techno', style: 'hard techno', attitude: null }), 'rave-warehouse');
+    assert.equal(best({ genre: 'Electronic & Dance (EDM)', subGenre: 'House', style: 'gqom', attitude: null }), 'rave-warehouse');
+    assert.equal(best({ genre: 'Electronic & Dance (EDM)', subGenre: 'Techno', style: 'melodic techno', attitude: 'thoughtful' }), 'horizon-soul');
+    assert.equal(best({ genre: 'Country & Folk', subGenre: 'Modern Country', style: 'country music', attitude: null }), 'horizon-soul');
+    assert.equal(best({ genre: 'Gospel & Christian', subGenre: 'Worship / Contemporary Christian', attitude: 'spiritual' }), 'horizon-soul');
   } finally { await server.close(); }
 });
 
@@ -147,7 +179,7 @@ test('the song\'s footage is its board alone, however often it is refreshed: dea
   try {
     const shelf = pack.SHELF_ROWS.map(def => def.id).filter(row => !['pulise', 'dust'].includes(row));
     // A board of 97, as Block Party is, beside a bigger board that also fits the song.
-    const items = [...filed('b', 'block-party', 97), ...filed('m', 'main-stage', 300)];
+    const items = [...filed('b', 'block-party', 97), ...filed('m', 'rave-warehouse', 300)];
     const refresh = (generation, pool = items) => shelf.map(row => pack.recommendRow(row, profile(), generation, [], pool)[0].reelIds ?? []);
     const hands = [];
     for (let generation = 0; generation < 4; generation++) {
@@ -165,12 +197,12 @@ test('the song\'s footage is its board alone, however often it is refreshed: dea
     assert.deepEqual(refresh(1), hands[1], 'seeded: the same Refresh deals the same reels');
 
     // A board big enough for two whole shelves: the Refresh shows none of the clips of the one before.
-    const big = [...filed('b', 'block-party', 460), ...filed('m', 'main-stage', 300)];
+    const big = [...filed('b', 'block-party', 460), ...filed('m', 'rave-warehouse', 300)];
     const first = new Set(refresh(0, big).flat());
     assert.ok(refresh(1, big).flat().every(id => id.startsWith('b') && !first.has(id)), 'a big board goes on to clips not yet shown');
 
     // A small board: the templates share its clips, and still never leave it.
-    const small = [...filed('b', 'block-party', 20), ...filed('m', 'main-stage', 300)];
+    const small = [...filed('b', 'block-party', 20), ...filed('m', 'rave-warehouse', 300)];
     for (let generation = 0; generation < 3; generation++) assert.ok(refresh(generation, small).flat().every(id => id.startsWith('b')), `a small board, Refresh ${generation}`);
   } finally { await server.close(); }
 });
@@ -178,7 +210,7 @@ test('the song\'s footage is its board alone, however often it is refreshed: dea
 test('each time the same song is made it deals its own reels, on the board, and what the person saw waits for the rest', async () => {
   const { server, pack } = await load();
   try {
-    const items = [...filed('b', 'block-party', 100), ...filed('m', 'main-stage', 40)];
+    const items = [...filed('b', 'block-party', 100), ...filed('m', 'rave-warehouse', 40)];
     const hand = deal => pack.recommendRow('photography', profile(), 0, [], items, false, {}, deal).flatMap(slot => slot.reelIds ?? []);
     const first = hand({ seed: 'one' });
     assert.deepEqual(hand({ seed: 'one' }), first, 'one deal stays the same while the person looks');
@@ -238,4 +270,7 @@ test('a card may name a board the server knows, and no other', () => {
   assert.equal(validFeedback(body(undefined)), true);
   assert.equal(validFeedback(body('block-party')), true);
   assert.equal(validFeedback(body('made-up')), false);
+  const kept = body('dark-warehouse');
+  assert.equal(validFeedback(kept), true, 'a card kept from before the merge still counts');
+  assert.equal(kept.slot.board, 'rave-warehouse', 'for the board it was merged into');
 });

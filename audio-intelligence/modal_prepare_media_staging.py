@@ -123,16 +123,17 @@ SEEN_WORDS = [
 # The mood boards (BOARDS in creative/src/boards.ts; a test keeps the ids the same). Each is one scene with its own light and colour:
 # `scene` is what the reader is told, `phrases` what SigLIP is asked (a board scores the best of them).
 BOARD_SCENES = {
-    "main-stage": ("a festival or rave: a big crowd, a DJ booth, laser lights, stage smoke, strobes",
-                   ["a festival crowd with laser lights", "a DJ on stage at a rave", "stage smoke and strobe lights"]),
-    "dark-warehouse": ("a dark warehouse club: concrete, silhouettes dancing, red neon, deep shadows",
-                       ["a dark warehouse rave", "silhouettes dancing in red light", "a dark concrete club"]),
+    "rave-warehouse": ("a rave, a festival or a dark warehouse club: a big crowd, a DJ booth, laser lights, strobes, stage smoke, concrete, "
+                       "silhouettes dancing, red neon, deep shadows",
+                       ["a festival crowd with laser lights", "a DJ on stage at a rave", "stage smoke and strobe lights",
+                        "a dark warehouse rave", "silhouettes dancing in red light", "a dark concrete club"]),
     "sunset-coast": ("the coast in warm light: a beach at sunset, palm trees, waves, a rooftop at golden hour, a bonfire",
                      ["a beach at sunset", "palm trees at golden hour", "ocean waves in warm light"]),
     "street-concrete": ("the city street: streets at night, hoodies, graffiti, a subway, a basketball court, smoke",
                         ["a city street at night", "a graffiti wall", "people in hoodies on the street"]),
-    "block-party": ("an outdoor party by day: street dancing, colourful outfits, a crowd outside, summer, sunglasses",
-                    ["people dancing in the street", "a colourful outdoor summer party"]),
+    "block-party": ("the street party and the flex, mixed as people edit it today: street dancing, colourful outfits, a crowd outside, "
+                    "sunglasses, cars and drifting, swag and showing off",
+                    ["people dancing in the street", "a colourful outdoor summer party", "a car drifting with smoke", "people showing off swag on the street"]),
     "luxury-flex": ("wealth on show: sports cars, champagne, gold chains, a mansion pool, a private jet, cash",
                     ["a sports car", "champagne and gold jewelry", "a mansion with a pool", "stacks of cash"]),
     "vhs-retro": ("an 80s or 90s retro look: old cars, a neon grid, cassette tapes, an arcade, VHS grain",
@@ -145,14 +146,12 @@ BOARD_SCENES = {
                   ["rain on a window", "a lonely person in the rain", "a grey, blue evening"]),
     "live-raw": ("live rock: an electric guitar, a leather jacket, stage fire, a skatepark, a live band, a mosh pit",
                  ["a rock band playing live", "an electric guitar on stage", "a mosh pit"]),
-    "heartland-dust": ("the countryside: a pickup truck, a dirt road, cowboy boots, an open field, a barn, a campfire",
-                       ["a pickup truck on a dirt road", "an open field in the countryside", "cowboy boots"]),
     "pop-studio": ("bright pop: confetti, a colourful studio backdrop, synchronised dancers, a fashion shoot, glitter",
                    ["dancers in a colourful studio", "confetti and glitter", "a fashion photo shoot"]),
-    "sanctuary-soul": ("soulful and sacred: a choir, stained glass, raised hands, a saxophone, a grand piano, hands playing",
-                       ["a church choir", "hands playing a piano", "a saxophone player"]),
-    "still-open": ("still and wide: fog, mountains, a slow time-lapse, the sea from above, an empty landscape, soft light",
-                   ["fog over mountains", "the sea seen from above", "an empty landscape in soft light"]),
+    "horizon-soul": ("wide, still and soulful: fog, mountains, the sea from above, an empty landscape, an open field, a dirt road, a campfire, "
+                     "soft light, a choir, stained glass, a grand piano, a saxophone",
+                     ["fog over mountains", "the sea seen from above", "an empty landscape in soft light", "an open field in the countryside",
+                      "a pickup truck on a dirt road", "a church choir", "hands playing a piano", "a saxophone player"]),
     # Kept apart from the songs' creatives (`apart` in boards.ts): chosen by what happens in it, wherever it is and in any light.
     "funny-memes": ("meant to be funny, anywhere and in any light: a meme clip, a funny reaction or face, a prank, a fail, "
                     "an animal doing something silly, people laughing, a comedy moment",

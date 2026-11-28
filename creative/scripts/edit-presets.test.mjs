@@ -47,7 +47,7 @@ const GENRE_PRESETS = [
   ['Hip-Hop & Rap', 'Trap', undefined, ['strobe','y2k']],
   ['Hip-Hop & Rap', 'Drill', undefined, ['strobe','y2k']],
   ['Hip-Hop & Rap', 'Boom Bap / Lo-Fi', undefined, ['vhs','super8']],
-  ['Hip-Hop & Rap', 'Phonk', undefined, ['vhs','strobe']],
+  ['Hip-Hop & Rap', 'Phonk', undefined, ['strobe','y2k','baile']],
   ['Electronic & Dance (EDM)', 'Techno', undefined, ['strobe','afterhours']],
   ['Electronic & Dance (EDM)', 'Drum & Bass', undefined, ['strobe','y2k']],
   ['Electronic & Dance (EDM)', 'Dubstep / Riddim', undefined, ['strobe','y2k']],
@@ -570,4 +570,15 @@ test('Learning keeps the preset and take of each card', () => {
   assert.match(sent, /preset: slot\.preset, presetTake: slot\.presetTake/);
   assert.match(kept, /preset, preset_take[,)]/);
   assert.match(readFileSync(new URL('../db/migrations/030_feedback_preset.sql', import.meta.url), 'utf8'), /add column if not exists preset text/);
+});
+
+test('phonk is cut as Brazilian funk is at every drive, slowed included; never the 90s Camcorder', () => {
+  const carioca = { genre: 'Latin & Urbano', subGenre: 'General Latin', style: 'funk carioca' };
+  for (const style of ['Brazilian phonk', 'drift phonk', 'phonk', 'phonk house', 'rare phonk']) {
+    for (const drive of [undefined, 0.15, 0.3, 0.45, 0.6, 0.8, 0.95]) {
+      const phonk = presets.presetsFor({ genre: 'Electronic & Dance (EDM)', subGenre: 'General Electronic', style }, drive);
+      assert.deepEqual(phonk, presets.presetsFor(carioca, drive), `${style} at ${drive}`);
+      assert.ok(!phonk.includes('vhs'), `${style} at ${drive}`);
+    }
+  }
 });
