@@ -58,7 +58,6 @@ export function LyricsStudio({
   const run = useRef(0);
   const abort = useRef<AbortController | null>(null);
   const wav = useRef<Promise<Uint8Array> | null>(null);
-  const editTop = useRef<HTMLLabelElement>(null);
   const preview = useRef<HTMLDivElement>(null);
   /** Counts finished syncs, so the page arrives at the result once it is drawn. */
   const [landed, setLanded] = useState(0);
@@ -68,7 +67,7 @@ export function LyricsStudio({
   useEffect(() => { onState({ busy: phase === 'working', dirty }); }, [phase, dirty, onState]);
   useEffect(() => () => { run.current++; abort.current?.abort(); noArrival(); }, []);
   useEffect(() => {
-    if (landed) arriveAt(editTop.current, { through: actions?.current ?? preview.current, cue: preview.current });
+    if (landed) arriveAt(preview.current, { through: actions?.current, cue: preview.current });
   }, [landed, actions]);
   useEffect(() => {
     if (phase !== 'working') return;
@@ -195,7 +194,7 @@ export function LyricsStudio({
     </div>}
 
     {phase === 'edit' && <>
-      <label ref={editTop} className="lyrics-edit-label" htmlFor="lyrics-editor">Fix any wrong or missing words, then sync again.</label>
+      <label className="lyrics-edit-label" htmlFor="lyrics-editor">Fix any wrong or missing words, then sync again.</label>
       <textarea id="lyrics-editor" className="lyrics-editor" rows={Math.min(10, Math.max(3, text.split('\n').length + 1))}
         value={text} onChange={event => { setText(event.target.value); setError(''); }} spellCheck={false} />
       <div className="lyrics-editor-bar">

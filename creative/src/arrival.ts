@@ -10,6 +10,8 @@
 const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
 const CUE_MS = 1000;
 const FADE_MS = 700;
+/** The longest a smooth scroll is waited for before the ring shows anyway (a browser without `scrollend`). */
+const GLIDE_MS = 900;
 /** Room left around what arrives: above it, and below it for the floating dock on phones. */
 const ROOM_TOP_PX = 24;
 const ROOM_BOTTOM_PX = () => (matchMedia('(max-width: 767px)').matches ? 104 : 24);
@@ -40,7 +42,8 @@ export function expectArrival() {
 export const noArrival = () => { expected = null; };
 
 /**
- * The action is done: glide to `target` (from its top through `through`'s bottom when that fits on screen) and ring `cue`.
+ * The action is done: glide to `target` (from its top through `through`'s bottom) and ring `cue`. `through` is what must be seen, like the
+ * button to the next step: when the two do not fit on screen together, `through` sits at the bottom with as much of `target` above it as fits.
  * Nothing happens unless `expectArrival()` came first and the person has not scrolled since, or when it is already all in view.
  */
 export function arriveAt(target: Element | null | undefined, { through, cue = target }: { through?: Element | null; cue?: Element | null } = {}) {
@@ -53,17 +56,27 @@ export function arriveAt(target: Element | null | undefined, { through, cue = ta
   const roomBottom = ROOM_BOTTOM_PX();
   const fits = bottom - top <= window.innerHeight - ROOM_TOP_PX - roomBottom;
   const inView = top >= ROOM_TOP_PX && bottom <= window.innerHeight - roomBottom;
+  let glide = false;
   if (!inView) {
     const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
     for (const element of [target, end] as HTMLElement[]) {
       element.style.scrollMarginTop = `${ROOM_TOP_PX}px`;
       element.style.scrollMarginBottom = `${roomBottom}px`;
     }
-    // Ending on `through` shows everything from the target's top when it all fits; otherwise the target's top comes first.
-    (fits ? end : target).scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: fits ? 'end' : 'start' });
+    // With `through`, it ends at the bottom (all of the target above it when it fits); alone, the target moves the least it must.
+    end.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: end !== target ? 'end' : fits ? 'nearest' : 'start' });
+    glide = smooth;
   }
-  if (cue) ring(cue);
+  // The ring shows once the page has stopped, so the whole second of it is seen where the eye lands.
+  if (cue) (glide ? afterGlide : (show: () => void) => show())(() => ring(cue));
   return true;
+}
+
+function afterGlide(show: () => void) {
+  let shown = false;
+  const once = () => { if (shown) return; shown = true; window.removeEventListener('scrollend', once); show(); };
+  window.addEventListener('scrollend', once);
+  window.setTimeout(once, GLIDE_MS);
 }
 
 function ring(element: Element) {
