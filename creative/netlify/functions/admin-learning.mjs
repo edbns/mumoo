@@ -54,10 +54,10 @@ export default async function handler(request) {
       group by 1 order by plays desc, key limit 40`;
     const moods = await sql`select coalesce(attitude, 'unread') as key, ${tally} from brain_feedback where ${since} group by 1 order by plays desc, key`;
     const pictures = await sql`
-      select id as key, ${tally} from (
-        select *, unnest(coalesce(reel_ids, array[library_id])) as id from brain_feedback
+      select picture as key, ${tally} from (
+        select *, unnest(coalesce(reel_ids, array[library_id])) as picture from brain_feedback
         where ${since} and (library_id is not null or reel_ids is not null) and own_picture is not true
-      ) used group by id order by delivered desc, plays desc, key limit 40`;
+      ) used group by picture order by delivered desc, plays desc, key limit 40`;
     // Does a picture in the genre's colours get downloaded more? Cards on our pictures, by how well the picture carried them (`colourFit`).
     const colours = await sql`
       select case when colour_fit is null then 'none' when colour_fit >= 0.66 then 'strong' when colour_fit >= 0.33 then 'some' else 'weak' end as key, ${tally}

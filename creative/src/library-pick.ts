@@ -253,6 +253,11 @@ const LEAST_USUAL = 0.01;
  * (exploitation). The same `draw` always gives the same nudge, so Refresh walks one order and a hand never reshuffles under the person.
  */
 export function learnedNudge(learned: LibraryPicture['learned'], usual: number, draw: string): number {
+  return Math.max(-MOST_LEARNED, Math.min(MOST_LEARNED, ((learnedDraw(learned, usual, draw) - usual) / Math.max(usual, LEAST_USUAL)) * LEARNED_WEIGHT));
+}
+
+/** One seeded draw of how often this is downloaded (its rate, give or take what is not known yet): the same `draw`, the same number. */
+export function learnedDraw(learned: LibraryPicture['learned'], usual: number, draw: string): number {
   const shown = Math.max(0, learned?.shown ?? 0);
   const won = Math.min(shown, Math.max(0, learned?.won ?? 0));
   const rate = (won + usual * PRIOR_PLAYS) / (shown + PRIOR_PLAYS);
@@ -261,7 +266,7 @@ export function learnedNudge(learned: LibraryPicture['learned'], usual: number, 
   const u = (hash(`${draw}:u`) + 1) / 4294967297;
   const v = hash(`${draw}:v`) / 4294967296;
   const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-  return Math.max(-MOST_LEARNED, Math.min(MOST_LEARNED, ((rate + spread * z - usual) / Math.max(usual, LEAST_USUAL)) * LEARNED_WEIGHT));
+  return rate + spread * z;
 }
 
 /**

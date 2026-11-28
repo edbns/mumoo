@@ -87,10 +87,52 @@ test('the shelf puts first the templates people download in songs of this lane, 
     const elsewhere = { rows: favourite.rows, lanes: { 'not-this-lane': { rows: { [late]: { shown: 200, won: 80 } } } } };
     const far = hands.filter(person => pack.shelfOrder(rows, elsewhere, person).map(row => row.id).indexOf(late) < rows.length - 3).length;
     assert.ok(far < moved, `another lane's taste counts less (${far} against ${moved})`);
-    // A place is worth something: the brain's first template only gives way to clear evidence.
+    // What everybody downloads most leads; with nothing to choose between them, each template gets its turns near the top.
+    const most = rows[Math.floor(rows.length / 2)].id;
+    const popular = { rows: Object.fromEntries(rows.map(row => [row.id, { shown: 400, won: row.id === most ? 60 : 12 }])) };
+    const leads = hands.filter(person => pack.shelfOrder(rows, popular, person)[0].id === most).length;
+    assert.ok(leads >= 25, `the most downloaded template leads ${leads} of 30 songs`);
     const even = { rows: Object.fromEntries(rows.map(row => [row.id, { shown: 400, won: 40 }])) };
-    const firsts = hands.filter(person => pack.shelfOrder(rows, even, person)[0].id === rows[0].id).length;
-    assert.ok(firsts >= 20, `with nothing to choose between them, ${rows[0].id} stays first for ${firsts} of 30 songs`);
+    const firsts = new Set(hands.map(person => pack.shelfOrder(rows, even, person)[0].id));
+    assert.ok(firsts.size >= 5, `with nothing to choose between them, ${firsts.size} templates take turns at the top`);
+  } finally { await server.close(); }
+});
+
+const kept = (row, over = {}) => ({ row, look: null, lane: null, genre: 'Pop', words: true, event: 'delivered', weeks: 0, n: 1, ...over });
+
+test('what a person kept before leads their shelf, most for songs like this one, before what everybody downloads', async () => {
+  const { server, pack } = await load();
+  try {
+    const rows = pack.SHELF_ROWS;
+    const hands = songs('Pop', 'Indie Pop');
+    const lane = pack.readSong(hands[0]).lane;
+    const popular = { rows: Object.fromEntries(rows.map(row => [row.id, { shown: 400, won: row.id === rows[0].id ? 80 : 8 }])) };
+    const [late, later] = [rows.at(-1).id, rows.at(-2).id];
+    for (const person of hands) {
+      const order = pack.shelfOrder(rows, { ...popular, mine: [kept(late, { lane }), kept(later, { lane, event: 'select' })] }, person).map(row => row.id);
+      assert.deepEqual(order.slice(0, 3), [late, later, rows[0].id], 'theirs first, the more kept first, then what everybody downloads');
+      assert.deepEqual([...order].sort(), rows.map(row => row.id).sort(), 'every template is still there');
+    }
+    // One choice long ago, for another kind of song (another lane and genre, no lyrics), is not enough to lead.
+    const faint = { ...popular, mine: [kept(late, { lane: 'not-this-lane', genre: 'Rock', words: false, event: 'select', weeks: 20 })] };
+    assert.ok(hands.every(person => pack.shelfOrder(rows, faint, person)[0].id !== late));
+    // The same song, the same shelf.
+    const mine = { ...popular, mine: [kept(late, { lane })] };
+    assert.deepEqual(pack.shelfOrder(rows, mine, hands[0]), pack.shelfOrder(rows, mine, hands[0]));
+  } finally { await server.close(); }
+});
+
+test('a template leads with the kind of card this person kept before', async () => {
+  const { server, pack } = await load();
+  try {
+    const person = songs('Pop', 'Indie Pop')[3];
+    const plain = pack.recommendRow('riso', person, 0);
+    const second = pack.cardKind(plain[1]);
+    assert.ok(second, 'riso cards have kinds');
+    const lane = pack.readSong(person).lane;
+    const led = pack.recommendRow('riso', person, 0, [], [], false, { mine: [kept('riso', { look: second, lane })] });
+    assert.equal(pack.cardKind(led[0]), second);
+    assert.equal(led.length, plain.length);
   } finally { await server.close(); }
 });
 

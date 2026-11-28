@@ -24,7 +24,7 @@ import { coverFit } from './look-fit';
 import type { CoverRead } from './cover-palette';
 import { dealLooks, isLookFamily, liveLookTitle, type LiveLookId, type LookFamily } from './live-look-deal';
 import { coloursFor } from './genre-guide';
-import { colourFit, inLane, learnedNudge, libraryFit, pickLibrary, showing, usualRate, wantsOf, type Learned, type LibraryPicture, type LibraryWanted } from './library-pick';
+import { colourFit, inLane, learnedDraw, learnedNudge, libraryFit, pickLibrary, showing, usualRate, wantsOf, type Learned, type LibraryPicture, type LibraryWanted } from './library-pick';
 import { boardForRow, songBoards } from './boards';
 import {
   dealTreatments,
@@ -685,7 +685,8 @@ export function recommendRow(row: ShelfRow, profile: CreativeProfileV1, generati
   // The template's own reel, once there are two or more pictures to edit. The shelf shows one card per template (the lead, after
   // learning has put its favourite first); the others are edited from the same pictures, each opening on another.
   const reel = directedRow && !ownPicture ? footageReel(pool, footage(), wanted, song, generation, place, directed.length, deal.seen) : [];
-  const learned = isTreatmentId(row) && (TREATMENT_LEAD[row] || TREATMENT_ROTATES.includes(row)) ? slots : learnedLead(slots, cardsInLane(learning, lane, row), seed);
+  const learned = isTreatmentId(row) && (TREATMENT_LEAD[row] || TREATMENT_ROTATES.includes(row)) ? slots
+    : keptLead(slots, learning, profile, row) ?? learnedLead(slots, cardsInLane(learning, lane, row), seed);
   // Window's cards take turns upright and turned (`turnedCard` reads the seed's last bit), and the card shown first turns the other way on every Refresh.
   const ordered = row === 'window'
     ? learned.map((slot, index) => ({ ...slot, layout: { ...slot.layout, seed: (slot.layout.seed & ~1) | ((index + turn.at) & 1) } }))
@@ -733,24 +734,87 @@ export function cardKind(slot: CreativesPackSlot): string | undefined {
 export type LearnedCards = Partial<Record<ShelfRow, Readonly<Record<string, Learned>>>>;
 /** What people did lately with each row (template) as a whole. */
 export type LearnedRows = Partial<Record<ShelfRow, Learned>>;
-/** What the shelf learns from (`learnedShelf` on the server, with `/api/library`): overall, and again for each lane the brain chose for the song. */
-export type ShelfLearning = { cards?: LearnedCards; rows?: LearnedRows; lanes?: Readonly<Record<string, { cards?: LearnedCards; rows?: LearnedRows }>> };
+/**
+ * What this person kept before (`/api/my-shelf`, signed in only): one line per template, kind of card and song, with how long ago in
+ * weeks and how many times. `words` is whether that song had lyrics.
+ */
+export type KeptCard = {
+  row: string; look: string | null; lane: string | null; genre: string | null; words: boolean;
+  event: 'select' | 'download' | 'delivered'; weeks: number; n: number;
+};
+/**
+ * What the shelf learns from (`learnedShelf` on the server, with `/api/library`): overall, and again for each lane the brain chose for
+ * the song; and `mine`, what this person kept before.
+ */
+export type ShelfLearning = {
+  cards?: LearnedCards; rows?: LearnedRows; lanes?: Readonly<Record<string, { cards?: LearnedCards; rows?: LearnedRows }>>;
+  mine?: readonly KeptCard[];
+};
 
-/** One place down the shelf weighs this much against what people downloaded (a nudge is at most 0.3): a template moves a few places at most. */
-const SHELF_STEP = 0.1;
+/** Choosing a card counts once, exporting it twice, and getting the video three times. */
+const KEPT_WEIGHT: Readonly<Record<KeptCard['event'], number>> = { select: 1, download: 2, delivered: 3 };
+/** What a person kept counts half as much after this many weeks: their taste moves on. */
+const KEPT_HALF_LIFE_WEEKS = 6;
+/** Below this a person's history of a template says too little to put it first (one choice, long ago, for another kind of song). */
+const KEPT_ENOUGH = 1;
+
+type SongKind = { lane: string; genre: string; words: boolean };
+const songKind = (profile: CreativeProfileV1): SongKind => {
+  const { lane, genre } = readSong(profile);
+  return { lane, genre: genre || 'unknown', words: !profile.noLyrics };
+};
+
+/** How much one line of what the person kept says about this song: more for the same lane, the same genre and the same lyrics or none. */
+function keptScore(kept: KeptCard, song: SongKind) {
+  const like = (kept.lane === song.lane ? 2 : 1) * (kept.genre === song.genre ? 1.5 : 1) * (kept.words === song.words ? 1.3 : 0.8);
+  return KEPT_WEIGHT[kept.event] * kept.n * like * 0.5 ** (kept.weeks / KEPT_HALF_LIFE_WEEKS);
+}
+
+/** How much this person keeps each template (or, given `row`, each kind of card of it) for songs like this one. */
+export function keptScores(mine: readonly KeptCard[] | undefined, profile: CreativeProfileV1, row?: string): Map<string, number> {
+  const song = songKind(profile);
+  const scores = new Map<string, number>();
+  for (const kept of mine ?? []) {
+    const key = row === undefined ? kept.row : kept.row === row ? kept.look : null;
+    if (key) scores.set(key, (scores.get(key) ?? 0) + keptScore(kept, song));
+  }
+  return scores;
+}
+
+/** One place down the brain's order weighs this much against twice the usual rate of downloading: it only settles near ties. */
+const SHELF_STEP = 0.03;
 
 /**
- * The templates in the order the shelf shows them for this song: the brain's order (`SHELF_ROWS`), nudged by how often each template's
- * cards were kept and downloaded in songs of this lane (`learnedNudge`, seeded per song, so a template with little history still gets
- * turns near the top). The same song always gets the same order, so the shelf never reorders under the person.
+ * The templates in the order the shelf shows them for this song. First the ones this person kept before, most for songs like this
+ * one first (`keptScores`); then the rest, the ones everybody downloads most in songs of this lane first (`learnedDraw`, seeded per
+ * song, so a template with little history still gets turns near the top). The same song always gets the same order, so the shelf
+ * never reorders under the person.
  */
 export function shelfOrder<Row extends { id: ShelfRow }>(rows: readonly Row[], learning: ShelfLearning, profile: CreativeProfileV1): Row[] {
   const { lane } = readSong(profile);
+  const kept = keptScores(learning.mine, profile);
+  const mine = rows.map(row => kept.get(row.id) ?? 0);
   const learned = rows.map(row => inLane(learning.rows?.[row.id], learning.lanes?.[lane]?.rows?.[row.id]));
-  if (rows.length < 2 || !learned.some(Boolean)) return [...rows];
+  if (rows.length < 2 || (!learned.some(Boolean) && !mine.some(score => score >= KEPT_ENOUGH))) return [...rows];
   const usual = usualRate(learned.map(counts => ({ learned: counts })));
-  const score = rows.map((row, index) => learnedNudge(learned[index], usual, `${profile.clip.sourceSha256}:shelf:${row.id}`) - index * SHELF_STEP);
-  return rows.map((row, index) => ({ row, index })).sort((a, b) => score[b.index] - score[a.index] || a.index - b.index).map(entry => entry.row);
+  const everybody = rows.map((row, index) => learned.some(Boolean)
+    ? (learnedDraw(learned[index], usual, `${profile.clip.sourceSha256}:shelf:${row.id}`) - usual) / Math.max(usual, 0.01) - index * SHELF_STEP
+    : -index);
+  const theirs = (index: number) => (mine[index] >= KEPT_ENOUGH ? mine[index] : 0);
+  return rows.map((row, index) => ({ row, index }))
+    .sort((a, b) => theirs(b.index) - theirs(a.index) || everybody[b.index] - everybody[a.index] || a.index - b.index)
+    .map(entry => entry.row);
+}
+
+/** The card of a row this person keeps most for songs like this one leads it; null when they have not kept one of these kinds enough. */
+function keptLead(slots: CreativesPackSlot[], learning: ShelfLearning, profile: CreativeProfileV1, row: ShelfRow): CreativesPackSlot[] | null {
+  if (!learning.mine?.length || slots.length < 2) return null;
+  const kept = keptScores(learning.mine, profile, row);
+  const scores = slots.map(slot => kept.get(cardKind(slot) ?? '') ?? 0);
+  const best = Math.max(...scores);
+  if (best < KEPT_ENOUGH) return null;
+  const lead = scores.indexOf(best);
+  return lead === 0 ? slots : [slots[lead], ...slots.filter((_, index) => index !== lead)];
 }
 
 /** One place down the brain's order weighs this much against what people downloaded (a nudge is at most 0.3). */
