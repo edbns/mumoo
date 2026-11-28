@@ -202,12 +202,15 @@ function App() {
     composition.clipStartMs >= 0 && composition.clipStartMs <= buffer.duration * 1000 - clipMs);
   const clip: ClipIdentity = { sourceSha256: composition.sourceSha256, offsetMs: composition.clipStartMs, durationMs: clipMs };
   // The cart belongs to the song and clip being worked on, and is the same on every page.
-  const cart = useCart(clipValid ? songKeyOf(composition.sourceSha256, composition.clipStartMs, clipMs) : '');
+  const songKey = clipValid ? songKeyOf(composition.sourceSha256, composition.clipStartMs, clipMs) : '';
+  const cart = useCart(songKey);
   /** Cart items whose library pictures were removed, as the creatives page last found them (comma-separated ids). */
   const [goneFromLibrary, setGoneFromLibrary] = useState('');
   const uploads = useUploads();
   const [delivered, setDelivered] = useState(0);
-  const download = useCartDownload({ token: accessToken, cart, onDelivered: () => { setCartOpen(false); setDelivered(count => count + 1); } });
+  /** The song whose videos were last delivered: its work is done once nothing is being made and nothing is waiting in the cart. */
+  const [doneFor, setDoneFor] = useState('');
+  const download = useCartDownload({ token: accessToken, cart, onDelivered: () => { setCartOpen(false); setDelivered(count => count + 1); setDoneFor(songKey); } });
   // However videos start while the chosen videos page is open, the person watches them being made in Media, not there.
   const making = download.progress !== null;
   useEffect(() => { if (making && cartOpen) toMedia(); }, [making, cartOpen]);
@@ -343,6 +346,12 @@ function App() {
     setNoLyrics(on);
   }
 
+  /** Create, from another page: back to the work in progress, or, once its videos are delivered and nothing more is chosen or being made, a fresh start. */
+  function goCreate() {
+    if (songKey && doneFor === songKey && download.progress === null && cart.items.length === 0) { startOver(); setDoneFor(''); }
+    setPage('create');
+  }
+
   function startOver() {
     void choose(undefined);
     uploads.clear();
@@ -466,14 +475,14 @@ function App() {
     <header className="masthead">
       {page === 'create'
         ? <img className="masthead-logo" src="/brand/mumoo-logo.png" alt="mumoo" />
-        : <button type="button" className="masthead-logo" aria-label="Back to Create" onClick={() => setPage('create')}><img src="/brand/mumoo-logo.png" alt="" /></button>}
+        : <button type="button" className="masthead-logo" aria-label="Back to Create" onClick={goCreate}><img src="/brand/mumoo-logo.png" alt="" /></button>}
       {page === 'create' && <StepNav current={currentStep} onSelect={goToStep} />}
       {page === 'history' && <ProfileNav current={profileTab} onSelect={setProfileTab} />}
       {(page === 'links' || page === 'my-links') && <LinksNav current={page} onSelect={tab => { if (tab === 'links') setLinksOpened(count => count + 1); setPage(tab); }} />}
       <div className="masthead-actions">
         {page === 'create' && buffer && <Button variant="secondary" onClick={() => setAskingStartOver(true)}><RotateCcwIcon aria-hidden="true" className="size-4" />Start over</Button>}
         {page === 'create' && <Button variant="secondary" onClick={() => setPage('links')}><Link2Icon aria-hidden="true" className="size-4" />Free Smart Links</Button>}
-        {page !== 'create' && <Button variant="secondary" onClick={() => setPage('create')}><ArrowLeftIcon aria-hidden="true" className="size-4" />Create</Button>}
+        {page !== 'create' && <Button variant="secondary" onClick={goCreate}><ArrowLeftIcon aria-hidden="true" className="size-4" />Create</Button>}
         <Suspense fallback={<AccountPlaceholder />}><AccountBar page={page} onNavigate={setPage} /></Suspense>
       </div>
     </header>
