@@ -99,6 +99,39 @@ export async function adminFetch<T>(path: string, init: RequestInit = {}): Promi
 const json = (method: string, body: unknown): RequestInit => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 const id = (value: string) => `id=${encodeURIComponent(value)}`;
 
+/** One UTC day of the overview's charts. `revenue` is in cents (USD sales only). */
+export type Day = {
+  day: string; signups: number; orders: number; revenue: number; refunds: number; creditsSold: number; videos: number; failed: number;
+  freeVideos: number; uploads: number; links: number; linkViews: number; linkClicks: number; lastSeen: number;
+};
+export type Stats = {
+  days: number;
+  /** The period, oldest day first, and the same number of days just before it. */
+  series: Day[]; before: Day[];
+  renders: { status: string; count: number; makeSeconds: number | null; waitSeconds: number | null }[];
+  services: { service: string; calls: number; ok: number; avgMs: number; p95Ms: number }[];
+  clicksByService: { service: string; clicks: number }[];
+  viewsByCountry: { country: string; views: number }[];
+  viewsBySource: { source: string; views: number }[];
+  people: { total: number; active1: number; active7: number; active30: number; buyers: number; makers: number; rendering: number; links: number; referred: number; referredPaid: number; storedBytes: number };
+};
+export const loadStats = (days: number) => adminFetch<Stats>(`stats?days=${days}`);
+
+export type PersonRow = {
+  member_no: number; email: string; created_at: string; last_seen_at: string; orders: number; spent_cents: number; credits_bought: number;
+  credits_given: number; credits_used: number; free_used: boolean; videos: number; failed: number; uploads: number; stored_bytes: number; links: number; referred_by: string | null;
+};
+export type OrderRow = { invoice_number: string | null; id: string; email: string; videos: number; amount: number; currency: string; status: 'paid' | 'refunded'; paid_at: string; refunded_at: string | null };
+export type VideoRow = {
+  id: string; email: string; status: 'queued' | 'starting' | 'running' | 'done' | 'failed' | 'cancelled'; attempts: number; error: string | null;
+  created_at: string; started_at: string | null; finished_at: string | null; wait_s: number | null; make_s: number | null; free: boolean;
+};
+export type LinkRow = { slug: string; email: string; title: string; artist: string; created_at: string; updated_at: string; views: number; clicks: number; top_service: string | null; ad_tracking: boolean };
+export type UploadRow = { id: string; email: string; kind: 'photo' | 'motion'; status: 'preparing' | 'ready' | 'failed'; bytes: number; error: string | null; created_at: string };
+export type ReferralRow = { friend: string; referrer: string; created_at: string; rewarded_at: string | null; order_id: string | null };
+export type Records = { people: PersonRow; orders: OrderRow; videos: VideoRow; links: LinkRow; uploads: UploadRow; referrals: ReferralRow };
+export const loadRecords = <K extends keyof Records>(list: K) => adminFetch<{ list: K; rows: Records[K][]; limit: number }>(`records?list=${list}`);
+
 export const loadOverview = () => adminFetch<Overview>('overview');
 export const loadLibrary = () => adminFetch<Library>('library');
 export const loadLearning = (days: number) => adminFetch<Learning>(`learning?days=${days}`);

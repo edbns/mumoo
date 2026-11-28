@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { HugeiconsIcon, type HugeiconsProps, type IconSvgElement } from '@hugeicons/react';
 import {
-  Add01Icon, AiBrain01Icon, Alert02Icon, Album01Icon, Album02Icon, Analytics01Icon, ArrowDown01Icon, ArrowLeft02Icon,
+  Activity01Icon, Add01Icon, AiBrain01Icon, Alert02Icon, Album01Icon, Album02Icon, Analytics01Icon, ArrowDown01Icon, ArrowLeft01Icon, ArrowLeft02Icon, ArrowUp01Icon, ArrowUpDownIcon, UserMultiple02Icon,
   ArrowRight01Icon, ArrowRight02Icon, AlertCircleIcon as HugeAlertCircleIcon, Cancel01Icon, CheckmarkCircle02Icon, CircleDashedIcon as HugeCircleDashedIcon, CircleIcon as HugeCircleIcon, Clock01Icon, ComputerIcon, CookieIcon as HugeCookieIcon, Copy01Icon,
   DashboardSquare02Icon, Delete02Icon, Download01Icon, DragDropVerticalIcon, GiftIcon as HugeGiftIcon, Image01Icon, Invoice03Icon,
   Link01Icon, LinkSquare02Icon, MinusSignIcon, PanelLeftCloseIcon as HugePanelLeftCloseIcon, PanelLeftOpenIcon as HugePanelLeftOpenIcon, Loading03Icon, Logout03Icon, Mail01Icon, MusicNote03Icon, PauseIcon as HugePauseIcon,
@@ -31,6 +31,11 @@ export const BrainIcon = make(AiBrain01Icon, 'Brain');
 export const CheckIcon = make(Tick02Icon, 'Check');
 export const CheckCircleIcon = make(CheckmarkCircle02Icon, 'CheckCircle');
 export const ChevronDownIcon = make(ArrowDown01Icon, 'ChevronDown');
+export const ChevronUpIcon = make(ArrowUp01Icon, 'ChevronUp');
+export const ChevronLeftIcon = make(ArrowLeft01Icon, 'ChevronLeft');
+export const ChevronsUpDownIcon = make(ArrowUpDownIcon, 'ChevronsUpDown');
+export const ActivityIcon = make(Activity01Icon, 'Activity');
+export const UsersIcon = make(UserMultiple02Icon, 'Users');
 export const ChevronRightIcon = make(ArrowRight01Icon, 'ChevronRight');
 export const CircleIcon = make(HugeCircleIcon, 'Circle');
 export const CircleDashedIcon = make(HugeCircleDashedIcon, 'CircleDashed');

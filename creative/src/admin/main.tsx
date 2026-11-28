@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AlertTriangleIcon, BrainIcon, ImagesIcon, LayoutDashboardIcon, LogOutIcon, Music2Icon, PanelLeftCloseIcon, PanelLeftOpenIcon, type Icon as IconType } from '@/components/icons';
+import { AlertTriangleIcon, BrainIcon, FilmIcon, GiftIcon, ImagesIcon, LayoutDashboardIcon, Link2Icon, LogOutIcon, Music2Icon, PanelLeftCloseIcon, PanelLeftOpenIcon, ReceiptTextIcon, UploadIcon, UsersIcon, type Icon as IconType } from '@/components/icons';
 import '@fontsource-variable/inter';
 import { authClient, checkSignInCode, sendSignInCode } from '../account';
 import { Button } from '@/components/ui/button';
@@ -9,17 +9,24 @@ import { AdminError, loadOverview, type Overview } from './api';
 import { GenreView } from './genre';
 import { LearningView } from './learning';
 import { LibraryView, type StatusFilter } from './library';
-import { OverviewView } from './overview';
+import { DashboardView } from './dashboard';
+import { LinksView, OrdersView, PeopleView, ReferralsView, UploadsView, VideosView } from './records';
 import { ProblemsView } from './problems';
 import './admin.css';
 
-type Section = 'overview' | 'library' | 'learning' | 'genre' | 'errors';
-const SECTIONS: { id: Section; label: string; icon: IconType }[] = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboardIcon },
-  { id: 'library', label: 'Library', icon: ImagesIcon },
-  { id: 'learning', label: 'Learning', icon: BrainIcon },
-  { id: 'genre', label: 'Genre training', icon: Music2Icon },
-  { id: 'errors', label: 'Errors', icon: AlertTriangleIcon },
+type Section = 'overview' | 'people' | 'orders' | 'videos' | 'links' | 'uploads' | 'referrals' | 'library' | 'learning' | 'genre' | 'errors';
+const SECTIONS: { id: Section; label: string; icon: IconType; group: string }[] = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboardIcon, group: 'Dashboard' },
+  { id: 'people', label: 'People', icon: UsersIcon, group: 'Records' },
+  { id: 'orders', label: 'Orders', icon: ReceiptTextIcon, group: 'Records' },
+  { id: 'videos', label: 'Videos', icon: FilmIcon, group: 'Records' },
+  { id: 'links', label: 'Smart links', icon: Link2Icon, group: 'Records' },
+  { id: 'uploads', label: 'Uploads', icon: UploadIcon, group: 'Records' },
+  { id: 'referrals', label: 'Referrals', icon: GiftIcon, group: 'Records' },
+  { id: 'library', label: 'Library', icon: ImagesIcon, group: 'Content' },
+  { id: 'learning', label: 'Learning', icon: BrainIcon, group: 'Content' },
+  { id: 'genre', label: 'Genre training', icon: Music2Icon, group: 'Content' },
+  { id: 'errors', label: 'Errors', icon: AlertTriangleIcon, group: 'System' },
 ];
 /** `#library/pending` opens the library on one status (the overview's numbers link there). */
 const sectionFromHash = (): Section => SECTIONS.find(section => window.location.hash.split('/')[0] === `#${section.id}`)?.id ?? 'overview';
@@ -106,13 +113,18 @@ function Admin() {
           {menuOpen ? <PanelLeftCloseIcon className="size-4" aria-hidden="true" /> : <PanelLeftOpenIcon className="size-4" aria-hidden="true" />}
         </Button>
       </div>
-      <nav aria-label="Admin" className="flex flex-col gap-1">
-        {SECTIONS.map(({ id, label, icon: Icon }) => <a key={id} href={`#${id}`} aria-current={section === id ? 'page' : undefined} title={menuOpen ? undefined : label}
-          className={`relative flex items-center gap-2.5 rounded-[var(--radius-control)] py-2 text-sm no-underline transition-colors ${menuOpen ? 'px-3' : 'justify-center px-0'} ${section === id ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`}>
-          <Icon className="size-4 shrink-0" aria-hidden="true" />
-          {menuOpen ? label : <span className="sr-only">{label}</span>}
-          {id === 'errors' && overview.problems.unseen > 0 && <span className={`rounded-full bg-destructive px-1.5 text-xs font-medium text-white ${menuOpen ? 'ml-auto' : 'absolute -right-1 -top-1'}`}>{overview.problems.unseen}</span>}
-        </a>)}
+      <nav aria-label="Admin" className="flex flex-col gap-1 overflow-y-auto">
+        {SECTIONS.map(({ id, label, icon: Icon, group }, index) => <div key={id} className="contents">
+          {SECTIONS[index - 1]?.group !== group && (menuOpen
+            ? <p className="m-0 mt-3 px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground first:mt-0">{group}</p>
+            : index > 0 && <span aria-hidden="true" className="block h-3" />)}
+          <a href={`#${id}`} aria-current={section === id ? 'page' : undefined} title={menuOpen ? undefined : label}
+            className={`relative flex items-center gap-2.5 rounded-[var(--radius-control)] py-2 text-sm no-underline transition-colors ${menuOpen ? 'px-3' : 'justify-center px-0'} ${section === id ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`}>
+            <Icon className="size-4 shrink-0" aria-hidden="true" />
+            {menuOpen ? label : <span className="sr-only">{label}</span>}
+            {id === 'errors' && overview.problems.unseen > 0 && <span className={`rounded-full bg-destructive px-1.5 text-xs font-medium text-white ${menuOpen ? 'ml-auto' : 'absolute -right-1 -top-1'}`}>{overview.problems.unseen}</span>}
+          </a>
+        </div>)}
       </nav>
       <div className="mt-auto flex flex-col gap-2">
         {menuOpen && <p className="m-0 truncate text-xs text-muted-foreground" title={overview.email}>{overview.email}</p>}
@@ -120,7 +132,13 @@ function Admin() {
       </div>
     </aside>
     <main className="min-w-0 flex-1 p-6 lg:p-8">
-      {section === 'overview' && <OverviewView overview={overview} />}
+      {section === 'overview' && <DashboardView overview={overview} />}
+      {section === 'people' && <PeopleView />}
+      {section === 'orders' && <OrdersView />}
+      {section === 'videos' && <VideosView />}
+      {section === 'links' && <LinksView />}
+      {section === 'uploads' && <UploadsView />}
+      {section === 'referrals' && <ReferralsView />}
       {section === 'library' && <LibraryView key={filter ?? ''} initialStatus={filter} onChanged={refresh} />}
       {section === 'learning' && <LearningView />}
       {section === 'genre' && <GenreView />}

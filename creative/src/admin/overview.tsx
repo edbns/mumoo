@@ -27,8 +27,8 @@ export function OverviewView({ overview }: { overview: Overview }) {
       : key === 'orders' ? '0' : money(0, 'USD');
   const left = credits.sold + credits.bonus - credits.used;
 
-  return <div className="mx-auto flex max-w-4xl flex-col gap-8">
-    <header><h1 className="m-0 text-2xl font-semibold">Overview</h1></header>
+  return <div className="flex flex-col gap-8">
+    <header><h2 className="m-0 text-lg font-semibold">Library, money and errors</h2></header>
     <section aria-label="Library" className="flex flex-col gap-3">
       <h2 className="m-0 text-sm font-medium text-muted-foreground">Library</h2>
       <div className="grid gap-4 sm:grid-cols-3">
